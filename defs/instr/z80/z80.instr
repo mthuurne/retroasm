@@ -1,0 +1,15 @@
+= reg
+# main registers:
+i8  a   b   c   d   e   h   l
+i8  a'  b'  c'  d'  e'  h'  l'
+# flags:
+i1  sf  zf  yf  hf  xf  pf  nf  cf
+i1  sf' zf' yf' hf' xf' pf' nf' cf'
+# index registers:
+i8  ixh ixl iyh iyl
+# special registers:
+i8  i   r
+i16 sp  pc
+# interrupt flags and mode:
+i1  iff1    iff2
+i2  im
