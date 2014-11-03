@@ -1,3 +1,4 @@
+from .expression_parser import parseType
 from .linereader import DefLineReader
 
 from logging import getLogger
@@ -6,7 +7,6 @@ import re
 logger = getLogger('parse-instr')
 
 reRegName = re.compile('[a-z][a-z0-9]*\'?$')
-reTypeName = re.compile('i[0-9]+$')
 
 def _parseRegs(reader, args, parsedRegs):
     if len(args) != 0:
@@ -15,9 +15,10 @@ def _parseRegs(reader, args, parsedRegs):
     for line in reader.iterBlock():
         parts = line.split()
 
-        typeName = parts[0]
-        if not reTypeName.match(typeName):
-            reader.error('invalid type name: "%s"', typeName)
+        try:
+            regType = parseType(parts[0])
+        except ValueError as ex:
+            reader.error(str(ex))
             continue
 
         for regName in parts[1:]:
@@ -25,7 +26,7 @@ def _parseRegs(reader, args, parsedRegs):
                 reader.error('invalid register name: "%s"', regName)
             elif regName in parsedRegs:
                 oldType, oldLineno = parsedRegs[regName]
-                if oldType == typeName:
+                if oldType is regType:
                     reader.warning(
                         'register "%s" redefined; '
                         'first definition was on line %d'
@@ -38,7 +39,7 @@ def _parseRegs(reader, args, parsedRegs):
                         % (regName, oldLineno)
                         )
             else:
-                parsedRegs[regName] = (typeName, reader.lineno)
+                parsedRegs[regName] = (regType, reader.lineno)
 
 def parseInstrSet(pathname):
     parsedRegs = {}
@@ -63,7 +64,7 @@ def parseInstrSet(pathname):
                 reader.skipBlock()
         reader.summarize()
 
-    regs = dict((name, typ) for name, (typ, lineno) in parsedRegs.items())
+    regs = dict((name, str(typ)) for name, (typ, lineno) in parsedRegs.items())
     logger.debug('reg: %s', regs)
 
     return None
