@@ -1,12 +1,10 @@
 from .expression_parser import parseType
 from .linereader import DefLineReader
+from .register import Register
 
 from logging import getLogger
-import re
 
 logger = getLogger('parse-instr')
-
-reRegName = re.compile('[a-z][a-z0-9]*\'?$')
 
 def _parseRegs(reader, args, parsedRegs):
     if len(args) != 0:
@@ -22,11 +20,9 @@ def _parseRegs(reader, args, parsedRegs):
             continue
 
         for regName in parts[1:]:
-            if not reRegName.match(regName):
-                reader.error('invalid register name: "%s"', regName)
-            elif regName in parsedRegs:
-                oldType, oldLineno = parsedRegs[regName]
-                if oldType is regType:
+            if regName in parsedRegs:
+                oldReg, oldLineno = parsedRegs[regName]
+                if oldReg.type is regType:
                     reader.warning(
                         'register "%s" redefined; '
                         'first definition was on line %d'
@@ -39,7 +35,12 @@ def _parseRegs(reader, args, parsedRegs):
                         % (regName, oldLineno)
                         )
             else:
-                parsedRegs[regName] = (regType, reader.lineno)
+                try:
+                    reg = Register(regName, regType)
+                except ValueError as ex:
+                    reader.error(str(ex))
+                else:
+                    parsedRegs[regName] = (reg, reader.lineno)
 
 def parseInstrSet(pathname):
     parsedRegs = {}
