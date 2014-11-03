@@ -1,12 +1,24 @@
 = reg
-# main registers:
-i8  a   b   c   d   e   h   l
-i8  a'  b'  c'  d'  e'  h'  l'
 # flags:
 i1  sf  zf  yf  hf  xf  pf  nf  cf
 i1  sf' zf' yf' hf' xf' pf' nf' cf'
+i8  f   = sf  ; zf  ; yf  ; hf  ; xf  ; pf  ; nf  ; cf
+i8  f'  = sf' ; zf' ; yf' ; hf' ; xf' ; pf' ; nf' ; cf'
+# main registers:
+i8  a   b   c   d   e   h   l
+i8  a'  b'  c'  d'  e'  h'  l'
+i16 af  = a  ; f
+i16 af' = a' ; f'
+i16 bc  = b  ; c
+i16 bc' = b' ; c'
+i16 de  = d  ; e
+i16 de' = d' ; e'
+i16 hl  = h  ; l
+i16 hl' = h' ; l'
 # index registers:
 i8  ixh ixl iyh iyl
+i16 ix  = ixh ; ixl
+i16 iy  = iyh ; iyl
 # special registers:
 i8  i   r
 i16 sp  pc

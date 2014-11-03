@@ -37,3 +37,17 @@ class IntType(metaclass=Unique):
 
     def __str__(self):
         return 'i%d' % self.width
+
+class Concatenation:
+
+    def __init__(self, exprs):
+        self._exprs = list(exprs)
+        self.type = IntType(sum(expr.type.width for expr in self._exprs))
+
+    def __repr__(self):
+        return 'Concatenation([%s])' % ', '.join(
+            repr(expr) for expr in self._exprs
+            )
+
+    def __str__(self):
+        return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)

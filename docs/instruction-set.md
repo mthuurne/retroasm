@@ -80,17 +80,23 @@ There are no negative integer literals: for example `-4` is considered unary neg
 Registers
 ---------
 
-A register definition consists of a name and a type. A register definition block can define many registers:
+A register definition consists of a name and a type. A register definition block can define multiple registers and register aliases:
 
     = reg
     <type> <name>*
-    <type> <name>*
-    ...
+    <type> <alias> = <expr>
 
 For example this block defines a few of the Z80 registers:
 
     = reg
     i8 a b c d e h l
+    i16 bc = b ; c
+    i16 de = d ; e
+    i16 hl = h ; l
     i16 sp pc
 
-If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register. For flags this means defining them individually as registers of type `i1`.
+If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `i1`.
+
+The type declaration on aliases is redundant, but mandatory for consistency and as an extra validation.
+
+The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register.

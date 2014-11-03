@@ -1,4 +1,4 @@
-from .expression_parser import parseType
+from .expression_parser import parseConcat, parseType
 from .linereader import DefLineReader
 from .register import Register
 
@@ -12,6 +12,9 @@ class _GlobalContextBuilder:
         self.reader = reader
         self.exprs = {}
         self.lineno = {}
+
+    def __getitem__(self, key):
+        return self.exprs[key]
 
     def __setitem__(self, key, value):
         if not isinstance(key, str):
@@ -42,21 +45,57 @@ def _parseRegs(reader, args, context):
         reader.error('register definition should have no arguments')
 
     for line in reader.iterBlock():
-        parts = line.split()
+        parts = line.split('=')
+        if len(parts) == 1:
+            # base register
+            parts = line.split()
 
-        try:
-            regType = parseType(parts[0])
-        except ValueError as ex:
-            reader.error(str(ex))
-            continue
-
-        for regName in parts[1:]:
             try:
-                reg = Register(regName, regType)
+                regType = parseType(parts[0])
             except ValueError as ex:
                 reader.error(str(ex))
+                continue
+
+            for regName in parts[1:]:
+                try:
+                    reg = Register(regName, regType)
+                except ValueError as ex:
+                    reader.error(str(ex))
+                else:
+                    context[regName] = reg
+        elif len(parts) == 2:
+            # register alias
+
+            # Parse left hand side.
+            try:
+                aliasTypeStr, aliasName = parts[0].split()
+            except ValueError:
+                reader.error(
+                    'left hand side of register alias should be of the form '
+                    '"<type> <name>"'
+                    )
+                continue
+            try:
+                aliasType = parseType(aliasTypeStr)
+            except ValueError as ex:
+                reader.error(str(ex))
+                continue
+
+            # Parse right hand side.
+            try:
+                alias = parseConcat(parts[1], context)
+            except ValueError as ex:
+                reader.error(str(ex))
+                continue
+            if alias.type is not aliasType:
+                reader.error(
+                    'alias has declared type %s but actual type %s'
+                    % (aliasType, alias.type)
+                    )
             else:
-                context[regName] = reg
+                context[aliasName] = alias
+        else:
+            reader.error('register definition line with multiple "="')
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
@@ -81,9 +120,10 @@ def parseInstrSet(pathname):
                 reader.skipBlock()
         reader.summarize()
 
-    regs = [reg for _, reg in sorted(context.items())]
-    logger.debug('regs: %s',
-        ', '.join('%s %s' % (reg.type, reg.name) for reg in regs))
+    logger.debug('regs: %s', ', '.join(
+        '%s = %s' % (key, repr(value))
+        for key, value in sorted(context.items())
+        ))
 
     return None
 
