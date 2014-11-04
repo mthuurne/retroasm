@@ -1,0 +1,15 @@
+# The Ricoh 2A03/2A07 is the SoC used in the NES/FC console.
+# It uses the 6502 instruction set minus the BCD support.
+
+= reg
+# accumulator
+i8  a
+# index registers
+i8  x y
+# flags
+i1  n v b d i z c
+i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
+# stack pointer ($01;s)
+i8  s
+# program counter
+i16 pc

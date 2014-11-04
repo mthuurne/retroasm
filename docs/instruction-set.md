@@ -86,17 +86,19 @@ A register definition consists of a name and a type. A register definition block
     <type> <name>*
     <type> <alias> = <expr>
 
-For example this block defines a few of the Z80 registers:
+For example this block defines all registers of the 6502:
 
     = reg
-    i8 a b c d e h l
-    i16 bc = b ; c
-    i16 de = d ; e
-    i16 hl = h ; l
-    i16 sp pc
-
-If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `i1`.
+    i8  a x y
+    i1  n v b d i z c
+    i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
+    i8  s
+    i16 pc
 
 The type declaration on aliases is redundant, but mandatory for consistency and as an extra validation.
+
+An integer literal in an alias expression means the corresponding bits are always read as that literal value, while writes to those bits are ignored.
+
+If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `i1`.
 
 The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register.
