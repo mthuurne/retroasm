@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL, Formatter
+import re
 
 class LineReader:
     '''Iterates through the lines of a text file.
@@ -91,6 +92,8 @@ class LineReader:
                 )
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
+reComment = re.compile(r'(?<!\\)#')
+
 class DefLineReader(LineReader):
     '''Iterates through lines of a block-structured definition file.
     Trailing whitespace is stripped, comments are removed.
@@ -101,15 +104,15 @@ class DefLineReader(LineReader):
 
     def __next__(self):
         while True:
-            line = super().__next__()
-            ci = line.find('#')
-            if ci != -1:
-                line = line[:ci]
-            line = line.rstrip()
-            # Comment-only lines are ignored rather than returned as empty
-            # lines, such that they don't terminate blocks.
-            if line or ci == -1:
-                return line
+            line = super().__next__().rstrip()
+            match = reComment.search(line)
+            if match:
+                line = line[ : match.start()].rstrip()
+                if not line:
+                    # Comment lines are ignored rather than returned as empty
+                    # lines, such that they don't terminate blocks.
+                    continue
+            return line
 
     def iterBlock(self):
         '''Iterates through the lines of the current block.

@@ -55,7 +55,7 @@ Structure
 
 Empty lines terminate blocks. Empty lines outside blocks are ignored. Trailing whitespace is stripped; this implies that lines containing only whitespace are considered empty lines.
 
-The `#` character marks the remainder of the line as a comment, which is ignored. Lines containing only a comment are not considered empty and therefore do not terminate a block.
+The `#` character marks the remainder of the line as a comment, which is ignored. Lines containing only a comment are not considered empty and therefore do not terminate a block. A literal `#` character can be produced by preceding it with a backslash: `\#`.
 
 Types
 -----
