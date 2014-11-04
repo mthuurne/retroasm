@@ -67,13 +67,13 @@ Currently no other types besides integers are supported.
 Literals
 --------
 
-Integer literals in base 2, 10 and 16 are supported. The type of an integer literal is the smallest integer type that can contain the literal's value.
+Integer literals in base 2, 10 and 16 are supported. The width of a binary integer literal is equal to the number of digits it contains; the width of a hexadecimal integer literal is equal to four times the number of digits it contains. In both cases leading zeroes count as digits. The width of a decimal integer literal is the smallest number of bits that can contain the literal's value. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
 
 Name        |Base | Notation | Value | Type
 ----------- |----:| --------:| -----:|:----:
-binary      | 2   | %101     | 5     | i3
+binary      | 2   | %0101    | 5     | i4
 decimal     |10   | 42       | 42    | i6
-hexadecimal |16   | $7F      | 127   | i7
+hexadecimal |16   | $7F      | 127   | i8
 
 There are no negative integer literals: for example `-4` is considered unary negation applied to the number 4.
 

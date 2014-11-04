@@ -59,6 +59,37 @@ class Expression:
             raise TypeError('type should be IntType, got %s' % type(intType))
         self._type = intType
 
+class IntLiteral(Expression):
+    '''An integer literal.
+    '''
+    __slots__ = ('_value',)
+
+    value = property(lambda self: self._value)
+
+    def __init__(self, value, intType):
+        if not isinstance(value, int):
+            raise TypeError('value should be int, got %s' % type(value))
+        Expression.__init__(self, intType)
+        if value < 0:
+            raise ValueError(
+                'integer literal value must not be negative: %d' % value)
+        if value >= 1 << intType.width:
+            raise ValueError(
+                'integer literal value %d does not fit in type %s'
+                % (value, intType)
+                )
+        self._value = value
+
+    def __repr__(self):
+        return 'IntLiteral(%d, %s)' % (self._value, repr(self._type))
+
+    def __str__(self):
+        width = self.width
+        if width % 4 == 0:
+            return ('${:0%dX}' % (width // 4)).format(self._value)
+        else:
+            return ('%%{:0%db}' % width).format(self._value)
+
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
     '''

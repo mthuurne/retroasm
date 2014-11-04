@@ -1,4 +1,4 @@
-from .expression import Concatenation, IntType
+from .expression import Concatenation, IntLiteral, IntType
 
 def parseType(typeName):
     if not typeName.startswith('i'):
@@ -10,11 +10,28 @@ def parseType(typeName):
             'integer type "%s" is not of the form "i<width>"' % typeName)
     return IntType(int(widthStr))
 
-def parseConcat(exprStr, context):
-    def parseSub(sub):
-        sub = sub.strip()
+def parseTerminal(exprStr, context):
+    exprStr = exprStr.strip()
+    if exprStr.isdigit():
+        if exprStr[0] == '0' and len(exprStr) != 1:
+            raise ValueError(
+                'leading zeroes not allowed on decimal integer literals: %s'
+                % exprStr
+                )
+        value = int(exprStr)
+        return IntLiteral(value, IntType(value.bit_length()))
+    elif exprStr.startswith('%'):
+        return IntLiteral(int(exprStr[1:], 2), IntType(len(exprStr)-1))
+    elif exprStr.startswith('$'):
+        return IntLiteral(int(exprStr[1:], 16), IntType((len(exprStr)-1) * 4))
+    else:
         try:
-            return context[sub]
+            return context[exprStr]
         except KeyError:
-            raise ValueError('unknown global name "%s" in expression' % sub)
-    return Concatenation(parseSub(sub) for sub in exprStr.split(';'))
+            raise ValueError('unknown global name "%s" in expression' % exprStr)
+
+def parseConcat(exprStr, context):
+    return Concatenation(
+        parseTerminal(sub, context)
+        for sub in exprStr.split(';')
+        )
