@@ -25,24 +25,49 @@ class IntType(metaclass=Unique):
     There is at most one instance of IntType for each width, so instances can
     be compared using the "is" operator.
     '''
-    __slots__ = ('width', '__weakref__')
+    __slots__ = ('_width', '__weakref__')
+
+    width = property(lambda self: self._width)
 
     def __init__(self, width):
         if not isinstance(width, int):
             raise TypeError('width should be integer, got %s' % type(width))
-        self.width = width
+        self._width = width
 
     def __repr__(self):
-        return 'IntType(%d)' % self.width
+        return 'IntType(%d)' % self._width
 
     def __str__(self):
-        return 'i%d' % self.width
+        return 'i%d' % self._width
 
-class Concatenation:
+class Expression:
+    '''Abstract base class for typed expressions.
+    '''
+    __slots__ = ('_type',)
+
+    type = property(lambda self: self._type)
+    width = property(lambda self: self._type._width)
+
+    @staticmethod
+    def checkInstance(expr):
+        if not isinstance(expr, Expression):
+            raise TypeError('expected Expression subclass, got %s' % type(expr))
+        return expr
+
+    def __init__(self, intType):
+        if not isinstance(intType, IntType):
+            raise TypeError('type should be IntType, got %s' % type(intType))
+        self._type = intType
+
+class Concatenation(Expression):
+    '''Combines several expressions into one by concatenating their bit strings.
+    '''
+    __slots__ = ('_exprs',)
 
     def __init__(self, exprs):
-        self._exprs = list(exprs)
-        self.type = IntType(sum(expr.type.width for expr in self._exprs))
+        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
+        width = sum(expr.width for expr in self._exprs)
+        Expression.__init__(self, IntType(width))
 
     def __repr__(self):
         return 'Concatenation([%s])' % ', '.join(
