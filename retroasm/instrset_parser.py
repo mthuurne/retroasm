@@ -9,8 +9,6 @@ reRegName = re.compile('[a-z][a-z0-9]*\'?$')
 reTypeName = re.compile('i[0-9]+$')
 
 def _parseRegs(reader, args, parsedRegs):
-    reader.debug('parsing register definitions')
-
     if len(args) != 0:
         reader.error('register definition should have no arguments')
 
