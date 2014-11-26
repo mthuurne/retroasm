@@ -6,7 +6,38 @@ from logging import getLogger
 
 logger = getLogger('parse-instr')
 
-def _parseRegs(reader, args, parsedRegs):
+class _GlobalContextBuilder:
+
+    def __init__(self, reader):
+        self.reader = reader
+        self.exprs = {}
+        self.lineno = {}
+
+    def __setitem__(self, key, value):
+        if not isinstance(key, str):
+            raise TypeError('global name should be str, got %s' % type(key))
+
+        exprs = self.exprs
+        oldValue = exprs.get(key)
+        if oldValue is None:
+            exprs[key] = value
+            self.lineno[key] = self.reader.lineno
+        elif oldValue == value:
+            self.reader.warning(
+                'global name "%s" redefined; first definition was on line %d'
+                % (key, self.lineno[key])
+                )
+        else:
+            self.reader.error(
+                'global name "%s" redefined with different value; '
+                'first definition was on line %d'
+                % (key, self.lineno[key])
+                )
+
+    def items(self):
+        return self.exprs.items()
+
+def _parseRegs(reader, args, context):
     if len(args) != 0:
         reader.error('register definition should have no arguments')
 
@@ -20,31 +51,16 @@ def _parseRegs(reader, args, parsedRegs):
             continue
 
         for regName in parts[1:]:
-            if regName in parsedRegs:
-                oldReg, oldLineno = parsedRegs[regName]
-                if oldReg.type is regType:
-                    reader.warning(
-                        'register "%s" redefined; '
-                        'first definition was on line %d'
-                        % (regName, oldLineno)
-                        )
-                else:
-                    reader.error(
-                        'register "%s" redefined with different type; '
-                        'first definition was on line %d'
-                        % (regName, oldLineno)
-                        )
+            try:
+                reg = Register(regName, regType)
+            except ValueError as ex:
+                reader.error(str(ex))
             else:
-                try:
-                    reg = Register(regName, regType)
-                except ValueError as ex:
-                    reader.error(str(ex))
-                else:
-                    parsedRegs[regName] = (reg, reader.lineno)
+                context[regName] = reg
 
 def parseInstrSet(pathname):
-    parsedRegs = {}
     with DefLineReader.open(pathname, logger) as reader:
+        context = _GlobalContextBuilder(reader)
         for header in reader:
             if not header:
                 pass
@@ -56,7 +72,7 @@ def parseInstrSet(pathname):
                 else:
                     defType = parts[0]
                     if defType == 'reg':
-                        _parseRegs(reader, parts[1 : ], parsedRegs)
+                        _parseRegs(reader, parts[1 : ], context)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()
@@ -65,8 +81,9 @@ def parseInstrSet(pathname):
                 reader.skipBlock()
         reader.summarize()
 
-    regs = dict((name, str(typ)) for name, (typ, lineno) in parsedRegs.items())
-    logger.debug('reg: %s', regs)
+    regs = [reg for _, reg in sorted(context.items())]
+    logger.debug('regs: %s',
+        ', '.join('%s %s' % (reg.type, reg.name) for reg in regs))
 
     return None
 

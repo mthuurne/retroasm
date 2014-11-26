@@ -25,3 +25,12 @@ class Register:
 
     def __repr__(self):
         return 'Register(%s, %s)' % (repr(self.name), repr(self.type))
+
+    def __eq__(self, other):
+        if isinstance(other, Register):
+            return self.name == other.name and self.type == other.type
+        else:
+            return NotImplemented
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
