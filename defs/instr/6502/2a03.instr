@@ -1,6 +1,9 @@
 # The Ricoh 2A03/2A07 is the SoC used in the NES/FC console.
 # It uses the 6502 instruction set minus the BCD support.
 
+
+### Registers
+
 = reg
 # accumulator
 i8  a
@@ -9,10 +12,25 @@ i8  x y
 # flags
 i1  n v b d i z c
 i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
-# stack pointer ($01;s)
+# stack pointer
 i8  s
+i16 sp = $01;s
 # program counter
 i16 pc
 
+
+### I/O
+
 = io
 i8 mem[i16]
+
+
+### Stack access
+
+= func push(i8 V)
+    mem[sp] := V
+    s := s - 1
+
+= func pull(i8& D)
+    s := s + 1
+    D := mem[sp]

@@ -42,8 +42,8 @@ class _GlobalContextBuilder:
     def items(self):
         return self.exprs.items()
 
-def _parseRegs(reader, args, context):
-    if len(args) != 0:
+def _parseRegs(reader, argStr, context):
+    if argStr:
         reader.error('register definition should have no arguments')
 
     for line in reader.iterBlock():
@@ -102,8 +102,8 @@ def _parseRegs(reader, args, context):
 _namePat = r"\s*([a-zA-Z_][0-9a-zA-Z_]*'?)\s*"
 _reIOLine = re.compile(_namePat + r'\s' + _namePat + r'\[' + _namePat + r'\]$')
 
-def _parseIO(reader, args, context):
-    if len(args) != 0:
+def _parseIO(reader, argStr, context):
+    if argStr:
         reader.error('I/O definition should have no arguments')
 
     for line in reader.iterBlock():
@@ -121,6 +121,53 @@ def _parseIO(reader, args, context):
         else:
             reader.error('invalid I/O definition line')
 
+_reFuncHeader = re.compile(_namePat + r'\((.*)\)$')
+
+def _parseFunc(reader, argStr, context):
+    # Parse header line.
+    args = []
+    localContext = {}
+    badHeader = False
+    match = _reFuncHeader.match(argStr)
+    if match:
+        funcName, funcArgsStr = match.groups()
+        duplicates = set()
+        for funcArgStr in funcArgsStr.split(','):
+            try:
+                typeStr, argName = funcArgStr.split()
+            except ValueError:
+                reader.error(
+                    'function argument "%s" not of the form "<type> <name>"',
+                    funcArgStr
+                    )
+                badHeader = True
+            else:
+                isRef = typeStr.endswith('&')
+                argType = parseType(typeStr[:-1] if isRef else typeStr)
+                if argName in localContext:
+                    duplicates.add(argName)
+                else:
+                    arg = (argType, isRef)
+                    localContext[argName] = arg
+                    args.append((argName, arg))
+        for argName in sorted(duplicates):
+            reader.error(
+                'multiple arguments to function "%s" are named "%s"',
+                funcName, argName
+                )
+            badHeader = True
+    else:
+        reader.error('invalid function header line')
+        badHeader = True
+    if badHeader:
+        # Avoid issuing meaningless errors.
+        reader.skipBlock()
+        return
+
+    # Parse body lines.
+    for line in reader.iterBlock():
+        pass
+
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
         context = _GlobalContextBuilder(reader)
@@ -128,16 +175,19 @@ def parseInstrSet(pathname):
             if not header:
                 pass
             elif header[0] == '=':
-                parts = header[1:].split()
+                parts = header[1:].split(maxsplit=1)
                 if len(parts) == 0:
                     reader.error('expected definition type after "="')
                     reader.skipBlock()
                 else:
                     defType = parts[0]
+                    argStr = '' if len(parts) == 1 else parts[1]
                     if defType == 'reg':
-                        _parseRegs(reader, parts[1 : ], context)
+                        _parseRegs(reader, argStr, context)
                     elif defType == 'io':
-                        _parseIO(reader, parts[1 : ], context)
+                        _parseIO(reader, argStr, context)
+                    elif defType == 'func':
+                        _parseFunc(reader, argStr, context)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()
