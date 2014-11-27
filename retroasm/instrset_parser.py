@@ -1,7 +1,6 @@
-from .expression import IOChannel
-from .expression_parser import parseConcat, parseType
+from .expression import IOChannel, Register, namePat
+from .expression_parser import parseConcat, parseLocalDecl, parseType
 from .linereader import DefLineReader
-from .register import Register
 
 from logging import getLogger
 import re
@@ -99,8 +98,8 @@ def _parseRegs(reader, argStr, context):
         else:
             reader.error('register definition line with multiple "="')
 
-_namePat = r"\s*([a-zA-Z_][0-9a-zA-Z_]*'?)\s*"
-_reIOLine = re.compile(_namePat + r'\s' + _namePat + r'\[' + _namePat + r'\]$')
+_nameTok = r'\s*(' + namePat + r')\s*'
+_reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
 def _parseIO(reader, argStr, context):
     if argStr:
@@ -121,7 +120,7 @@ def _parseIO(reader, argStr, context):
         else:
             reader.error('invalid I/O definition line')
 
-_reFuncHeader = re.compile(_namePat + r'\((.*)\)$')
+_reFuncHeader = re.compile(_nameTok + r'\((.*)\)$')
 
 def _parseFunc(reader, argStr, context):
     # Parse header line.
@@ -142,14 +141,21 @@ def _parseFunc(reader, argStr, context):
                     )
                 badHeader = True
             else:
-                isRef = typeStr.endswith('&')
-                argType = parseType(typeStr[:-1] if isRef else typeStr)
                 if argName in localContext:
                     duplicates.add(argName)
                 else:
-                    arg = (argType, isRef)
+                    try:
+                        arg = parseLocalDecl(typeStr, argName)
+                    except ValueError as ex:
+                        reader.error(
+                            'bad function argument "%s": %s', argName, ex
+                            )
+                        badHeader = True
+                        # We still want to check for duplicates, so store
+                        # a dummy value in the local context.
+                        arg = None
                     localContext[argName] = arg
-                    args.append((argName, arg))
+                    args.append(arg)
         for argName in sorted(duplicates):
             reader.error(
                 'multiple arguments to function "%s" are named "%s"',

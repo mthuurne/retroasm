@@ -1,4 +1,6 @@
-from .expression import Concatenation, Expression, IntLiteral, IntType
+from .expression import (
+    Concatenation, Expression, IntLiteral, IntType, LocalValue, Reference
+    )
 
 def parseType(typeName):
     if not typeName.startswith('i'):
@@ -9,6 +11,12 @@ def parseType(typeName):
         raise ValueError(
             'integer type "%s" is not of the form "i<width>"' % typeName)
     return IntType(int(widthStr))
+
+def parseLocalDecl(typeDecl, name):
+    if typeDecl.endswith('&'):
+        return Reference(name, parseType(typeDecl[:-1]))
+    else:
+        return LocalValue(name, parseType(typeDecl))
 
 def parseTerminal(exprStr, context):
     exprStr = exprStr.strip()

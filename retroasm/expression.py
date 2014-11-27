@@ -1,4 +1,5 @@
 from weakref import WeakValueDictionary
+import re
 
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there
@@ -119,6 +120,56 @@ class IntLiteral(Expression):
             return ('${:0%dX}' % (width // 4)).format(self._value)
         else:
             return ('%%{:0%db}' % width).format(self._value)
+
+namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
+reName = re.compile(namePat + '$')
+
+class NamedValue(Expression):
+    '''Base class for named values that exist in a global or local context.
+    '''
+    __slots__ = ('_name',)
+
+    name = property(lambda self: self._name)
+
+    def __init__(self, name, typ):
+        if not isinstance(name, str):
+            raise TypeError('name should be string, got %s' % type(name))
+        if not reName.match(name):
+            raise ValueError('invalid name: "%s"', name)
+        Expression.__init__(self, typ)
+        self._name = name
+
+    def __repr__(self):
+        return '%s(%s, %s)' % (
+            self.__class__.__name__, repr(self._name), repr(self._type)
+            )
+
+    def __str__(self):
+        return self._name
+
+class LocalValue(NamedValue):
+    '''A variable in the local context.
+    '''
+    __slots__ = ()
+
+class Reference(NamedValue):
+    '''A reference to a global storage location.
+    '''
+    __slots__ = ()
+
+class Register(Reference):
+    '''A CPU register.
+    '''
+    __slots__ = ()
+
+    def __eq__(self, other):
+        if isinstance(other, Register):
+            return self._name == other._name and self._type == other._type
+        else:
+            return NotImplemented
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
