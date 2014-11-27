@@ -40,6 +40,36 @@ class IntType(metaclass=Unique):
     def __str__(self):
         return 'i%d' % self._width
 
+class IOChannel:
+    '''A channel through which a CPU can do input and output.
+    '''
+    __slots__ = ('_name', '_elemType', '_addrType')
+
+    name = property(lambda self: self._name)
+    elemType = property(lambda self: self._elemType)
+    addrType = property(lambda self: self._addrType)
+
+    def __init__(self, name, elemType, addrType):
+        if not isinstance(name, str):
+            raise TypeError('name should be string, got %s' % type(name))
+        if not isinstance(elemType, IntType):
+            raise TypeError(
+                'element type should be IntType, got %s' % type(elemType))
+        if not isinstance(addrType, IntType):
+            raise TypeError(
+                'address type should be IntType, got %s' % type(addrType))
+        self._name = name
+        self._elemType = elemType
+        self._addrType = addrType
+
+    def __repr__(self):
+        return 'IOChannel(%s, %s, %s)' % (
+            repr(self._name), repr(self._elemType), repr(self._addrType)
+            )
+
+    def __str__(self):
+        return '%s %s[%s]' % (self._name, self._elemType, self._addrType)
+
 class Expression:
     '''Abstract base class for typed expressions.
     '''

@@ -1,8 +1,10 @@
+from .expression import IOChannel
 from .expression_parser import parseConcat, parseType
 from .linereader import DefLineReader
 from .register import Register
 
 from logging import getLogger
+import re
 
 logger = getLogger('parse-instr')
 
@@ -97,6 +99,28 @@ def _parseRegs(reader, args, context):
         else:
             reader.error('register definition line with multiple "="')
 
+_namePat = r"\s*([a-zA-Z_][0-9a-zA-Z_]*'?)\s*"
+_reIOLine = re.compile(_namePat + r'\s' + _namePat + r'\[' + _namePat + r'\]$')
+
+def _parseIO(reader, args, context):
+    if len(args) != 0:
+        reader.error('I/O definition should have no arguments')
+
+    for line in reader.iterBlock():
+        match = _reIOLine.match(line)
+        if match:
+            elemTypeStr, name, addrTypeStr = match.groups()
+            try:
+                elemType = parseType(elemTypeStr)
+                addrType = parseType(addrTypeStr)
+            except ValueError as ex:
+                reader.error(str(ex))
+                continue
+            channel = IOChannel(name, elemType, addrType)
+            context[name] = channel
+        else:
+            reader.error('invalid I/O definition line')
+
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
         context = _GlobalContextBuilder(reader)
@@ -112,6 +136,8 @@ def parseInstrSet(pathname):
                     defType = parts[0]
                     if defType == 'reg':
                         _parseRegs(reader, parts[1 : ], context)
+                    elif defType == 'io':
+                        _parseIO(reader, parts[1 : ], context)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()

@@ -13,3 +13,6 @@ i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
 i8  s
 # program counter
 i16 pc
+
+= io
+i8 mem[i16]

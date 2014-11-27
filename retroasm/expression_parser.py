@@ -1,4 +1,4 @@
-from .expression import Concatenation, IntLiteral, IntType
+from .expression import Concatenation, Expression, IntLiteral, IntType
 
 def parseType(typeName):
     if not typeName.startswith('i'):
@@ -26,9 +26,14 @@ def parseTerminal(exprStr, context):
         return IntLiteral(int(exprStr[1:], 16), IntType((len(exprStr)-1) * 4))
     else:
         try:
-            return context[exprStr]
+            expr = context[exprStr]
         except KeyError:
             raise ValueError('unknown global name "%s" in expression' % exprStr)
+        try:
+            Expression.checkInstance(expr)
+        except TypeError:
+            raise ValueError('global name "%s" is not an expression' % exprStr)
+        return expr
 
 def parseConcat(exprStr, context):
     return Concatenation(

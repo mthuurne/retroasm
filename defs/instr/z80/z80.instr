@@ -25,3 +25,7 @@ i16 sp  pc
 # interrupt flags and mode:
 i1  iff1    iff2
 i2  im
+
+= io
+i8 mem[i16]
+i8 port[i8]

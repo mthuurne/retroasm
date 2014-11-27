@@ -102,3 +102,21 @@ An integer literal in an alias expression means the corresponding bits are alway
 If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `i1`.
 
 The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register.
+
+Input/Output
+------------
+
+Input/output (I/O) is when a CPU reads or writes data from/to memory or peripherals. Some instruction sets perform all I/O through memory addresses (memory mapped I/O) while other instruction sets also have dedicated I/O ports for accessing peripherals (I/O mapped I/O).
+
+The syntax for defining I/O channels is as follows:
+
+    = io
+    <element type> <channel name>[<address type>]
+
+For example the Z80 has a 64K (2<sup>16</sup>) memory address space and 256 (2<sup>8</sup>) I/O ports that are one byte wide:
+
+    = io
+    i8 mem[i16]
+    i8 port[i8]
+
+For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
