@@ -1,7 +1,9 @@
 from .expression import IOChannel, Register, namePat
 from .expression_parser import parseConcat, parseLocalDecl, parseType
 from .linereader import DefLineReader
+from .func_parser import parseFuncBody
 
+from collections import ChainMap
 from logging import getLogger
 import re
 
@@ -166,8 +168,8 @@ def _parseFunc(reader, argStr, context):
         return
 
     # Parse body lines.
-    for line in reader.iterBlock():
-        pass
+    combinedContext = ChainMap(localContext, context.exprs)
+    body = parseFuncBody(reader, reader.iterBlock(), combinedContext)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:

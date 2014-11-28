@@ -50,6 +50,14 @@ class IOChannel:
     elemType = property(lambda self: self._elemType)
     addrType = property(lambda self: self._addrType)
 
+    @staticmethod
+    def checkInstance(channel):
+        if not isinstance(channel, IOChannel):
+            raise TypeError(
+                'expected IOChannel subclass, got %s' % type(channel)
+                )
+        return channel
+
     def __init__(self, name, elemType, addrType):
         if not isinstance(name, str):
             raise TypeError('name should be string, got %s' % type(name))
@@ -152,15 +160,36 @@ class LocalValue(NamedValue):
     '''
     __slots__ = ()
 
-class Reference(NamedValue):
+class Reference:
     '''A reference to a global storage location.
     '''
     __slots__ = ()
 
-class Register(Reference):
+class LocalReference(NamedValue, Reference):
+    '''A local reference to a global storage location.
+    '''
+    __slots__ = ()
+
+class Register(NamedValue, Reference):
     '''A CPU register.
     '''
     __slots__ = ()
+
+class IOReference(Expression, Reference):
+    '''Reference to a particular index on an I/O channel.
+    '''
+    __slots__ = ('_channel', '_index')
+
+    def __init__(self, channel, index):
+        self._channel = IOChannel.checkInstance(channel)
+        self._index = Expression.checkInstance(index)
+        Expression.__init__(self, self._channel.elemType)
+
+    def __str__(self):
+        return '%s[%s]' % (self._channel.name, self._index)
+
+    def __repr__(self):
+        return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
 
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
