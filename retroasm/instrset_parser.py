@@ -26,11 +26,6 @@ class _GlobalContextBuilder:
         if oldValue is None:
             exprs[key] = value
             self.lineno[key] = self.reader.lineno
-        elif oldValue == value:
-            self.reader.warning(
-                'global name "%s" redefined; first definition was on line %d'
-                % (key, self.lineno[key])
-                )
         else:
             self.reader.error(
                 'global name "%s" redefined with different value; '

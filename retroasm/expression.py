@@ -162,15 +162,6 @@ class Register(Reference):
     '''
     __slots__ = ()
 
-    def __eq__(self, other):
-        if isinstance(other, Register):
-            return self._name == other._name and self._type == other._type
-        else:
-            return NotImplemented
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
     '''
