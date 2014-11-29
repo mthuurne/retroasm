@@ -4,13 +4,13 @@ from .expression import (
     )
 
 def parseType(typeName):
-    if not typeName.startswith('i'):
+    if not typeName.startswith('u'):
         raise ValueError(
-            'type name "%s" does not start with "i"' % typeName)
+            'type name "%s" does not start with "u"' % typeName)
     widthStr = typeName[1:]
     if not widthStr.isdigit():
         raise ValueError(
-            'integer type "%s" is not of the form "i<width>"' % typeName)
+            'integer type "%s" is not of the form "u<width>"' % typeName)
     return IntType(int(widthStr))
 
 def parseLocalDecl(typeDecl, name):

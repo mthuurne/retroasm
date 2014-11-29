@@ -6,31 +6,31 @@
 
 = reg
 # accumulator
-i8  a
+u8  a
 # index registers
-i8  x y
+u8  x y
 # flags
-i1  n v b d i z c
-i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
+u1  n v b d i z c
+u8  p = n ; v ; %1 ; b ; d ; i ; z ; c
 # stack pointer
-i8  s
-i16 sp = $01;s
+u8  s
+u16 sp = $01;s
 # program counter
-i16 pc
+u16 pc
 
 
 ### I/O
 
 = io
-i8 mem[i16]
+u8 mem[u16]
 
 
 ### Stack access
 
-= func push(i8 V)
+= func push(u8 V)
     mem[sp] := V
     s := s - 1
 
-= func pull(i8& D)
+= func pull(u8& D)
     s := s + 1
     D := mem[sp]

@@ -39,7 +39,7 @@ class IntType(metaclass=Unique):
         return 'IntType(%d)' % self._width
 
     def __str__(self):
-        return 'i%d' % self._width
+        return 'u%d' % self._width
 
 class IOChannel:
     '''A channel through which a CPU can do input and output.

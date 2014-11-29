@@ -60,27 +60,74 @@ The `#` character marks the remainder of the line as a comment, which is ignored
 Types
 -----
 
-The type `i`*N* is an integer type of *N* bits wide. So for example `i8` is a byte and `i1` can hold a Boolean value. The type `i0` is valid and the only value of that type is the number 0. Whether an integer value is signed or unsigned is determined by the operation that uses the value; it is not part of the value's type.
+The type `u`*N* is an unsigned integer type of *N* bits wide. So for example `u8` is a byte and `u1` can hold a Boolean value. The type `s`*N* is a signed integer type of *N* bits wide, where bit *N*-1 is the sign bit. The types `u0` and `s0` are valid and the only value in those types is the number 0. The type `int` is an integer type that can contain arbitrary signed integers (unlimited width).
+
+The `int` type is used in arithmetical expressions. The `u`*N* types are used to describe aspects of the hardware, such as registers. The `s`*N* types are not often used, but are necessary to for example describe signed offsets in relative addressing modes.
 
 Currently no other types besides integers are supported.
 
 Literals
 --------
 
-Integer literals in base 2, 10 and 16 are supported. The width of a binary integer literal is equal to the number of digits it contains; the width of a hexadecimal integer literal is equal to four times the number of digits it contains. In both cases leading zeroes count as digits. The width of a decimal integer literal is the smallest number of bits that can contain the literal's value. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
+Integer literals in base 2, 10 and 16 are supported. Integer literals are never negative: for example `-4` is considered the unary complement operator `-` applied to the literal `4`.
 
 Name        |Base | Notation | Value | Type
------------ |----:| --------:| -----:|:----:
-binary      | 2   | %0101    | 5     | i4
-decimal     |10   | 42       | 42    | i6
-hexadecimal |16   | $7F      | 127   | i8
+:---------- |----:| --------:| -----:|:----:
+binary      | 2   | %0101    | 5     | u4
+decimal     |10   | 42       | 42    | int
+hexadecimal |16   | $7F      | 127   | u8
 
-There are no negative integer literals: for example `-4` is considered unary negation applied to the number 4.
+The width of a binary integer literal is equal to the number of digits it contains; the width of a hexadecimal integer literal is equal to four times the number of digits it contains. In both cases leading zeroes count as digits.
+
+The width of a decimal integer literal is undefined: they are of the type `int`. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
+
+Operators
+---------
+
+The following operators can be used in expressions:
+
+Name                |Notation           |Types
+:------------------ |:----------------- |:------
+bitwise and         | *A* & *B*         | int &times; int &rarr; int
+bitwise or          | *A* &#124; *B*    | int &times; int &rarr; int
+bitwise xor         | *A* ^ *B*         | int &times; int &rarr; int
+addition            | *A* + *B*         | int &times; int &rarr; int
+subtraction         | *A* - *B*         | int &times; int &rarr; int
+type conversion     | to_s(*A*)         | u*N* &rarr; s*N*
+                    | to_u(*A*)         | s*N* &rarr; u*N*
+complement          | -*A*              | int &rarr; int
+bitwise complement  | ~*A*              | int &rarr; int
+logical negation    | !*A*              | u1 &rarr; u1
+equality            | *A* == *B*        | int &times; int &rarr; u1
+inequality          | *A* != *B*        | int &times; int &rarr; u1
+concatenation       | *A* ; *B*         | int &times; (u&#124;s)*N* &rarr; int
+                    |                   | u*M* &times; (u&#124;s)*N* &rarr; u(*M*+*N*)
+                    |                   | s*M* &times; (u&#124;s)*N* &rarr; s(*M*+*N*)
+slicing             | *A*[*K*:*L*]      | int &rarr; u(*L*-*K*)
+bitwise lookup      | *A*[*K*]          | int &rarr; u1
+I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*
+
+Most of these operators should be familiar to the reader, but a few may require a more detailed explanation.
+
+Concatenation puts one fixed width bit string after another. For example, the concatenation of `%11` and `%001` is `%11001`. In numeric value: *A* ; *B* = *A*\*2<sup>*N*</sup> + *B*, where *B* is of type `u`*N*. The signedness of the result of a concatenation matches the signedness of the first operand.
+
+Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. In numeric value: *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>. A bitwise lookup is equivalent to taking a single bit slice: *A*[*K*] = *A*[*K*:*K*+1].
+
+An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
+
+Type Conversions
+----------------
+
+Conversion from fixed-width (`u`*N* or `s`*N*) integer to arbitrary-sized integer (`int`) is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
+
+Conversion from arbitrary-sized integer (`int`) to fixed-width (`u`*N*) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*[0:*N*] will convert *A* to `u`*N*. Truncation is also done implicitly when an integer value is assigned to a fixed-width storage location or passed as a fixed-width argument.
+
+Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example `$84` is an `u8` with numeric value 132, but when converted to `s8` the value becomes -124. Explicit conversion can be performed using the `to_s` and `to_u` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the storage location or argument slot.
 
 Registers
 ---------
 
-A register definition consists of a name and a type. A register definition block can define multiple registers and register aliases:
+A register definition consists of a name and a fixed-width type. A register definition block can define multiple registers and register aliases:
 
     = reg
     <type> <name>*
@@ -89,17 +136,17 @@ A register definition consists of a name and a type. A register definition block
 For example this block defines all registers of the 6502:
 
     = reg
-    i8  a x y
-    i1  n v b d i z c
-    i8  p = n ; v ; %1 ; b ; d ; i ; z ; c
-    i8  s
-    i16 pc
+    u8  a x y
+    u1  n v b d i z c
+    u8  p = n ; v ; %1 ; b ; d ; i ; z ; c
+    u8  s
+    u16 pc
 
 The type declaration on aliases is redundant, but mandatory for consistency and as an extra validation.
 
 An integer literal in an alias expression means the corresponding bits are always read as that literal value, while writes to those bits are ignored.
 
-If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `i1`.
+If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `u1`.
 
 The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register.
 
@@ -116,7 +163,7 @@ The syntax for defining I/O channels is as follows:
 For example the Z80 has a 64K (2<sup>16</sup>) memory address space and 256 (2<sup>8</sup>) I/O ports that are one byte wide:
 
     = io
-    i8 mem[i16]
-    i8 port[i8]
+    u8 mem[u16]
+    u8 port[u8]
 
 For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
