@@ -23,6 +23,7 @@ class Unique(type):
 
 class IntType(metaclass=Unique):
     '''An integer value type of "width" bits.
+    Width can be None, which indicates an unlimited width integer type.
     There is at most one instance of IntType for each width, so instances can
     be compared using the "is" operator.
     '''
@@ -31,15 +32,17 @@ class IntType(metaclass=Unique):
     width = property(lambda self: self._width)
 
     def __init__(self, width):
-        if not isinstance(width, int):
-            raise TypeError('width should be integer, got %s' % type(width))
+        if not (isinstance(width, int) or width is None):
+            raise TypeError(
+                'width should be integer or None, got %s' % type(width)
+                )
         self._width = width
 
     def __repr__(self):
-        return 'IntType(%d)' % self._width
+        return 'IntType(%s)' % self._width
 
     def __str__(self):
-        return 'u%d' % self._width
+        return 'int' if self._width is None else 'u%d' % self._width
 
 class IOChannel:
     '''A channel through which a CPU can do input and output.
@@ -112,7 +115,7 @@ class IntLiteral(Expression):
         if value < 0:
             raise ValueError(
                 'integer literal value must not be negative: %d' % value)
-        if value >= 1 << intType.width:
+        if intType.width is not None and value >= 1 << intType.width:
             raise ValueError(
                 'integer literal value %d does not fit in type %s'
                 % (value, intType)
@@ -124,7 +127,9 @@ class IntLiteral(Expression):
 
     def __str__(self):
         width = self.width
-        if width % 4 == 0:
+        if width is None:
+            return str(self._value)
+        elif width % 4 == 0:
             return ('${:0%dX}' % (width // 4)).format(self._value)
         else:
             return ('%%{:0%db}' % width).format(self._value)
@@ -198,7 +203,16 @@ class Concatenation(Expression):
 
     def __init__(self, exprs):
         self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
-        width = sum(expr.width for expr in self._exprs)
+        for n, expr in enumerate(self._exprs[1:], 2):
+            if expr.width is None:
+                raise ValueError(
+                    'all concatenation operands except the first must have '
+                    'a fixed width; operand %d has unlimited width' % n
+                    )
+        if self._exprs[0].width is None:
+            width = None
+        else:
+            width = sum(expr.width for expr in self._exprs)
         Expression.__init__(self, IntType(width))
 
     def __repr__(self):

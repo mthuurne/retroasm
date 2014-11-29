@@ -27,8 +27,7 @@ def parseTerminal(exprStr, context):
                 'leading zeroes not allowed on decimal integer literals: %s'
                 % exprStr
                 )
-        value = int(exprStr)
-        return IntLiteral(value, IntType(value.bit_length()))
+        return IntLiteral(int(exprStr), IntType(None))
     elif exprStr.startswith('%'):
         return IntLiteral(int(exprStr[1:], 2), IntType(len(exprStr)-1))
     elif exprStr.startswith('$'):
