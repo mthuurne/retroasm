@@ -11,14 +11,11 @@ def parseFuncBody(log, lines, context):
             lhsStr, rhsStr = parts
             try:
                 lhs = parseExpr(lhsStr, context)
-                print(lhs, ':', repr(lhs))
             except ValueError as ex:
                 log.error('error in left hand side of assignment: %s', str(ex))
                 continue
             try:
                 rhs = parseExpr(rhsStr, context)
-                print(rhs, ':', repr(rhs))
             except ValueError as ex:
                 log.error('error in right hand side of assignment: %s', str(ex))
                 continue
-            print(lhs, ':=', rhs)

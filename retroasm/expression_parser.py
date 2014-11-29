@@ -1,6 +1,6 @@
 from .expression import (
-    Concatenation, Expression, IOChannel, IOReference, IntLiteral, IntType,
-    LocalReference, LocalValue
+    AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
+    IntType, LocalReference, LocalValue, SubOperator
     )
 
 def parseType(typeName):
@@ -18,6 +18,17 @@ def parseLocalDecl(typeDecl, name):
         return LocalReference(name, parseType(typeDecl[:-1]))
     else:
         return LocalValue(name, parseType(typeDecl))
+
+_binaryOperators = {
+    '+': AddOperator,
+    '-': SubOperator,
+}
+
+def parseBinaryOperator(operator, exprStr, context):
+    lStr, rStr = exprStr.split(operator, 1)
+    lhs = parseExpr(lStr, context)
+    rhs = parseExpr(rStr, context)
+    return _binaryOperators[operator](lhs, rhs)
 
 def parseTerminal(exprStr, context):
     exprStr = exprStr.strip()
@@ -48,6 +59,10 @@ def parseTerminal(exprStr, context):
         except ValueError as ex:
             raise ValueError('bad I/O index: %s' % ex)
         return IOReference(channel, index)
+    elif '+' in exprStr:
+        return parseBinaryOperator('+', exprStr, context)
+    elif '-' in exprStr:
+        return parseBinaryOperator('-', exprStr, context)
     else:
         try:
             expr = context[exprStr]

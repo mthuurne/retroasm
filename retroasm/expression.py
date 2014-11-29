@@ -196,6 +196,32 @@ class IOReference(Expression, Reference):
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
 
+class BinaryOperator(Expression):
+    '''Base class for binary operators.
+    '''
+    __slots__ = ('_exprs',)
+    operator = property()
+
+    def __init__(self, expr1, expr2):
+        exprs = (expr1, expr2)
+        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
+        Expression.__init__(self, IntType(None))
+
+    def __repr__(self):
+        return '%s(%s)' % (
+            self.__class__.__name__,
+            ', '.join(repr(expr) for expr in self._exprs)
+            )
+
+    def __str__(self):
+        return '(%s %s %s)' % (self._exprs[0], self.operator, self._exprs[1])
+
+class AddOperator(BinaryOperator):
+    operator = '+'
+
+class SubOperator(BinaryOperator):
+    operator = '-'
+
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
     '''
