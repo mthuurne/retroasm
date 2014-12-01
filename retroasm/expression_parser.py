@@ -1,6 +1,6 @@
 from .expression import (
     AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
-    IntType, LocalReference, LocalValue, SubOperator
+    IntType, LocalReference, LocalValue, Slice, SubOperator
     )
 
 def parseType(typeName):
@@ -47,18 +47,53 @@ def parseTerminal(exprStr, context):
         try:
             name, indexStr = exprStr[:-1].split('[', 1)
         except ValueError:
-            raise ValueError('invalid I/O expression: %s' % exprStr)
+            raise ValueError('invalid lookup or slice expression: %s' % exprStr)
         try:
-            channel = context[name]
+            value = context[name]
         except KeyError:
-            raise ValueError('I/O channel "%s" does not exist' % name)
-        if not isinstance(channel, IOChannel):
-            raise ValueError('"%s" is not an I/O channel' % name)
-        try:
-            index = parseExpr(indexStr, context)
-        except ValueError as ex:
-            raise ValueError('bad I/O index: %s' % ex)
-        return IOReference(channel, index)
+            raise ValueError('the name "%s" does not exist' % name)
+        if ':' in indexStr:
+            try:
+                indexStrLo, indexStrHi = indexStr.split(':')
+            except ValueError:
+                raise ValueError(
+                    'multiple ":" in slice expression: %s' % indexStr
+                    )
+            try:
+                indexLo = parseExpr(indexStrLo, context)
+            except ValueError as ex:
+                raise ValueError('error in slice lower bound: %s' % ex)
+            try:
+                indexHi = parseExpr(indexStrHi, context)
+            except ValueError as ex:
+                raise ValueError('error in slice upper bound: %s' % ex)
+        else:
+            try:
+                indexLo = parseExpr(indexStr, context)
+            except ValueError as ex:
+                raise ValueError('bad index: %s' % ex)
+            indexHi = None
+        if isinstance(value, IOChannel):
+            if indexHi is None:
+                return IOReference(value, indexLo)
+            else:
+                raise ValueError(
+                    '"%s" is an I/O channel and therefore does not support '
+                    'slicing' % name
+                    )
+        else:
+            try:
+                index = indexLo.value
+            except AttributeError:
+                raise ValueError('index is not constant: %s' % indexLo)
+            if indexHi is None:
+                width = 1
+            else:
+                try:
+                    width = indexHi.value - index
+                except AttributeError:
+                    raise ValueError('index is not constant: %s' % indexHi)
+            return Slice(value, index, width)
     elif '+' in exprStr:
         return parseBinaryOperator('+', exprStr, context)
     elif '-' in exprStr:

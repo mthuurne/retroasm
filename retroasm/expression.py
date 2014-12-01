@@ -32,10 +32,13 @@ class IntType(metaclass=Unique):
     width = property(lambda self: self._width)
 
     def __init__(self, width):
-        if not (isinstance(width, int) or width is None):
-            raise TypeError(
-                'width should be integer or None, got %s' % type(width)
-                )
+        if width is not None:
+            if not isinstance(width, int):
+                raise TypeError(
+                    'width should be integer or None, got %s' % type(width)
+                    )
+            if width < 0:
+                raise ValueError('width must not be negative: %d' % width)
         self._width = width
 
     def __repr__(self):
@@ -248,3 +251,28 @@ class Concatenation(Expression):
 
     def __str__(self):
         return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)
+
+class Slice(Expression):
+    '''Extracts a region from a bit string.
+    '''
+    __slots__ = ('_expr', '_index')
+
+    def __init__(self, expr, index, width):
+        self._expr = Expression.checkInstance(expr)
+        if not isinstance(index, int):
+            raise TypeError('slice index should be int, got %s' % type(index))
+        if index < 0:
+            raise ValueError('slice index must not be negative: %d' % index)
+        self._index = index
+        Expression.__init__(self, IntType(width))
+
+    def __str__(self):
+        if self.width == 1:
+            return '%s[%s]' % (self._expr, self._index)
+        else:
+            return '%s[%s:%s]' % (
+                self._expr, self._index, self._index + self.width
+                )
+
+    def __repr__(self):
+        return 'Slice(%s, %d, %d)' % (repr(self._expr), self._index, self.width)
