@@ -99,10 +99,28 @@ class Expression:
             raise TypeError('expected Expression subclass, got %s' % type(expr))
         return expr
 
+    @staticmethod
+    def _simplifyExprs(exprs):
+        '''Attempts to simplify the expressions in the given sequence.
+        If simplification succeeds, returns a tuple of simplified expressions,
+        otherwise returns the given sequence.
+        '''
+        newExprs = tuple(expr.simplify() for expr in exprs)
+        if all(new is old for new, old in zip(newExprs, exprs)):
+            return exprs
+        else:
+            return newExprs
+
     def __init__(self, intType):
         if not isinstance(intType, IntType):
             raise TypeError('type must be IntType, got %s' % type(intType))
         self._type = intType
+
+    def simplify(self):
+        '''Returns an equivalent expression that is simpler (fewer nodes),
+        or this expression object itself if no simplification was found.
+        '''
+        return self
 
 class IntLiteral(Expression):
     '''An integer literal.
@@ -110,6 +128,12 @@ class IntLiteral(Expression):
     __slots__ = ('_value',)
 
     value = property(lambda self: self._value)
+
+    @classmethod
+    def create(cls, value):
+        '''Returns an unlimited-width integer literal with the given value.
+        '''
+        return cls(value, IntType(None))
 
     def __init__(self, value, intType):
         if not isinstance(value, int):
@@ -222,8 +246,36 @@ class BinaryOperator(Expression):
 class AddOperator(BinaryOperator):
     operator = '+'
 
+    def simplify(self):
+        expr1, expr2 = self._simplifyExprs(self._exprs)
+        isInt1 = isinstance(expr1, IntLiteral)
+        isInt2 = isinstance(expr2, IntLiteral)
+        if isInt1 and expr1.value == 0:
+            return expr2
+        elif isInt2 and expr2.value == 0:
+            return expr1
+        elif isInt1 and isInt2:
+            return IntLiteral.create(expr1.value + expr2.value)
+        elif expr1 is self._exprs[0] and expr2 is self._exprs[1]:
+            return self
+        else:
+            return AddOperator(expr1, expr2)
+
 class SubOperator(BinaryOperator):
     operator = '-'
+
+    def simplify(self):
+        expr1, expr2 = self._simplifyExprs(self._exprs)
+        isInt1 = isinstance(expr1, IntLiteral)
+        isInt2 = isinstance(expr2, IntLiteral)
+        if isInt2 and expr2.value == 0:
+            return expr1
+        elif isInt1 and isInt2:
+            return IntLiteral.create(expr1.value - expr2.value)
+        elif expr1 is self._exprs[0] and expr2 is self._exprs[1]:
+            return self
+        else:
+            return SubOperator(expr1, expr2)
 
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
