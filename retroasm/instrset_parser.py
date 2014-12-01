@@ -21,7 +21,7 @@ class _GlobalContextBuilder:
 
     def __setitem__(self, key, value):
         if not isinstance(key, str):
-            raise TypeError('global name should be str, got %s' % type(key))
+            raise TypeError('global name must be str, got %s' % type(key))
 
         exprs = self.exprs
         oldValue = exprs.get(key)
@@ -40,7 +40,7 @@ class _GlobalContextBuilder:
 
 def _parseRegs(reader, argStr, context):
     if argStr:
-        reader.error('register definition should have no arguments')
+        reader.error('register definition must have no arguments')
 
     for line in reader.iterBlock():
         parts = line.split('=')
@@ -69,7 +69,7 @@ def _parseRegs(reader, argStr, context):
                 aliasTypeStr, aliasName = parts[0].split()
             except ValueError:
                 reader.error(
-                    'left hand side of register alias should be of the form '
+                    'left hand side of register alias must be of the form '
                     '"<type> <name>"'
                     )
                 continue
@@ -100,7 +100,7 @@ _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
 def _parseIO(reader, argStr, context):
     if argStr:
-        reader.error('I/O definition should have no arguments')
+        reader.error('I/O definition must have no arguments')
 
     for line in reader.iterBlock():
         match = _reIOLine.match(line)

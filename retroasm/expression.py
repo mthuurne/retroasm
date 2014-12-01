@@ -35,7 +35,7 @@ class IntType(metaclass=Unique):
         if width is not None:
             if not isinstance(width, int):
                 raise TypeError(
-                    'width should be integer or None, got %s' % type(width)
+                    'width must be integer or None, got %s' % type(width)
                     )
             if width < 0:
                 raise ValueError('width must not be negative: %d' % width)
@@ -66,13 +66,13 @@ class IOChannel:
 
     def __init__(self, name, elemType, addrType):
         if not isinstance(name, str):
-            raise TypeError('name should be string, got %s' % type(name))
+            raise TypeError('name must be string, got %s' % type(name))
         if not isinstance(elemType, IntType):
             raise TypeError(
-                'element type should be IntType, got %s' % type(elemType))
+                'element type must be IntType, got %s' % type(elemType))
         if not isinstance(addrType, IntType):
             raise TypeError(
-                'address type should be IntType, got %s' % type(addrType))
+                'address type must be IntType, got %s' % type(addrType))
         self._name = name
         self._elemType = elemType
         self._addrType = addrType
@@ -101,7 +101,7 @@ class Expression:
 
     def __init__(self, intType):
         if not isinstance(intType, IntType):
-            raise TypeError('type should be IntType, got %s' % type(intType))
+            raise TypeError('type must be IntType, got %s' % type(intType))
         self._type = intType
 
 class IntLiteral(Expression):
@@ -113,7 +113,7 @@ class IntLiteral(Expression):
 
     def __init__(self, value, intType):
         if not isinstance(value, int):
-            raise TypeError('value should be int, got %s' % type(value))
+            raise TypeError('value must be int, got %s' % type(value))
         Expression.__init__(self, intType)
         if value < 0:
             raise ValueError(
@@ -149,7 +149,7 @@ class NamedValue(Expression):
 
     def __init__(self, name, typ):
         if not isinstance(name, str):
-            raise TypeError('name should be string, got %s' % type(name))
+            raise TypeError('name must be string, got %s' % type(name))
         if not reName.match(name):
             raise ValueError('invalid name: "%s"', name)
         Expression.__init__(self, typ)
@@ -260,7 +260,7 @@ class Slice(Expression):
     def __init__(self, expr, index, width):
         self._expr = Expression.checkInstance(expr)
         if not isinstance(index, int):
-            raise TypeError('slice index should be int, got %s' % type(index))
+            raise TypeError('slice index must be int, got %s' % type(index))
         if index < 0:
             raise ValueError('slice index must not be negative: %d' % index)
         self._index = index
