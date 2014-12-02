@@ -347,15 +347,13 @@ class SubOperator(ComposedExpression):
     def __init__(self, *exprs):
         ComposedExpression.__init__(self, exprs)
 
-    def _combineLiterals(self, literal1, literal2):
-        return IntLiteral.create(literal1.value - literal2.value)
-
-    def _customSimplify(self, exprs):
-        if len(exprs) == 2:
-            expr1, expr2 = exprs
-            if isinstance(expr2, IntLiteral):
-                if expr2.value == 0:
-                    del exprs[1]
+    def simplify(self):
+        # Convert subtraction into addition of the complement, since the
+        # associativity and commutativity of addition allow for more
+        # simplifications.
+        return AddOperator(
+            self._exprs[0], *[Complement(expr) for expr in self._exprs[1:]]
+            ).simplify()
 
 class Complement(Expression):
     __slots__ = ('_expr',)
@@ -376,6 +374,12 @@ class Complement(Expression):
             return IntLiteral.create(-expr.value)
         elif isinstance(expr, Complement):
             return expr._expr
+        elif isinstance(expr, AddOperator):
+            # Distribute complement over addition terms:
+            #   -(x + y + z) = -x + -y + -z
+            return AddOperator(
+                *(Complement(term) for term in expr._exprs)
+                ).simplify()
         else:
             return self
 

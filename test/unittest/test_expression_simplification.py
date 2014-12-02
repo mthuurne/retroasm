@@ -88,7 +88,7 @@ class SubTests(TestUtils):
         zero = IntLiteral.create(0)
         addr = LocalValue('A', IntType(16))
         leftZero = SubOperator(zero, addr)
-        self.assertTrue(leftZero.simplify() is leftZero)
+        self.assertEqual(type(leftZero.simplify()), Complement)
         self.assertTrue(SubOperator(addr, zero).simplify() is addr)
         self.assertIntLiteral(SubOperator(zero, zero).simplify(), 0)
 
@@ -103,6 +103,38 @@ class ComplementTests(TestUtils):
         '''Takes the complement of a complement.'''
         addr = LocalValue('A', IntType(16))
         self.assertTrue(Complement(Complement(addr)).simplify() is addr)
+
+class ArithmeticTests(TestUtils):
+
+    def test_int(self):
+        '''Uses add/sub/complement on several integer literals.'''
+        expr = AddOperator(
+            SubOperator(IntLiteral.create(0), IntLiteral.create(39)),
+            Complement(
+                SubOperator(IntLiteral.create(101), IntLiteral.create(1001))
+                )
+            )
+        self.assertIntLiteral(expr.simplify(), 861)
+
+    def test_associative(self):
+        '''Test simplification using the associativity of addition.
+        Note that that associativity cannot be exploited unless the subtraction
+        is converted into an addition first.
+        '''
+        addr = LocalValue('A', IntType(16))
+        arg1 = SubOperator(addr, IntLiteral.create(1))
+        arg2 = AddOperator(IntLiteral.create(-2), IntLiteral.create(3))
+        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+
+    def test_commutative(self):
+        '''Test simplification using the commutativity of addition.
+        Note that that commutativity cannot be exploited unless the subtraction
+        is converted into an addition first.
+        '''
+        addr = LocalValue('A', IntType(16))
+        arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
+        arg2 = AddOperator(Complement(addr), IntLiteral.create(3))
+        self.assertTrue(SubOperator(arg1, arg2).simplify() is addr)
 
 if __name__ == '__main__':
     unittest.main()
