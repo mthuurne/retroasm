@@ -214,26 +214,6 @@ class IOReference(Expression, Reference):
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
 
-class BinaryOperator(Expression):
-    '''Base class for binary operators.
-    '''
-    __slots__ = ('_exprs',)
-    operator = property()
-
-    def __init__(self, expr1, expr2):
-        exprs = (expr1, expr2)
-        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
-        Expression.__init__(self, IntType(None))
-
-    def __repr__(self):
-        return '%s(%s)' % (
-            self.__class__.__name__,
-            ', '.join(repr(expr) for expr in self._exprs)
-            )
-
-    def __str__(self):
-        return '(%s %s %s)' % (self._exprs[0], self.operator, self._exprs[1])
-
 class ComposedExpression(Expression):
     '''Base class for expressions that combine multiple subexpressions.
     '''
@@ -358,21 +338,24 @@ class AddOperator(ComposedExpression):
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value + literal2.value)
 
-class SubOperator(BinaryOperator):
+class SubOperator(ComposedExpression):
     operator = '-'
+    associative = False
+    commutative = False
+    identity = None # 0 is a right-identity only
 
-    def simplify(self):
-        expr1, expr2 = self._simplifyExprs(self._exprs)
-        isInt1 = isinstance(expr1, IntLiteral)
-        isInt2 = isinstance(expr2, IntLiteral)
-        if isInt2 and expr2.value == 0:
-            return expr1
-        elif isInt1 and isInt2:
-            return IntLiteral.create(expr1.value - expr2.value)
-        elif expr1 is self._exprs[0] and expr2 is self._exprs[1]:
-            return self
-        else:
-            return SubOperator(expr1, expr2)
+    def __init__(self, *exprs):
+        ComposedExpression.__init__(self, exprs)
+
+    def _combineLiterals(self, literal1, literal2):
+        return IntLiteral.create(literal1.value - literal2.value)
+
+    def _customSimplify(self, exprs):
+        if len(exprs) == 2:
+            expr1, expr2 = exprs
+            if isinstance(expr2, IntLiteral):
+                if expr2.value == 0:
+                    del exprs[1]
 
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
