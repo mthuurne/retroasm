@@ -357,6 +357,28 @@ class SubOperator(ComposedExpression):
                 if expr2.value == 0:
                     del exprs[1]
 
+class Complement(Expression):
+    __slots__ = ('_expr',)
+
+    def __init__(self, expr):
+        self._expr = Expression.checkInstance(expr)
+        Expression.__init__(self, IntType(None))
+
+    def __repr__(self):
+        return 'Complement(%s)' % repr(self._expr)
+
+    def __str__(self):
+        return '-%s' % self._expr
+
+    def simplify(self):
+        expr = self._expr.simplify()
+        if isinstance(expr, IntLiteral):
+            return IntLiteral.create(-expr.value)
+        elif isinstance(expr, Complement):
+            return expr._expr
+        else:
+            return self
+
 class Concatenation(Expression):
     '''Combines several expressions into one by concatenating their bit strings.
     '''

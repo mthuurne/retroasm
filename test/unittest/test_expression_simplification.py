@@ -1,5 +1,5 @@
 from retroasm.expression import (
-    AddOperator, IntLiteral, IntType, LocalValue, SubOperator
+    AddOperator, Complement, IntLiteral, IntType, LocalValue, SubOperator
     )
 
 import unittest
@@ -91,6 +91,18 @@ class SubTests(TestUtils):
         self.assertTrue(leftZero.simplify() is leftZero)
         self.assertTrue(SubOperator(addr, zero).simplify() is addr)
         self.assertIntLiteral(SubOperator(zero, zero).simplify(), 0)
+
+class ComplementTests(TestUtils):
+
+    def test_int(self):
+        '''Takes the complement of an integer literal.'''
+        expr = Complement(IntLiteral.create(4))
+        self.assertIntLiteral(expr.simplify(), -4)
+
+    def test_twice(self):
+        '''Takes the complement of a complement.'''
+        addr = LocalValue('A', IntType(16))
+        self.assertTrue(Complement(Complement(addr)).simplify() is addr)
 
 if __name__ == '__main__':
     unittest.main()
