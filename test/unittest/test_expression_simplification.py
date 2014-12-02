@@ -10,9 +10,9 @@ class TestUtils(unittest.TestCase):
         '''Asserts that the given expression is an unlimited-width int literal
         with the given value.
         '''
-        self.assertEqual(type(expr), IntLiteral)
-        self.assertEqual(type(expr.type), IntType)
-        self.assertEqual(expr.width, None)
+        self.assertIs(type(expr), IntLiteral)
+        self.assertIs(type(expr.type), IntType)
+        self.assertIs(expr.width, None)
         self.assertEqual(expr.value, value)
 
 class AddTests(TestUtils):
@@ -42,8 +42,8 @@ class AddTests(TestUtils):
         '''Test simplification of zero literal terms.'''
         zero = IntLiteral.create(0)
         addr = LocalValue('A', IntType(16))
-        self.assertTrue(AddOperator(zero, addr).simplify() is addr)
-        self.assertTrue(AddOperator(addr, zero).simplify() is addr)
+        self.assertIs(AddOperator(zero, addr).simplify(), addr)
+        self.assertIs(AddOperator(addr, zero).simplify(), addr)
         self.assertIntLiteral(AddOperator(zero, zero).simplify(), 0)
 
     def test_associative(self):
@@ -51,14 +51,14 @@ class AddTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         arg1 = AddOperator(addr, IntLiteral.create(1))
         arg2 = AddOperator(IntLiteral.create(2), IntLiteral.create(-3))
-        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+        self.assertIs(AddOperator(arg1, arg2).simplify(), addr)
 
     def test_commutative(self):
         '''Test simplification using the commutativity of addition.'''
         addr = LocalValue('A', IntType(16))
         arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
         arg2 = AddOperator(addr, IntLiteral.create(-3))
-        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+        self.assertIs(AddOperator(arg1, arg2).simplify(), addr)
 
 class SubTests(TestUtils):
 
@@ -89,7 +89,7 @@ class SubTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         leftZero = SubOperator(zero, addr)
         self.assertEqual(type(leftZero.simplify()), Complement)
-        self.assertTrue(SubOperator(addr, zero).simplify() is addr)
+        self.assertIs(SubOperator(addr, zero).simplify(), addr)
         self.assertIntLiteral(SubOperator(zero, zero).simplify(), 0)
 
 class ComplementTests(TestUtils):
@@ -102,7 +102,7 @@ class ComplementTests(TestUtils):
     def test_twice(self):
         '''Takes the complement of a complement.'''
         addr = LocalValue('A', IntType(16))
-        self.assertTrue(Complement(Complement(addr)).simplify() is addr)
+        self.assertIs(Complement(Complement(addr)).simplify(), addr)
 
 class ArithmeticTests(TestUtils):
 
@@ -124,7 +124,7 @@ class ArithmeticTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         arg1 = SubOperator(addr, IntLiteral.create(1))
         arg2 = AddOperator(IntLiteral.create(-2), IntLiteral.create(3))
-        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+        self.assertIs(AddOperator(arg1, arg2).simplify(), addr)
 
     def test_commutative(self):
         '''Test simplification using the commutativity of addition.
@@ -134,7 +134,7 @@ class ArithmeticTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
         arg2 = AddOperator(Complement(addr), IntLiteral.create(3))
-        self.assertTrue(SubOperator(arg1, arg2).simplify() is addr)
+        self.assertIs(SubOperator(arg1, arg2).simplify(), addr)
 
 if __name__ == '__main__':
     unittest.main()
