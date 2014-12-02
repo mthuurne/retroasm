@@ -41,5 +41,15 @@ class SimplifyAddTests(unittest.TestCase):
         self.assertTrue(AddOperator(zero, addr).simplify() is addr)
         self.assertTrue(AddOperator(addr, zero).simplify() is addr)
 
+    def test_reorder(self):
+        '''Adds several integers and a named value in an expression tree
+        that is created such that the terms must be reordered to allow
+        full simplification.
+        '''
+        addr = LocalValue('A', IntType(16))
+        arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
+        arg2 = AddOperator(addr, IntLiteral.create(-3))
+        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+
 if __name__ == '__main__':
     unittest.main()

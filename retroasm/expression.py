@@ -139,14 +139,17 @@ class IntLiteral(Expression):
         if not isinstance(value, int):
             raise TypeError('value must be int, got %s' % type(value))
         Expression.__init__(self, intType)
-        if value < 0:
-            raise ValueError(
-                'integer literal value must not be negative: %d' % value)
-        if intType.width is not None and value >= 1 << intType.width:
-            raise ValueError(
-                'integer literal value %d does not fit in type %s'
-                % (value, intType)
-                )
+        if intType.width is not None:
+            if value < 0:
+                raise ValueError(
+                    'unsigned integer literal value must not be negative: '
+                    '%d' % value
+                    )
+            if value >= 1 << intType.width:
+                raise ValueError(
+                    'integer literal value %d does not fit in type %s'
+                    % (value, intType)
+                    )
         self._value = value
 
     def __repr__(self):
