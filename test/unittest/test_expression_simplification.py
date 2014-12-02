@@ -35,17 +35,22 @@ class SimplifyAddTests(unittest.TestCase):
         self.assertIntLiteral(expr, 10)
 
     def test_zero(self):
-        '''Adds A and zero.'''
+        '''Test simplification of zero literal terms.'''
         zero = IntLiteral.create(0)
         addr = LocalValue('A', IntType(16))
         self.assertTrue(AddOperator(zero, addr).simplify() is addr)
         self.assertTrue(AddOperator(addr, zero).simplify() is addr)
+        self.assertIntLiteral(AddOperator(zero, zero).simplify(), 0)
 
-    def test_reorder(self):
-        '''Adds several integers and a named value in an expression tree
-        that is created such that the terms must be reordered to allow
-        full simplification.
-        '''
+    def test_associative(self):
+        '''Test simplification using the associativity of addition.'''
+        addr = LocalValue('A', IntType(16))
+        arg1 = AddOperator(addr, IntLiteral.create(1))
+        arg2 = AddOperator(IntLiteral.create(2), IntLiteral.create(-3))
+        self.assertTrue(AddOperator(arg1, arg2).simplify() is addr)
+
+    def test_commutative(self):
+        '''Test simplification using the commutativity of addition.'''
         addr = LocalValue('A', IntType(16))
         arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
         arg2 = AddOperator(addr, IntLiteral.create(-3))

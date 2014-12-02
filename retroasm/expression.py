@@ -99,18 +99,6 @@ class Expression:
             raise TypeError('expected Expression subclass, got %s' % type(expr))
         return expr
 
-    @staticmethod
-    def _simplifyExprs(exprs):
-        '''Attempts to simplify the expressions in the given sequence.
-        If simplification succeeds, returns a tuple of simplified expressions,
-        otherwise returns the given sequence.
-        '''
-        newExprs = tuple(expr.simplify() for expr in exprs)
-        if all(new is old for new, old in zip(newExprs, exprs)):
-            return exprs
-        else:
-            return newExprs
-
     def __init__(self, intType):
         if not isinstance(intType, IntType):
             raise TypeError('type must be IntType, got %s' % type(intType))
@@ -246,23 +234,129 @@ class BinaryOperator(Expression):
     def __str__(self):
         return '(%s %s %s)' % (self._exprs[0], self.operator, self._exprs[1])
 
-class AddOperator(BinaryOperator):
-    operator = '+'
+class ComposedExpression(Expression):
+    '''Base class for expressions that combine multiple subexpressions.
+    '''
+    __slots__ = ('_exprs',)
+    operator = property()
+    associative = property()
+    commutative = property()
+    identity = property()
+
+    def __init__(self, exprs, intType=IntType(None)):
+        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
+        Expression.__init__(self, intType)
+
+    def __repr__(self):
+        return '%s(%s)' % (
+            self.__class__.__name__,
+            ', '.join(repr(expr) for expr in self._exprs)
+            )
+
+    def __str__(self):
+        sep = ' %s ' % self.operator
+        return '(%s)' % sep.join(str(expr) for expr in self._exprs)
 
     def simplify(self):
-        expr1, expr2 = self._simplifyExprs(self._exprs)
-        isInt1 = isinstance(expr1, IntLiteral)
-        isInt2 = isinstance(expr2, IntLiteral)
-        if isInt1 and expr1.value == 0:
-            return expr2
-        elif isInt2 and expr2.value == 0:
-            return expr1
-        elif isInt1 and isInt2:
-            return IntLiteral.create(expr1.value + expr2.value)
-        elif expr1 is self._exprs[0] and expr2 is self._exprs[1]:
+        # Simplify the subexpressions individually.
+        exprs = [expr.simplify() for expr in self._exprs]
+
+        if self.associative:
+            # Merge subexpressions of the same type into this expression.
+            i = 0
+            while i < len(exprs):
+                expr = exprs[i]
+                if expr.__class__ is self.__class__:
+                    exprs[i:i+1] = expr._exprs
+                    i += len(expr._exprs)
+                else:
+                    i += 1
+
+        if self.associative and self.commutative:
+            # Move all literals to the end.
+            # This makes the later merge step more effective.
+            n = len(exprs)
+            i = 0
+            while i < n:
+                expr = exprs[i]
+                if isinstance(expr, IntLiteral):
+                    del exprs[i]
+                    exprs.append(expr)
+                    n -= 1
+                else:
+                    i += 1
+
+        if self.associative or len(exprs) == 2:
+            # Merge literals.
+            i = 1
+            while i < len(exprs):
+                expr1 = exprs[i - 1]
+                if not isinstance(expr1, IntLiteral):
+                    i += 1
+                    continue
+                expr2 = exprs[i]
+                if not isinstance(expr2, IntLiteral):
+                    i += 2
+                    continue
+                expr = self._combineLiterals(expr1, expr2)
+                if expr is None:
+                    i += 1
+                else:
+                    exprs[i-1:i+1] = [expr]
+
+        identity = self.identity
+        if identity is not None:
+            # Remove literals with the identity value.
+            if self.associative and self.commutative:
+                # Earlier simplification steps ensure there can be at most
+                # one literal term and it will be at the end.
+                i = len(exprs) - 1
+            else:
+                i = 0
+            while max(i, 1) < len(exprs):
+                expr = exprs[i]
+                if isinstance(expr, IntLiteral) and expr.value == identity:
+                    del exprs[i]
+                else:
+                    i += 1
+
+        self._customSimplify(exprs)
+
+        if len(exprs) < 2:
+            return exprs[0]
+        elif len(exprs) == len(self._exprs) \
+                and all(new is old for new, old in zip(exprs, self._exprs)):
             return self
         else:
-            return AddOperator(expr1, expr2)
+            return self.__class__(*exprs)
+
+    def _combineLiterals(self, literal1, literal2):
+        '''Attempt to combine the two given literals into a single expression.
+        Returns the new expression if successful, None otherwise.
+        The default implementation returns None, subclasses are encouraged
+        to override this method.
+        '''
+        return None
+
+    def _customSimplify(self, exprs):
+        '''Applies operator-specific simplifications on the given list of
+        expressions. This method is called by simplify() after it has performed
+        all generic simplifications.
+        Nothing is returned, the list is modified instead.
+        '''
+        pass
+
+class AddOperator(ComposedExpression):
+    operator = '+'
+    associative = True
+    commutative = True
+    identity = 0
+
+    def __init__(self, *exprs):
+        ComposedExpression.__init__(self, exprs)
+
+    def _combineLiterals(self, literal1, literal2):
+        return IntLiteral.create(literal1.value + literal2.value)
 
 class SubOperator(BinaryOperator):
     operator = '-'
