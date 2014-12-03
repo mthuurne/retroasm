@@ -110,10 +110,10 @@ def parseTerminal(exprStr, context):
         return expr
 
 def parseConcat(exprStr, context):
-    return Concatenation(
+    return Concatenation(*(
         parseTerminal(sub, context)
         for sub in exprStr.split(';')
-        )
+        ))
 
 def parseExpr(exprStr, context):
     return parseTerminal(exprStr, context)

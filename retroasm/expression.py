@@ -383,32 +383,40 @@ class Complement(Expression):
         else:
             return self
 
-class Concatenation(Expression):
+class Concatenation(ComposedExpression):
     '''Combines several expressions into one by concatenating their bit strings.
     '''
-    __slots__ = ('_exprs',)
+    operator = ';'
+    associative = True
+    commutative = False
+    # Actually, the empty bitstring is the identity element for concatenation,
+    # but we can deal with that like any other literal.
+    identity = None
 
-    def __init__(self, exprs):
-        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
-        for n, expr in enumerate(self._exprs[1:], 2):
-            if expr.width is None:
+    def __init__(self, *exprs):
+        for n, expr in enumerate(exprs[1:], 2):
+            if Expression.checkInstance(expr).width is None:
                 raise ValueError(
                     'all concatenation operands except the first must have '
                     'a fixed width; operand %d has unlimited width' % n
                     )
-        if self._exprs[0].width is None:
+        if Expression.checkInstance(exprs[0]).width is None:
             width = None
         else:
-            width = sum(expr.width for expr in self._exprs)
-        Expression.__init__(self, IntType(width))
+            width = sum(expr.width for expr in exprs)
+        ComposedExpression.__init__(self, exprs, IntType(width))
 
-    def __repr__(self):
-        return 'Concatenation([%s])' % ', '.join(
-            repr(expr) for expr in self._exprs
-            )
-
-    def __str__(self):
-        return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)
+    def _combineLiterals(self, literal1, literal2):
+        width1 = literal1.width
+        width2 = literal2.width
+        assert width2 is not None, literal2
+        if width1 is None:
+            return IntLiteral.create(literal1.value << width2 | literal2.value)
+        else:
+            return IntLiteral(
+                literal1.value << width2 | literal2.value,
+                IntType(width1 + width2)
+                )
 
 class Slice(Expression):
     '''Extracts a region from a bit string.
