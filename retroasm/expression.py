@@ -87,6 +87,16 @@ class IOChannel:
 
 class Expression:
     '''Abstract base class for typed expressions.
+
+    Expressions are considered equal if they have the same tree form.
+    This means that for example (A + (B + C)) and ((A + B) + C) are considered
+    unequal: they represent the same computation, but not the same tree.
+
+    Since most operators convert their arguments to unlimited width integers,
+    the width of an expression is not ignored when determining equality.
+    In cases where the width matters, such as concatenation, the operand
+    class must check the widths of subexpressions when determining equality
+    between two expressions.
     '''
     __slots__ = ('_type',)
 
@@ -103,6 +113,31 @@ class Expression:
         if not isinstance(intType, IntType):
             raise TypeError('type must be IntType, got %s' % type(intType))
         self._type = intType
+
+    def __eq__(self, other):
+        if isinstance(other, Expression):
+            if self.__class__ is other.__class__:
+                return self._equals(other)
+            else:
+                return False
+        else:
+            return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, Expression):
+            if self.__class__ is other.__class__:
+                return not self._equals(other)
+            else:
+                return True
+        else:
+            return NotImplemented
+
+    def _equals(self, other):
+        '''Returns True if this expression is equal to the other expression,
+        False otherwise.
+        The other expression is of the same Python class as this one.
+        '''
+        raise NotImplementedError
 
     def simplify(self):
         '''Returns an equivalent expression that is simpler (fewer nodes),
@@ -152,6 +187,9 @@ class IntLiteral(Expression):
         else:
             return ('%%{:0%db}' % width).format(self._value)
 
+    def _equals(self, other):
+        return self._value == other._value
+
 namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 reName = re.compile(namePat + '$')
 
@@ -177,6 +215,14 @@ class NamedValue(Expression):
 
     def __str__(self):
         return self._name
+
+    def _equals(self, other):
+        # There must be one only instance of a class for each name.
+        if self._name == other._name:
+            assert self is other
+            return True
+        else:
+            return False
 
 class LocalValue(NamedValue):
     '''A variable in the local context.
@@ -214,6 +260,9 @@ class IOReference(Expression, Reference):
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
 
+    def _equals(self, other):
+        return self._channel is other._channel and self._index == other._index
+
 class ComposedExpression(Expression):
     '''Base class for expressions that combine multiple subexpressions.
     '''
@@ -236,6 +285,12 @@ class ComposedExpression(Expression):
     def __str__(self):
         sep = ' %s ' % self.operator
         return '(%s)' % sep.join(str(expr) for expr in self._exprs)
+
+    def _equals(self, other):
+        return len(self._exprs) == len(other._exprs) and all(
+            myExpr == otherExpr
+            for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
+            )
 
     def simplify(self):
         # Simplify the subexpressions individually.
@@ -368,6 +423,9 @@ class Complement(Expression):
     def __str__(self):
         return '-%s' % self._expr
 
+    def _equals(self, other):
+        return self._expr == other._expr
+
     def simplify(self):
         expr = self._expr.simplify()
         if isinstance(expr, IntLiteral):
@@ -406,6 +464,12 @@ class Concatenation(ComposedExpression):
             width = sum(expr.width for expr in exprs)
         ComposedExpression.__init__(self, exprs, IntType(width))
 
+    def _equals(self, other):
+        return super()._equals(other) and all(
+            myExpr.width == otherExpr.width
+            for (myExpr, otherExpr) in zip(self._exprs[1:], other._exprs[1:])
+            )
+
     def _combineLiterals(self, literal1, literal2):
         width1 = literal1.width
         width2 = literal2.width
@@ -442,3 +506,8 @@ class Slice(Expression):
 
     def __repr__(self):
         return 'Slice(%s, %d, %d)' % (repr(self._expr), self._index, self.width)
+
+    def _equals(self, other):
+        return (self.width == other.width
+            and self._index == other._index
+            and self._expr == other._expr)
