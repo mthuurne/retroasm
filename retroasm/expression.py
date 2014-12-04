@@ -384,6 +384,24 @@ class AddOperator(ComposedExpression):
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value + literal2.value)
 
+    def _customSimplify(self, exprs):
+        # Remove pairs of A and -A.
+        complIdx = 0
+        while complIdx < len(exprs):
+            compl = exprs[complIdx]
+            if not isinstance(compl, Complement):
+                complIdx += 1
+                continue
+            try:
+                idx = exprs.index(compl.expr)
+            except ValueError:
+                complIdx += 1
+            else:
+                del exprs[idx]
+                if idx < complIdx:
+                    complIdx -= 1
+                del exprs[complIdx]
+
 class SubOperator(ComposedExpression):
     operator = '-'
     associative = False
@@ -403,6 +421,8 @@ class SubOperator(ComposedExpression):
 
 class Complement(Expression):
     __slots__ = ('_expr',)
+
+    expr = property(lambda self: self._expr)
 
     def __init__(self, expr):
         self._expr = Expression.checkInstance(expr)

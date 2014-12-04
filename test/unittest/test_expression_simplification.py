@@ -102,6 +102,18 @@ class SubTests(TestUtils):
         self.assertIs(SubOperator(addr, zero).simplify(), addr)
         self.assertIntLiteral(SubOperator(zero, zero).simplify(), 0)
 
+    def test_self(self):
+        '''Test simplification of subtracting an expression from itself.'''
+        a = LocalValue('A', IntType(16))
+        b = LocalValue('B', IntType(8))
+        self.assertIntLiteral(SubOperator(a, a).simplify(), 0)
+        c = AddOperator(a, b)
+        d = AddOperator(b, a)
+        self.assertIntLiteral(SubOperator(c, c).simplify(), 0)
+        self.assertIntLiteral(SubOperator(c, d).simplify(), 0)
+        e = Concatenation(a, b)
+        self.assertIntLiteral(SubOperator(e, e).simplify(), 0)
+
 class ComplementTests(TestUtils):
 
     def test_int(self):
