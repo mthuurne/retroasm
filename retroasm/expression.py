@@ -341,23 +341,14 @@ class ComposedExpression(Expression):
 
         identity = self.identity
         if identity is not None:
-            # Remove literals with the identity value.
-            if self.associative and self.commutative:
-                # Earlier simplification steps ensure there can be at most
-                # one literal term and it will be at the end.
-                i = len(exprs) - 1
-            else:
-                i = 0
-            while max(i, 1) < len(exprs):
-                expr = exprs[i]
-                if isinstance(expr, IntLiteral) and expr.value == identity:
-                    del exprs[i]
-                else:
-                    i += 1
+            # Remove identity values.
+            exprs = [expr for expr in exprs if expr != identity]
 
         self._customSimplify(exprs)
 
-        if len(exprs) < 2:
+        if len(exprs) == 0:
+            return identity
+        elif len(exprs) == 1:
             return exprs[0]
         elif len(exprs) == len(self._exprs) \
                 and all(new is old for new, old in zip(exprs, self._exprs)):
@@ -385,7 +376,7 @@ class AddOperator(ComposedExpression):
     operator = '+'
     associative = True
     commutative = True
-    identity = 0
+    identity = IntLiteral.create(0)
 
     def __init__(self, *exprs):
         ComposedExpression.__init__(self, exprs)
