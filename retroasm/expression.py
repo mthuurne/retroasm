@@ -182,6 +182,8 @@ class IntLiteral(Expression):
         width = self.width
         if width is None:
             return str(self._value)
+        elif width == 0:
+            return '0[0:0]'
         elif width % 4 == 0:
             return ('${:0%dX}' % (width // 4)).format(self._value)
         else:
@@ -271,6 +273,9 @@ class ComposedExpression(Expression):
     associative = property()
     commutative = property()
     identity = property()
+    emptySubstitute = property(lambda self: self.identity)
+
+    exprs = property(lambda self: self._exprs)
 
     def __init__(self, exprs, intType=IntType(None)):
         self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
@@ -347,7 +352,9 @@ class ComposedExpression(Expression):
         self._customSimplify(exprs)
 
         if len(exprs) == 0:
-            return identity
+            substitute = self.emptySubstitute
+            assert substitute is not None
+            return substitute
         elif len(exprs) == 1:
             return exprs[0]
         elif len(exprs) == len(self._exprs) \
@@ -459,8 +466,10 @@ class Concatenation(ComposedExpression):
     associative = True
     commutative = False
     # Actually, the empty bitstring is the identity element for concatenation,
-    # but we can deal with that like any other literal.
+    # but there is no easy way to express that: a u0 typed literal is not an
+    # option since it is considered equal to zero literals of other widths.
     identity = None
+    emptySubstitute = IntLiteral(0, IntType(0))
 
     def __init__(self, *exprs):
         for n, expr in enumerate(exprs[1:], 2):
@@ -492,6 +501,14 @@ class Concatenation(ComposedExpression):
                 literal1.value << width2 | literal2.value,
                 IntType(width1 + width2)
                 )
+
+    def _customSimplify(self, exprs):
+        # Remove zero-width expressions.
+        i = len(exprs)
+        while i != 0:
+            i -= 1
+            if exprs[i].width == 0:
+                del exprs[i]
 
 class Slice(Expression):
     '''Extracts a region from a bit string.

@@ -11,6 +11,9 @@ class TestUtils(unittest.TestCase):
         '''Asserts that the given expression is an unlimited-width int literal
         with the given value.
         '''
+        comparison = IntLiteral.create(value)
+        self.assertEqual(str(expr), str(comparison))
+        self.assertEqual(expr, comparison)
         self.assertIs(type(expr), IntLiteral)
         self.assertIs(type(expr.type), IntType)
         self.assertIs(expr.width, None)
@@ -20,10 +23,24 @@ class TestUtils(unittest.TestCase):
         '''Asserts that the given expression is a fixed-width unsigned literal
         with the given value.
         '''
+        comparison = IntLiteral(value, IntType(width))
+        self.assertEqual(str(expr), str(comparison))
+        self.assertEqual(expr, comparison)
         self.assertIs(type(expr), IntLiteral)
         self.assertIs(type(expr.type), IntType)
         self.assertEqual(expr.width, width)
         self.assertEqual(expr.value, value)
+
+    def assertConcat(self, expr, subExprs):
+        comparison = Concatenation(*subExprs)
+        self.assertEqual(str(expr), str(comparison))
+        self.assertEqual(expr, comparison)
+        self.assertIs(type(expr), Concatenation)
+        self.assertIs(type(expr.type), IntType)
+        self.assertEqual(expr.width, comparison.width)
+        self.assertEqual(len(expr.exprs), len(subExprs))
+        for actual, expected in zip(expr.exprs, subExprs):
+            self.assertEqual(actual, expected)
 
 class AddTests(TestUtils):
 
@@ -183,6 +200,37 @@ class ConcatTests(TestUtils):
         cat_u8_u8 = Concatenation(u8, u8).simplify()
         self.assertUnsignedLiteral(cat_u8_u8, 0x2929, 16)
 
+    def test_identity(self):
+        '''Simplified concatenations containing identity values.'''
+        addr = LocalValue('A', IntType(16))
+        # Check whether empty bitstrings are filtered out.
+        empty = IntLiteral(0, IntType(0))
+        head = Concatenation(empty, addr, addr)
+        self.assertConcat(head.simplify(), (addr, addr))
+        mid = Concatenation(addr, empty, addr)
+        self.assertConcat(mid.simplify(), (addr, addr))
+        tail = Concatenation(addr, addr, empty)
+        self.assertConcat(tail.simplify(), (addr, addr))
+        many = Concatenation(
+            empty, empty, addr, empty, empty, addr, empty, empty
+            )
+        self.assertConcat(many.simplify(), (addr, addr))
+        # Check graceful handling when zero subexpressions remain.
+        only = Concatenation(empty, empty, empty)
+        self.assertUnsignedLiteral(only.simplify(), 0, 0)
+        # Check whether non-empty fixed-width zero-valued bitstrings are kept.
+        zero_u8 = IntLiteral(0, IntType(8))
+        head_u8 = Concatenation(zero_u8, addr, addr)
+        self.assertConcat(head_u8.simplify(), (zero_u8, addr, addr))
+        mid_u8 = Concatenation(addr, zero_u8, addr)
+        self.assertConcat(mid_u8.simplify(), (addr, zero_u8, addr))
+        tail_u8 = Concatenation(addr, addr, zero_u8)
+        self.assertConcat(tail_u8.simplify(), (addr, addr, zero_u8))
+        # Check whether unlimited-width zero-valued bitstrings are kept.
+        zero_int = IntLiteral.create(0)
+        head_int = Concatenation(zero_int, addr, addr)
+        self.assertConcat(head_int.simplify(), (zero_int, addr, addr))
+
     def test_associative(self):
         '''Test simplification using the associativity of concatenation.
         '''
@@ -190,11 +238,7 @@ class ConcatTests(TestUtils):
         arg1 = Concatenation(addr, addr) # (A ; A)
         arg2 = Concatenation(arg1, arg1) # ((A ; A) ; (A ; A))
         arg3 = Concatenation(arg1, arg2) # ((A ; A) ; ((A ; A) ; (A ; A)))
-        expr = arg3.simplify()
-        self.assertIs(type(expr), Concatenation)
-        self.assertIs(type(expr.type), IntType)
-        self.assertEqual(expr.width, 6 * 16)
-        self.assertEqual(str(expr), '(A ; A ; A ; A ; A ; A)')
+        self.assertConcat(arg3.simplify(), (addr, ) * 6)
 
     def test_associative2(self):
         '''Test simplification using the associativity of concatenation.
@@ -203,11 +247,10 @@ class ConcatTests(TestUtils):
         arg1 = Concatenation(addr, IntLiteral(0x9, IntType(4))) # (A ; $9)
         arg2 = Concatenation(IntLiteral(0x63, IntType(8)), addr) # ($63 ; A)
         arg3 = Concatenation(arg1, arg2) # ((A ; $9) ; ($63 ; A))
-        expr = arg3.simplify()
-        self.assertIs(type(expr), Concatenation)
-        self.assertIs(type(expr.type), IntType)
-        self.assertEqual(expr.width, 2 * 16 + 12)
-        self.assertEqual(str(expr), '(A ; $963 ; A)')
+        self.assertConcat(
+            arg3.simplify(),
+            (addr, IntLiteral(0x963, IntType(12)), addr)
+            )
 
 if __name__ == '__main__':
     unittest.main()
