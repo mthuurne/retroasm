@@ -139,6 +139,13 @@ class Expression:
         '''
         raise NotImplementedError
 
+    def _complexity(self):
+        '''Returns a postive number that reflects the complexity of this
+        expression: the higher the number, the more complex the expression.
+        This is used to compare simplification candidates.
+        '''
+        raise NotImplementedError
+
     def simplify(self):
         '''Returns an equivalent expression that is simpler (fewer nodes),
         or this expression object itself if no simplification was found.
@@ -192,6 +199,9 @@ class IntLiteral(Expression):
     def _equals(self, other):
         return self._value == other._value
 
+    def _complexity(self):
+        return 1
+
 namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 reName = re.compile(namePat + '$')
 
@@ -225,6 +235,9 @@ class NamedValue(Expression):
             return True
         else:
             return False
+
+    def _complexity(self):
+        return 2
 
 class LocalValue(NamedValue):
     '''A variable in the local context.
@@ -265,6 +278,9 @@ class IOReference(Expression, Reference):
     def _equals(self, other):
         return self._channel is other._channel and self._index == other._index
 
+    def _complexity(self):
+        return 4 + self._index._complexity()
+
 class ComposedExpression(Expression):
     '''Base class for expressions that combine multiple subexpressions.
     '''
@@ -296,6 +312,9 @@ class ComposedExpression(Expression):
             myExpr == otherExpr
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
+
+    def _complexity(self):
+        return 1 + sum(expr._complexity() for expr in self._exprs)
 
     def simplify(self):
         # Simplify the subexpressions individually.
@@ -543,6 +562,9 @@ class Slice(Expression):
             and self._index == other._index
             and self._expr == other._expr)
 
+    def _complexity(self):
+        return 2 + self._expr._complexity()
+
     def simplify(self):
         width = self.width
         if width == 0:
@@ -622,6 +644,15 @@ class Slice(Expression):
             if leadingZeroes != 0:
                 exprs.insert(0, IntLiteral(0, IntType(leadingZeroes)))
             return Concatenation(*exprs).simplify()
+        elif isinstance(expr, AddOperator):
+            if index == 0:
+                # Distribute slicing over terms.
+                assert leadingZeroes == 0, self # since ewidth is None
+                alt = AddOperator(
+                    *(Slice(term, 0, width) for term in expr.exprs)
+                    ).simplify()
+                if alt._complexity() < expr._complexity():
+                    return Slice(alt, 0, width)
 
         if leadingZeroes != 0:
             return Concatenation(

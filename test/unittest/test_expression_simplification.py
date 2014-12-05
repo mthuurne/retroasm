@@ -333,6 +333,37 @@ class SliceTests(TestUtils):
             (Slice(b, 0, 3), Slice(c, 2, 6))
             )
 
+    def test_add(self):
+        '''Tests simplification of slicing an addition.'''
+        h = LocalValue('H', IntType(8))
+        l = LocalValue('L', IntType(8))
+        hl = Concatenation(h, l)
+        expr = AddOperator(hl, IntLiteral.create(2))
+        # Simplifcation fails because index is not 0.
+        up8 = Slice(expr, 8, 8)
+        up8s = up8.simplify()
+        self.assertEqual(str(up8s), str(up8))
+        self.assertEqual(up8s, up8)
+        self.assertIs(up8s, up8)
+        # Successful simplification: slice lowest 8 bits.
+        low8 = Slice(expr, 0, 8).simplify()
+        add8 = Slice(AddOperator(l, IntLiteral(2, IntType(8))), 0, 8)
+        self.assertEqual(str(low8), str(add8))
+        self.assertEqual(low8, add8)
+        # Successful simplification: slice lowest 6 bits.
+        low6 = Slice(expr, 0, 6).simplify()
+        add6 = Slice(
+            AddOperator(Slice(l, 0, 6), IntLiteral(2, IntType(6))
+            ), 0, 6)
+        self.assertEqual(str(low6), str(add6))
+        self.assertEqual(low6, add6)
+        # Simplification fails because expression becomes more complex.
+        low12 = Slice(expr, 0, 12)
+        low12s = low12.simplify()
+        self.assertEqual(str(low12s), str(low12))
+        self.assertEqual(low12s, low12)
+        self.assertIs(low12s, low12)
+
     def test_mixed(self):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
         addr = LocalValue('A', IntType(16))
