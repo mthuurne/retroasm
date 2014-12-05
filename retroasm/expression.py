@@ -515,6 +515,9 @@ class Slice(Expression):
     '''
     __slots__ = ('_expr', '_index')
 
+    expr = property(lambda self: self._expr)
+    index = property(lambda self: self._index)
+
     def __init__(self, expr, index, width):
         self._expr = Expression.checkInstance(expr)
         if not isinstance(index, int):
@@ -539,3 +542,93 @@ class Slice(Expression):
         return (self.width == other.width
             and self._index == other._index
             and self._expr == other._expr)
+
+    def simplify(self):
+        width = self.width
+        if width == 0:
+            # This slice is an empty bitstring.
+            return IntLiteral(0, self._type)
+
+        # If we're slicing beyond the subexpression's width, reduce the width
+        # of the slice and prepend leading zeroes.
+        leadingZeroes = 0
+        index = self._index
+        ewidth = self._expr.width
+        if ewidth is not None:
+            if index + width > ewidth:
+                if index >= ewidth:
+                    # This slice contains nothing but leading zeroes.
+                    return IntLiteral(0, self._type)
+                leadingZeroes = index + width - ewidth
+                width -= leadingZeroes
+                assert width > 0, width
+                assert index + width <= ewidth, self
+            elif width == ewidth:
+                # This slice spans exactly the expression being sliced.
+                assert index == 0, self
+                return self._expr.simplify()
+
+        expr = self._expr.simplify()
+        assert ewidth == expr.width, (self._expr, expr)
+
+        if isinstance(expr, IntLiteral):
+            return IntLiteral(
+                (expr.value >> index) & ((1 << width) - 1),
+                self._type
+                )
+        elif isinstance(expr, Slice):
+            # Combine both slice operations into a single slice.
+            index += expr._index
+            expr = expr._expr
+        elif isinstance(expr, Concatenation):
+            exprs = list(expr.exprs)
+            # Remove subexpressions that are entirely below slice range.
+            i = len(exprs) - 1
+            while i != 0:
+                subWidth = exprs[i].width
+                if subWidth > index:
+                    break
+                index -= subWidth
+                i -= 1
+            del exprs[i+1:]
+            # Skip subexpressions that are inside slice range.
+            offset = -index
+            while i != 0 and offset < width:
+                offset += exprs[i].width
+                i -= 1
+            # Remove subexpressions that are entirely above slice range.
+            if offset >= width:
+                del exprs[:i+1]
+            # Distribute slicing over concatenation subexpressions.
+            if len(exprs) == 0:
+                assert False, self
+            elif len(exprs) == 1:
+                exprs[0] = Slice(exprs[0], index, width)
+            else:
+                if index != 0:
+                    exprs[-1] = Slice(exprs[-1], index, exprs[-1].width - index)
+                if offset < width:
+                    # The original head (most significant) remains.
+                    newHeadWidth = width - offset
+                    if exprs[0].width is None or exprs[0].width > newHeadWidth:
+                        # Head value must be sliced.
+                        exprs[0] = Slice(exprs[0], 0, newHeadWidth)
+                else:
+                    # The original head (most significant) was cut off.
+                    if offset > width:
+                        exprs[0] = Slice(
+                            exprs[0], 0, exprs[0].width - (offset - width)
+                            )
+            if leadingZeroes != 0:
+                exprs.insert(0, IntLiteral(0, IntType(leadingZeroes)))
+            return Concatenation(*exprs).simplify()
+
+        if leadingZeroes != 0:
+            return Concatenation(
+                IntLiteral(0, IntType(leadingZeroes)),
+                Slice(expr, index, width)
+                ).simplify()
+        elif expr is self._expr:
+            return self
+        else:
+            return Slice(expr, index, width)

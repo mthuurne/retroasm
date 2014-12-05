@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, Complement, Concatenation, IntLiteral, IntType, LocalValue,
-    SubOperator
+    Slice, SubOperator
     )
 
 import unittest
@@ -41,6 +41,16 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(len(expr.exprs), len(subExprs))
         for actual, expected in zip(expr.exprs, subExprs):
             self.assertEqual(actual, expected)
+
+    def assertSlice(self, expr, subExpr, index, width):
+        comparison = Slice(subExpr, index, width)
+        self.assertEqual(str(expr), str(comparison))
+        self.assertEqual(expr, comparison)
+        self.assertIs(type(expr), Slice)
+        self.assertIs(type(expr.type), IntType)
+        self.assertEqual(expr.index, index)
+        self.assertEqual(expr.width, width)
+        self.assertEqual(expr.expr, subExpr)
 
 class AddTests(TestUtils):
 
@@ -251,6 +261,91 @@ class ConcatTests(TestUtils):
             arg3.simplify(),
             (addr, IntLiteral(0x963, IntType(12)), addr)
             )
+
+class SliceTests(TestUtils):
+
+    def test_literals(self):
+        '''Slices integer literals.'''
+        addr = IntLiteral(0xFD56, IntType(16))
+        self.assertUnsignedLiteral(Slice(addr, 0, 16).simplify(), 0xFD56, 16)
+        self.assertUnsignedLiteral(Slice(addr, 4, 8).simplify(), 0xD5, 8)
+        self.assertUnsignedLiteral(Slice(addr, 8, 12).simplify(), 0x0FD, 12)
+        signed = IntLiteral.create(-0x1995)
+        self.assertUnsignedLiteral(Slice(signed, 0, 16).simplify(), 0xE66B, 16)
+        self.assertUnsignedLiteral(Slice(signed, 4, 8).simplify(), 0x66, 8)
+        self.assertUnsignedLiteral(Slice(signed, 8, 12).simplify(), 0xFE6, 12)
+
+    def test_zero_width(self):
+        '''Takes a slices of width 0.'''
+        addr = LocalValue('A', IntType(16))
+        self.assertUnsignedLiteral(Slice(addr, 8, 0).simplify(), 0, 0)
+
+    def test_full_range(self):
+        '''Slices a range that exactly matches a value's type.'''
+        addr = LocalValue('A', IntType(16))
+        self.assertIs(Slice(addr, 0, 16).simplify(), addr)
+
+    def test_out_of_range(self):
+        '''Slices a range that is fully outside a value's type.'''
+        addr = LocalValue('A', IntType(16))
+        self.assertUnsignedLiteral(Slice(addr, 16, 8).simplify(), 0, 8)
+
+    def test_leading_zeroes(self):
+        '''Slices a range that is partially outside a value's type.'''
+        addr = LocalValue('A', IntType(16))
+        expr = Slice(addr, 0, 20).simplify() # $0xxxx
+        self.assertConcat(expr, (IntLiteral(0, IntType(4)), addr))
+        expr = Slice(addr, 8, 12).simplify() # $0xx
+        self.assertConcat(expr, (IntLiteral(0, IntType(4)), Slice(addr, 8, 8)))
+
+    def test_double_slice(self):
+        '''Slices a range from another slice.'''
+        addr = LocalValue('A', IntType(16))
+        expr = Slice(Slice(addr, 3, 10), 2, 6).simplify()
+        self.assertSlice(expr, addr, 5, 6)
+
+    def test_concat(self):
+        '''Slices a range from a concatenation.'''
+        a = LocalValue('A', IntType(8))
+        b = LocalValue('B', IntType(8))
+        c = LocalValue('C', IntType(8))
+        d = LocalValue('D', IntType(8))
+        abcd = Concatenation(a, b, c, d)
+        # Test slicing out individual values.
+        self.assertIs(Slice(abcd, 0, 8).simplify(), d)
+        self.assertIs(Slice(abcd, 8, 8).simplify(), c)
+        self.assertIs(Slice(abcd, 16, 8).simplify(), b)
+        self.assertIs(Slice(abcd, 24, 8).simplify(), a)
+        # Test slice edges at subexpression boundaries.
+        bc = Slice(abcd, 8, 16).simplify()
+        self.assertConcat(bc, (b, c))
+        self.assertEqual(bc.width, 16)
+        # Test one slice edge at subexpression boundaries.
+        self.assertSlice(Slice(abcd, 0, 5).simplify(), d, 0, 5)
+        self.assertSlice(Slice(abcd, 8, 5).simplify(), c, 0, 5)
+        self.assertSlice(Slice(abcd, 19, 5).simplify(), b, 3, 5)
+        self.assertSlice(Slice(abcd, 27, 5).simplify(), a, 3, 5)
+        # Test slice entirely inside one subexpression.
+        self.assertSlice(Slice(abcd, 10, 4).simplify(), c, 2, 4)
+        # Test slice across subexpression boundaries.
+        self.assertConcat(
+            Slice(abcd, 10, 9).simplify(),
+            (Slice(b, 0, 3), Slice(c, 2, 6))
+            )
+
+    def test_mixed(self):
+        '''Tests a mixture of slicing, concatenation and leading zeroes.'''
+        addr = LocalValue('A', IntType(16))
+        expr_int = Slice(
+            Concatenation(IntLiteral.create(7), Slice(addr, 8, 12)),
+            8, 8
+            )
+        self.assertUnsignedLiteral(expr_int.simplify(), 0x70, 8)
+        expr_u8 = Slice(
+            Concatenation(IntLiteral(7, IntType(4)), Slice(addr, 8, 12)),
+            8, 8
+            )
+        self.assertUnsignedLiteral(expr_u8.simplify(), 0x70, 8)
 
 if __name__ == '__main__':
     unittest.main()
