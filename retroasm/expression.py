@@ -288,7 +288,9 @@ class ComposedExpression(Expression):
     operator = property()
     associative = property()
     commutative = property()
+    idempotent = property()
     identity = property()
+    absorber = property()
     emptySubstitute = property(lambda self: self.identity)
 
     exprs = property(lambda self: self._exprs)
@@ -363,10 +365,31 @@ class ComposedExpression(Expression):
                 else:
                     exprs[i-1:i+1] = [expr]
 
+        absorber = self.absorber
+        if absorber is not None:
+            # If any absorber is present, the result is the absorber.
+            if any(expr == absorber for expr in exprs):
+                return absorber
+
         identity = self.identity
         if identity is not None:
             # Remove identity values.
             exprs = [expr for expr in exprs if expr != identity]
+
+        if self.idempotent:
+            # Remove duplicate values.
+            n = len(exprs)
+            i = 0
+            while i + 1 < n:
+                expr = exprs[i]
+                i += 1
+                j = i
+                while j < n:
+                    if exprs[j] == expr:
+                        del exprs[j]
+                        n -= 1
+                    else:
+                        j += 1
 
         self._customSimplify(exprs)
 
@@ -398,11 +421,71 @@ class ComposedExpression(Expression):
         '''
         pass
 
+class AndOperator(ComposedExpression):
+    operator = '&'
+    associative = True
+    commutative = True
+    idempotent = True
+    identity = IntLiteral.create(-1)
+    absorber = IntLiteral.create(0)
+
+    def __init__(self, *exprs):
+        ComposedExpression.__init__(self, exprs)
+
+    def _combineLiterals(self, literal1, literal2):
+        return IntLiteral.create(literal1.value & literal2.value)
+
+    def _customSimplify(self, exprs):
+        if not exprs:
+            return
+
+        # Figure out the minimum width of the result.
+        minWidth = None
+        def limitWidth(width):
+            nonlocal minWidth
+            if width is not None:
+                minWidth = width if minWidth is None else min(minWidth, width)
+        for expr in exprs:
+            limitWidth(expr.width)
+        # Previous simplifications made sure any literals are squashed into
+        # the last subexpression.
+        # Note that the literal value's width might be smaller than the width
+        # of its type: for example $00FF is a u16 with an 8-bit value.
+        last = exprs[-1]
+        if isinstance(last, IntLiteral) and last.value >= 0:
+            limitWidth(last.value.bit_length())
+
+        if minWidth is not None:
+            # Try slicing each subexpression to the minimum width.
+            changed = False
+            for i, expr in enumerate(exprs):
+                sliced = Slice(expr, 0, minWidth).simplify()
+                if sliced._complexity() < expr._complexity():
+                    exprs[i] = sliced
+                    changed = True
+            if changed:
+                # Force earlier simplification steps to run again.
+                exprs[:] = [AndOperator(*exprs).simplify()]
+                return
+
+            # If a bit mask application is essentially slicing, convert it
+            # to an actual Slice expression.
+            last = exprs[-1]
+            if isinstance(last, IntLiteral):
+                mask = (1 << minWidth) - 1
+                if last.value & mask == mask:
+                    exprs[:] = [
+                        Slice(AndOperator(*exprs[:-1]), 0, minWidth).simplify()
+                        ]
+                    return
+
 class AddOperator(ComposedExpression):
     operator = '+'
     associative = True
     commutative = True
+    idempotent = False
     identity = IntLiteral.create(0)
+    absorber = None
 
     def __init__(self, *exprs):
         ComposedExpression.__init__(self, exprs)
@@ -432,7 +515,9 @@ class SubOperator(ComposedExpression):
     operator = '-'
     associative = False
     commutative = False
+    idempotent = False
     identity = None # 0 is a right-identity only
+    absorber = None
 
     def __init__(self, *exprs):
         ComposedExpression.__init__(self, exprs)
@@ -489,10 +574,12 @@ class Concatenation(ComposedExpression):
     operator = ';'
     associative = True
     commutative = False
+    idempotent = False
     # Actually, the empty bitstring is the identity element for concatenation,
     # but there is no easy way to express that: a u0 typed literal is not an
     # option since it is considered equal to zero literals of other widths.
     identity = None
+    absorber = None
     emptySubstitute = IntLiteral(0, IntType(0))
 
     def __init__(self, *exprs):
@@ -576,11 +663,16 @@ class Slice(Expression):
             # This slice is an empty bitstring.
             return IntLiteral(0, self._type)
 
+        # Note that for example AndOperator's simplification can reduce the
+        # width of the subexpression, so do subexpression simplification before
+        # doing width-based simplifications.
+        expr = self._expr.simplify()
+
         # If we're slicing beyond the subexpression's width, reduce the width
         # of the slice and prepend leading zeroes.
         leadingZeroes = 0
         index = self._index
-        ewidth = self._expr.width
+        ewidth = expr.width
         if ewidth is not None:
             if index + width > ewidth:
                 if index >= ewidth:
@@ -593,10 +685,7 @@ class Slice(Expression):
             elif width == ewidth:
                 # This slice spans exactly the expression being sliced.
                 assert index == 0, self
-                return self._expr.simplify()
-
-        expr = self._expr.simplify()
-        assert ewidth == expr.width, (self._expr, expr)
+                return expr
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(
@@ -649,6 +738,12 @@ class Slice(Expression):
             if leadingZeroes != 0:
                 exprs.insert(0, IntLiteral(0, IntType(leadingZeroes)))
             return Concatenation(*exprs).simplify()
+        elif isinstance(expr, AndOperator):
+            alt = AndOperator(
+                *(Slice(term, index, width) for term in expr.exprs)
+                ).simplify()
+            if alt._complexity() < expr._complexity():
+                return Slice(alt, 0, width).simplify()
         elif isinstance(expr, AddOperator):
             if index == 0:
                 # Distribute slicing over terms.
