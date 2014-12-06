@@ -153,6 +153,17 @@ class ComplementTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         self.assertIs(Complement(Complement(addr)).simplify(), addr)
 
+    def test_subexpr(self):
+        '''Takes the complement of a simplifiable subexpression.'''
+        addr = LocalValue('A', IntType(16))
+        expr = Complement(Concatenation(
+            IntLiteral(0xC0, IntType(8)),
+            IntLiteral(0xDE, IntType(8)),
+            addr
+            )).simplify()
+        self.assertIs(type(expr), Complement)
+        self.assertConcat(expr.expr, (IntLiteral(0xC0DE, IntType(16)), addr))
+
 class ArithmeticTests(TestUtils):
 
     def test_int(self):
@@ -357,6 +368,35 @@ class SliceTests(TestUtils):
             ), 0, 6)
         self.assertEqual(str(low6), str(add6))
         self.assertEqual(low6, add6)
+        # Simplification fails because expression becomes more complex.
+        low12 = Slice(expr, 0, 12)
+        low12s = low12.simplify()
+        self.assertEqual(str(low12s), str(low12))
+        self.assertEqual(low12s, low12)
+        self.assertIs(low12s, low12)
+
+    def test_complement(self):
+        '''Tests simplification of slicing a complement.'''
+        h = LocalValue('H', IntType(8))
+        l = LocalValue('L', IntType(8))
+        hl = Concatenation(h, l)
+        expr = Complement(hl)
+        # Simplifcation fails because index is not 0.
+        up8 = Slice(expr, 8, 8)
+        up8s = up8.simplify()
+        self.assertEqual(str(up8s), str(up8))
+        self.assertEqual(up8s, up8)
+        self.assertIs(up8s, up8)
+        # Successful simplification: slice lowest 8 bits.
+        low8 = Slice(expr, 0, 8).simplify()
+        cpl8 = Slice(Complement(l), 0, 8)
+        self.assertEqual(str(low8), str(cpl8))
+        self.assertEqual(low8, cpl8)
+        # Successful simplification: slice lowest 6 bits.
+        low6 = Slice(expr, 0, 6).simplify()
+        cpl6 = Slice(Complement(Slice(l, 0, 6)), 0, 6)
+        self.assertEqual(str(low6), str(cpl6))
+        self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
         low12 = Slice(expr, 0, 12)
         low12s = low12.simplify()

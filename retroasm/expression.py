@@ -463,6 +463,9 @@ class Complement(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
+    def _complexity(self):
+        return 1 + self._expr._complexity()
+
     def simplify(self):
         expr = self._expr.simplify()
         if isinstance(expr, IntLiteral):
@@ -475,8 +478,10 @@ class Complement(Expression):
             return AddOperator(
                 *(Complement(term) for term in expr._exprs)
                 ).simplify()
-        else:
+        elif expr is self._expr:
             return self
+        else:
+            return Complement(expr)
 
 class Concatenation(ComposedExpression):
     '''Combines several expressions into one by concatenating their bit strings.
@@ -651,6 +656,13 @@ class Slice(Expression):
                 alt = AddOperator(
                     *(Slice(term, 0, width) for term in expr.exprs)
                     ).simplify()
+                if alt._complexity() < expr._complexity():
+                    return Slice(alt, 0, width)
+        elif isinstance(expr, Complement):
+            if index == 0:
+                # Apply slicing to subexpr.
+                assert leadingZeroes == 0, self # since ewidth is None
+                alt = Complement(Slice(expr.expr, 0, width)).simplify()
                 if alt._complexity() < expr._complexity():
                     return Slice(alt, 0, width)
 
