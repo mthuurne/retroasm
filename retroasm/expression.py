@@ -297,6 +297,8 @@ class ComposedExpression(Expression):
 
     def __init__(self, exprs, intType=IntType(None)):
         self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
+        if len(self._exprs) == 0:
+            raise ValueError('one or more subexpressions must be provided')
         Expression.__init__(self, intType)
 
     def __repr__(self):
@@ -621,6 +623,217 @@ class Concatenation(ComposedExpression):
             if exprs[i].width == 0:
                 del exprs[i]
 
+class Shift(Expression):
+    '''Drops the lower N bits from a bit string.
+    '''
+    __slots__ = ('_expr', '_offset')
+
+    expr = property(lambda self: self._expr)
+    offset = property(lambda self: self._offset)
+
+    def __init__(self, expr, offset):
+        self._expr = Expression.checkInstance(expr)
+        if not isinstance(offset, int):
+            raise TypeError('shift offset must be int, got %s' % type(offset))
+        self._offset = offset
+        width = expr.width
+        if width is not None:
+            width -= offset
+        Expression.__init__(self, IntType(width))
+
+    def __str__(self):
+        return '%s[%d:]' % (self._expr, self._offset)
+
+    def __repr__(self):
+        return 'Shift(%s, %d)' % (repr(self._expr), self._offset)
+
+    def _equals(self, other):
+        return (self._offset == other._offset
+            and self._expr == other._expr)
+
+    def _complexity(self):
+        return 1 + self._expr._complexity()
+
+    def simplify(self):
+        expr = self._expr.simplify()
+
+        offset = self._offset
+        if offset == 0:
+            # No actual shift occurs.
+            return expr
+
+        width = expr.width
+        if width is not None:
+            width -= offset
+            if width <= 0:
+                # Entire subexpression is discarded by the shift.
+                return IntLiteral.create(0)
+
+        if isinstance(expr, IntLiteral):
+            return IntLiteral(expr.value >> offset, IntType(width))
+        elif isinstance(expr, Shift):
+            # Combine both shifts into one.
+            return Shift(expr._expr, offset + expr._offset).simplify()
+        elif isinstance(expr, Truncation):
+            # Truncate after shifting: this maps better to the slice semantics.
+            return Truncation(Shift(expr.expr, offset), width).simplify()
+        elif isinstance(expr, Slice):
+            assert False
+        elif isinstance(expr, Concatenation):
+            exprs = list(expr.exprs)
+            # Remove subexpressions that are entirely below the shift offset.
+            i = len(exprs)
+            while i >= 1:
+                i -= 1
+                subWidth = exprs[i].width
+                if subWidth is None or subWidth > offset:
+                    break
+                del exprs[i]
+                offset -= subWidth
+            # The zero-width case was handled earlier and empty concatenations
+            # are not allowed, so there will be at least one subexpression left.
+            assert len(exprs) != 0, self
+            if offset != 0:
+                # Shift subexpression at the back.
+                exprs[-1] = Shift(exprs[-1], offset)
+            return Concatenation(*exprs).simplify()
+        elif isinstance(expr, AndOperator):
+            alt = AndOperator(
+                *(Shift(term, offset) for term in expr.exprs)
+                ).simplify()
+            if alt._complexity() < self._complexity():
+                return alt
+
+        if expr is self._expr:
+            return self
+        else:
+            return Shift(expr, offset)
+
+class Truncation(Expression):
+    '''Extracts the lower N bits from a bit string.
+    '''
+    __slots__ = ('_expr', )
+
+    expr = property(lambda self: self._expr)
+
+    def __init__(self, expr, width):
+        self._expr = Expression.checkInstance(expr)
+        Expression.__init__(self, IntType(width))
+
+    def __str__(self):
+        expr = self._expr
+        if isinstance(expr, Shift):
+            offset = expr.offset
+            return '%s[%d:%d]' % (expr.expr, offset, offset + self.width)
+        else:
+            return '%s[:%d]' % (self._expr, self.width)
+
+    def __repr__(self):
+        return 'Truncation(%s, %d)' % (repr(self._expr), self.width)
+
+    def _equals(self, other):
+        return (self.width == other.width
+            and self._expr == other._expr)
+
+    def _complexity(self):
+        return 1 + self._expr._complexity()
+
+    def simplify(self):
+        width = self.width
+        if width == 0:
+            # Every zero-width expression is equivalent to an empty bitstring.
+            return IntLiteral(0, self._type)
+
+        # Note that for example AndOperator's simplification can reduce the
+        # width of the subexpression, so do subexpression simplification before
+        # doing width-based simplifications.
+        expr = self._expr.simplify()
+
+        # If we're truncating beyond the subexpression's width, reduce the
+        # truncation width and prepend leading zeroes.
+        leadingZeroes = 0
+        ewidth = expr.width
+        if ewidth is not None:
+            if ewidth == 0:
+                # Result contains nothing but leading zeroes.
+                return IntLiteral(0, self._type)
+            elif ewidth < width:
+                leadingZeroes = width - ewidth
+                width -= leadingZeroes
+            elif width == ewidth:
+                # The subexpression is exactly the desired width:
+                # no truncation needed.
+                return expr
+            assert width <= ewidth, self
+
+        if isinstance(expr, IntLiteral):
+            return IntLiteral(expr.value & ((1 << width) - 1), self._type)
+        elif isinstance(expr, Shift):
+            subExpr = expr.expr
+            offset = expr.offset
+            alt = Truncation(subExpr, width + offset).simplify()
+            if alt._complexity() < subExpr._complexity():
+                expr = Shift(alt, offset).simplify()
+                leadingZeroes = self.width - expr.width
+        elif isinstance(expr, Truncation):
+            # Combine both truncations into one.
+            expr = expr._expr
+        elif isinstance(expr, Slice):
+            assert False
+        elif isinstance(expr, Concatenation):
+            exprs = list(expr.exprs)
+            # Remove subexpressions located entirely above the truncation point.
+            subWidth = 0
+            i = len(exprs)
+            while i >= 1 and subWidth < width:
+                i -= 1
+                subWidth += exprs[i].width
+            del exprs[:i]
+            # The zero-width case was handled earlier and empty concatenations
+            # are not allowed, so there will be at least one subexpression left.
+            assert len(exprs) != 0, self
+            if leadingZeroes != 0:
+                exprs.insert(0, IntLiteral(0, IntType(leadingZeroes)))
+                subWidth += leadingZeroes
+                assert subWidth == width, self
+            assert subWidth == sum(e.width for e in exprs), exprs
+            if subWidth > width:
+                # Truncate the subexpression at the front.
+                exprs[0] = Truncation(
+                    exprs[0], width - (subWidth - exprs[0].width)
+                    )
+            return Concatenation(*exprs).simplify()
+        elif isinstance(expr, AndOperator):
+            alt = AndOperator(
+                *(Truncation(term, width) for term in expr.exprs)
+                ).simplify()
+            if alt._complexity() < expr._complexity():
+                return Truncation(alt, width).simplify()
+        elif isinstance(expr, AddOperator):
+            # Distribute truncation over terms.
+            assert leadingZeroes == 0, self # since ewidth is None
+            alt = AddOperator(
+                *(Truncation(term, width) for term in expr.exprs)
+                ).simplify()
+            if alt._complexity() < expr._complexity():
+                return Truncation(alt, width)
+        elif isinstance(expr, Complement):
+            # Apply truncation to subexpr.
+            assert leadingZeroes == 0, self # since ewidth is None
+            alt = Complement(Truncation(expr.expr, width)).simplify()
+            if alt._complexity() < expr._complexity():
+                return Truncation(alt, width)
+
+        if leadingZeroes != 0:
+            return Concatenation(
+                IntLiteral(0, IntType(leadingZeroes)),
+                Truncation(expr, width)
+                ).simplify()
+        elif expr is self._expr:
+            return self
+        else:
+            return Truncation(expr, width)
+
 class Slice(Expression):
     '''Extracts a region from a bit string.
     '''
@@ -658,115 +871,8 @@ class Slice(Expression):
         return 2 + self._expr._complexity()
 
     def simplify(self):
-        width = self.width
-        if width == 0:
-            # This slice is an empty bitstring.
-            return IntLiteral(0, self._type)
-
-        # Note that for example AndOperator's simplification can reduce the
-        # width of the subexpression, so do subexpression simplification before
-        # doing width-based simplifications.
-        expr = self._expr.simplify()
-
-        # If we're slicing beyond the subexpression's width, reduce the width
-        # of the slice and prepend leading zeroes.
-        leadingZeroes = 0
+        expr = self._expr
         index = self._index
-        ewidth = expr.width
-        if ewidth is not None:
-            if index + width > ewidth:
-                if index >= ewidth:
-                    # This slice contains nothing but leading zeroes.
-                    return IntLiteral(0, self._type)
-                leadingZeroes = index + width - ewidth
-                width -= leadingZeroes
-                assert width > 0, width
-                assert index + width <= ewidth, self
-            elif width == ewidth:
-                # This slice spans exactly the expression being sliced.
-                assert index == 0, self
-                return expr
-
-        if isinstance(expr, IntLiteral):
-            return IntLiteral(
-                (expr.value >> index) & ((1 << width) - 1),
-                self._type
-                )
-        elif isinstance(expr, Slice):
-            # Combine both slice operations into a single slice.
-            index += expr._index
-            expr = expr._expr
-        elif isinstance(expr, Concatenation):
-            exprs = list(expr.exprs)
-            # Remove subexpressions that are entirely below slice range.
-            i = len(exprs) - 1
-            while i != 0:
-                subWidth = exprs[i].width
-                if subWidth > index:
-                    break
-                index -= subWidth
-                i -= 1
-            del exprs[i+1:]
-            # Skip subexpressions that are inside slice range.
-            offset = -index
-            while i != 0 and offset < width:
-                offset += exprs[i].width
-                i -= 1
-            # Remove subexpressions that are entirely above slice range.
-            if offset >= width:
-                del exprs[:i+1]
-            # Distribute slicing over concatenation subexpressions.
-            if len(exprs) == 0:
-                assert False, self
-            elif len(exprs) == 1:
-                exprs[0] = Slice(exprs[0], index, width)
-            else:
-                if index != 0:
-                    exprs[-1] = Slice(exprs[-1], index, exprs[-1].width - index)
-                if offset < width:
-                    # The original head (most significant) remains.
-                    newHeadWidth = width - offset
-                    if exprs[0].width is None or exprs[0].width > newHeadWidth:
-                        # Head value must be sliced.
-                        exprs[0] = Slice(exprs[0], 0, newHeadWidth)
-                else:
-                    # The original head (most significant) was cut off.
-                    if offset > width:
-                        exprs[0] = Slice(
-                            exprs[0], 0, exprs[0].width - (offset - width)
-                            )
-            if leadingZeroes != 0:
-                exprs.insert(0, IntLiteral(0, IntType(leadingZeroes)))
-            return Concatenation(*exprs).simplify()
-        elif isinstance(expr, AndOperator):
-            alt = AndOperator(
-                *(Slice(term, index, width) for term in expr.exprs)
-                ).simplify()
-            if alt._complexity() < expr._complexity():
-                return Slice(alt, 0, width).simplify()
-        elif isinstance(expr, AddOperator):
-            if index == 0:
-                # Distribute slicing over terms.
-                assert leadingZeroes == 0, self # since ewidth is None
-                alt = AddOperator(
-                    *(Slice(term, 0, width) for term in expr.exprs)
-                    ).simplify()
-                if alt._complexity() < expr._complexity():
-                    return Slice(alt, 0, width)
-        elif isinstance(expr, Complement):
-            if index == 0:
-                # Apply slicing to subexpr.
-                assert leadingZeroes == 0, self # since ewidth is None
-                alt = Complement(Slice(expr.expr, 0, width)).simplify()
-                if alt._complexity() < expr._complexity():
-                    return Slice(alt, 0, width)
-
-        if leadingZeroes != 0:
-            return Concatenation(
-                IntLiteral(0, IntType(leadingZeroes)),
-                Slice(expr, index, width)
-                ).simplify()
-        elif expr is self._expr:
-            return self
-        else:
-            return Slice(expr, index, width)
+        if index != 0:
+            expr = Shift(expr, index)
+        return Truncation(expr, self.width).simplify()

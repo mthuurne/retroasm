@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LocalValue, Slice, SubOperator
+    LocalValue, Shift, Slice, SubOperator, Truncation
     )
 
 import unittest
@@ -43,14 +43,25 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(actual, expected)
 
     def assertSlice(self, expr, subExpr, index, width):
-        comparison = Slice(subExpr, index, width)
-        self.assertEqual(str(expr), str(comparison))
-        self.assertEqual(expr, comparison)
-        self.assertIs(type(expr), Slice)
+        needsShift = index != 0
+        shift = Shift(subExpr, index) if needsShift else subExpr
+        needsTrunc = subExpr.width != index + width
+        trunc = Truncation(shift, width) if needsTrunc else shift
+        self.assertEqual(str(expr), str(trunc))
+        self.assertEqual(expr, trunc)
+        self.assertIs(type(expr), type(trunc))
         self.assertIs(type(expr.type), IntType)
-        self.assertEqual(expr.index, index)
+        if needsShift:
+            shiftExpr = expr.expr if needsTrunc else expr
+            self.assertEqual(str(shiftExpr), str(shift))
+            self.assertEqual(shiftExpr, shift)
+            self.assertIs(type(shiftExpr), Shift)
+            self.assertIs(type(shiftExpr.type), IntType)
+            self.assertEqual(shiftExpr.offset, index)
+            self.assertEqual(shiftExpr.expr, subExpr)
+        else:
+            self.assertEqual(expr.expr, subExpr)
         self.assertEqual(expr.width, width)
-        self.assertEqual(expr.expr, subExpr)
 
 class AndTests(TestUtils):
 
@@ -393,7 +404,7 @@ class SliceTests(TestUtils):
         expr = Slice(addr, 0, 20).simplify() # $0xxxx
         self.assertConcat(expr, (IntLiteral(0, IntType(4)), addr))
         expr = Slice(addr, 8, 12).simplify() # $0xx
-        self.assertConcat(expr, (IntLiteral(0, IntType(4)), Slice(addr, 8, 8)))
+        self.assertConcat(expr, (IntLiteral(0, IntType(4)), Shift(addr, 8)))
 
     def test_double_slice(self):
         '''Slices a range from another slice.'''
@@ -427,7 +438,7 @@ class SliceTests(TestUtils):
         # Test slice across subexpression boundaries.
         self.assertConcat(
             Slice(abcd, 10, 9).simplify(),
-            (Slice(b, 0, 3), Slice(c, 2, 6))
+            (Truncation(b, 3), Shift(c, 2))
             )
 
     def test_and(self):
@@ -452,25 +463,21 @@ class SliceTests(TestUtils):
         hl = Concatenation(h, l)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
-        up8 = Slice(expr, 8, 8)
-        up8s = up8.simplify()
-        self.assertEqual(str(up8s), str(up8))
-        self.assertEqual(up8s, up8)
-        self.assertIs(up8s, up8)
+        self.assertSlice(Slice(expr, 8, 8).simplify(), expr, 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = Slice(expr, 0, 8).simplify()
-        add8 = Slice(AddOperator(l, IntLiteral(2, IntType(8))), 0, 8)
+        add8 = Truncation(AddOperator(l, IntLiteral(2, IntType(8))), 8)
         self.assertEqual(str(low8), str(add8))
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
         low6 = Slice(expr, 0, 6).simplify()
-        add6 = Slice(
-            AddOperator(Slice(l, 0, 6), IntLiteral(2, IntType(6))
-            ), 0, 6)
+        add6 = Truncation(
+            AddOperator(Truncation(l, 6), IntLiteral(2, IntType(6))
+            ), 6)
         self.assertEqual(str(low6), str(add6))
         self.assertEqual(low6, add6)
         # Simplification fails because expression becomes more complex.
-        low12 = Slice(expr, 0, 12)
+        low12 = Truncation(expr, 12)
         low12s = low12.simplify()
         self.assertEqual(str(low12s), str(low12))
         self.assertEqual(low12s, low12)
@@ -484,22 +491,19 @@ class SliceTests(TestUtils):
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
         up8 = Slice(expr, 8, 8)
-        up8s = up8.simplify()
-        self.assertEqual(str(up8s), str(up8))
-        self.assertEqual(up8s, up8)
-        self.assertIs(up8s, up8)
+        self.assertSlice(up8.simplify(), expr, 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = Slice(expr, 0, 8).simplify()
-        cpl8 = Slice(Complement(l), 0, 8)
+        cpl8 = Truncation(Complement(l), 8)
         self.assertEqual(str(low8), str(cpl8))
         self.assertEqual(low8, cpl8)
         # Successful simplification: slice lowest 6 bits.
         low6 = Slice(expr, 0, 6).simplify()
-        cpl6 = Slice(Complement(Slice(l, 0, 6)), 0, 6)
+        cpl6 = Truncation(Complement(Truncation(l, 6)), 6)
         self.assertEqual(str(low6), str(cpl6))
         self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
-        low12 = Slice(expr, 0, 12)
+        low12 = Truncation(expr, 12)
         low12s = low12.simplify()
         self.assertEqual(str(low12s), str(low12))
         self.assertEqual(low12s, low12)
