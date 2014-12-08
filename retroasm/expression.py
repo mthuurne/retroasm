@@ -613,7 +613,7 @@ class Concatenation(ComposedExpression):
             if exprs[i].width == 0:
                 del exprs[i]
 
-class Shift(Expression):
+class RShift(Expression):
     '''Drops the lower N bits from a bit string.
     '''
     __slots__ = ('_expr', '_offset')
@@ -635,7 +635,7 @@ class Shift(Expression):
         return '%s[%d:]' % (self._expr, self._offset)
 
     def __repr__(self):
-        return 'Shift(%s, %d)' % (repr(self._expr), self._offset)
+        return 'RShift(%s, %d)' % (repr(self._expr), self._offset)
 
     def _equals(self, other):
         return (self._offset == other._offset
@@ -661,12 +661,12 @@ class Shift(Expression):
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value >> offset, IntType(width))
-        elif isinstance(expr, Shift):
+        elif isinstance(expr, RShift):
             # Combine both shifts into one.
-            return Shift(expr._expr, offset + expr._offset).simplify()
+            return RShift(expr._expr, offset + expr._offset).simplify()
         elif isinstance(expr, Truncation):
             # Truncate after shifting: this maps better to the slice semantics.
-            return Truncation(Shift(expr.expr, offset), width).simplify()
+            return Truncation(RShift(expr.expr, offset), width).simplify()
         elif isinstance(expr, Concatenation):
             exprs = list(expr.exprs)
             # Remove subexpressions that are entirely below the shift offset.
@@ -683,11 +683,11 @@ class Shift(Expression):
             assert len(exprs) != 0, self
             if offset != 0:
                 # Shift subexpression at the back.
-                exprs[-1] = Shift(exprs[-1], offset)
+                exprs[-1] = RShift(exprs[-1], offset)
             return Concatenation(*exprs).simplify()
         elif isinstance(expr, AndOperator):
             alt = AndOperator(
-                *(Shift(term, offset) for term in expr.exprs)
+                *(RShift(term, offset) for term in expr.exprs)
                 ).simplify()
             if alt._complexity() < self._complexity():
                 return alt
@@ -695,7 +695,7 @@ class Shift(Expression):
         if expr is self._expr:
             return self
         else:
-            return Shift(expr, offset)
+            return RShift(expr, offset)
 
 class Truncation(Expression):
     '''Extracts the lower N bits from a bit string.
@@ -710,7 +710,7 @@ class Truncation(Expression):
 
     def __str__(self):
         expr = self._expr
-        if isinstance(expr, Shift):
+        if isinstance(expr, RShift):
             offset = expr.offset
             return '%s[%d:%d]' % (expr.expr, offset, offset + self.width)
         else:
@@ -756,12 +756,12 @@ class Truncation(Expression):
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value & ((1 << width) - 1), self._type)
-        elif isinstance(expr, Shift):
+        elif isinstance(expr, RShift):
             subExpr = expr.expr
             offset = expr.offset
             alt = Truncation(subExpr, width + offset).simplify()
             if alt._complexity() < subExpr._complexity():
-                expr = Shift(alt, offset).simplify()
+                expr = RShift(alt, offset).simplify()
                 leadingZeroes = self.width - expr.width
         elif isinstance(expr, Truncation):
             # Combine both truncations into one.
@@ -830,7 +830,7 @@ def createSlice(expr, index, width):
     '''Creates an expression that extracts a region from a bit string.
     '''
     if index != 0:
-        expr = Shift(expr, index)
+        expr = RShift(expr, index)
     if width != expr.width:
         expr = Truncation(expr, width)
     return expr

@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LocalValue, Shift, Truncation, createSlice, createSubtraction
+    LocalValue, RShift, Truncation, createSlice, createSubtraction
     )
 
 import unittest
@@ -44,7 +44,7 @@ class TestUtils(unittest.TestCase):
 
     def assertSlice(self, expr, subExpr, index, width):
         needsShift = index != 0
-        shift = Shift(subExpr, index) if needsShift else subExpr
+        shift = RShift(subExpr, index) if needsShift else subExpr
         needsTrunc = subExpr.width != index + width
         trunc = Truncation(shift, width) if needsTrunc else shift
         self.assertEqual(str(expr), str(trunc))
@@ -55,7 +55,7 @@ class TestUtils(unittest.TestCase):
             shiftExpr = expr.expr if needsTrunc else expr
             self.assertEqual(str(shiftExpr), str(shift))
             self.assertEqual(shiftExpr, shift)
-            self.assertIs(type(shiftExpr), Shift)
+            self.assertIs(type(shiftExpr), RShift)
             self.assertIs(type(shiftExpr.type), IntType)
             self.assertEqual(shiftExpr.offset, index)
             self.assertEqual(shiftExpr.expr, subExpr)
@@ -404,7 +404,7 @@ class SliceTests(TestUtils):
         expr = createSlice(addr, 0, 20).simplify() # $0xxxx
         self.assertConcat(expr, (IntLiteral(0, IntType(4)), addr))
         expr = createSlice(addr, 8, 12).simplify() # $0xx
-        self.assertConcat(expr, (IntLiteral(0, IntType(4)), Shift(addr, 8)))
+        self.assertConcat(expr, (IntLiteral(0, IntType(4)), RShift(addr, 8)))
 
     def test_double_slice(self):
         '''Slices a range from another slice.'''
@@ -438,7 +438,7 @@ class SliceTests(TestUtils):
         # Test slice across subexpression boundaries.
         self.assertConcat(
             createSlice(abcd, 10, 9).simplify(),
-            (Truncation(b, 3), Shift(c, 2))
+            (Truncation(b, 3), RShift(c, 2))
             )
 
     def test_and(self):
