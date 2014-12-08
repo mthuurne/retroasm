@@ -480,6 +480,20 @@ class AndOperator(ComposedExpression):
                     exprs[:] = [expr.simplify()]
                     return
 
+class OrOperator(ComposedExpression):
+    operator = '|'
+    associative = True
+    commutative = True
+    idempotent = True
+    identity = IntLiteral.create(0)
+    absorber = IntLiteral.create(-1)
+
+    def __init__(self, *exprs):
+        ComposedExpression.__init__(self, exprs)
+
+    def _combineLiterals(self, literal1, literal2):
+        return IntLiteral.create(literal1.value | literal2.value)
+
 class AddOperator(ComposedExpression):
     operator = '+'
     associative = True

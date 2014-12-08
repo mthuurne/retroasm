@@ -1,6 +1,7 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LShift, LocalValue, RShift, Truncation, createSlice, createSubtraction
+    LShift, LocalValue, OrOperator, RShift, Truncation, createSlice,
+    createSubtraction
     )
 
 import unittest
@@ -50,6 +51,25 @@ class TestUtils(unittest.TestCase):
                     )
                 )
 
+    def assertOr(self, expr, *args):
+        self.assertIs(type(expr), OrOperator)
+        exprs = expr.exprs
+        self.assertEqual(len(exprs), len(args))
+        found = [False] * len(exprs)
+        missing = []
+        for arg in args:
+            try:
+                found[exprs.index(arg)] = True
+            except ValueError:
+                missing.append(arg)
+        if missing:
+            raise AssertionError(
+                'mismatch on OR arguments: expected %s, got %s' % (
+                    ', '.join("'%s'" % e for e in missing),
+                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
+                    )
+                )
+
     def assertConcat(self, expr, subExprs):
         comparison = Concatenation(*subExprs)
         self.assertEqual(str(expr), str(comparison))
@@ -85,7 +105,7 @@ class TestUtils(unittest.TestCase):
 class AndTests(TestUtils):
 
     def test_literals(self):
-        '''Applies logical and to integer literals.'''
+        '''Applies logical AND to integer literals.'''
         a = IntLiteral(0xE3, IntType(8))
         b = IntLiteral(0x7A, IntType(8))
         self.assertIntLiteral(AndOperator(a, b).simplify(), 0x62)
@@ -94,7 +114,7 @@ class AndTests(TestUtils):
         self.assertIntLiteral(AndOperator(c, d).simplify(), 0x3400)
 
     def test_identity(self):
-        '''Simplifies logical and expressions containing -1.'''
+        '''Simplifies logical AND expressions containing -1.'''
         addr = LocalValue('A', IntType(16))
         ones = IntLiteral.create(-1)
         # Check whether identity values are filtered out.
@@ -105,7 +125,7 @@ class AndTests(TestUtils):
         self.assertIntLiteral(AndOperator(ones, ones, ones).simplify(), -1)
 
     def test_absorbtion(self):
-        '''Simplifies logical and expressions containing 0.'''
+        '''Simplifies logical AND expressions containing 0.'''
         addr = LocalValue('A', IntType(16))
         zero = IntLiteral.create(0)
         self.assertIntLiteral(AndOperator(zero, addr).simplify(), 0)
@@ -113,7 +133,7 @@ class AndTests(TestUtils):
         self.assertIntLiteral(AndOperator(addr, zero, addr).simplify(), 0)
 
     def test_idempotence(self):
-        '''Simplifies logical and expressions containing the duplicates.'''
+        '''Simplifies logical AND expressions containing duplicates.'''
         addr = LocalValue('A', IntType(16))
         self.assertIs(AndOperator(addr, addr).simplify(), addr)
         self.assertIs(AndOperator(addr, addr, addr).simplify(), addr)
@@ -121,7 +141,7 @@ class AndTests(TestUtils):
         self.assertAnd(AndOperator(mask, addr, mask).simplify(), addr, mask)
 
     def test_width(self):
-        '''Simplifies logical and expressions using the subexpression widths.'''
+        '''Simplifies logical AND expressions using the subexpression widths.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
         hl = Concatenation(h, l)
@@ -134,7 +154,7 @@ class AndTests(TestUtils):
         self.assertIs(AndOperator(hl, l).simplify(), l)
 
     def test_mask_to_slice(self):
-        '''Simplifies logical and expressions that are essentially slicing.'''
+        '''Simplifies logical AND expressions that are essentially slicing.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
         hl = Concatenation(h, l)
@@ -146,7 +166,7 @@ class AndTests(TestUtils):
         self.assertIs(AndOperator(hl, mask8).simplify(), l)
 
     def test_mask_concat(self):
-        '''Simplifies logical and expressions that are essentially slicing.'''
+        '''Simplifies logical AND expressions that are essentially slicing.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
         hl = Concatenation(h, l)
@@ -155,6 +175,44 @@ class AndTests(TestUtils):
             AndOperator(hl, IntLiteral(0xFF00, IntType(16))).simplify(),
             (h, IntLiteral(0, IntType(8)))
             )
+
+class OrTests(TestUtils):
+
+    def test_literals(self):
+        '''Applies logical OR to integer literals.'''
+        a = IntLiteral(0x4C, IntType(8))
+        b = IntLiteral(0x91, IntType(8))
+        self.assertIntLiteral(OrOperator(a, b).simplify(), 0xDD)
+        c = IntLiteral(0x00FF, IntType(16))
+        d = IntLiteral.create(0x120021)
+        self.assertIntLiteral(OrOperator(c, d).simplify(), 0x1200FF)
+
+    def test_identity(self):
+        '''Simplifies logical OR expressions containing 0.'''
+        addr = LocalValue('A', IntType(16))
+        zero = IntLiteral.create(0)
+        # Check whether identity values are filtered out.
+        self.assertIs(OrOperator(zero, addr).simplify(), addr)
+        self.assertIs(OrOperator(addr, zero).simplify(), addr)
+        self.assertIs(OrOperator(zero, addr, zero).simplify(), addr)
+        # Check graceful handling when zero subexpressions remain.
+        self.assertIntLiteral(OrOperator(zero, zero, zero).simplify(), 0)
+
+    def test_absorbtion(self):
+        '''Simplifies logical OR expressions containing -1.'''
+        addr = LocalValue('A', IntType(16))
+        ones = IntLiteral.create(-1)
+        self.assertIntLiteral(OrOperator(ones, addr).simplify(), -1)
+        self.assertIntLiteral(OrOperator(addr, ones).simplify(), -1)
+        self.assertIntLiteral(OrOperator(addr, ones, addr).simplify(), -1)
+
+    def test_idempotence(self):
+        '''Simplifies logical OR expressions containing duplicates.'''
+        addr = LocalValue('A', IntType(16))
+        self.assertIs(OrOperator(addr, addr).simplify(), addr)
+        self.assertIs(OrOperator(addr, addr, addr).simplify(), addr)
+        mask = LocalValue('M', IntType(16))
+        self.assertOr(OrOperator(mask, addr, mask).simplify(), addr, mask)
 
 class AddTests(TestUtils):
 
@@ -520,7 +578,7 @@ class SliceTests(TestUtils):
             )
 
     def test_and(self):
-        '''Tests simplification of slicing a logical and.'''
+        '''Tests simplification of slicing a logical AND.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
         hl = Concatenation(h, l)
