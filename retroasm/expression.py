@@ -613,6 +613,79 @@ class Concatenation(ComposedExpression):
             if exprs[i].width == 0:
                 del exprs[i]
 
+class LShift(Expression):
+    '''Shifts a bit string to the left, appending zero bits at the end.
+    '''
+    __slots__ = ('_expr', '_offset')
+
+    expr = property(lambda self: self._expr)
+    offset = property(lambda self: self._offset)
+
+    def __init__(self, expr, offset):
+        self._expr = Expression.checkInstance(expr)
+        if not isinstance(offset, int):
+            raise TypeError('shift offset must be int, got %s' % type(offset))
+        self._offset = offset
+        width = expr.width
+        if width is not None:
+            width += offset
+        Expression.__init__(self, IntType(width))
+
+    def __str__(self):
+        return '(%s << %d)' % (self._expr, self._offset)
+
+    def __repr__(self):
+        return 'LShift(%s, %d)' % (repr(self._expr), self._offset)
+
+    def _equals(self, other):
+        return (self._offset == other._offset
+            and self._expr == other._expr)
+
+    def _complexity(self):
+        return 1 + self._expr._complexity()
+
+    def simplify(self):
+        expr = self._expr.simplify()
+
+        offset = self._offset
+        if offset == 0:
+            # No actual shift occurs.
+            return expr
+
+        width = expr.width
+        if width is not None:
+            width += offset
+
+        if isinstance(expr, IntLiteral):
+            return IntLiteral(expr.value << offset, IntType(width))
+        elif isinstance(expr, LShift):
+            # Combine both shifts into one.
+            return LShift(expr._expr, offset + expr._offset).simplify()
+        elif isinstance(expr, RShift):
+            roffset = expr.offset
+            mask = (0 if expr.width is None else 1 << expr.width) - 1
+            masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
+            if roffset < offset:
+                # Left shift wins.
+                return LShift(masked, offset - roffset).simplify()
+            elif roffset == offset:
+                # Left and right shift cancel each other out.
+                return masked.simplify()
+            else:
+                # Right shift wins.
+                return RShift(masked, roffset - offset).simplify()
+        elif isinstance(expr, AndOperator):
+            alt = AndOperator(
+                *(LShift(term, offset) for term in expr.exprs)
+                ).simplify()
+            if alt._complexity() < self._complexity():
+                return alt
+
+        if expr is self._expr:
+            return self
+        else:
+            return LShift(expr, offset)
+
 class RShift(Expression):
     '''Drops the lower N bits from a bit string.
     '''
@@ -661,6 +734,17 @@ class RShift(Expression):
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value >> offset, IntType(width))
+        elif isinstance(expr, LShift):
+            loffset = expr.offset
+            if loffset < offset:
+                # Right shift wins.
+                return RShift(expr.expr, offset - loffset).simplify()
+            elif loffset == offset:
+                # Left and right shift cancel each other out.
+                return expr.expr
+            else:
+                # Left shift wins.
+                return LShift(expr.expr, loffset - offset).simplify()
         elif isinstance(expr, RShift):
             # Combine both shifts into one.
             return RShift(expr._expr, offset + expr._offset).simplify()
@@ -756,6 +840,15 @@ class Truncation(Expression):
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value & ((1 << width) - 1), self._type)
+        elif isinstance(expr, LShift):
+            offset = expr.offset
+            if offset >= width:
+                # Result contains nothing but trailing zeroes.
+                return IntLiteral(0, self._type)
+            else:
+                # Truncate before left-shifting.
+                trunc = Truncation(expr.expr, leadingZeroes + width - offset)
+                return LShift(trunc, offset).simplify()
         elif isinstance(expr, RShift):
             subExpr = expr.expr
             offset = expr.offset

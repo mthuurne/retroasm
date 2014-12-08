@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LocalValue, RShift, Truncation, createSlice, createSubtraction
+    LShift, LocalValue, RShift, Truncation, createSlice, createSubtraction
     )
 
 import unittest
@@ -30,6 +30,25 @@ class TestUtils(unittest.TestCase):
         self.assertIs(type(expr.type), IntType)
         self.assertEqual(expr.width, width)
         self.assertEqual(expr.value, value)
+
+    def assertAnd(self, expr, *args):
+        self.assertIs(type(expr), AndOperator)
+        exprs = expr.exprs
+        self.assertEqual(len(exprs), len(args))
+        found = [False] * len(exprs)
+        missing = []
+        for arg in args:
+            try:
+                found[exprs.index(arg)] = True
+            except ValueError:
+                missing.append(arg)
+        if missing:
+            raise AssertionError(
+                'mismatch on AND arguments: expected %s, got %s' % (
+                    ', '.join("'%s'" % e for e in missing),
+                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
+                    )
+                )
 
     def assertConcat(self, expr, subExprs):
         comparison = Concatenation(*subExprs)
@@ -99,11 +118,7 @@ class AndTests(TestUtils):
         self.assertIs(AndOperator(addr, addr).simplify(), addr)
         self.assertIs(AndOperator(addr, addr, addr).simplify(), addr)
         mask = LocalValue('M', IntType(16))
-        expr = AndOperator(mask, addr, mask).simplify()
-        self.assertIs(type(expr), AndOperator)
-        self.assertEqual(len(expr.exprs), 2)
-        self.assertTrue(addr in expr.exprs)
-        self.assertTrue(mask in expr.exprs)
+        self.assertAnd(AndOperator(mask, addr, mask).simplify(), addr, mask)
 
     def test_width(self):
         '''Simplifies logical and expressions using the subexpression widths.'''
@@ -112,17 +127,9 @@ class AndTests(TestUtils):
         hl = Concatenation(h, l)
         mask = IntLiteral(0x00F0, IntType(16))
         # Test whether (HL & $00F0) cuts off H.
-        expr1 = AndOperator(hl, mask).simplify()
-        self.assertIs(type(expr1), AndOperator)
-        self.assertEqual(len(expr1.exprs), 2)
-        self.assertTrue(mask in expr1.exprs)
-        self.assertTrue(l in expr1.exprs)
+        self.assertAnd(AndOperator(hl, mask).simplify(), mask, l)
         # Test whether (HL & H) cuts off H.
-        expr2 = AndOperator(hl, h).simplify()
-        self.assertIs(type(expr2), AndOperator)
-        self.assertEqual(len(expr2.exprs), 2)
-        self.assertTrue(h in expr2.exprs)
-        self.assertTrue(l in expr2.exprs)
+        self.assertAnd(AndOperator(hl, h).simplify(), h, l)
         # Test whether (HL & L) simplifies to L.
         self.assertIs(AndOperator(hl, l).simplify(), l)
 
@@ -293,6 +300,77 @@ class ArithmeticTests(TestUtils):
         arg2 = AddOperator(Complement(addr), IntLiteral.create(3))
         self.assertIs(createSubtraction(arg1, arg2).simplify(), addr)
 
+class LShiftTests(TestUtils):
+
+    def test_literals(self):
+        '''Shifts an integer literal to the left.'''
+        self.assertIntLiteral(
+            LShift(IntLiteral.create(0x1234), 8).simplify(),
+            0x123400
+            )
+        self.assertUnsignedLiteral(
+            LShift(IntLiteral(0xDA, IntType(8)), 16).simplify(),
+            0xDA0000, 24
+            )
+
+    def test_twice(self):
+        '''Shifts a value to the left twice.'''
+        addr = LocalValue('A', IntType(16))
+        expr = LShift(LShift(addr, 3), 5).simplify()
+        self.assertIs(type(expr), LShift)
+        self.assertIs(expr.expr, addr)
+        self.assertEqual(expr.offset, 8)
+
+    def test_rshift(self):
+        '''Tests left-shifting after right-shifting.'''
+        addr = LocalValue('A', IntType(16))
+        # Shift more to the right than to the left.
+        rwin = LShift(RShift(addr, 5), 3).simplify()
+        self.assertIs(type(rwin), RShift)
+        self.assertEqual(rwin.offset, 2)
+        self.assertAnd(rwin.expr, addr, IntLiteral.create(0xFFE0))
+        # Shift equal amounts to the right and to the left.
+        draw = LShift(RShift(addr, 4), 4).simplify()
+        self.assertAnd(draw, addr, IntLiteral.create(0xFFF0))
+        # Shift less to the right than to the left.
+        lwin = LShift(RShift(addr, 3), 5).simplify()
+        self.assertIs(type(lwin), LShift)
+        self.assertEqual(lwin.offset, 2)
+        self.assertAnd(lwin.expr, addr, IntLiteral.create(0xFFF8))
+
+    def test_truncate(self):
+        '''Tests truncation of a left-shifted expression.'''
+        h = LocalValue('H', IntType(8))
+        l = LocalValue('L', IntType(8))
+        hl = Concatenation(h, l)
+        # Shift H and L out of the truncation range.
+        expr1 = Truncation(LShift(hl, 8), 8).simplify()
+        self.assertUnsignedLiteral(expr1, 0, 8)
+        # Shift only H out of the truncation range.
+        expr2 = Truncation(LShift(hl, 8), 16).simplify()
+        self.assertIs(type(expr2), LShift)
+        self.assertIs(expr2.expr, l)
+        self.assertEqual(expr2.offset, 8)
+
+class RShiftTests(TestUtils):
+
+    def test_lshift(self):
+        '''Tests right-shifting after left-shifting.'''
+        addr = LocalValue('A', IntType(16))
+        # Shift less to the left than to the right.
+        rwin = RShift(LShift(addr, 3), 5).simplify()
+        self.assertIs(type(rwin), RShift)
+        self.assertEqual(rwin.offset, 2)
+        self.assertIs(rwin.expr, addr)
+        # Shift equal amounts to the left and to the right.
+        draw = RShift(LShift(addr, 4), 4).simplify()
+        self.assertIs(draw, addr)
+        # Shift more to the left than to the right.
+        lwin = RShift(LShift(addr, 5), 3).simplify()
+        self.assertIs(type(lwin), LShift)
+        self.assertEqual(lwin.offset, 2)
+        self.assertIs(lwin.expr, addr)
+
 class ConcatTests(TestUtils):
 
     def test_literals(self):
@@ -450,11 +528,7 @@ class SliceTests(TestUtils):
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
         self.assertSlice(createSlice(expr1, 8, 6).simplify(), h, 0, 6)
         # Test whether redundant slicing can be eliminated.
-        expr2 = createSlice(AndOperator(h, l), 0, 8).simplify()
-        self.assertIs(type(expr2), AndOperator)
-        self.assertEqual(len(expr2.exprs), 2)
-        self.assertTrue(h in expr2.exprs)
-        self.assertTrue(l in expr2.exprs)
+        self.assertAnd(createSlice(AndOperator(h, l), 0, 8).simplify(), h, l)
 
     def test_add(self):
         '''Tests simplification of slicing an addition.'''
