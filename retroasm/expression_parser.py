@@ -1,6 +1,6 @@
 from .expression import (
     AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
-    IntType, LocalReference, LocalValue, SubOperator, createSlice
+    IntType, LocalReference, LocalValue, createSlice, createSubtraction
     )
 
 def parseType(typeName):
@@ -21,7 +21,7 @@ def parseLocalDecl(typeDecl, name):
 
 _binaryOperators = {
     '+': AddOperator,
-    '-': SubOperator,
+    '-': createSubtraction,
 }
 
 def parseBinaryOperator(operator, exprStr, context):

@@ -491,6 +491,16 @@ class AddOperator(ComposedExpression):
     def __init__(self, *exprs):
         ComposedExpression.__init__(self, exprs)
 
+    def __str__(self):
+        exprs = self._exprs
+        fragments = [str(exprs[0])]
+        for expr in exprs[1:]:
+            if isinstance(expr, Complement):
+                fragments += ('-', str(expr.expr))
+            else:
+                fragments += ('+', str(expr))
+        return '(%s)' % ' '.join(fragments)
+
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value + literal2.value)
 
@@ -511,25 +521,6 @@ class AddOperator(ComposedExpression):
                 if idx < complIdx:
                     complIdx -= 1
                 del exprs[complIdx]
-
-class SubOperator(ComposedExpression):
-    operator = '-'
-    associative = False
-    commutative = False
-    idempotent = False
-    identity = None # 0 is a right-identity only
-    absorber = None
-
-    def __init__(self, *exprs):
-        ComposedExpression.__init__(self, exprs)
-
-    def simplify(self):
-        # Convert subtraction into addition of the complement, since the
-        # associativity and commutativity of addition allow for more
-        # simplifications.
-        return AddOperator(
-            self._exprs[0], *[Complement(expr) for expr in self._exprs[1:]]
-            ).simplify()
 
 class Complement(Expression):
     __slots__ = ('_expr',)
@@ -828,6 +819,12 @@ class Truncation(Expression):
             return self
         else:
             return Truncation(expr, width)
+
+def createSubtraction(expr1, *exprs):
+    '''Creates an expression that subtracts the second and subsequent arguments
+    from the first argument.
+    '''
+    return AddOperator(expr1, *(Complement(expr) for expr in exprs))
 
 def createSlice(expr, index, width):
     '''Creates an expression that extracts a region from a bit string.
