@@ -458,27 +458,26 @@ class AndOperator(ComposedExpression):
             limitWidth(last.value.bit_length())
 
         if minWidth is not None:
-            # Try slicing each subexpression to the minimum width.
+            # Try truncating each subexpression to the minimum width.
             changed = False
             for i, expr in enumerate(exprs):
-                sliced = Slice(expr, 0, minWidth).simplify()
-                if sliced._complexity() < expr._complexity():
-                    exprs[i] = sliced
+                trunc = Truncation(expr, minWidth).simplify()
+                if trunc._complexity() < expr._complexity():
+                    exprs[i] = trunc
                     changed = True
             if changed:
                 # Force earlier simplification steps to run again.
                 exprs[:] = [AndOperator(*exprs).simplify()]
                 return
 
-            # If a bit mask application is essentially slicing, convert it
-            # to an actual Slice expression.
+            # If a bit mask application is essentially truncating, convert it
+            # to an actual Truncation expression.
             last = exprs[-1]
             if isinstance(last, IntLiteral):
                 mask = (1 << minWidth) - 1
                 if last.value & mask == mask:
-                    exprs[:] = [
-                        Slice(AndOperator(*exprs[:-1]), 0, minWidth).simplify()
-                        ]
+                    expr = Truncation(AndOperator(*exprs[:-1]), minWidth)
+                    exprs[:] = [expr.simplify()]
                     return
 
 class AddOperator(ComposedExpression):
@@ -677,8 +676,6 @@ class Shift(Expression):
         elif isinstance(expr, Truncation):
             # Truncate after shifting: this maps better to the slice semantics.
             return Truncation(Shift(expr.expr, offset), width).simplify()
-        elif isinstance(expr, Slice):
-            assert False
         elif isinstance(expr, Concatenation):
             exprs = list(expr.exprs)
             # Remove subexpressions that are entirely below the shift offset.
@@ -778,8 +775,6 @@ class Truncation(Expression):
         elif isinstance(expr, Truncation):
             # Combine both truncations into one.
             expr = expr._expr
-        elif isinstance(expr, Slice):
-            assert False
         elif isinstance(expr, Concatenation):
             exprs = list(expr.exprs)
             # Remove subexpressions located entirely above the truncation point.
@@ -834,45 +829,11 @@ class Truncation(Expression):
         else:
             return Truncation(expr, width)
 
-class Slice(Expression):
-    '''Extracts a region from a bit string.
+def createSlice(expr, index, width):
+    '''Creates an expression that extracts a region from a bit string.
     '''
-    __slots__ = ('_expr', '_index')
-
-    expr = property(lambda self: self._expr)
-    index = property(lambda self: self._index)
-
-    def __init__(self, expr, index, width):
-        self._expr = Expression.checkInstance(expr)
-        if not isinstance(index, int):
-            raise TypeError('slice index must be int, got %s' % type(index))
-        if index < 0:
-            raise ValueError('slice index must not be negative: %d' % index)
-        self._index = index
-        Expression.__init__(self, IntType(width))
-
-    def __str__(self):
-        if self.width == 1:
-            return '%s[%s]' % (self._expr, self._index)
-        else:
-            return '%s[%s:%s]' % (
-                self._expr, self._index, self._index + self.width
-                )
-
-    def __repr__(self):
-        return 'Slice(%s, %d, %d)' % (repr(self._expr), self._index, self.width)
-
-    def _equals(self, other):
-        return (self.width == other.width
-            and self._index == other._index
-            and self._expr == other._expr)
-
-    def _complexity(self):
-        return 2 + self._expr._complexity()
-
-    def simplify(self):
-        expr = self._expr
-        index = self._index
-        if index != 0:
-            expr = Shift(expr, index)
-        return Truncation(expr, self.width).simplify()
+    if index != 0:
+        expr = Shift(expr, index)
+    if width != expr.width:
+        expr = Truncation(expr, width)
+    return expr
