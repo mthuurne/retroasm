@@ -341,10 +341,12 @@ class ComposedExpression(Expression):
         Expression.__init__(self, intType)
 
     def __repr__(self):
-        return '%s(%s)' % (
-            self.__class__.__name__,
-            ', '.join(repr(expr) for expr in self._exprs)
-            )
+        def genArgs():
+            for expr in self._exprs:
+                yield repr(expr)
+            if self._type is not IntType(None):
+                yield 'intType=%s' % repr(self._type)
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(genArgs()))
 
     def __str__(self):
         sep = ' %s ' % self.operator

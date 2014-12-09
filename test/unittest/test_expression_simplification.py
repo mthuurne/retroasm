@@ -593,7 +593,6 @@ class SliceTests(TestUtils):
         low12s = low12.simplify()
         self.assertEqual(str(low12s), str(low12))
         self.assertEqual(low12s, low12)
-        self.assertIs(low12s, low12)
 
     def test_complement(self):
         '''Tests simplification of slicing a complement.'''
