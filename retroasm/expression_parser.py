@@ -1,6 +1,7 @@
 from .expression import (
-    AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
-    IntType, LocalReference, LocalValue, createSlice, createSubtraction
+    AddOperator, Expression, IOChannel, IOReference, IntLiteral,
+    IntType, LocalReference, LocalValue,
+    createConcatenation, createSlice, createSubtraction
     )
 
 def parseType(typeName):
@@ -110,7 +111,7 @@ def parseTerminal(exprStr, context):
         return expr
 
 def parseConcat(exprStr, context):
-    return Concatenation(*(
+    return createConcatenation(*(
         parseTerminal(sub, context)
         for sub in exprStr.split(';')
         ))

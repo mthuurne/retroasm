@@ -1,7 +1,7 @@
 from retroasm.expression import (
-    AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LShift, LocalValue, OrOperator, RShift, Truncation, createSlice,
-    createSubtraction
+    AddOperator, AndOperator, Complement, IntLiteral, IntType,
+    LShift, LocalValue, OrOperator, RShift, Truncation,
+    createConcatenation, createSlice, createSubtraction
     )
 
 import unittest
@@ -131,7 +131,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions using the subexpression widths.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         mask = IntLiteral(0x00F0, IntType(16))
         # Test whether (HL & $00F0) cuts off H.
         self.assertAnd(AndOperator(hl, mask).simplify(), mask, l)
@@ -144,7 +144,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         # Test whether (HL & $003F) simplifies to L[0:6].
         mask6 = IntLiteral(0x003F, IntType(16))
         self.assertSlice(AndOperator(hl, mask6).simplify(), l, 0, 6)
@@ -156,7 +156,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         # Test whether (HL & $FF00) simplifies to H;$00.
         self.assertConcat(
             AndOperator(hl, IntLiteral(0xFF00, IntType(16))).simplify(),
@@ -287,7 +287,7 @@ class SubTests(TestUtils):
         d = AddOperator(b, a)
         self.assertIntLiteral(createSubtraction(c, c).simplify(), 0)
         self.assertIntLiteral(createSubtraction(c, d).simplify(), 0)
-        e = Concatenation(a, b)
+        e = createConcatenation(a, b)
         self.assertIntLiteral(createSubtraction(e, e).simplify(), 0)
 
 class ComplementTests(TestUtils):
@@ -305,7 +305,7 @@ class ComplementTests(TestUtils):
     def test_subexpr(self):
         '''Takes the complement of a simplifiable subexpression.'''
         addr = LocalValue('A', IntType(16))
-        expr = Complement(Concatenation(
+        expr = Complement(createConcatenation(
             IntLiteral(0xC0, IntType(8)),
             IntLiteral(0xDE, IntType(8)),
             addr
@@ -383,7 +383,7 @@ class LShiftTests(TestUtils):
         '''Tests truncation of a left-shifted expression.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         # Shift H and L out of the truncation range.
         expr1 = Truncation(LShift(hl, 8), 8).simplify()
         self.assertIntLiteral(expr1, 0)
@@ -420,21 +420,21 @@ class ConcatTests(TestUtils):
         im = Complement(ip)
         u4 = IntLiteral(0xD, IntType(4))
         u8 = IntLiteral(0x29, IntType(8))
-        cat_ip_u4 = Concatenation(ip, u4).simplify()
+        cat_ip_u4 = createConcatenation(ip, u4).simplify()
         self.assertIntLiteral(cat_ip_u4, 0x40 + 0xD)
-        cat_ip_u8 = Concatenation(ip, u8).simplify()
+        cat_ip_u8 = createConcatenation(ip, u8).simplify()
         self.assertIntLiteral(cat_ip_u8, 0x400 + 0x29)
-        cat_im_u4 = Concatenation(im, u4).simplify()
+        cat_im_u4 = createConcatenation(im, u4).simplify()
         self.assertIntLiteral(cat_im_u4, -0x40 + 0xD)
-        cat_im_u8 = Concatenation(im, u8).simplify()
+        cat_im_u8 = createConcatenation(im, u8).simplify()
         self.assertIntLiteral(cat_im_u8, -0x400 + 0x29)
-        cat_u4_u4 = Concatenation(u4, u4).simplify()
+        cat_u4_u4 = createConcatenation(u4, u4).simplify()
         self.assertIntLiteral(cat_u4_u4, 0xDD)
-        cat_u4_u8 = Concatenation(u4, u8).simplify()
+        cat_u4_u8 = createConcatenation(u4, u8).simplify()
         self.assertIntLiteral(cat_u4_u8, 0xD29)
-        cat_u8_u4 = Concatenation(u8, u4).simplify()
+        cat_u8_u4 = createConcatenation(u8, u4).simplify()
         self.assertIntLiteral(cat_u8_u4, 0x29D)
-        cat_u8_u8 = Concatenation(u8, u8).simplify()
+        cat_u8_u8 = createConcatenation(u8, u8).simplify()
         self.assertIntLiteral(cat_u8_u8, 0x2929)
 
     def test_identity(self):
@@ -442,46 +442,46 @@ class ConcatTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         # Check whether empty bitstrings are filtered out.
         empty = IntLiteral(0, IntType(0))
-        head = Concatenation(empty, addr, addr)
+        head = createConcatenation(empty, addr, addr)
         self.assertConcat(head.simplify(), (addr, addr))
-        mid = Concatenation(addr, empty, addr)
+        mid = createConcatenation(addr, empty, addr)
         self.assertConcat(mid.simplify(), (addr, addr))
-        tail = Concatenation(addr, addr, empty)
+        tail = createConcatenation(addr, addr, empty)
         self.assertConcat(tail.simplify(), (addr, addr))
-        many = Concatenation(
+        many = createConcatenation(
             empty, empty, addr, empty, empty, addr, empty, empty
             )
         self.assertConcat(many.simplify(), (addr, addr))
         # Check graceful handling when zero subexpressions remain.
-        only = Concatenation(empty, empty, empty)
+        only = createConcatenation(empty, empty, empty)
         self.assertIntLiteral(only.simplify(), 0)
         # Check whether non-empty fixed-width zero-valued bitstrings are kept.
         zero_u8 = IntLiteral(0, IntType(8))
-        mid_u8 = Concatenation(addr, zero_u8, addr)
+        mid_u8 = createConcatenation(addr, zero_u8, addr)
         self.assertConcat(mid_u8.simplify(), (addr, zero_u8, addr))
-        tail_u8 = Concatenation(addr, addr, zero_u8)
+        tail_u8 = createConcatenation(addr, addr, zero_u8)
         self.assertConcat(tail_u8.simplify(), (addr, addr, zero_u8))
         # Check whether unlimited-width zero-valued bitstrings are kept.
         zero_int = IntLiteral.create(0)
-        head_int = Concatenation(zero_int, addr, addr)
+        head_int = createConcatenation(zero_int, addr, addr)
         self.assertConcat(head_int.simplify(), (zero_int, addr, addr))
 
     def test_associative(self):
         '''Test simplification using the associativity of concatenation.
         '''
         addr = LocalValue('A', IntType(16))
-        arg1 = Concatenation(addr, addr) # (A ; A)
-        arg2 = Concatenation(arg1, arg1) # ((A ; A) ; (A ; A))
-        arg3 = Concatenation(arg1, arg2) # ((A ; A) ; ((A ; A) ; (A ; A)))
+        arg1 = createConcatenation(addr, addr) # (A ; A)
+        arg2 = createConcatenation(arg1, arg1) # ((A ; A) ; (A ; A))
+        arg3 = createConcatenation(arg1, arg2) # ((A ; A) ; ((A ; A) ; (A ; A)))
         self.assertConcat(arg3.simplify(), (addr, ) * 6)
 
     def test_associative2(self):
         '''Test simplification using the associativity of concatenation.
         '''
         addr = LocalValue('A', IntType(16))
-        arg1 = Concatenation(addr, IntLiteral(0x9, IntType(4))) # (A ; $9)
-        arg2 = Concatenation(IntLiteral(0x63, IntType(8)), addr) # ($63 ; A)
-        arg3 = Concatenation(arg1, arg2) # ((A ; $9) ; ($63 ; A))
+        arg1 = createConcatenation(addr, IntLiteral(0x9, IntType(4))) # (A ; $9)
+        arg2 = createConcatenation(IntLiteral(0x63, IntType(8)), addr) # ($63 ; A)
+        arg3 = createConcatenation(arg1, arg2) # ((A ; $9) ; ($63 ; A))
         self.assertConcat(
             arg3.simplify(),
             (addr, IntLiteral(0x963, IntType(12)), addr)
@@ -535,7 +535,7 @@ class SliceTests(TestUtils):
         b = LocalValue('B', IntType(8))
         c = LocalValue('C', IntType(8))
         d = LocalValue('D', IntType(8))
-        abcd = Concatenation(a, b, c, d)
+        abcd = createConcatenation(a, b, c, d)
         # Test slicing out individual values.
         self.assertIs(createSlice(abcd, 0, 8).simplify(), d)
         self.assertIs(createSlice(abcd, 8, 8).simplify(), c)
@@ -562,7 +562,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a logical AND.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         # Test whether slicing cuts off L.
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
         self.assertSlice(createSlice(expr1, 8, 6).simplify(), h, 0, 6)
@@ -573,7 +573,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing an addition.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
         up8 = createSlice(expr, 8, 8).simplify()
@@ -599,7 +599,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a complement.'''
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
-        hl = Concatenation(h, l)
+        hl = createConcatenation(h, l)
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
         up8 = createSlice(expr, 8, 8)
@@ -622,12 +622,16 @@ class SliceTests(TestUtils):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
         addr = LocalValue('A', IntType(16))
         expr_int = createSlice(
-            Concatenation(IntLiteral.create(7), createSlice(addr, 8, 12)),
+            createConcatenation(
+                IntLiteral.create(7), createSlice(addr, 8, 12)
+                ),
             8, 8
             )
         self.assertIntLiteral(expr_int.simplify(), 0x70)
         expr_u8 = createSlice(
-            Concatenation(IntLiteral(7, IntType(4)), createSlice(addr, 8, 12)),
+            createConcatenation(
+                IntLiteral(7, IntType(4)), createSlice(addr, 8, 12)
+                ),
             8, 8
             )
         self.assertIntLiteral(expr_u8.simplify(), 0x70)

@@ -616,48 +616,6 @@ class Complement(Expression):
         else:
             return Complement(expr)
 
-class Concatenation(ComposedExpression):
-    '''Combines several expressions into one by concatenating their bit strings.
-    '''
-    operator = ';'
-    associative = True
-    commutative = False
-    idempotent = False
-    # Actually, the empty bitstring is the identity element for concatenation,
-    # but there is no easy way to express that: a u0 typed literal is not an
-    # option since it is considered equal to zero literals of other widths.
-    identity = None
-    absorber = None
-    emptySubstitute = IntLiteral(0, IntType(0))
-
-    def __init__(self, *exprs):
-        for n, expr in enumerate(exprs[1:], 2):
-            if Expression.checkInstance(expr).width is None:
-                raise ValueError(
-                    'all concatenation operands except the first must have '
-                    'a fixed width; operand %d has unlimited width' % n
-                    )
-        if Expression.checkInstance(exprs[0]).width is None:
-            width = None
-        else:
-            width = sum(expr.width for expr in exprs)
-        ComposedExpression.__init__(self, exprs, IntType(width))
-
-    def _equals(self, other):
-        return super()._equals(other) and all(
-            myExpr.width == otherExpr.width
-            for (myExpr, otherExpr) in zip(self._exprs[1:], other._exprs[1:])
-            )
-
-    def simplify(self):
-        exprs = []
-        offset = 0
-        for expr in reversed(self._exprs):
-            exprs.append(LShift(expr, offset))
-            if expr.width is not None:
-                offset += expr.width
-        return OrOperator(*exprs).simplify()
-
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
@@ -796,8 +754,6 @@ class RShift(Expression):
         elif isinstance(expr, Truncation):
             # Truncate after shifting: this maps better to the slice semantics.
             return Truncation(RShift(expr.expr, offset), width).simplify()
-        elif isinstance(expr, Concatenation):
-            assert False
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(RShift(term, offset) for term in expr.exprs)
@@ -878,8 +834,6 @@ class Truncation(Expression):
         elif isinstance(expr, Truncation):
             # Combine both truncations into one.
             return Truncation(expr._expr, width).simplify()
-        elif isinstance(expr, Concatenation):
-            assert False
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(Truncation(term, width) for term in expr.exprs)
@@ -918,3 +872,25 @@ def createSlice(expr, index, width):
     if width != expr.width:
         expr = Truncation(expr, width)
     return expr
+
+def createConcatenation(expr1, *exprs):
+    '''Creates an expression that concatenates the given bit strings.
+    '''
+    Expression.checkInstance(expr1)
+    for n, expr in enumerate(exprs, 2):
+        if Expression.checkInstance(expr).width is None:
+            raise ValueError(
+                'all concatenation operands except the first must have '
+                'a fixed width; operand %d has unlimited width' % n
+                )
+    if expr1.width is None:
+        width = None
+    else:
+        width = expr1.width + sum(expr.width for expr in exprs)
+    terms = []
+    offset = 0
+    for expr in reversed(exprs):
+        terms.append(LShift(expr, offset))
+        offset += expr.width
+    terms.append(LShift(expr1, offset))
+    return OrOperator(*terms, intType=IntType(width))
