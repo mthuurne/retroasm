@@ -13,23 +13,8 @@ class TestUtils(unittest.TestCase):
         with the given value.
         '''
         comparison = IntLiteral.create(value)
-        self.assertEqual(str(expr), str(comparison))
-        self.assertEqual(expr, comparison)
         self.assertIs(type(expr), IntLiteral)
         self.assertIs(type(expr.type), IntType)
-        self.assertIs(expr.width, None)
-        self.assertEqual(expr.value, value)
-
-    def assertUnsignedLiteral(self, expr, value, width):
-        '''Asserts that the given expression is a fixed-width unsigned literal
-        with the given value.
-        '''
-        comparison = IntLiteral(value, IntType(width))
-        self.assertEqual(str(expr), str(comparison))
-        self.assertEqual(expr, comparison)
-        self.assertIs(type(expr), IntLiteral)
-        self.assertIs(type(expr.type), IntType)
-        self.assertEqual(expr.width, width)
         self.assertEqual(expr.value, value)
 
     def assertAnd(self, expr, *args):
@@ -71,15 +56,17 @@ class TestUtils(unittest.TestCase):
                 )
 
     def assertConcat(self, expr, subExprs):
-        comparison = Concatenation(*subExprs)
-        self.assertEqual(str(expr), str(comparison))
-        self.assertEqual(expr, comparison)
-        self.assertIs(type(expr), Concatenation)
-        self.assertIs(type(expr.type), IntType)
-        self.assertEqual(expr.width, comparison.width)
-        self.assertEqual(len(expr.exprs), len(subExprs))
-        for actual, expected in zip(expr.exprs, subExprs):
-            self.assertEqual(actual, expected)
+        compExprs = []
+        offset = 0
+        for term in reversed(subExprs):
+            shifted = LShift(term, offset).simplify()
+            if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
+                compExprs.append(shifted)
+            if term.width is None:
+                offset = None
+            else:
+                offset += term.width
+        self.assertOr(expr, *compExprs)
 
     def assertSlice(self, expr, subExpr, index, width):
         needsShift = index != 0
@@ -366,9 +353,9 @@ class LShiftTests(TestUtils):
             LShift(IntLiteral.create(0x1234), 8).simplify(),
             0x123400
             )
-        self.assertUnsignedLiteral(
+        self.assertIntLiteral(
             LShift(IntLiteral(0xDA, IntType(8)), 16).simplify(),
-            0xDA0000, 24
+            0xDA0000
             )
 
     def test_twice(self):
@@ -384,17 +371,13 @@ class LShiftTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         # Shift more to the right than to the left.
         rwin = LShift(RShift(addr, 5), 3).simplify()
-        self.assertIs(type(rwin), RShift)
-        self.assertEqual(rwin.offset, 2)
-        self.assertAnd(rwin.expr, addr, IntLiteral.create(0xFFE0))
+        self.assertAnd(rwin, RShift(addr, 2), IntLiteral.create(0x3FF8))
         # Shift equal amounts to the right and to the left.
         draw = LShift(RShift(addr, 4), 4).simplify()
         self.assertAnd(draw, addr, IntLiteral.create(0xFFF0))
         # Shift less to the right than to the left.
         lwin = LShift(RShift(addr, 3), 5).simplify()
-        self.assertIs(type(lwin), LShift)
-        self.assertEqual(lwin.offset, 2)
-        self.assertAnd(lwin.expr, addr, IntLiteral.create(0xFFF8))
+        self.assertAnd(lwin, LShift(addr, 2), IntLiteral.create(0x3FFE0))
 
     def test_truncate(self):
         '''Tests truncation of a left-shifted expression.'''
@@ -403,7 +386,7 @@ class LShiftTests(TestUtils):
         hl = Concatenation(h, l)
         # Shift H and L out of the truncation range.
         expr1 = Truncation(LShift(hl, 8), 8).simplify()
-        self.assertUnsignedLiteral(expr1, 0, 8)
+        self.assertIntLiteral(expr1, 0)
         # Shift only H out of the truncation range.
         expr2 = Truncation(LShift(hl, 8), 16).simplify()
         self.assertIs(type(expr2), LShift)
@@ -446,13 +429,13 @@ class ConcatTests(TestUtils):
         cat_im_u8 = Concatenation(im, u8).simplify()
         self.assertIntLiteral(cat_im_u8, -0x400 + 0x29)
         cat_u4_u4 = Concatenation(u4, u4).simplify()
-        self.assertUnsignedLiteral(cat_u4_u4, 0xDD, 8)
+        self.assertIntLiteral(cat_u4_u4, 0xDD)
         cat_u4_u8 = Concatenation(u4, u8).simplify()
-        self.assertUnsignedLiteral(cat_u4_u8, 0xD29, 12)
+        self.assertIntLiteral(cat_u4_u8, 0xD29)
         cat_u8_u4 = Concatenation(u8, u4).simplify()
-        self.assertUnsignedLiteral(cat_u8_u4, 0x29D, 12)
+        self.assertIntLiteral(cat_u8_u4, 0x29D)
         cat_u8_u8 = Concatenation(u8, u8).simplify()
-        self.assertUnsignedLiteral(cat_u8_u8, 0x2929, 16)
+        self.assertIntLiteral(cat_u8_u8, 0x2929)
 
     def test_identity(self):
         '''Simplifies concatenations containing identity values.'''
@@ -471,11 +454,9 @@ class ConcatTests(TestUtils):
         self.assertConcat(many.simplify(), (addr, addr))
         # Check graceful handling when zero subexpressions remain.
         only = Concatenation(empty, empty, empty)
-        self.assertUnsignedLiteral(only.simplify(), 0, 0)
+        self.assertIntLiteral(only.simplify(), 0)
         # Check whether non-empty fixed-width zero-valued bitstrings are kept.
         zero_u8 = IntLiteral(0, IntType(8))
-        head_u8 = Concatenation(zero_u8, addr, addr)
-        self.assertConcat(head_u8.simplify(), (zero_u8, addr, addr))
         mid_u8 = Concatenation(addr, zero_u8, addr)
         self.assertConcat(mid_u8.simplify(), (addr, zero_u8, addr))
         tail_u8 = Concatenation(addr, addr, zero_u8)
@@ -511,18 +492,18 @@ class SliceTests(TestUtils):
     def test_literals(self):
         '''Slices integer literals.'''
         addr = IntLiteral(0xFD56, IntType(16))
-        self.assertUnsignedLiteral(createSlice(addr, 0, 16).simplify(), 0xFD56, 16)
-        self.assertUnsignedLiteral(createSlice(addr, 4, 8).simplify(), 0xD5, 8)
-        self.assertUnsignedLiteral(createSlice(addr, 8, 12).simplify(), 0x0FD, 12)
+        self.assertIntLiteral(createSlice(addr, 0, 16).simplify(), 0xFD56)
+        self.assertIntLiteral(createSlice(addr, 4, 8).simplify(), 0xD5)
+        self.assertIntLiteral(createSlice(addr, 8, 12).simplify(), 0x0FD)
         signed = IntLiteral.create(-0x1995)
-        self.assertUnsignedLiteral(createSlice(signed, 0, 16).simplify(), 0xE66B, 16)
-        self.assertUnsignedLiteral(createSlice(signed, 4, 8).simplify(), 0x66, 8)
-        self.assertUnsignedLiteral(createSlice(signed, 8, 12).simplify(), 0xFE6, 12)
+        self.assertIntLiteral(createSlice(signed, 0, 16).simplify(), 0xE66B)
+        self.assertIntLiteral(createSlice(signed, 4, 8).simplify(), 0x66)
+        self.assertIntLiteral(createSlice(signed, 8, 12).simplify(), 0xFE6)
 
     def test_zero_width(self):
         '''Takes a slices of width 0.'''
         addr = LocalValue('A', IntType(16))
-        self.assertUnsignedLiteral(createSlice(addr, 8, 0).simplify(), 0, 0)
+        self.assertIntLiteral(createSlice(addr, 8, 0).simplify(), 0)
 
     def test_full_range(self):
         '''Slices a range that exactly matches a value's type.'''
@@ -532,15 +513,15 @@ class SliceTests(TestUtils):
     def test_out_of_range(self):
         '''Slices a range that is fully outside a value's type.'''
         addr = LocalValue('A', IntType(16))
-        self.assertUnsignedLiteral(createSlice(addr, 16, 8).simplify(), 0, 8)
+        self.assertIntLiteral(createSlice(addr, 16, 8).simplify(), 0)
 
     def test_leading_zeroes(self):
         '''Slices a range that is partially outside a value's type.'''
         addr = LocalValue('A', IntType(16))
         expr = createSlice(addr, 0, 20).simplify() # $0xxxx
-        self.assertConcat(expr, (IntLiteral(0, IntType(4)), addr))
+        self.assertIs(expr, addr)
         expr = createSlice(addr, 8, 12).simplify() # $0xx
-        self.assertConcat(expr, (IntLiteral(0, IntType(4)), RShift(addr, 8)))
+        self.assertSlice(expr, addr, 8, 8)
 
     def test_double_slice(self):
         '''Slices a range from another slice.'''
@@ -595,21 +576,20 @@ class SliceTests(TestUtils):
         hl = Concatenation(h, l)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
-        self.assertSlice(createSlice(expr, 8, 8).simplify(), expr, 8, 8)
+        up8 = createSlice(expr, 8, 8).simplify()
+        self.assertSlice(up8, expr.simplify(), 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = createSlice(expr, 0, 8).simplify()
-        add8 = Truncation(AddOperator(l, IntLiteral(2, IntType(8))), 8)
-        self.assertEqual(str(low8), str(add8))
+        add8 = Truncation(AddOperator(l, IntLiteral.create(2)), 8)
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
         low6 = createSlice(expr, 0, 6).simplify()
         add6 = Truncation(
-            AddOperator(Truncation(l, 6), IntLiteral(2, IntType(6))
-            ), 6)
-        self.assertEqual(str(low6), str(add6))
+            AddOperator(Truncation(l, 6), IntLiteral.create(2)), 6
+            )
         self.assertEqual(low6, add6)
         # Simplification fails because expression becomes more complex.
-        low12 = Truncation(expr, 12)
+        low12 = Truncation(expr.simplify(), 12)
         low12s = low12.simplify()
         self.assertEqual(str(low12s), str(low12))
         self.assertEqual(low12s, low12)
@@ -623,7 +603,7 @@ class SliceTests(TestUtils):
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
         up8 = createSlice(expr, 8, 8)
-        self.assertSlice(up8.simplify(), expr, 8, 8)
+        self.assertSlice(up8.simplify(), expr.simplify(), 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = createSlice(expr, 0, 8).simplify()
         cpl8 = Truncation(Complement(l), 8)
@@ -635,11 +615,8 @@ class SliceTests(TestUtils):
         self.assertEqual(str(low6), str(cpl6))
         self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
-        low12 = Truncation(expr, 12)
-        low12s = low12.simplify()
-        self.assertEqual(str(low12s), str(low12))
-        self.assertEqual(low12s, low12)
-        self.assertIs(low12s, low12)
+        low12 = Truncation(expr, 12).simplify()
+        self.assertSlice(low12, expr.simplify(), 0, 12)
 
     def test_mixed(self):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
@@ -648,12 +625,12 @@ class SliceTests(TestUtils):
             Concatenation(IntLiteral.create(7), createSlice(addr, 8, 12)),
             8, 8
             )
-        self.assertUnsignedLiteral(expr_int.simplify(), 0x70, 8)
+        self.assertIntLiteral(expr_int.simplify(), 0x70)
         expr_u8 = createSlice(
             Concatenation(IntLiteral(7, IntType(4)), createSlice(addr, 8, 12)),
             8, 8
             )
-        self.assertUnsignedLiteral(expr_u8.simplify(), 0x70, 8)
+        self.assertIntLiteral(expr_u8.simplify(), 0x70)
 
 if __name__ == '__main__':
     unittest.main()
