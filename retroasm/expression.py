@@ -358,8 +358,13 @@ class ComposedExpression(Expression):
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
 
+    nodeComplexity = 1
+    '''Contribution of the expression node itself to expression complexity.'''
+
     def _complexity(self):
-        return 1 + sum(expr._complexity() for expr in self._exprs)
+        return self.nodeComplexity + sum(
+            expr._complexity() for expr in self._exprs
+            )
 
     def simplify(self):
         # Simplify the subexpressions individually.
@@ -478,6 +483,9 @@ class AndOperator(ComposedExpression):
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value & literal2.value)
 
+    _tryDistributeAndOverOr = True
+    '''Set this to False to block the simplification attempt.'''
+
     def _customSimplify(self, exprs):
         if not exprs:
             return
@@ -494,9 +502,10 @@ class AndOperator(ComposedExpression):
                     changed = True
             if changed:
                 # Force earlier simplification steps to run again.
-                exprs[:] = [
-                    AndOperator(*exprs, intType=IntType(width)).simplify()
-                    ]
+                alt = AndOperator(*exprs, intType=IntType(width))
+                if not self._tryDistributeAndOverOr:
+                    alt._tryDistributeAndOverOr = False
+                exprs[:] = [alt.simplify()]
                 return
 
             # If a bit mask application is essentially truncating, convert it
@@ -507,6 +516,23 @@ class AndOperator(ComposedExpression):
                 if last.value & mask == mask:
                     expr = Truncation(AndOperator(*exprs[:-1]), width)
                     exprs[:] = [expr.simplify()]
+                    return
+
+        myComplexity = self.nodeComplexity + sum(
+            expr._complexity() for expr in exprs
+            )
+        for i, expr in enumerate(exprs):
+            if isinstance(expr, OrOperator) and self._tryDistributeAndOverOr:
+                # Distribute AND over OR.
+                andExprs = exprs[:i] + exprs[i+1:]
+                alt = OrOperator(*(
+                    AndOperator(term, *andExprs)
+                    for term in expr.exprs
+                    ))
+                alt._tryDistributeOrOverAnd = False
+                alt = alt.simplify()
+                if alt._complexity() < myComplexity:
+                    exprs[:] = [alt]
                     return
 
 class OrOperator(ComposedExpression):
@@ -523,6 +549,9 @@ class OrOperator(ComposedExpression):
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value | literal2.value)
 
+    _tryDistributeOrOverAnd = True
+    '''Set this to False to block the simplification attempt.'''
+
     def _customSimplify(self, exprs):
         if not exprs:
             return
@@ -533,10 +562,30 @@ class OrOperator(ComposedExpression):
         if width is None:
             assert curWidth is None, self
         elif curWidth is None or width < curWidth:
-            exprs[:] = [OrOperator(*exprs, intType=IntType(width)).simplify()]
+            alt = OrOperator(*exprs, intType=IntType(width))
+            if not self._tryDistributeOrOverAnd:
+                alt._tryDistributeOrOverAnd = False
+            exprs[:] = [alt.simplify()]
             return
         else:
             assert width == curWidth, self
+
+        myComplexity = self.nodeComplexity + sum(
+            expr._complexity() for expr in exprs
+            )
+        for i, expr in enumerate(exprs):
+            if isinstance(expr, AndOperator) and self._tryDistributeOrOverAnd:
+                # Distribute OR over AND.
+                orExprs = exprs[:i] + exprs[i+1:]
+                alt = AndOperator(*(
+                    OrOperator(term, *orExprs)
+                    for term in expr.exprs
+                    ))
+                alt._tryDistributeAndOverOr = False
+                alt = alt.simplify()
+                if alt._complexity() < myComplexity:
+                    exprs[:] = [alt]
+                    return
 
 class AddOperator(ComposedExpression):
     operator = '+'

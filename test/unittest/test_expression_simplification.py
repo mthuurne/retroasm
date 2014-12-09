@@ -127,6 +127,17 @@ class AndTests(TestUtils):
         mask = LocalValue('M', IntType(16))
         self.assertAnd(AndOperator(mask, addr, mask).simplify(), addr, mask)
 
+    def test_or(self):
+        '''Simplifies expressions containing AND and OR.'''
+        a = LocalValue('A', IntType(8))
+        b = LocalValue('B', IntType(8))
+        # Test literal merging.
+        expr1 = OrOperator(a, IntLiteral.create(0x5500))
+        expr2 = AndOperator(expr1, IntLiteral.create(0xAAFF))
+        expr3 = expr2.simplify()
+        self.assertEqual(str(expr3), str(a))
+        self.assertIs(expr3, a)
+
     def test_width(self):
         '''Simplifies logical AND expressions using the subexpression widths.'''
         h = LocalValue('H', IntType(8))
@@ -200,6 +211,16 @@ class OrTests(TestUtils):
         self.assertIs(OrOperator(addr, addr, addr).simplify(), addr)
         mask = LocalValue('M', IntType(16))
         self.assertOr(OrOperator(mask, addr, mask).simplify(), addr, mask)
+
+    def test_and(self):
+        '''Simplifies expressions containing OR and AND.'''
+        x = LocalValue('X', IntType(8))
+        # (X & $55) | $AA  ==  (X | $AA) & ($55 | $AA)  ==  (X | $AA)
+        mask1 = IntLiteral.create(0x55)
+        mask2 = IntLiteral.create(0xAA)
+        expr1 = AndOperator(x, mask1)
+        expr2 = OrOperator(expr1, mask2)
+        self.assertOr(expr2.simplify(), x, mask2)
 
 class AddTests(TestUtils):
 
