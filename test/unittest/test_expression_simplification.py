@@ -143,13 +143,16 @@ class AndTests(TestUtils):
         h = LocalValue('H', IntType(8))
         l = LocalValue('L', IntType(8))
         hl = createConcatenation(h, l)
-        mask = IntLiteral(0x00F0, IntType(16))
+        maskLo = IntLiteral(0x00F0, IntType(16))
+        maskHi = IntLiteral(0xF000, IntType(16))
         # Test whether (HL & $00F0) cuts off H.
-        self.assertAnd(AndOperator(hl, mask).simplify(), mask, l)
+        self.assertAnd(AndOperator(hl, maskLo).simplify(), maskLo, l)
         # Test whether (HL & H) cuts off H.
         self.assertAnd(AndOperator(hl, h).simplify(), h, l)
         # Test whether (HL & L) simplifies to L.
         self.assertIs(AndOperator(hl, l).simplify(), l)
+        # Test whether ($F000 & L) simplifies to 0.
+        self.assertIntLiteral(AndOperator(maskHi, l).simplify(), 0)
 
     def test_mask_to_slice(self):
         '''Simplifies logical AND expressions that are essentially slicing.'''
@@ -169,10 +172,11 @@ class AndTests(TestUtils):
         l = LocalValue('L', IntType(8))
         hl = createConcatenation(h, l)
         # Test whether (HL & $FF00) simplifies to H;$00.
-        self.assertConcat(
-            AndOperator(hl, IntLiteral(0xFF00, IntType(16))).simplify(),
-            (h, IntLiteral(0, IntType(8)))
-            )
+        expr = AndOperator(hl, IntLiteral(0xFF00, IntType(16))).simplify()
+        self.assertIs(type(expr), LShift)
+        self.assertIs(expr.expr, h)
+        self.assertEqual(expr.offset, 8)
+
 
 class OrTests(TestUtils):
 

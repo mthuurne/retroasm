@@ -485,10 +485,16 @@ class AndOperator(ComposedExpression):
 
     _tryDistributeAndOverOr = True
     '''Set this to False to block the simplification attempt.'''
+    _tryMaskToShift = True
+    '''Set this to False to block the simplification attempt.'''
 
     def _customSimplify(self, exprs):
         if not exprs:
             return
+
+        myComplexity = self.nodeComplexity + sum(
+            expr._complexity() for expr in exprs
+            )
 
         curWidth = self.width
         width = minWidth(exprs)
@@ -505,22 +511,45 @@ class AndOperator(ComposedExpression):
                 alt = AndOperator(*exprs, intType=IntType(width))
                 if not self._tryDistributeAndOverOr:
                     alt._tryDistributeAndOverOr = False
+                if not self._tryMaskToShift:
+                    alt._tryMaskToShift = False
                 exprs[:] = [alt.simplify()]
                 return
 
-            # If a bit mask application is essentially truncating, convert it
-            # to an actual Truncation expression.
             last = exprs[-1]
             if isinstance(last, IntLiteral):
+                value = last.value
                 mask = (1 << width) - 1
-                if last.value & mask == mask:
+                if value & mask == mask:
+                    # This bit mask application is essentially truncating;
+                    # convert it to an actual Truncation expression.
                     expr = Truncation(AndOperator(*exprs[:-1]), width)
                     exprs[:] = [expr.simplify()]
                     return
 
-        myComplexity = self.nodeComplexity + sum(
-            expr._complexity() for expr in exprs
-            )
+                assert value != 0, self
+                trailingZeroes = 0
+                while (value >> trailingZeroes) & 1 == 0:
+                    trailingZeroes += 1
+                if trailingZeroes != 0:
+                    # Check whether there are any expressions that are fully
+                    # consumed by the trailing zeroes.
+                    for expr in exprs:
+                        width = expr.width
+                        if width is not None and width <= trailingZeroes:
+                            exprs[:] = [self.absorber]
+                            return
+                    if self._tryMaskToShift:
+                        clone = AndOperator(*exprs)
+                        clone._tryMaskToShift = False
+                        alt = LShift(
+                            RShift(clone, trailingZeroes),
+                            trailingZeroes
+                            ).simplify()
+                        if alt._complexity() < myComplexity:
+                            exprs[:] = [alt]
+                            return
+
         for i, expr in enumerate(exprs):
             if isinstance(expr, OrOperator) and self._tryDistributeAndOverOr:
                 # Distribute AND over OR.
@@ -719,6 +748,7 @@ class LShift(Expression):
             roffset = expr.offset
             mask = (0 if expr.width is None else 1 << expr.width) - 1
             masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
+            masked._tryMaskToShift = False
             if roffset < offset:
                 # Left shift wins.
                 return LShift(masked, offset - roffset).simplify()
@@ -731,7 +761,10 @@ class LShift(Expression):
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(LShift(term, offset) for term in expr.exprs)
-                ).simplify()
+                )
+            if not getattr(expr, '_tryMaskToShift', True):
+                alt._tryMaskToShift = False
+            alt = alt.simplify()
             if alt._complexity() <= self._complexity():
                 return alt
 
@@ -808,7 +841,10 @@ class RShift(Expression):
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(RShift(term, offset) for term in expr.exprs)
-                ).simplify()
+                )
+            if not getattr(expr, '_tryMaskToShift', True):
+                alt._tryMaskToShift = False
+            alt = alt.simplify()
             if alt._complexity() < self._complexity():
                 return alt
 
