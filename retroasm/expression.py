@@ -1006,15 +1006,22 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
             for (myExpr, otherExpr) in zip(self._exprs[1:], other._exprs[1:])
             )
 
+    def iterWithOffset(self):
+        '''Iterates through the concatenated expressions, where each element
+        is a pair of the expression and its offset in the concatenation.
+        '''
+        expr1, *exprs = self._exprs
+        offset = 0
+        for expr in reversed(exprs):
+            yield expr, offset
+            offset += expr.width
+        yield expr1, offset
+
     def _convert(self):
-        def genTerms():
-            expr1, *exprs = self._exprs
-            offset = 0
-            for expr in reversed(exprs):
-                yield LShift(expr, offset)
-                offset += expr.width
-            yield LShift(expr1, offset)
-        return OrOperator(*genTerms(), intType=self._type)
+        return OrOperator(
+            *(LShift(*eo) for eo in self.iterWithOffset()),
+            intType=self._type
+            )
 
 class Slice(PlaceholderExpression, Expression):
     '''Creates an expression that extracts a region from a bit string.
