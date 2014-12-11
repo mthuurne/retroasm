@@ -325,16 +325,10 @@ class ComposedExpression(Expression):
     '''
     __slots__ = ('_exprs',)
     operator = property()
-    associative = property()
-    commutative = property()
-    idempotent = property()
-    identity = property()
-    absorber = property()
-    emptySubstitute = property(lambda self: self.identity)
 
     exprs = property(lambda self: self._exprs)
 
-    def __init__(self, exprs, intType=IntType(None)):
+    def __init__(self, exprs, intType):
         self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
         if len(self._exprs) == 0:
             raise ValueError('one or more subexpressions must be provided')
@@ -357,6 +351,17 @@ class ComposedExpression(Expression):
             myExpr == otherExpr
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
+
+class SimplifiableComposedExpression(ComposedExpression):
+    '''Base class for composed expressions that can be simplified using
+    their algebraic properties.
+    '''
+    associative = property()
+    commutative = property()
+    idempotent = property()
+    identity = property()
+    absorber = property()
+    emptySubstitute = property(lambda self: self.identity)
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
@@ -469,7 +474,7 @@ class ComposedExpression(Expression):
         '''
         pass
 
-class AndOperator(ComposedExpression):
+class AndOperator(SimplifiableComposedExpression):
     operator = '&'
     associative = True
     commutative = True
@@ -478,7 +483,7 @@ class AndOperator(ComposedExpression):
     absorber = IntLiteral.create(0)
 
     def __init__(self, *exprs, intType=IntType(None)):
-        ComposedExpression.__init__(self, exprs, intType)
+        SimplifiableComposedExpression.__init__(self, exprs, intType)
 
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value & literal2.value)
@@ -564,7 +569,7 @@ class AndOperator(ComposedExpression):
                     exprs[:] = [alt]
                     return
 
-class OrOperator(ComposedExpression):
+class OrOperator(SimplifiableComposedExpression):
     operator = '|'
     associative = True
     commutative = True
@@ -573,7 +578,7 @@ class OrOperator(ComposedExpression):
     absorber = IntLiteral.create(-1)
 
     def __init__(self, *exprs, intType=IntType(None)):
-        ComposedExpression.__init__(self, exprs, intType)
+        SimplifiableComposedExpression.__init__(self, exprs, intType)
 
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value | literal2.value)
@@ -616,7 +621,7 @@ class OrOperator(ComposedExpression):
                     exprs[:] = [alt]
                     return
 
-class AddOperator(ComposedExpression):
+class AddOperator(SimplifiableComposedExpression):
     operator = '+'
     associative = True
     commutative = True
@@ -625,7 +630,7 @@ class AddOperator(ComposedExpression):
     absorber = None
 
     def __init__(self, *exprs):
-        ComposedExpression.__init__(self, exprs)
+        SimplifiableComposedExpression.__init__(self, exprs, IntType(None))
 
     def __str__(self):
         exprs = self._exprs
@@ -945,39 +950,111 @@ class Truncation(Expression):
         else:
             return Truncation(expr, width)
 
-def createSubtraction(expr1, *exprs):
-    '''Creates an expression that subtracts the second and subsequent arguments
-    from the first argument.
+class PlaceholderExpression:
+    '''Mixin for expressions that contain parse results in an accessible form,
+    but will be replaced by instances of a different class on simplification.
     '''
-    return AddOperator(expr1, *(Complement(expr) for expr in exprs))
 
-def createSlice(expr, index, width):
+    def _complexity(self):
+        # Encourage replacement of this expression in conditional
+        # simplification.
+        return 1 << 50
+
+    def _convert(self):
+        '''Returns an equivalent expression that can be simplified.
+        '''
+        raise NotImplementedError
+
+    def simplify(self):
+        return self._convert().simplify()
+
+class Subtraction(PlaceholderExpression, ComposedExpression):
+    '''Expression that subtracts the second and subsequent arguments from
+    the first argument.
+    '''
+    operator = '-'
+
+    def __init__(self, *exprs):
+        ComposedExpression.__init__(self, exprs, IntType(None))
+
+    def _convert(self):
+        expr1, *exprs = self._exprs
+        return AddOperator(expr1, *(Complement(expr) for expr in exprs))
+
+class Concatenation(PlaceholderExpression, ComposedExpression):
+    '''Expression that concatenates bit strings.
+    '''
+    operator = ';'
+
+    def __init__(self, expr1, *exprs):
+        Expression.checkInstance(expr1)
+        for n, expr in enumerate(exprs, 2):
+            if Expression.checkInstance(expr).width is None:
+                raise ValueError(
+                    'all concatenation operands except the first must have '
+                    'a fixed width; operand %d has unlimited width' % n
+                    )
+        if expr1.width is None:
+            width = None
+        else:
+            width = expr1.width + sum(expr.width for expr in exprs)
+        ComposedExpression.__init__(self, (expr1,) + exprs, IntType(width))
+
+    def _equals(self, other):
+        return super()._equals(other) and all(
+            myExpr.width == otherExpr.width
+            for (myExpr, otherExpr) in zip(self._exprs[1:], other._exprs[1:])
+            )
+
+    def _convert(self):
+        def genTerms():
+            expr1, *exprs = self._exprs
+            offset = 0
+            for expr in reversed(exprs):
+                yield LShift(expr, offset)
+                offset += expr.width
+            yield LShift(expr1, offset)
+        return OrOperator(*genTerms(), intType=self._type)
+
+class Slice(PlaceholderExpression, Expression):
     '''Creates an expression that extracts a region from a bit string.
     '''
-    if index != 0:
-        expr = RShift(expr, index)
-    if width != expr.width:
-        expr = Truncation(expr, width)
-    return expr
+    __slots__ = ('_expr', '_index')
 
-def createConcatenation(expr1, *exprs):
-    '''Creates an expression that concatenates the given bit strings.
-    '''
-    Expression.checkInstance(expr1)
-    for n, expr in enumerate(exprs, 2):
-        if Expression.checkInstance(expr).width is None:
-            raise ValueError(
-                'all concatenation operands except the first must have '
-                'a fixed width; operand %d has unlimited width' % n
+    expr = property(lambda self: self._expr)
+    index = property(lambda self: self._index)
+
+    def __init__(self, expr, index, width):
+        self._expr = Expression.checkInstance(expr)
+        if not isinstance(index, int):
+            raise TypeError('slice index must be int, got %s' % type(index))
+        if index < 0:
+            raise ValueError('slice index must not be negative: %d' % index)
+        self._index = index
+        Expression.__init__(self, IntType(width))
+
+    def __str__(self):
+        if self.width == 1:
+            return '%s[%d]' % (self._expr, self._index)
+        else:
+            return '%s[%d:%d]' % (
+                self._expr, self._index, self._index + self.width
                 )
-    if expr1.width is None:
-        width = None
-    else:
-        width = expr1.width + sum(expr.width for expr in exprs)
-    terms = []
-    offset = 0
-    for expr in reversed(exprs):
-        terms.append(LShift(expr, offset))
-        offset += expr.width
-    terms.append(LShift(expr1, offset))
-    return OrOperator(*terms, intType=IntType(width))
+
+    def __repr__(self):
+        return 'Slice(%s, %d, %d)' % (repr(self._expr), self._index, self.width)
+
+    def _equals(self, other):
+        return (self.width == other.width
+            and self._index == other._index
+            and self._expr == other._expr)
+
+    def _convert(self):
+        expr = self._expr
+        index = self._index
+        if index != 0:
+            expr = RShift(expr, index)
+        width = self.width
+        if width != expr.width:
+            expr = Truncation(expr, width)
+        return expr

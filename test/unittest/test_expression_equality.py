@@ -1,5 +1,5 @@
 from retroasm.expression import (
-    IntLiteral, IntType, LocalValue, createConcatenation, createSlice
+    Concatenation, IntLiteral, IntType, LocalValue, Slice
     )
 
 import unittest
@@ -65,9 +65,9 @@ class EqualsTests(unittest.TestCase):
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
         addr = IntLiteral(0xACDC, IntType(16))
-        cat_int_addr = createConcatenation(four_int, addr)
-        cat_u4_addr = createConcatenation(four_u4, addr)
-        cat_u8_addr = createConcatenation(four_u8, addr)
+        cat_int_addr = Concatenation(four_int, addr)
+        cat_u4_addr = Concatenation(four_u4, addr)
+        cat_u8_addr = Concatenation(four_u8, addr)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_int_addr, cat_int_addr)
         self.assertExprEqual(cat_u4_addr, cat_u4_addr)
@@ -82,8 +82,8 @@ class EqualsTests(unittest.TestCase):
         four_int = IntLiteral.create(4)
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
-        cat_u4_u8 = createConcatenation(four_u4, four_u8)
-        cat_u8_u4 = createConcatenation(four_u8, four_u4)
+        cat_u4_u8 = Concatenation(four_u4, four_u8)
+        cat_u8_u4 = Concatenation(four_u8, four_u4)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_u4_u8, cat_u4_u8)
         self.assertExprEqual(cat_u8_u4, cat_u8_u4)
@@ -93,16 +93,16 @@ class EqualsTests(unittest.TestCase):
 
     def test_slice_subexpr(self):
         '''Checks equality between slices with differing subexpressions.'''
-        slice1 = createSlice(IntLiteral.create(0x1234), 4, 8)
-        slice2 = createSlice(IntLiteral.create(0x5678), 4, 8)
+        slice1 = Slice(IntLiteral.create(0x1234), 4, 8)
+        slice2 = Slice(IntLiteral.create(0x5678), 4, 8)
         self.assertExprEqual(slice1, slice1)
         self.assertExprEqual(slice2, slice2)
         self.assertExprNotEqual(slice1, slice2)
 
     def test_slice_index(self):
         '''Checks equality between slices with differing indices.'''
-        slice1 = createSlice(IntLiteral.create(0x333), 0, 8)
-        slice2 = createSlice(IntLiteral.create(0x333), 4, 8)
+        slice1 = Slice(IntLiteral.create(0x333), 0, 8)
+        slice2 = Slice(IntLiteral.create(0x333), 4, 8)
         self.assertExprEqual(slice1, slice1)
         self.assertExprEqual(slice2, slice2)
         self.assertExprNotEqual(slice1, slice2)
@@ -110,9 +110,9 @@ class EqualsTests(unittest.TestCase):
     def test_slice_width(self):
         '''Checks equality between slices with differing widths.'''
         addr = IntLiteral(0x4567, IntType(16))
-        slice1 = createSlice(addr, 4, 8)  # $56
-        slice2 = createSlice(addr, 4, 12) # $456
-        slice3 = createSlice(addr, 4, 16) # $0456
+        slice1 = Slice(addr, 4, 8)  # $56
+        slice2 = Slice(addr, 4, 12) # $456
+        slice3 = Slice(addr, 4, 16) # $0456
         self.assertExprEqual(slice1, slice1)
         self.assertExprEqual(slice2, slice2)
         self.assertExprEqual(slice3, slice3)

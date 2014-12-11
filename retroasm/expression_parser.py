@@ -1,7 +1,6 @@
 from .expression import (
-    AddOperator, Expression, IOChannel, IOReference, IntLiteral,
-    IntType, LocalReference, LocalValue,
-    createConcatenation, createSlice, createSubtraction
+    AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
+    IntType, LocalReference, LocalValue, Slice, Subtraction
     )
 
 def parseType(typeName):
@@ -22,7 +21,7 @@ def parseLocalDecl(typeDecl, name):
 
 _binaryOperators = {
     '+': AddOperator,
-    '-': createSubtraction,
+    '-': Subtraction,
 }
 
 def parseBinaryOperator(operator, exprStr, context):
@@ -94,7 +93,7 @@ def parseTerminal(exprStr, context):
                     width = indexHi.value - index
                 except AttributeError:
                     raise ValueError('index is not constant: %s' % indexHi)
-            return createSlice(value, index, width)
+            return Slice(value, index, width)
     elif '+' in exprStr:
         return parseBinaryOperator('+', exprStr, context)
     elif '-' in exprStr:
@@ -111,7 +110,7 @@ def parseTerminal(exprStr, context):
         return expr
 
 def parseConcat(exprStr, context):
-    return createConcatenation(*(
+    return Concatenation(*(
         parseTerminal(sub, context)
         for sub in exprStr.split(';')
         ))
