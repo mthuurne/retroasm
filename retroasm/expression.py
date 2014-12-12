@@ -1,3 +1,4 @@
+from inspect import signature
 from weakref import WeakValueDictionary
 import re
 
@@ -120,6 +121,26 @@ class Expression:
             raise TypeError('type must be IntType, got %s' % type(intType))
         self._type = intType
 
+    def _ctorargs(self, *exprs, **kwargs):
+        '''Returns the constructor arguments that can be used to re-create
+        this expression. Any arguments passed to this method will acts as
+        overrides. The returned value must be a BoundArguments instance.
+        '''
+        raise NotImplementedError
+
+    def __repr__(self):
+        cls = self.__class__
+        def formatArgs():
+            ctorSignature = signature(cls)
+            binding = self._ctorargs()
+            for arg in binding.args:
+                yield repr(arg)
+            for name, value in binding.kwargs.items():
+                param = ctorSignature.parameters[name]
+                if value != param.default:
+                    yield '%s=%s' % (name, repr(value))
+        return '%s(%s)' % (cls.__name__, ', '.join(formatArgs()))
+
     def __eq__(self, other):
         if isinstance(other, Expression):
             if self.__class__ is other.__class__:
@@ -212,8 +233,13 @@ class IntLiteral(Expression):
                     )
         self._value = value
 
-    def __repr__(self):
-        return 'IntLiteral(%d, %s)' % (self._value, repr(self._type))
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take expression args' % cls.__name__)
+        kwargs.setdefault('value', self._value)
+        kwargs.setdefault('intType', self._type)
+        return signature(cls).bind(**kwargs)
 
     def __str__(self):
         width = self.width
@@ -259,10 +285,13 @@ class NamedValue(Expression):
         Expression.__init__(self, typ)
         self._name = name
 
-    def __repr__(self):
-        return '%s(%s, %s)' % (
-            self.__class__.__name__, repr(self._name), repr(self._type)
-            )
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take expression args' % cls.__name__)
+        kwargs.setdefault('name', self._name)
+        kwargs.setdefault('typ', self._type)
+        return signature(cls).bind(**kwargs)
 
     def __str__(self):
         return self._name
@@ -308,11 +337,16 @@ class IOReference(Expression, Reference):
         self._index = Expression.checkInstance(index)
         Expression.__init__(self, self._channel.elemType)
 
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take expression args' % cls.__name__)
+        kwargs.setdefault('channel', self._channel)
+        kwargs.setdefault('index', self._index)
+        return signature(cls).bind(**kwargs)
+
     def __str__(self):
         return '%s[%s]' % (self._channel.name, self._index)
-
-    def __repr__(self):
-        return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
 
     def _equals(self, other):
         return self._channel is other._channel and self._index == other._index
@@ -334,13 +368,11 @@ class ComposedExpression(Expression):
             raise ValueError('one or more subexpressions must be provided')
         Expression.__init__(self, intType)
 
-    def __repr__(self):
-        def genArgs():
-            for expr in self._exprs:
-                yield repr(expr)
-            if self._type is not IntType(None):
-                yield 'intType=%s' % repr(self._type)
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(genArgs()))
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = self._exprs
+        kwargs.setdefault('intType', self._type)
+        return signature(self.__class__).bind(*exprs, **kwargs)
 
     def __str__(self):
         sep = ' %s ' % self.operator
@@ -676,8 +708,10 @@ class Complement(Expression):
         self._expr = Expression.checkInstance(expr)
         Expression.__init__(self, IntType(None))
 
-    def __repr__(self):
-        return 'Complement(%s)' % repr(self._expr)
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        return signature(self.__class__).bind(*exprs, **kwargs)
 
     def __str__(self):
         return '-%s' % self._expr
@@ -723,11 +757,14 @@ class LShift(Expression):
             width += offset
         Expression.__init__(self, IntType(width))
 
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('offset', self._offset)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
     def __str__(self):
         return '(%s << %d)' % (self._expr, self._offset)
-
-    def __repr__(self):
-        return 'LShift(%s, %d)' % (repr(self._expr), self._offset)
 
     def _equals(self, other):
         return (self._offset == other._offset
@@ -800,11 +837,14 @@ class RShift(Expression):
             width = max(width - offset, 0)
         Expression.__init__(self, IntType(width))
 
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('offset', self._offset)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
     def __str__(self):
         return '%s[%d:]' % (self._expr, self._offset)
-
-    def __repr__(self):
-        return 'RShift(%s, %d)' % (repr(self._expr), self._offset)
 
     def _equals(self, other):
         return (self._offset == other._offset
@@ -873,6 +913,12 @@ class Truncation(Expression):
         self._expr = Expression.checkInstance(expr)
         Expression.__init__(self, IntType(width))
 
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('width', self.width)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
     def __str__(self):
         expr = self._expr
         if isinstance(expr, RShift):
@@ -880,9 +926,6 @@ class Truncation(Expression):
             return '%s[%d:%d]' % (expr.expr, offset, offset + self.width)
         else:
             return '%s[:%d]' % (self._expr, self.width)
-
-    def __repr__(self):
-        return 'Truncation(%s, %d)' % (repr(self._expr), self.width)
 
     def _equals(self, other):
         return (self.width == other.width
@@ -1007,6 +1050,11 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
             width = expr1.width + sum(expr.width for expr in exprs)
         ComposedExpression.__init__(self, (expr1,) + exprs, IntType(width))
 
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = self._exprs
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
     def _equals(self, other):
         return super()._equals(other) and all(
             myExpr.width == otherExpr.width
@@ -1047,6 +1095,13 @@ class Slice(PlaceholderExpression, Expression):
         self._index = index
         Expression.__init__(self, IntType(width))
 
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('index', self._index)
+        kwargs.setdefault('width', self.width)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
     def __str__(self):
         if self.width == 1:
             return '%s[%d]' % (self._expr, self._index)
@@ -1054,9 +1109,6 @@ class Slice(PlaceholderExpression, Expression):
             return '%s[%d:%d]' % (
                 self._expr, self._index, self._index + self.width
                 )
-
-    def __repr__(self):
-        return 'Slice(%s, %d, %d)' % (repr(self._expr), self._index, self.width)
 
     def _equals(self, other):
         return (self.width == other.width
