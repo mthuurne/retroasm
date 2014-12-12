@@ -356,6 +356,7 @@ class SimplifiableComposedExpression(ComposedExpression):
     '''Base class for composed expressions that can be simplified using
     their algebraic properties.
     '''
+    __slots__ = ()
     associative = property()
     commutative = property()
     idempotent = property()
@@ -475,6 +476,7 @@ class SimplifiableComposedExpression(ComposedExpression):
         pass
 
 class AndOperator(SimplifiableComposedExpression):
+    __slots__ = ('_tryDistributeAndOverOr', '_tryMaskToShift')
     operator = '&'
     associative = True
     commutative = True
@@ -485,13 +487,13 @@ class AndOperator(SimplifiableComposedExpression):
     def __init__(self, *exprs, intType=IntType(None)):
         SimplifiableComposedExpression.__init__(self, exprs, intType)
 
+        # Set this to False to block the simplification attempt.
+        self._tryDistributeAndOverOr = True
+        # Set this to False to block the simplification attempt.
+        self._tryMaskToShift = True
+
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value & literal2.value)
-
-    _tryDistributeAndOverOr = True
-    '''Set this to False to block the simplification attempt.'''
-    _tryMaskToShift = True
-    '''Set this to False to block the simplification attempt.'''
 
     def _customSimplify(self, exprs):
         if not exprs:
@@ -570,6 +572,7 @@ class AndOperator(SimplifiableComposedExpression):
                     return
 
 class OrOperator(SimplifiableComposedExpression):
+    __slots__ = ('_tryDistributeOrOverAnd', )
     operator = '|'
     associative = True
     commutative = True
@@ -580,11 +583,11 @@ class OrOperator(SimplifiableComposedExpression):
     def __init__(self, *exprs, intType=IntType(None)):
         SimplifiableComposedExpression.__init__(self, exprs, intType)
 
+        # Set this to False to block the simplification attempt.
+        self._tryDistributeOrOverAnd = True
+
     def _combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value | literal2.value)
-
-    _tryDistributeOrOverAnd = True
-    '''Set this to False to block the simplification attempt.'''
 
     def _customSimplify(self, exprs):
         if not exprs:
@@ -622,6 +625,7 @@ class OrOperator(SimplifiableComposedExpression):
                     return
 
 class AddOperator(SimplifiableComposedExpression):
+    __slots__ = ()
     operator = '+'
     associative = True
     commutative = True
@@ -954,6 +958,7 @@ class PlaceholderExpression:
     '''Mixin for expressions that contain parse results in an accessible form,
     but will be replaced by instances of a different class on simplification.
     '''
+    __slots__ = ()
 
     def _complexity(self):
         # Encourage replacement of this expression in conditional
@@ -972,6 +977,7 @@ class Subtraction(PlaceholderExpression, ComposedExpression):
     '''Expression that subtracts the second and subsequent arguments from
     the first argument.
     '''
+    __slots__ = ()
     operator = '-'
 
     def __init__(self, *exprs):
@@ -984,6 +990,7 @@ class Subtraction(PlaceholderExpression, ComposedExpression):
 class Concatenation(PlaceholderExpression, ComposedExpression):
     '''Expression that concatenates bit strings.
     '''
+    __slots__ = ()
     operator = ';'
 
     def __init__(self, expr1, *exprs):
