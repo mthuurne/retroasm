@@ -180,6 +180,41 @@ class Expression:
         '''
         return self
 
+    def substitute(self, func):
+        '''Applies the given substitution function to this expression and
+        returns the resulting expression.
+        The function is called for each node in the expression with that
+        node as the argument. If it returns None, the node is kept and the
+        substitution applied to its subnodes. If it returns an expression,
+        that expression is the substituted for the node.
+        '''
+        subst = func(self)
+        if subst is not None:
+            return subst
+
+        binding = self._ctorargs()
+        changed = False
+        for name, value in binding.arguments.items():
+            if isinstance(value, tuple):
+                substs = []
+                seqChanged = False
+                for expr in value:
+                    subst = expr.substitute(func)
+                    seqChanged |= subst is not expr
+                    substs.append(subst)
+                if seqChanged:
+                    binding.arguments[name] = tuple(substs)
+                    changed = True
+            elif isinstance(value, Expression):
+                subst = value.substitute(func)
+                if subst is not value:
+                    binding.arguments[name] = subst
+                    changed = True
+        if changed:
+            return self.__class__(*binding.args, **binding.kwargs)
+        else:
+            return self
+
 def minWidth(exprs):
     '''Returns the minimum of the widths of the given expressions.
     Unlimited width is considered larger than any fixed width.
@@ -331,6 +366,9 @@ class IOReference(Expression, Reference):
     '''Reference to a particular index on an I/O channel.
     '''
     __slots__ = ('_channel', '_index')
+
+    channel = property(lambda self: self._channel)
+    index = property(lambda self: self._index)
 
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)

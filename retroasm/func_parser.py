@@ -1,6 +1,6 @@
 from .expression import (
-    Concatenation, Expression, IOReference, IntLiteral, IntType, NamedValue,
-    Reference, Slice
+    Concatenation, Expression, IOReference, IntLiteral, IntType, LocalReference,
+    NamedValue, Reference, Register, Slice
     )
 from .expression_parser import parseExpr
 
@@ -36,6 +36,7 @@ class ConstantDef(Node):
 
     cid = property(lambda self: self._cid)
     expr = property(lambda self: self._expr)
+    type = property(lambda self: self._expr._type)
 
     def __init__(self, cid, expr):
         self._expr = Expression.checkInstance(expr)
@@ -48,6 +49,34 @@ class ConstantDef(Node):
 
     def __str__(self):
         return '{C%d} = %s' % (self._cid, self._expr)
+
+class Load(Node):
+    '''A node that loads a value from a storage location.
+    '''
+    __slots__ = ('_cid', '_storage')
+
+    cid = property(lambda self: self._cid)
+    storage = property(lambda self: self._storage)
+    type = property(lambda self: self._storage._type)
+
+    def __init__(self, cid, storage):
+        if not isinstance(cid, int):
+            raise TypeError('constant ID must be int, got %s' % type(cid))
+        if not isinstance(storage, (IOReference, NamedValue)):
+            raise TypeError('not a storage location: %s' % type(storage))
+        if isinstance(storage, IOReference):
+            if not isinstance(storage.index, Constant):
+                raise ValueError(
+                    'load needs a constant index, got %s' % type(storage.index)
+                    )
+        self._cid = cid
+        self._storage = storage
+
+    def __repr__(self):
+        return 'Load(%d, %s)' % (self._cid, repr(self._storage))
+
+    def __str__(self):
+        return 'load {C%d}, %s' % (self._cid, self._storage)
 
 class Store(Node):
     '''A node that stores a value into a storage location.
@@ -67,7 +96,7 @@ class Store(Node):
         return 'Store(%s, %s)' % (repr(self._storage), repr(self._value))
 
     def __str__(self):
-        return '%s := %s' % (self._storage, self._value)
+        return 'store %s, %s' % (self._storage, self._value)
 
 class Constant(Expression):
     '''A synthetic constant containing an intermediate value.
@@ -75,10 +104,10 @@ class Constant(Expression):
     __slots__ = ('_constDef',)
 
     def __init__(self, constDef):
-        if not isinstance(constDef, ConstantDef):
+        if not isinstance(constDef, (ConstantDef, Load)):
             raise TypeError('not a constant definition: %s' % type(constDef))
         self._constDef = constDef
-        Expression.__init__(self, IntType(None))
+        Expression.__init__(self, constDef.type)
 
     def __repr__(self):
         return 'Constant(%s)' % repr(self._constDef)
@@ -110,8 +139,46 @@ def parseFuncBody(log, lines, context):
         nodes.append(constantDef)
         return Constant(constantDef)
 
+    def emitLoad(storage):
+        load = Load(next(constantCounter), storage)
+        nodes.append(load)
+        return Constant(load)
+
     def emitStore(storage, value):
         nodes.append(Store(storage, value))
+
+    # TODO: We cannot perform substitution on LocalReferences until we know
+    #       the arguments passed to the function. So we have to limit the
+    #       kind of processing we do when parsing the function.
+
+    def constifyIOIndex(ref):
+        indexConst = emitConstant(ref.index.substitute(substituteConstants))
+        return IOReference(ref.channel, indexConst)
+
+    def substituteConstants(expr):
+        if not isinstance(expr, Reference):
+            return None
+        elif isinstance(expr, Register):
+            return emitLoad(expr)
+        elif isinstance(expr, IOReference):
+            return emitLoad(constifyIOIndex(expr))
+        elif isinstance(storage, LocalReference):
+            return None
+        else:
+            # Unknown Reference subclass.
+            assert False, storage
+
+    def substituteIndices(storage):
+        assert isinstance(storage, Reference), storage
+        if isinstance(storage, Register):
+            return storage
+        elif isinstance(storage, IOReference):
+            return constifyIOIndex(storage)
+        elif isinstance(storage, LocalReference):
+            return storage
+        else:
+            # Unknown Reference subclass.
+            assert False, storage
 
     for line in lines:
         parts = line.split(':=')
@@ -132,14 +199,16 @@ def parseFuncBody(log, lines, context):
                 error('error in right hand side of assignment: %s', str(ex))
                 continue
 
-            # TODO: Isolate I/O and dereferencing from both rhs and
-            #       the inner exprs of lhs.
-
-            rhsConst = emitConstant(rhs)
+            rhsConst = emitConstant(rhs.substitute(substituteConstants))
 
             errorsBefore = log.errors
-            for storage, offset in decomposeConcatenation(log, lhs):
-                emitStore(storage, Slice(rhsConst, offset, storage.width))
+            lhsConcats = [
+                (substituteIndices(storage), offset)
+                for storage, offset in decomposeConcatenation(log, lhs)
+                ]
             ok &= errorsBefore == log.errors
+
+            for storage, offset in lhsConcats:
+                emitStore(storage, Slice(rhsConst, offset, storage.width))
 
     return nodes if ok else None
