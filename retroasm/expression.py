@@ -136,8 +136,8 @@ class Expression:
             for arg in binding.args:
                 yield repr(arg)
             for name, value in binding.kwargs.items():
-                param = ctorSignature.parameters[name]
-                if value != param.default:
+                param = ctorSignature.parameters.get(name)
+                if param is None or param.default != value:
                     yield '%s=%s' % (name, repr(value))
         return '%s(%s)' % (cls.__name__, ', '.join(formatArgs()))
 
@@ -362,11 +362,13 @@ class ComposedExpression(Expression):
 
     exprs = property(lambda self: self._exprs)
 
-    def __init__(self, exprs, intType):
-        self._exprs = tuple(Expression.checkInstance(expr) for expr in exprs)
-        if len(self._exprs) == 0:
-            raise ValueError('one or more subexpressions must be provided')
+    def __init__(self, *exprs, intType=IntType(None)):
+        if not exprs:
+            raise TypeError('one or more subexpressions must be provided')
+        for expr in exprs:
+            Expression.checkInstance(expr)
         Expression.__init__(self, intType)
+        self._exprs = exprs
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -517,7 +519,7 @@ class AndOperator(SimplifiableComposedExpression):
     absorber = IntLiteral.create(0)
 
     def __init__(self, *exprs, intType=IntType(None)):
-        SimplifiableComposedExpression.__init__(self, exprs, intType)
+        SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeAndOverOr = True
@@ -613,7 +615,7 @@ class OrOperator(SimplifiableComposedExpression):
     absorber = IntLiteral.create(-1)
 
     def __init__(self, *exprs, intType=IntType(None)):
-        SimplifiableComposedExpression.__init__(self, exprs, intType)
+        SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeOrOverAnd = True
@@ -664,9 +666,6 @@ class AddOperator(SimplifiableComposedExpression):
     idempotent = False
     identity = IntLiteral.create(0)
     absorber = None
-
-    def __init__(self, *exprs):
-        SimplifiableComposedExpression.__init__(self, exprs, IntType(None))
 
     def __str__(self):
         exprs = self._exprs
@@ -1023,9 +1022,6 @@ class Subtraction(PlaceholderExpression, ComposedExpression):
     __slots__ = ()
     operator = '-'
 
-    def __init__(self, *exprs):
-        ComposedExpression.__init__(self, exprs, IntType(None))
-
     def _convert(self):
         expr1, *exprs = self._exprs
         return AddOperator(expr1, *(Complement(expr) for expr in exprs))
@@ -1048,7 +1044,7 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
             width = None
         else:
             width = expr1.width + sum(expr.width for expr in exprs)
-        ComposedExpression.__init__(self, (expr1,) + exprs, IntType(width))
+        ComposedExpression.__init__(self, expr1, *exprs, intType=IntType(width))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
