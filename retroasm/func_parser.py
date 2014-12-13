@@ -5,13 +5,8 @@ from .expression import (
 
 from itertools import count
 
-class Node:
-    '''Base class for nodes.
-    '''
-    __slots__ = ()
-
-class ConstantDef(Node):
-    '''A node that defines a local constant.
+class ConstantDef:
+    '''Definition of a local constant value.
     '''
     __slots__ = ('_cid', '_expr')
 
@@ -29,7 +24,12 @@ class ConstantDef(Node):
         return 'ConstantDef(%d, %s)' % (self._cid, repr(self._expr))
 
     def __str__(self):
-        return '{C%d} = %s' % (self._cid, self._expr)
+        return '%-3s %-4s = %s' % (self.type, '{C%d}' % self._cid, self._expr)
+
+class Node:
+    '''Base class for nodes.
+    '''
+    __slots__ = ()
 
 class Load(Node):
     '''A node that loads a value from a storage location.
@@ -114,11 +114,12 @@ def createFunc(log, assignments):
     Returns a list of nodes, or None on error.
     '''
     nodes = []
+    constants = []
 
     constantCounter = count()
     def emitConstant(expr):
         constantDef = ConstantDef(next(constantCounter), expr)
-        nodes.append(constantDef)
+        constants.append(constantDef)
         return Constant(constantDef)
 
     def emitLoad(storage):
@@ -177,4 +178,4 @@ def createFunc(log, assignments):
         for storage, offset in lhsDecomposed:
             emitStore(storage, Slice(rhsConst, offset, storage.width))
 
-    return nodes
+    return nodes, constants

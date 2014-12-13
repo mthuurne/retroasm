@@ -202,7 +202,7 @@ def _parseFunc(reader, argStr, context):
             assignments = _parseAssignments(
                 reader, reader.iterBlock(), combinedContext
                 )
-            body = createFunc(reader, assignments)
+            nodes, constants = createFunc(reader, assignments)
     except DelayedError:
         return
 
@@ -211,8 +211,10 @@ def _parseFunc(reader, argStr, context):
         funcName,
         ', '.join(arg.formatDecl() for arg in args.values())
         ))
-    for node in body:
+    for node in nodes:
         print('\t', node)
+    for const in constants:
+        print(const)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
