@@ -331,6 +331,13 @@ class NamedValue(Expression):
     def __str__(self):
         return self._name
 
+    def formatDecl(self):
+        return '%s%s %s' % (
+            self._type,
+            '&' if isinstance(self, Reference) else '',
+            self._name
+            )
+
     def _equals(self, other):
         # There must be one only instance of a class for each name.
         if self._name == other._name:

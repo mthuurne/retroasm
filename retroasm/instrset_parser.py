@@ -180,6 +180,14 @@ def _parseFunc(reader, argStr, context):
     localContext = dict(args)
     combinedContext = ChainMap(localContext, context.exprs)
     body = parseFuncBody(reader, reader.iterBlock(), combinedContext)
+    if body is not None:
+        print()
+        print('func %s(%s)' % (
+            funcName,
+            ', '.join(arg.formatDecl() for arg in args.values())
+            ))
+        for node in body:
+            print('\t', node)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
