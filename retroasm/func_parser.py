@@ -147,16 +147,7 @@ def createFunc(log, assignments):
         else:
             return emitLoad(expr)
 
-    def substituteIndices(storage):
-        if not isinstance(storage, Storage):
-            # decomposeConcatenation should have filtered out all non-storages.
-            assert False, storage
-        elif isinstance(storage, IOReference):
-            return constifyIOIndex(storage)
-        else:
-            return storage
-
-    def decomposeConcatenation(storage, top=True):
+    def decomposeLHS(storage, top=True):
         '''Iterates through the storage locations inside a concatenation.
         Each element is a pair of Storage and offset.
         '''
@@ -166,10 +157,12 @@ def createFunc(log, assignments):
             if top:
                 log.warning('assigning to literal has no effect')
         elif isinstance(storage, Storage):
+            if isinstance(storage, IOReference):
+                storage = constifyIOIndex(storage)
             yield storage, 0
         elif isinstance(storage, Concatenation):
             for concatTerm, concatOffset in storage.iterWithOffset():
-                for expr, offset in decomposeConcatenation(concatTerm, False):
+                for expr, offset in decomposeLHS(concatTerm, False):
                     yield expr, concatOffset + offset
         else:
             log.error('cannot assign to an arithmetical expression: %s', lhs)
@@ -177,12 +170,11 @@ def createFunc(log, assignments):
     for lhs, rhs in assignments:
         rhsConst = emitConstant(rhs.substitute(substituteConstants))
 
-        lhsConcats = [
-            (substituteIndices(storage), offset)
-            for storage, offset in decomposeConcatenation(lhs)
-            ]
+        # Create a list since we want to force emission of all loads before
+        # we emit any stores.
+        lhsDecomposed = list(decomposeLHS(lhs))
 
-        for storage, offset in lhsConcats:
+        for storage, offset in lhsDecomposed:
             emitStore(storage, Slice(rhsConst, offset, storage.width))
 
     return nodes
