@@ -3,7 +3,7 @@ from .expression_parser import parseConcat, parseLocalDecl, parseType
 from .linereader import DefLineReader
 from .func_parser import parseFuncBody
 
-from collections import ChainMap
+from collections import ChainMap, OrderedDict
 from logging import getLogger
 import re
 
@@ -117,57 +117,67 @@ def _parseIO(reader, argStr, context):
         else:
             reader.error('invalid I/O definition line')
 
+def _parseFuncArgs(log, argsStr):
+    '''Parses a function header, returning a pair consisting of the function
+    name and an OrderedDict of its arguments.
+    When errors are encountered, they are logged and ValueError is raised.
+    '''
+    ok = True
+    def error(msg, *args):
+        nonlocal ok
+        ok = False
+        log.error(msg, *args)
+
+    args = OrderedDict()
+    duplicates = set()
+    for argStr in argsStr.split(','):
+        try:
+            typeStr, argName = argStr.split()
+        except ValueError:
+            error(
+                'function argument "%s" not of the form "<type> <name>"',
+                argStr
+                )
+        else:
+            if argName in args:
+                duplicates.add(argName)
+            else:
+                try:
+                    arg = parseLocalDecl(typeStr, argName)
+                except ValueError as ex:
+                    error('bad function argument "%s": %s', argName, ex)
+                    # We still want to check for duplicates, so store
+                    # a dummy value in the local context.
+                    arg = None
+                args[argName] = arg
+    for argName in sorted(duplicates):
+        error('multiple arguments are named "%s"', argName)
+
+    if ok:
+        return args
+    else:
+        raise ValueError('error parsing function header; see log for details')
+
 _reFuncHeader = re.compile(_nameTok + r'\((.*)\)$')
 
 def _parseFunc(reader, argStr, context):
     # Parse header line.
-    args = []
-    localContext = {}
-    badHeader = False
     match = _reFuncHeader.match(argStr)
-    if match:
-        funcName, funcArgsStr = match.groups()
-        duplicates = set()
-        for funcArgStr in funcArgsStr.split(','):
-            try:
-                typeStr, argName = funcArgStr.split()
-            except ValueError:
-                reader.error(
-                    'function argument "%s" not of the form "<type> <name>"',
-                    funcArgStr
-                    )
-                badHeader = True
-            else:
-                if argName in localContext:
-                    duplicates.add(argName)
-                else:
-                    try:
-                        arg = parseLocalDecl(typeStr, argName)
-                    except ValueError as ex:
-                        reader.error(
-                            'bad function argument "%s": %s', argName, ex
-                            )
-                        badHeader = True
-                        # We still want to check for duplicates, so store
-                        # a dummy value in the local context.
-                        arg = None
-                    localContext[argName] = arg
-                    args.append(arg)
-        for argName in sorted(duplicates):
-            reader.error(
-                'multiple arguments to function "%s" are named "%s"',
-                funcName, argName
-                )
-            badHeader = True
-    else:
+    if not match:
         reader.error('invalid function header line')
-        badHeader = True
-    if badHeader:
-        # Avoid issuing meaningless errors.
+        reader.skipBlock()
+        return
+    funcName, funcArgsStr = match.groups()
+
+    # Parse arguments.
+    try:
+        args = _parseFuncArgs(reader, funcArgsStr)
+    except ValueError:
         reader.skipBlock()
         return
 
     # Parse body lines.
+    localContext = dict(args)
     combinedContext = ChainMap(localContext, context.exprs)
     body = parseFuncBody(reader, reader.iterBlock(), combinedContext)
 
