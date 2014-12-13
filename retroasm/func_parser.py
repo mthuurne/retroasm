@@ -113,12 +113,6 @@ def createFunc(log, assignments):
     '''Creates a function body from the given assignments.
     Returns a list of nodes, or None on error.
     '''
-    ok = True
-    def error(msg, *args):
-        nonlocal ok
-        ok = False
-        log.error(msg, *args)
-
     nodes = []
 
     constantCounter = count()
@@ -185,20 +179,17 @@ def createFunc(log, assignments):
                 for expr, offset in decomposeConcatenation(concatTerm, False):
                     yield expr, concatOffset + offset
         else:
-            error('cannot assign to an arithmetical expression: %s', lhs)
+            log.error('cannot assign to an arithmetical expression: %s', lhs)
 
-    try:
-        for lhs, rhs in assignments:
-            rhsConst = emitConstant(rhs.substitute(substituteConstants))
+    for lhs, rhs in assignments:
+        rhsConst = emitConstant(rhs.substitute(substituteConstants))
 
-            lhsConcats = [
-                (substituteIndices(storage), offset)
-                for storage, offset in decomposeConcatenation(lhs)
-                ]
+        lhsConcats = [
+            (substituteIndices(storage), offset)
+            for storage, offset in decomposeConcatenation(lhs)
+            ]
 
-            for storage, offset in lhsConcats:
-                emitStore(storage, Slice(rhsConst, offset, storage.width))
-    except ValueError:
-        ok = False
+        for storage, offset in lhsConcats:
+            emitStore(storage, Slice(rhsConst, offset, storage.width))
 
-    return nodes if ok else None
+    return nodes

@@ -71,6 +71,17 @@ class LineReader:
         self.__log(CRITICAL, 'FATAL: ' + msg, *args, **kwargs)
         self.lines = iter(())
 
+    @contextmanager
+    def checkErrors(self):
+        '''Returns a context manager that raises DelayedError on context close
+        if any errors were logged since the context was opened.
+        '''
+        errorsBefore = self.errors
+        yield self
+        numErrors = self.errors - errorsBefore
+        if numErrors != 0:
+            raise DelayedError('%d errors were logged' % numErrors)
+
     def summarize(self):
         '''Log a message containing the error and warning counts.
         '''
@@ -91,6 +102,16 @@ class LineReader:
                 readerLastline = self.lastline,
                 )
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
+
+class DelayedError(Exception):
+    '''Raised when one or more errors were encountered when processing input.
+    Since we want to report as many errors as possible in each processing,
+    errors are logged and processing continues. However, it usually doesn't
+    make sense to continue wuth later processing steps, since the incomplete
+    output caused by earlier errors would trigger new errors. Therefore
+    at the end of a processing step DelayedError can be raised to abort
+    processing.
+    '''
 
 reComment = re.compile(r'(?<!\\)#')
 

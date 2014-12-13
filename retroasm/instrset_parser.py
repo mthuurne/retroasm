@@ -1,6 +1,6 @@
 from .expression import IOChannel, Register, namePat
 from .expression_parser import parseConcat, parseExpr, parseLocalDecl, parseType
-from .linereader import DefLineReader
+from .linereader import DefLineReader, DelayedError
 from .func_parser import createFunc
 
 from collections import ChainMap, OrderedDict
@@ -118,81 +118,62 @@ def _parseIO(reader, argStr, context):
             reader.error('invalid I/O definition line')
 
 def _parseFuncArgs(log, argsStr):
-    '''Parses a function header, returning a pair consisting of the function
-    name and an OrderedDict of its arguments.
-    When errors are encountered, they are logged and ValueError is raised.
+    '''Parses a function arguments list, returning an OrderedDict.
+    Errors are appended to the given log as they are discovered.
     '''
-    ok = True
-    def error(msg, *args):
-        nonlocal ok
-        ok = False
-        log.error(msg, *args)
-
     args = OrderedDict()
-    duplicates = set()
-    for argStr in argsStr.split(','):
+    for i, argStr in enumerate(argsStr.split(','), 1):
         try:
             typeStr, argName = argStr.split()
         except ValueError:
-            error(
-                'function argument "%s" not of the form "<type> <name>"',
-                argStr
+            log.error(
+                'function argument %d not of the form "<type> <name>": %s',
+                i, argStr
                 )
         else:
             if argName in args:
-                duplicates.add(argName)
+                log.error(
+                    'function argument %d has the same name as '
+                    'an earlier argument: %s', i, argName
+                    )
             else:
                 try:
                     arg = parseLocalDecl(typeStr, argName)
                 except ValueError as ex:
-                    error('bad function argument "%s": %s', argName, ex)
+                    log.error(
+                        'bad function argument %d ("%s"): %s', i, argName, ex
+                        )
                     # We still want to check for duplicates, so store
                     # a dummy value in the local context.
                     arg = None
                 args[argName] = arg
-    for argName in sorted(duplicates):
-        error('multiple arguments are named "%s"', argName)
-
-    if ok:
-        return args
-    else:
-        raise ValueError('error parsing function header; see log for details')
+    return args
 
 def _parseAssignments(log, lines, context):
     '''Parses the given lines as a series of assignments, yields the
     assignments as pairs of expressions.
     The full sequence of lines is parsed, even in the presence of errors.
     Errors are appended to the given log as they are discovered.
-    If there were any errors ValueError is raised at the end.
     '''
-    ok = True
-    def error(msg, *args):
-        nonlocal ok
-        ok = False
-        log.error(msg, *args)
-
     for line in lines:
         parts = line.split(':=')
         if len(parts) < 2:
-            error('no assignment in line')
+            log.error('no assignment in line')
         elif len(parts) > 2:
-            error('multiple assignments in a single line')
+            log.error('multiple assignments in a single line')
         else:
             lhsStr, rhsStr = parts
             try:
                 lhs = parseExpr(lhsStr, context)
             except ValueError as ex:
-                error('error in left hand side of assignment: %s', str(ex))
+                log.error('error in left hand side of assignment: %s', ex)
                 continue
             try:
                 rhs = parseExpr(rhsStr, context)
             except ValueError as ex:
-                error('error in right hand side of assignment: %s', str(ex))
+                log.error('error in right hand side of assignment: %s', ex)
                 continue
             yield lhs, rhs
-
-    if not ok:
-        raise ValueError('error parsing function body; see log for details')
 
 _reFuncHeader = re.compile(_nameTok + r'\((.*)\)$')
 
@@ -207,25 +188,31 @@ def _parseFunc(reader, argStr, context):
 
     # Parse arguments.
     try:
-        args = _parseFuncArgs(reader, funcArgsStr)
-    except ValueError:
+        with reader.checkErrors():
+            args = _parseFuncArgs(reader, funcArgsStr)
+    except DelayedError:
         reader.skipBlock()
         return
 
     # Parse body lines.
     localContext = dict(args)
     combinedContext = ChainMap(localContext, context.exprs)
-    assignments = _parseAssignments(reader, reader.iterBlock(), combinedContext)
+    try:
+        with reader.checkErrors():
+            assignments = _parseAssignments(
+                reader, reader.iterBlock(), combinedContext
+                )
+            body = createFunc(reader, assignments)
+    except DelayedError:
+        return
 
-    body = createFunc(reader, assignments)
-    if body is not None:
-        print()
-        print('func %s(%s)' % (
-            funcName,
-            ', '.join(arg.formatDecl() for arg in args.values())
-            ))
-        for node in body:
-            print('\t', node)
+    print()
+    print('func %s(%s)' % (
+        funcName,
+        ', '.join(arg.formatDecl() for arg in args.values())
+        ))
+    for node in body:
+        print('\t', node)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
