@@ -81,27 +81,31 @@ class Load(Node):
 class Store(Node):
     '''A node that stores a value into a storage location.
     '''
-    __slots__ = ('_storage', '_value')
+    __slots__ = ('_storage', '_cid')
 
     storage = property(lambda self: self._storage)
-    value = property(lambda self: self._value)
+    cid = property(lambda self: self._cid)
 
-    def __init__(self, storage, value):
+    def __init__(self, storage, cid):
         if not isinstance(storage, (IOReference, NamedValue)):
             raise TypeError('not a storage location: %s' % type(storage))
+        if not isinstance(cid, int):
+            raise TypeError('constant ID must be int, got %s' % type(cid))
         self._storage = storage
-        self._value = Expression.checkInstance(value)
+        self._cid = cid
 
     def __repr__(self):
-        return 'Store(%s, %s)' % (repr(self._storage), repr(self._value))
+        return 'Store(%s, %d)' % (repr(self._storage), self._cid)
 
     def __str__(self):
-        return 'store %s, %s' % (self._storage, self._value)
+        return 'store %s, {C%d}' % (self._storage, self._cid)
 
 class Constant(Expression):
     '''A synthetic constant containing an intermediate value.
     '''
     __slots__ = ('_constDef',)
+
+    cid = property(lambda self: self._constDef.cid)
 
     def __init__(self, constDef):
         if not isinstance(constDef, (ConstantDef, Load)):
@@ -145,7 +149,8 @@ def parseFuncBody(log, lines, context):
         return Constant(load)
 
     def emitStore(storage, value):
-        nodes.append(Store(storage, value))
+        const = emitConstant(value)
+        nodes.append(Store(storage, const.cid))
 
     # TODO: We cannot perform substitution on LocalReferences until we know
     #       the arguments passed to the function. So we have to limit the
