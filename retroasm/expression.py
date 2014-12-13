@@ -332,11 +332,7 @@ class NamedValue(Expression):
         return self._name
 
     def formatDecl(self):
-        return '%s%s %s' % (
-            self._type,
-            '&' if isinstance(self, Reference) else '',
-            self._name
-            )
+        return '%s %s' % (self._type, self._name)
 
     def _equals(self, other):
         # There must be one only instance of a class for each name.
@@ -349,27 +345,30 @@ class NamedValue(Expression):
     def _complexity(self):
         return 2
 
-class LocalValue(NamedValue):
+class Storage:
+    '''A location in which a typed value can be stored.
+    '''
+    __slots__ = ()
+
+class LocalValue(NamedValue, Storage):
     '''A variable in the local context.
     '''
     __slots__ = ()
 
-class Reference:
-    '''A reference to a global storage location.
+class LocalReference(NamedValue, Storage):
+    '''A reference in the local context to a storage location.
     '''
     __slots__ = ()
 
-class LocalReference(NamedValue, Reference):
-    '''A local reference to a global storage location.
-    '''
-    __slots__ = ()
+    def formatDecl(self):
+        return '%s& %s' % (self._type, self._name)
 
-class Register(NamedValue, Reference):
+class Register(NamedValue, Storage):
     '''A CPU register.
     '''
     __slots__ = ()
 
-class IOReference(Expression, Reference):
+class IOReference(Expression, Storage):
     '''Reference to a particular index on an I/O channel.
     '''
     __slots__ = ('_channel', '_index')

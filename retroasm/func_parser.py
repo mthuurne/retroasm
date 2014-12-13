@@ -1,6 +1,6 @@
 from .expression import (
     Concatenation, Expression, IOReference, IntLiteral, LocalReference,
-    NamedValue, Reference, Register, Slice
+    NamedValue, Register, Slice, Storage
     )
 
 from itertools import count
@@ -43,7 +43,7 @@ class Load(Node):
     def __init__(self, cid, storage):
         if not isinstance(cid, int):
             raise TypeError('constant ID must be int, got %s' % type(cid))
-        if not isinstance(storage, (IOReference, NamedValue)):
+        if not isinstance(storage, Storage):
             raise TypeError('not a storage location: %s' % type(storage))
         if isinstance(storage, IOReference):
             if not isinstance(storage.index, Constant):
@@ -68,7 +68,7 @@ class Store(Node):
     cid = property(lambda self: self._cid)
 
     def __init__(self, storage, cid):
-        if not isinstance(storage, (IOReference, NamedValue)):
+        if not isinstance(storage, Storage):
             raise TypeError('not a storage location: %s' % type(storage))
         if not isinstance(cid, int):
             raise TypeError('constant ID must be int, got %s' % type(cid))
@@ -130,49 +130,42 @@ def createFunc(log, assignments):
         const = emitConstant(value)
         nodes.append(Store(storage, const.cid))
 
-    # TODO: We cannot perform substitution on LocalReferences until we know
-    #       the arguments passed to the function. So we have to limit the
-    #       kind of processing we do when parsing the function.
-
     def constifyIOIndex(ref):
         indexConst = emitConstant(ref.index.substitute(substituteConstants))
         return IOReference(ref.channel, indexConst)
 
     def substituteConstants(expr):
-        if not isinstance(expr, Reference):
+        if not isinstance(expr, Storage):
             return None
-        elif isinstance(expr, Register):
-            return emitLoad(expr)
+        elif isinstance(expr, LocalReference):
+            # We cannot process a local reference until we know the storage
+            # location it refers to, so keep the LocalReference expression
+            # around until then.
+            return expr
         elif isinstance(expr, IOReference):
             return emitLoad(constifyIOIndex(expr))
-        elif isinstance(storage, LocalReference):
-            return None
         else:
-            # Unknown Reference subclass.
-            assert False, storage
+            return emitLoad(expr)
 
     def substituteIndices(storage):
-        assert isinstance(storage, Reference), storage
-        if isinstance(storage, Register):
-            return storage
+        if not isinstance(storage, Storage):
+            # decomposeConcatenation should have filtered out all non-storages.
+            assert False, storage
         elif isinstance(storage, IOReference):
             return constifyIOIndex(storage)
-        elif isinstance(storage, LocalReference):
-            return storage
         else:
-            # Unknown Reference subclass.
-            assert False, storage
+            return storage
 
     def decomposeConcatenation(storage, top=True):
         '''Iterates through the storage locations inside a concatenation.
-        Each element is a pair of Reference and offset.
+        Each element is a pair of Storage and offset.
         '''
         if isinstance(storage, IntLiteral):
             # Assigning to a literal as part of a concatenation can be useful,
             # but assigning to only a literal is probably a mistake.
             if top:
                 log.warning('assigning to literal has no effect')
-        elif isinstance(storage, Reference):
+        elif isinstance(storage, Storage):
             yield storage, 0
         elif isinstance(storage, Concatenation):
             for concatTerm, concatOffset in storage.iterWithOffset():
