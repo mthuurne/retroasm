@@ -1,28 +1,9 @@
 from .expression import (
-    Concatenation, Expression, IOReference, IntLiteral, IntType, LocalReference,
+    Concatenation, Expression, IOReference, IntLiteral, LocalReference,
     NamedValue, Reference, Register, Slice
     )
-from .expression_parser import parseExpr
 
 from itertools import count
-
-def decomposeConcatenation(log, lhs, top=True):
-    '''Iterates through the storage locations inside a concatenation.
-    Each element is a pair of Reference and offset.
-    '''
-    if isinstance(lhs, IntLiteral):
-        # Assigning to a literal as part of a concatenation can be useful,
-        # but assigning to only a literal is probably a mistake.
-        if top:
-            log.warning('assigning to literal has no effect')
-    elif isinstance(lhs, Reference):
-        yield lhs, 0
-    elif isinstance(lhs, Concatenation):
-        for concatTerm, concatOffset in lhs.iterWithOffset():
-            for expr, offset in decomposeConcatenation(log, concatTerm, False):
-                yield expr, concatOffset + offset
-    else:
-        log.error('cannot assign to an arithmetical expression: %s', lhs)
 
 class Node:
     '''Base class for nodes.
@@ -128,7 +109,10 @@ class Constant(Expression):
     def simplify(self):
         return self._constDef.expr.simplify()
 
-def parseFuncBody(log, lines, context):
+def createFunc(log, assignments):
+    '''Creates a function body from the given assignments.
+    Returns a list of nodes, or None on error.
+    '''
     ok = True
     def error(msg, *args):
         nonlocal ok
@@ -185,35 +169,36 @@ def parseFuncBody(log, lines, context):
             # Unknown Reference subclass.
             assert False, storage
 
-    for line in lines:
-        parts = line.split(':=')
-        if len(parts) < 2:
-            error('no assignment in line')
-        elif len(parts) > 2:
-            error('multiple assignments in a single line')
+    def decomposeConcatenation(storage, top=True):
+        '''Iterates through the storage locations inside a concatenation.
+        Each element is a pair of Reference and offset.
+        '''
+        if isinstance(storage, IntLiteral):
+            # Assigning to a literal as part of a concatenation can be useful,
+            # but assigning to only a literal is probably a mistake.
+            if top:
+                log.warning('assigning to literal has no effect')
+        elif isinstance(storage, Reference):
+            yield storage, 0
+        elif isinstance(storage, Concatenation):
+            for concatTerm, concatOffset in storage.iterWithOffset():
+                for expr, offset in decomposeConcatenation(concatTerm, False):
+                    yield expr, concatOffset + offset
         else:
-            lhsStr, rhsStr = parts
-            try:
-                lhs = parseExpr(lhsStr, context)
-            except ValueError as ex:
-                error('error in left hand side of assignment: %s', str(ex))
-                continue
-            try:
-                rhs = parseExpr(rhsStr, context)
-            except ValueError as ex:
-                error('error in right hand side of assignment: %s', str(ex))
-                continue
+            error('cannot assign to an arithmetical expression: %s', lhs)
 
+    try:
+        for lhs, rhs in assignments:
             rhsConst = emitConstant(rhs.substitute(substituteConstants))
 
-            errorsBefore = log.errors
             lhsConcats = [
                 (substituteIndices(storage), offset)
-                for storage, offset in decomposeConcatenation(log, lhs)
+                for storage, offset in decomposeConcatenation(lhs)
                 ]
-            ok &= errorsBefore == log.errors
 
             for storage, offset in lhsConcats:
                 emitStore(storage, Slice(rhsConst, offset, storage.width))
+    except ValueError:
+        ok = False
 
     return nodes if ok else None

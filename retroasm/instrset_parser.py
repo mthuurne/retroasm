@@ -1,7 +1,7 @@
 from .expression import IOChannel, Register, namePat
-from .expression_parser import parseConcat, parseLocalDecl, parseType
+from .expression_parser import parseConcat, parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader
-from .func_parser import parseFuncBody
+from .func_parser import createFunc
 
 from collections import ChainMap, OrderedDict
 from logging import getLogger
@@ -158,6 +158,42 @@ def _parseFuncArgs(log, argsStr):
     else:
         raise ValueError('error parsing function header; see log for details')
 
+def _parseAssignments(log, lines, context):
+    '''Parses the given lines as a series of assignments, yields the
+    assignments as pairs of expressions.
+    The full sequence of lines is parsed, even in the presence of errors.
+    Errors are appended to the given log as they are discovered.
+    If there were any errors ValueError is raised at the end.
+    '''
+    ok = True
+    def error(msg, *args):
+        nonlocal ok
+        ok = False
+        log.error(msg, *args)
+
+    for line in lines:
+        parts = line.split(':=')
+        if len(parts) < 2:
+            error('no assignment in line')
+        elif len(parts) > 2:
+            error('multiple assignments in a single line')
+        else:
+            lhsStr, rhsStr = parts
+            try:
+                lhs = parseExpr(lhsStr, context)
+            except ValueError as ex:
+                error('error in left hand side of assignment: %s', str(ex))
+                continue
+            try:
+                rhs = parseExpr(rhsStr, context)
+            except ValueError as ex:
+                error('error in right hand side of assignment: %s', str(ex))
+                continue
+            yield lhs, rhs
+
+    if not ok:
+        raise ValueError('error parsing function body; see log for details')
+
 _reFuncHeader = re.compile(_nameTok + r'\((.*)\)$')
 
 def _parseFunc(reader, argStr, context):
@@ -179,7 +215,9 @@ def _parseFunc(reader, argStr, context):
     # Parse body lines.
     localContext = dict(args)
     combinedContext = ChainMap(localContext, context.exprs)
-    body = parseFuncBody(reader, reader.iterBlock(), combinedContext)
+    assignments = _parseAssignments(reader, reader.iterBlock(), combinedContext)
+
+    body = createFunc(reader, assignments)
     if body is not None:
         print()
         print('func %s(%s)' % (
