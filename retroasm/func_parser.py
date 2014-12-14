@@ -133,7 +133,22 @@ class ConstantValue(Expression):
         return self._constant is other._constant
 
     def _complexity(self):
-        return 2
+        const = self._constant
+        if isinstance(const, ComputedConstant):
+            return 1 + const.expr._complexity()
+        elif isinstance(const, LoadedConstant):
+            return 2
+        else:
+            assert False, const
+
+    def simplify(self):
+        const = self._constant
+        if isinstance(const, ComputedConstant):
+            return const.expr.simplify()
+        elif isinstance(const, LoadedConstant):
+            return self
+        else:
+            assert False, const
 
 class Function:
 
@@ -183,6 +198,58 @@ class CodeBlock:
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)
+
+    def simplifyConstants(self):
+        newConsts = []
+        for const in self.constants:
+            if isinstance(const, ComputedConstant):
+                expr = const.expr.simplify()
+                if isinstance(expr, ConstantValue):
+                    # This constant is equal to another constant, so replace
+                    # its use in load/store nodes.
+                    oldCid = const.cid
+                    newCid = expr.cid
+                    for i, node in enumerate(self.nodes):
+                        if node.cid == oldCid:
+                            self.nodes[i] = node.__class__(newCid, node.rid)
+                else:
+                    newConsts.append(ComputedConstant(const.cid, expr))
+            elif isinstance(const, LoadedConstant):
+                newConsts.append(const)
+            else:
+                assert False, const
+
+        self.constants = newConsts
+        self.removeUnusedConstants()
+
+    def removeUnusedConstants(self):
+        while True:
+            cidsInUse = set()
+            # Mark constants used in computations.
+            def checkUsage(expr):
+                if isinstance(expr, ConstantValue):
+                    cidsInUse.add(expr.cid)
+            for const in self.constants:
+                if isinstance(const, ComputedConstant):
+                    const.expr.substitute(checkUsage)
+            # Mark constants used in stores.
+            for node in self.nodes:
+                if isinstance(node, Store):
+                    cidsInUse.add(node.cid)
+            # Mark constants used in references.
+            for ref in self.references:
+                if isinstance(ref, IOReference):
+                    cidsInUse.add(ref.index.cid)
+
+            if len(cidsInUse) < len(self.constants):
+                self.constants = [
+                    const
+                    for const in self.constants
+                    if const.cid in cidsInUse
+                    ]
+            else:
+                assert len(cidsInUse) == len(self.constants)
+                break
 
 def createCodeBlock(log, assignments):
     '''Creates a code block from the given assignments.
@@ -284,4 +351,5 @@ def createCodeBlock(log, assignments):
 
 def createFunc(log, name, args, assignments):
     code = createCodeBlock(log, assignments)
+    code.simplifyConstants()
     return Function(name, args, code)
