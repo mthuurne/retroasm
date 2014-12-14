@@ -144,13 +144,20 @@ def createFunc(log, assignments):
     references = []
     nameToReference = {}
 
-    def getReferenceID(namedValue):
-        name = namedValue.name
-        rid = nameToReference.get(name)
-        if rid is None:
+    def getReferenceID(storage):
+        if isinstance(storage, IOReference):
+            assert isinstance(storage.index, ConstantValue), storage
             rid = len(references)
-            references.append(namedValue)
-            nameToReference[name] = rid
+            references.append(storage)
+        elif isinstance(storage, NamedValue):
+            name = storage.name
+            rid = nameToReference.get(name)
+            if rid is None:
+                rid = len(references)
+                references.append(storage)
+                nameToReference[name] = rid
+        else:
+            assert False, storage
         return rid
 
     def getReferenceType(rid):
@@ -174,23 +181,25 @@ def createFunc(log, assignments):
         const = emitConstant(value)
         nodes.append(Store(const.cid, rid))
 
-    def constifyIOIndex(ref):
-        indexConst = emitConstant(ref.index.substitute(substituteConstants))
-        rid = len(references)
-        references.append(IOReference(ref.channel, indexConst))
-        return rid
-
-    def substituteConstants(expr):
-        if not isinstance(expr, Storage):
-            return None
-        elif isinstance(expr, IOReference):
-            return emitLoad(constifyIOIndex(expr))
-        else:
+    def substituteReferences(expr):
+        subst = substituteIOIndices(expr)
+        if subst is not None:
+            expr = subst
+        if isinstance(expr, Storage):
             return emitLoad(getReferenceID(expr))
+        else:
+            return None
 
-    def decomposeLHS(storage, top=True):
+    def substituteIOIndices(expr):
+        if isinstance(expr, IOReference):
+            index = emitConstant(expr.index.substitute(substituteReferences))
+            return IOReference(expr.channel, index)
+        else:
+            return None
+
+    def decomposeConcat(storage, top=True):
         '''Iterates through the storage locations inside a concatenation.
-        Each element is a pair of resource ID and offset.
+        Each element is a pair of a Storage and an offset.
         '''
         if isinstance(storage, IntLiteral):
             # Assigning to a literal as part of a concatenation can be useful,
@@ -198,27 +207,25 @@ def createFunc(log, assignments):
             if top:
                 log.warning('assigning to literal has no effect')
         elif isinstance(storage, Storage):
-            if isinstance(storage, IOReference):
-                rid = constifyIOIndex(storage)
-            else:
-                rid = getReferenceID(storage)
-            yield rid, 0
+            yield storage, 0
         elif isinstance(storage, Concatenation):
             for concatTerm, concatOffset in storage.iterWithOffset():
-                for rid, offset in decomposeLHS(concatTerm, False):
-                    yield rid, concatOffset + offset
+                for storage, offset in decomposeConcat(concatTerm, False):
+                    yield storage, concatOffset + offset
         else:
-            log.error('cannot assign to an arithmetical expression: %s', lhs)
+            log.error(
+                'cannot assign to an arithmetical expression: %s', storage
+                )
 
     for lhs, rhs in assignments:
-        rhsConst = emitConstant(rhs.substitute(substituteConstants))
+        rhsConst = emitConstant(rhs.substitute(substituteReferences))
 
-        # Create a list since we want to force emission of all loads before
+        # Constify the I/O indices to force emission of all loads before
         # we emit any stores.
-        lhsDecomposed = list(decomposeLHS(lhs))
+        lhsConstIndices = lhs.substitute(substituteIOIndices)
 
-        for rid, offset in lhsDecomposed:
-            width = getReferenceType(rid).width
-            emitStore(rid, Slice(rhsConst, offset, width))
+        for storage, offset in decomposeConcat(lhsConstIndices):
+            rid = getReferenceID(storage)
+            emitStore(rid, Slice(rhsConst, offset, storage.width))
 
     return constants, references, nodes
