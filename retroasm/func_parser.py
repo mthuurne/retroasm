@@ -1,30 +1,68 @@
 from .expression import (
-    Concatenation, Expression, IOReference, IntLiteral, LocalReference,
+    Concatenation, Expression, IOReference, IntLiteral, IntType, LocalReference,
     NamedValue, Register, Slice, Storage
     )
 
 from itertools import count
 
-class ConstantDef:
+class Constant:
     '''Definition of a local constant value.
     '''
-    __slots__ = ('_cid', '_expr')
+    __slots__ = ('_cid', '_type')
 
     cid = property(lambda self: self._cid)
+    type = property(lambda self: self._type)
+
+    def __init__(self, cid, intType):
+        if not isinstance(cid, int):
+            raise TypeError('constant ID must be int, got %s' % type(cid))
+        if not isinstance(intType, IntType):
+            raise TypeError('type must be IntType, got %s' % type(intType))
+        self._cid = cid
+        self._type = intType
+
+    def __repr__(self):
+        return 'Constant(%d, %s)' % (self._cid, repr(self._type))
+
+    def __str__(self):
+        return '%s C%d' % (self._type, self._cid)
+
+class ComputedConstant(Constant):
+    '''A constant defined by evaluating an expression.
+    '''
+    __slots__ = ('_expr',)
+
     expr = property(lambda self: self._expr)
-    type = property(lambda self: self._expr._type)
 
     def __init__(self, cid, expr):
         self._expr = Expression.checkInstance(expr)
-        if not isinstance(cid, int):
-            raise TypeError('constant ID must be int, got %s' % type(cid))
-        self._cid = cid
+        Constant.__init__(self, cid, expr.type)
 
     def __repr__(self):
-        return 'ConstantDef(%d, %s)' % (self._cid, repr(self._expr))
+        return 'ComputedConstant(%d, %s)' % (self._cid, repr(self._expr))
 
     def __str__(self):
-        return 'C%d = %s' % (self._cid, self._expr)
+        return '%s = %s' % (super().__str__(), self._expr)
+
+class LoadedConstant(Constant):
+    '''A constant defined by loading a value from a storage location.
+    '''
+    __slots__ = ('_load',)
+
+    load = property(lambda self: self._load)
+    rid = property(lambda self: self._load.rid)
+
+    def __init__(self, load, refType):
+        if not isinstance(load, Load):
+            raise TypeError('expected Load node, got %s' % type(load))
+        Constant.__init__(self, load.cid, refType)
+        self._load = load
+
+    def __repr__(self):
+        return 'LoadedConstant(%s, %s)' % (repr(self._load), repr(self.type))
+
+    def __str__(self):
+        return '%s <- R%s' % (super().__str__(), self._load.rid)
 
 class Node:
     '''Base class for nodes.
@@ -66,27 +104,28 @@ class Store(AccessNode):
     def __str__(self):
         return 'store C%d in R%d' % (self._cid, self._rid)
 
-class Constant(Expression):
+class ConstantValue(Expression):
     '''A synthetic constant containing an intermediate value.
     '''
-    __slots__ = ('_cid',)
+    __slots__ = ('_constant',)
 
-    cid = property(lambda self: self._cid)
+    constant = property(lambda self: self._constant)
+    cid = property(lambda self: self._constant.cid)
 
-    def __init__(self, cid, intType):
-        if not isinstance(cid, int):
-            raise TypeError('constant ID must be int, got %s' % type(cid))
-        Expression.__init__(self, intType)
-        self._cid = cid
+    def __init__(self, constant):
+        if not isinstance(constant, Constant):
+            raise TypeError('expected Constant object, got %s' % type(constant))
+        Expression.__init__(self, constant.type)
+        self._constant = constant
 
     def __repr__(self):
-        return 'Constant(%d, %s)' % (self._cid, repr(self._type))
+        return 'ConstantValue(%s)' % repr(self._constant)
 
     def __str__(self):
-        return 'C%d' % self._cid
+        return 'C%d' % self.cid
 
     def _equals(self, other):
-        return self._cid is other._cid
+        return self._constant is other._constant
 
     def _complexity(self):
         return 2
@@ -114,14 +153,17 @@ def createFunc(log, assignments):
 
     constantCounter = count()
     def emitConstant(expr):
-        constantDef = ConstantDef(next(constantCounter), expr)
-        constants.append(constantDef)
-        return Constant(constantDef.cid, expr.type)
+        constant = ComputedConstant(next(constantCounter), expr)
+        constants.append(constant)
+        return ConstantValue(constant)
 
     def emitLoad(rid):
         load = Load(next(constantCounter), rid)
         nodes.append(load)
-        return Constant(load.cid, getReferenceType(rid))
+        refType = getReferenceType(rid)
+        constant = LoadedConstant(load, refType)
+        constants.append(constant)
+        return ConstantValue(constant)
 
     def emitStore(rid, value):
         const = emitConstant(value)
