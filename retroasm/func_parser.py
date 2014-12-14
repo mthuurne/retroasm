@@ -3,6 +3,7 @@ from .expression import (
     NamedValue, Register, Slice, Storage
     )
 
+from inspect import signature
 from itertools import count
 
 class Constant:
@@ -118,8 +119,12 @@ class ConstantValue(Expression):
         Expression.__init__(self, constant.type)
         self._constant = constant
 
-    def __repr__(self):
-        return 'ConstantValue(%s)' % repr(self._constant)
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take expression args' % cls.__name__)
+        kwargs.setdefault('constant', self._constant)
+        return signature(cls).bind(**kwargs)
 
     def __str__(self):
         return 'C%d' % self.cid
