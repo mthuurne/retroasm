@@ -165,9 +165,12 @@ def createFunc(log, assignments):
 
     constantCounter = count()
     def emitConstant(expr):
-        constant = ComputedConstant(next(constantCounter), expr)
-        constants.append(constant)
-        return ConstantValue(constant)
+        if isinstance(expr, ConstantValue):
+            return expr
+        else:
+            constant = ComputedConstant(next(constantCounter), expr)
+            constants.append(constant)
+            return ConstantValue(constant)
 
     def emitLoad(rid):
         load = Load(next(constantCounter), rid)
