@@ -1,7 +1,7 @@
 from .expression import IOChannel, Register, namePat
 from .expression_parser import parseConcat, parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader, DelayedError
-from .func_parser import ComputedConstant, LoadedConstant, createFunc
+from .func_parser import createFunc
 
 from collections import ChainMap, OrderedDict
 from logging import getLogger
@@ -202,33 +202,12 @@ def _parseFunc(reader, argStr, context):
             assignments = _parseAssignments(
                 reader, reader.iterBlock(), combinedContext
                 )
-            constants, references, nodes = createFunc(reader, assignments)
+            func = createFunc(reader, funcName, args, assignments)
     except DelayedError:
         return
 
+    func.dump()
     print()
-    print('func %s(%s)' % (
-        funcName,
-        ', '.join(arg.formatDecl() for arg in args.values())
-        ))
-    print('    constants:')
-    for const in constants:
-        if isinstance(const, ComputedConstant):
-            print('        %-4s C%-2d =  %s' % (
-                const.type, const.cid, const.expr
-                ))
-        elif isinstance(const, LoadedConstant):
-            print('        %-4s C%-2d <- R%d' % (
-                const.type, const.cid, const.rid
-                ))
-        else:
-            assert False, const
-    print('    references:')
-    for i, ref in enumerate(references):
-        print('        %-4s R%-2d = %s' % ('%s&' % ref.type, i, ref))
-    print('    nodes:')
-    for node in nodes:
-        print('        %s' % node)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:

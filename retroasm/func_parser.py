@@ -135,9 +135,58 @@ class ConstantValue(Expression):
     def _complexity(self):
         return 2
 
-def createFunc(log, assignments):
-    '''Creates a function body from the given assignments.
-    Returns a tuple of three lists: constants, references and nodes.
+class Function:
+
+    def __init__(self, name, args, code):
+        self.name = name
+        self.args = args
+        self.code = code
+
+    def __repr__(self):
+        return 'Function(%s, %s, %s)' % (
+            repr(self.name), repr(self.args), repr(self.code)
+            )
+
+    def __str__(self):
+        return 'func %s(%s)' % (
+            self.name,
+            ', '.join(arg.formatDecl() for arg in self.args.values())
+            )
+
+    def dump(self):
+        print(str(self))
+        self.code.dump()
+
+class CodeBlock:
+
+    def __init__(self, constants, references, nodes):
+        self.constants = constants
+        self.references = references
+        self.nodes = nodes
+
+    def dump(self):
+        print('    constants:')
+        for const in self.constants:
+            if isinstance(const, ComputedConstant):
+                print('        %-4s C%-2d =  %s' % (
+                    const.type, const.cid, const.expr
+                    ))
+            elif isinstance(const, LoadedConstant):
+                print('        %-4s C%-2d <- R%d' % (
+                    const.type, const.cid, const.rid
+                    ))
+            else:
+                assert False, const
+        print('    references:')
+        for i, ref in enumerate(self.references):
+            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, i, ref))
+        print('    nodes:')
+        for node in self.nodes:
+            print('        %s' % node)
+
+def createCodeBlock(log, assignments):
+    '''Creates a code block from the given assignments.
+    Returns a CodeBlock instance.
     '''
     nodes = []
     constants = []
@@ -231,4 +280,8 @@ def createFunc(log, assignments):
             rid = getReferenceID(storage)
             emitStore(rid, Slice(rhsConst, offset, storage.width))
 
-    return constants, references, nodes
+    return CodeBlock(constants, references, nodes)
+
+def createFunc(log, name, args, assignments):
+    code = createCodeBlock(log, assignments)
+    return Function(name, args, code)
