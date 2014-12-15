@@ -251,67 +251,93 @@ class CodeBlock:
                 assert len(cidsInUse) == len(self.constants)
                 break
 
-def createCodeBlock(log, assignments):
-    '''Creates a code block from the given assignments.
-    Returns a CodeBlock instance.
-    '''
-    nodes = []
-    constants = []
-    references = []
-    nameToReference = {}
+class CodeBlockBuilder:
 
-    def getReferenceID(storage):
-        if isinstance(storage, IOReference):
-            assert isinstance(storage.index, ConstantValue), storage
-            rid = len(references)
-            references.append(storage)
-        elif isinstance(storage, NamedValue):
-            name = storage.name
-            rid = nameToReference.get(name)
-            if rid is None:
-                rid = len(references)
-                references.append(storage)
-                nameToReference[name] = rid
-        else:
-            assert False, storage
-        return rid
+    def __init__(self):
+        self.constants = []
+        self.references = []
+        self.nodes = []
 
-    def getReferenceType(rid):
-        return references[rid].type
+    def createCodeBlock(self):
+        '''Returns a CodeBlock object containing the items emitted so far.
+        The state of the builder does not change.
+        '''
+        return CodeBlock(self.constants, self.references, self.nodes)
 
-    constantCounter = count()
-    def emitConstant(expr):
+    def emitCompute(self, expr):
+        '''Returns a ConstantValue that represents the value computed by the
+        given expression.
+        '''
         if isinstance(expr, ConstantValue):
             return expr
         else:
-            constant = ComputedConstant(next(constantCounter), expr)
-            constants.append(constant)
+            cid = len(self.constants)
+            constant = ComputedConstant(cid, expr)
+            self.constants.append(constant)
             return ConstantValue(constant)
 
-    def emitLoad(rid):
-        load = Load(next(constantCounter), rid)
-        nodes.append(load)
-        refType = getReferenceType(rid)
+    def emitLoad(self, rid):
+        '''Adds a node that loads a value from the referenced storage.
+        Returns an expression that wraps the loaded value.
+        '''
+        cid = len(self.constants)
+        load = Load(cid, rid)
+        self.nodes.append(load)
+        refType = self.references[rid].type
         constant = LoadedConstant(load, refType)
-        constants.append(constant)
+        self.constants.append(constant)
         return ConstantValue(constant)
 
-    def emitStore(rid, value):
-        const = emitConstant(value)
-        nodes.append(Store(const.cid, rid))
+    def emitStore(self, rid, expr):
+        '''Adds a node that stores a value in the referenced storage.
+        '''
+        constant = self.emitCompute(expr)
+        self.nodes.append(Store(constant.cid, rid))
+
+    def emitReference(self, storage):
+        '''Adds a reference to the given storage, returning the reference ID.
+        '''
+        if not isinstance(storage, Storage):
+            raise TypeError('expected Storage, got %s' % type(storage))
+        if storage.width is None:
+            raise ValueError('storages must have fixed width')
+        rid = len(self.references)
+        self.references.append(storage)
+        return rid
+
+def emitCodeFromAssignments(log, builder, assignments):
+    '''Creates a code block from the given assignments.
+    Returns a CodeBlock instance.
+    '''
+
+    nameToReference = {}
+    def getReferenceID(storage):
+        if isinstance(storage, IOReference):
+            assert isinstance(storage.index, ConstantValue), storage
+            return builder.emitReference(storage)
+        elif isinstance(storage, NamedValue):
+            name = storage.name
+            try:
+                return nameToReference[name]
+            except KeyError:
+                rid = builder.emitReference(storage)
+                nameToReference[name] = rid
+                return rid
+        else:
+            assert False, storage
 
     def substituteReferences(expr):
         subst = substituteIOIndices(expr)
         if subst is not None:
             expr = subst
         if isinstance(expr, Storage):
-            return emitLoad(getReferenceID(expr))
+            return builder.emitLoad(getReferenceID(expr))
         else:
             return None
 
     def substituteIOIndices(expr):
         if isinstance(expr, IOReference):
-            index = emitConstant(expr.index.substitute(substituteReferences))
+            index = builder.emitCompute(expr.index.substitute(substituteReferences))
             return IOReference(expr.channel, index)
         else:
             return None
@@ -337,7 +363,7 @@ def createCodeBlock(log, assignments):
                 )
 
     for lhs, rhs in assignments:
-        rhsConst = emitConstant(rhs.substitute(substituteReferences))
+        rhsConst = builder.emitCompute(rhs.substitute(substituteReferences))
 
         # Constify the I/O indices to force emission of all loads before
         # we emit any stores.
@@ -345,11 +371,11 @@ def createCodeBlock(log, assignments):
 
         for storage, offset in decomposeConcat(lhsConstIndices):
             rid = getReferenceID(storage)
-            emitStore(rid, Slice(rhsConst, offset, storage.width))
-
-    return CodeBlock(constants, references, nodes)
+            builder.emitStore(rid, Slice(rhsConst, offset, storage.width))
 
 def createFunc(log, name, args, assignments):
-    code = createCodeBlock(log, assignments)
+    builder = CodeBlockBuilder()
+    emitCodeFromAssignments(log, builder, assignments)
+    code = builder.createCodeBlock()
     code.simplifyConstants()
     return Function(name, args, code)
