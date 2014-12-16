@@ -3,6 +3,7 @@ from .expression import (
     NamedValue, Register, Slice, Storage
     )
 
+from collections import OrderedDict
 from inspect import signature
 from itertools import count
 
@@ -175,7 +176,13 @@ class Function:
 class CodeBlock:
 
     def __init__(self, constants, references, nodes):
-        self.constants = constants
+        constantsDict = OrderedDict()
+        for const in constants:
+            cid = const.cid
+            if cid in constantsDict:
+                raise ValueError('duplicate constant ID: %d' % cid)
+            constantsDict[cid] = const
+        self.constants = constantsDict
         self.references = references
         self.nodes = nodes
 
@@ -183,12 +190,10 @@ class CodeBlock:
         '''Performs consistency checks on the data in this code block.
         Raises AssertionError if an inconsistency is found.
         '''
-        # Check that cids are unique.
-        cids = set()
-        for const in self.constants:
-            cid = const.cid
-            assert cid not in cids, const
-            cids.add(cid)
+        # Check that cid keys match the value's cid.
+        for cid, const in self.constants.items():
+            assert const.cid == cid, const
+        cids = self.constants.keys()
 
         # Check that cids and rids in nodes are valid.
         numRefs = len(self.references)
@@ -198,8 +203,8 @@ class CodeBlock:
 
         # Check that each loaded constant belongs to exactly one Load node.
         cidsFromLoadedConstants = set(
-            const.cid
-            for const in self.constants
+            cid
+            for cid, const in self.constants.items()
             if isinstance(const, LoadedConstant)
             )
         cidsFromLoadNodes = set()
@@ -216,7 +221,7 @@ class CodeBlock:
         def checkUsage(expr):
             if isinstance(expr, ConstantValue):
                 assert expr.cid in cids
-        for const in self.constants:
+        for const in self.constants.values():
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
 
@@ -229,7 +234,7 @@ class CodeBlock:
         '''Prints this code block on stdout.
         '''
         print('    constants:')
-        for const in self.constants:
+        for const in self.constants.values():
             if isinstance(const, ComputedConstant):
                 print('        %-4s C%-2d =  %s' % (
                     const.type, const.cid, const.expr
@@ -258,8 +263,8 @@ class CodeBlock:
 
     def simplifyConstants(self):
         changed = False
-        newConsts = []
-        for const in self.constants:
+        newConsts = OrderedDict()
+        for cid, const in self.constants.items():
             if isinstance(const, ComputedConstant):
                 expr = const.expr.simplify()
                 exprSimplified = expr is not const.expr
@@ -273,12 +278,12 @@ class CodeBlock:
                             self.nodes[i] = node.__class__(newCid, node.rid)
                     changed = True
                 elif exprSimplified:
-                    newConsts.append(ComputedConstant(const.cid, expr))
+                    newConsts[cid] = ComputedConstant(cid, expr)
                     changed = True
                 else:
-                    newConsts.append(const)
+                    newConsts[cid] = const
             elif isinstance(const, LoadedConstant):
-                newConsts.append(const)
+                newConsts[cid] = const
             else:
                 assert False, const
 
@@ -288,12 +293,14 @@ class CodeBlock:
         return changed
 
     def removeUnusedConstants(self):
+        constants = self.constants
         cidsInUse = set()
+
         # Mark constants used in computations.
         def checkUsage(expr):
             if isinstance(expr, ConstantValue):
                 cidsInUse.add(expr.cid)
-        for const in self.constants:
+        for const in constants.values():
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
         # Mark constants used in stores.
@@ -305,26 +312,27 @@ class CodeBlock:
             if isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
 
-        if len(cidsInUse) < len(self.constants):
-            newConsts = []
-            for const in self.constants:
-                if const.cid in cidsInUse:
-                    newConsts.append(const)
+        if len(cidsInUse) < len(constants):
+            cids = constants.keys()
+            assert cidsInUse.issubset(cids), cidsInUse
+            for cid in cids - cidsInUse:
+                const = constants[cid]
+                if isinstance(const, ComputedConstant):
+                    del constants[cid]
                 elif isinstance(const, LoadedConstant):
                     for i, node in enumerate(self.nodes):
-                        if node.cid == const.cid:
+                        if node.cid == cid:
                             assert isinstance(node, Load), node
                             storage = self.references[node.rid]
-                            if storage.canLoadHaveSideEffect():
-                                # Keep Load node.
-                                newConsts.append(const)
-                            else:
-                                # Remove the corresponding Load node as well.
+                            if not storage.canLoadHaveSideEffect():
+                                # Remove both constant and its Load node.
+                                del constants[cid]
                                 del self.nodes[i]
                             break
                     else:
                         assert False, const
-            self.constants = newConsts
+                else:
+                    assert False, const
             return True
         else:
             assert len(cidsInUse) == len(self.constants)
