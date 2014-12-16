@@ -86,6 +86,17 @@ class IOChannel:
     def __str__(self):
         return '%s %s[%s]' % (self._name, self._elemType, self._addrType)
 
+    def canLoadHaveSideEffect(self, index):
+        '''Returns True if loading from this channel at the given index
+        might have an effect other than fetching the value. For example
+        loading a peripheral's status register might reset a flag.
+        The index is an Expression which might provide some additional
+        information about which part of the channel is being read.
+        '''
+        # TODO: Allow the system model to provide a more accurate response
+        #       by examining the index.
+        return True
+
 class Expression:
     '''Abstract base class for typed expressions.
 
@@ -350,15 +361,30 @@ class Storage:
     '''
     __slots__ = ()
 
+    def canLoadHaveSideEffect(self):
+        '''Returns True if loading from this storage might have an effect
+        other than fetching the value. For example loading a peripheral's
+        status register might reset a flag.
+        '''
+        raise NotImplementedError
+
 class LocalValue(NamedValue, Storage):
     '''A variable in the local context.
     '''
     __slots__ = ()
 
+    def canLoadHaveSideEffect(self):
+        return False
+
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
     '''
     __slots__ = ()
+
+    def canLoadHaveSideEffects(self):
+        # Depending on which concrete storage will be bound to this reference,
+        # loading may or may not trigger side effects.
+        return True
 
     def formatDecl(self):
         return '%s& %s' % (self._type, self._name)
@@ -367,6 +393,9 @@ class Register(NamedValue, Storage):
     '''A CPU register.
     '''
     __slots__ = ()
+
+    def canLoadHaveSideEffect(self):
+        return False
 
 class IOReference(Expression, Storage):
     '''Reference to a particular index on an I/O channel.
@@ -380,6 +409,9 @@ class IOReference(Expression, Storage):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkInstance(index)
         Expression.__init__(self, self._channel.elemType)
+
+    def canLoadHaveSideEffect(self):
+        return self._channel.canLoadHaveSideEffect(index)
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__

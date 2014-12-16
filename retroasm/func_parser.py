@@ -179,7 +179,55 @@ class CodeBlock:
         self.references = references
         self.nodes = nodes
 
+    def verify(self):
+        '''Performs consistency checks on the data in this code block.
+        Raises AssertionError if an inconsistency is found.
+        '''
+        # Check that cids are unique.
+        cids = set()
+        for const in self.constants:
+            cid = const.cid
+            assert cid not in cids, const
+            cids.add(cid)
+
+        # Check that cids and rids in nodes are valid.
+        numRefs = len(self.references)
+        for node in self.nodes:
+            assert node.cid in cids, node
+            assert 0 <= node.rid < numRefs, node
+
+        # Check that each loaded constant belongs to exactly one Load node.
+        cidsFromLoadedConstants = set(
+            const.cid
+            for const in self.constants
+            if isinstance(const, LoadedConstant)
+            )
+        cidsFromLoadNodes = set()
+        for node in self.nodes:
+            if isinstance(node, Load):
+                cid = node.cid
+                assert cid not in cidsFromLoadNodes, node
+                cidsFromLoadNodes.add(cid)
+        assert cidsFromLoadNodes == cidsFromLoadedConstants, (
+            cidsFromLoadedConstants, cidsFromLoadNodes
+            )
+
+        # Check that cids in expressions are valid.
+        def checkUsage(expr):
+            if isinstance(expr, ConstantValue):
+                assert expr.cid in cids
+        for const in self.constants:
+            if isinstance(const, ComputedConstant):
+                const.expr.substitute(checkUsage)
+
+        # Check that cids in I/O references are valid.
+        for ref in self.references:
+            if isinstance(ref, IOReference):
+                assert ref.index.cid in cids
+
     def dump(self):
+        '''Prints this code block on stdout.
+        '''
         print('    constants:')
         for const in self.constants:
             if isinstance(const, ComputedConstant):
@@ -198,6 +246,11 @@ class CodeBlock:
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)
+
+    def simplify(self):
+        '''Attempt to simplify the code block as much as possible.
+        '''
+        self.simplifyConstants()
 
     def simplifyConstants(self):
         newConsts = []
@@ -242,11 +295,25 @@ class CodeBlock:
                     cidsInUse.add(ref.index.cid)
 
             if len(cidsInUse) < len(self.constants):
-                self.constants = [
-                    const
-                    for const in self.constants
-                    if const.cid in cidsInUse
-                    ]
+                newConsts = []
+                for const in self.constants:
+                    if const.cid in cidsInUse:
+                        newConsts.append(const)
+                    elif isinstance(const, LoadedConstant):
+                        for i, node in enumerate(self.nodes):
+                            if node.cid == const.cid:
+                                assert isinstance(node, Load), node
+                                storage = self.references[node.rid]
+                                if storage.canLoadHaveSideEffect():
+                                    # Keep Load node.
+                                    newConsts.append(const)
+                                else:
+                                    # Remove the corresponding Load node as well.
+                                    del self.nodes[i]
+                                break
+                        else:
+                            assert False, const
+                self.constants = newConsts
             else:
                 assert len(cidsInUse) == len(self.constants)
                 break
