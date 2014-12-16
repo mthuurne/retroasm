@@ -250,73 +250,85 @@ class CodeBlock:
     def simplify(self):
         '''Attempt to simplify the code block as much as possible.
         '''
-        self.simplifyConstants()
+        while True:
+            changed = False
+            changed |= self.simplifyConstants()
+            if not changed:
+                break
 
     def simplifyConstants(self):
+        changed = False
         newConsts = []
         for const in self.constants:
             if isinstance(const, ComputedConstant):
                 expr = const.expr.simplify()
+                exprSimplified = expr is not const.expr
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant, so replace
-                    # its use in load/store nodes.
+                    # its use in nodes.
                     oldCid = const.cid
                     newCid = expr.cid
                     for i, node in enumerate(self.nodes):
                         if node.cid == oldCid:
                             self.nodes[i] = node.__class__(newCid, node.rid)
-                else:
+                    changed = True
+                elif exprSimplified:
                     newConsts.append(ComputedConstant(const.cid, expr))
+                    changed = True
+                else:
+                    newConsts.append(const)
             elif isinstance(const, LoadedConstant):
                 newConsts.append(const)
             else:
                 assert False, const
 
         self.constants = newConsts
-        self.removeUnusedConstants()
+        while self.removeUnusedConstants():
+            changed = True
+        return changed
 
     def removeUnusedConstants(self):
-        while True:
-            cidsInUse = set()
-            # Mark constants used in computations.
-            def checkUsage(expr):
-                if isinstance(expr, ConstantValue):
-                    cidsInUse.add(expr.cid)
-            for const in self.constants:
-                if isinstance(const, ComputedConstant):
-                    const.expr.substitute(checkUsage)
-            # Mark constants used in stores.
-            for node in self.nodes:
-                if isinstance(node, Store):
-                    cidsInUse.add(node.cid)
-            # Mark constants used in references.
-            for ref in self.references:
-                if isinstance(ref, IOReference):
-                    cidsInUse.add(ref.index.cid)
+        cidsInUse = set()
+        # Mark constants used in computations.
+        def checkUsage(expr):
+            if isinstance(expr, ConstantValue):
+                cidsInUse.add(expr.cid)
+        for const in self.constants:
+            if isinstance(const, ComputedConstant):
+                const.expr.substitute(checkUsage)
+        # Mark constants used in stores.
+        for node in self.nodes:
+            if isinstance(node, Store):
+                cidsInUse.add(node.cid)
+        # Mark constants used in references.
+        for ref in self.references:
+            if isinstance(ref, IOReference):
+                cidsInUse.add(ref.index.cid)
 
-            if len(cidsInUse) < len(self.constants):
-                newConsts = []
-                for const in self.constants:
-                    if const.cid in cidsInUse:
-                        newConsts.append(const)
-                    elif isinstance(const, LoadedConstant):
-                        for i, node in enumerate(self.nodes):
-                            if node.cid == const.cid:
-                                assert isinstance(node, Load), node
-                                storage = self.references[node.rid]
-                                if storage.canLoadHaveSideEffect():
-                                    # Keep Load node.
-                                    newConsts.append(const)
-                                else:
-                                    # Remove the corresponding Load node as well.
-                                    del self.nodes[i]
-                                break
-                        else:
-                            assert False, const
-                self.constants = newConsts
-            else:
-                assert len(cidsInUse) == len(self.constants)
-                break
+        if len(cidsInUse) < len(self.constants):
+            newConsts = []
+            for const in self.constants:
+                if const.cid in cidsInUse:
+                    newConsts.append(const)
+                elif isinstance(const, LoadedConstant):
+                    for i, node in enumerate(self.nodes):
+                        if node.cid == const.cid:
+                            assert isinstance(node, Load), node
+                            storage = self.references[node.rid]
+                            if storage.canLoadHaveSideEffect():
+                                # Keep Load node.
+                                newConsts.append(const)
+                            else:
+                                # Remove the corresponding Load node as well.
+                                del self.nodes[i]
+                            break
+                    else:
+                        assert False, const
+            self.constants = newConsts
+            return True
+        else:
+            assert len(cidsInUse) == len(self.constants)
+            return False
 
 class CodeBlockBuilder:
 
@@ -444,5 +456,5 @@ def createFunc(log, name, args, assignments):
     builder = CodeBlockBuilder()
     emitCodeFromAssignments(log, builder, assignments)
     code = builder.createCodeBlock()
-    code.simplifyConstants()
+    code.simplify()
     return Function(name, args, code)
