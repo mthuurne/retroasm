@@ -264,47 +264,51 @@ class CodeBlock:
 
     def simplifyConstants(self):
         changed = False
-        newConsts = OrderedDict()
-        for cid, const in self.constants.items():
+        constants = self.constants
+
+        replacements = {}
+        for cid, const in constants.items():
             if isinstance(const, ComputedConstant):
                 expr = const.expr.simplify()
-                exprSimplified = expr is not const.expr
                 if isinstance(expr, ConstantValue):
-                    # This constant is equal to another constant, so replace
-                    # its use in nodes and expressions.
-                    oldCid = const.cid
-                    newCid = expr.cid
-                    for i, node in enumerate(self.nodes):
-                        if node.cid == oldCid:
-                            self.nodes[i] = node.__class__(newCid, node.rid)
-                    def substCid(sexpr):
-                        if isinstance(sexpr, ConstantValue) \
-                                and sexpr.cid == oldCid:
-                            return ConstantValue(self.constants[newCid])
-                        else:
-                            return None
-                    for scid in self.constants.keys():
-                        sconst = self.constants[scid]
-                        if isinstance(sconst, ComputedConstant):
-                            sexpr = sconst.expr.substitute(substCid)
-                            if sexpr is not sconst.expr:
-                                self.constants[scid] = \
-                                    ComputedConstant(scid, sexpr)
-                    changed = True
-                elif exprSimplified:
-                    newConsts[cid] = ComputedConstant(cid, expr)
-                    changed = True
-                else:
-                    newConsts[cid] = const
-            elif isinstance(const, LoadedConstant):
-                newConsts[cid] = const
+                    # This constant is equal to another constant.
+                    replacements[cid] = expr.constant
+                elif expr is not const.expr:
+                    # Wrap the simplified expression into a new constant
+                    # with the same cid.
+                    replacements[cid] = ComputedConstant(cid, expr)
             else:
-                assert False, const
+                assert isinstance(const, LoadedConstant), const
+        if replacements:
+            changed = True
+            self.replaceConstants(replacements)
 
-        self.constants = newConsts
         while self.removeUnusedConstants():
             changed = True
         return changed
+
+    def replaceConstants(self, replacements):
+        constants = self.constants
+        for oldCid, newConst in replacements.items():
+            newCid = newConst.cid
+            if oldCid == newCid:
+                constants[oldCid] = newConst
+            else:
+                del constants[oldCid]
+                for i, node in enumerate(self.nodes):
+                    if node.cid == oldCid:
+                        self.nodes[i] = node.__class__(newCid, node.rid)
+                def substCid(sexpr):
+                    if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
+                        return ConstantValue(newConst)
+                    else:
+                        return None
+                for scid in list(constants.keys()):
+                    sconst = constants[scid]
+                    if isinstance(sconst, ComputedConstant):
+                        sexpr = sconst.expr.substitute(substCid)
+                        if sexpr is not sconst.expr:
+                            constants[scid] = ComputedConstant(scid, sexpr)
 
     def removeUnusedConstants(self):
         constants = self.constants
