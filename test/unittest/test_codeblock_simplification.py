@@ -60,6 +60,30 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_duplicate_register(self):
+        '''Test whether duplicate registers are removed.'''
+        ridA1 = self.builder.addRegister('a')
+        ridA2 = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        ridC = self.builder.addRegister('c')
+        loadA1 = self.builder.emitLoad(ridA1)
+        loadA2 = self.builder.emitLoad(ridA2)
+        storeB = self.builder.emitStore(ridB, loadA1)
+        storeC = self.builder.emitStore(ridC, loadA2)
+
+        correct = (
+            Load(loadA1.cid, ridA1),
+            Load(loadA2.cid, ridA1),
+            Store(loadA1.cid, ridB),
+            Store(loadA2.cid, ridC),
+            )
+
+        code = self.builder.createCodeBlock()
+        code.verify()
+        code.removeDuplicateReferences()
+        code.verify()
+        self.assertNodes(code.nodes, correct)
+
     def test_unused_load(self):
         '''Test whether unused loads are removed.'''
         ridA = self.builder.addRegister('a')
@@ -84,7 +108,7 @@ class CodeBlockTests(unittest.TestCase):
         loadA1 = self.builder.emitLoad(ridA)
         loadA2 = self.builder.emitLoad(ridA)
         storeB = self.builder.emitStore(ridB, loadA1)
-        storeB = self.builder.emitStore(ridC, loadA2)
+        storeC = self.builder.emitStore(ridC, loadA2)
 
         correct = (
             Load(loadA1.cid, ridA),

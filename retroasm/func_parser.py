@@ -257,6 +257,7 @@ class CodeBlock:
         while True:
             changed = False
             changed |= self.simplifyConstants()
+            changed |= self.removeDuplicateReferences()
             changed |= self.removeRedundantNodes()
             if not changed:
                 break
@@ -349,6 +350,37 @@ class CodeBlock:
             return True
         else:
             assert len(cidsInUse) == len(self.constants)
+            return False
+
+    def removeDuplicateReferences(self):
+        '''Removes references that are obvious duplicates of other references.
+        Note that non-obvious duplicates (aliases) can remain.
+        '''
+        references = self.references
+
+        # Figure out which references are duplicates.
+        registerNameToRid = {}
+        duplicates = {}
+        for rid, ref in references.items():
+            if isinstance(ref, Register):
+                name = ref.name
+                replacement = registerNameToRid.get(name)
+                if replacement is None:
+                    registerNameToRid[name] = rid
+                else:
+                    duplicates[rid] = replacement
+
+        # Remove the duplicates.
+        if duplicates:
+            nodes = self.nodes
+            for i, node in enumerate(nodes):
+                replacement = duplicates.get(node.rid)
+                if replacement is not None:
+                    nodes[i] = node.__class__(node.cid, replacement)
+            for rid, replacement in duplicates.items():
+                del references[rid]
+            return True
+        else:
             return False
 
     def removeRedundantNodes(self):
