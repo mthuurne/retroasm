@@ -183,7 +183,7 @@ class CodeBlock:
                 raise ValueError('duplicate constant ID: %d' % cid)
             constantsDict[cid] = const
         self.constants = constantsDict
-        self.references = references
+        self.references = OrderedDict(enumerate(references))
         self.nodes = nodes
 
     def verify(self):
@@ -196,10 +196,9 @@ class CodeBlock:
         cids = self.constants.keys()
 
         # Check that cids and rids in nodes are valid.
-        numRefs = len(self.references)
         for node in self.nodes:
             assert node.cid in cids, node
-            assert 0 <= node.rid < numRefs, node
+            assert node.rid in self.references, node
 
         # Check that each loaded constant belongs to exactly one Load node.
         cidsFromLoadedConstants = set(
@@ -226,7 +225,7 @@ class CodeBlock:
                 const.expr.substitute(checkUsage)
 
         # Check that cids in I/O references are valid.
-        for ref in self.references:
+        for ref in self.references.values():
             if isinstance(ref, IOReference):
                 assert ref.index.cid in cids
 
@@ -246,8 +245,8 @@ class CodeBlock:
             else:
                 assert False, const
         print('    references:')
-        for i, ref in enumerate(self.references):
-            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, i, ref))
+        for rid, ref in self.references.items():
+            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, rid, ref))
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)
@@ -322,7 +321,7 @@ class CodeBlock:
             if isinstance(node, Store):
                 cidsInUse.add(node.cid)
         # Mark constants used in references.
-        for ref in self.references:
+        for ref in self.references.values():
             if isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
 
