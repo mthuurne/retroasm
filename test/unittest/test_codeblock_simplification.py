@@ -76,6 +76,25 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_redundant_load(self):
+        '''Test whether redundant loads are removed.'''
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        ridC = self.builder.addRegister('c')
+        loadA1 = self.builder.emitLoad(ridA)
+        loadA2 = self.builder.emitLoad(ridA)
+        storeB = self.builder.emitStore(ridB, loadA1)
+        storeB = self.builder.emitStore(ridC, loadA2)
+
+        correct = (
+            Load(loadA1.cid, ridA),
+            Store(loadA1.cid, ridB),
+            Store(loadA1.cid, ridC),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()

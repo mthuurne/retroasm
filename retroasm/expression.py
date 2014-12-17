@@ -86,16 +86,44 @@ class IOChannel:
     def __str__(self):
         return '%s %s[%s]' % (self._name, self._elemType, self._addrType)
 
+    # TODO: Allow the system model to provide a more accurate responses
+    #       by examining the index.
+
     def canLoadHaveSideEffect(self, index):
-        '''Returns True if loading from this channel at the given index
+        '''Returns True if reading from this channel at the given index
         might have an effect other than fetching the value. For example
-        loading a peripheral's status register might reset a flag.
+        reading a peripheral's status register might reset a flag.
         The index is an Expression which might provide some additional
         information about which part of the channel is being read.
         '''
-        # TODO: Allow the system model to provide a more accurate response
-        #       by examining the index.
         return True
+
+    def canStoreHaveSideEffect(self, index):
+        '''Returns True if writing to this channel at the given index
+        might have an effect other than setting the value. For example
+        writing a peripheral's control register might change its output.
+        The index is an Expression which might provide some additional
+        information about which part of the channel is being written.
+        '''
+        return True
+
+    def isLoadConsistent(self, index):
+        '''Returns True if reading from this channel at the given index
+        twice in succession will return the same value both times.
+        The index is an Expression which might provide some additional
+        information about which part of the channel is being read.
+        '''
+        return False
+
+    def isSticky(self, index):
+        '''Returns True if reading from this channel at the give index after
+        it is written at that same index will return the written value.
+        If access at another index inbetween the write and read can change
+        the value, the given index is not considered sticky (return False).
+        The index is an Expression which might provide some additional
+        information about which part of the channel is being accessed.
+        '''
+        return False
 
 class Expression:
     '''Abstract base class for typed expressions.
@@ -362,9 +390,28 @@ class Storage:
     __slots__ = ()
 
     def canLoadHaveSideEffect(self):
-        '''Returns True if loading from this storage might have an effect
-        other than fetching the value. For example loading a peripheral's
+        '''Returns True if reading from this storage might have an effect
+        other than fetching the value. For example reading a peripheral's
         status register might reset a flag.
+        '''
+        raise NotImplementedError
+
+    def canStoreHaveSideEffect(self):
+        '''Returns True if writing to this storage might have an effect
+        other than setting the value. For example writing a peripheral's
+        control register might change its output.
+        '''
+        raise NotImplementedError
+
+    def isLoadConsistent(self):
+        '''Returns True if reading this storage twice in succession will
+        return the same value both times.
+        '''
+        raise NotImplementedError
+
+    def isSticky(self):
+        '''Returns True if reading this storage after it is written will
+        return the written value.
         '''
         raise NotImplementedError
 
@@ -376,15 +423,33 @@ class LocalValue(NamedValue, Storage):
     def canLoadHaveSideEffect(self):
         return False
 
+    def canStoreHaveSideEffect(self):
+        return False
+
+    def isLoadConsistent(self):
+        return True
+
+    def isSticky(self):
+        return True
+
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
+    The storage properties depend on which concrete storage will be bound
+    to this reference, so we have to assume the worst case.
     '''
     __slots__ = ()
 
     def canLoadHaveSideEffects(self):
-        # Depending on which concrete storage will be bound to this reference,
-        # loading may or may not trigger side effects.
         return True
+
+    def canStoreHaveSideEffect(self):
+        return True
+
+    def isLoadConsistent(self):
+        return False
+
+    def isSticky(self):
+        return False
 
     def formatDecl(self):
         return '%s& %s' % (self._type, self._name)
@@ -396,6 +461,15 @@ class Register(NamedValue, Storage):
 
     def canLoadHaveSideEffect(self):
         return False
+
+    def canStoreHaveSideEffect(self):
+        return False
+
+    def isLoadConsistent(self):
+        return True
+
+    def isSticky(self):
+        return True
 
 class IOReference(Expression, Storage):
     '''Reference to a particular index on an I/O channel.
@@ -411,7 +485,16 @@ class IOReference(Expression, Storage):
         Expression.__init__(self, self._channel.elemType)
 
     def canLoadHaveSideEffect(self):
-        return self._channel.canLoadHaveSideEffect(index)
+        return self._channel.canLoadHaveSideEffect(self._index)
+
+    def canStoreHaveSideEffect(self):
+        return self._channel.canStoreHaveSideEffect(self._index)
+
+    def isLoadConsistent(self):
+        return self._channel.isLoadConsistent(self._index)
+
+    def isSticky(self):
+        return self._channel.isSticky(self._index)
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__

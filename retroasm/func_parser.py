@@ -3,7 +3,7 @@ from .expression import (
     NamedValue, Register, Slice, Storage
     )
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from inspect import signature
 from itertools import count
 
@@ -258,6 +258,7 @@ class CodeBlock:
         while True:
             changed = False
             changed |= self.simplifyConstants()
+            changed |= self.removeRedundantNodes()
             if not changed:
                 break
 
@@ -270,12 +271,25 @@ class CodeBlock:
                 exprSimplified = expr is not const.expr
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant, so replace
-                    # its use in nodes.
+                    # its use in nodes and expressions.
                     oldCid = const.cid
                     newCid = expr.cid
                     for i, node in enumerate(self.nodes):
                         if node.cid == oldCid:
                             self.nodes[i] = node.__class__(newCid, node.rid)
+                    def substCid(sexpr):
+                        if isinstance(sexpr, ConstantValue) \
+                                and sexpr.cid == oldCid:
+                            return ConstantValue(self.constants[newCid])
+                        else:
+                            return None
+                    for scid in self.constants.keys():
+                        sconst = self.constants[scid]
+                        if isinstance(sconst, ComputedConstant):
+                            sexpr = sconst.expr.substitute(substCid)
+                            if sexpr is not sconst.expr:
+                                self.constants[scid] = \
+                                    ComputedConstant(scid, sexpr)
                     changed = True
                 elif exprSimplified:
                     newConsts[cid] = ComputedConstant(cid, expr)
@@ -337,6 +351,45 @@ class CodeBlock:
         else:
             assert len(cidsInUse) == len(self.constants)
             return False
+
+    def removeRedundantNodes(self):
+        changed = False
+        nodes = self.nodes
+
+        currentValueCids = {}
+        i = 0
+        while i < len(nodes):
+            node = nodes[i]
+            rid = node.rid
+            valueCid = currentValueCids.get(rid)
+            storage = self.references[rid]
+            # TODO: Take into account that one reference can alias another.
+            if isinstance(node, Load):
+                if valueCid is not None:
+                    # Re-use earlier loaded value.
+                    self.constants[node.cid] = ComputedConstant(
+                        node.cid, ConstantValue(self.constants[valueCid])
+                        )
+                    changed = True
+                    if not storage.canLoadHaveSideEffect():
+                        del nodes[i]
+                        continue
+                elif storage.isLoadConsistent():
+                    # Remember loaded value.
+                    currentValueCids[rid] = node.cid
+            elif isinstance(node, Store):
+                if valueCid == node.cid:
+                    # Value is rewritten.
+                    if not storage.canStoreHaveSideEffect():
+                        changed = True
+                        del nodes[i]
+                        continue
+                elif storage.isSticky():
+                    # Remember stored value.
+                    currentValueCids[rid] = node.cid
+            i += 1
+
+        return changed
 
 class CodeBlockBuilder:
 
