@@ -314,26 +314,37 @@ class CodeBlock:
 
     def replaceConstants(self, replacements):
         constants = self.constants
+        references = self.references
+        nodes = self.nodes
         for oldCid, newConst in replacements.items():
             newCid = newConst.cid
             if oldCid == newCid:
                 constants[oldCid] = newConst
             else:
                 del constants[oldCid]
-                for i, node in enumerate(self.nodes):
-                    if node.cid == oldCid:
-                        self.nodes[i] = node.__class__(newCid, node.rid)
+                # Replace constant in other constants' expressions.
                 def substCid(sexpr):
                     if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
                         return ConstantValue(newConst)
                     else:
                         return None
-                for scid in list(constants.keys()):
-                    sconst = constants[scid]
-                    if isinstance(sconst, ComputedConstant):
-                        sexpr = sconst.expr.substitute(substCid)
-                        if sexpr is not sconst.expr:
-                            constants[scid] = ComputedConstant(scid, sexpr)
+                for cid in list(constants.keys()):
+                    const = constants[cid]
+                    if isinstance(const, ComputedConstant):
+                        newExpr = const.expr.substitute(substCid)
+                        if newExpr is not const.expr:
+                            constants[cid] = ComputedConstant(cid, newExpr)
+                # Replace constant in references.
+                for rid in list(references.keys()):
+                    ref = references[rid]
+                    if isinstance(ref, IOReference) and ref.index.cid == oldCid:
+                        references[rid] = IOReference(
+                            ref.channel, ConstantValue(newConst)
+                            )
+                # Replace constant in nodes.
+                for i, node in enumerate(nodes):
+                    if node.cid == oldCid:
+                        nodes[i] = node.__class__(newCid, node.rid)
 
     def removeUnusedConstants(self):
         constants = self.constants
@@ -378,7 +389,7 @@ class CodeBlock:
                     assert False, const
             return True
         else:
-            assert len(cidsInUse) == len(self.constants)
+            assert len(cidsInUse) == len(constants)
             return False
 
     def removeDuplicateReferences(self):
@@ -388,8 +399,9 @@ class CodeBlock:
         references = self.references
 
         # Figure out which references are duplicates.
-        registerNameToRid = {}
         duplicates = {}
+        registerNameToRid = {}
+        channelNameToIndices = defaultdict(list)
         for rid, ref in references.items():
             if isinstance(ref, Register):
                 name = ref.name
@@ -398,6 +410,15 @@ class CodeBlock:
                     registerNameToRid[name] = rid
                 else:
                     duplicates[rid] = replacement
+            elif isinstance(ref, IOReference):
+                cid = ref.index.cid
+                indices = channelNameToIndices[ref.channel.name]
+                for rid2, index2 in indices:
+                    if index2.cid == cid:
+                        duplicates[rid] = rid2
+                        break
+                else:
+                    indices.append((rid, ref.index))
 
         # Remove the duplicates.
         if duplicates:
@@ -501,6 +522,9 @@ class CodeBlockBuilder:
             raise TypeError('expected Storage, got %s' % type(storage))
         if storage.width is None:
             raise ValueError('storages must have fixed width')
+        if isinstance(storage, IOReference):
+            if not isinstance(storage.index, ConstantValue):
+                raise TypeError('I/O index must be ConstantValue')
         rid = len(self.references)
         self.references.append(storage)
         return rid
@@ -513,7 +537,6 @@ def emitCodeFromAssignments(log, builder, assignments):
     nameToReference = {}
     def getReferenceID(storage):
         if isinstance(storage, IOReference):
-            assert isinstance(storage.index, ConstantValue), storage
             return builder.emitReference(storage)
         elif isinstance(storage, NamedValue):
             name = storage.name

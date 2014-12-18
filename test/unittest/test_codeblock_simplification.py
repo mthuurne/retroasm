@@ -1,5 +1,6 @@
 from retroasm.expression import (
-    AddOperator, AndOperator, IntLiteral, IntType, Register
+    AddOperator, AndOperator, IOChannel, IOReference, IntLiteral, IntType,
+    Register
     )
 from retroasm.func_parser import CodeBlockBuilder, Load, Store
 
@@ -9,9 +10,27 @@ verbose = False
 
 class TestCodeBlockBuilder(CodeBlockBuilder):
 
+    def __init__(self):
+        CodeBlockBuilder.__init__(self)
+        self.channels = {}
+
     def addRegister(self, name, width=8):
         reg = Register(name, IntType(width))
         return self.emitReference(reg)
+
+    def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
+        channel = self.channels.get(channelName)
+        if channel is None:
+            channel = IOChannel(
+                channelName, IntType(elemWidth), IntType(addrWidth)
+                )
+            self.channels[channelName] = channel
+        else:
+            assert channel.elemType.width == elemWidth, channel
+            assert channel.addrType.width == addrWidth, channel
+        indexConst = self.emitCompute(index)
+        ioref = IOReference(channel, indexConst)
+        return self.emitReference(ioref)
 
 class CodeBlockTests(unittest.TestCase):
 
@@ -101,6 +120,36 @@ class CodeBlockTests(unittest.TestCase):
             )
 
         code = self.builder.createCodeBlock()
+        code.verify()
+        code.removeDuplicateReferences()
+        code.verify()
+        self.assertNodes(code.nodes, correct)
+
+    def test_duplicate_ioref(self):
+        '''Test whether duplicate I/O references are removed.'''
+        ridM1 = self.builder.addIOReference('mem', IntLiteral.create(0x8765))
+        ridM2 = self.builder.addIOReference('mem', IntLiteral.create(0x8765))
+        ridM3 = self.builder.addIOReference('mem', IntLiteral.create(0xABCD))
+        ridM4 = self.builder.addIOReference('io', IntLiteral.create(0x8765))
+        loadM1 = self.builder.emitLoad(ridM1)
+        loadM2 = self.builder.emitLoad(ridM2)
+        storeM2 = self.builder.emitStore(ridM2, loadM1)
+        storeM3 = self.builder.emitStore(ridM3, loadM2)
+        storeM4 = self.builder.emitStore(ridM4, loadM1)
+
+        correct = (
+            Load(loadM1.cid, ridM1),
+            Load(loadM2.cid, ridM1),
+            Store(loadM1.cid, ridM1),
+            Store(loadM2.cid, ridM3),
+            Store(loadM1.cid, ridM4),
+            )
+
+        code = self.builder.createCodeBlock()
+        code.verify()
+        # Constants must be deduplicated to detect duplicate I/O indices.
+        while code.simplifyConstants():
+            pass
         code.verify()
         code.removeDuplicateReferences()
         code.verify()
