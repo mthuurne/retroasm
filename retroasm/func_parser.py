@@ -435,6 +435,7 @@ class CodeBlock:
 
     def removeRedundantNodes(self):
         changed = False
+        references = self.references
         nodes = self.nodes
 
         currentValueCids = {}
@@ -443,8 +444,7 @@ class CodeBlock:
             node = nodes[i]
             rid = node.rid
             valueCid = currentValueCids.get(rid)
-            storage = self.references[rid]
-            # TODO: Take into account that one reference can alias another.
+            storage = references[rid]
             if isinstance(node, Load):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
@@ -468,6 +468,10 @@ class CodeBlock:
                 elif storage.isSticky():
                     # Remember stored value.
                     currentValueCids[rid] = node.cid
+                # Remove values for references that might be aliases.
+                for rid2 in list(currentValueCids.keys()):
+                    if rid != rid2 and storage.mightBeSame(references[rid2]):
+                        del currentValueCids[rid2]
             i += 1
 
         return changed

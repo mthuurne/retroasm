@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, IOChannel, IOReference, IntLiteral, IntType,
-    Register
+    LocalReference, Register
     )
 from retroasm.func_parser import CodeBlockBuilder, Load, Store
 
@@ -17,6 +17,10 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
     def addRegister(self, name, width=8):
         reg = Register(name, IntType(width))
         return self.emitReference(reg)
+
+    def addLocalReference(self, name, width=8):
+        ref = LocalReference(name, IntType(width))
+        return self.emitReference(ref)
 
     def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
         channel = self.channels.get(channelName)
@@ -171,8 +175,8 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
-    def test_redundant_load(self):
-        '''Test whether redundant loads are removed.'''
+    def test_redundant_load_after_load(self):
+        '''Test whether redundant successive loads are removed.'''
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
         ridC = self.builder.addRegister('c')
@@ -185,6 +189,51 @@ class CodeBlockTests(unittest.TestCase):
             Load(loadA1.cid, ridA),
             Store(loadA1.cid, ridB),
             Store(loadA1.cid, ridC),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
+    def test_redundant_load_after_store(self):
+        '''Test whether a redundant load after a store is removed.'''
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        loadA1 = self.builder.emitLoad(ridA)
+        incA = self.builder.emitCompute(
+            AddOperator(loadA1, IntLiteral.create(1))
+            )
+        storeB = self.builder.emitStore(ridA, incA)
+        loadA2 = self.builder.emitLoad(ridA)
+        storeC = self.builder.emitStore(ridB, loadA2)
+
+        correct = (
+            Load(loadA1.cid, ridA),
+            Store(incA.cid, ridA),
+            Store(incA.cid, ridB),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
+    def test_uncertain_redundant_load(self):
+        '''Test whether aliasing prevents loads from being removed.'''
+        const = self.builder.emitCompute(IntLiteral.create(23))
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        ridC = self.builder.addRegister('c')
+        ridX = self.builder.addLocalReference('X')
+        loadA1 = self.builder.emitLoad(ridA)
+        storeX = self.builder.emitStore(ridX, const)
+        loadA2 = self.builder.emitLoad(ridA)
+        storeB = self.builder.emitStore(ridB, loadA1)
+        storeC = self.builder.emitStore(ridC, loadA2)
+
+        correct = (
+            Load(loadA1.cid, ridA),
+            Store(const.cid, ridX),
+            Load(loadA2.cid, ridA),
+            Store(loadA1.cid, ridB),
+            Store(loadA2.cid, ridC),
             )
 
         code = self.createSimplifiedCode()
