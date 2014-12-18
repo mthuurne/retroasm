@@ -283,6 +283,31 @@ class CodeBlock:
             changed = True
             self.replaceConstants(replacements)
 
+        constsGrouped = defaultdict(list)
+        for const in constants.values():
+            if isinstance(const, ComputedConstant):
+                constsGrouped[repr(const.expr)].append(const)
+        replacements = {}
+        for similar in constsGrouped.values():
+            # We call them "similar" and check equality to be on the safe side,
+            # but in practice they're identical.
+            i = len(similar) - 1
+            while i > 0:
+                # The first equal constant is the replacement for the others.
+                iexpr = similar[i].expr
+                j = 0
+                while True:
+                    if similar[j].expr == iexpr:
+                        replacements[similar[i].cid] = similar[j]
+                        break
+                    j += 1
+                    if j >= i:
+                        break
+                i -= 1
+        if replacements:
+            changed = True
+            self.replaceConstants(replacements)
+
         while self.removeUnusedConstants():
             changed = True
         return changed

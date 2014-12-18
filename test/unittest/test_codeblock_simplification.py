@@ -60,6 +60,28 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_duplicate_const(self):
+        '''Test whether duplicate constants are removed.'''
+        const1 = self.builder.emitCompute(IntLiteral.create(2))
+        const2 = self.builder.emitCompute(
+            AddOperator(IntLiteral.create(1), IntLiteral.create(1))
+            )
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        storeA = self.builder.emitStore(ridA, const1)
+        storeB = self.builder.emitStore(ridB, const2)
+
+        correct = (
+            Store(const1.cid, ridA),
+            Store(const1.cid, ridB),
+            )
+
+        code = self.builder.createCodeBlock()
+        code.verify()
+        code.simplifyConstants()
+        code.verify()
+        self.assertNodes(code.nodes, correct)
+
     def test_duplicate_register(self):
         '''Test whether duplicate registers are removed.'''
         ridA1 = self.builder.addRegister('a')
