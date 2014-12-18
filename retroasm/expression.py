@@ -125,6 +125,13 @@ class IOChannel:
         '''
         return False
 
+    def mightBeSame(self, index1, index2):
+        '''Returns True if the storages at the two given indices might be the
+        same, either because the indices might be equal or because multiple
+        indices can point to the same storage.
+        '''
+        return True
+
 class Expression:
     '''Abstract base class for typed expressions.
 
@@ -415,6 +422,13 @@ class Storage:
         '''
         raise NotImplementedError
 
+    def mightBeSame(self, other):
+        '''Returns True if the given storage might be the same storage as
+        this one: if it is either certainly the same or if it might be an
+        alias.
+        '''
+        raise NotImplementedError
+
 class LocalValue(NamedValue, Storage):
     '''A variable in the local context.
     '''
@@ -431,6 +445,9 @@ class LocalValue(NamedValue, Storage):
 
     def isSticky(self):
         return True
+
+    def mightBeSame(self, other):
+        return self is other
 
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
@@ -451,6 +468,12 @@ class LocalReference(NamedValue, Storage):
     def isSticky(self):
         return False
 
+    def mightBeSame(self, other):
+        # A local value has a limited scope, so references passed from outside
+        # that scope cannot possibly alias it, while inside the scope there
+        # is no need to create aliases.
+        return not isinstance(other, LocalValue)
+
     def formatDecl(self):
         return '%s& %s' % (self._type, self._name)
 
@@ -470,6 +493,9 @@ class Register(NamedValue, Storage):
 
     def isSticky(self):
         return True
+
+    def mightBeSame(self, other):
+        return self is other or isinstance(other, LocalReference)
 
 class IOReference(Expression, Storage):
     '''Reference to a particular index on an I/O channel.
@@ -495,6 +521,13 @@ class IOReference(Expression, Storage):
 
     def isSticky(self):
         return self._channel.isSticky(self._index)
+
+    def mightBeSame(self, other):
+        if isinstance(other, IOReference):
+            return self._channel == other._channel \
+                and self._channel.mightBeSame(self._index, other._index)
+        else:
+            return isinstance(other, LocalReference)
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
