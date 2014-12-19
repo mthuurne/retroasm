@@ -1,6 +1,6 @@
 from .expression import (
     Concatenation, Expression, IOReference, IntLiteral, IntType, LocalReference,
-    NamedValue, Register, Slice, Storage
+    LocalValue, NamedValue, Register, Slice, Storage
     )
 
 from collections import OrderedDict, defaultdict
@@ -475,6 +475,28 @@ class CodeBlock:
                         # there is no need to remove it.
                         if currentValueCids[rid2] != node.cid:
                             del currentValueCids[rid2]
+            i += 1
+
+        # Since local values do not suffer from aliasing, all reads after the
+        # first and all writes before the last will have been eliminated by
+        # the code above. And since local values cease to exist at the end of
+        # a block, the final store can be removed as well.
+        i = 0
+        localValuesLoaded = set()
+        localValuesStored = set()
+        while i < len(nodes):
+            node = nodes[i]
+            rid = node.rid
+            if isinstance(references[rid], LocalValue):
+                if isinstance(node, Load):
+                    assert rid not in localValuesLoaded, rid
+                    localValuesLoaded.add(rid)
+                elif isinstance(node, Store):
+                    assert rid not in localValuesStored, rid
+                    localValuesStored.add(rid)
+                    changed = True
+                    del nodes[i]
+                    continue
             i += 1
 
         return changed

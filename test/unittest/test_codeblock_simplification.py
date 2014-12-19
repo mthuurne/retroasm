@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, IOChannel, IOReference, IntLiteral, IntType,
-    LocalReference, Register
+    LocalReference, LocalValue, Register
     )
 from retroasm.func_parser import CodeBlockBuilder, Load, Store
 
@@ -20,6 +20,10 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
 
     def addLocalReference(self, name, width=8):
         ref = LocalReference(name, IntType(width))
+        return self.emitReference(ref)
+
+    def addLocalValue(self, name, width=8):
+        ref = LocalValue(name, IntType(width))
         return self.emitReference(ref)
 
     def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
@@ -254,6 +258,26 @@ class CodeBlockTests(unittest.TestCase):
             Load(loadA1.cid, ridA),
             Store(loadA1.cid, ridX),
             Store(loadA1.cid, ridB),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
+    def test_local_value_store(self):
+        '''Test whether stores to local values are removed.'''
+        const = self.builder.emitCompute(IntLiteral.create(23))
+        ridA = self.builder.addRegister('a')
+        ridV = self.builder.addLocalValue('V')
+        loadV = self.builder.emitLoad(ridV)
+        incV = self.builder.emitCompute(
+            AddOperator(loadV, IntLiteral.create(1))
+            )
+        storeV = self.builder.emitStore(ridV, incV)
+        storeA = self.builder.emitStore(ridA, incV)
+
+        correct = (
+            Load(loadV.cid, ridV),
+            Store(incV.cid, ridA),
             )
 
         code = self.createSimplifiedCode()
