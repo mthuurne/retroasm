@@ -477,6 +477,23 @@ class CodeBlock:
                             del currentValueCids[rid2]
             i += 1
 
+        # Remove stores for which the value is overwritten before it is loaded.
+        willBeOverwritten = set()
+        i = len(nodes) - 1
+        while i >= 0:
+            node = nodes[i]
+            rid = node.rid
+            if not references[rid].canStoreHaveSideEffect():
+                if isinstance(node, Load):
+                    willBeOverwritten.discard(rid)
+                elif isinstance(node, Store):
+                    if rid in willBeOverwritten:
+                        changed = True
+                        del nodes[i]
+                    else:
+                        willBeOverwritten.add(rid)
+            i -= 1
+
         # Since local values do not suffer from aliasing, all reads after the
         # first and all writes before the last will have been eliminated by
         # the code above. And since local values cease to exist at the end of

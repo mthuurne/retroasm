@@ -219,6 +219,40 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_redundant_same_value_store(self):
+        '''Test removal of storing the same value in the same storage twice.'''
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        loadA = self.builder.emitLoad(ridA)
+        storeB1 = self.builder.emitStore(ridB, loadA)
+        storeB2 = self.builder.emitStore(ridB, loadA)
+
+        correct = (
+            Load(loadA.cid, ridA),
+            Store(loadA.cid, ridB),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
+    def test_redundant_other_value_store(self):
+        '''Test removal of storing a different value in the same storage.'''
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        ridC = self.builder.addRegister('c')
+        loadA = self.builder.emitLoad(ridA)
+        loadB = self.builder.emitLoad(ridB)
+        storeC1 = self.builder.emitStore(ridC, loadA)
+        storeC2 = self.builder.emitStore(ridC, loadB)
+
+        correct = (
+            Load(loadB.cid, ridB),
+            Store(loadB.cid, ridC),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
         const = self.builder.emitCompute(IntLiteral.create(23))
