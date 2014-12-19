@@ -471,7 +471,10 @@ class CodeBlock:
                 # Remove values for references that might be aliases.
                 for rid2 in list(currentValueCids.keys()):
                     if rid != rid2 and storage.mightBeSame(references[rid2]):
-                        del currentValueCids[rid2]
+                        # However, if the store wouldn't alter the value,
+                        # there is no need to remove it.
+                        if currentValueCids[rid2] != node.cid:
+                            del currentValueCids[rid2]
             i += 1
 
         return changed

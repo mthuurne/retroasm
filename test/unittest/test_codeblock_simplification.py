@@ -239,6 +239,26 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_same_value_redundant_load(self):
+        '''Test handling of writing the same value to a potential alias.'''
+        const = self.builder.emitCompute(IntLiteral.create(23))
+        ridA = self.builder.addRegister('a')
+        ridB = self.builder.addRegister('b')
+        ridX = self.builder.addLocalReference('X')
+        loadA1 = self.builder.emitLoad(ridA)
+        storeX = self.builder.emitStore(ridX, loadA1)
+        loadA2 = self.builder.emitLoad(ridA)
+        storeC = self.builder.emitStore(ridB, loadA2)
+
+        correct = (
+            Load(loadA1.cid, ridA),
+            Store(loadA1.cid, ridX),
+            Store(loadA1.cid, ridB),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()
