@@ -96,12 +96,22 @@ class LineReader:
 
     def __log(self, level, msg, *args, **kwargs):
         if self.logger.isEnabledFor(level):
-            extra = dict(
-                readerPathname = self.pathname,
-                readerLineno = self.lineno,
-                readerLastline = self.lastline,
-                )
+            try:
+                extra = kwargs.pop('location')
+            except KeyError:
+                extra = self.getLocation()
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
+
+    def getLocation(self):
+        '''Returns a dictionary describing the current location in the input
+        stream. This can be passed as the "location" argument to the log methods
+        when a message should be logged for a line other than the current one.
+        '''
+        return dict(
+            readerPathname = self.pathname,
+            readerLineno = self.lineno,
+            readerLastline = self.lastline,
+            )
 
 class DelayedError(Exception):
     '''Raised when one or more errors were encountered when processing input.
