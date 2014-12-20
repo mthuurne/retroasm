@@ -2,6 +2,8 @@ from inspect import signature
 from weakref import WeakValueDictionary
 import re
 
+# pylint: disable=protected-access
+
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there
     is only one instance.
@@ -10,8 +12,9 @@ class Unique(type):
     __slots__ in your class, make sure you include '__weakref__' in __slots__.
     '''
 
-    def __init__(cls, name, bases, dict):
-        type.__init__(cls, name, bases, dict)
+    def __init__(cls, name, bases, nmspc):
+        type.__init__(cls, name, bases, nmspc)
+        # pylint: disable=abstract-class-instantiated
         cls.__cache = WeakValueDictionary()
 
     def __call__(cls, *args):
@@ -88,6 +91,8 @@ class IOChannel:
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
+
+    # pylint: disable=unused-argument
 
     def canLoadHaveSideEffect(self, index):
         '''Returns True if reading from this channel at the given index
@@ -265,24 +270,24 @@ def minWidth(exprs):
     '''Returns the minimum of the widths of the given expressions.
     Unlimited width is considered larger than any fixed width.
     '''
-    minWidth = None
+    minSoFar = None
     for expr in exprs:
         width = expr.width
         if width is not None:
-            minWidth = width if minWidth is None else min(minWidth, width)
-    return minWidth
+            minSoFar = width if minSoFar is None else min(minSoFar, width)
+    return minSoFar
 
 def maxWidth(exprs):
     '''Returns the maximum of the widths of the given expressions.
     Unlimited width is considered larger than any fixed width.
     '''
-    maxWidth = 0
+    maxSoFar = 0
     for expr in exprs:
         width = expr.width
         if width is None:
             return None
-        maxWidth = max(maxWidth, width)
-    return maxWidth
+        maxSoFar = max(maxSoFar, width)
+    return maxSoFar
 
 class IntLiteral(Expression):
     '''An integer literal.
@@ -456,7 +461,7 @@ class LocalReference(NamedValue, Storage):
     '''
     __slots__ = ()
 
-    def canLoadHaveSideEffects(self):
+    def canLoadHaveSideEffect(self):
         return True
 
     def canStoreHaveSideEffect(self):
@@ -578,6 +583,9 @@ class ComposedExpression(Expression):
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
 
+    def _complexity(self):
+        raise NotImplementedError
+
 class SimplifiableComposedExpression(ComposedExpression):
     '''Base class for composed expressions that can be simplified using
     their algebraic properties.
@@ -616,14 +624,14 @@ class SimplifiableComposedExpression(ComposedExpression):
         if self.associative and self.commutative:
             # Move all literals to the end.
             # This makes the later merge step more effective.
-            n = len(exprs)
+            numExprs = len(exprs)
             i = 0
-            while i < n:
+            while i < numExprs:
                 expr = exprs[i]
                 if isinstance(expr, IntLiteral):
                     del exprs[i]
                     exprs.append(expr)
-                    n -= 1
+                    numExprs -= 1
                 else:
                     i += 1
 
@@ -658,16 +666,16 @@ class SimplifiableComposedExpression(ComposedExpression):
 
         if self.idempotent:
             # Remove duplicate values.
-            n = len(exprs)
+            numExprs = len(exprs)
             i = 0
-            while i + 1 < n:
+            while i + 1 < numExprs:
                 expr = exprs[i]
                 i += 1
                 j = i
-                while j < n:
+                while j < numExprs:
                     if exprs[j] == expr:
                         del exprs[j]
-                        n -= 1
+                        numExprs -= 1
                     else:
                         j += 1
 
@@ -684,6 +692,8 @@ class SimplifiableComposedExpression(ComposedExpression):
             return self
         else:
             return self.__class__(*exprs)
+
+    # pylint: disable=unused-argument
 
     def _combineLiterals(self, literal1, literal2):
         '''Attempt to combine the two given literals into a single expression.
@@ -958,8 +968,7 @@ class LShift(Expression):
         return '(%s << %d)' % (self._expr, self._offset)
 
     def _equals(self, other):
-        return (self._offset == other._offset
-            and self._expr == other._expr)
+        return self._offset == other._offset and self._expr == other._expr
 
     def _complexity(self):
         return 1 + self._expr._complexity()
@@ -1038,8 +1047,7 @@ class RShift(Expression):
         return '%s[%d:]' % (self._expr, self._offset)
 
     def _equals(self, other):
-        return (self._offset == other._offset
-            and self._expr == other._expr)
+        return self._offset == other._offset and self._expr == other._expr
 
     def _complexity(self):
         return 1 + self._expr._complexity()
@@ -1119,8 +1127,7 @@ class Truncation(Expression):
             return '%s[:%d]' % (self._expr, self.width)
 
     def _equals(self, other):
-        return (self.width == other.width
-            and self._expr == other._expr)
+        return self.width == other.width and self._expr == other._expr
 
     def _complexity(self):
         return 1 + self._expr._complexity()
@@ -1226,11 +1233,11 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
 
     def __init__(self, expr1, *exprs):
         Expression.checkInstance(expr1)
-        for n, expr in enumerate(exprs, 2):
+        for i, expr in enumerate(exprs, 2):
             if Expression.checkInstance(expr).width is None:
                 raise ValueError(
                     'all concatenation operands except the first must have '
-                    'a fixed width; operand %d has unlimited width' % n
+                    'a fixed width; operand %d has unlimited width' % i
                     )
         if expr1.width is None:
             width = None
@@ -1253,12 +1260,12 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
         '''Iterates through the concatenated expressions, where each element
         is a pair of the expression and its offset in the concatenation.
         '''
-        expr1, *exprs = self._exprs
+        exprs = self._exprs
         offset = 0
-        for expr in reversed(exprs):
+        for expr in reversed(exprs[1:]):
             yield expr, offset
             offset += expr.width
-        yield expr1, offset
+        yield exprs[0], offset
 
     def _convert(self):
         return OrOperator(
@@ -1299,9 +1306,9 @@ class Slice(PlaceholderExpression, Expression):
                 )
 
     def _equals(self, other):
-        return (self.width == other.width
-            and self._index == other._index
-            and self._expr == other._expr)
+        return (self.width == other.width and
+                self._index == other._index and
+                self._expr == other._expr)
 
     def _convert(self):
         expr = self._expr

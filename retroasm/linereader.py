@@ -108,9 +108,9 @@ class LineReader:
         when a message should be logged for a line other than the current one.
         '''
         return dict(
-            readerPathname = self.pathname,
-            readerLineno = self.lineno,
-            readerLastline = self.lastline,
+            readerPathname=self.pathname,
+            readerLineno=self.lineno,
+            readerLastline=self.lastline,
             )
 
 class DelayedError(Exception):
@@ -167,9 +167,9 @@ class LineReaderFormatter(Formatter):
         readerPathname = getattr(record, 'readerPathname', '-')
         readerLineno = getattr(record, 'readerLineno', None)
         readerLastline = getattr(record, 'readerLastline', None)
-        s = super().format(record)
+        msg = super().format(record)
         if readerLineno is not None:
-            s = '%s:%s: %s' % (readerPathname, readerLineno, s)
+            msg = '%s:%s: %s' % (readerPathname, readerLineno, msg)
         if readerLastline is not None:
-            s += '\n  ' + readerLastline
-        return s
+            msg += '\n  ' + readerLastline
+        return msg

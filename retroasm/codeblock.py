@@ -1,11 +1,10 @@
 from .expression import (
-    Concatenation, Expression, IOReference, IntLiteral, IntType, LocalReference,
+    Concatenation, Expression, IOReference, IntLiteral, IntType,
     LocalValue, NamedValue, Register, Slice, Storage
     )
 
 from collections import OrderedDict, defaultdict
 from inspect import signature
-from itertools import count
 
 class Constant:
     '''Definition of a local constant value.
@@ -152,11 +151,13 @@ class ConstantValue(Expression):
         return 'C%d' % self.cid
 
     def _equals(self, other):
+        # pylint: disable=protected-access
         return self._constant is other._constant
 
     def _complexity(self):
         const = self._constant
         if isinstance(const, ComputedConstant):
+            # pylint: disable=protected-access
             return 1 + const.expr._complexity()
         elif isinstance(const, (ArgumentConstant, LoadedConstant)):
             return 2
@@ -327,6 +328,7 @@ class CodeBlock:
                 del constants[oldCid]
                 # Replace constant in other constants' expressions.
                 def substCid(sexpr):
+                    # pylint: disable=cell-var-from-loop
                     if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
                         return ConstantValue(newConst)
                     else:
