@@ -316,6 +316,18 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_unused_reference_removal(self):
+        '''Test whether unused references are removed.'''
+        ridA = self.builder.addRegister('a')
+        loadA = self.builder.emitLoad(ridA)
+        ridM = self.builder.addIOReference('mem', loadA)
+
+        correct = (
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()

@@ -283,6 +283,7 @@ class CodeBlock:
         while True:
             changed = False
             changed |= self.simplifyConstants()
+            changed |= self.removeUnusedReferences()
             changed |= self.removeDuplicateReferences()
             changed |= self.removeRedundantNodes()
             if not changed:
@@ -415,6 +416,16 @@ class CodeBlock:
         else:
             assert len(cidsInUse) == len(constants)
             return False
+
+    def removeUnusedReferences(self):
+        '''Removes references that are not used by any load/store node.
+        '''
+        unusedRids = set(self.references.keys())
+        for node in self.nodes:
+            unusedRids.discard(node.rid)
+        for rid in unusedRids:
+            del self.references[rid]
+        return bool(unusedRids)
 
     def removeDuplicateReferences(self):
         '''Removes references that are obvious duplicates of other references.
