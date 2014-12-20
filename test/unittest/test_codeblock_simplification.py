@@ -1,8 +1,8 @@
+from retroasm.codeblock import CodeBlockBuilder, Load, Store
 from retroasm.expression import (
     AddOperator, AndOperator, IOChannel, IOReference, IntLiteral, IntType,
     LocalReference, LocalValue, Register
     )
-from retroasm.func_parser import CodeBlockBuilder, Load, Store
 
 import unittest
 
