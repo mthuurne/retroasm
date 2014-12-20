@@ -46,6 +46,27 @@ class ComputedConstant(Constant):
     def __str__(self):
         return '%s = %s' % (super().__str__(), self._expr)
 
+class ArgumentConstant(Constant):
+    '''A constant passed into a code block as an argument.
+    '''
+    __slots__ = ('_name',)
+
+    name = property(lambda self: self._name)
+
+    def __init__(self, name, cid, argType):
+        if not isinstance(name, str):
+            raise TypeError('name must be a string, got %s' % type(name))
+        Constant.__init__(self, cid, argType)
+        self._name = name
+
+    def __repr__(self):
+        return 'ArgumentConstant(%s, %d, %s)' % (
+            repr(self._name), self._cid, repr(self.type)
+            )
+
+    def __str__(self):
+        return '%s :  %s' % (super().__str__(), self._name)
+
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
     '''
@@ -137,7 +158,7 @@ class ConstantValue(Expression):
         const = self._constant
         if isinstance(const, ComputedConstant):
             return 1 + const.expr._complexity()
-        elif isinstance(const, LoadedConstant):
+        elif isinstance(const, (ArgumentConstant, LoadedConstant)):
             return 2
         else:
             assert False, const
@@ -146,7 +167,7 @@ class ConstantValue(Expression):
         const = self._constant
         if isinstance(const, ComputedConstant):
             return const.expr.simplify()
-        elif isinstance(const, LoadedConstant):
+        elif isinstance(const, (ArgumentConstant, LoadedConstant)):
             return self
         else:
             assert False, const
@@ -192,6 +213,7 @@ class CodeBlock:
         '''
         # Check that cid keys match the value's cid.
         for cid, const in self.constants.items():
+            assert isinstance(const, Constant), const
             assert const.cid == cid, const
         cids = self.constants.keys()
 
@@ -242,6 +264,10 @@ class CodeBlock:
                 print('        %-4s C%-2d <- R%d' % (
                     const.type, const.cid, const.rid
                     ))
+            elif isinstance(const, ArgumentConstant):
+                print('        %-4s C%-2d :  %s' % (
+                    const.type, const.cid, const.name
+                    ))
             else:
                 assert False, const
         print('    references:')
@@ -277,8 +303,6 @@ class CodeBlock:
                     # Wrap the simplified expression into a new constant
                     # with the same cid.
                     replacements[cid] = ComputedConstant(cid, expr)
-            else:
-                assert isinstance(const, LoadedConstant), const
         if replacements:
             changed = True
             self.replaceConstants(replacements)
@@ -371,7 +395,7 @@ class CodeBlock:
             assert cidsInUse.issubset(cids), cidsInUse
             for cid in cids - cidsInUse:
                 const = constants[cid]
-                if isinstance(const, ComputedConstant):
+                if isinstance(const, (ComputedConstant, ArgumentConstant)):
                     del constants[cid]
                 elif isinstance(const, LoadedConstant):
                     for i, node in enumerate(self.nodes):
@@ -435,6 +459,7 @@ class CodeBlock:
 
     def removeRedundantNodes(self):
         changed = False
+        constants = self.constants
         references = self.references
         nodes = self.nodes
 
@@ -448,8 +473,8 @@ class CodeBlock:
             if isinstance(node, Load):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
-                    self.constants[node.cid] = ComputedConstant(
-                        node.cid, ConstantValue(self.constants[valueCid])
+                    constants[node.cid] = ComputedConstant(
+                        node.cid, ConstantValue(constants[valueCid])
                         )
                     changed = True
                     if not storage.canLoadHaveSideEffect():
@@ -496,18 +521,26 @@ class CodeBlock:
 
         # Since local values do not suffer from aliasing, all reads after the
         # first and all writes before the last will have been eliminated by
-        # the code above. And since local values cease to exist at the end of
-        # a block, the final store can be removed as well.
+        # the code above. The final load can be replaced by a constant.
+        # And since local values cease to exist at the end of a block, the
+        # final store can be removed.
         i = 0
         localValuesLoaded = set()
         localValuesStored = set()
         while i < len(nodes):
             node = nodes[i]
             rid = node.rid
-            if isinstance(references[rid], LocalValue):
+            ref = references[rid]
+            if isinstance(ref, LocalValue):
                 if isinstance(node, Load):
                     assert rid not in localValuesLoaded, rid
                     localValuesLoaded.add(rid)
+                    changed = True
+                    del nodes[i]
+                    # Replace LoadedConstant by ArgumentConstant.
+                    cid = node.cid
+                    constants[cid] = ArgumentConstant(ref.name, cid, ref.type)
+                    continue
                 elif isinstance(node, Store):
                     assert rid not in localValuesStored, rid
                     localValuesStored.add(rid)

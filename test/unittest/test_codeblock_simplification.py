@@ -297,8 +297,8 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
-    def test_local_value_store(self):
-        '''Test whether stores to local values are removed.'''
+    def test_local_value(self):
+        '''Test whether load and stores of local values are removed.'''
         const = self.builder.emitCompute(IntLiteral.create(23))
         ridA = self.builder.addRegister('a')
         ridV = self.builder.addLocalValue('V')
@@ -310,7 +310,6 @@ class CodeBlockTests(unittest.TestCase):
         storeA = self.builder.emitStore(ridA, incV)
 
         correct = (
-            Load(loadV.cid, ridV),
             Store(incV.cid, ridA),
             )
 
