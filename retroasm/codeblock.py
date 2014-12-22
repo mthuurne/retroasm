@@ -352,7 +352,11 @@ class CodeBlock:
                         nodes[i] = node.__class__(newCid, node.rid)
 
     def removeUnusedConstants(self):
+        '''Finds constants that are not used and removes them.
+        Returns True if any constants were removed, False otherwise.
+        '''
         constants = self.constants
+        references = self.references
         cidsInUse = set()
 
         # Mark constants used in computations.
@@ -362,12 +366,18 @@ class CodeBlock:
         for const in constants.values():
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
-        # Mark constants used in stores.
+        # Mark constants used in stores and in loads with side effects.
         for node in self.nodes:
             if isinstance(node, Store):
                 cidsInUse.add(node.cid)
+            elif isinstance(node, Load):
+                if references[node.rid].canLoadHaveSideEffect():
+                    # We can't eliminate this load because it may have a useful
+                    # side effect and we can't eliminate the constant because
+                    # every load needs one, so pretend the constant is in use.
+                    cidsInUse.add(node.cid)
         # Mark constants used in references.
-        for ref in self.references.values():
+        for ref in references.values():
             if isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
 
@@ -379,14 +389,12 @@ class CodeBlock:
                 if isinstance(const, (ComputedConstant, ArgumentConstant)):
                     del constants[cid]
                 elif isinstance(const, LoadedConstant):
+                    # Remove both constant and its Load node.
+                    del constants[cid]
                     for i, node in enumerate(self.nodes):
                         if node.cid == cid:
                             assert isinstance(node, Load), node
-                            storage = self.references[node.rid]
-                            if not storage.canLoadHaveSideEffect():
-                                # Remove both constant and its Load node.
-                                del constants[cid]
-                                del self.nodes[i]
+                            del self.nodes[i]
                             break
                     else:
                         assert False, const

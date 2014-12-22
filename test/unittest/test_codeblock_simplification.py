@@ -179,6 +179,19 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_unused_load_nonremoval(self):
+        '''Test whether unused loads are kept for possible side effects.'''
+        addr = self.builder.emitCompute(IntLiteral.create(0xD0D0))
+        ridM = self.builder.addIOReference('mem', addr)
+        loadM = self.builder.emitLoad(ridM)
+
+        correct = (
+            Load(loadM.cid, ridM),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+
     def test_redundant_load_after_load(self):
         '''Test whether redundant successive loads are removed.'''
         ridA = self.builder.addRegister('a')
@@ -279,7 +292,6 @@ class CodeBlockTests(unittest.TestCase):
 
     def test_same_value_redundant_load(self):
         '''Test handling of writing the same value to a potential alias.'''
-        const = self.builder.emitCompute(IntLiteral.create(23))
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
         ridX = self.builder.addLocalReference('X')
@@ -299,7 +311,6 @@ class CodeBlockTests(unittest.TestCase):
 
     def test_local_value(self):
         '''Test whether load and stores of local values are removed.'''
-        const = self.builder.emitCompute(IntLiteral.create(23))
         ridA = self.builder.addRegister('a')
         ridV = self.builder.addLocalValue('V')
         loadV = self.builder.emitLoad(ridV)
