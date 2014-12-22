@@ -272,26 +272,24 @@ class CodeBlock:
         changed = False
         constants = self.constants
 
-        replacements = {}
-        for cid, const in constants.items():
+        for cid in list(constants.keys()):
+            const = constants[cid]
             if isinstance(const, ComputedConstant):
                 expr = const.expr.simplify()
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant.
-                    replacements[cid] = expr.constant
+                    self.replaceConstant(cid, expr.constant)
+                    changed = True
                 elif expr is not const.expr:
                     # Wrap the simplified expression into a new constant
                     # with the same cid.
-                    replacements[cid] = ComputedConstant(cid, expr)
-        if replacements:
-            changed = True
-            self.replaceConstants(replacements)
+                    self.replaceConstant(cid, ComputedConstant(cid, expr))
+                    changed = True
 
         constsGrouped = defaultdict(list)
         for const in constants.values():
             if isinstance(const, ComputedConstant):
                 constsGrouped[repr(const.expr)].append(const)
-        replacements = {}
         for similar in constsGrouped.values():
             # We call them "similar" and check equality to be on the safe side,
             # but in practice they're identical.
@@ -302,54 +300,51 @@ class CodeBlock:
                 j = 0
                 while True:
                     if similar[j].expr == iexpr:
-                        replacements[similar[i].cid] = similar[j]
+                        self.replaceConstant(similar[i].cid, similar[j])
+                        changed = True
                         break
                     j += 1
                     if j >= i:
                         break
                 i -= 1
-        if replacements:
-            changed = True
-            self.replaceConstants(replacements)
 
         while self.removeUnusedConstants():
             changed = True
         return changed
 
-    def replaceConstants(self, replacements):
+    def replaceConstant(self, oldCid, newConst):
         constants = self.constants
-        references = self.references
-        nodes = self.nodes
-        for oldCid, newConst in replacements.items():
-            newCid = newConst.cid
-            if oldCid == newCid:
-                constants[oldCid] = newConst
-            else:
-                del constants[oldCid]
-                # Replace constant in other constants' expressions.
-                def substCid(sexpr):
-                    # pylint: disable=cell-var-from-loop
-                    if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                        return ConstantValue(newConst)
-                    else:
-                        return None
-                for cid in list(constants.keys()):
-                    const = constants[cid]
-                    if isinstance(const, ComputedConstant):
-                        newExpr = const.expr.substitute(substCid)
-                        if newExpr is not const.expr:
-                            constants[cid] = ComputedConstant(cid, newExpr)
-                # Replace constant in references.
-                for rid in list(references.keys()):
-                    ref = references[rid]
-                    if isinstance(ref, IOReference) and ref.index.cid == oldCid:
-                        references[rid] = IOReference(
-                            ref.channel, ConstantValue(newConst)
-                            )
-                # Replace constant in nodes.
-                for i, node in enumerate(nodes):
-                    if node.cid == oldCid:
-                        nodes[i] = node.__class__(newCid, node.rid)
+        newCid = newConst.cid
+        if oldCid == newCid:
+            constants[oldCid] = newConst
+        else:
+            del constants[oldCid]
+            # Replace constant in other constants' expressions.
+            def substCid(sexpr):
+                # pylint: disable=cell-var-from-loop
+                if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
+                    return ConstantValue(newConst)
+                else:
+                    return None
+            for cid in list(constants.keys()):
+                const = constants[cid]
+                if isinstance(const, ComputedConstant):
+                    newExpr = const.expr.substitute(substCid)
+                    if newExpr is not const.expr:
+                        constants[cid] = ComputedConstant(cid, newExpr)
+            # Replace constant in references.
+            references = self.references
+            for rid in list(references.keys()):
+                ref = references[rid]
+                if isinstance(ref, IOReference) and ref.index.cid == oldCid:
+                    references[rid] = IOReference(
+                        ref.channel, ConstantValue(newConst)
+                        )
+            # Replace constant in nodes.
+            nodes = self.nodes
+            for i, node in enumerate(nodes):
+                if node.cid == oldCid:
+                    nodes[i] = node.__class__(newCid, node.rid)
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
