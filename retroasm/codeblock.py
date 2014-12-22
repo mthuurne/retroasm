@@ -185,6 +185,7 @@ class CodeBlock:
         self.constants = constantsDict
         self.references = OrderedDict(enumerate(references))
         self.nodes = nodes
+        self.retCid = None
 
     def verify(self):
         '''Performs consistency checks on the data in this code block.
@@ -375,6 +376,10 @@ class CodeBlock:
         for ref in references.values():
             if isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
+        # Mark constant that contains return value.
+        retCid = self.retCid
+        if retCid is not None:
+            cidsInUse.add(retCid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -540,6 +545,9 @@ class CodeBlock:
                     localValuesStored.add(rid)
                     changed = True
                     del nodes[i]
+                    if ref.name == 'ret':
+                        assert self.retCid is None, self.retCid
+                        self.retCid = node.cid
                     continue
             i += 1
 
@@ -627,6 +635,8 @@ def emitCodeFromAssignments(log, builder, assignments):
         if subst is not None:
             expr = subst
         if isinstance(expr, Storage):
+            if isinstance(expr, NamedValue) and expr.name == 'ret':
+                log.error('function return value "ret" is write-only')
             return builder.emitLoad(getReferenceID(expr))
         else:
             return None

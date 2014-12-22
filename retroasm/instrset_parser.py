@@ -1,4 +1,4 @@
-from .expression import IOChannel, Register, namePat
+from .expression import IOChannel, LocalValue, Register, namePat
 from .expression_parser import parseConcat, parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader, DelayedError
 from .func_parser import createFunc
@@ -131,7 +131,12 @@ def _parseFuncArgs(log, argsStr):
                 i, argStr
                 )
         else:
-            if argName in args:
+            if argName == 'ret':
+                log.error(
+                    '"ret" is reserved for the return value; '
+                    'it cannot be used as an argument name'
+                    )
+            elif argName in args:
                 log.error(
                     'function argument %d has the same name as '
                     'an earlier argument: %s', i, argName
@@ -175,7 +180,9 @@ def _parseAssignments(log, lines, context):
                 continue
             yield lhs, rhs
 
-_reFuncHeader = re.compile(_nameTok + r'\((.*)\)$')
+_reFuncHeader = re.compile(
+    r'(?:' + _nameTok + r'\s)?' + _nameTok + r'\((.*)\)$'
+    )
 
 def _parseFunc(reader, argStr, context):
     # Parse header line.
@@ -184,7 +191,18 @@ def _parseFunc(reader, argStr, context):
         reader.error('invalid function header line')
         reader.skipBlock()
         return
-    funcName, funcArgsStr = match.groups()
+    retTypeStr, funcName, funcArgsStr = match.groups()
+
+    # Parse return type.
+    if retTypeStr is None:
+        retType = None
+    else:
+        try:
+            retType = parseType(retTypeStr)
+        except ValueError as ex:
+            reader.error('bad return type: %s', ex)
+            reader.skipBlock()
+            return
 
     # Parse arguments.
     try:
@@ -196,13 +214,15 @@ def _parseFunc(reader, argStr, context):
 
     # Parse body lines.
     localContext = dict(args)
+    if retType is not None:
+        localContext['ret'] = LocalValue('ret', retType)
     combinedContext = ChainMap(localContext, context.exprs)
     try:
         with reader.checkErrors():
             assignments = _parseAssignments(
                 reader, reader.iterBlock(), combinedContext
                 )
-            func = createFunc(reader, funcName, args, assignments)
+            func = createFunc(reader, funcName, retType, args, assignments)
     except DelayedError:
         return
 

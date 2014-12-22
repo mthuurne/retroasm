@@ -339,6 +339,24 @@ class CodeBlockTests(unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
+    def test_return_value(self):
+        '''Test whether a return value constant is created correctly.'''
+        ridA = self.builder.addRegister('a')
+        ridV = self.builder.addLocalValue('V')
+        ridRet = self.builder.addLocalValue('ret')
+        loadA = self.builder.emitLoad(ridA)
+        loadV = self.builder.emitLoad(ridV)
+        add = self.builder.emitCompute(AddOperator(loadA, loadV))
+        storeRet = self.builder.emitStore(ridRet, add)
+
+        correct = (
+            Load(loadA.cid, ridA),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+        self.assertEqual(code.retCid, add.cid)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()

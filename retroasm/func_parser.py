@@ -6,18 +6,40 @@ from .linereader import DelayedError
 
 class Function:
 
-    def __init__(self, name, args, code):
+    def __init__(self, name, retType, args, code):
+        if code is not None:
+            # Check consistency between declared return type and code block.
+            if retType is None:
+                if code.retCid is not None:
+                    raise ValueError(
+                        'function "%s" has no return type, '
+                        'but its code block has a return value' % name
+                        )
+            elif code.retCid is None:
+                raise ValueError(
+                    'missing return value assignment in function "%s"' % name
+                    )
+            elif code.constants[code.retCid].type != retType:
+                raise ValueError(
+                    'function "%s" has return type "%s", '
+                    'but its code block has return type "%s"'
+                    % (retType, code.constants[code.retCid].type)
+                    )
+
         self.name = name
+        self.retType = retType
         self.args = args
         self.code = code
 
     def __repr__(self):
-        return 'Function(%s, %s, %s)' % (
-            repr(self.name), repr(self.args), repr(self.code)
+        return 'Function(%s, %s, %s, %s)' % (
+            repr(self.name), repr(self.retType), repr(self.args),
+            repr(self.code)
             )
 
     def __str__(self):
-        return 'func %s(%s)' % (
+        return 'func %s%s(%s)' % (
+            '' if self.retType is None else '%s ' % self.retType,
             self.name,
             ', '.join(arg.formatDecl() for arg in self.args.values())
             )
@@ -56,7 +78,7 @@ class Function:
                     return ref
         return None
 
-def createFunc(reader, name, args, assignments):
+def createFunc(reader, name, retType, args, assignments):
     headerLocation = reader.getLocation()
     builder = CodeBlockBuilder()
     try:
@@ -67,7 +89,13 @@ def createFunc(reader, name, args, assignments):
     else:
         code = builder.createCodeBlock()
         code.simplify()
-    func = Function(name, args, code)
+
+    try:
+        func = Function(name, retType, args, code)
+    except ValueError as ex:
+        reader.error('%s', ex, location=headerLocation)
+        code = None
+        func = Function(name, retType, args, code)
 
     if code is not None:
         # Warn about unused arguments.
