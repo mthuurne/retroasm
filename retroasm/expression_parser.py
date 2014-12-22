@@ -1,7 +1,8 @@
 from .expression import (
-    AddOperator, Concatenation, Expression, IOChannel, IOReference, IntLiteral,
+    AddOperator, Complement, Concatenation, IOChannel, IOReference, IntLiteral,
     IntType, LocalReference, LocalValue, Slice, Subtraction
     )
+import re
 
 def parseType(typeName):
     if not typeName.startswith('u'):
@@ -19,101 +20,178 @@ def parseLocalDecl(typeDecl, name):
     else:
         return LocalValue(name, parseType(typeDecl))
 
-_binaryOperators = {
-    '+': AddOperator,
-    '-': Subtraction,
-}
+class ExpressionTokenizer:
 
-def parseBinaryOperator(operator, exprStr, context):
-    lStr, rStr = exprStr.split(operator, 1)
-    lhs = parseExpr(lStr, context)
-    rhs = parseExpr(rStr, context)
-    return _binaryOperators[operator](lhs, rhs)
+    _pattern = re.compile('|'.join('(?P<%s>%s)' % pair for pair in (
+        # pylint: disable=bad-whitespace
+        ('identifier',  r"[A-Za-z_][A-Za-z0-9_]*'?"),
+        ('number',      r'[%$0-9]\w*'),
+        ('operator',    r'[&|\^+\-~!;]|==|!='),
+        ('bracket',     r'[\[\]():]'),
+        ('assignment',  r':='),
+        ('whitespace',  r'\s+'),
+        ('other',       r'.'),
+        )))
 
-def parseTerminal(exprStr, context):
-    exprStr = exprStr.strip()
-    if exprStr.isdigit():
-        if exprStr[0] == '0' and len(exprStr) != 1:
-            raise ValueError(
-                'leading zeroes not allowed on decimal integer literals: %s'
-                % exprStr
-                )
-        return IntLiteral.create(int(exprStr))
-    elif exprStr.startswith('%'):
-        return IntLiteral(int(exprStr[1:], 2), IntType(len(exprStr)-1))
-    elif exprStr.startswith('$'):
-        return IntLiteral(int(exprStr[1:], 16), IntType((len(exprStr)-1) * 4))
-    elif exprStr.endswith(']'):
-        try:
-            name, indexStr = exprStr[:-1].split('[', 1)
-        except ValueError:
-            raise ValueError('invalid lookup or slice expression: %s' % exprStr)
-        try:
-            value = context[name]
-        except KeyError:
-            raise ValueError('the name "%s" does not exist' % name)
-        if ':' in indexStr:
+    def __init__(self, exprStr):
+        self._tokens = self._pattern.finditer(exprStr)
+        self.__next__()
+
+    def __next__(self):
+        while True:
             try:
-                indexStrLo, indexStrHi = indexStr.split(':')
-            except ValueError:
-                raise ValueError(
-                    'multiple ":" in slice expression: %s' % indexStr
-                    )
-            try:
-                indexLo = parseExpr(indexStrLo, context)
-            except ValueError as ex:
-                raise ValueError('error in slice lower bound: %s' % ex)
-            try:
-                indexHi = parseExpr(indexStrHi, context)
-            except ValueError as ex:
-                raise ValueError('error in slice upper bound: %s' % ex)
+                match = next(self._tokens)
+            except StopIteration:
+                self.kind = 'end'
+                self.value = None
+                break
+            kind = match.lastgroup
+            if kind != 'whitespace':
+                self.kind = kind
+                self.value = match.group(kind)
+                break
+
+    def eat(self, kind, value=None):
+        '''Consumes the current token if it matches the given kind and,
+        if specified, also the given value. Returns True if the token is
+        consumed, False otherwise.
+        '''
+        if self.kind == kind and (value is None or self.value == value):
+            next(self)
+            return True
         else:
-            try:
-                indexLo = parseExpr(indexStr, context)
-            except ValueError as ex:
-                raise ValueError('bad index: %s' % ex)
-            indexHi = None
-        if isinstance(value, IOChannel):
-            if indexHi is None:
-                return IOReference(value, indexLo)
-            else:
-                raise ValueError(
-                    '"%s" is an I/O channel and therefore does not support '
-                    'slicing' % name
-                    )
-        else:
-            try:
-                index = indexLo.value
-            except AttributeError:
-                raise ValueError('index is not constant: %s' % indexLo)
-            if indexHi is None:
-                width = 1
-            else:
-                try:
-                    width = indexHi.value - index
-                except AttributeError:
-                    raise ValueError('index is not constant: %s' % indexHi)
-            return Slice(value, index, width)
-    elif '+' in exprStr:
-        return parseBinaryOperator('+', exprStr, context)
-    elif '-' in exprStr:
-        return parseBinaryOperator('-', exprStr, context)
-    else:
-        try:
-            expr = context[exprStr]
-        except KeyError:
-            raise ValueError('unknown name "%s" in expression' % exprStr)
-        try:
-            Expression.checkInstance(expr)
-        except TypeError:
-            raise ValueError('name "%s" is not an expression' % exprStr)
-        return expr
-
-def parseConcat(exprStr, context):
-    return Concatenation(*(
-        parseTerminal(sub, context)
-        for sub in exprStr.split(';')
-        ))
+            return False
 
 def parseExpr(exprStr, context):
-    return parseTerminal(exprStr, context)
+    token = ExpressionTokenizer(exprStr)
+
+    class BadToken(ValueError):
+        def __init__(self, where, expected):
+            msg = 'bad %s expression: expected %s, got %s "%s"' % (
+                where, expected, token.kind, token.value
+                )
+            ValueError.__init__(self, msg)
+
+    def parseAddSub():
+        expr = parseConcat()
+        if token.eat('operator', '+'):
+            return AddOperator(expr, parseTop())
+        elif token.eat('operator', '-'):
+            return Subtraction(expr, parseTop())
+        else:
+            return expr
+
+    def parseConcat():
+        exprs = [parseUnary()]
+        while token.eat('operator', ';'):
+            exprs.append(parseUnary())
+        return exprs[0] if len(exprs) == 1 else Concatenation(*exprs)
+
+    def parseUnary():
+        if token.eat('operator', '-'):
+            return Complement(parseUnary())
+        else:
+            return parseSlice()
+
+    def parseSlice():
+        expr = parseGroup()
+        if isinstance(expr, IOChannel):
+            return parseIOReference(expr)
+        if not token.eat('bracket', '['):
+            return expr
+
+        # Bitwise lookup or bit string slicing.
+        start = parseTop()
+        if token.eat('bracket', ':'):
+            end = parseTop()
+            if not token.eat('bracket', ']'):
+                raise BadToken('slice', '"]"')
+        elif token.eat('bracket', ']'):
+            end = None
+        else:
+            raise BadToken('slice/lookup', '":" or "]"')
+
+        # Convert start/end to start/width.
+        # pylint: disable=no-member
+        start = start.simplify()
+        try:
+            index = start.value
+        except AttributeError:
+            raise ValueError('index is not constant: %s' % start)
+        if end is None:
+            width = 1
+        else:
+            end = end.simplify()
+            try:
+                width = end.value - index
+            except AttributeError:
+                raise ValueError('index is not constant: %s' % end)
+
+        return Slice(expr, index, width)
+
+    def parseIOReference(channel):
+        # I/O lookup.
+        if not token.eat('bracket', '['):
+            raise BadToken('I/O reference', '"["')
+        index = parseTop()
+        if not token.eat('bracket', ']'):
+            raise BadToken('I/O index', '"]"')
+        return IOReference(channel, index)
+
+    def parseGroup():
+        if token.eat('bracket', '('):
+            expr = parseTop()
+            if not token.eat('bracket', ')'):
+                raise BadToken('parenthesized', ')')
+            return expr
+        else:
+            return parseIdent()
+
+    def parseIdent():
+        if token.kind == 'number':
+            return parseNumber()
+        if token.kind != 'identifier':
+            raise BadToken('innermost', 'identifier')
+
+        # Look up identifier in context.
+        name = token.value
+        try:
+            expr = context[name]
+        except KeyError:
+            raise ValueError('unknown name "%s" in expression' % name)
+        else:
+            next(token)
+            return expr
+
+    def parseNumber():
+        if token.value[0] == '$':
+            value = token.value[1:]
+            next(token)
+            return IntLiteral(int(value, 16), IntType(len(value) * 4))
+        elif token.value[0] == '%':
+            value = token.value[1:]
+            next(token)
+            return IntLiteral(int(value, 2), IntType(len(value)))
+        else:
+            value = token.value
+            next(token)
+            if value[0] == '0' and len(value) != 1:
+                raise ValueError(
+                    'leading zeroes not allowed on decimal integer '
+                    'literals: %s' % value
+                    )
+            return IntLiteral.create(int(value))
+
+    parseTop = parseAddSub
+
+    expr = parseTop()
+    if token.kind == 'other':
+        raise ValueError(
+            'unexpected character "%s" in expression' % token.value
+            )
+    elif token.kind != 'end':
+        raise ValueError(
+            'found %s "%s" in an unexpected place' % (token.kind, token.value)
+            )
+    else:
+        return expr

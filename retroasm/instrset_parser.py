@@ -1,5 +1,5 @@
 from .expression import IOChannel, LocalValue, Register, namePat
-from .expression_parser import parseConcat, parseExpr, parseLocalDecl, parseType
+from .expression_parser import parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader, DelayedError
 from .func_parser import createFunc
 
@@ -81,7 +81,7 @@ def _parseRegs(reader, argStr, context):
 
             # Parse right hand side.
             try:
-                alias = parseConcat(parts[1], context)
+                alias = parseExpr(parts[1], context)
             except ValueError as ex:
                 reader.error(str(ex))
                 continue
