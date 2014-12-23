@@ -153,15 +153,26 @@ def parseExpr(exprStr, context):
         if token.kind != 'identifier':
             raise BadToken('innermost', 'identifier')
 
-        # Look up identifier in context.
         name = token.value
-        try:
-            expr = context[name]
-        except KeyError:
-            raise ValueError('unknown name "%s" in expression' % name)
-        else:
+        next(token)
+        if token.kind == 'identifier':
+            # Two identifiers in a row means the first is a type declaration.
+            typ = parseType(name)
+            name = token.value
             next(token)
-            return expr
+            if name in context:
+                raise ValueError('attempt to redefine "%s"' % name)
+            else:
+                context[name] = expr = LocalValue(name, typ)
+                return expr
+        else:
+            # Look up identifier in context.
+            try:
+                expr = context[name]
+            except KeyError:
+                raise ValueError('unknown name "%s" in expression' % name)
+            else:
+                return expr
 
     def parseNumber():
         if token.value[0] == '$':
