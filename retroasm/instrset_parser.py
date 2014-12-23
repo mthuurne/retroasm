@@ -4,6 +4,7 @@ from .linereader import DefLineReader, DelayedError
 from .func_parser import createFunc
 
 from collections import ChainMap, OrderedDict
+from functools import partial
 from logging import getLogger
 import re
 
@@ -20,19 +21,27 @@ class _GlobalContextBuilder:
         return self.exprs[key]
 
     def __setitem__(self, key, value):
+        deliver = self.reserve(key)
+        deliver(value)
+
+    def reserve(self, key):
+        '''Reserves a name in the global context.
+        If the name is already taken, an error is logged and None is returned.
+        If the name was available, it is reserved and a function is returned
+        that, when called with a single argument, will store that argument in
+        the global context as the value for the reserved key.
+        '''
         if not isinstance(key, str):
             raise TypeError('global name must be str, got %s' % type(key))
 
-        exprs = self.exprs
-        oldValue = exprs.get(key)
-        if oldValue is None:
-            exprs[key] = value
+        oldLineno = self.lineno.get(key)
+        if oldLineno is None:
             self.lineno[key] = self.reader.lineno
+            return partial(self.exprs.__setitem__, key)
         else:
             self.reader.error(
-                'global name "%s" redefined with different value; '
-                'first definition was on line %d'
-                % (key, self.lineno[key])
+                'global name "%s" redefined; first definition was on line %d'
+                % (key, oldLineno)
                 )
 
     def items(self):
@@ -212,6 +221,9 @@ def _parseFunc(reader, argStr, context):
         reader.skipBlock()
         return
 
+    # Reserve the function name in the global context.
+    nameReservation = context.reserve(funcName)
+
     # Parse body lines.
     localContext = dict(args)
     if retType is not None:
@@ -225,6 +237,10 @@ def _parseFunc(reader, argStr, context):
             func = createFunc(reader, funcName, retType, args, assignments)
     except DelayedError:
         return
+
+    # Store function in global context.
+    if nameReservation is not None:
+        nameReservation(func)
 
     func.dump()
     print()
