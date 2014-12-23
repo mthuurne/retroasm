@@ -250,6 +250,10 @@ class CodeBlock:
                     ))
             else:
                 assert False, const
+        if self.retCid is not None:
+            print('        %-4s ret =  C%d' % (
+                self.constants[self.retCid].type, self.retCid
+                ))
         print('    references:')
         for rid, ref in self.references.items():
             print('        %-4s R%-2d = %s' % ('%s&' % ref.type, rid, ref))
