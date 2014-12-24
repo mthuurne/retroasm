@@ -1,8 +1,10 @@
 from .codeblock import (
     ArgumentConstant, CodeBlockBuilder, emitCodeFromAssignments
     )
-from .expression import LocalReference, LocalValue
+from .expression import Expression, LocalReference, LocalValue
 from .linereader import DelayedError
+
+from inspect import signature
 
 class Function:
 
@@ -109,3 +111,43 @@ def createFunc(reader, name, retType, args, assignments):
                     )
 
     return func
+
+class FunctionCall(Expression):
+    '''Expression that represents the value returned by a user-defined function.
+    '''
+    __slots__ = ('_func', '_args')
+
+    func = property(lambda self: self._func)
+    args = property(lambda self: self._args)
+
+    def __init__(self, func, args):
+        if not isinstance(func, Function):
+            raise TypeError('func must be Function, got %s' % type(func))
+        Expression.__init__(self, func.retType)
+        self._func = func
+        self._args = tuple(Expression.checkInstance(arg) for arg in args)
+
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take star args' % cls.__name__)
+        kwargs.setdefault('func', self._func)
+        kwargs.setdefault('args', self._args)
+        return signature(cls).bind(**kwargs)
+
+    def __str__(self):
+        return '%s(%s)' % (
+            self._func.name,
+            ', '.join(str(arg) for arg in self._args)
+            )
+
+    def _equals(self, other):
+        return (
+            self._func is other._func and
+            len(self._args) == len(other._args) and
+            all(arg1 == arg2 for arg1, arg2 in zip(self._args, other._args))
+            )
+
+    def _complexity(self):
+        # Functions will be inlined when forming code blocks.
+        return 1 << 50

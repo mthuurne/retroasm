@@ -2,7 +2,7 @@ from .expression import (
     AddOperator, Complement, Concatenation, IOChannel, IOReference, IntLiteral,
     IntType, LocalReference, LocalValue, Slice, Subtraction
     )
-from .func_parser import Function
+from .func_parser import Function, FunctionCall
 import re
 
 def parseType(typeName):
@@ -165,8 +165,7 @@ def parseExpr(exprStr, context):
             if not isinstance(func, Function):
                 raise ValueError('"%s" is not a function' % name)
             args = parseFuncArgs()
-            # TODO: Function call needs a new kind of expression.
-            return LocalValue('result_from_%s' % name, func.retType)
+            return FunctionCall(func, args)
         elif token.kind == 'identifier':
             # Two identifiers in a row means the first is a type declaration.
             typ = parseType(name)
