@@ -2,6 +2,7 @@ from .expression import (
     AddOperator, Complement, Concatenation, IOChannel, IOReference, IntLiteral,
     IntType, LocalReference, LocalValue, Slice, Subtraction
     )
+from .func_parser import Function
 import re
 
 def parseType(typeName):
@@ -27,7 +28,7 @@ class ExpressionTokenizer:
         ('identifier',  r"[A-Za-z_][A-Za-z0-9_]*'?"),
         ('number',      r'[%$0-9]\w*'),
         ('operator',    r'[&|\^+\-~!;]|==|!='),
-        ('bracket',     r'[\[\]():]'),
+        ('bracket',     r'[\[\]():,]'),
         ('assignment',  r':='),
         ('whitespace',  r'\s+'),
         ('other',       r'.'),
@@ -155,7 +156,18 @@ def parseExpr(exprStr, context):
 
         name = token.value
         next(token)
-        if token.kind == 'identifier':
+        if token.eat('bracket', '('):
+            # Function call.
+            try:
+                func = context[name]
+            except KeyError:
+                raise ValueError('no function named "%s"' % name)
+            if not isinstance(func, Function):
+                raise ValueError('"%s" is not a function' % name)
+            args = parseFuncArgs()
+            # TODO: Function call needs a new kind of expression.
+            return LocalValue('result_from_%s' % name, func.retType)
+        elif token.kind == 'identifier':
             # Two identifiers in a row means the first is a type declaration.
             typ = parseType(name)
             name = token.value
@@ -173,6 +185,17 @@ def parseExpr(exprStr, context):
                 raise ValueError('unknown name "%s" in expression' % name)
             else:
                 return expr
+
+    def parseFuncArgs():
+        args = []
+        if not token.eat('bracket', ')'):
+            while True:
+                args.append(parseTop())
+                if token.eat('bracket', ')'):
+                    break
+                if not token.eat('bracket', ','):
+                    raise BadToken('function call arguments', '"," or ")"')
+        return args
 
     def parseNumber():
         if token.value[0] == '$':

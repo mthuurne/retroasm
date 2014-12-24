@@ -56,3 +56,11 @@ u8 port[u8]
 = func write16(u16 A, u16 V)
     mem[A]     := V[0:8]
     mem[A + 1] := V[8:16]
+
+#= func push(u16 V)
+#    sp := sp - 2
+#    write16(sp, V)
+
+= func pop(u16& R)
+    R := read16(sp)
+    sp := sp + 2
