@@ -159,7 +159,6 @@ class Expression:
     __slots__ = ('_type',)
 
     type = property(lambda self: self._type)
-    width = property(lambda self: self._type._width)
 
     @staticmethod
     def checkInstance(expr):
@@ -167,10 +166,16 @@ class Expression:
             raise TypeError('expected Expression subclass, got %s' % type(expr))
         return expr
 
-    def __init__(self, intType):
-        if not isinstance(intType, IntType):
-            raise TypeError('type must be IntType, got %s' % type(intType))
-        self._type = intType
+    @staticmethod
+    def checkScalar(expr):
+        Expression.checkInstance(expr)
+        expr._checkScalar()
+        return expr
+
+    def __init__(self, typ):
+        if typ is not None and not isinstance(typ, IntType):
+            raise TypeError('type must be None or IntType, got %s' % type(typ))
+        self._type = typ
 
     def _ctorargs(self, *exprs, **kwargs):
         '''Returns the constructor arguments that can be used to re-create
@@ -216,6 +221,20 @@ class Expression:
         The other expression is of the same Python class as this one.
         '''
         raise NotImplementedError
+
+    def _checkScalar(self):
+        '''Does nothing if this expression returns a single value.
+        Otherwise, ValueError is raised.
+        '''
+        pass
+
+    def _getWidth(self):
+        '''Returns the width of this expression in bits, or None if the
+        expression is not a scalar or is a scalar with unlimited width.
+        '''
+        typ = self._type
+        return None if typ is None else typ._width
+    width = property(_getWidth)
 
     def _complexity(self):
         '''Returns a postive number that reflects the complexity of this
@@ -512,7 +531,7 @@ class IOReference(Expression, Storage):
 
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
-        self._index = Expression.checkInstance(index)
+        self._index = Expression.checkScalar(index)
         Expression.__init__(self, self._channel.elemType)
 
     def canLoadHaveSideEffect(self):
@@ -563,7 +582,7 @@ class ComposedExpression(Expression):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
-            Expression.checkInstance(expr)
+            Expression.checkScalar(expr)
         Expression.__init__(self, intType)
         self._exprs = exprs
 
@@ -906,7 +925,7 @@ class Complement(Expression):
     expr = property(lambda self: self._expr)
 
     def __init__(self, expr):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         Expression.__init__(self, IntType(None))
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -949,7 +968,7 @@ class LShift(Expression):
     offset = property(lambda self: self._offset)
 
     def __init__(self, expr, offset):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         if not isinstance(offset, int):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
@@ -1028,7 +1047,7 @@ class RShift(Expression):
     offset = property(lambda self: self._offset)
 
     def __init__(self, expr, offset):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         if not isinstance(offset, int):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
@@ -1109,7 +1128,7 @@ class Truncation(Expression):
     expr = property(lambda self: self._expr)
 
     def __init__(self, expr, width):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         Expression.__init__(self, IntType(width))
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -1232,9 +1251,9 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
     operator = ';'
 
     def __init__(self, expr1, *exprs):
-        Expression.checkInstance(expr1)
+        Expression.checkScalar(expr1)
         for i, expr in enumerate(exprs, 2):
-            if Expression.checkInstance(expr).width is None:
+            if Expression.checkScalar(expr).width is None:
                 raise ValueError(
                     'all concatenation operands except the first must have '
                     'a fixed width; operand %d has unlimited width' % i
@@ -1282,7 +1301,7 @@ class Slice(PlaceholderExpression, Expression):
     index = property(lambda self: self._index)
 
     def __init__(self, expr, index, width):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         if not isinstance(index, int):
             raise TypeError('slice index must be int, got %s' % type(index))
         if index < 0:

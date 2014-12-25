@@ -1,4 +1,4 @@
-from .expression import IOChannel, LocalValue, Register, namePat
+from .expression import Expression, IOChannel, LocalValue, Register, namePat
 from .expression_parser import parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader, DelayedError
 from .func_parser import createFunc
@@ -172,22 +172,33 @@ def _parseAssignments(log, lines, context):
     for line in lines:
         parts = line.split(':=')
         if len(parts) < 2:
-            log.error('no assignment in line')
-        elif len(parts) > 2:
-            log.error('multiple assignments in a single line')
-        else:
+            # No assignment.
+            lhsStr = None
+            rhsStr = line
+        elif len(parts) == 2:
             lhsStr, rhsStr = parts
+        else:
+            log.error('multiple assignments in a single line')
+            continue
+
+        if lhsStr is None:
+            lhs = None
+        else:
             try:
                 lhs = parseExpr(lhsStr, context)
             except ValueError as ex:
                 log.error('error in left hand side of assignment: %s', ex)
                 continue
-            try:
-                rhs = parseExpr(rhsStr, context)
-            except ValueError as ex:
-                log.error('error in right hand side of assignment: %s', ex)
-                continue
-            yield lhs, rhs
+
+        try:
+            rhs = parseExpr(rhsStr, context)
+            if lhs is not None:
+                Expression.checkScalar(rhs)
+        except ValueError as ex:
+            log.error('error in right hand side of assignment: %s', ex)
+            continue
+
+        yield lhs, rhs
 
 _reFuncHeader = re.compile(
     r'(?:' + _nameTok + r'\s)?' + _nameTok + r'\((.*)\)$'

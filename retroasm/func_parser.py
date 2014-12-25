@@ -125,7 +125,7 @@ class FunctionCall(Expression):
             raise TypeError('func must be Function, got %s' % type(func))
         Expression.__init__(self, func.retType)
         self._func = func
-        self._args = tuple(Expression.checkInstance(arg) for arg in args)
+        self._args = tuple(Expression.checkScalar(arg) for arg in args)
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
@@ -147,6 +147,13 @@ class FunctionCall(Expression):
             len(self._args) == len(other._args) and
             all(arg1 == arg2 for arg1, arg2 in zip(self._args, other._args))
             )
+
+    def _checkScalar(self):
+        if self._type is None:
+            raise ValueError(
+                'attempt to use result of function "%s" that returns no value'
+                % self._func.name
+                )
 
     def _complexity(self):
         # Functions will be inlined when forming code blocks.

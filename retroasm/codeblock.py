@@ -36,7 +36,7 @@ class ComputedConstant(Constant):
     expr = property(lambda self: self._expr)
 
     def __init__(self, cid, expr):
-        self._expr = Expression.checkInstance(expr)
+        self._expr = Expression.checkScalar(expr)
         Constant.__init__(self, cid, expr.type)
 
     def __repr__(self):
@@ -673,12 +673,19 @@ def emitCodeFromAssignments(log, builder, assignments):
                 )
 
     for lhs, rhs in assignments:
-        rhsConst = builder.emitCompute(rhs.substitute(substituteReferences))
+        # Substitute LoadedConstants for all references, such that we have
+        # a side-effect free version of the right hand side expression.
+        rhsLoadedRefs = rhs.substitute(substituteReferences)
 
-        # Constify the I/O indices to force emission of all loads before
-        # we emit any stores.
-        lhsConstIndices = lhs.substitute(substituteIOIndices)
+        if lhs is None:
+            if rhsLoadedRefs.type is not None:
+                log.warning('result is ignored')
+        else:
+            # Constify the I/O indices to force emission of all loads before
+            # we emit any stores.
+            lhsConstIndices = lhs.substitute(substituteIOIndices)
 
-        for storage, offset in decomposeConcat(lhsConstIndices):
-            rid = getReferenceID(storage)
-            builder.emitStore(rid, Slice(rhsConst, offset, storage.width))
+            rhsConst = builder.emitCompute(rhsLoadedRefs)
+            for storage, offset in decomposeConcat(lhsConstIndices):
+                rid = getReferenceID(storage)
+                builder.emitStore(rid, Slice(rhsConst, offset, storage.width))
