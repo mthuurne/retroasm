@@ -25,6 +25,21 @@ class Unique(type):
             cache[args] = value
         return value
 
+class Singleton(type):
+    '''Metaclass that enforces that there is one shared instance of a class.
+    '''
+
+    def __init__(cls, name, bases, nmspc):
+        type.__init__(cls, name, bases, nmspc)
+        cls.__instance = None
+
+    def __call__(cls):
+        instance = cls.__instance
+        if instance is None:
+            instance = super().__call__()
+            cls.__instance = instance
+        return instance
+
 class IntType(metaclass=Unique):
     '''An integer value type of "width" bits.
     Width can be None, which indicates an unlimited width integer type.
@@ -284,6 +299,34 @@ class Expression:
             return self.__class__(*binding.args, **binding.kwargs)
         else:
             return self
+
+class Unit(Expression, metaclass=Singleton):
+    '''Expression that represents the absense of a value.
+    '''
+    __slots__ = ()
+
+    def __init__(self):
+        Expression.__init__(self, None)
+
+    def _ctorargs(self, *exprs, **kwargs):
+        return signature(self.__class__).bind()
+
+    def __str__(self):
+        return 'unit'
+
+    def _equals(self, other):
+        return self is other
+
+    def _checkScalar(self):
+        '''Does nothing if this expression returns a single value.
+        Otherwise, ValueError is raised.
+        '''
+        raise ValueError('attempt to use unit value')
+
+    def _complexity(self):
+        return 1
+
+unit = Unit()
 
 def minWidth(exprs):
     '''Returns the minimum of the widths of the given expressions.
