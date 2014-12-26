@@ -1,7 +1,7 @@
 from .expression import Expression, IOChannel, LocalValue, Register, namePat
 from .expression_parser import parseExpr, parseLocalDecl, parseType
 from .linereader import DefLineReader, DelayedError
-from .func_parser import createFunc
+from .function_builder import createFunc
 
 from collections import ChainMap, OrderedDict
 from functools import partial

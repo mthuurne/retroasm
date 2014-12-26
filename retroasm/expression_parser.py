@@ -2,7 +2,7 @@ from .expression import (
     AddOperator, Complement, Concatenation, IOChannel, IOReference, IntLiteral,
     IntType, LocalReference, LocalValue, Slice, Subtraction
     )
-from .func_parser import Function, FunctionCall
+from .function import Function, FunctionCall
 import re
 
 def parseType(typeName):
