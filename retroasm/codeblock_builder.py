@@ -38,7 +38,7 @@ class CodeBlockBuilder:
         load = Load(cid, rid)
         self.nodes.append(load)
         refType = self.references[rid].type
-        constant = LoadedConstant(load, refType)
+        constant = LoadedConstant(cid, rid, refType)
         self.constants.append(constant)
         return ConstantValue(constant)
 

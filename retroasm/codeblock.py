@@ -66,22 +66,23 @@ class ArgumentConstant(Constant):
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
     '''
-    __slots__ = ('_load',)
+    __slots__ = ('_rid',)
 
-    load = property(lambda self: self._load)
-    rid = property(lambda self: self._load.rid)
+    rid = property(lambda self: self._rid)
 
-    def __init__(self, load, refType):
-        if not isinstance(load, Load):
-            raise TypeError('expected Load node, got %s' % type(load))
-        Constant.__init__(self, load.cid, refType)
-        self._load = load
+    def __init__(self, cid, rid, refType):
+        if not isinstance(rid, int):
+            raise TypeError('reference ID must be int, got %s' % type(rid))
+        Constant.__init__(self, cid, refType)
+        self._rid = rid
 
     def __repr__(self):
-        return 'LoadedConstant(%s, %s)' % (repr(self._load), repr(self.type))
+        return 'LoadedConstant(%d, %d, %s)' % (
+            self._cid, self._rid, repr(self.type)
+            )
 
     def __str__(self):
-        return '%s <- R%s' % (super().__str__(), self._load.rid)
+        return '%s <- R%s' % (super().__str__(), self._rid)
 
 class Node:
     '''Base class for nodes.
