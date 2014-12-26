@@ -88,6 +88,12 @@ class FunctionCall(Expression):
     def __init__(self, func, args):
         if not isinstance(func, Function):
             raise TypeError('func must be Function, got %s' % type(func))
+        if len(args) != len(func.args):
+            raise ValueError(
+                'argument count mismatch: %s takes %d argument(s), '
+                'but %d argument(s) provided'
+                % (func.name, len(func.args), len(args))
+                )
         Expression.__init__(self, func.retType)
         self._func = func
         self._args = tuple(Expression.checkScalar(arg) for arg in args)
@@ -123,3 +129,9 @@ class FunctionCall(Expression):
     def _complexity(self):
         # Functions will be inlined when forming code blocks.
         return 1 << 50
+
+    def iterArgValuesAndDecl(self):
+        '''Iterates through the arguments of this function call, where each
+        element is a pair of an argument value and an argument declaration.
+        '''
+        return zip(self._args, self._func.args.values())

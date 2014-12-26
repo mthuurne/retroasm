@@ -1,9 +1,12 @@
 from .codeblock import (
-    CodeBlock, ComputedConstant, ConstantValue, Load, LoadedConstant, Store
+    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
+    LoadedConstant, Store
     )
 from .expression import (
-    Concatenation, IOReference, IntLiteral, NamedValue, Slice, Storage
+    Concatenation, IOReference, IntLiteral, IntType, LocalReference, LocalValue,
+    NamedValue, Slice, Storage, unit
     )
+from .function import FunctionCall
 
 class CodeBlockBuilder:
 
@@ -62,6 +65,74 @@ class CodeBlockBuilder:
         self.references.append(storage)
         return rid
 
+    def inlineBlock(self, code, context):
+        '''Inlines another code block into this one.
+        Returns an expression representing the return value of the inlined
+        block.
+        '''
+        print('inline', context)
+        constants = self.constants
+        references = self.references
+        nodes = self.nodes
+
+        cidMap = {}
+        newCid = len(constants)
+        for cid, const in code.constants.items():
+            if isinstance(const, ArgumentConstant):
+                cidMap[cid] = context[const.name].cid
+            else:
+                cidMap[cid] = newCid
+                newCid += 1
+
+        ridMap = {}
+        for rid, ref in code.references.items():
+            # Shallow copy is sufficient because references are immutable.
+            ridMap[rid] = len(references)
+            references.append(ref)
+
+        for node in code.nodes:
+            newCid = cidMap[node.cid]
+            newRid = ridMap[node.rid]
+            nodes.append(node.__class__(newCid, newRid))
+
+        for cid, const in code.constants.items():
+            if isinstance(const, ArgumentConstant):
+                pass
+            elif isinstance(const, ComputedConstant):
+                def substCid(expr):
+                    if isinstance(expr, ConstantValue):
+                        return ConstantValue(constants[cidMap[expr.cid]])
+                    else:
+                        return None
+                constants.append(ComputedConstant(
+                    cidMap[const.cid],
+                    const.expr.substitute(substCid)
+                    ))
+            elif isinstance(const, LoadedConstant):
+                constants.append(LoadedConstant(
+                    cidMap[const.cid],
+                    ridMap[const.rid],
+                    const.type
+                    ))
+            else:
+                assert False, const
+
+        for newRid in ridMap.values():
+            ref = references[newRid]
+            if isinstance(ref, IOReference):
+                # Substitute index constants.
+                # This cannot be done when originally copying the references
+                # because at that time the constants haven't been added yet.
+                references[newRid] = IOReference(
+                    ref.channel,
+                    ConstantValue(constants[cidMap[ref.index.cid]])
+                    )
+
+        if code.retCid is None:
+            return unit
+        else:
+            return ConstantValue(constants[cidMap[code.retCid]])
+
 def emitCodeFromAssignments(log, builder, assignments):
     '''Creates a code block from the given assignments.
     Returns a CodeBlock instance.
@@ -90,6 +161,20 @@ def emitCodeFromAssignments(log, builder, assignments):
             if isinstance(expr, NamedValue) and expr.name == 'ret':
                 log.error('function return value "ret" is write-only')
             return builder.emitLoad(getReferenceID(expr))
+        elif isinstance(expr, FunctionCall):
+            func = expr.func
+            argMap = {}
+            for value, decl in expr.iterArgValuesAndDecl():
+                if isinstance(decl, LocalValue):
+                    argMap[decl.name] = builder.emitCompute(
+                        value.substitute(substituteReferences)
+                        )
+                elif isinstance(decl, LocalReference):
+                    log.error('reference arguments not implemented yet: '
+                        '%s in %s' % (decl.name, func.name))
+                else:
+                    assert False, arg
+            return builder.inlineBlock(func.code, argMap)
         else:
             return None
 
