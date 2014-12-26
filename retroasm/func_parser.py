@@ -1,6 +1,5 @@
-from .codeblock import (
-    ArgumentConstant, CodeBlockBuilder, emitCodeFromAssignments
-    )
+from .codeblock import ArgumentConstant
+from .codeblock_builder import CodeBlockBuilder, emitCodeFromAssignments
 from .expression import Expression, LocalReference, LocalValue
 from .linereader import DelayedError
 

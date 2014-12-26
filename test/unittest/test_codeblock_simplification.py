@@ -1,4 +1,5 @@
-from retroasm.codeblock import CodeBlockBuilder, Load, Store
+from retroasm.codeblock import Load, Store
+from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import (
     AddOperator, AndOperator, IOChannel, IOReference, IntLiteral, IntType,
     LocalReference, LocalValue, Register
