@@ -22,7 +22,7 @@ class Function:
                 raise ValueError(
                     'function "%s" has return type "%s", '
                     'but its code block has return type "%s"'
-                    % (retType, code.constants[code.retCid].type)
+                    % (name, retType, code.constants[code.retCid].type)
                     )
 
         self.name = name
@@ -113,7 +113,7 @@ class FunctionCall(Expression):
             )
 
     def _equals(self, other):
-        return (
+        return ( # pylint: disable=protected-access
             self._func is other._func and
             len(self._args) == len(other._args) and
             all(arg1 == arg2 for arg1, arg2 in zip(self._args, other._args))

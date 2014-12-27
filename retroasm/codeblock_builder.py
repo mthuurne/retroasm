@@ -3,7 +3,7 @@ from .codeblock import (
     LoadedConstant, Store
     )
 from .expression import (
-    Concatenation, IOReference, IntLiteral, IntType, LocalReference, LocalValue,
+    Concatenation, IOReference, IntLiteral, LocalReference, LocalValue,
     NamedValue, Slice, Storage, unit
     )
 from .function import FunctionCall
@@ -157,6 +157,9 @@ def emitCodeFromAssignments(log, builder, assignments):
         subst = substituteIOIndices(expr)
         if subst is not None:
             expr = subst
+        # It seems the type inference ignores isistance() and deduces the wrong
+        # types, leading to false positives.
+        # pylint: disable=no-member
         if isinstance(expr, Storage):
             if isinstance(expr, NamedValue) and expr.name == 'ret':
                 log.error('function return value "ret" is write-only')
@@ -173,7 +176,7 @@ def emitCodeFromAssignments(log, builder, assignments):
                     log.error('reference arguments not implemented yet: '
                         '%s in %s' % (decl.name, func.name))
                 else:
-                    assert False, arg
+                    assert False, decl
             return builder.inlineBlock(func.code, argMap)
         else:
             return None
