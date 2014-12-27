@@ -130,8 +130,9 @@ def _parseFuncArgs(log, argsStr):
     '''Parses a function arguments list, returning an OrderedDict.
     Errors are appended to the given log as they are discovered.
     '''
+    argStrs = [] if not argsStr or argsStr.isspace() else argsStr.split(',')
     args = OrderedDict()
-    for i, argStr in enumerate(argsStr.split(','), 1):
+    for i, argStr in enumerate(argStrs, 1):
         try:
             typeStr, argName = argStr.split()
         except ValueError:
