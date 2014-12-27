@@ -1,7 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LShift, LocalValue, OrOperator, RShift, Slice, Subtraction, Truncation,
-    XorOperator
+    LShift, LocalValue, OrOperator, RShift, Slice, Truncation, XorOperator
     )
 
 import unittest
@@ -307,50 +306,6 @@ class AddTests(TestUtils):
         arg2 = AddOperator(addr, IntLiteral.create(-3))
         self.assertIs(AddOperator(arg1, arg2).simplify(), addr)
 
-class SubTests(TestUtils):
-
-    def test_int(self):
-        '''Subtracts two unlimited width integer literals.'''
-        arg1 = IntLiteral.create(3)
-        arg2 = IntLiteral.create(20)
-        expr = Subtraction(arg1, arg2).simplify()
-        self.assertIntLiteral(expr, -17)
-
-    def test_fixed_width(self):
-        '''Subtracts two fixed width integer literals.'''
-        arg1 = IntLiteral(8, IntType(4))
-        arg2 = IntLiteral(127, IntType(8))
-        expr = Subtraction(arg1, arg2).simplify()
-        self.assertIntLiteral(expr, -119)
-
-    def test_nested(self):
-        '''Subtracts several integers in an expression tree.'''
-        arg1 = Subtraction(IntLiteral.create(234), IntLiteral.create(123))
-        arg2 = Subtraction(IntLiteral.create(31), IntLiteral.create(63))
-        expr = Subtraction(arg1, arg2).simplify()
-        self.assertIntLiteral(expr, 143)
-
-    def test_zero(self):
-        '''Test simplification of zero literal terms.'''
-        zero = IntLiteral.create(0)
-        addr = LocalValue('A', IntType(16))
-        leftZero = Subtraction(zero, addr)
-        self.assertEqual(type(leftZero.simplify()), Complement)
-        self.assertIs(Subtraction(addr, zero).simplify(), addr)
-        self.assertIntLiteral(Subtraction(zero, zero).simplify(), 0)
-
-    def test_self(self):
-        '''Test simplification of subtracting an expression from itself.'''
-        a = LocalValue('A', IntType(16))
-        b = LocalValue('B', IntType(8))
-        self.assertIntLiteral(Subtraction(a, a).simplify(), 0)
-        c = AddOperator(a, b)
-        d = AddOperator(b, a)
-        self.assertIntLiteral(Subtraction(c, c).simplify(), 0)
-        self.assertIntLiteral(Subtraction(c, d).simplify(), 0)
-        e = Concatenation(a, b)
-        self.assertIntLiteral(Subtraction(e, e).simplify(), 0)
-
 class ComplementTests(TestUtils):
 
     def test_int(self):
@@ -377,11 +332,11 @@ class ComplementTests(TestUtils):
 class ArithmeticTests(TestUtils):
 
     def test_int(self):
-        '''Uses add/sub/complement on several integer literals.'''
+        '''Uses add/complement on several integer literals.'''
         expr = AddOperator(
-            Subtraction(IntLiteral.create(0), IntLiteral.create(39)),
+            AddOperator(IntLiteral.create(0), Complement(IntLiteral.create(39))),
             Complement(
-                Subtraction(IntLiteral.create(101), IntLiteral.create(1001))
+                AddOperator(IntLiteral.create(101), IntLiteral.create(-1001))
                 )
             )
         self.assertIntLiteral(expr.simplify(), 861)
@@ -392,7 +347,7 @@ class ArithmeticTests(TestUtils):
         is converted into an addition first.
         '''
         addr = LocalValue('A', IntType(16))
-        arg1 = Subtraction(addr, IntLiteral.create(1))
+        arg1 = AddOperator(addr, Complement(IntLiteral.create(1)))
         arg2 = AddOperator(IntLiteral.create(-2), IntLiteral.create(3))
         self.assertIs(AddOperator(arg1, arg2).simplify(), addr)
 
@@ -404,7 +359,19 @@ class ArithmeticTests(TestUtils):
         addr = LocalValue('A', IntType(16))
         arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
         arg2 = AddOperator(Complement(addr), IntLiteral.create(3))
-        self.assertIs(Subtraction(arg1, arg2).simplify(), addr)
+        self.assertIs(AddOperator(arg1, Complement(arg2)).simplify(), addr)
+
+    def test_add_complement(self):
+        '''Test simplification of subtracting an expression from itself.'''
+        a = LocalValue('A', IntType(16))
+        b = LocalValue('B', IntType(8))
+        self.assertIntLiteral(AddOperator(a, Complement(a)).simplify(), 0)
+        c = AddOperator(a, b)
+        d = AddOperator(b, a)
+        self.assertIntLiteral(AddOperator(c, Complement(c)).simplify(), 0)
+        self.assertIntLiteral(AddOperator(c, Complement(d)).simplify(), 0)
+        e = Concatenation(a, b)
+        self.assertIntLiteral(AddOperator(e, Complement(e)).simplify(), 0)
 
 class LShiftTests(TestUtils):
 

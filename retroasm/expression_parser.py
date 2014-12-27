@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IOChannel, IOReference,
     IntLiteral, IntType, LocalReference, LocalValue, OrOperator, Slice,
-    Subtraction, XorOperator
+    XorOperator
     )
 from .function import Function, FunctionCall
 import re
@@ -96,13 +96,15 @@ def parseExpr(exprStr, context):
             return expr
 
     def parseAddSub():
-        expr = parseConcat()
-        if token.eat('operator', '+'):
-            return AddOperator(expr, parseTop())
-        elif token.eat('operator', '-'):
-            return Subtraction(expr, parseTop())
-        else:
-            return expr
+        exprs = [parseConcat()]
+        while True:
+            if token.eat('operator', '+'):
+                exprs.append(parseConcat())
+            elif token.eat('operator', '-'):
+                exprs.append(Complement(parseConcat()))
+            else:
+                break
+        return exprs[0] if len(exprs) == 1 else AddOperator(*exprs)
 
     def parseConcat():
         exprs = [parseUnary()]

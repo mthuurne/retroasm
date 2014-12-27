@@ -1318,17 +1318,6 @@ class PlaceholderExpression:
     def simplify(self):
         return self._convert().simplify()
 
-class Subtraction(PlaceholderExpression, ComposedExpression):
-    '''Expression that subtracts the second and subsequent arguments from
-    the first argument.
-    '''
-    __slots__ = ()
-    operator = '-'
-
-    def _convert(self):
-        expr1, *exprs = self._exprs
-        return AddOperator(expr1, *(Complement(expr) for expr in exprs))
-
 class Concatenation(PlaceholderExpression, ComposedExpression):
     '''Expression that concatenates bit strings.
     '''
