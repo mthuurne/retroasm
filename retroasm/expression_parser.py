@@ -1,6 +1,7 @@
 from .expression import (
-    AddOperator, Complement, Concatenation, IOChannel, IOReference, IntLiteral,
-    IntType, LocalReference, LocalValue, Slice, Subtraction
+    AddOperator, AndOperator, Complement, Concatenation, IOChannel, IOReference,
+    IntLiteral, IntType, LocalReference, LocalValue, OrOperator, Slice,
+    Subtraction, XorOperator
     )
 from .function import Function, FunctionCall
 import re
@@ -72,6 +73,27 @@ def parseExpr(exprStr, context):
                 where, expected, token.kind, token.value
                 )
             ValueError.__init__(self, msg)
+
+    def parseOr():
+        expr = parseXor()
+        if token.eat('operator', '|'):
+            return OrOperator(expr, parseOr())
+        else:
+            return expr
+
+    def parseXor():
+        expr = parseAnd()
+        if token.eat('operator', '^'):
+            return XorOperator(expr, parseXor())
+        else:
+            return expr
+
+    def parseAnd():
+        expr = parseAddSub()
+        if token.eat('operator', '&'):
+            return AndOperator(expr, parseAnd())
+        else:
+            return expr
 
     def parseAddSub():
         expr = parseConcat()
@@ -215,7 +237,7 @@ def parseExpr(exprStr, context):
                     )
             return IntLiteral.create(int(value))
 
-    parseTop = parseAddSub
+    parseTop = parseOr
 
     expr = parseTop()
     if token.kind == 'other':
