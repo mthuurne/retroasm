@@ -49,3 +49,9 @@ method-rgx=([a-z_][A-Za-z0-9_]{2,40})$
 # A regular expression matching the beginning of the name of dummy variables
 # (i.e. not used).
 dummy-variables-rgx=(.*)_$
+
+
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=80

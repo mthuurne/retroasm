@@ -183,7 +183,9 @@ def emitCodeFromAssignments(log, builder, assignments):
 
     def substituteIOIndices(expr):
         if isinstance(expr, IOReference):
-            index = builder.emitCompute(expr.index.substitute(substituteReferences))
+            index = builder.emitCompute(
+                expr.index.substitute(substituteReferences)
+                )
             return IOReference(expr.channel, index)
         else:
             return None
