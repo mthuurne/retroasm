@@ -922,6 +922,48 @@ class OrOperator(SimplifiableComposedExpression):
                     exprs[:] = [alt]
                     return
 
+class XorOperator(SimplifiableComposedExpression):
+    __slots__ = ()
+    operator = '^'
+    associative = True
+    commutative = True
+    idempotent = False
+    identity = IntLiteral.create(0)
+    absorber = None
+
+    def _combineLiterals(self, literal1, literal2):
+        return IntLiteral.create(literal1.value ^ literal2.value)
+
+    def _customSimplify(self, exprs):
+        # Remove duplicate expression pairs: A ^ A == 0.
+        i = 0
+        while i < len(exprs):
+            expr = exprs[i]
+            try:
+                j = exprs.index(expr, i + 1)
+            except ValueError:
+                i += 1
+            else:
+                del exprs[j]
+                del exprs[i]
+
+        if not exprs:
+            return
+
+        # Reduce expression width if possible.
+        curWidth = self.width
+        width = maxWidth(exprs)
+        if width is None:
+            assert curWidth is None, self
+        elif curWidth is None or width < curWidth:
+            alt = XorOperator(*exprs, intType=IntType(width))
+            exprs[:] = [alt.simplify()]
+            return
+        else:
+            assert width == curWidth, self
+
+        # TODO: Distribution over AND and OR.
+
 class AddOperator(SimplifiableComposedExpression):
     __slots__ = ()
     operator = '+'

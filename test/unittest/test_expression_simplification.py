@@ -1,6 +1,7 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LShift, LocalValue, OrOperator, RShift, Slice, Subtraction, Truncation
+    LShift, LocalValue, OrOperator, RShift, Slice, Subtraction, Truncation,
+    XorOperator
     )
 
 import unittest
@@ -224,6 +225,42 @@ class OrTests(TestUtils):
         expr1 = AndOperator(x, mask1)
         expr2 = OrOperator(expr1, mask2)
         self.assertOr(expr2.simplify(), x, mask2)
+
+class XorTests(TestUtils):
+
+    def test_literals(self):
+        '''Applies logical XOR to integer literals.'''
+        a = IntLiteral(0xDC, IntType(8))
+        b = IntLiteral(0x58, IntType(8))
+        self.assertIntLiteral(XorOperator(a, b).simplify(), 0x84)
+        c = IntLiteral(0xF00F, IntType(16))
+        d = IntLiteral.create(0x123456)
+        self.assertIntLiteral(XorOperator(c, d).simplify(), 0x12C459)
+
+    def test_identity(self):
+        '''Simplifies logical XOR expressions containing 0.'''
+        addr = LocalValue('A', IntType(16))
+        zero = IntLiteral.create(0)
+        # Check whether identity values are filtered out.
+        self.assertIs(XorOperator(zero, addr).simplify(), addr)
+        self.assertIs(XorOperator(addr, zero).simplify(), addr)
+        self.assertIs(XorOperator(zero, addr, zero).simplify(), addr)
+        # Check graceful handling when zero subexpressions remain.
+        self.assertIntLiteral(XorOperator(zero, zero, zero).simplify(), 0)
+
+    def test_deduplication(self):
+        '''Simplifies logical XOR expressions containing duplicates.'''
+        a = LocalValue('A', IntType(8))
+        b = LocalValue('B', IntType(8))
+        zero = IntLiteral.create(0)
+        # Check that duplicate values are filtered out.
+        self.assertIs(XorOperator(a).simplify(), a)
+        self.assertEqual(XorOperator(a, a).simplify(), zero)
+        self.assertIs(XorOperator(a, a, a).simplify(), a)
+        self.assertEqual(XorOperator(a, a, a, a).simplify(), zero)
+        # Check with different subexpressions.
+        self.assertIs(XorOperator(b, a, b).simplify(), a)
+        self.assertEqual(XorOperator(a, b, b, a).simplify(), zero)
 
 class AddTests(TestUtils):
 
