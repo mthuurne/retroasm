@@ -229,6 +229,9 @@ class CodeBlock:
             if isinstance(ref, IOReference):
                 assert ref.index.cid in cids
 
+        # Check that the return value cid is valid.
+        assert self.retCid is None or self.retCid in cids, self.retCid
+
     def dump(self):
         '''Prints this code block on stdout.
         '''
@@ -348,6 +351,9 @@ class CodeBlock:
             for i, node in enumerate(nodes):
                 if node.cid == oldCid:
                     nodes[i] = node.__class__(newCid, node.rid)
+            # Replace return constant.
+            if self.retCid == oldCid:
+                self.retCid = newCid
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.

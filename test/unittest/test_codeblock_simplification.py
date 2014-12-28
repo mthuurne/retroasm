@@ -314,6 +314,23 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
         self.assertEqual(code.retCid, add.cid)
 
+    def test_return_value_renumber(self):
+        '''Test a simplification that must replace the return value cid.'''
+        ridA = self.builder.addRegister('a')
+        const = self.builder.emitCompute(IntLiteral.create(23))
+        storeA = self.builder.emitStore(ridA, const)
+        loadA = self.builder.emitLoad(ridA)
+        outerRet = self.builder.addLocalValue('ret')
+        storeRet = self.builder.emitStore(outerRet, loadA)
+
+        correct = (
+            Store(const.cid, ridA),
+            )
+
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
+        self.assertEqual(code.retCid, const.cid)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()
