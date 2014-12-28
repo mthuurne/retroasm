@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .expression import (
     Concatenation, IOReference, IntLiteral, LocalReference, LocalValue,
-    NamedValue, Slice, Storage, unit
+    NamedValue, Slice, Storage, Truncation, unit
     )
 from .function import FunctionCall
 
@@ -183,9 +183,10 @@ def emitCodeFromAssignments(log, builder, assignments):
 
     def substituteIOIndices(expr):
         if isinstance(expr, IOReference):
-            index = builder.emitCompute(
-                expr.index.substitute(substituteReferences)
-                )
+            index = builder.emitCompute(Truncation(
+                expr.index.substitute(substituteReferences),
+                expr.channel.addrType.width
+                ))
             return IOReference(expr.channel, index)
         else:
             return None
