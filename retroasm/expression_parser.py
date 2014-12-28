@@ -54,16 +54,21 @@ class ExpressionTokenizer:
                 self.value = match.group(kind)
                 break
 
+    def peek(self, kind, value=None):
+        '''Returns True if the current token matches the given kind and,
+        if specified, also the given value, False otherwise.
+        '''
+        return self.kind == kind and (value is None or self.value == value)
+
     def eat(self, kind, value=None):
         '''Consumes the current token if it matches the given kind and,
         if specified, also the given value. Returns True if the token is
         consumed, False otherwise.
         '''
-        if self.kind == kind and (value is None or self.value == value):
+        found = self.peek(kind, value)
+        if found:
             next(self)
-            return True
-        else:
-            return False
+        return found
 
 def parseExpr(exprStr, context):
     token = ExpressionTokenizer(exprStr)
@@ -127,12 +132,12 @@ def parseExpr(exprStr, context):
             return expr
 
         # Bitwise lookup or bit string slicing.
-        if token.kind == 'separator' and token.value == ':':
+        if token.peek('separator', ':'):
             start = IntLiteral.create(0)
         else:
             start = parseTop()
         if token.eat('separator', ':'):
-            if token.kind == 'bracket' and token.value == ']':
+            if token.peek('bracket', ']'):
                 if expr.width is None:
                     raise ValueError(
                         'omitting the end index not allowed when slicing '
