@@ -29,7 +29,8 @@ class ExpressionTokenizer:
         ('identifier',  r"[A-Za-z_][A-Za-z0-9_]*'?"),
         ('number',      r'[%$0-9]\w*'),
         ('operator',    r'[&|\^+\-~!;]|==|!='),
-        ('bracket',     r'[\[\]():,]'),
+        ('bracket',     r'[\[\]()]'),
+        ('separator',   r'[:,]'),
         ('assignment',  r':='),
         ('whitespace',  r'\s+'),
         ('other',       r'.'),
@@ -127,7 +128,7 @@ def parseExpr(exprStr, context):
 
         # Bitwise lookup or bit string slicing.
         start = parseTop()
-        if token.eat('bracket', ':'):
+        if token.eat('separator', ':'):
             end = parseTop()
             if not token.eat('bracket', ']'):
                 raise BadToken('slice', '"]"')
@@ -216,7 +217,7 @@ def parseExpr(exprStr, context):
                 args.append(parseTop())
                 if token.eat('bracket', ')'):
                     break
-                if not token.eat('bracket', ','):
+                if not token.eat('separator', ','):
                     raise BadToken('function call arguments', '"," or ")"')
         return args
 
