@@ -127,9 +127,20 @@ def parseExpr(exprStr, context):
             return expr
 
         # Bitwise lookup or bit string slicing.
-        start = parseTop()
+        if token.kind == 'separator' and token.value == ':':
+            start = IntLiteral.create(0)
+        else:
+            start = parseTop()
         if token.eat('separator', ':'):
-            end = parseTop()
+            if token.kind == 'bracket' and token.value == ']':
+                if expr.width is None:
+                    raise ValueError(
+                        'omitting the end index not allowed when slicing '
+                        'an unlimited width expression: %s' % expr
+                        )
+                end = IntLiteral.create(expr.width)
+            else:
+                end = parseTop()
             if not token.eat('bracket', ']'):
                 raise BadToken('slice', '"]"')
         elif token.eat('bracket', ']'):

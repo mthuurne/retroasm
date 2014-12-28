@@ -111,7 +111,9 @@ Most of these operators should be familiar to the reader, but a few may require 
 
 Concatenation puts one fixed width bit string after another. For example, the concatenation of `%11` and `%001` is `%11001`. In numeric value: *A* ; *B* = *A*\*2<sup>*N*</sup> + *B*, where *B* is of type `u`*N*. The signedness of the result of a concatenation matches the signedness of the first operand.
 
-Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. In numeric value: *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>. A bitwise lookup is equivalent to taking a single bit slice: *A*[*K*] = *A*[*K*:*K*+1].
+Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. In numeric value: *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>.  If the lower index of a slice is omitted, the slice starts from bit 0: `$AB[:4]` = `$B`. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: `$AB[4:]` = `$A`.
+
+A bitwise lookup is equivalent to taking a single bit slice: *A*[*K*] = *A*[*K*:*K*+1].
 
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
 
