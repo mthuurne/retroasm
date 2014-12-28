@@ -373,6 +373,18 @@ class ArithmeticTests(TestUtils):
         e = Concatenation(a, b)
         self.assertIntLiteral(AddOperator(e, Complement(e)).simplify(), 0)
 
+    def test_add_truncate(self):
+        '''Test simplification of truncation of adding truncated expressions.'''
+        a = LocalValue('A', IntType(16))
+        expr = Truncation(
+            AddOperator(
+                Truncation(AddOperator(a, IntLiteral.create(1)), 16),
+                IntLiteral.create(-1)
+                ),
+            16
+            )
+        self.assertIs(expr.simplify(), a)
+
 class LShiftTests(TestUtils):
 
     def test_literals(self):

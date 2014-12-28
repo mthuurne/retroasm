@@ -1282,6 +1282,18 @@ class Truncation(Expression):
             if alt._complexity() < expr._complexity():
                 return Truncation(alt, width).simplify()
         elif isinstance(expr, AddOperator):
+            # Eliminate inner truncations that are not narrower than the outer
+            # trunctation.
+            terms = []
+            changed = False
+            for term in expr.exprs:
+                if isinstance(term, Truncation) and term.width >= width:
+                    terms.append(term._expr)
+                    changed = True
+                else:
+                    terms.append(term)
+            if changed:
+                return Truncation(AddOperator(*terms), width).simplify()
             # Distribute truncation over terms.
             alt = AddOperator(
                 *(Truncation(term, width) for term in expr.exprs)
