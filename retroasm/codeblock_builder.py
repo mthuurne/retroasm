@@ -70,7 +70,6 @@ class CodeBlockBuilder:
         Returns an expression representing the return value of the inlined
         block.
         '''
-        print('inline', context)
         constants = self.constants
         references = self.references
         nodes = self.nodes

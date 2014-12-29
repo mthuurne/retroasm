@@ -1,6 +1,8 @@
+from retroasm.codeblock import ComputedConstant
 from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import (
-    IOChannel, IOReference, IntType, LocalReference, LocalValue, Register
+    IOChannel, IOReference, IntLiteral, IntType, LocalReference, LocalValue,
+    Register
     )
 
 class NodeChecker:
@@ -14,6 +16,11 @@ class NodeChecker:
         self.assertEqual(len(actual), len(correct))
         for a, c in zip(actual, correct):
             self.assertNode(a, c)
+
+    def assertIntLiteral(self, constant, value):
+        self.assertEqual(type(constant), ComputedConstant)
+        self.assertEqual(type(constant.expr), IntLiteral)
+        self.assertEqual(constant.expr.value, value)
 
 class TestCodeBlockBuilder(CodeBlockBuilder):
 
