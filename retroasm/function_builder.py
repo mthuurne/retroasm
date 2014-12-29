@@ -12,7 +12,6 @@ def createFunc(reader, name, retType, args, assignments):
         code = None
     else:
         code = builder.createCodeBlock()
-        code.simplify()
 
     try:
         func = Function(name, retType, args, code)

@@ -2,6 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
+from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IOReference, IntLiteral, LocalReference, LocalValue,
     NamedValue, Slice, Storage, Truncation, unit
@@ -15,11 +16,40 @@ class CodeBlockBuilder:
         self.references = []
         self.nodes = []
 
+    def dump(self):
+        '''Prints the current state of this code block builder on stdout.
+        '''
+        print('    constants:')
+        for const in self.constants:
+            if isinstance(const, ComputedConstant):
+                print('        %-4s C%-2d =  %s' % (
+                    const.type, const.cid, const.expr
+                    ))
+            elif isinstance(const, LoadedConstant):
+                print('        %-4s C%-2d <- R%d' % (
+                    const.type, const.cid, const.rid
+                    ))
+            elif isinstance(const, ArgumentConstant):
+                print('        %-4s C%-2d :  %s' % (
+                    const.type, const.cid, const.name
+                    ))
+            else:
+                assert False, const
+        print('    references:')
+        for rid, ref in enumerate(self.references):
+            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, rid, ref))
+        print('    nodes:')
+        for node in self.nodes:
+            print('        %s' % node)
+
     def createCodeBlock(self):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         '''
-        return CodeBlock(self.constants, self.references, self.nodes)
+        code = CodeBlockSimplifier(self.constants, self.references, self.nodes)
+        code.simplify()
+        code.freeze()
+        return code
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the

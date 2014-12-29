@@ -8,16 +8,13 @@ import unittest
 verbose = False
 
 def createSimplifiedCode(builder):
-    code = builder.createCodeBlock()
     if verbose:
         print('=' * 40)
-        code.dump()
-    code.verify()
-    code.simplify()
+        builder.dump()
+    code = builder.createCodeBlock()
     if verbose:
         print('-' * 40)
         code.dump()
-    code.verify()
     return code
 
 class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
@@ -54,8 +51,6 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incRet = inc.addLocalValue('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
-        # TODO: Simplification is mandatory for inlining to work.
-        incCode.simplify()
 
         outer = TestCodeBlockBuilder()
         step0 = outer.emitCompute(IntLiteral.create(100))

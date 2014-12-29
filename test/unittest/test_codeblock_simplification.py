@@ -1,6 +1,7 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
 from retroasm.codeblock import Load, Store
+from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral
 
 import unittest
@@ -13,16 +14,13 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         self.builder = TestCodeBlockBuilder()
 
     def createSimplifiedCode(self):
-        code = self.builder.createCodeBlock()
         if verbose:
             print('=' * 40)
-            code.dump()
-        code.verify()
-        code.simplify()
+            self.builder.dump()
+        code = self.builder.createCodeBlock()
         if verbose:
             print('-' * 40)
             code.dump()
-        code.verify()
         return code
 
     def test_no_change(self):
@@ -60,7 +58,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
             Store(const1.cid, ridB),
             )
 
-        code = self.builder.createCodeBlock()
+        code = CodeBlockSimplifier(
+            self.builder.constants, self.builder.references, self.builder.nodes
+            )
         code.verify()
         code.simplifyConstants()
         code.verify()
@@ -84,7 +84,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
             Store(loadA2.cid, ridC),
             )
 
-        code = self.builder.createCodeBlock()
+        code = CodeBlockSimplifier(
+            self.builder.constants, self.builder.references, self.builder.nodes
+            )
         code.verify()
         code.removeDuplicateReferences()
         code.verify()
@@ -110,7 +112,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
             Store(loadM1.cid, ridM4),
             )
 
-        code = self.builder.createCodeBlock()
+        code = CodeBlockSimplifier(
+            self.builder.constants, self.builder.references, self.builder.nodes
+            )
         code.verify()
         # Constants must be deduplicated to detect duplicate I/O indices.
         while code.simplifyConstants():
