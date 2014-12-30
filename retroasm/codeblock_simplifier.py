@@ -223,18 +223,21 @@ class CodeBlockSimplifier(CodeBlock):
         references = self.references
         nodes = self.nodes
 
+        # Remove redundant loads by keeping track of the current value of
+        # storages.
         currentValueCids = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
+            cid = node.cid
             rid = node.rid
             valueCid = currentValueCids.get(rid)
             storage = references[rid]
             if isinstance(node, Load):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
-                    constants[node.cid] = ComputedConstant(
-                        node.cid, ConstantValue(constants[valueCid])
+                    constants[cid] = ComputedConstant(
+                        cid, ConstantValue(constants[valueCid])
                         )
                     changed = True
                     if not storage.canLoadHaveSideEffect():
@@ -242,9 +245,17 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValueCids[rid] = node.cid
+                    currentValueCids[rid] = cid
+                    if isinstance(storage, Variable):
+                        # Take initial value from ArgumentConstant.
+                        constants[cid] = ArgumentConstant(
+                            storage.name, cid, storage.type
+                            )
+                        changed = True
+                        del nodes[i]
+                        continue
             elif isinstance(node, Store):
-                if valueCid == node.cid:
+                if valueCid == cid:
                     # Value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
@@ -252,64 +263,40 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValueCids[rid] = node.cid
+                    currentValueCids[rid] = cid
                 # Remove values for references that might be aliases.
                 for rid2 in list(currentValueCids.keys()):
                     if rid != rid2 and storage.mightBeSame(references[rid2]):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValueCids[rid2] != node.cid:
+                        if currentValueCids[rid2] != cid:
                             del currentValueCids[rid2]
             i += 1
 
         # Remove stores for which the value is overwritten before it is loaded.
+        # Variable loads were already eliminated by the code above and since
+        # variables cease to exist at the end of a block, all variable stores
+        # are at this point considered redundant.
         willBeOverwritten = set()
         i = len(nodes) - 1
         while i >= 0:
             node = nodes[i]
             rid = node.rid
-            if not references[rid].canStoreHaveSideEffect():
+            storage = references[rid]
+            if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
+                    assert not isinstance(storage, Variable), storage
                     willBeOverwritten.discard(rid)
                 elif isinstance(node, Store):
-                    if rid in willBeOverwritten:
+                    if rid in willBeOverwritten \
+                            or isinstance(storage, Variable):
                         changed = True
                         del nodes[i]
+                        if storage.name == 'ret':
+                            assert self.retCid is None, self.retCid
+                            self.retCid = node.cid
                     else:
                         willBeOverwritten.add(rid)
             i -= 1
-
-        # Since variables do not suffer from aliasing, all reads after the
-        # first and all writes before the last will have been eliminated by
-        # the code above. The final load can be replaced by a constant.
-        # And since variables cease to exist at the end of a block, the final
-        # store can be removed.
-        i = 0
-        localValuesLoaded = set()
-        localValuesStored = set()
-        while i < len(nodes):
-            node = nodes[i]
-            rid = node.rid
-            ref = references[rid]
-            if isinstance(ref, Variable):
-                if isinstance(node, Load):
-                    assert rid not in localValuesLoaded, rid
-                    localValuesLoaded.add(rid)
-                    changed = True
-                    del nodes[i]
-                    # Replace LoadedConstant by ArgumentConstant.
-                    cid = node.cid
-                    constants[cid] = ArgumentConstant(ref.name, cid, ref.type)
-                    continue
-                elif isinstance(node, Store):
-                    assert rid not in localValuesStored, rid
-                    localValuesStored.add(rid)
-                    changed = True
-                    del nodes[i]
-                    if ref.name == 'ret':
-                        assert self.retCid is None, self.retCid
-                        self.retCid = node.cid
-                    continue
-            i += 1
 
         return changed
