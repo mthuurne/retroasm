@@ -1,17 +1,9 @@
-from .codeblock_builder import CodeBlockBuilder, emitCodeFromAssignments
+from .codeblock_builder import createCodeBlockFromAssignments
 from .function import Function
-from .linereader import DelayedError
 
 def createFunc(reader, name, retType, args, assignments):
     headerLocation = reader.getLocation()
-    builder = CodeBlockBuilder()
-    try:
-        with reader.checkErrors():
-            emitCodeFromAssignments(reader, builder, assignments)
-    except DelayedError:
-        code = None
-    else:
-        code = builder.createCodeBlock()
+    code = createCodeBlockFromAssignments(reader, assignments)
 
     try:
         func = Function(name, retType, args, code)

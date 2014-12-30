@@ -1,13 +1,14 @@
 from .codeblock import (
-    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
-    LoadedConstant, Store
+    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
+    Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IOReference, IntLiteral, LocalReference, NamedValue, Slice,
-    Storage, Truncation, ValueArgument, VariableDeclaration, unit
+    Storage, Truncation, ValueArgument, Variable, VariableDeclaration, unit
     )
 from .function import FunctionCall
+from .linereader import DelayedError
 
 class CodeBlockBuilder:
 
@@ -42,11 +43,43 @@ class CodeBlockBuilder:
         for node in self.nodes:
             print('        %s' % node)
 
-    def createCodeBlock(self):
+    def createCodeBlock(self, reader=None, locations={}):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
+        Raises ValueError if this builder does not represent a valid code block.
+        If a reader is provided, errors are logged there, taking source
+        location from the provided dictionary, if any.
         '''
         code = CodeBlockSimplifier(self.constants, self.references, self.nodes)
+
+        # Check for reading of uninitialized variables.
+        ununitializedLoads = []
+        initializedVariables = set()
+        for node in code.nodes:
+            rid = node.rid
+            ref = code.references[rid]
+            if isinstance(ref, Variable) and not isinstance(ref, ValueArgument):
+                if isinstance(node, Load):
+                    if rid not in initializedVariables:
+                        ununitializedLoads.append(node)
+                elif isinstance(node, Store):
+                    initializedVariables.add(rid)
+        if ununitializedLoads:
+            if reader is not None:
+                for load in ununitializedLoads:
+                    reader.error(
+                        'variable "%s" is read before it is initialized'
+                        % code.references[load.rid].formatDecl(),
+                        location=locations.get(load.cid)
+                        )
+            raise ValueError(
+                'Code block reads uninitialized variable(s): %s' % ', '.join(
+                    code.references[load.rid].formatDecl()
+                    for load in ununitializedLoads
+                    )
+                )
+
+        # Finalize code block.
         code.simplify()
         code.freeze()
         return code
@@ -162,10 +195,18 @@ class CodeBlockBuilder:
         else:
             return ConstantValue(constants[cidMap[code.retCid]])
 
-def emitCodeFromAssignments(log, builder, assignments):
+def emitCodeFromAssignments(reader, builder, assignments):
     '''Creates a code block from the given assignments.
-    Returns a CodeBlock instance.
+    Returns a dictionary that maps each constant ID of a LoadedConstant to the
+    reader location that constant was loaded at.
     '''
+
+    locations = {}
+
+    def emitLoad(rid):
+        expr = builder.emitLoad(rid)
+        locations[expr.cid] = reader.getLocation()
+        return expr
 
     nameToReference = {}
     def getReferenceID(storage):
@@ -191,8 +232,8 @@ def emitCodeFromAssignments(log, builder, assignments):
         # pylint: disable=no-member
         if isinstance(expr, Storage):
             if isinstance(expr, NamedValue) and expr.name == 'ret':
-                log.error('function return value "ret" is write-only')
-            return builder.emitLoad(getReferenceID(expr))
+                reader.error('function return value "ret" is write-only')
+            return emitLoad(getReferenceID(expr))
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
@@ -202,7 +243,7 @@ def emitCodeFromAssignments(log, builder, assignments):
                         value.substitute(substituteReferences)
                         )
                 elif isinstance(decl, LocalReference):
-                    log.error('reference arguments not implemented yet: '
+                    reader.error('reference arguments not implemented yet: '
                         '%s in %s' % (decl.name, func.name))
                 else:
                     assert False, decl
@@ -228,7 +269,7 @@ def emitCodeFromAssignments(log, builder, assignments):
             # Assigning to a literal as part of a concatenation can be useful,
             # but assigning to only a literal is probably a mistake.
             if top:
-                log.warning('assigning to literal has no effect')
+                reader.warning('assigning to literal has no effect')
         elif isinstance(storage, Storage):
             yield storage, 0
         elif isinstance(storage, Concatenation):
@@ -236,7 +277,7 @@ def emitCodeFromAssignments(log, builder, assignments):
                 for storage, offset in decomposeConcat(concatTerm, False):
                     yield storage, concatOffset + offset
         else:
-            log.error(
+            reader.error(
                 'cannot assign to an arithmetical expression: %s', storage
                 )
 
@@ -248,7 +289,7 @@ def emitCodeFromAssignments(log, builder, assignments):
         if lhs is None:
             if rhsLoadedRefs.type is not None:
                 if not isinstance(rhs, VariableDeclaration):
-                    log.warning('result is ignored')
+                    reader.warning('result is ignored')
         else:
             # Constify the I/O indices to force emission of all loads before
             # we emit any stores.
@@ -258,3 +299,17 @@ def emitCodeFromAssignments(log, builder, assignments):
             for storage, offset in decomposeConcat(lhsConstIndices):
                 rid = getReferenceID(storage)
                 builder.emitStore(rid, Slice(rhsConst, offset, storage.width))
+
+    return locations
+
+def createCodeBlockFromAssignments(reader, assignments):
+    builder = CodeBlockBuilder()
+    try:
+        with reader.checkErrors():
+            locations = emitCodeFromAssignments(reader, builder, assignments)
+    except DelayedError:
+        return None
+    try:
+        return builder.createCodeBlock(reader, locations)
+    except ValueError:
+        return None
