@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
-from .expression import IOReference, Register, Variable
+from .expression import IOReference, Register, ValueArgument, Variable
 
 from collections import defaultdict
 
@@ -246,7 +246,7 @@ class CodeBlockSimplifier(CodeBlock):
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
                     currentValueCids[rid] = cid
-                    if isinstance(storage, Variable):
+                    if isinstance(storage, ValueArgument):
                         # Take initial value from ArgumentConstant.
                         constants[cid] = ArgumentConstant(
                             storage.name, cid, storage.type

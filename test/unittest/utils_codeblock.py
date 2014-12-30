@@ -2,7 +2,7 @@ from retroasm.codeblock import ComputedConstant
 from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import (
     IOChannel, IOReference, IntLiteral, IntType, LocalReference, Register,
-    Variable
+    ValueArgument, Variable
     )
 
 class NodeChecker:
@@ -40,6 +40,10 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
 
     def addLocalReference(self, name, width=8):
         ref = LocalReference(name, IntType(width))
+        return self.emitReference(ref)
+
+    def addValueArgument(self, name, width=8):
+        ref = ValueArgument(name, IntType(width))
         return self.emitReference(ref)
 
     def addVariable(self, name, width=8):

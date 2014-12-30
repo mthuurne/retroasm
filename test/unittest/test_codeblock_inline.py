@@ -45,7 +45,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addVariable('V')
+        incArgRid = inc.addValueArgument('V')
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
         incRet = inc.addVariable('ret')
