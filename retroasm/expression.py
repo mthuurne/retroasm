@@ -516,6 +516,11 @@ class LocalValue(NamedValue, Storage):
     def mightBeSame(self, other):
         return self is other
 
+class LocalValueDeclaration(LocalValue):
+    '''A variable in the local context, as it is first declared.
+    '''
+    __slots__ = ()
+
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
     The storage properties depend on which concrete storage will be bound

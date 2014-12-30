@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IOChannel, IOReference,
-    IntLiteral, IntType, LocalReference, LocalValue, OrOperator, Slice,
-    XorOperator
+    IntLiteral, IntType, LocalReference, LocalValueDeclaration, OrOperator,
+    Slice, XorOperator
     )
 from .function import Function, FunctionCall
 import re
@@ -20,7 +20,7 @@ def parseLocalDecl(typeDecl, name):
     if typeDecl.endswith('&'):
         return LocalReference(name, parseType(typeDecl[:-1]))
     else:
-        return LocalValue(name, parseType(typeDecl))
+        return LocalValueDeclaration(name, parseType(typeDecl))
 
 class ExpressionTokenizer:
 
@@ -215,7 +215,7 @@ def parseExpr(exprStr, context):
             if name in context:
                 raise ValueError('attempt to redefine "%s"' % name)
             else:
-                context[name] = expr = LocalValue(name, typ)
+                context[name] = expr = LocalValueDeclaration(name, typ)
                 return expr
         else:
             # Look up identifier in context.

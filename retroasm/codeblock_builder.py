@@ -4,8 +4,8 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, IOReference, IntLiteral, LocalReference, LocalValue,
-    NamedValue, Slice, Storage, Truncation, unit
+    Concatenation, IOReference, IntLiteral, LocalReference,
+    LocalValueDeclaration, NamedValue, Slice, Storage, Truncation, unit
     )
 from .function import FunctionCall
 
@@ -197,7 +197,7 @@ def emitCodeFromAssignments(log, builder, assignments):
             func = expr.func
             argMap = {}
             for value, decl in expr.iterArgValuesAndDecl():
-                if isinstance(decl, LocalValue):
+                if isinstance(decl, LocalValueDeclaration):
                     argMap[decl.name] = builder.emitCompute(
                         value.substitute(substituteReferences)
                         )
@@ -247,7 +247,8 @@ def emitCodeFromAssignments(log, builder, assignments):
 
         if lhs is None:
             if rhsLoadedRefs.type is not None:
-                log.warning('result is ignored')
+                if not isinstance(rhs, LocalValueDeclaration):
+                    log.warning('result is ignored')
         else:
             # Constify the I/O indices to force emission of all loads before
             # we emit any stores.
