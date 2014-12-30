@@ -1,5 +1,5 @@
-from .expression import Expression, IOChannel, LocalValue, Register, namePat
-from .expression_parser import parseExpr, parseLocalDecl, parseType
+from .expression import Expression, IOChannel, Register, Variable, namePat
+from .expression_parser import parseArgument, parseExpr, parseType
 from .linereader import DefLineReader, DelayedError
 from .function_builder import createFunc
 
@@ -153,7 +153,7 @@ def _parseFuncArgs(log, argsStr):
                     )
             else:
                 try:
-                    arg = parseLocalDecl(typeStr, argName)
+                    arg = parseArgument(typeStr, argName)
                 except ValueError as ex:
                     log.error(
                         'bad function argument %d ("%s"): %s', i, argName, ex
@@ -239,7 +239,7 @@ def _parseFunc(reader, argStr, context):
     # Parse body lines.
     localContext = dict(args)
     if retType is not None:
-        localContext['ret'] = LocalValue('ret', retType)
+        localContext['ret'] = Variable('ret', retType)
     combinedContext = ChainMap(localContext, context.exprs)
     try:
         with reader.checkErrors():

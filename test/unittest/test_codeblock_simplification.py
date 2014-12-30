@@ -271,9 +271,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
 
     def test_local_value(self):
-        '''Test whether load and stores of local values are removed.'''
+        '''Test whether load and stores of variables are removed.'''
         ridA = self.builder.addRegister('a')
-        ridV = self.builder.addLocalValue('V')
+        ridV = self.builder.addVariable('V')
         loadV = self.builder.emitLoad(ridV)
         incV = self.builder.emitCompute(
             AddOperator(loadV, IntLiteral.create(1))
@@ -303,8 +303,8 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
     def test_return_value(self):
         '''Test whether a return value constant is created correctly.'''
         ridA = self.builder.addRegister('a')
-        ridV = self.builder.addLocalValue('V')
-        ridRet = self.builder.addLocalValue('ret')
+        ridV = self.builder.addVariable('V')
+        ridRet = self.builder.addVariable('ret')
         loadA = self.builder.emitLoad(ridA)
         loadV = self.builder.emitLoad(ridV)
         add = self.builder.emitCompute(AddOperator(loadA, loadV))
@@ -324,7 +324,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         const = self.builder.emitCompute(IntLiteral.create(23))
         storeA = self.builder.emitStore(ridA, const)
         loadA = self.builder.emitLoad(ridA)
-        outerRet = self.builder.addLocalValue('ret')
+        outerRet = self.builder.addVariable('ret')
         storeRet = self.builder.emitStore(outerRet, loadA)
 
         correct = (

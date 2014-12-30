@@ -1,5 +1,5 @@
 from retroasm.expression import (
-    Concatenation, IntLiteral, IntType, LocalValue, Slice
+    Concatenation, IntLiteral, IntType, Slice, Variable
     )
 
 import unittest
@@ -43,10 +43,10 @@ class EqualsTests(unittest.TestCase):
         self.assertExprEqual(arg2, arg3)
         self.assertExprEqual(arg1, arg3)
 
-    def test_local_value(self):
-        '''Checks local values for equality.'''
-        a = LocalValue('A', IntType(16))
-        b = LocalValue('B', IntType(8))
+    def test_variable(self):
+        '''Checks variables for equality.'''
+        a = Variable('A', IntType(16))
+        b = Variable('B', IntType(8))
         self.assertExprEqual(a, a)
         self.assertExprEqual(b, b)
         self.assertExprNotEqual(a, b)
@@ -54,7 +54,7 @@ class EqualsTests(unittest.TestCase):
     def test_type_mismatch(self):
         '''Checks equality checks between mismatching types.'''
         zero = IntLiteral.create(0)
-        addr = LocalValue('A', IntType(16))
+        addr = Variable('A', IntType(16))
         self.assertExprNotEqual(zero, 0)
         self.assertExprNotEqual(addr, 'A')
         self.assertExprNotEqual(zero, addr)

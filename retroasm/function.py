@@ -1,5 +1,5 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression, LocalReference, LocalValue
+from .expression import Expression, LocalReference, ValueArgument
 
 from inspect import signature
 
@@ -53,29 +53,33 @@ class Function:
     def findArg(self, argName):
         '''Searches the representation of the argument with the given name in
         this function's code block.
-        For pass-by-reference, a LocalReference is returned. For pass-by-value,
-        either a LocalValue or an ArgumentConstant is returned. If the argument
-        does not occur in the code block, None is returned. If no argument with
-        the given name existed when the function was created, KeyError is
-        raised. If this Function doesn't have a code block, ValueError is
-        raised.
+        For pass-by-value arguments, a ValueArgument is returned.
+        For pass-by-reference arguments, a LocalReference is returned.
+        If the argument does not occur in the code block, None is returned.
+        If no argument with the given name existed when the function was
+        created, KeyError is raised.
+        If this Function doesn't have a code block, ValueError is raised.
         '''
         if self.code is None:
             raise ValueError('Function does not have a code block')
         arg = self.args[argName]
-        if isinstance(arg, LocalValue):
-            # If the code block was simplified, the LocalValue will have been
-            # replaced by an ArgumentConstant.
+        if isinstance(arg, ValueArgument):
+            # The ValueArgument will have been replaced by an ArgumentConstant
+            # during code block simplification.
             for const in self.code.constants.values():
                 if isinstance(const, ArgumentConstant):
                     if const.name == argName:
                         return const
-        for ref in self.code.references.values():
-            if isinstance(ref, (LocalReference, LocalValue)):
-                if ref.name == argName:
-                    assert ref is arg, (ref, arg)
-                    return ref
-        return None
+            return None
+        elif isinstance(arg, LocalReference):
+            for ref in self.code.references.values():
+                if isinstance(ref, LocalReference):
+                    if ref.name == argName:
+                        assert ref is arg, (ref, arg)
+                        return ref
+            return None
+        else:
+            assert False, arg
 
 class FunctionCall(Expression):
     '''Expression that represents the value returned by a user-defined function.

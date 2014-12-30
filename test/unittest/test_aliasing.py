@@ -1,6 +1,6 @@
 from retroasm.expression import (
-    IOChannel, IOReference, IntLiteral, IntType, LocalValue, LocalReference,
-    Register
+    IOChannel, IOReference, IntLiteral, IntType, LocalReference, Register,
+    Variable
     )
 
 import unittest
@@ -25,7 +25,7 @@ class AliasTests(unittest.TestCase):
         '''Test when registers might be aliased.'''
         a = Register('a', IntType(8))
         b = Register('b', IntType(8))
-        l = LocalValue('L', IntType(8))
+        l = Variable('L', IntType(8))
         r = LocalReference('R', IntType(8))
         mem = IOChannel('mem', IntType(8), IntType(16))
         m = IOReference(mem, IntLiteral.create(0xC000))
@@ -35,10 +35,10 @@ class AliasTests(unittest.TestCase):
         self.assertAlias(a, r)
         self.assertNoAlias(a, m)
 
-    def test_local_value_aliasing(self):
-        '''Test when local values might be aliased.'''
-        l = LocalValue('L', IntType(8))
-        l2 = LocalValue('L2', IntType(8))
+    def test_variable_aliasing(self):
+        '''Test when variables might be aliased.'''
+        l = Variable('L', IntType(8))
+        l2 = Variable('L2', IntType(8))
         a = Register('a', IntType(8))
         r = LocalReference('R', IntType(8))
         mem = IOChannel('mem', IntType(8), IntType(16))
@@ -54,7 +54,7 @@ class AliasTests(unittest.TestCase):
         r = LocalReference('R', IntType(8))
         r2 = LocalReference('R2', IntType(8))
         a = Register('a', IntType(8))
-        l = LocalValue('L', IntType(8))
+        l = Variable('L', IntType(8))
         mem = IOChannel('mem', IntType(8), IntType(16))
         m = IOReference(mem, IntLiteral.create(0xC000))
         self.assertAlias(r, r)
@@ -66,7 +66,7 @@ class AliasTests(unittest.TestCase):
     def test_io_aliasing(self):
         '''Test when I/O references might be aliased.'''
         a = Register('a', IntType(8))
-        l = LocalValue('L', IntType(8))
+        l = Variable('L', IntType(8))
         r = LocalReference('R', IntType(8))
         mem = IOChannel('mem', IntType(8), IntType(16))
         io = IOChannel('io', IntType(8), IntType(16))

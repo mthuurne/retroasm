@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IOChannel, IOReference,
-    IntLiteral, IntType, LocalReference, LocalValueDeclaration, OrOperator,
-    Slice, XorOperator
+    IntLiteral, IntType, LocalReference, OrOperator, Slice, ValueArgument,
+    VariableDeclaration, XorOperator
     )
 from .function import Function, FunctionCall
 import re
@@ -16,11 +16,11 @@ def parseType(typeName):
             'integer type "%s" is not of the form "u<width>"' % typeName)
     return IntType(int(widthStr))
 
-def parseLocalDecl(typeDecl, name):
+def parseArgument(typeDecl, name):
     if typeDecl.endswith('&'):
         return LocalReference(name, parseType(typeDecl[:-1]))
     else:
-        return LocalValueDeclaration(name, parseType(typeDecl))
+        return ValueArgument(name, parseType(typeDecl))
 
 class ExpressionTokenizer:
 
@@ -215,7 +215,7 @@ def parseExpr(exprStr, context):
             if name in context:
                 raise ValueError('attempt to redefine "%s"' % name)
             else:
-                context[name] = expr = LocalValueDeclaration(name, typ)
+                context[name] = expr = VariableDeclaration(name, typ)
                 return expr
         else:
             # Look up identifier in context.

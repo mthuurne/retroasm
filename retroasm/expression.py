@@ -496,7 +496,7 @@ class Storage:
         '''
         raise NotImplementedError
 
-class LocalValue(NamedValue, Storage):
+class Variable(NamedValue, Storage):
     '''A variable in the local context.
     '''
     __slots__ = ()
@@ -516,8 +516,14 @@ class LocalValue(NamedValue, Storage):
     def mightBeSame(self, other):
         return self is other
 
-class LocalValueDeclaration(LocalValue):
+class VariableDeclaration(Variable):
     '''A variable in the local context, as it is first declared.
+    '''
+    __slots__ = ()
+
+class ValueArgument(Variable):
+    '''A variable in the local context with an initial value that is passed
+    into a code block.
     '''
     __slots__ = ()
 
@@ -541,10 +547,10 @@ class LocalReference(NamedValue, Storage):
         return False
 
     def mightBeSame(self, other):
-        # A local value has a limited scope, so references passed from outside
+        # A variable has a limited scope, so references passed from outside
         # that scope cannot possibly alias it, while inside the scope there
         # is no need to create aliases.
-        return not isinstance(other, LocalValue)
+        return not isinstance(other, Variable)
 
     def formatDecl(self):
         return '%s& %s' % (self._type, self._name)

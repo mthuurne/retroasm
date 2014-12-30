@@ -32,7 +32,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerA, zero)
         outer.inlineBlock(inner.createCodeBlock(), {})
         loadA = outer.emitLoad(outerA)
-        outerRet = outer.addLocalValue('ret')
+        outerRet = outer.addVariable('ret')
         outer.emitStore(outerRet, loadA)
 
         code = createSimplifiedCode(outer)
@@ -45,10 +45,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalValue('V')
+        incArgRid = inc.addVariable('V')
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
-        incRet = inc.addLocalValue('ret')
+        incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
 
@@ -57,7 +57,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         step1 = outer.inlineBlock(incCode, {'V': step0})
         step2 = outer.inlineBlock(incCode, {'V': step1})
         step3 = outer.inlineBlock(incCode, {'V': step2})
-        outerRet = outer.addLocalValue('ret')
+        outerRet = outer.addVariable('ret')
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)

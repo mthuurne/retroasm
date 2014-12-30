@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
-from .expression import IOReference, LocalValue, Register
+from .expression import IOReference, Register, Variable
 
 from collections import defaultdict
 
@@ -279,11 +279,11 @@ class CodeBlockSimplifier(CodeBlock):
                         willBeOverwritten.add(rid)
             i -= 1
 
-        # Since local values do not suffer from aliasing, all reads after the
+        # Since variables do not suffer from aliasing, all reads after the
         # first and all writes before the last will have been eliminated by
         # the code above. The final load can be replaced by a constant.
-        # And since local values cease to exist at the end of a block, the
-        # final store can be removed.
+        # And since variables cease to exist at the end of a block, the final
+        # store can be removed.
         i = 0
         localValuesLoaded = set()
         localValuesStored = set()
@@ -291,7 +291,7 @@ class CodeBlockSimplifier(CodeBlock):
             node = nodes[i]
             rid = node.rid
             ref = references[rid]
-            if isinstance(ref, LocalValue):
+            if isinstance(ref, Variable):
                 if isinstance(node, Load):
                     assert rid not in localValuesLoaded, rid
                     localValuesLoaded.add(rid)
