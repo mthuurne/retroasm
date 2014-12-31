@@ -27,6 +27,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner.emitStore(innerA, const)
 
         outer = TestCodeBlockBuilder()
+        # Make sure that outer and inner block are using the same registers.
+        outer.registers = inner.registers
         outerA = outer.addRegister('a')
         zero = outer.emitCompute(IntLiteral.create(0))
         outer.emitStore(outerA, zero)
