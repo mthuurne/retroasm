@@ -282,15 +282,17 @@ def emitCodeFromAssignments(reader, builder, assignments):
                 )
 
     for lhs, rhs in assignments:
+        if lhs is None and rhs.type is not None:
+            if isinstance(rhs, VariableDeclaration):
+                continue
+            else:
+                reader.warning('result is ignored')
+
         # Substitute LoadedConstants for all references, such that we have
         # a side-effect free version of the right hand side expression.
         rhsLoadedRefs = rhs.substitute(substituteReferences)
 
-        if lhs is None:
-            if rhsLoadedRefs.type is not None:
-                if not isinstance(rhs, VariableDeclaration):
-                    reader.warning('result is ignored')
-        else:
+        if lhs is not None:
             # Constify the I/O indices to force emission of all loads before
             # we emit any stores.
             lhsConstIndices = lhs.substitute(substituteIOIndices)
