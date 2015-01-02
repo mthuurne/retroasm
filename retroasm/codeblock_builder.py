@@ -10,12 +10,28 @@ from .expression import (
 from .function import FunctionCall
 from .linereader import DelayedError
 
+def decomposeConcat(storage):
+    '''Iterates through the storage locations inside a concatenation.
+    Each element is a pair of a Storage and an offset.
+    '''
+    if isinstance(storage, IntLiteral):
+        pass
+    elif isinstance(storage, Storage):
+        yield storage, 0
+    elif isinstance(storage, Concatenation):
+        for concatTerm, concatOffset in storage.iterWithOffset():
+            for storage, offset in decomposeConcat(concatTerm):
+                yield storage, concatOffset + offset
+    else:
+        raise ValueError('non-storage expression: %s' % storage)
+
 class CodeBlockBuilder:
 
     def __init__(self):
         self.constants = []
         self.references = []
         self.nodes = []
+        self.nameToReference = {}
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -42,6 +58,18 @@ class CodeBlockBuilder:
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)
+
+    def getReferenceID(self, storage):
+        if isinstance(storage, NamedValue):
+            name = storage.name
+            try:
+                return self.nameToReference[name]
+            except KeyError:
+                rid = self.emitReference(storage)
+                self.nameToReference[name] = rid
+                return rid
+        else:
+            return self.emitReference(storage)
 
     def createCodeBlock(self, reader=None, locations={}):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -113,6 +141,16 @@ class CodeBlockBuilder:
         '''
         constant = self.emitCompute(expr)
         self.nodes.append(Store(constant.cid, rid))
+
+    def emitAssignment(self, lhs, rhs):
+        '''Adds a node that stores a value in the referenced storage.
+        '''
+        rhsConst = self.emitCompute(rhs)
+        for storage, offset in decomposeConcat(lhs):
+            self.emitStore(
+                self.getReferenceID(storage),
+                self.emitCompute(Slice(rhsConst, offset, storage.width))
+                )
 
     def emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.
@@ -208,21 +246,6 @@ def emitCodeFromAssignments(reader, builder, assignments):
         locations[expr.cid] = reader.getLocation()
         return expr
 
-    nameToReference = {}
-    def getReferenceID(storage):
-        if isinstance(storage, IOReference):
-            return builder.emitReference(storage)
-        elif isinstance(storage, NamedValue):
-            name = storage.name
-            try:
-                return nameToReference[name]
-            except KeyError:
-                rid = builder.emitReference(storage)
-                nameToReference[name] = rid
-                return rid
-        else:
-            assert False, storage
-
     def substituteReferences(expr):
         subst = substituteIOIndices(expr)
         if subst is not None:
@@ -233,7 +256,7 @@ def emitCodeFromAssignments(reader, builder, assignments):
         if isinstance(expr, Storage):
             if isinstance(expr, NamedValue) and expr.name == 'ret':
                 reader.error('function return value "ret" is write-only')
-            return emitLoad(getReferenceID(expr))
+            return emitLoad(builder.getReferenceID(expr))
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
@@ -261,32 +284,16 @@ def emitCodeFromAssignments(reader, builder, assignments):
         else:
             return None
 
-    def decomposeConcat(storage, top=True):
-        '''Iterates through the storage locations inside a concatenation.
-        Each element is a pair of a Storage and an offset.
-        '''
-        if isinstance(storage, IntLiteral):
-            # Assigning to a literal as part of a concatenation can be useful,
-            # but assigning to only a literal is probably a mistake.
-            if top:
-                reader.warning('assigning to literal has no effect')
-        elif isinstance(storage, Storage):
-            yield storage, 0
-        elif isinstance(storage, Concatenation):
-            for concatTerm, concatOffset in storage.iterWithOffset():
-                for storage, offset in decomposeConcat(concatTerm, False):
-                    yield storage, concatOffset + offset
-        else:
-            reader.error(
-                'cannot assign to an arithmetical expression: %s', storage
-                )
-
     for lhs, rhs in assignments:
         if lhs is None and rhs.type is not None:
             if isinstance(rhs, VariableDeclaration):
                 continue
             else:
                 reader.warning('result is ignored')
+        elif isinstance(lhs, IntLiteral):
+            # Assigning to a literal as part of a concatenation can be useful,
+            # but assigning to only a literal is probably a mistake.
+            reader.warning('assigning to literal has no effect')
 
         # Substitute LoadedConstants for all references, such that we have
         # a side-effect free version of the right hand side expression.
@@ -296,11 +303,10 @@ def emitCodeFromAssignments(reader, builder, assignments):
             # Constify the I/O indices to force emission of all loads before
             # we emit any stores.
             lhsConstIndices = lhs.substitute(substituteIOIndices)
-
-            rhsConst = builder.emitCompute(rhsLoadedRefs)
-            for storage, offset in decomposeConcat(lhsConstIndices):
-                rid = getReferenceID(storage)
-                builder.emitStore(rid, Slice(rhsConst, offset, storage.width))
+            try:
+                builder.emitAssignment(lhsConstIndices, rhsLoadedRefs)
+            except ValueError as ex:
+                reader.error('error on left hand side of assignment: %s', ex)
 
     return locations
 
