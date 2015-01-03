@@ -335,6 +335,32 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
         self.assertEqual(code.retCid, const.cid)
 
+    def test_repeated_increase(self):
+        '''Test simplification of constants in constant expressions.'''
+        ridA = self.builder.addRegister('a')
+        def emitInc():
+            loadA = self.builder.emitLoad(ridA)
+            incA = self.builder.emitCompute(
+                AddOperator(loadA, IntLiteral.create(1))
+                )
+            self.builder.emitStore(ridA, incA)
+
+        initA = self.builder.emitCompute(IntLiteral.create(23))
+        self.builder.emitStore(ridA, initA)
+        emitInc()
+        emitInc()
+        emitInc()
+        finalA = self.builder.emitLoad(ridA)
+        ret = self.builder.addVariable('ret')
+        self.builder.emitStore(ret, finalA)
+
+        code = self.createSimplifiedCode()
+        correct = (
+            Store(code.retCid, ridA),
+            )
+        self.assertNodes(code.nodes, correct)
+        self.assertIntLiteral(code.constants[code.retCid], 26)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()

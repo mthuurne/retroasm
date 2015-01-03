@@ -171,6 +171,19 @@ class ConstantValue(Expression):
         else:
             assert False, const
 
+    def substitute(self, func):
+        subst = func(self)
+        if subst is not None:
+            return subst
+
+        const = self._constant
+        if isinstance(const, ComputedConstant):
+            subst = const.expr.substitute(func)
+            if subst is not const.expr:
+                return ConstantValue(ComputedConstant(const.cid, subst))
+
+        return self
+
 class CodeBlock:
 
     def __init__(self, constants, references, nodes):

@@ -48,18 +48,20 @@ class CodeBlockSimplifier(CodeBlock):
         constsGrouped = defaultdict(list)
         for const in constants.values():
             if isinstance(const, ComputedConstant):
-                constsGrouped[repr(const.expr)].append(const)
+                constsGrouped[repr(const.expr)].append(const.cid)
         for similar in constsGrouped.values():
             # We call them "similar" and check equality to be on the safe side,
             # but in practice they're identical.
             i = len(similar) - 1
             while i > 0:
                 # The first equal constant is the replacement for the others.
-                iexpr = similar[i].expr
+                icid = similar[i]
+                iexpr = constants[icid].expr
                 j = 0
                 while True:
-                    if similar[j].expr == iexpr:
-                        self.replaceConstant(similar[i].cid, similar[j])
+                    jconst = constants[similar[j]]
+                    if jconst.expr == iexpr:
+                        self.replaceConstant(icid, jconst)
                         changed = True
                         break
                     j += 1
