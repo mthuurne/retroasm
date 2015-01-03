@@ -213,6 +213,13 @@ class CodeBlockSimplifier(CodeBlock):
                 replacement = duplicates.get(node.rid)
                 if replacement is not None:
                     nodes[i] = node.__class__(node.cid, replacement)
+            for cid, const in self.constants.items():
+                if isinstance(const, LoadedConstant):
+                    rid = const.rid
+                    replacement = duplicates.get(rid)
+                    if replacement is not None:
+                        newConst = LoadedConstant(cid, replacement, const.type)
+                        self.replaceConstant(cid, newConst)
             for rid, replacement in duplicates.items():
                 del references[rid]
             return True

@@ -230,6 +230,11 @@ class CodeBlock:
             cidsFromLoadedConstants, cidsFromLoadNodes
             )
 
+        # Check that loaded constants use valid rids.
+        for const in self.constants.values():
+            if isinstance(const, LoadedConstant):
+                assert const.rid in self.references, const
+
         # Check that cids in expressions are valid.
         def checkUsage(expr):
             if isinstance(expr, ConstantValue):
