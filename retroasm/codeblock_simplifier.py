@@ -62,12 +62,12 @@ class CodeBlockSimplifier(CodeBlock):
                 expr = const.expr.simplify()
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant.
-                    self.replaceConstant(cid, constants[expr.cid])
+                    self.replaceConstant(cid, expr.cid)
                     changed = True
                 elif expr is not const.expr:
                     # Wrap the simplified expression into a new constant
                     # with the same cid.
-                    self.replaceConstant(cid, ComputedConstant(cid, expr))
+                    constants[cid] = ComputedConstant(cid, expr)
                     changed = True
 
         constsGrouped = defaultdict(list)
@@ -84,9 +84,9 @@ class CodeBlockSimplifier(CodeBlock):
                 iexpr = constants[icid].expr
                 j = 0
                 while True:
-                    jconst = constants[similar[j]]
-                    if jconst.expr == iexpr:
-                        self.replaceConstant(icid, jconst)
+                    jcid = similar[j]
+                    if constants[jcid].expr == iexpr:
+                        self.replaceConstant(icid, jcid)
                         changed = True
                         break
                     j += 1
@@ -98,42 +98,43 @@ class CodeBlockSimplifier(CodeBlock):
             changed = True
         return changed
 
-    def replaceConstant(self, oldCid, newConst):
+    def replaceConstant(self, oldCid, newCid):
+        assert oldCid != newCid, newCid
         constants = self.constants
-        newCid = newConst.cid
-        if oldCid == newCid:
-            constants[oldCid] = newConst
-        else:
-            del constants[oldCid]
-            # Replace constant in other constants' expressions.
-            def substCid(sexpr):
-                if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                    return ConstantValue(newCid, sexpr.type)
-                else:
-                    return None
-            for cid in list(constants.keys()):
-                const = constants[cid]
-                if isinstance(const, ComputedConstant):
-                    newExpr = const.expr.substitute(substCid)
-                    if newExpr is not const.expr:
-                        constants[cid] = ComputedConstant(cid, newExpr)
-            # Replace constant in references.
-            references = self.references
-            for rid in list(references.keys()):
-                ref = references[rid]
-                if isinstance(ref, IOReference) and ref.index.cid == oldCid:
-                    references[rid] = IOReference(
-                        ref.channel,
-                        ConstantValue(newCid, ref.channel.addrType)
-                        )
-            # Replace constant in nodes.
-            nodes = self.nodes
-            for i, node in enumerate(nodes):
-                if node.cid == oldCid:
-                    nodes[i] = node.__class__(newCid, node.rid)
-            # Replace return constant.
-            if self.retCid == oldCid:
-                self.retCid = newCid
+        del constants[oldCid]
+
+        # Replace constant in other constants' expressions.
+        def substCid(sexpr):
+            if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
+                return ConstantValue(newCid, sexpr.type)
+            else:
+                return None
+        for cid in list(constants.keys()):
+            const = constants[cid]
+            if isinstance(const, ComputedConstant):
+                newExpr = const.expr.substitute(substCid)
+                if newExpr is not const.expr:
+                    constants[cid] = ComputedConstant(cid, newExpr)
+
+        # Replace constant in references.
+        references = self.references
+        for rid in list(references.keys()):
+            ref = references[rid]
+            if isinstance(ref, IOReference) and ref.index.cid == oldCid:
+                references[rid] = IOReference(
+                    ref.channel,
+                    ConstantValue(newCid, ref.channel.addrType)
+                    )
+
+        # Replace constant in nodes.
+        nodes = self.nodes
+        for i, node in enumerate(nodes):
+            if node.cid == oldCid:
+                nodes[i] = node.__class__(newCid, node.rid)
+
+        # Replace return constant.
+        if self.retCid == oldCid:
+            self.retCid = newCid
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -243,8 +244,9 @@ class CodeBlockSimplifier(CodeBlock):
                     rid = const.rid
                     replacement = duplicates.get(rid)
                     if replacement is not None:
-                        newConst = LoadedConstant(cid, replacement, const.type)
-                        self.replaceConstant(cid, newConst)
+                        self.constants[cid] = LoadedConstant(
+                            cid, replacement, const.type
+                            )
             for rid, replacement in duplicates.items():
                 del references[rid]
             return True
