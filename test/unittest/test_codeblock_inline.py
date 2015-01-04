@@ -66,6 +66,35 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertEqual(len(code.nodes), 0)
         self.assertIntLiteral(code.constants[code.retCid], 103)
 
+    def test_pass_by_reference(self):
+        '''Test whether pass-by-reference arguments work correctly.'''
+        inc = TestCodeBlockBuilder()
+        incArgRid = inc.addLocalReference('R')
+        incArgVal = inc.emitLoad(incArgRid)
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
+        inc.emitStore(incArgRid, incAdd)
+        incCode = inc.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerA = outer.addRegister('a')
+        regA = outer.references[outerA]
+        initA = outer.emitCompute(IntLiteral.create(100))
+        outer.emitStore(outerA, initA)
+        outer.inlineBlock(incCode, {'R': regA})
+        outer.inlineBlock(incCode, {'R': regA})
+        outer.inlineBlock(incCode, {'R': regA})
+        outerRet = outer.addVariable('ret')
+        finalA = outer.emitLoad(outerA)
+        outer.emitStore(outerRet, finalA)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        correct = (
+            Store(code.retCid, outerA),
+            )
+        self.assertNodes(code.nodes, correct)
+        self.assertIntLiteral(code.constants[code.retCid], 103)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()

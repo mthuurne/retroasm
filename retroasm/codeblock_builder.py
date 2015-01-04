@@ -227,6 +227,8 @@ class CodeBlockBuilder:
                     ref.channel,
                     ConstantValue(cidMap[ref.index.cid], ref.channel.addrType)
                     )
+            elif isinstance(ref, LocalReference):
+                references[newRid] = context[ref.name]
 
         retCid = code.retCid
         if retCid is None:
@@ -262,17 +264,27 @@ def emitCodeFromAssignments(reader, builder, assignments):
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
-            for value, decl in expr.iterArgValuesAndDecl():
-                if isinstance(decl, ValueArgument):
-                    argMap[decl.name] = builder.emitCompute(
-                        value.substitute(substituteReferences)
-                        )
-                elif isinstance(decl, LocalReference):
-                    reader.error('reference arguments not implemented yet: '
-                        '%s in %s' % (decl.name, func.name))
-                else:
-                    assert False, decl
-            return builder.inlineBlock(func.code, argMap)
+            try:
+                with reader.checkErrors():
+                    for value, decl in expr.iterArgValuesAndDecl():
+                        if isinstance(decl, ValueArgument):
+                            argMap[decl.name] = builder.emitCompute(
+                                value.substitute(substituteReferences)
+                                )
+                        elif isinstance(decl, LocalReference):
+                            if isinstance(value, Storage):
+                                argMap[decl.name] = value
+                            else:
+                                reader.error(
+                                    'non-storage argument "%s" for reference '
+                                    'argument "%s"' % (value, decl.formatDecl())
+                                    )
+                        else:
+                            assert False, decl
+            except DelayedError:
+                return None
+            else:
+                return builder.inlineBlock(func.code, argMap)
         else:
             return None
 
