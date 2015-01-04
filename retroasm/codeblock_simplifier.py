@@ -130,7 +130,7 @@ class CodeBlockSimplifier(CodeBlock):
         nodes = self.nodes
         for i, node in enumerate(nodes):
             if node.cid == oldCid:
-                nodes[i] = node.__class__(newCid, node.rid)
+                nodes[i] = node.clone(cid=newCid)
 
         # Replace return constant.
         if self.retCid == oldCid:
@@ -238,7 +238,7 @@ class CodeBlockSimplifier(CodeBlock):
             for i, node in enumerate(nodes):
                 replacement = duplicates.get(node.rid)
                 if replacement is not None:
-                    nodes[i] = node.__class__(node.cid, replacement)
+                    nodes[i] = node.clone(rid=replacement)
             for cid, const in self.constants.items():
                 if isinstance(const, LoadedConstant):
                     rid = const.rid

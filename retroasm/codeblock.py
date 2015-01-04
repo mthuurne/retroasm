@@ -108,6 +108,17 @@ class AccessNode(Node):
     def __repr__(self):
         return '%s(%d, %d)' % (self.__class__.__name__, self._cid, self._rid)
 
+    def clone(self, cid=None, rid=None):
+        '''Create a clone of this node, with optionally a different CID or RID.
+        Since nodes are immutable, there is really no point in cloning unless
+        the CID or RID is overridden, but it is allowed.
+        '''
+        if cid is None:
+            cid = self._cid
+        if rid is None:
+            rid = self._rid
+        return self.__class__(cid, rid)
+
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
     '''
