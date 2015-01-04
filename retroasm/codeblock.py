@@ -127,62 +127,31 @@ class Store(AccessNode):
 class ConstantValue(Expression):
     '''A synthetic constant containing an intermediate value.
     '''
-    __slots__ = ('_constant',)
+    __slots__ = ('_cid',)
 
-    constant = property(lambda self: self._constant)
-    cid = property(lambda self: self._constant.cid)
+    cid = property(lambda self: self._cid)
 
-    def __init__(self, constant):
-        if not isinstance(constant, Constant):
-            raise TypeError('expected Constant object, got %s' % type(constant))
-        Expression.__init__(self, constant.type)
-        self._constant = constant
+    def __init__(self, cid, typ):
+        Expression.__init__(self, typ)
+        self._cid = cid
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
         if exprs:
             raise ValueError('%s does not take expression args' % cls.__name__)
-        kwargs.setdefault('constant', self._constant)
+        kwargs.setdefault('cid', self._cid)
+        kwargs.setdefault('typ', self.type)
         return signature(cls).bind(**kwargs)
 
     def __str__(self):
-        return 'C%d' % self.cid
+        return 'C%d' % self._cid
 
     def _equals(self, other):
         # pylint: disable=protected-access
-        return self._constant is other._constant
+        return self._cid is other._cid
 
     def _complexity(self):
-        const = self._constant
-        if isinstance(const, ComputedConstant):
-            # pylint: disable=protected-access
-            return 1 + const.expr._complexity()
-        elif isinstance(const, (ArgumentConstant, LoadedConstant)):
-            return 2
-        else:
-            assert False, const
-
-    def simplify(self):
-        const = self._constant
-        if isinstance(const, ComputedConstant):
-            return const.expr.simplify()
-        elif isinstance(const, (ArgumentConstant, LoadedConstant)):
-            return self
-        else:
-            assert False, const
-
-    def substitute(self, func):
-        subst = func(self)
-        if subst is not None:
-            return subst
-
-        const = self._constant
-        if isinstance(const, ComputedConstant):
-            subst = const.expr.substitute(func)
-            if subst is not const.expr:
-                return ConstantValue(ComputedConstant(const.cid, subst))
-
-        return self
+        return 2
 
 class CodeBlock:
 

@@ -19,6 +19,7 @@ class CodeBlockSimplifier(CodeBlock):
         '''
         while True:
             changed = False
+            changed |= self.inlineConstants()
             changed |= self.simplifyConstants()
             changed |= self.removeUnusedReferences()
             changed |= self.removeDuplicateReferences()
@@ -26,6 +27,30 @@ class CodeBlockSimplifier(CodeBlock):
             if not changed:
                 break
         assert self.verify() is None
+
+    def inlineConstants(self):
+        '''Replace each ConstantValue that contains the constant ID of
+        a ComputedConstant by the expression of that constant.
+        '''
+        changed = False
+        constants = self.constants
+
+        def substConstExpr(expr):
+            if isinstance(expr, ConstantValue):
+                const = constants[expr.cid]
+                if isinstance(const, ComputedConstant):
+                    return const.expr
+            return None
+        for cid in list(constants.keys()):
+            const = constants[cid]
+            if isinstance(const, ComputedConstant):
+                newExpr = const.expr.substitute(substConstExpr)
+                if newExpr is not const.expr:
+                    constants[cid] = ComputedConstant(cid, newExpr)
+
+        while self.removeUnusedConstants():
+            changed = True
+        return changed
 
     def simplifyConstants(self):
         changed = False
@@ -37,7 +62,7 @@ class CodeBlockSimplifier(CodeBlock):
                 expr = const.expr.simplify()
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant.
-                    self.replaceConstant(cid, expr.constant)
+                    self.replaceConstant(cid, constants[expr.cid])
                     changed = True
                 elif expr is not const.expr:
                     # Wrap the simplified expression into a new constant
@@ -82,9 +107,8 @@ class CodeBlockSimplifier(CodeBlock):
             del constants[oldCid]
             # Replace constant in other constants' expressions.
             def substCid(sexpr):
-                # pylint: disable=cell-var-from-loop
                 if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                    return ConstantValue(newConst)
+                    return ConstantValue(newCid, sexpr.type)
                 else:
                     return None
             for cid in list(constants.keys()):
@@ -99,7 +123,8 @@ class CodeBlockSimplifier(CodeBlock):
                 ref = references[rid]
                 if isinstance(ref, IOReference) and ref.index.cid == oldCid:
                     references[rid] = IOReference(
-                        ref.channel, ConstantValue(newConst)
+                        ref.channel,
+                        ConstantValue(newCid, ref.channel.addrType)
                         )
             # Replace constant in nodes.
             nodes = self.nodes
@@ -246,7 +271,7 @@ class CodeBlockSimplifier(CodeBlock):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
                     constants[cid] = ComputedConstant(
-                        cid, ConstantValue(constants[valueCid])
+                        cid, ConstantValue(valueCid, storage.type)
                         )
                     changed = True
                     if not storage.canLoadHaveSideEffect():

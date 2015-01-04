@@ -122,7 +122,7 @@ class CodeBlockBuilder:
             cid = len(self.constants)
             constant = ComputedConstant(cid, expr)
             self.constants.append(constant)
-            return ConstantValue(constant)
+            return ConstantValue(cid, expr.type)
 
     def emitLoad(self, rid):
         '''Adds a node that loads a value from the referenced storage.
@@ -134,7 +134,7 @@ class CodeBlockBuilder:
         refType = self.references[rid].type
         constant = LoadedConstant(cid, rid, refType)
         self.constants.append(constant)
-        return ConstantValue(constant)
+        return ConstantValue(cid, refType)
 
     def emitStore(self, rid, expr):
         '''Adds a node that stores a value in the referenced storage.
@@ -201,7 +201,7 @@ class CodeBlockBuilder:
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
                     if isinstance(expr, ConstantValue):
-                        return ConstantValue(constants[cidMap[expr.cid]])
+                        return ConstantValue(cidMap[expr.cid], expr.type)
                     else:
                         return None
                 constants.append(ComputedConstant(
@@ -225,13 +225,15 @@ class CodeBlockBuilder:
                 # because at that time the constants haven't been added yet.
                 references[newRid] = IOReference(
                     ref.channel,
-                    ConstantValue(constants[cidMap[ref.index.cid]])
+                    ConstantValue(cidMap[ref.index.cid], ref.channel.addrType)
                     )
 
-        if code.retCid is None:
+        retCid = code.retCid
+        if retCid is None:
             return unit
         else:
-            return ConstantValue(constants[cidMap[code.retCid]])
+            retCid = cidMap[retCid]
+            return ConstantValue(retCid, constants[retCid].type)
 
 def emitCodeFromAssignments(reader, builder, assignments):
     '''Creates a code block from the given assignments.
