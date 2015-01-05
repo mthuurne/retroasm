@@ -177,14 +177,12 @@ class CodeBlockBuilder:
         nodes = self.nodes
 
         # Map old constant IDs to new IDs; don't copy yet.
-        cidMap = {}
-        newCid = len(constants)
-        for cid, const in code.constants.items():
-            if isinstance(const, ArgumentConstant):
-                cidMap[cid] = context[const.name].cid
-            else:
-                cidMap[cid] = newCid
-                newCid += 1
+        cidMap = dict(
+            (oldCid, newCid)
+            for newCid, oldCid in enumerate(
+                code.constants.keys(), len(constants)
+                )
+            )
 
         # Copy references.
         ridMap = {}
@@ -204,7 +202,11 @@ class CodeBlockBuilder:
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
-                pass
+                value = context[const.name]
+                declWidth = const.type.width
+                if declWidth is not None and value.width != declWidth:
+                    value = Truncation(value, declWidth)
+                constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
                     if isinstance(expr, ConstantValue):

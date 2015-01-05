@@ -68,6 +68,29 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertEqual(len(code.nodes), 0)
         self.assertIntLiteral(code.constants[code.retCid], 103)
 
+    def test_arg_truncate(self):
+        '''Test whether expressions passed via value arguments are truncated.'''
+        # Note: Default width is 8 bits.
+        inc = TestCodeBlockBuilder()
+        incArgRid = inc.addValueArgument('V')
+        incArgVal = inc.emitLoad(incArgRid)
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
+        incRet = inc.addVariable('ret')
+        inc.emitStore(incRet, incAdd)
+        incCode = inc.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        step0 = outer.emitCompute(IntLiteral.create(0x89FE))
+        step1 = outer.inlineBlock(incCode, {'V': step0})
+        step2 = outer.inlineBlock(incCode, {'V': step1})
+        step3 = outer.inlineBlock(incCode, {'V': step2})
+        outerRet = outer.addVariable('ret', 16)
+        outer.emitStore(outerRet, step3)
+
+        code = createSimplifiedCode(outer)
+        self.assertEqual(len(code.nodes), 0)
+        self.assertIntLiteral(code.constants[code.retCid], 1)
+
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
         inc = TestCodeBlockBuilder()
