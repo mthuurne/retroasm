@@ -6,7 +6,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IOReference, IntLiteral, LShift, LocalReference, NamedValue,
     OrOperator, Slice, Storage, Truncation, ValueArgument, Variable,
-    VariableDeclaration, unit
+    VariableDeclaration, checkStorage, unit
     )
 from .function import FunctionCall
 from .linereader import DelayedError
@@ -314,8 +314,7 @@ def emitCodeFromAssignments(reader, builder, assignments):
                                 value.substitute(substituteReferences)
                                 )
                         elif isinstance(decl, LocalReference):
-                            if isinstance(value, Storage) \
-                                    or isinstance(value, Concatenation):
+                            if checkStorage(value):
                                 argMap[decl.name] = value
                             else:
                                 reader.error(

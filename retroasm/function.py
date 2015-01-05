@@ -1,5 +1,5 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression, LocalReference, ValueArgument
+from .expression import Expression, LocalReference, ValueArgument, checkStorage
 
 from inspect import signature
 
@@ -101,6 +101,20 @@ class FunctionCall(Expression):
         Expression.__init__(self, func.retType)
         self._func = func
         self._args = tuple(Expression.checkScalar(arg) for arg in args)
+        for i, (value, decl) in enumerate(self.iterArgValuesAndDecl(), 1):
+            if isinstance(decl, LocalReference):
+                if not checkStorage(value):
+                    raise ValueError(
+                        'value for argument %d ("%s") is not a storage '
+                        'location: %s'
+                        % (i, decl.name, value)
+                        )
+                if value.type != decl.type:
+                    raise ValueError(
+                        'argument %d ("%s") has type "%s", '
+                        'but the provided storage ("%s") has type "%s"'
+                        % (i, decl.name, decl.type, value, value.type)
+                        )
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__

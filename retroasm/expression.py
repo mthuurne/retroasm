@@ -496,6 +496,15 @@ class Storage:
         '''
         raise NotImplementedError
 
+def checkStorage(storage):
+    '''Returns True if the given expression is a storage or a concatenation
+    of storages, False otherwise.
+    '''
+    return isinstance(storage, Storage) or (
+        isinstance(storage, Concatenation)
+        and all(checkStorage(expr) for expr in storage.exprs)
+        )
+
 class Variable(NamedValue, Storage):
     '''A variable in the local context.
     '''
