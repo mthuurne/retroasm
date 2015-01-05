@@ -4,7 +4,8 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
+    Concatenation, IntLiteral, IntType, LShift, OrOperator, Slice, Truncation,
+    unit
     )
 from .function import FunctionCall
 from .linereader import DelayedError
@@ -312,14 +313,14 @@ def emitCodeFromAssignments(reader, builder, assignments):
             argMap = {}
             try:
                 with reader.checkErrors():
-                    for value, decl in expr.iterArgValuesAndDecl():
-                        if isinstance(decl, ValueArgument):
-                            argMap[decl.name] = builder.emitCompute(
+                    for name, decl, value in expr.iterArgNameDeclValue():
+                        if isinstance(decl, IntType):
+                            argMap[name] = builder.emitCompute(
                                 value.substitute(substituteReferences)
                                 )
                         elif isinstance(decl, LocalReference):
                             if checkStorage(value):
-                                argMap[decl.name] = value
+                                argMap[name] = value
                             else:
                                 reader.error(
                                     'non-storage argument "%s" for reference '

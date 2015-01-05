@@ -1,8 +1,10 @@
-from .expression import Expression
+from .expression import Expression, IntType
 from .expression_parser import parseArgument, parseExpr, parseType
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import IOChannel, Register, Variable, namePat
+from .storage import (
+    IOChannel, LocalReference, Register, ValueArgument, Variable, namePat
+    )
 
 from collections import ChainMap, OrderedDict
 from functools import partial
@@ -238,7 +240,14 @@ def _parseFunc(reader, argStr, context):
     nameReservation = context.reserve(funcName)
 
     # Parse body lines.
-    localContext = dict(args)
+    localContext = {}
+    for name, value in args.items():
+        if isinstance(value, IntType):
+            localContext[name] = ValueArgument(name, value)
+        elif isinstance(value, LocalReference):
+            localContext[name] = value
+        else:
+            assert False, value
     if retType is not None:
         localContext['ret'] = Variable('ret', retType)
     combinedContext = ChainMap(localContext, context.exprs)

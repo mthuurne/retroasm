@@ -1,6 +1,6 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression
-from .storage import LocalReference, ValueArgument, checkStorage
+from .expression import Expression, IntType
+from .storage import LocalReference, checkStorage
 
 from inspect import signature
 
@@ -38,10 +38,18 @@ class Function:
             )
 
     def __str__(self):
+        def getType(decl):
+            if isinstance(decl, IntType):
+                return decl
+            else:
+                return '%s&' % decl.type
         return 'func %s%s(%s)' % (
             '' if self.retType is None else '%s ' % self.retType,
             self.name,
-            ', '.join(arg.formatDecl() for arg in self.args.values())
+            ', '.join(
+                '%s %s' % (getType(decl), name)
+                for name, decl in self.args.items()
+                )
             )
 
     def dump(self):
@@ -54,7 +62,7 @@ class Function:
     def findArg(self, argName):
         '''Searches the representation of the argument with the given name in
         this function's code block.
-        For pass-by-value arguments, a ValueArgument is returned.
+        For pass-by-value arguments, an ArgumentConstant is returned.
         For pass-by-reference arguments, a LocalReference is returned.
         If the argument does not occur in the code block, None is returned.
         If no argument with the given name existed when the function was
@@ -64,9 +72,8 @@ class Function:
         if self.code is None:
             raise ValueError('Function does not have a code block')
         arg = self.args[argName]
-        if isinstance(arg, ValueArgument):
-            # The ValueArgument will have been replaced by an ArgumentConstant
-            # during code block simplification.
+        if isinstance(arg, IntType):
+            # Look for an ArgumentConstant with the same name.
             for const in self.code.constants.values():
                 if isinstance(const, ArgumentConstant):
                     if const.name == argName:
@@ -102,19 +109,19 @@ class FunctionCall(Expression):
         Expression.__init__(self, func.retType)
         self._func = func
         self._args = tuple(Expression.checkScalar(arg) for arg in args)
-        for i, (value, decl) in enumerate(self.iterArgValuesAndDecl(), 1):
+        for i, (name, decl, value) in enumerate(self.iterArgNameDeclValue(), 1):
             if isinstance(decl, LocalReference):
                 if not checkStorage(value):
                     raise ValueError(
                         'value for argument %d ("%s") is not a storage '
                         'location: %s'
-                        % (i, decl.name, value)
+                        % (i, name, value)
                         )
                 if value.type != decl.type:
                     raise ValueError(
                         'argument %d ("%s") has type "%s", '
                         'but the provided storage ("%s") has type "%s"'
-                        % (i, decl.name, decl.type, value, value.type)
+                        % (i, name, decl.type, value, value.type)
                         )
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -149,8 +156,9 @@ class FunctionCall(Expression):
         # Functions will be inlined when forming code blocks.
         return 1 << 50
 
-    def iterArgValuesAndDecl(self):
+    def iterArgNameDeclValue(self):
         '''Iterates through the arguments of this function call, where each
-        element is a pair of an argument value and an argument declaration.
+        element is a tuple of the name, declaration and value of the argument.
         '''
-        return zip(self._args, self._func.args.values())
+        for (name, decl), value in zip(self._func.args.items(), self._args):
+            yield name, decl, value

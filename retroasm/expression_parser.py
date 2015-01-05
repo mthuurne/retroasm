@@ -4,7 +4,7 @@ from .expression import (
     )
 from .function import Function, FunctionCall
 from .storage import (
-    IOChannel, IOReference, LocalReference, ValueArgument, VariableDeclaration
+    IOChannel, IOReference, LocalReference, VariableDeclaration
     )
 
 import re
@@ -23,7 +23,7 @@ def parseArgument(typeDecl, name):
     if typeDecl.endswith('&'):
         return LocalReference(name, parseType(typeDecl[:-1]))
     else:
-        return ValueArgument(name, parseType(typeDecl))
+        return parseType(typeDecl)
 
 class ExpressionTokenizer:
 
