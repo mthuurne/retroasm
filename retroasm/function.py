@@ -1,5 +1,6 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression, LocalReference, ValueArgument, checkStorage
+from .expression import Expression
+from .storage import LocalReference, ValueArgument, checkStorage
 
 from inspect import signature
 

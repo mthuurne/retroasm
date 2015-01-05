@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
-from .expression import IOReference, Register, ValueArgument, Variable
+from .storage import IOReference, Register, ValueArgument, Variable
 
 from collections import defaultdict
 

@@ -1,7 +1,8 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
-    LShift, OrOperator, RShift, Slice, Truncation, Variable, XorOperator
+    LShift, OrOperator, RShift, Slice, Truncation, XorOperator
     )
+from retroasm.storage import Variable
 
 import unittest
 

@@ -1,7 +1,8 @@
-from .expression import Expression, IOChannel, Register, Variable, namePat
+from .expression import Expression
 from .expression_parser import parseArgument, parseExpr, parseType
-from .linereader import DefLineReader, DelayedError
 from .function_builder import createFunc
+from .linereader import DefLineReader, DelayedError
+from .storage import IOChannel, Register, Variable, namePat
 
 from collections import ChainMap, OrderedDict
 from functools import partial

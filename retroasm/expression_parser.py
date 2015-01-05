@@ -1,9 +1,12 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, Concatenation, IOChannel, IOReference,
-    IntLiteral, IntType, LocalReference, OrOperator, Slice, ValueArgument,
-    VariableDeclaration, XorOperator
+    AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
+    OrOperator, Slice, XorOperator
     )
 from .function import Function, FunctionCall
+from .storage import (
+    IOChannel, IOReference, LocalReference, ValueArgument, VariableDeclaration
+    )
+
 import re
 
 def parseType(typeName):
