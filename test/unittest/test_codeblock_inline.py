@@ -1,7 +1,9 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
 from retroasm.codeblock import ComputedConstant, Load, Store
-from retroasm.expression import AddOperator, AndOperator, IntLiteral
+from retroasm.expression import (
+    AddOperator, AndOperator, Concatenation, IntLiteral
+    )
 
 import unittest
 
@@ -94,6 +96,41 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
             )
         self.assertNodes(code.nodes, correct)
         self.assertIntLiteral(code.constants[code.retCid], 103)
+
+    def test_pass_concat_by_reference(self):
+        '''Test concatenated storages as pass-by-reference arguments.'''
+        inc = TestCodeBlockBuilder()
+        incArgRid = inc.addLocalReference('R')
+        incArgVal = inc.emitLoad(incArgRid)
+        incAdd = inc.emitCompute(
+            AddOperator(incArgVal, IntLiteral.create(0x1234))
+            )
+        inc.emitStore(incArgRid, incAdd)
+        incCode = inc.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerH = outer.addRegister('h')
+        outerL = outer.addRegister('l')
+        regH = outer.references[outerH]
+        regL = outer.references[outerL]
+        initH = outer.emitCompute(IntLiteral.create(0xab))
+        initL = outer.emitCompute(IntLiteral.create(0xcd))
+        outer.emitStore(outerH, initH)
+        outer.emitStore(outerL, initL)
+        regHL = Concatenation(regH, regL)
+        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, {'R': regHL})
+        outerRet = outer.addVariable('ret', 16)
+        finalH = outer.emitLoad(outerH)
+        finalL = outer.emitLoad(outerL)
+        finalHL = outer.emitCompute(Concatenation(finalH, finalL))
+        outer.emitStore(outerRet, finalHL)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 2)
+        self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1234)
 
 if __name__ == '__main__':
     verbose = True

@@ -4,8 +4,9 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, IOReference, IntLiteral, LocalReference, NamedValue, Slice,
-    Storage, Truncation, ValueArgument, Variable, VariableDeclaration, unit
+    Concatenation, IOReference, IntLiteral, LShift, LocalReference, NamedValue,
+    OrOperator, Slice, Storage, Truncation, ValueArgument, Variable,
+    VariableDeclaration, unit
     )
 from .function import FunctionCall
 from .linereader import DelayedError
@@ -175,6 +176,7 @@ class CodeBlockBuilder:
         references = self.references
         nodes = self.nodes
 
+        # Map old constant IDs to new IDs; don't copy yet.
         cidMap = {}
         newCid = len(constants)
         for cid, const in code.constants.items():
@@ -184,18 +186,23 @@ class CodeBlockBuilder:
                 cidMap[cid] = newCid
                 newCid += 1
 
+        # Copy references.
         ridMap = {}
         for rid, ref in code.references.items():
             # Shallow copy is sufficient because references are immutable.
-            ridMap[rid] = len(references)
-            references.append(ref)
+            if isinstance(ref, LocalReference):
+                decomposed = []
+                for storage, offset in decomposeConcat(context[ref.name]):
+                    decomposed.append((len(references), offset))
+                    references.append(storage)
+                ridMap[rid] = decomposed
+            else:
+                ridMap[rid] = len(references)
+                references.append(ref)
 
-        for node in code.nodes:
-            newCid = cidMap[node.cid]
-            newRid = ridMap[node.rid]
-            nodes.append(node.__class__(newCid, newRid))
-
+        # Copy constants.
         for cid, const in code.constants.items():
+            assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
                 pass
             elif isinstance(const, ComputedConstant):
@@ -209,27 +216,62 @@ class CodeBlockBuilder:
                     const.expr.substitute(substCid)
                     ))
             elif isinstance(const, LoadedConstant):
-                constants.append(LoadedConstant(
-                    cidMap[const.cid],
-                    ridMap[const.rid],
-                    const.type
-                    ))
+                rid = ridMap[const.rid]
+                if isinstance(rid, list):
+                    # Will be filled in when Load node is copied.
+                    constants.append(None)
+                else:
+                    constants.append(
+                        LoadedConstant(cidMap[const.cid], rid, const.type)
+                        )
             else:
                 assert False, const
 
+        # Substitute index constants.
+        # This cannot be done when originally copying the references
+        # because at that time the constants haven't been added yet.
         for newRid in ridMap.values():
-            ref = references[newRid]
-            if isinstance(ref, IOReference):
-                # Substitute index constants.
-                # This cannot be done when originally copying the references
-                # because at that time the constants haven't been added yet.
-                references[newRid] = IOReference(
-                    ref.channel,
-                    ConstantValue(cidMap[ref.index.cid], ref.channel.addrType)
-                    )
-            elif isinstance(ref, LocalReference):
-                references[newRid] = context[ref.name]
+            if isinstance(newRid, list):
+                rids = [rid for rid, offset in newRid]
+            else:
+                rids = [newRid]
+            for rid in rids:
+                ref = references[rid]
+                if isinstance(ref, IOReference):
+                    references[rid] = IOReference(
+                        ref.channel,
+                        ConstantValue(
+                            cidMap[ref.index.cid], ref.channel.addrType
+                            )
+                        )
 
+        # Copy nodes.
+        for node in code.nodes:
+            newRid = ridMap[node.rid]
+            if isinstance(newRid, list):
+                if isinstance(node, Load):
+                    consts = [
+                        (self.emitLoad(rid), offset)
+                        for rid, offset in newRid
+                        ]
+                    combined = OrOperator(*(LShift(*eo) for eo in consts))
+                    newCid = cidMap[node.cid]
+                    constants[newCid] = ComputedConstant(newCid, combined)
+                elif isinstance(node, Store):
+                    const = constants[cidMap[node.cid]]
+                    value = ConstantValue(const.cid, const.type)
+                    for rid, offset in newRid:
+                        cid = self.emitCompute(
+                            Slice(value, offset, references[rid].width)
+                            ).cid
+                        nodes.append(Store(cid, rid))
+                else:
+                    assert False, node
+            else:
+                newCid = cidMap[node.cid]
+                nodes.append(node.__class__(newCid, newRid))
+
+        # Determine return value.
         retCid = code.retCid
         if retCid is None:
             return unit
@@ -272,7 +314,8 @@ def emitCodeFromAssignments(reader, builder, assignments):
                                 value.substitute(substituteReferences)
                                 )
                         elif isinstance(decl, LocalReference):
-                            if isinstance(value, Storage):
+                            if isinstance(value, Storage) \
+                                    or isinstance(value, Concatenation):
                                 argMap[decl.name] = value
                             else:
                                 reader.error(
