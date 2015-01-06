@@ -51,6 +51,23 @@ class Unlimited(metaclass=Singleton):
         else:
             return NotImplemented
 
+    def __add__(self, other):
+        if isinstance(other, (int, Unlimited)):
+            return self
+        else:
+            return NotImplemented
+
+    __radd__ = __add__
+
+    def __sub__(self, other):
+        if isinstance(other, int):
+            return self
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        return NotImplemented
+
 unlimited = Unlimited()
 
 class IntType(metaclass=Unique):

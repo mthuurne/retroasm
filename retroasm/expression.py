@@ -683,10 +683,7 @@ class LShift(Expression):
         if not isinstance(offset, int):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
-        width = expr.width
-        if width is not unlimited:
-            width += offset
-        Expression.__init__(self, IntType(width))
+        Expression.__init__(self, IntType(expr.width + offset))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -711,9 +708,7 @@ class LShift(Expression):
             # No actual shift occurs.
             return expr
 
-        width = expr.width
-        if width is not unlimited:
-            width += offset
+        width = expr.width + offset
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value << offset, IntType(width))
@@ -762,10 +757,7 @@ class RShift(Expression):
         if not isinstance(offset, int):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
-        width = expr.width
-        if width is not unlimited:
-            width = max(width - offset, 0)
-        Expression.__init__(self, IntType(width))
+        Expression.__init__(self, IntType(max(expr.width - offset, 0)))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -790,12 +782,10 @@ class RShift(Expression):
             # No actual shift occurs.
             return expr
 
-        width = expr.width
-        if width is not unlimited:
-            width -= offset
-            if width <= 0:
-                # Entire subexpression is discarded by the shift.
-                return IntLiteral.create(0)
+        width = expr.width - offset
+        if width <= 0:
+            # Entire subexpression is discarded by the shift.
+            return IntLiteral.create(0)
 
         if isinstance(expr, IntLiteral):
             return IntLiteral(expr.value >> offset, IntType(width))
@@ -968,10 +958,7 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
                     'all concatenation operands except the first must have '
                     'a fixed width; operand %d has unlimited width' % i
                     )
-        if expr1.width is unlimited:
-            width = unlimited
-        else:
-            width = expr1.width + sum(expr.width for expr in exprs)
+        width = expr1.width + sum(expr.width for expr in exprs)
         ComposedExpression.__init__(self, expr1, *exprs, intType=IntType(width))
 
     def _ctorargs(self, *exprs, **kwargs):
