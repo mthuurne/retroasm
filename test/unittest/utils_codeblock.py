@@ -2,7 +2,7 @@ from retroasm.codeblock import ComputedConstant
 from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import IntLiteral
 from retroasm.storage import (
-    IOChannel, IOReference, LocalReference, Register, ValueArgument, Variable
+    IOChannel, IOReference, LocalReference, Register, Variable
     )
 from retroasm.types import IntType
 
@@ -44,8 +44,7 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
         return self.emitReference(ref)
 
     def addValueArgument(self, name, width=8):
-        ref = ValueArgument(name, IntType(width))
-        return self.emitReference(ref)
+        return self.emitValueArgument(name, IntType(width))
 
     def addVariable(self, name, width=8):
         ref = Variable(name, IntType(width))

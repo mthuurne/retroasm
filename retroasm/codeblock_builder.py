@@ -9,7 +9,7 @@ from .expression import (
 from .function import FunctionCall
 from .linereader import DelayedError
 from .storage import (
-    IOReference, LocalReference, NamedValue, Storage, ValueArgument, Variable,
+    IOReference, LocalReference, NamedValue, Storage, Variable,
     VariableDeclaration, checkStorage
     )
 from .types import IntType, Reference, unlimited
@@ -90,7 +90,7 @@ class CodeBlockBuilder:
         for node in code.nodes:
             rid = node.rid
             ref = code.references[rid]
-            if isinstance(ref, Variable) and not isinstance(ref, ValueArgument):
+            if isinstance(ref, Variable):
                 if isinstance(node, Load):
                     if rid not in initializedVariables:
                         ununitializedLoads.append(node)
@@ -168,6 +168,26 @@ class CodeBlockBuilder:
                 raise TypeError('I/O index must be ConstantValue')
         rid = len(self.references)
         self.references.append(storage)
+        return rid
+
+    def emitValueArgument(self, name, decl):
+        '''Adds a passed-by-value argument to this code block.
+        The initial value is represented by an ArgumentConstant and is loaded
+        into the corresponding Variable.
+        Returns the reference ID of the corresponding Variable.
+        '''
+        assert isinstance(decl, IntType), decl
+
+        # Add ArgumentConstant.
+        cid = len(self.constants)
+        constant = ArgumentConstant(name, cid, decl)
+        self.constants.append(constant)
+
+        # Store initial value.
+        variable = Variable(name, decl)
+        rid = self.getReferenceID(variable)
+        self.nodes.insert(0, Store(cid, rid))
+
         return rid
 
     def inlineBlock(self, code, context):
@@ -370,15 +390,3 @@ def emitCodeFromAssignments(reader, builder, assignments):
                 reader.error('error on left hand side of assignment: %s', ex)
 
     return locations
-
-def createCodeBlockFromAssignments(reader, assignments):
-    builder = CodeBlockBuilder()
-    try:
-        with reader.checkErrors():
-            locations = emitCodeFromAssignments(reader, builder, assignments)
-    except DelayedError:
-        return None
-    try:
-        return builder.createCodeBlock(reader, locations)
-    except ValueError:
-        return None

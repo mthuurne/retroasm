@@ -205,12 +205,6 @@ class VariableDeclaration(Variable):
     '''
     __slots__ = ()
 
-class ValueArgument(Variable):
-    '''A variable in the local context with an initial value that is passed
-    into a code block.
-    '''
-    __slots__ = ()
-
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
     The storage properties depend on which concrete storage will be bound

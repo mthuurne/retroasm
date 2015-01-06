@@ -2,9 +2,7 @@ from .expression import Expression
 from .expression_parser import parseExpr, parseType, parseTypeDecl
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import (
-    IOChannel, LocalReference, Register, ValueArgument, Variable, namePat
-    )
+from .storage import IOChannel, LocalReference, Register, Variable, namePat
 from .types import IntType, Reference
 
 from collections import ChainMap, OrderedDict
@@ -244,7 +242,7 @@ def _parseFunc(reader, argStr, context):
     localContext = {}
     for name, value in args.items():
         if isinstance(value, IntType):
-            localContext[name] = ValueArgument(name, value)
+            localContext[name] = Variable(name, value)
         elif isinstance(value, Reference):
             localContext[name] = LocalReference(name, value.type)
         else:
