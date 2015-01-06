@@ -1,4 +1,5 @@
-from .expression import Concatenation, Expression, IntType
+from .expression import Concatenation, Expression
+from .types import IntType
 
 from inspect import signature
 import re

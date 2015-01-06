@@ -1,11 +1,12 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, Concatenation, IntLiteral, IntType,
+    AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
     OrOperator, Slice, XorOperator
     )
 from .function import Function, FunctionCall
 from .storage import (
     IOChannel, IOReference, LocalReference, VariableDeclaration
     )
+from .types import IntType
 
 import re
 

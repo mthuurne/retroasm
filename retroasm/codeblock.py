@@ -1,5 +1,6 @@
-from .expression import Expression, IntType
+from .expression import Expression
 from .storage import IOReference
+from .types import IntType
 
 from collections import OrderedDict
 from inspect import signature

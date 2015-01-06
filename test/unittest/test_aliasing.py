@@ -1,7 +1,8 @@
-from retroasm.expression import IntLiteral, IntType
+from retroasm.expression import IntLiteral
 from retroasm.storage import (
     IOChannel, IOReference, LocalReference, Register, Variable
     )
+from retroasm.types import IntType
 
 import unittest
 

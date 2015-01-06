@@ -1,5 +1,6 @@
-from retroasm.expression import IntType, Slice
+from retroasm.expression import Slice
 from retroasm.storage import Variable
+from retroasm.types import IntType
 
 import unittest
 

@@ -1,5 +1,6 @@
-from retroasm.expression import Concatenation, IntLiteral, IntType, Slice
+from retroasm.expression import Concatenation, IntLiteral, Slice
 from retroasm.storage import Variable
+from retroasm.types import IntType
 
 import unittest
 

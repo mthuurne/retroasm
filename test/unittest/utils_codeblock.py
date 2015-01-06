@@ -1,9 +1,10 @@
 from retroasm.codeblock import ComputedConstant
 from retroasm.codeblock_builder import CodeBlockBuilder
-from retroasm.expression import IntLiteral, IntType
+from retroasm.expression import IntLiteral
 from retroasm.storage import (
     IOChannel, IOReference, LocalReference, Register, ValueArgument, Variable
     )
+from retroasm.types import IntType
 
 class NodeChecker:
 

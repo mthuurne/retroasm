@@ -1,6 +1,7 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression, IntType
+from .expression import Expression
 from .storage import LocalReference, checkStorage
+from .types import IntType
 
 from inspect import signature
 

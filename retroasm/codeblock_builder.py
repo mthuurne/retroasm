@@ -4,8 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, IntLiteral, IntType, LShift, OrOperator, Slice, Truncation,
-    unit
+    Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
 from .function import FunctionCall
 from .linereader import DelayedError
@@ -13,6 +12,7 @@ from .storage import (
     IOReference, LocalReference, NamedValue, Storage, ValueArgument, Variable,
     VariableDeclaration, checkStorage
     )
+from .types import IntType
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.

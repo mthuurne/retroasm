@@ -1,10 +1,11 @@
-from .expression import Expression, IntType
+from .expression import Expression
 from .expression_parser import parseArgument, parseExpr, parseType
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
 from .storage import (
     IOChannel, LocalReference, Register, ValueArgument, Variable, namePat
     )
+from .types import IntType
 
 from collections import ChainMap, OrderedDict
 from functools import partial
