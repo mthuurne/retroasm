@@ -200,11 +200,7 @@ def _parseFunc(reader, argStr, context):
     nameReservation = context.reserve(funcName)
 
     # Parse body lines.
-    try:
-        with reader.checkErrors():
-            func = createFunc(reader, funcName, retType, args, context.exprs)
-    except DelayedError:
-        return
+    func = createFunc(reader, funcName, retType, args, context.exprs)
 
     # Store function in global context.
     if nameReservation is not None:

@@ -351,7 +351,12 @@ def emitCodeFromAssignments(reader, builder, assignments):
             except DelayedError:
                 return None
             else:
-                return builder.inlineBlock(func.code, argMap)
+                code = func.code
+                if code is None:
+                    # Missing body, probably because of earlier errors.
+                    return None
+                else:
+                    return builder.inlineBlock(code, argMap)
         else:
             return None
 
