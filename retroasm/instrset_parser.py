@@ -1,11 +1,9 @@
-from .expression import Expression
 from .expression_parser import parseExpr, parseType, parseTypeDecl
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import IOChannel, LocalReference, Register, Variable, namePat
-from .types import IntType, Reference
+from .storage import IOChannel, Register, namePat
 
-from collections import ChainMap, OrderedDict
+from collections import OrderedDict
 from functools import partial
 from logging import getLogger
 import re
@@ -166,43 +164,6 @@ def _parseFuncArgs(log, argsStr):
                 args[argName] = arg
     return args
 
-def _parseAssignments(log, lines, context):
-    '''Parses the given lines as a series of assignments, yields the
-    assignments as pairs of expressions.
-    The full sequence of lines is parsed, even in the presence of errors.
-    Errors are appended to the given log as they are discovered.
-    '''
-    for line in lines:
-        parts = line.split(':=')
-        if len(parts) < 2:
-            # No assignment.
-            lhsStr = None
-            rhsStr = line
-        elif len(parts) == 2:
-            lhsStr, rhsStr = parts
-        else:
-            log.error('multiple assignments in a single line')
-            continue
-
-        if lhsStr is None:
-            lhs = None
-        else:
-            try:
-                lhs = parseExpr(lhsStr, context)
-            except ValueError as ex:
-                log.error('error in left hand side of assignment: %s', ex)
-                continue
-
-        try:
-            rhs = parseExpr(rhsStr, context)
-            if lhs is not None:
-                Expression.checkScalar(rhs)
-        except ValueError as ex:
-            log.error('error in right hand side of assignment: %s', ex)
-            continue
-
-        yield lhs, rhs
-
 _reFuncHeader = re.compile(
     r'(?:' + _nameTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
@@ -239,23 +200,9 @@ def _parseFunc(reader, argStr, context):
     nameReservation = context.reserve(funcName)
 
     # Parse body lines.
-    localContext = {}
-    for name, value in args.items():
-        if isinstance(value, IntType):
-            localContext[name] = Variable(name, value)
-        elif isinstance(value, Reference):
-            localContext[name] = LocalReference(name, value.type)
-        else:
-            assert False, value
-    if retType is not None:
-        localContext['ret'] = Variable('ret', retType)
-    combinedContext = ChainMap(localContext, context.exprs)
     try:
         with reader.checkErrors():
-            assignments = _parseAssignments(
-                reader, reader.iterBlock(), combinedContext
-                )
-            func = createFunc(reader, funcName, retType, args, assignments)
+            func = createFunc(reader, funcName, retType, args, context.exprs)
     except DelayedError:
         return
 

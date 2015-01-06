@@ -35,7 +35,7 @@ class CodeBlockBuilder:
         self.constants = []
         self.references = []
         self.nodes = []
-        self.nameToReference = {}
+        self.nameToReferenceID = {}
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -67,10 +67,10 @@ class CodeBlockBuilder:
         if isinstance(storage, NamedValue):
             name = storage.name
             try:
-                return self.nameToReference[name]
+                return self.nameToReferenceID[name]
             except KeyError:
                 rid = self.emitReference(storage)
-                self.nameToReference[name] = rid
+                self.nameToReferenceID[name] = rid
                 return rid
         else:
             return self.emitReference(storage)
