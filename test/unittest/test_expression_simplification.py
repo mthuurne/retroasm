@@ -3,7 +3,7 @@ from retroasm.expression import (
     LShift, OrOperator, RShift, Slice, Truncation, XorOperator
     )
 from retroasm.storage import Variable
-from retroasm.types import IntType
+from retroasm.types import IntType, unlimited
 
 import unittest
 
@@ -63,7 +63,7 @@ class TestUtils(unittest.TestCase):
             shifted = LShift(term, offset).simplify()
             if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
                 compExprs.append(shifted)
-            if term.width is None:
+            if term.width is unlimited:
                 offset = None
             else:
                 offset += term.width

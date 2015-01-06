@@ -1,4 +1,4 @@
-from .types import IntType, maxWidth, minWidth
+from .types import IntType, unlimited
 from .utils import Singleton
 
 from inspect import signature
@@ -97,8 +97,8 @@ class Expression:
         pass
 
     def _getWidth(self):
-        '''Returns the width of this expression in bits, or None if the
-        expression is not a scalar or is a scalar with unlimited width.
+        '''Returns the width of this expression in bits (possibly unlimited),
+        or None if the expression is not a scalar.
         '''
         typ = self._type
         return None if typ is None else typ._width
@@ -192,13 +192,13 @@ class IntLiteral(Expression):
     def create(cls, value):
         '''Returns an unlimited-width integer literal with the given value.
         '''
-        return cls(value, IntType(None))
+        return cls(value, IntType(unlimited))
 
     def __init__(self, value, intType):
         if not isinstance(value, int):
             raise TypeError('value must be int, got %s' % type(value))
         Expression.__init__(self, intType)
-        if intType.width is not None:
+        if intType.width is not unlimited:
             if value < 0:
                 raise ValueError(
                     'unsigned integer literal value must not be negative: '
@@ -221,7 +221,7 @@ class IntLiteral(Expression):
 
     def __str__(self):
         width = self.width
-        if width is None:
+        if width is unlimited:
             return str(self._value)
         elif width == 0:
             return '0[0:0]'
@@ -234,14 +234,13 @@ class IntLiteral(Expression):
         return self._value == other._value
 
     def _complexity(self):
-        return 2 if self.width is None else 1
+        return 2 if self.width is unlimited else 1
 
     def simplify(self):
         value = self._value
         if value >= 0:
             valueWidth = value.bit_length()
-            width = self.width
-            if width is None or valueWidth < width:
+            if valueWidth < self.width:
                 return IntLiteral(value, IntType(valueWidth))
         return self
 
@@ -253,7 +252,7 @@ class ComposedExpression(Expression):
 
     exprs = property(lambda self: self._exprs)
 
-    def __init__(self, *exprs, intType=IntType(None)):
+    def __init__(self, *exprs, intType=IntType(unlimited)):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
@@ -414,7 +413,7 @@ class AndOperator(SimplifiableComposedExpression):
     identity = IntLiteral.create(-1)
     absorber = IntLiteral.create(0)
 
-    def __init__(self, *exprs, intType=IntType(None)):
+    def __init__(self, *exprs, intType=IntType(unlimited)):
         SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
 
         # Set this to False to block the simplification attempt.
@@ -433,11 +432,10 @@ class AndOperator(SimplifiableComposedExpression):
             expr._complexity() for expr in exprs
             )
 
-        curWidth = self.width
-        width = minWidth(exprs)
-        if width is not None:
+        width = min(expr.width for expr in exprs)
+        if width is not unlimited:
             # Try truncating each subexpression to the minimum width.
-            changed = curWidth is None or width < curWidth
+            changed = width < self.width
             for i, expr in enumerate(exprs):
                 trunc = Truncation(expr, width).simplify()
                 if trunc._complexity() < expr._complexity():
@@ -473,7 +471,7 @@ class AndOperator(SimplifiableComposedExpression):
                     # consumed by the trailing zeroes.
                     for expr in exprs:
                         width = expr.width
-                        if width is not None and width <= trailingZeroes:
+                        if width <= trailingZeroes:
                             exprs[:] = [self.absorber]
                             return
                     if self._tryMaskToShift:
@@ -510,7 +508,7 @@ class OrOperator(SimplifiableComposedExpression):
     identity = IntLiteral.create(0)
     absorber = IntLiteral.create(-1)
 
-    def __init__(self, *exprs, intType=IntType(None)):
+    def __init__(self, *exprs, intType=IntType(unlimited)):
         SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
 
         # Set this to False to block the simplification attempt.
@@ -525,10 +523,8 @@ class OrOperator(SimplifiableComposedExpression):
 
         # Reduce expression width if possible.
         curWidth = self.width
-        width = maxWidth(exprs)
-        if width is None:
-            assert curWidth is None, self
-        elif curWidth is None or width < curWidth:
+        width = max(expr.width for expr in exprs)
+        if width < curWidth:
             alt = OrOperator(*exprs, intType=IntType(width))
             if not self._tryDistributeOrOverAnd:
                 alt._tryDistributeOrOverAnd = False
@@ -584,10 +580,8 @@ class XorOperator(SimplifiableComposedExpression):
 
         # Reduce expression width if possible.
         curWidth = self.width
-        width = maxWidth(exprs)
-        if width is None:
-            assert curWidth is None, self
-        elif curWidth is None or width < curWidth:
+        width = max(expr.width for expr in exprs)
+        if width < curWidth:
             alt = XorOperator(*exprs, intType=IntType(width))
             exprs[:] = [alt.simplify()]
             return
@@ -643,7 +637,7 @@ class Complement(Expression):
 
     def __init__(self, expr):
         self._expr = Expression.checkScalar(expr)
-        Expression.__init__(self, IntType(None))
+        Expression.__init__(self, IntType(unlimited))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -690,7 +684,7 @@ class LShift(Expression):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
         width = expr.width
-        if width is not None:
+        if width is not unlimited:
             width += offset
         Expression.__init__(self, IntType(width))
 
@@ -718,7 +712,7 @@ class LShift(Expression):
             return expr
 
         width = expr.width
-        if width is not None:
+        if width is not unlimited:
             width += offset
 
         if isinstance(expr, IntLiteral):
@@ -728,7 +722,7 @@ class LShift(Expression):
             return LShift(expr._expr, offset + expr._offset).simplify()
         elif isinstance(expr, RShift):
             roffset = expr.offset
-            mask = (0 if expr.width is None else 1 << expr.width) - 1
+            mask = (0 if expr.width is unlimited else 1 << expr.width) - 1
             masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
             masked._tryMaskToShift = False
             if roffset < offset:
@@ -769,7 +763,7 @@ class RShift(Expression):
             raise TypeError('shift offset must be int, got %s' % type(offset))
         self._offset = offset
         width = expr.width
-        if width is not None:
+        if width is not unlimited:
             width = max(width - offset, 0)
         Expression.__init__(self, IntType(width))
 
@@ -797,7 +791,7 @@ class RShift(Expression):
             return expr
 
         width = expr.width
-        if width is not None:
+        if width is not unlimited:
             width -= offset
             if width <= 0:
                 # Entire subexpression is discarded by the shift.
@@ -870,7 +864,7 @@ class Truncation(Expression):
 
     def simplify(self):
         width = self.width
-        assert width is not None, self
+        assert width is not unlimited, self
         if width == 0:
             # Every zero-width expression is equivalent to an empty bitstring.
             return IntLiteral(0, IntType(0))
@@ -881,11 +875,9 @@ class Truncation(Expression):
 
         # If we're truncating beyond the subexpression's width, reduce the
         # truncation width.
-        ewidth = expr.width
-        if ewidth is not None:
-            if ewidth <= width:
-                # The subexpression already fits: no truncation needed.
-                return expr
+        if expr.width <= width:
+            # The subexpression already fits: no truncation needed.
+            return expr
 
         if isinstance(expr, IntLiteral):
             return IntLiteral.create(expr.value & ((1 << width) - 1)).simplify()
@@ -971,13 +963,13 @@ class Concatenation(PlaceholderExpression, ComposedExpression):
     def __init__(self, expr1, *exprs):
         Expression.checkScalar(expr1)
         for i, expr in enumerate(exprs, 2):
-            if Expression.checkScalar(expr).width is None:
+            if Expression.checkScalar(expr).width is unlimited:
                 raise ValueError(
                     'all concatenation operands except the first must have '
                     'a fixed width; operand %d has unlimited width' % i
                     )
-        if expr1.width is None:
-            width = None
+        if expr1.width is unlimited:
+            width = unlimited
         else:
             width = expr1.width + sum(expr.width for expr in exprs)
         ComposedExpression.__init__(self, expr1, *exprs, intType=IntType(width))

@@ -1,6 +1,6 @@
 from retroasm.expression import Concatenation, IntLiteral, Slice
 from retroasm.storage import Variable
-from retroasm.types import IntType
+from retroasm.types import IntType, unlimited
 
 import unittest
 
@@ -35,7 +35,7 @@ class EqualsTests(unittest.TestCase):
         '''Checks fixed-width integer literals for equality.'''
         arg1 = IntLiteral(6, IntType(4))
         arg2 = IntLiteral(6, IntType(8))
-        arg3 = IntLiteral(6, IntType(None))
+        arg3 = IntLiteral(6, IntType(unlimited))
         self.assertExprEqual(arg1, arg1)
         self.assertExprEqual(arg2, arg2)
         self.assertExprEqual(arg3, arg3)

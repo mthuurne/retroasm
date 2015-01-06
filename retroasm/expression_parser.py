@@ -6,7 +6,7 @@ from .function import Function, FunctionCall
 from .storage import (
     IOChannel, IOReference, LocalReference, VariableDeclaration
     )
-from .types import IntType
+from .types import IntType, unlimited
 
 import re
 
@@ -142,7 +142,7 @@ def parseExpr(exprStr, context):
             start = parseTop()
         if token.eat('separator', ':'):
             if token.peek('bracket', ']'):
-                if expr.width is None:
+                if expr.width is unlimited:
                     raise ValueError(
                         'omitting the end index not allowed when slicing '
                         'an unlimited width expression: %s' % expr

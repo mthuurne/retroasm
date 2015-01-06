@@ -12,7 +12,7 @@ from .storage import (
     IOReference, LocalReference, NamedValue, Storage, ValueArgument, Variable,
     VariableDeclaration, checkStorage
     )
-from .types import IntType
+from .types import IntType, unlimited
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
@@ -161,7 +161,7 @@ class CodeBlockBuilder:
         '''
         if not isinstance(storage, Storage):
             raise TypeError('expected Storage, got %s' % type(storage))
-        if storage.width is None:
+        if storage.width is unlimited:
             raise ValueError('storages must have fixed width')
         if isinstance(storage, IOReference):
             if not isinstance(storage.index, ConstantValue):
@@ -207,7 +207,7 @@ class CodeBlockBuilder:
             if isinstance(const, ArgumentConstant):
                 value = context[const.name]
                 declWidth = const.type.width
-                if declWidth is not None and value.width != declWidth:
+                if value.width > declWidth:
                     value = Truncation(value, declWidth)
                 constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
