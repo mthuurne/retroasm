@@ -3,10 +3,8 @@ from .expression import (
     OrOperator, Slice, XorOperator
     )
 from .function import Function, FunctionCall
-from .storage import (
-    IOChannel, IOReference, LocalReference, VariableDeclaration
-    )
-from .types import IntType, unlimited
+from .storage import IOChannel, IOReference, VariableDeclaration
+from .types import IntType, Reference, unlimited
 
 import re
 
@@ -20,9 +18,9 @@ def parseType(typeName):
             'integer type "%s" is not of the form "u<width>"' % typeName)
     return IntType(int(widthStr))
 
-def parseArgument(typeDecl, name):
+def parseTypeDecl(typeDecl):
     if typeDecl.endswith('&'):
-        return LocalReference(name, parseType(typeDecl[:-1]))
+        return Reference(parseType(typeDecl[:-1]))
     else:
         return parseType(typeDecl)
 

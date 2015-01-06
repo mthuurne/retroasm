@@ -1,11 +1,11 @@
 from .expression import Expression
-from .expression_parser import parseArgument, parseExpr, parseType
+from .expression_parser import parseExpr, parseType, parseTypeDecl
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
 from .storage import (
     IOChannel, LocalReference, Register, ValueArgument, Variable, namePat
     )
-from .types import IntType
+from .types import IntType, Reference
 
 from collections import ChainMap, OrderedDict
 from functools import partial
@@ -157,7 +157,7 @@ def _parseFuncArgs(log, argsStr):
                     )
             else:
                 try:
-                    arg = parseArgument(typeStr, argName)
+                    arg = parseTypeDecl(typeStr)
                 except ValueError as ex:
                     log.error(
                         'bad function argument %d ("%s"): %s', i, argName, ex
@@ -245,8 +245,8 @@ def _parseFunc(reader, argStr, context):
     for name, value in args.items():
         if isinstance(value, IntType):
             localContext[name] = ValueArgument(name, value)
-        elif isinstance(value, LocalReference):
-            localContext[name] = value
+        elif isinstance(value, Reference):
+            localContext[name] = LocalReference(name, value.type)
         else:
             assert False, value
     if retType is not None:

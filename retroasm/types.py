@@ -96,3 +96,19 @@ class IntType(metaclass=Unique):
 
     def __str__(self):
         return 'int' if self._width is unlimited else 'u%d' % self._width
+
+class Reference(metaclass=Unique):
+    '''A reference to a value of a certain type.
+    '''
+    __slots__ = ('_type', '__weakref__')
+
+    type = property(lambda self: self._type)
+
+    def __init__(self, typ):
+        self._type = typ
+
+    def __repr__(self):
+        return 'Reference(%s)' % repr(self._type)
+
+    def __str__(self):
+        return '%s&' % self._type

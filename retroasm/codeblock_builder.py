@@ -12,7 +12,7 @@ from .storage import (
     IOReference, LocalReference, NamedValue, Storage, ValueArgument, Variable,
     VariableDeclaration, checkStorage
     )
-from .types import IntType, unlimited
+from .types import IntType, Reference, unlimited
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
@@ -318,13 +318,13 @@ def emitCodeFromAssignments(reader, builder, assignments):
                             argMap[name] = builder.emitCompute(
                                 value.substitute(substituteReferences)
                                 )
-                        elif isinstance(decl, LocalReference):
+                        elif isinstance(decl, Reference):
                             if checkStorage(value):
                                 argMap[name] = value
                             else:
                                 reader.error(
                                     'non-storage argument "%s" for reference '
-                                    'argument "%s"' % (value, decl.formatDecl())
+                                    'argument "%s %s"' % (value, decl, name)
                                     )
                         else:
                             assert False, decl

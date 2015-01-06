@@ -1,7 +1,7 @@
 from .codeblock import ArgumentConstant
 from .expression import Expression
 from .storage import LocalReference, checkStorage
-from .types import IntType
+from .types import IntType, Reference
 
 from inspect import signature
 
@@ -39,16 +39,11 @@ class Function:
             )
 
     def __str__(self):
-        def getType(decl):
-            if isinstance(decl, IntType):
-                return decl
-            else:
-                return '%s&' % decl.type
         return 'func %s%s(%s)' % (
             '' if self.retType is None else '%s ' % self.retType,
             self.name,
             ', '.join(
-                '%s %s' % (getType(decl), name)
+                '%s %s' % (decl, name)
                 for name, decl in self.args.items()
                 )
             )
@@ -79,16 +74,15 @@ class Function:
                 if isinstance(const, ArgumentConstant):
                     if const.name == argName:
                         return const
-            return None
-        elif isinstance(arg, LocalReference):
+        elif isinstance(arg, Reference):
+            # Look for a LocalReference with the same name.
             for ref in self.code.references.values():
                 if isinstance(ref, LocalReference):
                     if ref.name == argName:
-                        assert ref is arg, (ref, arg)
                         return ref
-            return None
         else:
             assert False, arg
+        return None
 
 class FunctionCall(Expression):
     '''Expression that represents the value returned by a user-defined function.
@@ -111,7 +105,7 @@ class FunctionCall(Expression):
         self._func = func
         self._args = tuple(Expression.checkScalar(arg) for arg in args)
         for i, (name, decl, value) in enumerate(self.iterArgNameDeclValue(), 1):
-            if isinstance(decl, LocalReference):
+            if isinstance(decl, Reference):
                 if not checkStorage(value):
                     raise ValueError(
                         'value for argument %d ("%s") is not a storage '
@@ -122,7 +116,7 @@ class FunctionCall(Expression):
                     raise ValueError(
                         'argument %d ("%s") has type "%s", '
                         'but the provided storage ("%s") has type "%s"'
-                        % (i, name, decl.type, value, value.type)
+                        % (i, name, decl, value, value.type)
                         )
 
     def _ctorargs(self, *exprs, **kwargs):
