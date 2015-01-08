@@ -28,9 +28,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         const = inner.emitCompute(IntLiteral.create(12345))
         inner.emitStore(innerA, const)
 
-        outer = TestCodeBlockBuilder()
-        # Make sure that outer and inner block are using the same registers.
-        outer.registers = inner.registers
+        # Share the global context to make sure that the outer and inner block
+        # are using the same registers.
+        outer = TestCodeBlockBuilder(inner.globalContext)
         outerA = outer.addRegister('a')
         zero = outer.emitCompute(IntLiteral.create(0))
         outer.emitStore(outerA, zero)
@@ -102,7 +102,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerA = outer.addRegister('a')
-        regA = outer.references[outerA]
+        regA = outer.context['a']
         initA = outer.emitCompute(IntLiteral.create(100))
         outer.emitStore(outerA, initA)
         outer.inlineBlock(incCode, {'R': regA})
@@ -134,8 +134,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
         outerL = outer.addRegister('l')
-        regH = outer.references[outerH]
-        regL = outer.references[outerL]
+        regH = outer.context['h']
+        regL = outer.context['l']
         initH = outer.emitCompute(IntLiteral.create(0xab))
         initL = outer.emitCompute(IntLiteral.create(0xcd))
         outer.emitStore(outerH, initH)

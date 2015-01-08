@@ -9,8 +9,8 @@ from .expression import (
 from .function import FunctionCall
 from .linereader import DelayedError
 from .storage import (
-    IOReference, LocalReference, NamedValue, Storage, Variable,
-    VariableDeclaration, checkStorage
+    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
+    checkStorage
     )
 from .types import IntType, Reference, unlimited
 
@@ -20,7 +20,7 @@ def decomposeConcat(storage):
     '''
     if isinstance(storage, IntLiteral):
         pass
-    elif isinstance(storage, Storage):
+    elif isinstance(storage, (IOReference, ReferencedValue)):
         yield storage, 0
     elif isinstance(storage, Concatenation):
         for concatTerm, concatOffset in storage.iterWithOffset():
@@ -29,13 +29,63 @@ def decomposeConcat(storage):
     else:
         raise ValueError('non-storage expression: %s' % storage)
 
+class _CodeBlockContext:
+    '''A cache for local references and on-demand imported global references.
+    Its goal is to avoid a lot of redundant references when a block is first
+    created: although the simplifier can remove those, that is a pretty
+    inefficient operation which should be applied to non-trivial cases only.
+    '''
+
+    def __init__(self, builder, globalContext):
+        self.builder = builder
+        self.globalContext = globalContext
+        self.localContext = {}
+
+    def __contains__(self, key):
+        return key in self.localContext or key in self.globalContext
+
+    def __getitem__(self, key):
+        try:
+            return self.localContext[key]
+        except KeyError:
+            return self._importReference(self.globalContext[key])
+
+    def _importReference(self, globalRef):
+        if isinstance(globalRef, NamedValue):
+            # While the initial call to this method happens when the name is
+            # not found, there could be name matches on recursive calls.
+            try:
+                return self.localContext[globalRef.name]
+            except KeyError:
+                return self._addNamedReference(globalRef)
+        elif isinstance(globalRef, Concatenation):
+            return Concatenation(*(
+                self._importReference(expr)
+                for expr in globalRef.exprs
+                ))
+        else:
+            return globalRef
+
+    def _addNamedReference(self, ref):
+        name = ref.name
+        if name in self.localContext:
+            raise ValueError('attempt to redefine "%s"' % name)
+        # pylint: disable=protected-access
+        rid = self.builder._emitReference(ref)
+        refVal = ReferencedValue(rid, ref.type)
+        self.localContext[name] = refVal
+        return refVal
+
+    def addVariable(self, name, typ):
+        return self._addNamedReference(Variable(name, typ))
+
 class CodeBlockBuilder:
 
-    def __init__(self):
+    def __init__(self, globalContext={}):
         self.constants = []
         self.references = []
         self.nodes = []
-        self.nameToReferenceID = {}
+        self.context = _CodeBlockContext(self, globalContext)
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -62,18 +112,6 @@ class CodeBlockBuilder:
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)
-
-    def getReferenceID(self, storage):
-        if isinstance(storage, NamedValue):
-            name = storage.name
-            try:
-                return self.nameToReferenceID[name]
-            except KeyError:
-                rid = self.emitReference(storage)
-                self.nameToReferenceID[name] = rid
-                return rid
-        else:
-            return self.emitReference(storage)
 
     def createCodeBlock(self, reader=None, locations={}):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -151,12 +189,18 @@ class CodeBlockBuilder:
         '''
         rhsConst = self.emitCompute(rhs)
         for storage, offset in decomposeConcat(lhs):
+            if isinstance(storage, ReferencedValue):
+                rid = storage.rid
+            elif isinstance(storage, IOReference):
+                rid = self._emitReference(storage)
+            else:
+                assert False, storage
             self.emitStore(
-                self.getReferenceID(storage),
+                rid,
                 self.emitCompute(Slice(rhsConst, offset, storage.width))
                 )
 
-    def emitReference(self, storage):
+    def _emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.
         '''
         if not isinstance(storage, Storage):
@@ -169,6 +213,16 @@ class CodeBlockBuilder:
         rid = len(self.references)
         self.references.append(storage)
         return rid
+
+    def _addNamedReference(self, ref):
+        # pylint: disable=protected-access
+        return self.context._addNamedReference(ref).rid
+
+    def emitVariable(self, name, refType):
+        return self._addNamedReference(Variable(name, refType))
+
+    def emitLocalReference(self, name, refType):
+        return self._addNamedReference(LocalReference(name, refType))
 
     def emitValueArgument(self, name, decl):
         '''Adds a passed-by-value argument to this code block.
@@ -184,11 +238,15 @@ class CodeBlockBuilder:
         self.constants.append(constant)
 
         # Store initial value.
-        variable = Variable(name, decl)
-        rid = self.getReferenceID(variable)
+        rid = self.emitVariable(name, decl)
         self.nodes.insert(0, Store(cid, rid))
 
         return rid
+
+    def emitIOReference(self, channel, index):
+        indexConst = self.emitCompute(index)
+        ioref = IOReference(channel, indexConst)
+        return self._emitReference(ioref)
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
@@ -214,8 +272,14 @@ class CodeBlockBuilder:
             if isinstance(ref, LocalReference):
                 decomposed = []
                 for storage, offset in decomposeConcat(context[ref.name]):
-                    decomposed.append((len(references), offset))
-                    references.append(storage)
+                    if isinstance(storage, ReferencedValue):
+                        newRid = storage.rid
+                    elif isinstance(storage, IOReference):
+                        newRid = len(references)
+                        references.append(storage)
+                    else:
+                        assert False, storage
+                    decomposed.append((newRid, offset))
                 ridMap[rid] = decomposed
             else:
                 ridMap[rid] = len(references)
@@ -321,13 +385,18 @@ def emitCodeFromAssignments(reader, builder, assignments):
         subst = substituteIOIndices(expr)
         if subst is not None:
             expr = subst
+        # pylint: disable=no-member
         # It seems the type inference ignores isistance() and deduces the wrong
         # types, leading to false positives.
-        # pylint: disable=no-member
-        if isinstance(expr, Storage):
-            if isinstance(expr, NamedValue) and expr.name == 'ret':
+        if isinstance(expr, ReferencedValue):
+            rid = expr.rid
+            ref = builder.references[rid]
+            if isinstance(ref, Variable) and ref.name == 'ret':
                 reader.error('function return value "ret" is write-only')
-            return emitLoad(builder.getReferenceID(expr))
+            return emitLoad(rid)
+        elif isinstance(expr, IOReference):
+            # pylint: disable=protected-access
+            return emitLoad(builder._emitReference(expr))
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
@@ -372,10 +441,7 @@ def emitCodeFromAssignments(reader, builder, assignments):
 
     for lhs, rhs in assignments:
         if lhs is None and rhs.type is not None:
-            if isinstance(rhs, VariableDeclaration):
-                continue
-            else:
-                reader.warning('result is ignored')
+            reader.warning('result is ignored')
         elif isinstance(lhs, IntLiteral):
             # Assigning to a literal as part of a concatenation can be useful,
             # but assigning to only a literal is probably a mistake.

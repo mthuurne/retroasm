@@ -175,7 +175,7 @@ def checkStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
-    return isinstance(storage, Storage) or (
+    return isinstance(storage, (ReferencedValue, Storage)) or (
         isinstance(storage, Concatenation)
         and all(checkStorage(expr) for expr in storage.exprs)
         )
@@ -199,11 +199,6 @@ class Variable(NamedValue, Storage):
 
     def mightBeSame(self, other):
         return self is other
-
-class VariableDeclaration(Variable):
-    '''A variable in the local context, as it is first declared.
-    '''
-    __slots__ = ()
 
 class LocalReference(NamedValue, Storage):
     '''A reference in the local context to a storage location.
@@ -303,3 +298,32 @@ class IOReference(Expression, Storage):
 
     def _complexity(self):
         return 4 + self._index._complexity()
+
+class ReferencedValue(Expression):
+    '''A value in a storage location accessed through a reference.
+    '''
+    __slots__ = ('_rid',)
+
+    rid = property(lambda self: self._rid)
+
+    def __init__(self, rid, typ):
+        Expression.__init__(self, typ)
+        self._rid = rid
+
+    def _ctorargs(self, *exprs, **kwargs):
+        cls = self.__class__
+        if exprs:
+            raise ValueError('%s does not take expression args' % cls.__name__)
+        kwargs.setdefault('rid', self._rid)
+        kwargs.setdefault('typ', self.type)
+        return signature(cls).bind(**kwargs)
+
+    def __str__(self):
+        return 'R%d' % self._rid
+
+    def _equals(self, other):
+        # pylint: disable=protected-access
+        return self._rid is other._rid
+
+    def _complexity(self):
+        return 4

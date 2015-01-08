@@ -25,41 +25,48 @@ class NodeChecker:
 
 class TestCodeBlockBuilder(CodeBlockBuilder):
 
-    def __init__(self):
-        CodeBlockBuilder.__init__(self)
-        self.channels = {}
-        self.registers = {}
+    def __init__(self, globalContext=None):
+        if globalContext is None:
+            globalContext = {}
+        self.globalContext = globalContext
+        CodeBlockBuilder.__init__(self, globalContext)
 
     def addRegister(self, name, width=8):
-        reg = self.registers.get(name)
+        reg = self.globalContext.get(name)
         if reg is None:
+            # Insert register into global context.
             reg = Register(name, IntType(width))
-            self.registers[name] = reg
+            self.globalContext[name] = reg
         else:
-            assert reg.width == width
-        return self.emitReference(reg)
+            # Check that existing global context entry is this register.
+            assert isinstance(reg, Register), reg
+            assert reg.width == width, reg
+        # Import register from global context into local context.
+        return self.context[name].rid
+
+    def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
+        channel = self.globalContext.get(channelName)
+        if channel is None:
+            # Insert channel into global context.
+            channel = IOChannel(
+                channelName, IntType(elemWidth), IntType(addrWidth)
+                )
+            self.globalContext[channelName] = channel
+        else:
+            # Check that existing global context entry is this channel.
+            assert isinstance(channel, IOChannel), channel
+            assert channel.elemType.width == elemWidth, channel
+            assert channel.addrType.width == addrWidth, channel
+        # Import channel from global context into local context.
+        channel = self.context[channelName]
+        # Create IOReference.
+        return self.emitIOReference(channel, index)
 
     def addLocalReference(self, name, width=8):
-        ref = LocalReference(name, IntType(width))
-        return self.emitReference(ref)
+        return self.emitLocalReference(name, IntType(width))
 
     def addValueArgument(self, name, width=8):
         return self.emitValueArgument(name, IntType(width))
 
     def addVariable(self, name, width=8):
-        ref = Variable(name, IntType(width))
-        return self.emitReference(ref)
-
-    def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
-        channel = self.channels.get(channelName)
-        if channel is None:
-            channel = IOChannel(
-                channelName, IntType(elemWidth), IntType(addrWidth)
-                )
-            self.channels[channelName] = channel
-        else:
-            assert channel.elemType.width == elemWidth, channel
-            assert channel.addrType.width == addrWidth, channel
-        indexConst = self.emitCompute(index)
-        ioref = IOReference(channel, indexConst)
-        return self.emitReference(ioref)
+        return self.emitVariable(name, IntType(width))

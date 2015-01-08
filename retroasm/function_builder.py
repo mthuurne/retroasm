@@ -3,10 +3,7 @@ from .expression import Expression
 from .expression_parser import parseExpr
 from .function import Function
 from .linereader import DelayedError
-from .storage import LocalReference, Variable
-from .types import IntType, Reference
-
-from collections import ChainMap
+from .types import Reference
 
 def _parseAssignments(log, lines, context):
     '''Parses the given lines as a series of assignments, yields the
@@ -48,22 +45,16 @@ def _parseAssignments(log, lines, context):
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
 
-    builder = CodeBlockBuilder()
+    builder = CodeBlockBuilder(globalContext)
     for argName, argDecl in args.items():
         if isinstance(argDecl, Reference):
-            builder.getReferenceID(LocalReference(argName, argDecl.type))
+            builder.emitLocalReference(argName, argDecl.type)
         else:
             builder.emitValueArgument(argName, argDecl)
     if retType is not None:
-        builder.getReferenceID(Variable('ret', retType))
+        builder.emitVariable('ret', retType)
 
-    localContext = dict(
-        (name, builder.references[rid])
-        for name, rid in builder.nameToReferenceID.items()
-        )
-    combinedContext = ChainMap(localContext, globalContext)
-
-    assignments = _parseAssignments(reader, reader.iterBlock(), combinedContext)
+    assignments = _parseAssignments(reader, reader.iterBlock(), builder.context)
     try:
         with reader.checkErrors():
             locations = emitCodeFromAssignments(reader, builder, assignments)

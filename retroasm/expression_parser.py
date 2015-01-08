@@ -3,7 +3,7 @@ from .expression import (
     OrOperator, Slice, XorOperator
     )
 from .function import Function, FunctionCall
-from .storage import IOChannel, IOReference, VariableDeclaration
+from .storage import IOChannel, IOReference
 from .types import IntType, Reference, unlimited
 
 import re
@@ -214,11 +214,13 @@ def parseExpr(exprStr, context):
             typ = parseType(name)
             name = token.value
             next(token)
-            if name in context:
-                raise ValueError('attempt to redefine "%s"' % name)
-            else:
-                context[name] = expr = VariableDeclaration(name, typ)
-                return expr
+            try:
+                return context.addVariable(name, typ)
+            except AttributeError:
+                raise ValueError(
+                    'attempt to define variable "%s %s" in a context that does '
+                    'not support variable declarations' % (typ, name)
+                    )
         else:
             # Look up identifier in context.
             try:
