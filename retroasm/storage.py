@@ -40,7 +40,7 @@ class IOChannel:
             )
 
     def __str__(self):
-        return '%s %s[%s]' % (self._name, self._elemType, self._addrType)
+        return '%s %s[%s]' % (self._elemType, self._name, self._addrType)
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
