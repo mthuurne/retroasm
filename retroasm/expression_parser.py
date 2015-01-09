@@ -1,3 +1,4 @@
+from .codeblock import Assignment
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
     OrOperator, Slice, XorOperator
@@ -32,8 +33,8 @@ class ExpressionTokenizer:
         ('number',      r'[%$0-9]\w*'),
         ('operator',    r'[&|\^+\-~!;]|==|!='),
         ('bracket',     r'[\[\]()]'),
-        ('separator',   r'[:,]'),
         ('assignment',  r':='),
+        ('separator',   r'[:,]'),
         ('whitespace',  r'\s+'),
         ('other',       r'.'),
         )))
@@ -72,7 +73,7 @@ class ExpressionTokenizer:
             next(self)
         return found
 
-def parseExpr(exprStr, context):
+def _parse(exprStr, context, statement):
     token = ExpressionTokenizer(exprStr)
 
     class BadToken(ValueError):
@@ -81,6 +82,13 @@ def parseExpr(exprStr, context):
                 where, expected, token.kind, token.value
                 )
             ValueError.__init__(self, msg)
+
+    def parseAssign():
+        expr = parseTop()
+        if token.eat('assignment', ':='):
+            return Assignment(expr, parseTop())
+        else:
+            return expr
 
     def parseOr():
         expr = parseXor()
@@ -262,7 +270,7 @@ def parseExpr(exprStr, context):
 
     parseTop = parseOr
 
-    expr = parseTop()
+    expr = parseAssign() if statement else parseTop()
     if token.kind == 'other':
         raise ValueError(
             'unexpected character "%s" in expression' % token.value
@@ -273,3 +281,9 @@ def parseExpr(exprStr, context):
             )
     else:
         return expr
+
+def parseExpr(exprStr, context):
+    return _parse(exprStr, context, statement=False)
+
+def parseStatement(exprStr, context):
+    return _parse(exprStr, context, statement=True)

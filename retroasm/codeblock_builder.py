@@ -1,6 +1,6 @@
 from .codeblock import (
-    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
-    Store
+    ArgumentConstant, Assignment, ComputedConstant, ConstantValue, Load,
+    LoadedConstant, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
@@ -368,8 +368,8 @@ class CodeBlockBuilder:
             retCid = cidMap[retCid]
             return ConstantValue(retCid, constants[retCid].type)
 
-def emitCodeFromAssignments(reader, builder, assignments):
-    '''Creates a code block from the given assignments.
+def emitCodeFromStatements(reader, builder, statements):
+    '''Creates a code block from the given statements.
     Returns a dictionary that maps each constant ID of a LoadedConstant to the
     reader location that constant was loaded at.
     '''
@@ -439,13 +439,19 @@ def emitCodeFromAssignments(reader, builder, assignments):
         else:
             return None
 
-    for lhs, rhs in assignments:
-        if lhs is None and rhs.type is not None:
-            reader.warning('result is ignored')
-        elif isinstance(lhs, IntLiteral):
-            # Assigning to a literal as part of a concatenation can be useful,
-            # but assigning to only a literal is probably a mistake.
-            reader.warning('assigning to literal has no effect')
+    for statement in statements:
+        if isinstance(statement, Assignment):
+            lhs = statement.lhs
+            rhs = statement.rhs
+            if isinstance(lhs, IntLiteral):
+                # Assigning to a literal inside a concatenation can be useful,
+                # but assigning to only a literal is probably a mistake.
+                reader.warning('assigning to literal has no effect')
+        else:
+            lhs = None
+            rhs = statement
+            if rhs.type is not None:
+                reader.warning('result is ignored')
 
         # Substitute LoadedConstants for all references, such that we have
         # a side-effect free version of the right hand side expression.

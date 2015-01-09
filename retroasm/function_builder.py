@@ -1,46 +1,19 @@
-from .codeblock_builder import CodeBlockBuilder, emitCodeFromAssignments
-from .expression import Expression
-from .expression_parser import parseExpr
+from .codeblock_builder import CodeBlockBuilder, emitCodeFromStatements
+from .expression_parser import parseStatement
 from .function import Function
 from .linereader import DelayedError
 from .types import Reference
 
-def _parseAssignments(log, lines, context):
-    '''Parses the given lines as a series of assignments, yields the
-    assignments as pairs of expressions.
+def _parseBody(log, lines, context):
+    '''Parses the lines of a code block, yielding the statements.
     The full sequence of lines is parsed, even in the presence of errors.
     Errors are appended to the given log as they are discovered.
     '''
     for line in lines:
-        parts = line.split(':=')
-        if len(parts) < 2:
-            # No assignment.
-            lhsStr = None
-            rhsStr = line
-        elif len(parts) == 2:
-            lhsStr, rhsStr = parts
-        else:
-            log.error('multiple assignments in a single line')
-            continue
-
-        if lhsStr is None:
-            lhs = None
-        else:
-            try:
-                lhs = parseExpr(lhsStr, context)
-            except ValueError as ex:
-                log.error('error in left hand side of assignment: %s', ex)
-                continue
-
         try:
-            rhs = parseExpr(rhsStr, context)
-            if lhs is not None:
-                Expression.checkScalar(rhs)
+            yield parseStatement(line, context)
         except ValueError as ex:
-            log.error('error in right hand side of assignment: %s', ex)
-            continue
-
-        yield lhs, rhs
+            log.error('error parsing statement: %s', ex)
 
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
@@ -54,10 +27,10 @@ def createFunc(reader, funcName, retType, args, globalContext):
     if retType is not None:
         builder.emitVariable('ret', retType)
 
-    assignments = _parseAssignments(reader, reader.iterBlock(), builder.context)
+    statements = _parseBody(reader, reader.iterBlock(), builder.context)
     try:
         with reader.checkErrors():
-            locations = emitCodeFromAssignments(reader, builder, assignments)
+            locations = emitCodeFromStatements(reader, builder, statements)
     except DelayedError:
         code = None
     else:
