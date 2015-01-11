@@ -1,5 +1,5 @@
 from .codeblock_builder import CodeBlockBuilder, emitCodeFromStatements
-from .expression_parser import parseStatement
+from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
 from .types import Reference
@@ -12,8 +12,8 @@ def _parseBody(log, lines, context):
     for line in lines:
         try:
             yield parseStatement(line, context)
-        except ValueError as ex:
-            log.error('error parsing statement: %s', ex)
+        except ParseError as ex:
+            log.error('error parsing statement: %s', ex, span=ex.span)
 
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()

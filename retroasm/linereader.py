@@ -100,6 +100,13 @@ class LineReader:
                 extra = kwargs.pop('location')
             except KeyError:
                 extra = self.getLocation()
+            try:
+                span = kwargs.pop('span')
+            except KeyError:
+                pass
+            else:
+                if span is not None:
+                    extra['readerColSpan'] = span
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
     def getLocation(self):
@@ -167,9 +174,13 @@ class LineReaderFormatter(Formatter):
         readerPathname = getattr(record, 'readerPathname', '-')
         readerLineno = getattr(record, 'readerLineno', None)
         readerLastline = getattr(record, 'readerLastline', None)
+        readerColSpan = getattr(record, 'readerColSpan', None)
         msg = super().format(record)
         if readerLineno is not None:
             msg = '%s:%s: %s' % (readerPathname, readerLineno, msg)
         if readerLastline is not None:
             msg += '\n  ' + readerLastline
+        if readerColSpan is not None:
+            fromIdx, toIdx = readerColSpan
+            msg += '\n  ' + ' ' * fromIdx + '^' * (toIdx - fromIdx)
         return msg

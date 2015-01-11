@@ -10,14 +10,24 @@ from .types import IntType, Reference, unlimited
 from enum import Enum
 import re
 
+class ParseError(Exception):
+    '''Raised when the input text cannot be parsed into an expression.
+    The 'span' attribute contains the indices within the input text (line)
+    that could not be parsed, or None if this information is not available.
+    '''
+
+    def __init__(self, msg, span=None):
+        Exception.__init__(self, msg)
+        self.span = span
+
 def parseType(typeName):
     if not typeName.startswith('u'):
-        raise ValueError(
-            'type name "%s" does not start with "u"' % typeName)
+        raise ParseError('type name "%s" does not start with "u"' % typeName)
     widthStr = typeName[1:]
     if not widthStr.isdigit():
-        raise ValueError(
-            'integer type "%s" is not of the form "u<width>"' % typeName)
+        raise ParseError(
+            'integer type "%s" is not of the form "u<width>"' % typeName
+            )
     return IntType(int(widthStr))
 
 def parseTypeDecl(typeDecl):
@@ -58,11 +68,14 @@ class ExpressionTokenizer:
             except StopIteration:
                 self.kind = Token.end
                 self.value = None
+                self.span = None
                 break
             kind = getattr(Token, match.lastgroup)
             if kind is not Token.whitespace:
                 self.kind = kind
-                self.value = match.group(kind.name)
+                group = kind.name
+                self.value = match.group(group)
+                self.span = match.span(group)
                 break
 
     def peek(self, kind, value=None):
@@ -84,12 +97,11 @@ class ExpressionTokenizer:
 def _parse(exprStr, context, statement):
     token = ExpressionTokenizer(exprStr)
 
-    class BadToken(ValueError):
-        def __init__(self, where, expected):
-            msg = 'bad %s expression: expected %s, got %s "%s"' % (
-                where, expected, token.kind.name, token.value
-                )
-            ValueError.__init__(self, msg)
+    def badTokenKind(where, expected):
+        msg = 'bad %s expression: expected %s, got %s "%s"' % (
+            where, expected, token.kind.name, token.value
+            )
+        return ParseError(msg, token.span)
 
     def parseAssign():
         expr = parseTop()
@@ -153,23 +165,28 @@ def _parse(exprStr, context, statement):
         if token.peek(Token.separator, ':'):
             start = IntLiteral.create(0)
         else:
+            startIdx = token.span[0]
             start = parseTop()
+            startSpan = (startIdx, token.span[0])
         if token.eat(Token.separator, ':'):
             if token.peek(Token.bracket, ']'):
                 if expr.width is unlimited:
-                    raise ValueError(
+                    raise ParseError(
                         'omitting the end index not allowed when slicing '
-                        'an unlimited width expression: %s' % expr
+                        'an unlimited width expression: %s' % expr,
+                        token.span
                         )
                 end = IntLiteral.create(expr.width)
             else:
+                endIdx = token.span[0]
                 end = parseTop()
+                endSpan = (endIdx, token.span[0])
             if not token.eat(Token.bracket, ']'):
-                raise BadToken('slice', '"]"')
+                raise badTokenKind('slice', '"]"')
         elif token.eat(Token.bracket, ']'):
             end = None
         else:
-            raise BadToken('slice/lookup', '":" or "]"')
+            raise badTokenKind('slice/lookup', '":" or "]"')
 
         # Convert start/end to start/width.
         # pylint: disable=no-member
@@ -177,7 +194,7 @@ def _parse(exprStr, context, statement):
         try:
             index = start.value
         except AttributeError:
-            raise ValueError('index is not constant: %s' % start)
+            raise ParseError('index is not constant: %s' % start, startSpan)
         if end is None:
             width = 1
         else:
@@ -185,24 +202,24 @@ def _parse(exprStr, context, statement):
             try:
                 width = end.value - index
             except AttributeError:
-                raise ValueError('index is not constant: %s' % end)
+                raise ParseError('index is not constant: %s' % end, endSpan)
 
         return Slice(expr, index, width)
 
     def parseIOReference(channel):
         # I/O lookup.
         if not token.eat(Token.bracket, '['):
-            raise BadToken('I/O reference', '"["')
+            raise badTokenKind('I/O reference', '"["')
         index = parseTop()
         if not token.eat(Token.bracket, ']'):
-            raise BadToken('I/O index', '"]"')
+            raise badTokenKind('I/O index', '"]"')
         return IOReference(channel, index)
 
     def parseGroup():
         if token.eat(Token.bracket, '('):
             expr = parseTop()
             if not token.eat(Token.bracket, ')'):
-                raise BadToken('parenthesized', ')')
+                raise badTokenKind('parenthesized', ')')
             return expr
         else:
             return parseIdent()
@@ -211,38 +228,47 @@ def _parse(exprStr, context, statement):
         if token.kind is Token.number:
             return parseNumber()
         if token.kind is not Token.identifier:
-            raise BadToken('innermost', 'identifier')
+            raise badTokenKind('innermost', 'identifier')
 
         name = token.value
+        nameSpan = token.span
         next(token)
         if token.eat(Token.bracket, '('):
             # Function call.
             try:
                 func = context[name]
             except KeyError:
-                raise ValueError('no function named "%s"' % name)
+                raise ParseError('no function named "%s"' % name, nameSpan)
             if not isinstance(func, Function):
-                raise ValueError('"%s" is not a function' % name)
+                raise ParseError('"%s" is not a function' % name, nameSpan)
             args = parseFuncArgs()
             return FunctionCall(func, args)
         elif token.kind is Token.identifier:
             # Two identifiers in a row means the first is a type declaration.
-            typ = parseType(name)
+            try:
+                typ = parseType(name)
+            except ParseError as ex:
+                ex.span = nameSpan
+                raise
             name = token.value
+            declSpan = (nameSpan[0], token.span[1])
             next(token)
             try:
                 return context.addVariable(name, typ)
             except AttributeError:
-                raise ValueError(
-                    'attempt to define variable "%s %s" in a context that does '
-                    'not support variable declarations' % (typ, name)
+                raise ParseError(
+                    'attempt to declare variable "%s %s" in a context that '
+                    'does not support variable declarations' % (typ, name),
+                    declSpan
                     )
         else:
             # Look up identifier in context.
             try:
                 expr = context[name]
             except KeyError:
-                raise ValueError('unknown name "%s" in expression' % name)
+                raise ParseError(
+                    'unknown name "%s" in expression' % name, nameSpan
+                    )
             else:
                 return expr
 
@@ -254,7 +280,7 @@ def _parse(exprStr, context, statement):
                 if token.eat(Token.bracket, ')'):
                     break
                 if not token.eat(Token.separator, ','):
-                    raise BadToken('function call arguments', '"," or ")"')
+                    raise badTokenKind('function call arguments', '"," or ")"')
         return args
 
     def parseNumber():
@@ -268,25 +294,26 @@ def _parse(exprStr, context, statement):
             return IntLiteral(int(value, 2), IntType(len(value)))
         else:
             value = token.value
-            next(token)
             if value[0] == '0' and len(value) != 1:
-                raise ValueError(
-                    'leading zeroes not allowed on decimal integer '
-                    'literals: %s' % value
+                raise ParseError(
+                    'leading zeroes not allowed on decimal integer literal: %s'
+                    % value, token.span
                     )
+            next(token)
             return IntLiteral.create(int(value))
 
     parseTop = parseOr
 
     expr = parseAssign() if statement else parseTop()
     if token.kind is Token.other:
-        raise ValueError(
-            'unexpected character "%s" in expression' % token.value
+        raise ParseError(
+            'unexpected character "%s" in expression' % token.value, token.span
             )
     elif token.kind is not Token.end:
-        raise ValueError(
+        raise ParseError(
             'found %s "%s" in an unexpected place'
-            % (token.kind.name, token.value)
+            % (token.kind.name, token.value),
+            token.span
             )
     else:
         return expr
