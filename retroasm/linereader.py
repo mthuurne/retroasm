@@ -94,37 +94,33 @@ class LineReader:
             )
         self.__log(level, msg)
 
-    def __log(self, level, msg, *args, **kwargs):
+    def __log(self, level, msg, *args, location=None, span=None, **kwargs):
         if self.logger.isEnabledFor(level):
-            try:
-                extra = kwargs.pop('location')
-            except KeyError:
-                extra = self.getLocation()
-            try:
-                span = kwargs.pop('span')
-            except KeyError:
-                pass
+            if location is None:
+                extra = self.getLocation(span)
             else:
-                if span is not None:
-                    extra['readerColSpan'] = span
+                extra = dict(location, readerColSpan=span)
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
-    def getLocation(self):
+    def getLocation(self, span=None):
         '''Returns a dictionary describing the current location in the input
         stream. This can be passed as the "location" argument to the log methods
         when a message should be logged for a line other than the current one.
+        If the 'span' argument is provided, it must be a tuple of the start
+        and end index of the area of interest within the current line.
         '''
         return dict(
             readerPathname=self.pathname,
             readerLineno=self.lineno,
             readerLastline=self.lastline,
+            readerColSpan=span,
             )
 
 class DelayedError(Exception):
     '''Raised when one or more errors were encountered when processing input.
     Since we want to report as many errors as possible in each processing,
     errors are logged and processing continues. However, it usually doesn't
-    make sense to continue wuth later processing steps, since the incomplete
+    make sense to continue with later processing steps, since the incomplete
     output caused by earlier errors would trigger new errors. Therefore
     at the end of a processing step DelayedError can be raised to abort
     processing.
