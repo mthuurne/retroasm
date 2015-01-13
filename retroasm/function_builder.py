@@ -1,4 +1,5 @@
 from .codeblock_builder import CodeBlockBuilder, emitCodeFromStatements
+from .expression_builder import createStatement
 from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
@@ -11,7 +12,8 @@ def _parseBody(reader, context):
     '''
     for line in reader.iterBlock():
         try:
-            yield parseStatement(line, reader.getLocation(), context)
+            tree = parseStatement(line, reader.getLocation())
+            yield createStatement(tree, context)
         except ParseError as ex:
             reader.error('error parsing statement: %s', ex, span=ex.span)
 

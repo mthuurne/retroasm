@@ -1,3 +1,4 @@
+from .expression_builder import createExpression
 from .expression_parser import ParseError, parseExpr, parseType, parseTypeDecl
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
@@ -90,7 +91,8 @@ def _parseRegs(reader, argStr, context):
 
             # Parse right hand side.
             try:
-                alias = parseExpr(parts[1], reader.getLocation(), context)
+                tree = parseExpr(parts[1], reader.getLocation())
+                alias = createExpression(tree, context)
             except ParseError as ex:
                 reader.error(str(ex))
                 continue
