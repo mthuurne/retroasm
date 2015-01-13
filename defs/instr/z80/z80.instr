@@ -49,8 +49,8 @@ u8 port[u8]
 # 16-bit memory access
 
 = func u16 read16(u16 A)
-    u8 L := mem[A]
-    u8 H := mem[A + 1]
+    var u8 L := mem[A]
+    var u8 H := mem[A + 1]
     ret := H ; L
 
 = func write16(u16 A, u16 V)

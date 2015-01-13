@@ -4,6 +4,7 @@ from .expression import (
     OrOperator, Slice, XorOperator
     )
 from .function import Function, FunctionCall
+from .linereader import getSpan, updateSpan
 from .storage import IOChannel, IOReference
 from .types import IntType, Reference, unlimited
 
@@ -57,8 +58,9 @@ class ExpressionTokenizer:
             )
         ))
 
-    def __init__(self, exprStr):
+    def __init__(self, exprStr, location):
         self._tokens = self._pattern.finditer(exprStr)
+        self._lineLocation = location
         self.__next__()
 
     def __next__(self):
@@ -66,17 +68,19 @@ class ExpressionTokenizer:
             try:
                 match = next(self._tokens)
             except StopIteration:
-                self.kind = Token.end
-                self.value = None
-                self.span = None
+                kind = Token.end
+                value = None
+                span = None
                 break
             kind = getattr(Token, match.lastgroup)
             if kind is not Token.whitespace:
-                self.kind = kind
                 group = kind.name
-                self.value = match.group(group)
-                self.span = match.span(group)
+                value = match.group(group)
+                span = match.span(group)
                 break
+        self.kind = kind
+        self.value = value
+        self.location = updateSpan(self._lineLocation, span)
 
     def peek(self, kind, value=None):
         '''Returns True if the current token matches the given kind and,
@@ -94,8 +98,55 @@ class ExpressionTokenizer:
             next(self)
         return found
 
-def _parse(exprStr, context, statement):
-    token = ExpressionTokenizer(exprStr)
+    @property
+    def span(self):
+        return getSpan(self.location)
+
+class ParseNode:
+    __slots__ = ('location',)
+
+    def __init__(self, location):
+        self.location = location
+
+class AssignmentNode(ParseNode):
+    __slots__ = ('lhs', 'rhs')
+
+    def __init__(self, lhs, rhs, location):
+        ParseNode.__init__(self, location)
+        self.lhs = lhs
+        self.rhs = rhs
+
+Operator = Enum('Operator', ( # pylint: disable=invalid-name
+    'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
+    'concatenation', 'lookup', 'slice', 'call'
+    ))
+
+class OperatorNode(ParseNode):
+    __slots__ = ('operator', 'operands')
+
+    def __init__(self, operator, operands, location):
+        ParseNode.__init__(self, location)
+        self.operator = operator
+        self.operands = operands
+
+class IdentifierNode(ParseNode):
+    __slots__ = ('decl', 'name')
+
+    def __init__(self, decl, name, location):
+        ParseNode.__init__(self, location)
+        self.decl = decl
+        self.name = name
+
+class NumberNode(ParseNode):
+    __slots__ = ('value', 'width')
+
+    def __init__(self, value, width, location):
+        ParseNode.__init__(self, location)
+        self.value = value
+        self.width = width
+
+def _parse(exprStr, location, statement):
+    token = ExpressionTokenizer(exprStr, location)
 
     def badTokenKind(where, expected):
         msg = 'bad %s expression: expected %s, got %s "%s"' % (
@@ -105,115 +156,96 @@ def _parse(exprStr, context, statement):
 
     def parseAssign():
         expr = parseTop()
+        location = token.location
         if token.eat(Token.assignment, ':='):
-            return Assignment(expr, parseTop())
+            return AssignmentNode(expr, parseTop(), location)
         else:
             return expr
 
     def parseOr():
         expr = parseXor()
+        location = token.location
         if token.eat(Token.operator, '|'):
-            return OrOperator(expr, parseOr())
+            return OperatorNode(
+                Operator.bitwise_or, (expr, parseOr()), location
+                )
         else:
             return expr
 
     def parseXor():
         expr = parseAnd()
+        location = token.location
         if token.eat(Token.operator, '^'):
-            return XorOperator(expr, parseXor())
+            return OperatorNode(
+                Operator.bitwise_xor, (expr, parseXor()), location
+                )
         else:
             return expr
 
     def parseAnd():
         expr = parseAddSub()
+        location = token.location
         if token.eat(Token.operator, '&'):
-            return AndOperator(expr, parseAnd())
+            return OperatorNode(
+                Operator.bitwise_and, (expr, parseAnd()), location
+                )
         else:
             return expr
 
-    def parseAddSub():
-        exprs = [parseConcat()]
-        while True:
-            if token.eat(Token.operator, '+'):
-                exprs.append(parseConcat())
-            elif token.eat(Token.operator, '-'):
-                exprs.append(Complement(parseConcat()))
-            else:
-                break
-        return exprs[0] if len(exprs) == 1 else AddOperator(*exprs)
+    def parseAddSub(expr=None):
+        if expr is None:
+            expr = parseConcat()
+        location = token.location
+        if token.eat(Token.operator, '+'):
+            return parseAddSub(
+                OperatorNode(Operator.add, (expr, parseConcat()), location)
+                )
+        elif token.eat(Token.operator, '-'):
+            return parseAddSub(
+                OperatorNode(Operator.sub, (expr, parseConcat()), location)
+                )
+        else:
+            return expr
 
     def parseConcat():
-        exprs = [parseUnary()]
-        while token.eat(Token.operator, ';'):
-            exprs.append(parseUnary())
-        return exprs[0] if len(exprs) == 1 else Concatenation(*exprs)
+        expr = parseUnary()
+        location = token.location
+        if token.eat(Token.operator, ';'):
+            return OperatorNode(
+                Operator.concatenation, (expr, parseConcat()), location
+                )
+        else:
+            return expr
 
     def parseUnary():
+        location = token.location
         if token.eat(Token.operator, '-'):
-            return Complement(parseUnary())
+            return OperatorNode(Operator.complement, parseUnary(), location)
         else:
-            return parseSlice()
+            return parseIndexed()
 
-    def parseSlice():
+    def parseIndexed():
         expr = parseGroup()
-        if isinstance(expr, IOChannel):
-            return parseIOReference(expr)
+        openSpan = token.span
         if not token.eat(Token.bracket, '['):
             return expr
 
-        # Bitwise lookup or bit string slicing.
-        if token.peek(Token.separator, ':'):
-            start = IntLiteral.create(0)
-        else:
-            startIdx = token.span[0]
-            start = parseTop()
-            startSpan = (startIdx, token.span[0])
+        start = None if token.peek(Token.separator, ':') else parseTop()
         if token.eat(Token.separator, ':'):
-            if token.peek(Token.bracket, ']'):
-                if expr.width is unlimited:
-                    raise ParseError(
-                        'omitting the end index not allowed when slicing '
-                        'an unlimited width expression: %s' % expr,
-                        token.span
-                        )
-                end = IntLiteral.create(expr.width)
+            end = None if token.peek(Token.bracket, ']') else parseTop()
+            location = updateSpan(token.location, (openSpan[0], token.span[1]))
+            if token.eat(Token.bracket, ']'):
+                return OperatorNode(
+                    Operator.slice, (expr, start, end), location
+                    )
             else:
-                endIdx = token.span[0]
-                end = parseTop()
-                endSpan = (endIdx, token.span[0])
-            if not token.eat(Token.bracket, ']'):
                 raise badTokenKind('slice', '"]"')
-        elif token.eat(Token.bracket, ']'):
-            end = None
         else:
-            raise badTokenKind('slice/lookup', '":" or "]"')
-
-        # Convert start/end to start/width.
-        # pylint: disable=no-member
-        start = start.simplify()
-        try:
-            index = start.value
-        except AttributeError:
-            raise ParseError('index is not constant: %s' % start, startSpan)
-        if end is None:
-            width = 1
-        else:
-            end = end.simplify()
-            try:
-                width = end.value - index
-            except AttributeError:
-                raise ParseError('index is not constant: %s' % end, endSpan)
-
-        return Slice(expr, index, width)
-
-    def parseIOReference(channel):
-        # I/O lookup.
-        if not token.eat(Token.bracket, '['):
-            raise badTokenKind('I/O reference', '"["')
-        index = parseTop()
-        if not token.eat(Token.bracket, ']'):
-            raise badTokenKind('I/O index', '"]"')
-        return IOReference(channel, index)
+            location = updateSpan(token.location, (openSpan[0], token.span[1]))
+            if token.eat(Token.bracket, ']'):
+                return OperatorNode(Operator.lookup, (expr, start), location)
+            else:
+                raise badTokenKind('slice/lookup', '":" or "]"')
 
     def parseGroup():
         if token.eat(Token.bracket, '('):
@@ -221,86 +253,84 @@ def _parse(exprStr, context, statement):
             if not token.eat(Token.bracket, ')'):
                 raise badTokenKind('parenthesized', ')')
             return expr
-        else:
+        elif token.kind is Token.identifier:
             return parseIdent()
+        elif token.kind is Token.number:
+            return parseNumber()
+        else:
+            raise badTokenKind(
+                'innermost', 'identifier, number or function call'
+                )
 
     def parseIdent():
-        if token.kind is Token.number:
-            return parseNumber()
-        if token.kind is not Token.identifier:
-            raise badTokenKind('innermost', 'identifier')
-
         name = token.value
-        nameSpan = token.span
-        next(token)
-        if token.eat(Token.bracket, '('):
-            # Function call.
-            try:
-                func = context[name]
-            except KeyError:
-                raise ParseError('no function named "%s"' % name, nameSpan)
-            if not isinstance(func, Function):
-                raise ParseError('"%s" is not a function' % name, nameSpan)
-            args = parseFuncArgs()
-            return FunctionCall(func, args)
-        elif token.kind is Token.identifier:
-            # Two identifiers in a row means the first is a type declaration.
-            try:
-                typ = parseType(name)
-            except ParseError as ex:
-                ex.span = nameSpan
-                raise
-            name = token.value
-            declSpan = (nameSpan[0], token.span[1])
-            next(token)
-            try:
-                return context.addVariable(name, typ)
-            except AttributeError:
-                raise ParseError(
-                    'attempt to declare variable "%s %s" in a context that '
-                    'does not support variable declarations' % (typ, name),
-                    declSpan
-                    )
-        else:
-            # Look up identifier in context.
-            try:
-                expr = context[name]
-            except KeyError:
-                raise ParseError(
-                    'unknown name "%s" in expression' % name, nameSpan
-                    )
-            else:
-                return expr
+        location = token.location
+        if not token.eat(Token.identifier):
+            assert False, token
 
-    def parseFuncArgs():
-        args = []
+        if name == 'var':
+            return parseVariableDeclaration()
+        identifier = IdentifierNode(None, name, location)
+        if token.eat(Token.bracket, '('):
+            return parseFunctionCall(identifier)
+        else:
+            return identifier
+
+    def parseVariableDeclaration():
+        # Type.
+        decl = token.value
+        declSpan = token.span
+        if not token.eat(Token.identifier):
+            raise badTokenKind('variable declaration', 'type name')
+
+        # Name.
+        name = token.value
+        location = updateSpan(token.location, (declSpan[0], token.span[1]))
+        if not token.eat(Token.identifier):
+            raise badTokenKind('variable declaration', 'variable name')
+
+        return IdentifierNode(decl, name, location)
+
+    def parseFunctionCall(name):
+        location = token.location
+        exprs = [name]
         if not token.eat(Token.bracket, ')'):
             while True:
-                args.append(parseTop())
+                exprs.append(parseTop())
                 if token.eat(Token.bracket, ')'):
                     break
                 if not token.eat(Token.separator, ','):
                     raise badTokenKind('function call arguments', '"," or ")"')
-        return args
+        return OperatorNode(Operator.call, exprs, location)
 
     def parseNumber():
-        if token.value[0] == '$':
-            value = token.value[1:]
-            next(token)
-            return IntLiteral(int(value, 16), IntType(len(value) * 4))
-        elif token.value[0] == '%':
-            value = token.value[1:]
-            next(token)
-            return IntLiteral(int(value, 2), IntType(len(value)))
+        value = token.value
+        location = token.location
+        if not token.eat(Token.number):
+            assert False, token
+
+        if value[0] == '$':
+            value = value[1:]
+            base = 16
+            width = len(value) * 4
+        elif value[0] == '%':
+            value = value[1:]
+            base = 2
+            width = len(value)
+        elif value[0] == '0' and len(value) != 1:
+            raise ParseError(
+                'leading zeroes not allowed on decimal number: %s' % value,
+                getSpan(location)
+                )
         else:
-            value = token.value
-            if value[0] == '0' and len(value) != 1:
-                raise ParseError(
-                    'leading zeroes not allowed on decimal integer literal: %s'
-                    % value, token.span
-                    )
-            next(token)
-            return IntLiteral.create(int(value))
+            base = 10
+            width = unlimited
+
+        try:
+            return NumberNode(int(value, base), width, location)
+        except ValueError:
+            baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
+            raise ParseError('bad %s number: %s' % (baseDesc[base], value))
 
     parseTop = parseOr
 
@@ -318,8 +348,142 @@ def _parse(exprStr, context, statement):
     else:
         return expr
 
-def parseExpr(exprStr, context):
-    return _parse(exprStr, context, statement=False)
+def _convertIdentifier(node, context):
+    decl = node.decl
+    name = node.name
+    if decl is None:
+        # Look up identifier in context.
+        try:
+            return context[name]
+        except KeyError:
+            raise ParseError(
+                'unknown name "%s"' % name,
+                getSpan(node.location)
+                )
+    else:
+        # Variable declaration.
+        typ = parseType(decl)
+        try:
+            return context.addVariable(name, typ)
+        except AttributeError:
+            raise ParseError(
+                'attempt to declare variable "%s %s" in a context that does '
+                'not support variable declarations' % (decl, name),
+                getSpan(node.location)
+                )
 
-def parseStatement(exprStr, context):
-    return _parse(exprStr, context, statement=True)
+def _convertFunctionCall(nameNode, *argNodes, context):
+    assert isinstance(nameNode, IdentifierNode), nameNode
+    assert nameNode.decl is None, nameNode
+    name = nameNode.name
+
+    try:
+        func = context[nameNode.name]
+    except KeyError:
+        raise ParseError(
+            'no function named "%s"' % name,
+            getSpan(nameNode.location)
+            )
+    if not isinstance(func, Function):
+        raise ParseError(
+            '"%s" is not a function' % name,
+            getSpan(nameNode.location)
+            )
+
+    args = tuple(_convert(node, context) for node in argNodes)
+    return FunctionCall(func, args)
+
+def _convertLookup(exprNode, indexNode, context):
+    expr = _convert(exprNode, context)
+    index = _convert(indexNode, context)
+    if isinstance(expr, IOChannel):
+        return IOReference(expr, index)
+    else:
+        return Slice(expr, index, 1)
+
+def _convertSlice(location, exprNode, startNode, endNode, context):
+    expr = _convert(exprNode, context)
+
+    if startNode is None:
+        index = 0
+    else:
+        start = _convert(startNode, context)
+        start = start.simplify()
+        try:
+            index = start.value
+        except AttributeError:
+            raise ParseError(
+                'start index is not constant: %s' % start,
+                getSpan(startNode.location)
+                )
+
+    if endNode is None:
+        width = expr.width
+        if width is unlimited:
+            raise ParseError(
+                'omitting the end index not allowed when slicing '
+                'an unlimited width expression: %s' % expr,
+                getSpan(location)
+                )
+    else:
+        end = _convert(endNode, context)
+        end = end.simplify()
+        try:
+            width = end.value - index
+        except AttributeError:
+            raise ParseError(
+                'end index is not constant: %s' % end,
+                getSpan(endNode.location)
+                )
+
+    return Slice(expr, index, width)
+
+def _convertOperator(node, context):
+    operator = node.operator
+    if operator is Operator.call:
+        return _convertFunctionCall(*node.operands, context=context)
+    elif operator is Operator.lookup:
+        return _convertLookup(*node.operands, context=context)
+    elif operator is Operator.slice:
+        return _convertSlice(node.location, *node.operands, context=context)
+
+    exprs = tuple(_convert(node, context) for node in node.operands)
+    if operator is Operator.bitwise_and:
+        return AndOperator(*exprs)
+    elif operator is Operator.bitwise_or:
+        return OrOperator(*exprs)
+    elif operator is Operator.bitwise_xor:
+        return XorOperator(*exprs)
+    elif operator is Operator.add:
+        return AddOperator(*exprs)
+    elif operator is Operator.sub:
+        expr1, expr2 = exprs
+        return AddOperator(expr1, Complement(expr2))
+    elif operator is Operator.complement:
+        return Complement(*exprs)
+    elif operator is Operator.concatenation:
+        return Concatenation(*exprs)
+    else:
+        assert False, operator
+
+def _convert(node, context):
+    if isinstance(node, NumberNode):
+        return IntLiteral(node.value, IntType(node.width))
+    elif isinstance(node, IdentifierNode):
+        return _convertIdentifier(node, context)
+    elif isinstance(node, OperatorNode):
+        return _convertOperator(node, context)
+    else:
+        assert False, node
+
+def parseExpr(exprStr, location, context):
+    return _convert(_parse(exprStr, location, statement=False), context)
+
+def parseStatement(exprStr, location, context):
+    tree = _parse(exprStr, location, statement=True)
+    if isinstance(tree, AssignmentNode):
+        lhs = _convert(tree.lhs, context)
+        rhs = _convert(tree.rhs, context)
+        return Assignment(lhs, rhs)
+    else:
+        return _convert(tree, context)

@@ -90,7 +90,7 @@ def _parseRegs(reader, argStr, context):
 
             # Parse right hand side.
             try:
-                alias = parseExpr(parts[1], context)
+                alias = parseExpr(parts[1], reader.getLocation(), context)
             except ParseError as ex:
                 reader.error(str(ex))
                 continue

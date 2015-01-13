@@ -4,16 +4,16 @@ from .function import Function
 from .linereader import DelayedError
 from .types import Reference
 
-def _parseBody(log, lines, context):
+def _parseBody(reader, context):
     '''Parses the lines of a code block, yielding the statements.
-    The full sequence of lines is parsed, even in the presence of errors.
-    Errors are appended to the given log as they are discovered.
+    The full block is parsed, even in the presence of errors.
+    Errors are appended to the given LineReader as they are discovered.
     '''
-    for line in lines:
+    for line in reader.iterBlock():
         try:
-            yield parseStatement(line, context)
+            yield parseStatement(line, reader.getLocation(), context)
         except ParseError as ex:
-            log.error('error parsing statement: %s', ex, span=ex.span)
+            reader.error('error parsing statement: %s', ex, span=ex.span)
 
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
@@ -27,7 +27,7 @@ def createFunc(reader, funcName, retType, args, globalContext):
     if retType is not None:
         builder.emitVariable('ret', retType)
 
-    statements = _parseBody(reader, reader.iterBlock(), builder.context)
+    statements = _parseBody(reader, builder.context)
     try:
         with reader.checkErrors():
             locations = emitCodeFromStatements(reader, builder, statements)

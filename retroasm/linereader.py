@@ -99,7 +99,7 @@ class LineReader:
             if location is None:
                 extra = self.getLocation(span)
             else:
-                extra = dict(location, readerColSpan=span)
+                extra = updateSpan(location, span)
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
     def getLocation(self, span=None):
@@ -115,6 +115,18 @@ class LineReader:
             readerLastline=self.lastline,
             readerColSpan=span,
             )
+
+def getSpan(location):
+    '''Returns the column span information of the given location,
+    or None if the given location has no column span information.
+    '''
+    return location.get('readerColSpan')
+
+def updateSpan(location, span):
+    '''Adds or updates the column span information of a location.
+    Returns an updated location object; the original is unmodified.
+    '''
+    return dict(location, readerColSpan=span)
 
 class DelayedError(Exception):
     '''Raised when one or more errors were encountered when processing input.
