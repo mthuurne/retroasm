@@ -98,6 +98,8 @@ class LineReader:
         if self.logger.isEnabledFor(level):
             if location is None:
                 extra = self.getLocation(span)
+            elif span is None:
+                extra = location
             else:
                 extra = updateSpan(location, span)
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
