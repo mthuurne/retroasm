@@ -41,6 +41,11 @@ def _convertIdentifier(node, context):
                 'not support variable declarations' % (decl, name),
                 node.location
                 )
+        except ValueError as ex:
+            raise BadExpression(
+                'failed to declare variable "%s %s": %s' % (decl, name, ex),
+                node.location
+                )
 
 def _convertFunctionCall(nameNode, *argNodes, context):
     assert isinstance(nameNode, IdentifierNode), nameNode
