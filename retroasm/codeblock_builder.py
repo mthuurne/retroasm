@@ -7,7 +7,7 @@ from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
 from .expression_builder import BadExpression, createExpression
-from .expression_parser import AssignmentNode
+from .expression_parser import AssignmentNode, IdentifierNode
 from .function import FunctionCall
 from .linereader import DelayedError
 from .storage import (
@@ -464,6 +464,15 @@ def emitCodeFromStatements(reader, builder, statements):
                     location=ex.location
                     )
                 continue
+        elif isinstance(tree, IdentifierNode) and tree.decl is not None:
+            # Variable declaration.
+            try:
+                createExpression(tree, context)
+            except BadExpression as ex:
+                reader.error(str(ex), location=ex.location)
+            # Don't evaluate the declared variable, since that would be counted
+            # as a read from an uninitialized storage.
+            continue
         else:
             lhs = None
             try:
