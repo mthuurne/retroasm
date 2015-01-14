@@ -5,12 +5,23 @@ from .expression import (
     )
 from .expression_parser import (
     AssignmentNode, IdentifierNode, NumberNode, Operator, OperatorNode,
-    ParseError, parseType
+    parseType
     )
 from .function import Function, FunctionCall
-from .linereader import getSpan
 from .storage import IOChannel, IOReference
 from .types import IntType, unlimited
+
+class BadExpression(Exception):
+    '''Raised when the input text cannot be parsed into an expression.
+    The 'location' attribute contains the location in the instruction set
+    definition file that triggered this exception, as a metadata dictionary
+    that can be used with LineReader, or None if this information is not
+    available.
+    '''
+
+    def __init__(self, msg, location=None):
+        Exception.__init__(self, msg)
+        self.location = location
 
 def _convertIdentifier(node, context):
     decl = node.decl
@@ -20,20 +31,17 @@ def _convertIdentifier(node, context):
         try:
             return context[name]
         except KeyError:
-            raise ParseError(
-                'unknown name "%s"' % name,
-                getSpan(node.location)
-                )
+            raise BadExpression('unknown name "%s"' % name, node.location)
     else:
         # Variable declaration.
         typ = parseType(decl)
         try:
             return context.addVariable(name, typ)
         except AttributeError:
-            raise ParseError(
+            raise BadExpression(
                 'attempt to declare variable "%s %s" in a context that does '
                 'not support variable declarations' % (decl, name),
-                getSpan(node.location)
+                node.location
                 )
 
 def _convertFunctionCall(nameNode, *argNodes, context):
@@ -44,15 +52,9 @@ def _convertFunctionCall(nameNode, *argNodes, context):
     try:
         func = context[nameNode.name]
     except KeyError:
-        raise ParseError(
-            'no function named "%s"' % name,
-            getSpan(nameNode.location)
-            )
+        raise BadExpression('no function named "%s"' % name, nameNode.location)
     if not isinstance(func, Function):
-        raise ParseError(
-            '"%s" is not a function' % name,
-            getSpan(nameNode.location)
-            )
+        raise BadExpression('"%s" is not a function' % name, nameNode.location)
 
     args = tuple(createExpression(node, context) for node in argNodes)
     return FunctionCall(func, args)
@@ -76,18 +78,18 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         try:
             index = start.value
         except AttributeError:
-            raise ParseError(
+            raise BadExpression(
                 'start index is not constant: %s' % start,
-                getSpan(startNode.location)
+                startNode.location
                 )
 
     if endNode is None:
         width = expr.width
         if width is unlimited:
-            raise ParseError(
+            raise BadExpression(
                 'omitting the end index not allowed when slicing '
                 'an unlimited width expression: %s' % expr,
-                getSpan(location)
+                location
                 )
     else:
         end = createExpression(endNode, context)
@@ -95,9 +97,9 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         try:
             width = end.value - index
         except AttributeError:
-            raise ParseError(
+            raise BadExpression(
                 'end index is not constant: %s' % end,
-                getSpan(endNode.location)
+                endNode.location
                 )
 
     return Slice(expr, index, width)

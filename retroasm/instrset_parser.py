@@ -1,4 +1,4 @@
-from .expression_builder import createExpression
+from .expression_builder import BadExpression, createExpression
 from .expression_parser import ParseError, parseExpr, parseType, parseTypeDecl
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
@@ -93,7 +93,7 @@ def _parseRegs(reader, argStr, context):
             try:
                 tree = parseExpr(parts[1], reader.getLocation())
                 alias = createExpression(tree, context)
-            except ParseError as ex:
+            except (ParseError, BadExpression) as ex:
                 reader.error(str(ex))
                 continue
             if alias.type is not aliasType:

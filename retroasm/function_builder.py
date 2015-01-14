@@ -1,5 +1,5 @@
 from .codeblock_builder import CodeBlockBuilder, emitCodeFromStatements
-from .expression_builder import createStatement
+from .expression_builder import BadExpression, createStatement
 from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
@@ -15,7 +15,9 @@ def _parseBody(reader, context):
             tree = parseStatement(line, reader.getLocation())
             yield createStatement(tree, context)
         except ParseError as ex:
-            reader.error('error parsing statement: %s', ex, span=ex.span)
+            reader.error('failed to parse statement: %s', ex, span=ex.span)
+        except BadExpression as ex:
+            reader.error('bad expression: %s', ex, location=ex.location)
 
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
