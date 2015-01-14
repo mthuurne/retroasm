@@ -3,11 +3,11 @@ from .expression import (
     OrOperator, Slice, XorOperator
     )
 from .expression_parser import (
-    IdentifierNode, NumberNode, Operator, OperatorNode, parseType
+    IdentifierNode, NumberNode, Operator, OperatorNode
     )
 from .function import Function, FunctionCall
 from .storage import IOChannel, IOReference
-from .types import IntType, unlimited
+from .types import IntType, parseType, unlimited
 
 class BadExpression(Exception):
     '''Raised when the input text cannot be parsed into an expression.
@@ -32,9 +32,8 @@ def _convertIdentifier(node, context):
             raise BadExpression('unknown name "%s"' % name, node.location)
     else:
         # Variable declaration.
-        typ = parseType(decl)
         try:
-            return context.addVariable(name, typ)
+            return context.addVariable(name, parseType(decl))
         except AttributeError:
             raise BadExpression(
                 'attempt to declare variable "%s %s" in a context that does '

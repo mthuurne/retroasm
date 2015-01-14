@@ -1,8 +1,9 @@
 from .expression_builder import BadExpression, createExpression
-from .expression_parser import ParseError, parseExpr, parseType, parseTypeDecl
+from .expression_parser import ParseError, parseExpr
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
 from .storage import IOChannel, Register, namePat
+from .types import parseType, parseTypeDecl
 
 from collections import OrderedDict
 from functools import partial
@@ -60,7 +61,7 @@ def _parseRegs(reader, argStr, context):
 
             try:
                 regType = parseType(parts[0])
-            except ParseError as ex:
+            except ValueError as ex:
                 reader.error(str(ex))
                 continue
 
@@ -85,7 +86,7 @@ def _parseRegs(reader, argStr, context):
                 continue
             try:
                 aliasType = parseType(aliasTypeStr)
-            except ParseError as ex:
+            except ValueError as ex:
                 reader.error(str(ex))
                 continue
 
@@ -120,7 +121,7 @@ def _parseIO(reader, argStr, context):
             try:
                 elemType = parseType(elemTypeStr)
                 addrType = parseType(addrTypeStr)
-            except ParseError as ex:
+            except ValueError as ex:
                 reader.error(str(ex))
                 continue
             channel = IOChannel(name, elemType, addrType)
@@ -156,7 +157,7 @@ def _parseFuncArgs(log, argsStr):
             else:
                 try:
                     arg = parseTypeDecl(typeStr)
-                except ParseError as ex:
+                except ValueError as ex:
                     log.error(
                         'bad function argument %d ("%s"): %s', i, argName, ex
                         )
@@ -185,7 +186,7 @@ def _parseFunc(reader, argStr, context):
     else:
         try:
             retType = parseType(retTypeStr)
-        except ParseError as ex:
+        except ValueError as ex:
             reader.error('bad return type: %s', ex)
             reader.skipBlock()
             return

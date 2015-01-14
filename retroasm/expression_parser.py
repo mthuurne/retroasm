@@ -1,5 +1,5 @@
 from .linereader import getSpan, updateSpan
-from .types import IntType, Reference, unlimited
+from .types import unlimited
 
 from enum import Enum
 import re
@@ -14,22 +14,6 @@ class ParseError(Exception):
     def __init__(self, msg, location=None):
         Exception.__init__(self, msg)
         self.location = location
-
-def parseType(typeName):
-    if not typeName.startswith('u'):
-        raise ParseError('type name "%s" does not start with "u"' % typeName)
-    widthStr = typeName[1:]
-    if not widthStr.isdigit():
-        raise ParseError(
-            'integer type "%s" is not of the form "u<width>"' % typeName
-            )
-    return IntType(int(widthStr))
-
-def parseTypeDecl(typeDecl):
-    if typeDecl.endswith('&'):
-        return Reference(parseType(typeDecl[:-1]))
-    else:
-        return parseType(typeDecl)
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
     'identifier', 'number', 'operator', 'bracket', 'assignment', 'separator',
