@@ -5,29 +5,6 @@ from .types import IntType
 from collections import OrderedDict
 from inspect import signature
 
-class Assignment:
-    '''Statement that writes a value to a storage location.
-    '''
-    __slots__ = ('_lhs', '_rhs')
-
-    lhs = property(lambda self: self._lhs)
-    rhs = property(lambda self: self._rhs)
-
-    def __init__(self, lhs, rhs):
-        self._lhs = Expression.checkInstance(lhs)
-        self._rhs = Expression.checkInstance(rhs)
-        if not checkStorage(lhs):
-            raise ValueError(
-                'left hand side of assignment is not a storage location: %s'
-                % lhs
-                )
-
-    def __repr__(self):
-        return 'Assignment(%s, %s)' % (repr(self._lhs), repr(self._rhs))
-
-    def __str__(self):
-        return '%s := %s' % (self._lhs, self._rhs)
-
 class Constant:
     '''Definition of a local constant value.
     '''

@@ -1,11 +1,13 @@
 from .codeblock import (
-    ArgumentConstant, Assignment, ComputedConstant, ConstantValue, Load,
-    LoadedConstant, Store
+    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
+    Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
+from .expression_builder import BadExpression, createExpression
+from .expression_parser import AssignmentNode
 from .function import FunctionCall
 from .linereader import DelayedError
 from .storage import (
@@ -439,17 +441,39 @@ def emitCodeFromStatements(reader, builder, statements):
         else:
             return None
 
-    for statement in statements:
-        if isinstance(statement, Assignment):
-            lhs = statement.lhs
-            rhs = statement.rhs
+    context = builder.context
+    for tree in statements:
+        if isinstance(tree, AssignmentNode):
+            try:
+                lhs = createExpression(tree.lhs, context)
+            except BadExpression as ex:
+                reader.error(
+                    'bad expression on left hand side of assignment: %s', ex,
+                    location=ex.location
+                    )
+                continue
             if isinstance(lhs, IntLiteral):
                 # Assigning to a literal inside a concatenation can be useful,
                 # but assigning to only a literal is probably a mistake.
                 reader.warning('assigning to literal has no effect')
+            try:
+                rhs = createExpression(tree.rhs, context)
+            except BadExpression as ex:
+                reader.error(
+                    'bad expression on right hand side of assignment: %s', ex,
+                    location=ex.location
+                    )
+                continue
         else:
             lhs = None
-            rhs = statement
+            try:
+                rhs = createExpression(tree, context)
+            except BadExpression as ex:
+                reader.error(
+                    'bad expression in statement: %s', ex,
+                    location=ex.location
+                    )
+                continue
             if rhs.type is not None:
                 reader.warning('result is ignored')
 

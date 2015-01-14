@@ -1,11 +1,9 @@
-from .codeblock import Assignment
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
     OrOperator, Slice, XorOperator
     )
 from .expression_parser import (
-    AssignmentNode, IdentifierNode, NumberNode, Operator, OperatorNode,
-    parseType
+    IdentifierNode, NumberNode, Operator, OperatorNode, parseType
     )
 from .function import Function, FunctionCall
 from .storage import IOChannel, IOReference
@@ -141,11 +139,3 @@ def createExpression(node, context):
         return _convertOperator(node, context)
     else:
         assert False, node
-
-def createStatement(tree, context):
-    if isinstance(tree, AssignmentNode):
-        lhs = createExpression(tree.lhs, context)
-        rhs = createExpression(tree.rhs, context)
-        return Assignment(lhs, rhs)
-    else:
-        return createExpression(tree, context)
