@@ -94,14 +94,9 @@ class LineReader:
             )
         self.__log(level, msg)
 
-    def __log(self, level, msg, *args, location=None, span=None, **kwargs):
+    def __log(self, level, msg, *args, location=None, **kwargs):
         if self.logger.isEnabledFor(level):
-            if location is None:
-                extra = self.getLocation(span)
-            elif span is None:
-                extra = location
-            else:
-                extra = updateSpan(location, span)
+            extra = self.getLocation() if location is None else location
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
     def getLocation(self, span=None):

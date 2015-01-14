@@ -6,13 +6,14 @@ import re
 
 class ParseError(Exception):
     '''Raised when the input text cannot be parsed into an expression.
-    The 'span' attribute contains the indices within the input text (line)
-    that could not be parsed, or None if this information is not available.
+    The 'location' attribute contains the location in the instruction set
+    definition file that could not be parsed, as a metadata dictionary that can
+    be used with LineReader, or None if this information is not available.
     '''
 
-    def __init__(self, msg, span=None):
+    def __init__(self, msg, location=None):
         Exception.__init__(self, msg)
-        self.span = span
+        self.location = location
 
 def parseType(typeName):
     if not typeName.startswith('u'):
@@ -91,10 +92,6 @@ class ExpressionTokenizer:
             next(self)
         return found
 
-    @property
-    def span(self):
-        return getSpan(self.location)
-
 class ParseNode:
     __slots__ = ('location',)
 
@@ -138,6 +135,13 @@ class NumberNode(ParseNode):
         self.value = value
         self.width = width
 
+def _mergeSpan(fromLocation, toLocation):
+    mergedSpan = (getSpan(fromLocation)[0], getSpan(toLocation)[1])
+    mergedLocation = updateSpan(fromLocation, mergedSpan)
+    assert mergedLocation == updateSpan(toLocation, mergedSpan), \
+            (fromLocation, toLocation)
+    return mergedLocation
+
 def _parse(exprStr, location, statement):
     token = ExpressionTokenizer(exprStr, location)
 
@@ -145,7 +149,7 @@ def _parse(exprStr, location, statement):
         msg = 'bad %s expression: expected %s, got %s "%s"' % (
             where, expected, token.kind.name, token.value
             )
-        return ParseError(msg, token.span)
+        return ParseError(msg, token.location)
 
     def parseAssign():
         expr = parseTop()
@@ -219,14 +223,14 @@ def _parse(exprStr, location, statement):
 
     def parseIndexed():
         expr = parseGroup()
-        openSpan = token.span
+        openLocation = token.location
         if not token.eat(Token.bracket, '['):
             return expr
 
         start = None if token.peek(Token.separator, ':') else parseTop()
         if token.eat(Token.separator, ':'):
             end = None if token.peek(Token.bracket, ']') else parseTop()
-            location = updateSpan(token.location, (openSpan[0], token.span[1]))
+            location = _mergeSpan(openLocation, token.location)
             if token.eat(Token.bracket, ']'):
                 return OperatorNode(
                     Operator.slice, (expr, start, end), location
@@ -234,7 +238,7 @@ def _parse(exprStr, location, statement):
             else:
                 raise badTokenKind('slice', '"]"')
         else:
-            location = updateSpan(token.location, (openSpan[0], token.span[1]))
+            location = _mergeSpan(openLocation, token.location)
             if token.eat(Token.bracket, ']'):
                 return OperatorNode(Operator.lookup, (expr, start), location)
             else:
@@ -272,13 +276,13 @@ def _parse(exprStr, location, statement):
     def parseVariableDeclaration():
         # Type.
         decl = token.value
-        declSpan = token.span
+        declLocation = token.location
         if not token.eat(Token.identifier):
             raise badTokenKind('variable declaration', 'type name')
 
         # Name.
         name = token.value
-        location = updateSpan(token.location, (declSpan[0], token.span[1]))
+        location = _mergeSpan(declLocation, token.location)
         if not token.eat(Token.identifier):
             raise badTokenKind('variable declaration', 'variable name')
 
@@ -313,7 +317,7 @@ def _parse(exprStr, location, statement):
         elif value[0] == '0' and len(value) != 1:
             raise ParseError(
                 'leading zeroes not allowed on decimal number: %s' % value,
-                getSpan(location)
+                location
                 )
         else:
             base = 10
@@ -323,20 +327,24 @@ def _parse(exprStr, location, statement):
             return NumberNode(int(value, base), width, location)
         except ValueError:
             baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
-            raise ParseError('bad %s number: %s' % (baseDesc[base], value))
+            raise ParseError(
+                'bad %s number: %s' % (baseDesc[base], value),
+                location
+                )
 
     parseTop = parseOr
 
     expr = parseAssign() if statement else parseTop()
     if token.kind is Token.other:
         raise ParseError(
-            'unexpected character "%s" in expression' % token.value, token.span
+            'unexpected character "%s" in expression' % token.value,
+            token.location
             )
     elif token.kind is not Token.end:
         raise ParseError(
             'found %s "%s" in an unexpected place'
             % (token.kind.name, token.value),
-            token.span
+            token.location
             )
     else:
         return expr

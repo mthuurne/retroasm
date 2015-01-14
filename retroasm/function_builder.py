@@ -13,7 +13,9 @@ def _parseBody(reader):
         try:
             yield parseStatement(line, reader.getLocation())
         except ParseError as ex:
-            reader.error('failed to parse statement: %s', ex, span=ex.span)
+            reader.error(
+                'failed to parse statement: %s', ex, location=ex.location
+                )
 
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
