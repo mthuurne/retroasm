@@ -266,23 +266,22 @@ def _parse(exprStr, location, statement):
             assert False, token
 
         if name == 'var':
-            return parseVariableDeclaration()
+            return parseVariableDeclaration(location)
         identifier = IdentifierNode(None, name, location)
         if token.eat(Token.bracket, '('):
             return parseFunctionCall(identifier)
         else:
             return identifier
 
-    def parseVariableDeclaration():
+    def parseVariableDeclaration(varLocation):
         # Type.
         decl = token.value
-        declLocation = token.location
         if not token.eat(Token.identifier):
             raise badTokenKind('variable declaration', 'type name')
 
         # Name.
         name = token.value
-        location = _mergeSpan(declLocation, token.location)
+        location = _mergeSpan(varLocation, token.location)
         if not token.eat(Token.identifier):
             raise badTokenKind('variable declaration', 'variable name')
 
