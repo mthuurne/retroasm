@@ -1,5 +1,5 @@
 from .expression import Expression
-from .storage import IOReference, checkStorage
+from .storage import IOReference, ReferencedValue, Storage
 from .types import IntType
 
 from collections import OrderedDict
@@ -217,8 +217,10 @@ class CodeBlock:
             if isinstance(const, LoadedConstant):
                 assert const.rid in self.references, const
 
-        # Check that cids in expressions are valid.
+        # Check that computed constants use valid subexpressions.
         def checkUsage(expr):
+            assert not isinstance(expr, ReferencedValue), expr
+            assert not isinstance(expr, Storage), expr
             if isinstance(expr, ConstantValue):
                 assert expr.cid in cids
         for const in self.constants.values():
