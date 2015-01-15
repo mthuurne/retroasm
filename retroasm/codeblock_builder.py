@@ -9,7 +9,6 @@ from .expression import (
 from .expression_builder import BadExpression, createExpression
 from .expression_parser import AssignmentNode, IdentifierNode
 from .function import FunctionCall
-from .linereader import DelayedError
 from .storage import (
     IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
     checkStorage
@@ -256,6 +255,75 @@ class CodeBlockBuilder:
         ioref = IOReference(channel, indexConst)
         return self._emitReference(ioref)
 
+    def _handleError(self, msg):
+        if self.reader is None:
+            raise ValueError(msg)
+        else:
+            self.reader.error(msg)
+
+    def constifyReferences(self, expr):
+        '''Returns the given expression, with all reads of references replaced
+        by loaded constants.
+        '''
+        subst = self.constifyIOIndices(expr)
+        if subst is not None:
+            expr = subst
+        # pylint: disable=no-member
+        # It seems the type inference ignores isinstance() and deduces the wrong
+        # types, leading to false positives.
+        if isinstance(expr, ReferencedValue):
+            rid = expr.rid
+            ref = self.references[rid]
+            if isinstance(ref, Variable) and ref.name == 'ret':
+                self._handleError('function return value "ret" is write-only')
+            return self.emitLoad(rid)
+        elif isinstance(expr, IOReference):
+            return self.emitLoad(self._emitReference(expr))
+        elif isinstance(expr, FunctionCall):
+            func = expr.func
+            argMap = {}
+            errors = False
+            for name, decl, value in expr.iterArgNameDeclValue():
+                if isinstance(decl, IntType):
+                    argMap[name] = self.emitCompute(
+                        value.substitute(self.constifyReferences)
+                        )
+                elif isinstance(decl, Reference):
+                    if checkStorage(value):
+                        argMap[name] = value
+                    else:
+                        errors = True
+                        self._handleError(
+                            'non-storage argument "%s" for reference '
+                            'argument "%s %s"' % (value, decl, name)
+                            )
+                else:
+                    assert False, decl
+            if errors:
+                return None
+            else:
+                code = func.code
+                if code is None:
+                    # Missing body, probably because of earlier errors.
+                    return None
+                else:
+                    return self.inlineBlock(code, argMap)
+        else:
+            return None
+
+    def constifyIOIndices(self, expr):
+        '''Returns the given expression, with all I/O indices replaced by
+        computed constants.
+        '''
+        if isinstance(expr, IOReference):
+            index = self.emitCompute(Truncation(
+                expr.index.substitute(self.constifyReferences),
+                expr.channel.addrType.width
+                ))
+            return IOReference(expr.channel, index)
+        else:
+            return None
+
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
         Returns an expression representing the return value of the inlined
@@ -382,64 +450,6 @@ def emitCodeFromStatements(reader, builder, statements):
     reader location that constant was loaded at.
     '''
 
-    def substituteReferences(expr):
-        subst = substituteIOIndices(expr)
-        if subst is not None:
-            expr = subst
-        # pylint: disable=no-member
-        # It seems the type inference ignores isistance() and deduces the wrong
-        # types, leading to false positives.
-        if isinstance(expr, ReferencedValue):
-            rid = expr.rid
-            ref = builder.references[rid]
-            if isinstance(ref, Variable) and ref.name == 'ret':
-                reader.error('function return value "ret" is write-only')
-            return builder.emitLoad(rid)
-        elif isinstance(expr, IOReference):
-            # pylint: disable=protected-access
-            return builder.emitLoad(builder._emitReference(expr))
-        elif isinstance(expr, FunctionCall):
-            func = expr.func
-            argMap = {}
-            try:
-                with reader.checkErrors():
-                    for name, decl, value in expr.iterArgNameDeclValue():
-                        if isinstance(decl, IntType):
-                            argMap[name] = builder.emitCompute(
-                                value.substitute(substituteReferences)
-                                )
-                        elif isinstance(decl, Reference):
-                            if checkStorage(value):
-                                argMap[name] = value
-                            else:
-                                reader.error(
-                                    'non-storage argument "%s" for reference '
-                                    'argument "%s %s"' % (value, decl, name)
-                                    )
-                        else:
-                            assert False, decl
-            except DelayedError:
-                return None
-            else:
-                code = func.code
-                if code is None:
-                    # Missing body, probably because of earlier errors.
-                    return None
-                else:
-                    return builder.inlineBlock(code, argMap)
-        else:
-            return None
-
-    def substituteIOIndices(expr):
-        if isinstance(expr, IOReference):
-            index = builder.emitCompute(Truncation(
-                expr.index.substitute(substituteReferences),
-                expr.channel.addrType.width
-                ))
-            return IOReference(expr.channel, index)
-        else:
-            return None
-
     context = builder.context
     for tree in statements:
         if isinstance(tree, AssignmentNode):
@@ -487,12 +497,12 @@ def emitCodeFromStatements(reader, builder, statements):
 
         # Substitute LoadedConstants for all references, such that we have
         # a side-effect free version of the right hand side expression.
-        rhsLoadedRefs = rhs.substitute(substituteReferences)
+        rhsLoadedRefs = rhs.substitute(builder.constifyReferences)
 
         if lhs is not None:
             # Constify the I/O indices to force emission of all loads before
             # we emit any stores.
-            lhsConstIndices = lhs.substitute(substituteIOIndices)
+            lhsConstIndices = lhs.substitute(builder.constifyIOIndices)
             try:
                 builder.emitAssignment(lhsConstIndices, rhsLoadedRefs)
             except ValueError as ex:
