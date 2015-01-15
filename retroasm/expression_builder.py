@@ -42,7 +42,7 @@ def _convertDefinition(node, context):
         if not checkStorage(expr):
             raise BadExpression(
                 'value for reference "%s" is not a storage' % ident.name,
-                value.location
+                value.treeLocation
                 )
         if typ.type is not expr.type:
             raise BadExpression(
@@ -67,13 +67,13 @@ def _convertDefinition(node, context):
         raise BadExpression(
             'attempt to define %s "%s %s" in a context that does not support '
             '%s definitions' % (what, ident.decl, ident.name, what),
-            node.location
+            node.treeLocation
             )
     except ValueError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s'
             % (what, ident.decl, ident.name, ex),
-            node.location
+            node.treeLocation
             )
 
 def _convertIdentifier(node, context):
@@ -137,7 +137,7 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         except AttributeError:
             raise BadExpression(
                 'start index is not constant: %s' % start,
-                startNode.location
+                startNode.treeLocation
                 )
 
     if endNode is None:
@@ -156,7 +156,7 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         except AttributeError:
             raise BadExpression(
                 'end index is not constant: %s' % end,
-                endNode.location
+                endNode.treeLocation
                 )
 
     return Slice(expr, index, width)

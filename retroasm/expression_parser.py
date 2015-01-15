@@ -77,11 +77,25 @@ class ExpressionTokenizer:
             next(self)
         return found
 
+def _mergeSpan(fromLocation, toLocation):
+    mergedSpan = (getSpan(fromLocation)[0], getSpan(toLocation)[1])
+    mergedLocation = updateSpan(fromLocation, mergedSpan)
+    assert mergedLocation == updateSpan(toLocation, mergedSpan), \
+            (fromLocation, toLocation)
+    return mergedLocation
+
 class ParseNode:
     __slots__ = ('location',)
 
     def __init__(self, location):
         self.location = location
+
+    @property
+    def treeLocation(self):
+        '''Returns location information, where the span includes to the entire
+        tree under this node.
+        '''
+        return self.location
 
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
@@ -90,6 +104,10 @@ class AssignmentNode(ParseNode):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
+
+    @property
+    def treeLocation(self):
+        return _mergeSpan(self.lhs, self.rhs)
 
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
@@ -103,6 +121,19 @@ class OperatorNode(ParseNode):
         ParseNode.__init__(self, location)
         self.operator = operator
         self.operands = operands
+
+    @property
+    def treeLocation(self):
+        location = self.location
+        baseLocation = updateSpan(location, None)
+        treeStart, treeEnd = getSpan(location)
+        for operand in self.operands:
+            location = operand.location
+            assert updateSpan(location, None) == baseLocation
+            start, end = getSpan(location)
+            treeStart = min(treeStart, start)
+            treeEnd = max(treeEnd, end)
+        return updateSpan(baseLocation, (treeStart, treeEnd))
 
 class IdentifierNode(ParseNode):
     __slots__ = ('decl', 'name')
@@ -127,13 +158,6 @@ class NumberNode(ParseNode):
         ParseNode.__init__(self, location)
         self.value = value
         self.width = width
-
-def _mergeSpan(fromLocation, toLocation):
-    mergedSpan = (getSpan(fromLocation)[0], getSpan(toLocation)[1])
-    mergedLocation = updateSpan(fromLocation, mergedSpan)
-    assert mergedLocation == updateSpan(toLocation, mergedSpan), \
-            (fromLocation, toLocation)
-    return mergedLocation
 
 def _parse(exprStr, location, statement):
     token = ExpressionTokenizer(exprStr, location)
@@ -294,7 +318,7 @@ def _parse(exprStr, location, statement):
         # Value.
         value = parseTop()
 
-        location = _mergeSpan(defLocation, value.location)
+        location = _mergeSpan(defLocation, value.treeLocation)
         return DefinitionNode(identifier, value, location)
 
     def parseVariableDeclaration(varLocation):
