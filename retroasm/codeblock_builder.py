@@ -7,7 +7,7 @@ from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
 from .expression_builder import BadExpression, createExpression
-from .expression_parser import AssignmentNode, IdentifierNode
+from .expression_parser import AssignmentNode, DefinitionNode, IdentifierNode
 from .function import FunctionCall
 from .storage import (
     IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
@@ -51,21 +51,26 @@ class _CodeBlockContext:
         except KeyError:
             return self._importReference(self.globalContext[key])
 
-    def _importReference(self, globalRef):
-        if isinstance(globalRef, NamedValue):
+    def _importReference(self, ref):
+        '''Imports named references in the given reference expression into
+        the local context.
+        Returns an expression in which references from the global context have
+        been replaced by their local equivalents.
+        '''
+        if isinstance(ref, NamedValue):
             # While the initial call to this method happens when the name is
             # not found, there could be name matches on recursive calls.
             try:
-                return self.localContext[globalRef.name]
+                return self.localContext[ref.name]
             except KeyError:
-                return self._addNamedReference(globalRef)
-        elif isinstance(globalRef, Concatenation):
+                return self._addNamedReference(ref)
+        elif isinstance(ref, Concatenation):
             return Concatenation(*(
                 self._importReference(expr)
-                for expr in globalRef.exprs
+                for expr in ref.exprs
                 ))
         else:
-            return globalRef
+            return ref
 
     def _addNamedReference(self, ref):
         name = ref.name
@@ -76,6 +81,23 @@ class _CodeBlockContext:
         refVal = ReferencedValue(rid, ref.type)
         self.localContext[name] = refVal
         return refVal
+
+    def addConstant(self, name, value):
+        builder = self.builder
+        const = builder.emitCompute(
+            value.substitute(builder.constifyReferences)
+            )
+        if name in self.localContext:
+            raise ValueError('attempt to redefine "%s"' % name)
+        self.localContext[name] = const
+        return const
+
+    def addReference(self, name, ref):
+        refConstIndices = ref.substitute(self.builder.constifyIOIndices)
+        if name in self.localContext:
+            raise ValueError('attempt to redefine "%s"' % name)
+        self.localContext[name] = refConstIndices
+        return refConstIndices
 
     def addVariable(self, name, typ):
         return self._addNamedReference(Variable(name, typ))
@@ -473,6 +495,14 @@ def emitCodeFromStatements(reader, builder, statements):
                     location=ex.location
                     )
                 continue
+        elif isinstance(tree, DefinitionNode):
+            # Constant/reference definition.
+            try:
+                createExpression(tree, context)
+            except BadExpression as ex:
+                reader.error(str(ex), location=ex.location)
+            # Don't evaluate the expression, since that could emit loads.
+            continue
         elif isinstance(tree, IdentifierNode) and tree.decl is not None:
             # Variable declaration.
             try:

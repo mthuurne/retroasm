@@ -1,13 +1,13 @@
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
-    OrOperator, Slice, XorOperator
+    OrOperator, Slice, Truncation, XorOperator
     )
 from .expression_parser import (
-    IdentifierNode, NumberNode, Operator, OperatorNode
+    DefinitionNode, IdentifierNode, NumberNode, Operator, OperatorNode
     )
 from .function import Function, FunctionCall
-from .storage import IOChannel, IOReference
-from .types import IntType, parseType, unlimited
+from .storage import IOChannel, IOReference, checkStorage
+from .types import IntType, Reference, parseType, parseTypeDecl, unlimited
 
 class BadExpression(Exception):
     '''Raised when the input text cannot be parsed into an expression.
@@ -20,6 +20,61 @@ class BadExpression(Exception):
     def __init__(self, msg, location=None):
         Exception.__init__(self, msg)
         self.location = location
+
+def _convertDefinition(node, context):
+    ident = node.identifier
+    value = node.value
+
+    # Determine type.
+    try:
+        typ = parseTypeDecl(ident.decl)
+    except ValueError as ex:
+        raise BadExpression(
+            'bad type name in definition: %s' % ex,
+            ident.location
+            )
+
+    # Build value expression.
+    expr = createExpression(value, context)
+
+    # Validate the definition.
+    if isinstance(typ, Reference):
+        if not checkStorage(expr):
+            raise BadExpression(
+                'value for reference "%s" is not a storage' % ident.name,
+                value.location
+                )
+        if typ.type is not expr.type:
+            raise BadExpression(
+                'declared type "%s" does not match the value\'s type "%s"'
+                % (typ.type, expr.type),
+                ident.location
+                )
+    else:
+        declWidth = typ.width
+        if expr.width > declWidth:
+            expr = Truncation(expr, declWidth)
+
+    # Add definition to context.
+    try:
+        if isinstance(typ, Reference):
+            what = 'reference'
+            return context.addReference(ident.name, expr)
+        else:
+            what = 'constant'
+            return context.addConstant(ident.name, expr)
+    except AttributeError:
+        raise BadExpression(
+            'attempt to define %s "%s %s" in a context that does not support '
+            '%s definitions' % (what, ident.decl, ident.name, what),
+            node.location
+            )
+    except ValueError as ex:
+        raise BadExpression(
+            'failed to define %s "%s %s": %s'
+            % (what, ident.decl, ident.name, ex),
+            node.location
+            )
 
 def _convertIdentifier(node, context):
     decl = node.decl
@@ -137,6 +192,8 @@ def _convertOperator(node, context):
 def createExpression(node, context):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
+    elif isinstance(node, DefinitionNode):
+        return _convertDefinition(node, context)
     elif isinstance(node, IdentifierNode):
         return _convertIdentifier(node, context)
     elif isinstance(node, OperatorNode):
