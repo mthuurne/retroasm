@@ -83,11 +83,13 @@ class _CodeBlockContext:
 
 class CodeBlockBuilder:
 
-    def __init__(self, globalContext={}):
+    def __init__(self, globalContext={}, reader=None):
         self.constants = []
         self.references = []
         self.nodes = []
         self.context = _CodeBlockContext(self, globalContext)
+        self.reader = reader
+        self.loadLocations = {}
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -115,12 +117,14 @@ class CodeBlockBuilder:
         for node in self.nodes:
             print('        %s' % node)
 
-    def createCodeBlock(self, reader=None, locations={}):
+    def getLocation(self):
+        return None if self.reader is None else self.reader.getLocation()
+
+    def createCodeBlock(self):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         Raises ValueError if this builder does not represent a valid code block.
-        If a reader is provided, errors are logged there, taking source
-        location from the provided dictionary, if any.
+        If a reader was provided to the constructor, errors are logged as well.
         '''
         code = CodeBlockSimplifier(self.constants, self.references, self.nodes)
 
@@ -137,12 +141,13 @@ class CodeBlockBuilder:
                 elif isinstance(node, Store):
                     initializedVariables.add(rid)
         if ununitializedLoads:
-            if reader is not None:
+            log = self.reader
+            if log is not None:
                 for load in ununitializedLoads:
-                    reader.error(
+                    log.error(
                         'variable "%s" is read before it is initialized'
                         % code.references[load.rid].formatDecl(),
-                        location=locations.get(load.cid)
+                        location=self.loadLocations[load.cid]
                         )
             raise ValueError(
                 'Code block reads uninitialized variable(s): %s' % ', '.join(
@@ -173,6 +178,7 @@ class CodeBlockBuilder:
         Returns an expression that wraps the loaded value.
         '''
         cid = len(self.constants)
+        self.loadLocations[cid] = self.getLocation()
         load = Load(cid, rid)
         self.nodes.append(load)
         refType = self.references[rid].type
@@ -376,13 +382,6 @@ def emitCodeFromStatements(reader, builder, statements):
     reader location that constant was loaded at.
     '''
 
-    locations = {}
-
-    def emitLoad(rid):
-        expr = builder.emitLoad(rid)
-        locations[expr.cid] = reader.getLocation()
-        return expr
-
     def substituteReferences(expr):
         subst = substituteIOIndices(expr)
         if subst is not None:
@@ -395,10 +394,10 @@ def emitCodeFromStatements(reader, builder, statements):
             ref = builder.references[rid]
             if isinstance(ref, Variable) and ref.name == 'ret':
                 reader.error('function return value "ret" is write-only')
-            return emitLoad(rid)
+            return builder.emitLoad(rid)
         elif isinstance(expr, IOReference):
             # pylint: disable=protected-access
-            return emitLoad(builder._emitReference(expr))
+            return builder.emitLoad(builder._emitReference(expr))
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
@@ -498,5 +497,3 @@ def emitCodeFromStatements(reader, builder, statements):
                 builder.emitAssignment(lhsConstIndices, rhsLoadedRefs)
             except ValueError as ex:
                 reader.error('error on left hand side of assignment: %s', ex)
-
-    return locations
