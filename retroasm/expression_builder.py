@@ -1,5 +1,5 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
+    AddOperator, AndOperator, Complement, Concatenation, Expression, IntLiteral,
     OrOperator, Slice, Truncation, XorOperator
     )
 from .expression_parser import (
@@ -82,9 +82,15 @@ def _convertIdentifier(node, context):
     if decl is None:
         # Look up identifier in context.
         try:
-            return context[name]
+            value = context[name]
         except KeyError:
             raise BadExpression('unknown name "%s"' % name, node.location)
+        if isinstance(value, Function):
+            raise BadExpression(
+                'function "%s" is not called' % name, node.location
+                )
+        else:
+            return value
     else:
         # Variable declaration.
         try:
@@ -117,11 +123,12 @@ def _convertFunctionCall(nameNode, *argNodes, context):
     return FunctionCall(func, args)
 
 def _convertLookup(exprNode, indexNode, context):
-    expr = createExpression(exprNode, context)
+    expr = _createTop(exprNode, context)
     index = createExpression(indexNode, context)
     if isinstance(expr, IOChannel):
         return IOReference(expr, index)
     else:
+        assert isinstance(expr, Expression), expr
         return Slice(expr, index, 1)
 
 def _convertSlice(location, exprNode, startNode, endNode, context):
@@ -189,7 +196,7 @@ def _convertOperator(node, context):
     else:
         assert False, operator
 
-def createExpression(node, context):
+def _createTop(node, context):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, DefinitionNode):
@@ -200,3 +207,15 @@ def createExpression(node, context):
         return _convertOperator(node, context)
     else:
         assert False, node
+
+def createExpression(node, context):
+    expr = _createTop(node, context)
+    if isinstance(expr, IOChannel):
+        assert isinstance(node, IdentifierNode), node
+        raise BadExpression(
+            'I/O channel "%s" can only be used for lookup' % node.name,
+            node.location
+            )
+    else:
+        assert isinstance(expr, Expression), expr
+        return expr
