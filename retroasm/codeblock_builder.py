@@ -6,7 +6,9 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
-from .expression_builder import BadExpression, createExpression
+from .expression_builder import (
+    BadExpression, convertDefinition, createExpression, createStorage
+    )
 from .expression_parser import AssignmentNode, DefinitionNode
 from .function import FunctionCall
 from .storage import (
@@ -476,7 +478,7 @@ def emitCodeFromStatements(reader, builder, statements):
     for tree in statements:
         if isinstance(tree, AssignmentNode):
             try:
-                lhs = createExpression(tree.lhs, context)
+                lhs = createStorage(tree.lhs, context)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,
@@ -498,7 +500,7 @@ def emitCodeFromStatements(reader, builder, statements):
         elif isinstance(tree, DefinitionNode):
             # Constant/reference/variable definition.
             try:
-                createExpression(tree, context)
+                convertDefinition(tree, context)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.

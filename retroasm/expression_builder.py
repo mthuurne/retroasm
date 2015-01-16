@@ -22,7 +22,7 @@ class BadExpression(Exception):
         Exception.__init__(self, msg)
         self.location = location
 
-def _convertDefinition(node, context):
+def convertDefinition(node, context):
     # Determine type.
     try:
         typ = parseTypeDecl(node.decl.name)
@@ -32,32 +32,35 @@ def _convertDefinition(node, context):
             node.decl.location
             )
 
+    # Get name.
     nameNode = node.name
     name = nameNode.name
 
+    # Build and validate value expression.
     kind = node.kind
     value = node.value
-    if value is not None:
-        # Build value expression.
+    if kind is DefinitionKind.constant:
         expr = createExpression(value, context)
-
-        # Validate the definition.
-        if kind is DefinitionKind.reference:
-            if not checkStorage(expr):
-                raise BadExpression(
-                    'value for reference "%s" is not a storage' % name,
-                    value.treeLocation
-                    )
-            if typ.type is not expr.type:
-                raise BadExpression(
-                    'declared type "%s" does not match the value\'s type "%s"'
-                    % (typ.type, expr.type),
-                    node.decl.location
-                    )
-        else:
-            declWidth = typ.width
-            if expr.width > declWidth:
-                expr = Truncation(expr, declWidth)
+        declWidth = typ.width
+        if expr.width > declWidth:
+            expr = Truncation(expr, declWidth)
+    elif kind is DefinitionKind.reference:
+        expr = createStorage(value, context)
+        if not checkStorage(expr):
+            raise BadExpression(
+                'value for reference "%s" is not a storage' % name,
+                value.treeLocation
+                )
+        if typ.type is not expr.type:
+            raise BadExpression(
+                'declared type "%s" does not match the value\'s type "%s"'
+                % (typ.type, expr.type),
+                node.decl.location
+                )
+    elif kind is DefinitionKind.variable:
+        assert value is None, value
+    else:
+        assert False, kind
 
     # Add definition to context.
     try:
@@ -185,12 +188,15 @@ def _convertOperator(node, context):
 def _createTop(node, context):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
-    elif isinstance(node, DefinitionNode):
-        return _convertDefinition(node, context)
     elif isinstance(node, IdentifierNode):
         return _convertIdentifier(node, context)
     elif isinstance(node, OperatorNode):
         return _convertOperator(node, context)
+    elif isinstance(node, DefinitionNode):
+        raise BadExpression(
+            '%s definition not allowed here' % node.kind.name,
+            node.treeLocation
+            )
     else:
         assert False, node
 
@@ -205,3 +211,42 @@ def createExpression(node, context):
     else:
         assert isinstance(expr, Expression), expr
         return expr
+
+def _convertStorageOperator(node, context):
+    operator = node.operator
+    if operator is Operator.call:
+        return _convertFunctionCall(*node.operands, context=context)
+    elif operator is Operator.lookup:
+        return _convertLookup(*node.operands, context=context)
+    elif operator is Operator.slice:
+        return _convertSlice(node.location, *node.operands, context=context)
+    elif operator is Operator.concatenation:
+        return Concatenation(*(
+            createStorage(node, context)
+            for node in node.operands
+            ))
+    else:
+        raise BadExpression(
+            'operator (%s) is not allowed here' % operator.name,
+            node.location
+            )
+
+def createStorage(node, context):
+    if isinstance(node, NumberNode):
+        return IntLiteral(node.value, IntType(node.width))
+    elif isinstance(node, DefinitionNode):
+        return convertDefinition(node, context)
+    elif isinstance(node, IdentifierNode):
+        expr = _convertIdentifier(node, context)
+        if isinstance(expr, IOChannel):
+            raise BadExpression(
+                'I/O channel "%s" can only be used for lookup' % node.name,
+                node.location
+                )
+        else:
+            assert isinstance(expr, Expression), expr
+            return expr
+    elif isinstance(node, OperatorNode):
+        return _convertStorageOperator(node, context)
+    else:
+        assert False, node
