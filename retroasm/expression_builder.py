@@ -3,7 +3,8 @@ from .expression import (
     OrOperator, Slice, Truncation, XorOperator
     )
 from .expression_parser import (
-    DefinitionNode, IdentifierNode, NumberNode, Operator, OperatorNode
+    DefinitionNode, DefinitionKind, IdentifierNode, NumberNode, Operator,
+    OperatorNode
     )
 from .function import Function, FunctionCall
 from .storage import IOChannel, IOReference, checkStorage
@@ -22,94 +23,79 @@ class BadExpression(Exception):
         self.location = location
 
 def _convertDefinition(node, context):
-    ident = node.identifier
-    value = node.value
-
     # Determine type.
     try:
-        typ = parseTypeDecl(ident.decl)
+        typ = parseTypeDecl(node.decl.name)
     except ValueError as ex:
         raise BadExpression(
             'bad type name in definition: %s' % ex,
-            ident.location
+            node.decl.location
             )
 
-    # Build value expression.
-    expr = createExpression(value, context)
+    nameNode = node.name
+    name = nameNode.name
 
-    # Validate the definition.
-    if isinstance(typ, Reference):
-        if not checkStorage(expr):
-            raise BadExpression(
-                'value for reference "%s" is not a storage' % ident.name,
-                value.treeLocation
-                )
-        if typ.type is not expr.type:
-            raise BadExpression(
-                'declared type "%s" does not match the value\'s type "%s"'
-                % (typ.type, expr.type),
-                ident.location
-                )
-    else:
-        declWidth = typ.width
-        if expr.width > declWidth:
-            expr = Truncation(expr, declWidth)
+    kind = node.kind
+    value = node.value
+    if value is not None:
+        # Build value expression.
+        expr = createExpression(value, context)
+
+        # Validate the definition.
+        if kind is DefinitionKind.reference:
+            if not checkStorage(expr):
+                raise BadExpression(
+                    'value for reference "%s" is not a storage' % name,
+                    value.treeLocation
+                    )
+            if typ.type is not expr.type:
+                raise BadExpression(
+                    'declared type "%s" does not match the value\'s type "%s"'
+                    % (typ.type, expr.type),
+                    node.decl.location
+                    )
+        else:
+            declWidth = typ.width
+            if expr.width > declWidth:
+                expr = Truncation(expr, declWidth)
 
     # Add definition to context.
     try:
-        if isinstance(typ, Reference):
-            what = 'reference'
-            return context.addReference(ident.name, expr)
+        if kind is DefinitionKind.constant:
+            return context.addConstant(name, expr)
+        elif kind is DefinitionKind.reference:
+            return context.addReference(name, expr)
+        elif kind is DefinitionKind.variable:
+            return context.addVariable(name, typ)
         else:
-            what = 'constant'
-            return context.addConstant(ident.name, expr)
+            assert False, kind
     except AttributeError:
         raise BadExpression(
             'attempt to define %s "%s %s" in a context that does not support '
-            '%s definitions' % (what, ident.decl, ident.name, what),
+            '%s definitions' % (kind.name, typ, name, kind.name),
             node.treeLocation
             )
     except ValueError as ex:
         raise BadExpression(
-            'failed to define %s "%s %s": %s'
-            % (what, ident.decl, ident.name, ex),
-            node.treeLocation
+            'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
+            nameNode.location
             )
 
 def _convertIdentifier(node, context):
-    decl = node.decl
     name = node.name
-    if decl is None:
-        # Look up identifier in context.
-        try:
-            value = context[name]
-        except KeyError:
-            raise BadExpression('unknown name "%s"' % name, node.location)
-        if isinstance(value, Function):
-            raise BadExpression(
-                'function "%s" is not called' % name, node.location
-                )
-        else:
-            return value
+    try:
+        value = context[name]
+    except KeyError:
+        raise BadExpression('unknown name "%s"' % name, node.location)
+    if isinstance(value, Function):
+        raise BadExpression(
+            'function "%s" is not called' % name, node.location
+            )
     else:
-        # Variable declaration.
-        try:
-            return context.addVariable(name, parseType(decl))
-        except AttributeError:
-            raise BadExpression(
-                'attempt to declare variable "%s %s" in a context that does '
-                'not support variable declarations' % (decl, name),
-                node.location
-                )
-        except ValueError as ex:
-            raise BadExpression(
-                'failed to declare variable "%s %s": %s' % (decl, name, ex),
-                node.location
-                )
+        return value
 
 def _convertFunctionCall(nameNode, *argNodes, context):
     assert isinstance(nameNode, IdentifierNode), nameNode
-    assert nameNode.decl is None, nameNode
     name = nameNode.name
 
     try:

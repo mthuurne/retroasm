@@ -16,8 +16,8 @@ class ParseError(Exception):
         self.location = location
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
-    'identifier', 'number', 'operator', 'bracket', 'assignment', 'definition',
-    'separator', 'whitespace', 'other', 'end'
+    'keyword', 'identifier', 'number', 'operator', 'bracket', 'assignment',
+    'definition', 'separator', 'whitespace', 'other', 'end'
     ))
 
 class ExpressionTokenizer:
@@ -25,6 +25,7 @@ class ExpressionTokenizer:
     _pattern = re.compile('|'.join(
         '(?P<%s>%s)' % (token.name, regex) for token, regex in (
             # pylint: disable=bad-whitespace
+            (Token.keyword,     r'var|def'),
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
             (Token.operator,    r'[&|\^+\-~!;]|==|!='),
@@ -137,20 +138,33 @@ class OperatorNode(ParseNode):
         return updateSpan(baseLocation, (treeStart, treeEnd))
 
 class IdentifierNode(ParseNode):
-    __slots__ = ('decl', 'name')
+    __slots__ = ('name',)
 
-    def __init__(self, decl, name, location):
+    def __init__(self, name, location):
         ParseNode.__init__(self, location)
-        self.decl = decl
         self.name = name
 
-class DefinitionNode(ParseNode):
-    __slots__ = ('identifier', 'value')
+DefinitionKind = Enum('DefinitionKind', ( # pylint: disable=invalid-name
+    'variable', 'constant', 'reference'
+    ))
 
-    def __init__(self, identifier, value, location):
+class DefinitionNode(ParseNode):
+    __slots__ = ('kind', 'decl', 'name', 'value')
+
+    def __init__(self, kind, decl, name, value, location):
         ParseNode.__init__(self, location)
-        self.identifier = identifier
+        self.kind = kind
+        self.decl = decl
+        self.name = name
         self.value = value
+
+    @property
+    def treeLocation(self):
+        value = self.value
+        if value is None:
+            return self.location
+        else:
+            return _mergeSpan(self.location, value.treeLocation)
 
 class NumberNode(ParseNode):
     __slots__ = ('value', 'width')
@@ -272,6 +286,8 @@ def _parse(exprStr, location, statement):
             if not token.eat(Token.bracket, ')'):
                 raise badTokenKind('parenthesized', ')')
             return expr
+        elif token.kind is Token.keyword:
+            return parseDefinition()
         elif token.kind is Token.identifier:
             return parseIdent()
         elif token.kind is Token.number:
@@ -281,64 +297,78 @@ def _parse(exprStr, location, statement):
                 'innermost', 'identifier, number or function call'
                 )
 
+    def parseDefinition():
+        # Keyword.
+        keyword = token.value
+        keywordLocation = token.location
+        if not token.eat(Token.keyword):
+            assert False, token
+
+        # Type.
+        decl = token.value
+        declLocation = token.location
+        if not token.eat(Token.identifier):
+            raise badTokenKind(
+                '%s definition' % {
+                    'def': 'constant/reference',
+                    'var': 'variable',
+                    }[keyword],
+                'type name'
+                )
+        ampLocation = token.location
+        if token.eat(Token.operator, '&'):
+            if keyword != 'def':
+                raise ParseError(
+                    'references can only be defined using the "def" keyword',
+                    _mergeSpan(keywordLocation, ampLocation)
+                    )
+            decl += '&'
+            declLocation = _mergeSpan(declLocation, ampLocation)
+            kind = DefinitionKind.reference
+        else:
+            kind = {
+                'def': DefinitionKind.constant,
+                'var': DefinitionKind.variable,
+                }[keyword]
+        declNode = IdentifierNode(decl, declLocation)
+
+        # Name.
+        name = token.value
+        nameLocation = token.location
+        if not token.eat(Token.identifier):
+            raise badTokenKind(
+                '%s definition' % kind.name, '%s name' % kind.name
+                )
+        nameNode = IdentifierNode(name, nameLocation)
+
+        # Value.
+        if kind is DefinitionKind.variable:
+            if token.peek(Token.definition):
+                raise ParseError(
+                    'variables can only get values through assignment '
+                    '(use ":=" instead of "=")',
+                    token.location
+                    )
+            value = None
+        else:
+            if not token.eat(Token.definition):
+                raise badTokenKind('%s value' % kind.name, '"="')
+            value = parseTop()
+
+        location = _mergeSpan(keywordLocation, nameLocation)
+        return DefinitionNode(kind, declNode, nameNode, value, location)
+
     def parseIdent():
         name = token.value
         location = token.location
         if not token.eat(Token.identifier):
             assert False, token
 
-        if name == 'def':
-            return parseDefinition(location)
-        elif name == 'var':
-            return parseVariableDeclaration(location)
-        identifier = IdentifierNode(None, name, location)
+        identifier = IdentifierNode(name, location)
         if token.eat(Token.bracket, '('):
             return parseFunctionCall(identifier)
         else:
             return identifier
-
-    def parseDefinition(defLocation):
-        # Type.
-        decl = token.value
-        declLocation = token.location
-        if not token.eat(Token.identifier):
-            raise badTokenKind('constant/reference definition', 'type name')
-        if token.eat(Token.operator, '&'):
-            decl += '&'
-            what = 'reference definition'
-        else:
-            what = 'constant definition'
-
-        # Name.
-        name = token.value
-        identLocation = _mergeSpan(declLocation, token.location)
-        if not token.eat(Token.identifier):
-            raise badTokenKind(what, 'name')
-        identifier = IdentifierNode(decl, name, identLocation)
-
-        # Equals sign.
-        if not token.eat(Token.definition):
-            raise badTokenKind(what, '"="')
-
-        # Value.
-        value = parseTop()
-
-        location = _mergeSpan(defLocation, value.treeLocation)
-        return DefinitionNode(identifier, value, location)
-
-    def parseVariableDeclaration(varLocation):
-        # Type.
-        decl = token.value
-        if not token.eat(Token.identifier):
-            raise badTokenKind('variable declaration', 'type name')
-
-        # Name.
-        name = token.value
-        location = _mergeSpan(varLocation, token.location)
-        if not token.eat(Token.identifier):
-            raise badTokenKind('variable declaration', 'variable name')
-
-        return IdentifierNode(decl, name, location)
 
     def parseFunctionCall(name):
         location = token.location

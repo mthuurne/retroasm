@@ -7,7 +7,7 @@ from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
 from .expression_builder import BadExpression, createExpression
-from .expression_parser import AssignmentNode, DefinitionNode, IdentifierNode
+from .expression_parser import AssignmentNode, DefinitionNode
 from .function import FunctionCall
 from .storage import (
     IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
@@ -496,21 +496,12 @@ def emitCodeFromStatements(reader, builder, statements):
                     )
                 continue
         elif isinstance(tree, DefinitionNode):
-            # Constant/reference definition.
+            # Constant/reference/variable definition.
             try:
                 createExpression(tree, context)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.
-            continue
-        elif isinstance(tree, IdentifierNode) and tree.decl is not None:
-            # Variable declaration.
-            try:
-                createExpression(tree, context)
-            except BadExpression as ex:
-                reader.error(str(ex), location=ex.location)
-            # Don't evaluate the declared variable, since that would be counted
-            # as a read from an uninitialized storage.
             continue
         else:
             lhs = None
