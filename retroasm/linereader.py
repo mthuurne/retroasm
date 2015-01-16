@@ -187,5 +187,7 @@ class LineReaderFormatter(Formatter):
             msg += '\n  ' + readerLastline
         if readerColSpan is not None:
             fromIdx, toIdx = readerColSpan
+            if fromIdx == toIdx:
+                toIdx += 1
             msg += '\n  ' + ' ' * fromIdx + '^' * (toIdx - fromIdx)
         return msg

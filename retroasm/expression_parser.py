@@ -40,6 +40,7 @@ class ExpressionTokenizer:
     def __init__(self, exprStr, location):
         self._tokens = self._pattern.finditer(exprStr)
         self._lineLocation = location
+        self._length = len(exprStr)
         self.__next__()
 
     def __next__(self):
@@ -49,7 +50,7 @@ class ExpressionTokenizer:
             except StopIteration:
                 kind = Token.end
                 value = None
-                span = None
+                span = (self._length, self._length)
                 break
             kind = getattr(Token, match.lastgroup)
             if kind is not Token.whitespace:
@@ -163,8 +164,12 @@ def _parse(exprStr, location, statement):
     token = ExpressionTokenizer(exprStr, location)
 
     def badTokenKind(where, expected):
-        msg = 'bad %s expression: expected %s, got %s "%s"' % (
-            where, expected, token.kind.name, token.value
+        if token.kind is Token.end:
+            gotDesc = 'end of input'
+        else:
+            gotDesc = '%s "%s"' % (token.kind.name, token.value)
+        msg = 'bad %s expression: expected %s, got %s' % (
+            where, expected, gotDesc
             )
         return ParseError(msg, token.location)
 
