@@ -8,7 +8,7 @@ from .expression_parser import (
     )
 from .function import Function, FunctionCall
 from .storage import IOChannel, IOReference, ReferencedValue, checkStorage
-from .types import IntType, Reference, parseType, parseTypeDecl, unlimited
+from .types import IntType, parseTypeDecl, unlimited
 
 class BadExpression(Exception):
     '''Raised when the input text cannot be parsed into an expression.
@@ -45,7 +45,7 @@ def convertDefinition(node, builder):
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
     elif kind is DefinitionKind.reference:
-        expr = createStorage(value, builder)
+        expr = _createStorage(value, builder)
         if not checkStorage(expr):
             raise BadExpression(
                 'value for reference "%s" is not a storage' % name,
@@ -212,6 +212,12 @@ def createExpression(node, context):
         assert isinstance(expr, Expression), expr
         return expr
 
+def buildExpression(node, builder):
+    expr = createExpression(node, builder.context)
+    # Substitute LoadedConstants for all references, such that we have
+    # a side-effect free version of the right hand side expression.
+    return expr.substitute(builder.constifyReferences)
+
 def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
@@ -224,7 +230,7 @@ def _convertStorageOperator(node, builder):
             )
     elif operator is Operator.concatenation:
         return Concatenation(*(
-            createStorage(node, builder)
+            _createStorage(node, builder)
             for node in node.operands
             ))
     else:
@@ -233,7 +239,7 @@ def _convertStorageOperator(node, builder):
             node.location
             )
 
-def createStorage(node, builder):
+def _createStorage(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, DefinitionNode):
@@ -252,3 +258,9 @@ def createStorage(node, builder):
         return _convertStorageOperator(node, builder)
     else:
         assert False, node
+
+def buildStorage(node, builder):
+    expr = _createStorage(node, builder)
+    # Constify the I/O indices to force emission of all loads before
+    # we emit any stores.
+    return expr.substitute(builder.constifyIOIndices)

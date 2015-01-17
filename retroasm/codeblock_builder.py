@@ -7,7 +7,7 @@ from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
 from .expression_builder import (
-    BadExpression, convertDefinition, createExpression, createStorage
+    BadExpression, buildExpression, buildStorage, convertDefinition
     )
 from .expression_parser import AssignmentNode, DefinitionNode
 from .function import FunctionCall
@@ -456,11 +456,10 @@ def emitCodeFromStatements(reader, builder, statements):
     reader location that constant was loaded at.
     '''
 
-    context = builder.context
     for tree in statements:
         if isinstance(tree, AssignmentNode):
             try:
-                lhs = createStorage(tree.lhs, builder)
+                lhs = buildStorage(tree.lhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,
@@ -472,7 +471,7 @@ def emitCodeFromStatements(reader, builder, statements):
                 # but assigning to only a literal is probably a mistake.
                 reader.warning('assigning to literal has no effect')
             try:
-                rhs = createExpression(tree.rhs, context)
+                rhs = buildExpression(tree.rhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on right hand side of assignment: %s', ex,
@@ -490,7 +489,7 @@ def emitCodeFromStatements(reader, builder, statements):
         else:
             lhs = None
             try:
-                rhs = createExpression(tree, context)
+                rhs = buildExpression(tree, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression in statement: %s', ex,
@@ -500,15 +499,8 @@ def emitCodeFromStatements(reader, builder, statements):
             if rhs.type is not None:
                 reader.warning('result is ignored')
 
-        # Substitute LoadedConstants for all references, such that we have
-        # a side-effect free version of the right hand side expression.
-        rhsLoadedRefs = rhs.substitute(builder.constifyReferences)
-
         if lhs is not None:
-            # Constify the I/O indices to force emission of all loads before
-            # we emit any stores.
-            lhsConstIndices = lhs.substitute(builder.constifyIOIndices)
             try:
-                builder.emitAssignment(lhsConstIndices, rhsLoadedRefs)
+                builder.emitAssignment(lhs, rhs)
             except ValueError as ex:
                 reader.error('error on left hand side of assignment: %s', ex)
