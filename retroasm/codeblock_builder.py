@@ -143,6 +143,15 @@ class CodeBlockBuilder:
     def getLocation(self):
         return None if self.reader is None else self.reader.getLocation()
 
+    def defineConstant(self, name, value):
+        return self.context.addConstant(name, value)
+
+    def defineReference(self, name, ref):
+        return self.context.addReference(name, ref)
+
+    def defineVariable(self, name, typ):
+        return self.context.addVariable(name, typ)
+
     def createCodeBlock(self):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
@@ -478,7 +487,7 @@ def emitCodeFromStatements(reader, builder, statements):
     for tree in statements:
         if isinstance(tree, AssignmentNode):
             try:
-                lhs = createStorage(tree.lhs, context)
+                lhs = createStorage(tree.lhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,
@@ -500,7 +509,7 @@ def emitCodeFromStatements(reader, builder, statements):
         elif isinstance(tree, DefinitionNode):
             # Constant/reference/variable definition.
             try:
-                convertDefinition(tree, context)
+                convertDefinition(tree, builder)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.

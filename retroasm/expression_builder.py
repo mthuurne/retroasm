@@ -22,7 +22,7 @@ class BadExpression(Exception):
         Exception.__init__(self, msg)
         self.location = location
 
-def convertDefinition(node, context):
+def convertDefinition(node, builder):
     # Determine type.
     try:
         typ = parseTypeDecl(node.decl.name)
@@ -40,12 +40,12 @@ def convertDefinition(node, context):
     kind = node.kind
     value = node.value
     if kind is DefinitionKind.constant:
-        expr = createExpression(value, context)
+        expr = createExpression(value, builder.context)
         declWidth = typ.width
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
     elif kind is DefinitionKind.reference:
-        expr = createStorage(value, context)
+        expr = createStorage(value, builder)
         if not checkStorage(expr):
             raise BadExpression(
                 'value for reference "%s" is not a storage' % name,
@@ -65,19 +65,13 @@ def convertDefinition(node, context):
     # Add definition to context.
     try:
         if kind is DefinitionKind.constant:
-            return context.addConstant(name, expr)
+            return builder.defineConstant(name, expr)
         elif kind is DefinitionKind.reference:
-            return context.addReference(name, expr)
+            return builder.defineReference(name, expr)
         elif kind is DefinitionKind.variable:
-            return context.addVariable(name, typ)
+            return builder.defineVariable(name, typ)
         else:
             assert False, kind
-    except AttributeError:
-        raise BadExpression(
-            'attempt to define %s "%s %s" in a context that does not support '
-            '%s definitions' % (kind.name, typ, name, kind.name),
-            node.treeLocation
-            )
     except ValueError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
@@ -212,17 +206,19 @@ def createExpression(node, context):
         assert isinstance(expr, Expression), expr
         return expr
 
-def _convertStorageOperator(node, context):
+def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        return _convertFunctionCall(*node.operands, context=context)
+        return _convertFunctionCall(*node.operands, context=builder.context)
     elif operator is Operator.lookup:
-        return _convertLookup(*node.operands, context=context)
+        return _convertLookup(*node.operands, context=builder.context)
     elif operator is Operator.slice:
-        return _convertSlice(node.location, *node.operands, context=context)
+        return _convertSlice(
+            node.location, *node.operands, context=builder.context
+            )
     elif operator is Operator.concatenation:
         return Concatenation(*(
-            createStorage(node, context)
+            createStorage(node, builder)
             for node in node.operands
             ))
     else:
@@ -231,13 +227,13 @@ def _convertStorageOperator(node, context):
             node.location
             )
 
-def createStorage(node, context):
+def createStorage(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, DefinitionNode):
-        return convertDefinition(node, context)
+        return convertDefinition(node, builder)
     elif isinstance(node, IdentifierNode):
-        expr = _convertIdentifier(node, context)
+        expr = _convertIdentifier(node, builder.context)
         if isinstance(expr, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
@@ -247,6 +243,6 @@ def createStorage(node, context):
             assert isinstance(expr, Expression), expr
             return expr
     elif isinstance(node, OperatorNode):
-        return _convertStorageOperator(node, context)
+        return _convertStorageOperator(node, builder)
     else:
         assert False, node
