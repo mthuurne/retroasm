@@ -365,21 +365,27 @@ def _parse(exprStr, location, statement):
             assert False, token
 
         identifier = IdentifierNode(name, location)
-        if token.eat(Token.bracket, '('):
+        if token.peek(Token.bracket, '('):
             return parseFunctionCall(identifier)
         else:
             return identifier
 
     def parseFunctionCall(name):
-        location = token.location
+        openLocation = token.location
+        if not token.eat(Token.bracket, '('):
+            assert False, token
+
         exprs = [name]
+        closeLocation = token.location
         if not token.eat(Token.bracket, ')'):
             while True:
                 exprs.append(parseTop())
+                closeLocation = token.location
                 if token.eat(Token.bracket, ')'):
                     break
                 if not token.eat(Token.separator, ','):
                     raise badTokenKind('function call arguments', '"," or ")"')
+        location = _mergeSpan(openLocation, closeLocation)
         return OperatorNode(Operator.call, exprs, location)
 
     def parseNumber():
