@@ -118,7 +118,14 @@ def _convertLookup(exprNode, indexNode, context):
         return IOReference(expr, index)
     else:
         assert isinstance(expr, Expression), expr
-        return Slice(expr, index, 1)
+        try:
+            indexInt = index.simplify().value
+        except AttributeError:
+            raise BadExpression(
+                'bit index is not constant: %s' % index,
+                indexNode.treeLocation
+                )
+        return Slice(expr, indexInt, 1)
 
 def _convertSlice(location, exprNode, startNode, endNode, context):
     expr = createExpression(exprNode, context)
