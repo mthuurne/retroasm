@@ -7,7 +7,7 @@ from .expression_parser import (
     OperatorNode
     )
 from .function import Function, FunctionCall
-from .storage import IOChannel, IOReference, checkStorage
+from .storage import IOChannel, IOReference, ReferencedValue, checkStorage
 from .types import IntType, Reference, parseType, parseTypeDecl, unlimited
 
 class BadExpression(Exception):
@@ -65,11 +65,17 @@ def convertDefinition(node, builder):
     # Add definition to context.
     try:
         if kind is DefinitionKind.constant:
-            return builder.defineConstant(name, expr)
+            value = expr.substitute(builder.constifyReferences)
+            const = builder.emitCompute(value)
+            builder.context[name] = const
+            return const
         elif kind is DefinitionKind.reference:
-            return builder.defineReference(name, expr)
+            ref = expr.substitute(builder.constifyIOIndices)
+            builder.context[name] = ref
+            return ref
         elif kind is DefinitionKind.variable:
-            return builder.defineVariable(name, typ)
+            rid = builder.emitVariable(name, typ)
+            return ReferencedValue(rid, typ)
         else:
             assert False, kind
     except ValueError as ex:

@@ -53,6 +53,12 @@ class _CodeBlockContext:
         except KeyError:
             return self._importReference(self.globalContext[key])
 
+    def __setitem__(self, key, value):
+        localContext = self.localContext
+        if key in localContext:
+            raise ValueError('attempt to redefine "%s"' % key)
+        localContext[key] = value
+
     def _importReference(self, ref):
         '''Imports named references in the given reference expression into
         the local context.
@@ -62,10 +68,15 @@ class _CodeBlockContext:
         if isinstance(ref, NamedValue):
             # While the initial call to this method happens when the name is
             # not found, there could be name matches on recursive calls.
+            name = ref.name
             try:
-                return self.localContext[ref.name]
+                return self.localContext[name]
             except KeyError:
-                return self._addNamedReference(ref)
+                # pylint: disable=protected-access
+                rid = self.builder._emitReference(ref)
+                refVal = ReferencedValue(rid, ref.type)
+                self.localContext[name] = refVal
+                return refVal
         elif isinstance(ref, Concatenation):
             return Concatenation(*(
                 self._importReference(expr)
@@ -73,36 +84,6 @@ class _CodeBlockContext:
                 ))
         else:
             return ref
-
-    def _addNamedReference(self, ref):
-        name = ref.name
-        if name in self.localContext:
-            raise ValueError('attempt to redefine "%s"' % name)
-        # pylint: disable=protected-access
-        rid = self.builder._emitReference(ref)
-        refVal = ReferencedValue(rid, ref.type)
-        self.localContext[name] = refVal
-        return refVal
-
-    def addConstant(self, name, value):
-        builder = self.builder
-        const = builder.emitCompute(
-            value.substitute(builder.constifyReferences)
-            )
-        if name in self.localContext:
-            raise ValueError('attempt to redefine "%s"' % name)
-        self.localContext[name] = const
-        return const
-
-    def addReference(self, name, ref):
-        refConstIndices = ref.substitute(self.builder.constifyIOIndices)
-        if name in self.localContext:
-            raise ValueError('attempt to redefine "%s"' % name)
-        self.localContext[name] = refConstIndices
-        return refConstIndices
-
-    def addVariable(self, name, typ):
-        return self._addNamedReference(Variable(name, typ))
 
 class CodeBlockBuilder:
 
@@ -142,15 +123,6 @@ class CodeBlockBuilder:
 
     def getLocation(self):
         return None if self.reader is None else self.reader.getLocation()
-
-    def defineConstant(self, name, value):
-        return self.context.addConstant(name, value)
-
-    def defineReference(self, name, ref):
-        return self.context.addReference(name, ref)
-
-    def defineVariable(self, name, typ):
-        return self.context.addVariable(name, typ)
 
     def createCodeBlock(self):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -255,8 +227,9 @@ class CodeBlockBuilder:
         return rid
 
     def _addNamedReference(self, ref):
-        # pylint: disable=protected-access
-        return self.context._addNamedReference(ref).rid
+        rid = self._emitReference(ref)
+        self.context[ref.name] = ReferencedValue(rid, ref.type)
+        return rid
 
     def emitVariable(self, name, refType):
         return self._addNamedReference(Variable(name, refType))
