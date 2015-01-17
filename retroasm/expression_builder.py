@@ -167,7 +167,10 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
                 endNode.treeLocation
                 )
 
-    return Slice(expr, index, width)
+    try:
+        return Slice(expr, index, width)
+    except ValueError as ex:
+        raise BadExpression('invalid slice: %s' % ex, location)
 
 def _convertOperator(node, context):
     operator = node.operator
