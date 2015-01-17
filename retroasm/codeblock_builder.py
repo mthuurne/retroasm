@@ -257,9 +257,8 @@ class CodeBlockBuilder:
         return rid
 
     def emitIOReference(self, channel, index):
-        indexConst = self.emitCompute(index)
-        ioref = IOReference(channel, indexConst)
-        return self._emitReference(ioref)
+        indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
+        return self._emitReference(IOReference(channel, indexConst))
 
     def _handleError(self, msg):
         if self.reader is None:
@@ -278,10 +277,7 @@ class CodeBlockBuilder:
                 self._handleError('function return value "ret" is write-only')
             return self.emitLoad(rid)
         elif isinstance(expr, IOReference):
-            index = Truncation(
-                expr.index.substitute(self.constifyReferences),
-                expr.channel.addrType.width
-                )
+            index = expr.index.substitute(self.constifyReferences)
             return self.emitLoad(self.emitIOReference(expr.channel, index))
         elif isinstance(expr, FunctionCall):
             func = expr.func

@@ -233,10 +233,9 @@ def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
     expr = _createTop(exprNode, builder.context)
     if isinstance(expr, IOChannel):
-        addrWidth = expr.addrType.width
         index = buildExpression(indexNode, builder)
-        indexConst = builder.emitCompute(Truncation(index, addrWidth))
-        return IOReference(expr, indexConst)
+        rid = builder.emitIOReference(expr, index)
+        return ReferencedValue(rid, expr.elemType)
     else:
         raise BadExpression(
             'slicing on the storage side is not supported yet',
