@@ -119,6 +119,18 @@ def getSpan(location):
     '''
     return location.get('readerColSpan')
 
+def getText(location):
+    '''Returns the text described by the given location: the spanned substring
+    if span information is available, otherwise the full line.
+    '''
+    line = location['readerLastline']
+    try:
+        span = location['readerColSpan']
+    except KeyError:
+        return line
+    else:
+        return line[slice(*span)]
+
 def updateSpan(location, span):
     '''Adds or updates the column span information of a location.
     Returns an updated location object; the original is unmodified.

@@ -7,6 +7,7 @@ from .expression_parser import (
     OperatorNode
     )
 from .function import Function, FunctionCall
+from .linereader import getText
 from .storage import IOChannel, IOReference, ReferencedValue, checkStorage
 from .types import IntType, parseTypeDecl, unlimited
 
@@ -17,6 +18,10 @@ class BadExpression(Exception):
     that can be used with LineReader, or None if this information is not
     available.
     '''
+
+    @classmethod
+    def withText(cls, msg, location):
+        return cls('%s: %s' % (msg, getText(location)), location)
 
     def __init__(self, msg, location=None):
         Exception.__init__(self, msg)
@@ -121,8 +126,8 @@ def _convertLookup(exprNode, indexNode, context):
         try:
             indexInt = index.simplify().value
         except AttributeError:
-            raise BadExpression(
-                'bit index is not constant: %s' % index,
+            raise BadExpression.withText(
+                'bit index is not constant',
                 indexNode.treeLocation
                 )
         return Slice(expr, indexInt, 1)
@@ -138,17 +143,17 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         try:
             index = start.value
         except AttributeError:
-            raise BadExpression(
-                'start index is not constant: %s' % start,
+            raise BadExpression.withText(
+                'start index is not constant',
                 startNode.treeLocation
                 )
 
     if endNode is None:
         width = expr.width
         if width is unlimited:
-            raise BadExpression(
+            raise BadExpression.withText(
                 'omitting the end index not allowed when slicing '
-                'an unlimited width expression: %s' % expr,
+                'an unlimited width expression',
                 location
                 )
     else:
@@ -157,8 +162,8 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
         try:
             width = end.value - index
         except AttributeError:
-            raise BadExpression(
-                'end index is not constant: %s' % end,
+            raise BadExpression.withText(
+                'end index is not constant',
                 endNode.treeLocation
                 )
 
@@ -241,7 +246,7 @@ def _convertStorageOperator(node, builder):
             for node in node.operands
             ))
     else:
-        raise BadExpression(
+        raise BadExpression.withText(
             'operator (%s) is not allowed here' % operator.name,
             node.location
             )
