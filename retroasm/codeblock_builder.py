@@ -271,12 +271,6 @@ class CodeBlockBuilder:
         '''Returns the given expression, with all reads of references replaced
         by loaded constants.
         '''
-        subst = self.constifyIOIndices(expr)
-        if subst is not None:
-            expr = subst
-        # pylint: disable=no-member
-        # It seems the type inference ignores isinstance() and deduces the wrong
-        # types, leading to false positives.
         if isinstance(expr, ReferencedValue):
             rid = expr.rid
             ref = self.references[rid]
@@ -284,7 +278,11 @@ class CodeBlockBuilder:
                 self._handleError('function return value "ret" is write-only')
             return self.emitLoad(rid)
         elif isinstance(expr, IOReference):
-            return self.emitLoad(self._emitReference(expr))
+            index = Truncation(
+                expr.index.substitute(self.constifyReferences),
+                expr.channel.addrType.width
+                )
+            return self.emitLoad(self.emitIOReference(expr.channel, index))
         elif isinstance(expr, FunctionCall):
             func = expr.func
             argMap = {}
@@ -314,19 +312,6 @@ class CodeBlockBuilder:
                     return None
                 else:
                     return self.inlineBlock(code, argMap)
-        else:
-            return None
-
-    def constifyIOIndices(self, expr):
-        '''Returns the given expression, with all I/O indices replaced by
-        computed constants.
-        '''
-        if isinstance(expr, IOReference):
-            index = self.emitCompute(Truncation(
-                expr.index.substitute(self.constifyReferences),
-                expr.channel.addrType.width
-                ))
-            return IOReference(expr.channel, index)
         else:
             return None
 

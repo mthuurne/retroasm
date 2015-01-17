@@ -45,12 +45,12 @@ def convertDefinition(node, builder):
     kind = node.kind
     value = node.value
     if kind is DefinitionKind.constant:
-        expr = createExpression(value, builder.context)
+        expr = buildExpression(value, builder)
         declWidth = typ.width
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
     elif kind is DefinitionKind.reference:
-        expr = _createStorage(value, builder)
+        expr = buildStorage(value, builder)
         if not checkStorage(expr):
             raise BadExpression(
                 'value for reference "%s" is not a storage' % name,
@@ -70,14 +70,12 @@ def convertDefinition(node, builder):
     # Add definition to context.
     try:
         if kind is DefinitionKind.constant:
-            value = expr.substitute(builder.constifyReferences)
-            const = builder.emitCompute(value)
-            builder.context[name] = const
+            const = builder.emitCompute(expr)
+            builder.context[name] = expr
             return const
         elif kind is DefinitionKind.reference:
-            ref = expr.substitute(builder.constifyIOIndices)
-            builder.context[name] = ref
-            return ref
+            builder.context[name] = expr
+            return expr
         elif kind is DefinitionKind.variable:
             rid = builder.emitVariable(name, typ)
             return ReferencedValue(rid, typ)
@@ -229,23 +227,39 @@ def createExpression(node, context):
 
 def buildExpression(node, builder):
     expr = createExpression(node, builder.context)
-    # Substitute LoadedConstants for all references, such that we have
-    # a side-effect free version of the right hand side expression.
     return expr.substitute(builder.constifyReferences)
+
+def _convertStorageLookup(node, builder):
+    exprNode, indexNode = node.operands
+    expr = _createTop(exprNode, builder.context)
+    if isinstance(expr, IOChannel):
+        addrWidth = expr.addrType.width
+        index = buildExpression(indexNode, builder)
+        indexConst = builder.emitCompute(Truncation(index, addrWidth))
+        return IOReference(expr, indexConst)
+    else:
+        raise BadExpression(
+            'slicing on the storage side is not supported yet',
+            node.location
+            )
 
 def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        return _convertFunctionCall(*node.operands, context=builder.context)
+        raise BadExpression(
+            'function calls on the storage side are not supported yet',
+            node.treeLocation
+            )
     elif operator is Operator.lookup:
-        return _convertLookup(*node.operands, context=builder.context)
+        return _convertStorageLookup(node, builder)
     elif operator is Operator.slice:
-        return _convertSlice(
-            node.location, *node.operands, context=builder.context
+        raise BadExpression(
+            'slicing on the storage side is not supported yet',
+            node.location
             )
     elif operator is Operator.concatenation:
         return Concatenation(*(
-            _createStorage(node, builder)
+            buildStorage(node, builder)
             for node in node.operands
             ))
     else:
@@ -254,7 +268,7 @@ def _convertStorageOperator(node, builder):
             node.location
             )
 
-def _createStorage(node, builder):
+def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, DefinitionNode):
@@ -273,9 +287,3 @@ def _createStorage(node, builder):
         return _convertStorageOperator(node, builder)
     else:
         assert False, node
-
-def buildStorage(node, builder):
-    expr = _createStorage(node, builder)
-    # Constify the I/O indices to force emission of all loads before
-    # we emit any stores.
-    return expr.substitute(builder.constifyIOIndices)
