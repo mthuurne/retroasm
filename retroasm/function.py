@@ -1,9 +1,6 @@
 from .codeblock import ArgumentConstant
-from .expression import Expression
-from .storage import LocalReference, checkStorage
+from .storage import LocalReference
 from .types import IntType, Reference
-
-from inspect import signature
 
 class Function:
 
@@ -83,77 +80,3 @@ class Function:
         else:
             assert False, arg
         return None
-
-class FunctionCall(Expression):
-    '''Expression that represents the value returned by a user-defined function.
-    '''
-    __slots__ = ('_func', '_args')
-
-    func = property(lambda self: self._func)
-    args = property(lambda self: self._args)
-
-    def __init__(self, func, args):
-        if not isinstance(func, Function):
-            raise TypeError('func must be Function, got %s' % type(func))
-        if len(args) != len(func.args):
-            raise ValueError(
-                'argument count mismatch: %s takes %d argument(s), '
-                'but %d argument(s) provided'
-                % (func.name, len(func.args), len(args))
-                )
-        Expression.__init__(self, func.retType)
-        self._func = func
-        self._args = tuple(Expression.checkScalar(arg) for arg in args)
-        for i, (name, decl, value) in enumerate(self.iterArgNameDeclValue(), 1):
-            if isinstance(decl, Reference):
-                if not checkStorage(value):
-                    raise ValueError(
-                        'value for argument %d ("%s") is not a storage '
-                        'location: %s'
-                        % (i, name, value)
-                        )
-                if value.type != decl.type:
-                    raise ValueError(
-                        'argument %d ("%s") has type "%s", '
-                        'but the provided storage ("%s") has type "%s"'
-                        % (i, name, decl, value, value.type)
-                        )
-
-    def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
-        if exprs:
-            raise ValueError('%s does not take star args' % cls.__name__)
-        kwargs.setdefault('func', self._func)
-        kwargs.setdefault('args', self._args)
-        return signature(cls).bind(**kwargs)
-
-    def __str__(self):
-        return '%s(%s)' % (
-            self._func.name,
-            ', '.join(str(arg) for arg in self._args)
-            )
-
-    def _equals(self, other):
-        return ( # pylint: disable=protected-access
-            self._func is other._func and
-            len(self._args) == len(other._args) and
-            all(arg1 == arg2 for arg1, arg2 in zip(self._args, other._args))
-            )
-
-    def _checkScalar(self):
-        if self._type is None:
-            raise ValueError(
-                'attempt to use result of function "%s" that returns no value'
-                % self._func.name
-                )
-
-    def _complexity(self):
-        # Functions will be inlined when forming code blocks.
-        return 1 << 50
-
-    def iterArgNameDeclValue(self):
-        '''Iterates through the arguments of this function call, where each
-        element is a tuple of the name, declaration and value of the argument.
-        '''
-        for (name, decl), value in zip(self._func.args.items(), self._args):
-            yield name, decl, value

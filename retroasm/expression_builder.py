@@ -6,10 +6,10 @@ from .expression_parser import (
     DefinitionNode, DefinitionKind, IdentifierNode, NumberNode, Operator,
     OperatorNode
     )
-from .function import Function, FunctionCall
+from .function import Function
 from .linereader import getText
-from .storage import IOChannel, IOReference, ReferencedValue, checkStorage
-from .types import IntType, parseTypeDecl, unlimited
+from .storage import IOChannel, ReferencedValue, Variable, checkStorage
+from .types import IntType, Reference, parseTypeDecl, unlimited
 
 class BadExpression(Exception):
     '''Raised when the input text cannot be parsed into an expression.
@@ -87,56 +87,114 @@ def convertDefinition(node, builder):
             nameNode.location
             )
 
-def _convertIdentifier(node, context):
+def _convertIdentifier(node, builder):
     name = node.name
     try:
-        value = context[name]
+        value = builder.context[name]
     except KeyError:
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
-        raise BadExpression(
-            'function "%s" is not called' % name, node.location
-            )
+        raise BadExpression('function "%s" is not called' % name, node.location)
     else:
         return value
 
-def _convertFunctionCall(nameNode, *argNodes, context):
+def _constifyIdentifier(node, builder):
+    ident = _convertIdentifier(node, builder)
+    if isinstance(ident, IOChannel):
+        return ident
+    def constify(expr):
+        if isinstance(expr, ReferencedValue):
+            rid = expr.rid
+            ref = builder.references[rid]
+            if isinstance(ref, Variable) and ref.name == 'ret':
+                raise BadExpression(
+                    'function return value "ret" is write-only',
+                    node.location
+                    )
+            return builder.emitLoad(rid)
+        return None
+    return ident.substitute(constify)
+
+def _convertFunctionCall(nameNode, *argNodes, builder):
+    # Get function object.
     assert isinstance(nameNode, IdentifierNode), nameNode
-    name = nameNode.name
-
+    funcName = nameNode.name
     try:
-        func = context[nameNode.name]
+        func = builder.context[funcName]
     except KeyError:
-        raise BadExpression('no function named "%s"' % name, nameNode.location)
+        raise BadExpression(
+            'no function named "%s"' % funcName,
+            nameNode.location
+            )
     if not isinstance(func, Function):
-        raise BadExpression('"%s" is not a function' % name, nameNode.location)
+        raise BadExpression(
+            '"%s" is not a function' % funcName,
+            nameNode.location
+            )
 
-    args = tuple(createExpression(node, context) for node in argNodes)
-    return FunctionCall(func, args)
+    # Fill argument map.
+    if len(argNodes) != len(func.args):
+        raise BadExpression(
+            'argument count mismatch: %s takes %d argument(s), '
+            'while call provides %d argument(s)'
+            % (funcName, len(func.args), len(argNodes))
+            )
+    argMap = {}
+    for (name, decl), argNode in zip(func.args.items(), argNodes):
+        if isinstance(decl, IntType):
+            value = buildExpression(argNode, builder)
+            argMap[name] = builder.emitCompute(value)
+        elif isinstance(decl, Reference):
+            value = buildStorage(argNode, builder)
+            if not checkStorage(value):
+                raise BadExpression.withText(
+                    'non-storage value passed for reference argument "%s %s"'
+                    % (decl, name),
+                    argNode.treeLocation
+                    )
+            elif value.type is not decl.type:
+                raise BadExpression.withText(
+                    'storage of type "%s" passed for reference argument "%s %s"'
+                    % (value.type, name, decl),
+                    argNode.treeLocation
+                    )
+            else:
+                argMap[name] = value
+        else:
+            assert False, decl
 
-def _convertLookup(exprNode, indexNode, context):
-    expr = _createTop(exprNode, context)
-    index = createExpression(indexNode, context)
-    if isinstance(expr, IOChannel):
-        return IOReference(expr, index)
+    # Inline function call.
+    code = func.code
+    if code is None:
+        # Missing body, probably because of earlier errors.
+        return IntLiteral.create(0)
     else:
-        assert isinstance(expr, Expression), expr
-        try:
-            indexInt = index.simplify().value
-        except AttributeError:
-            raise BadExpression.withText(
-                'bit index is not constant',
-                indexNode.treeLocation
-                )
-        return Slice(expr, indexInt, 1)
+        return builder.inlineBlock(code, argMap)
 
-def _convertSlice(location, exprNode, startNode, endNode, context):
-    expr = createExpression(exprNode, context)
+def _convertLookup(exprNode, indexNode, builder):
+    index = buildExpression(indexNode, builder)
+    if isinstance(exprNode, IdentifierNode):
+        expr = _constifyIdentifier(exprNode, builder)
+        if isinstance(expr, IOChannel):
+            return builder.emitLoad(builder.emitIOReference(expr, index))
+    else:
+        expr = buildExpression(exprNode, builder)
+    try:
+        indexInt = index.simplify().value
+    except AttributeError:
+        raise BadExpression.withText(
+            'bit index is not constant',
+            indexNode.treeLocation
+            )
+    return Slice(expr, indexInt, 1)
+
+def _convertSlice(location, exprNode, startNode, endNode, builder):
+    expr = buildExpression(exprNode, builder)
 
     if startNode is None:
         index = 0
     else:
-        start = createExpression(startNode, context)
+        start = buildExpression(startNode, builder)
         start = start.simplify()
         try:
             index = start.value
@@ -155,7 +213,7 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
                 location
                 )
     else:
-        end = createExpression(endNode, context)
+        end = buildExpression(endNode, builder)
         end = end.simplify()
         try:
             width = end.value - index
@@ -170,16 +228,16 @@ def _convertSlice(location, exprNode, startNode, endNode, context):
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, location)
 
-def _convertOperator(node, context):
+def _convertOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        return _convertFunctionCall(*node.operands, context=context)
+        return _convertFunctionCall(*node.operands, builder=builder)
     elif operator is Operator.lookup:
-        return _convertLookup(*node.operands, context=context)
+        return _convertLookup(*node.operands, builder=builder)
     elif operator is Operator.slice:
-        return _convertSlice(node.location, *node.operands, context=context)
+        return _convertSlice(node.location, *node.operands, builder=builder)
 
-    exprs = tuple(createExpression(node, context) for node in node.operands)
+    exprs = tuple(buildExpression(node, builder) for node in node.operands)
     if operator is Operator.bitwise_and:
         return AndOperator(*exprs)
     elif operator is Operator.bitwise_or:
@@ -198,13 +256,19 @@ def _convertOperator(node, context):
     else:
         assert False, operator
 
-def _createTop(node, context):
+def buildExpression(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, IdentifierNode):
-        return _convertIdentifier(node, context)
+        expr = _constifyIdentifier(node, builder)
+        if isinstance(expr, IOChannel):
+            raise BadExpression(
+                'I/O channel "%s" can only be used for lookup' % node.name,
+                node.location
+                )
+        return expr
     elif isinstance(node, OperatorNode):
-        return _convertOperator(node, context)
+        return _convertOperator(node, builder)
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
             '%s definition not allowed here' % node.kind.name,
@@ -213,34 +277,19 @@ def _createTop(node, context):
     else:
         assert False, node
 
-def createExpression(node, context):
-    expr = _createTop(node, context)
-    if isinstance(expr, IOChannel):
-        assert isinstance(node, IdentifierNode), node
-        raise BadExpression(
-            'I/O channel "%s" can only be used for lookup' % node.name,
-            node.location
-            )
-    else:
-        assert isinstance(expr, Expression), expr
-        return expr
-
-def buildExpression(node, builder):
-    expr = createExpression(node, builder.context)
-    return expr.substitute(builder.constifyReferences)
-
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
-    expr = _createTop(exprNode, builder.context)
-    if isinstance(expr, IOChannel):
-        index = buildExpression(indexNode, builder)
-        rid = builder.emitIOReference(expr, index)
-        return ReferencedValue(rid, expr.elemType)
-    else:
-        raise BadExpression(
-            'slicing on the storage side is not supported yet',
-            node.location
-            )
+    if isinstance(exprNode, IdentifierNode):
+        ident = _convertIdentifier(exprNode, builder)
+        if isinstance(ident, IOChannel):
+            channel = ident
+            index = buildExpression(indexNode, builder)
+            rid = builder.emitIOReference(channel, index)
+            return ReferencedValue(rid, channel.elemType)
+    raise BadExpression(
+        'slicing on the storage side is not supported yet',
+        node.location
+        )
 
 def _convertStorageOperator(node, builder):
     operator = node.operator
@@ -263,8 +312,8 @@ def _convertStorageOperator(node, builder):
             ))
     else:
         raise BadExpression.withText(
-            'operator (%s) is not allowed here' % operator.name,
-            node.location
+            'expected storage, found operator (%s)' % operator.name,
+            node.treeLocation
             )
 
 def buildStorage(node, builder):
@@ -273,7 +322,7 @@ def buildStorage(node, builder):
     elif isinstance(node, DefinitionNode):
         return convertDefinition(node, builder)
     elif isinstance(node, IdentifierNode):
-        expr = _convertIdentifier(node, builder.context)
+        expr = _convertIdentifier(node, builder)
         if isinstance(expr, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,

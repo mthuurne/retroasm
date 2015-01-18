@@ -10,12 +10,10 @@ from .expression_builder import (
     BadExpression, buildExpression, buildStorage, convertDefinition
     )
 from .expression_parser import AssignmentNode, DefinitionNode
-from .function import FunctionCall
 from .storage import (
-    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
-    checkStorage
+    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable
     )
-from .types import IntType, Reference, unlimited
+from .types import IntType, unlimited
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
@@ -259,57 +257,6 @@ class CodeBlockBuilder:
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
         return self._emitReference(IOReference(channel, indexConst))
-
-    def _handleError(self, msg):
-        if self.reader is None:
-            raise ValueError(msg)
-        else:
-            self.reader.error(msg)
-
-    def constifyReferences(self, expr):
-        '''Returns the given expression, with all reads of references replaced
-        by loaded constants.
-        '''
-        if isinstance(expr, ReferencedValue):
-            rid = expr.rid
-            ref = self.references[rid]
-            if isinstance(ref, Variable) and ref.name == 'ret':
-                self._handleError('function return value "ret" is write-only')
-            return self.emitLoad(rid)
-        elif isinstance(expr, IOReference):
-            index = expr.index.substitute(self.constifyReferences)
-            return self.emitLoad(self.emitIOReference(expr.channel, index))
-        elif isinstance(expr, FunctionCall):
-            func = expr.func
-            argMap = {}
-            errors = False
-            for name, decl, value in expr.iterArgNameDeclValue():
-                if isinstance(decl, IntType):
-                    argMap[name] = self.emitCompute(
-                        value.substitute(self.constifyReferences)
-                        )
-                elif isinstance(decl, Reference):
-                    if checkStorage(value):
-                        argMap[name] = value
-                    else:
-                        errors = True
-                        self._handleError(
-                            'non-storage argument "%s" for reference '
-                            'argument "%s %s"' % (value, decl, name)
-                            )
-                else:
-                    assert False, decl
-            if errors:
-                return None
-            else:
-                code = func.code
-                if code is None:
-                    # Missing body, probably because of earlier errors.
-                    return None
-                else:
-                    return self.inlineBlock(code, argMap)
-        else:
-            return None
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
