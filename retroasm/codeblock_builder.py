@@ -4,27 +4,13 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
+    Concatenation, LShift, OrOperator, Slice, Truncation, unit
     )
 from .storage import (
-    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable
+    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
+    decomposeConcat
     )
 from .types import IntType, unlimited
-
-def decomposeConcat(storage):
-    '''Iterates through the storage locations inside a concatenation.
-    Each element is a pair of a Storage and an offset.
-    '''
-    if isinstance(storage, IntLiteral):
-        pass
-    elif isinstance(storage, (IOReference, ReferencedValue)):
-        yield storage, 0
-    elif isinstance(storage, Concatenation):
-        for concatTerm, concatOffset in storage.iterWithOffset():
-            for storage, offset in decomposeConcat(concatTerm):
-                yield storage, concatOffset + offset
-    else:
-        raise ValueError('non-storage expression: %s' % storage)
 
 class _CodeBlockContext:
     '''A cache for local references and on-demand imported global references.
@@ -189,22 +175,6 @@ class CodeBlockBuilder:
         '''
         constant = self.emitCompute(expr)
         self.nodes.append(Store(constant.cid, rid))
-
-    def emitAssignment(self, lhs, rhs):
-        '''Adds a node that stores a value in the referenced storage.
-        '''
-        rhsConst = self.emitCompute(rhs)
-        for storage, offset in decomposeConcat(lhs):
-            if isinstance(storage, ReferencedValue):
-                rid = storage.rid
-            elif isinstance(storage, IOReference):
-                rid = self._emitReference(storage)
-            else:
-                assert False, storage
-            self.emitStore(
-                rid,
-                self.emitCompute(Slice(rhsConst, offset, storage.width))
-                )
 
     def _emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.

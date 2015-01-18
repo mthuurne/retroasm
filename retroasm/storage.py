@@ -1,4 +1,4 @@
-from .expression import Concatenation, Expression
+from .expression import Concatenation, Expression, IntLiteral
 from .types import IntType
 
 from inspect import signature
@@ -179,6 +179,21 @@ def checkStorage(storage):
         isinstance(storage, Concatenation)
         and all(checkStorage(expr) for expr in storage.exprs)
         )
+
+def decomposeConcat(storage):
+    '''Iterates through the storage locations inside a concatenation.
+    Each element is a pair of a Storage and an offset.
+    '''
+    if isinstance(storage, IntLiteral):
+        pass
+    elif isinstance(storage, (IOReference, ReferencedValue)):
+        yield storage, 0
+    elif isinstance(storage, Concatenation):
+        for concatTerm, concatOffset in storage.iterWithOffset():
+            for storage, offset in decomposeConcat(concatTerm):
+                yield storage, concatOffset + offset
+    else:
+        raise ValueError('non-storage expression: %s' % storage)
 
 class Variable(NamedValue, Storage):
     '''A variable in the local context.

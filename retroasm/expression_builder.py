@@ -8,7 +8,9 @@ from .expression_parser import (
     )
 from .function import Function
 from .linereader import getText
-from .storage import IOChannel, ReferencedValue, Variable, checkStorage
+from .storage import (
+    IOChannel, ReferencedValue, Variable, checkStorage, decomposeConcat
+    )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
 class BadExpression(Exception):
@@ -339,7 +341,6 @@ def buildStorage(node, builder):
 def emitCodeFromStatements(reader, builder, statements):
     '''Emits a code block from the given statements.
     '''
-
     for node in statements:
         if isinstance(node, AssignmentNode):
             try:
@@ -354,6 +355,7 @@ def emitCodeFromStatements(reader, builder, statements):
                 # Assigning to a literal inside a concatenation can be useful,
                 # but assigning to only a literal is probably a mistake.
                 reader.warning('assigning to literal has no effect')
+
             try:
                 rhs = buildExpression(node.rhs, builder)
             except BadExpression as ex:
@@ -362,6 +364,24 @@ def emitCodeFromStatements(reader, builder, statements):
                     location=ex.location
                     )
                 continue
+            else:
+                rhsConst = builder.emitCompute(rhs)
+
+            try:
+                for storage, offset in decomposeConcat(lhs):
+                    if isinstance(storage, ReferencedValue):
+                        rid = storage.rid
+                    elif isinstance(storage, IOReference):
+                        rid = builder._emitReference(storage)
+                    else:
+                        assert False, storage
+                    sliced = builder.emitCompute(
+                        Slice(rhsConst, offset, storage.width)
+                        )
+                    builder.emitStore(rid, sliced)
+            except ValueError as ex:
+                reader.error('error on left hand side of assignment: %s', ex)
+
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.
             try:
@@ -369,22 +389,15 @@ def emitCodeFromStatements(reader, builder, statements):
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.
-            continue
+
         else:
-            lhs = None
             try:
-                rhs = buildExpression(node, builder)
+                expr = buildExpression(node, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression in statement: %s', ex,
                     location=ex.location
                     )
-                continue
-            if rhs.type is not None:
-                reader.warning('result is ignored')
-
-        if lhs is not None:
-            try:
-                builder.emitAssignment(lhs, rhs)
-            except ValueError as ex:
-                reader.error('error on left hand side of assignment: %s', ex)
+            else:
+                if expr.type is not None:
+                    reader.warning('result is ignored')
