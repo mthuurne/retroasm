@@ -6,10 +6,6 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
     Concatenation, IntLiteral, LShift, OrOperator, Slice, Truncation, unit
     )
-from .expression_builder import (
-    BadExpression, buildExpression, buildStorage, convertDefinition
-    )
-from .expression_parser import AssignmentNode, DefinitionNode
 from .storage import (
     IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable
     )
@@ -377,58 +373,3 @@ class CodeBlockBuilder:
         else:
             retCid = cidMap[retCid]
             return ConstantValue(retCid, constants[retCid].type)
-
-def emitCodeFromStatements(reader, builder, statements):
-    '''Creates a code block from the given statements.
-    Returns a dictionary that maps each constant ID of a LoadedConstant to the
-    reader location that constant was loaded at.
-    '''
-
-    for tree in statements:
-        if isinstance(tree, AssignmentNode):
-            try:
-                lhs = buildStorage(tree.lhs, builder)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression on left hand side of assignment: %s', ex,
-                    location=ex.location
-                    )
-                continue
-            if isinstance(lhs, IntLiteral):
-                # Assigning to a literal inside a concatenation can be useful,
-                # but assigning to only a literal is probably a mistake.
-                reader.warning('assigning to literal has no effect')
-            try:
-                rhs = buildExpression(tree.rhs, builder)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression on right hand side of assignment: %s', ex,
-                    location=ex.location
-                    )
-                continue
-        elif isinstance(tree, DefinitionNode):
-            # Constant/reference/variable definition.
-            try:
-                convertDefinition(tree, builder)
-            except BadExpression as ex:
-                reader.error(str(ex), location=ex.location)
-            # Don't evaluate the expression, since that could emit loads.
-            continue
-        else:
-            lhs = None
-            try:
-                rhs = buildExpression(tree, builder)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression in statement: %s', ex,
-                    location=ex.location
-                    )
-                continue
-            if rhs.type is not None:
-                reader.warning('result is ignored')
-
-        if lhs is not None:
-            try:
-                builder.emitAssignment(lhs, rhs)
-            except ValueError as ex:
-                reader.error('error on left hand side of assignment: %s', ex)

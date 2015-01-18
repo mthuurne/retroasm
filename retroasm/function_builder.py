@@ -1,4 +1,5 @@
-from .codeblock_builder import CodeBlockBuilder, emitCodeFromStatements
+from .codeblock_builder import CodeBlockBuilder
+from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
