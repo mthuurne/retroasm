@@ -1,8 +1,9 @@
-from .expression_builder import BadExpression, createExpression
+from .codeblock_builder import CodeBlockBuilder
+from .expression_builder import BadExpression, buildStorage
 from .expression_parser import ParseError, parseExpr
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import IOChannel, Register, namePat
+from .storage import IOChannel, ReferencedValue, Register, namePat
 from .types import parseType, parseTypeDecl
 
 from collections import OrderedDict
@@ -91,9 +92,10 @@ def _parseRegs(reader, argStr, context):
                 continue
 
             # Parse right hand side.
+            builder = CodeBlockBuilder(context, reader)
             try:
                 tree = parseExpr(parts[1], reader.getLocation())
-                alias = createExpression(tree, context)
+                alias = buildStorage(tree, builder)
             except (ParseError, BadExpression) as ex:
                 reader.error(str(ex))
                 continue
@@ -102,8 +104,19 @@ def _parseRegs(reader, argStr, context):
                     'alias has declared type %s but actual type %s'
                     % (aliasType, alias.type)
                     )
+            elif builder.constants:
+                # TODO: Handle this better.
+                reader.error('alias produces constants')
+            elif builder.nodes:
+                # TODO: Handle this better.
+                reader.error('alias produces nodes')
             else:
-                context[aliasName] = alias
+                def unwrap(expr):
+                    # pylint: disable=cell-var-from-loop
+                    if isinstance(expr, ReferencedValue):
+                        return builder.references[expr.rid]
+                    return None
+                context[aliasName] = alias.substitute(unwrap)
         else:
             reader.error('register definition line with multiple "="')
 
