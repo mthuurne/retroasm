@@ -343,6 +343,8 @@ def emitCodeFromStatements(reader, builder, statements):
     '''Emits a code block from the given statements.
     '''
     for node in statements:
+        numNodesBefore = len(builder.nodes)
+
         if isinstance(node, AssignmentNode):
             try:
                 lhs = buildStorage(node.lhs, builder)
@@ -352,10 +354,6 @@ def emitCodeFromStatements(reader, builder, statements):
                     location=ex.location
                     )
                 continue
-            if isinstance(lhs, IntLiteral):
-                # Assigning to a literal inside a concatenation can be useful,
-                # but assigning to only a literal is probably a mistake.
-                reader.warning('assigning to literal has no effect')
 
             try:
                 rhs = buildExpression(node.rhs, builder)
@@ -382,6 +380,7 @@ def emitCodeFromStatements(reader, builder, statements):
                     builder.emitStore(rid, sliced)
             except ValueError as ex:
                 reader.error('error on left hand side of assignment: %s', ex)
+                continue
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.
@@ -390,10 +389,10 @@ def emitCodeFromStatements(reader, builder, statements):
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.
+            continue
 
         else:
             # Evaluate statement for its side effects.
-            numNodesBefore = len(builder.nodes)
             try:
                 buildExpression(node, builder)
             except BadExpression as ex:
@@ -403,12 +402,12 @@ def emitCodeFromStatements(reader, builder, statements):
                     )
                 continue
 
-            stateChanged = False
-            for execNode in builder.nodes[numNodesBefore:]:
-                if isinstance(execNode, Load):
-                    storage = builder.references[execNode.rid]
-                    stateChanged |= storage.canLoadHaveSideEffect()
-                elif isinstance(execNode, Store):
-                    stateChanged = True
-            if not stateChanged:
-                reader.warning('statement has no effect')
+        stateChanged = False
+        for execNode in builder.nodes[numNodesBefore:]:
+            if isinstance(execNode, Load):
+                storage = builder.references[execNode.rid]
+                stateChanged |= storage.canLoadHaveSideEffect()
+            elif isinstance(execNode, Store):
+                stateChanged = True
+        if not stateChanged:
+            reader.warning('statement has no effect')
