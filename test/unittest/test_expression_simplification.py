@@ -1,6 +1,6 @@
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, Concatenation, IntLiteral,
-    LShift, OrOperator, RShift, Slice, Truncation, XorOperator
+    LShift, OrOperator, RShift, Truncation, XorOperator
     )
 from retroasm.storage import Variable
 from retroasm.types import IntType, unlimited
@@ -89,6 +89,9 @@ class TestUtils(unittest.TestCase):
         else:
             self.assertEqual(expr.expr, subExpr)
         self.assertEqual(expr.width, width)
+
+def makeSlice(expr, index, width):
+    return Truncation(RShift(expr, index), width)
 
 class AndTests(TestUtils):
 
@@ -534,41 +537,41 @@ class SliceTests(TestUtils):
     def test_literals(self):
         '''Slices integer literals.'''
         addr = IntLiteral(0xFD56, IntType(16))
-        self.assertIntLiteral(Slice(addr, 0, 16).simplify(), 0xFD56)
-        self.assertIntLiteral(Slice(addr, 4, 8).simplify(), 0xD5)
-        self.assertIntLiteral(Slice(addr, 8, 12).simplify(), 0x0FD)
+        self.assertIntLiteral(makeSlice(addr, 0, 16).simplify(), 0xFD56)
+        self.assertIntLiteral(makeSlice(addr, 4, 8).simplify(), 0xD5)
+        self.assertIntLiteral(makeSlice(addr, 8, 12).simplify(), 0x0FD)
         signed = IntLiteral.create(-0x1995)
-        self.assertIntLiteral(Slice(signed, 0, 16).simplify(), 0xE66B)
-        self.assertIntLiteral(Slice(signed, 4, 8).simplify(), 0x66)
-        self.assertIntLiteral(Slice(signed, 8, 12).simplify(), 0xFE6)
+        self.assertIntLiteral(makeSlice(signed, 0, 16).simplify(), 0xE66B)
+        self.assertIntLiteral(makeSlice(signed, 4, 8).simplify(), 0x66)
+        self.assertIntLiteral(makeSlice(signed, 8, 12).simplify(), 0xFE6)
 
     def test_zero_width(self):
         '''Takes a slices of width 0.'''
         addr = Variable('A', IntType(16))
-        self.assertIntLiteral(Slice(addr, 8, 0).simplify(), 0)
+        self.assertIntLiteral(makeSlice(addr, 8, 0).simplify(), 0)
 
     def test_full_range(self):
         '''Slices a range that exactly matches a value's type.'''
         addr = Variable('A', IntType(16))
-        self.assertIs(Slice(addr, 0, 16).simplify(), addr)
+        self.assertIs(makeSlice(addr, 0, 16).simplify(), addr)
 
     def test_out_of_range(self):
         '''Slices a range that is fully outside a value's type.'''
         addr = Variable('A', IntType(16))
-        self.assertIntLiteral(Slice(addr, 16, 8).simplify(), 0)
+        self.assertIntLiteral(makeSlice(addr, 16, 8).simplify(), 0)
 
     def test_leading_zeroes(self):
         '''Slices a range that is partially outside a value's type.'''
         addr = Variable('A', IntType(16))
-        expr = Slice(addr, 0, 20).simplify() # $0xxxx
+        expr = makeSlice(addr, 0, 20).simplify() # $0xxxx
         self.assertIs(expr, addr)
-        expr = Slice(addr, 8, 12).simplify() # $0xx
+        expr = makeSlice(addr, 8, 12).simplify() # $0xx
         self.assertSlice(expr, addr, 8, 8)
 
     def test_double_slice(self):
         '''Slices a range from another slice.'''
         addr = Variable('A', IntType(16))
-        expr = Slice(Slice(addr, 3, 10), 2, 6).simplify()
+        expr = makeSlice(makeSlice(addr, 3, 10), 2, 6).simplify()
         self.assertSlice(expr, addr, 5, 6)
 
     def test_concat(self):
@@ -579,24 +582,24 @@ class SliceTests(TestUtils):
         d = Variable('D', IntType(8))
         abcd = Concatenation(a, b, c, d)
         # Test slicing out individual values.
-        self.assertIs(Slice(abcd, 0, 8).simplify(), d)
-        self.assertIs(Slice(abcd, 8, 8).simplify(), c)
-        self.assertIs(Slice(abcd, 16, 8).simplify(), b)
-        self.assertIs(Slice(abcd, 24, 8).simplify(), a)
+        self.assertIs(makeSlice(abcd, 0, 8).simplify(), d)
+        self.assertIs(makeSlice(abcd, 8, 8).simplify(), c)
+        self.assertIs(makeSlice(abcd, 16, 8).simplify(), b)
+        self.assertIs(makeSlice(abcd, 24, 8).simplify(), a)
         # Test slice edges at subexpression boundaries.
-        bc = Slice(abcd, 8, 16).simplify()
+        bc = makeSlice(abcd, 8, 16).simplify()
         self.assertConcat(bc, (b, c))
         self.assertEqual(bc.width, 16)
         # Test one slice edge at subexpression boundaries.
-        self.assertSlice(Slice(abcd, 0, 5).simplify(), d, 0, 5)
-        self.assertSlice(Slice(abcd, 8, 5).simplify(), c, 0, 5)
-        self.assertSlice(Slice(abcd, 19, 5).simplify(), b, 3, 5)
-        self.assertSlice(Slice(abcd, 27, 5).simplify(), a, 3, 5)
+        self.assertSlice(makeSlice(abcd, 0, 5).simplify(), d, 0, 5)
+        self.assertSlice(makeSlice(abcd, 8, 5).simplify(), c, 0, 5)
+        self.assertSlice(makeSlice(abcd, 19, 5).simplify(), b, 3, 5)
+        self.assertSlice(makeSlice(abcd, 27, 5).simplify(), a, 3, 5)
         # Test slice entirely inside one subexpression.
-        self.assertSlice(Slice(abcd, 10, 4).simplify(), c, 2, 4)
+        self.assertSlice(makeSlice(abcd, 10, 4).simplify(), c, 2, 4)
         # Test slice across subexpression boundaries.
         self.assertConcat(
-            Slice(abcd, 10, 9).simplify(),
+            makeSlice(abcd, 10, 9).simplify(),
             (Truncation(b, 3), RShift(c, 2))
             )
 
@@ -607,9 +610,9 @@ class SliceTests(TestUtils):
         hl = Concatenation(h, l)
         # Test whether slicing cuts off L.
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
-        self.assertSlice(Slice(expr1, 8, 6).simplify(), h, 0, 6)
+        self.assertSlice(makeSlice(expr1, 8, 6).simplify(), h, 0, 6)
         # Test whether redundant slicing can be eliminated.
-        self.assertAnd(Slice(AndOperator(h, l), 0, 8).simplify(), h, l)
+        self.assertAnd(makeSlice(AndOperator(h, l), 0, 8).simplify(), h, l)
 
     def test_add(self):
         '''Tests simplification of slicing an addition.'''
@@ -618,14 +621,14 @@ class SliceTests(TestUtils):
         hl = Concatenation(h, l)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
-        up8 = Slice(expr, 8, 8).simplify()
+        up8 = makeSlice(expr, 8, 8).simplify()
         self.assertSlice(up8, expr.simplify(), 8, 8)
         # Successful simplification: slice lowest 8 bits.
-        low8 = Slice(expr, 0, 8).simplify()
+        low8 = makeSlice(expr, 0, 8).simplify()
         add8 = Truncation(AddOperator(l, IntLiteral.create(2)), 8)
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
-        low6 = Slice(expr, 0, 6).simplify()
+        low6 = makeSlice(expr, 0, 6).simplify()
         add6 = Truncation(
             AddOperator(Truncation(l, 6), IntLiteral.create(2)), 6
             )
@@ -643,15 +646,15 @@ class SliceTests(TestUtils):
         hl = Concatenation(h, l)
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
-        up8 = Slice(expr, 8, 8)
+        up8 = makeSlice(expr, 8, 8)
         self.assertSlice(up8.simplify(), expr.simplify(), 8, 8)
         # Successful simplification: slice lowest 8 bits.
-        low8 = Slice(expr, 0, 8).simplify()
+        low8 = makeSlice(expr, 0, 8).simplify()
         cpl8 = Truncation(Complement(l), 8)
         self.assertEqual(str(low8), str(cpl8))
         self.assertEqual(low8, cpl8)
         # Successful simplification: slice lowest 6 bits.
-        low6 = Slice(expr, 0, 6).simplify()
+        low6 = makeSlice(expr, 0, 6).simplify()
         cpl6 = Truncation(Complement(Truncation(l, 6)), 6)
         self.assertEqual(str(low6), str(cpl6))
         self.assertEqual(low6, cpl6)
@@ -662,13 +665,13 @@ class SliceTests(TestUtils):
     def test_mixed(self):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
         addr = Variable('A', IntType(16))
-        expr_int = Slice(
-            Concatenation(IntLiteral.create(7), Slice(addr, 8, 12)),
+        expr_int = makeSlice(
+            Concatenation(IntLiteral.create(7), makeSlice(addr, 8, 12)),
             8, 8
             )
         self.assertIntLiteral(expr_int.simplify(), 0x70)
-        expr_u8 = Slice(
-            Concatenation(IntLiteral(7, IntType(4)), Slice(addr, 8, 12)),
+        expr_u8 = makeSlice(
+            Concatenation(IntLiteral(7, IntType(4)), makeSlice(addr, 8, 12)),
             8, 8
             )
         self.assertIntLiteral(expr_u8.simplify(), 0x70)

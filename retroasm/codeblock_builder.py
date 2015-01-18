@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import (
-    Concatenation, LShift, OrOperator, Slice, Truncation, unit
+    Concatenation, LShift, OrOperator, RShift, Truncation, unit
     )
 from .storage import (
     IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
@@ -326,8 +326,9 @@ class CodeBlockBuilder:
                     const = constants[cidMap[node.cid]]
                     value = ConstantValue(const.cid, const.type)
                     for rid, offset in newRid:
+                        width = references[rid].width
                         cid = self.emitCompute(
-                            Slice(value, offset, references[rid].width)
+                            Truncation(RShift(value, offset), width)
                             ).cid
                         nodes.append(Store(cid, rid))
                 else:

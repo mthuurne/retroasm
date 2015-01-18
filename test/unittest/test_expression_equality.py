@@ -1,4 +1,4 @@
-from retroasm.expression import Concatenation, IntLiteral, Slice
+from retroasm.expression import Concatenation, IntLiteral, Truncation
 from retroasm.storage import Variable
 from retroasm.types import IntType, unlimited
 
@@ -91,34 +91,26 @@ class EqualsTests(unittest.TestCase):
         self.assertExprEqual(cat_u4_u8.width, cat_u8_u4.width)
         self.assertExprNotEqual(cat_u4_u8, cat_u8_u4)
 
-    def test_slice_subexpr(self):
-        '''Checks equality between slices with differing subexpressions.'''
-        slice1 = Slice(IntLiteral.create(0x1234), 4, 8)
-        slice2 = Slice(IntLiteral.create(0x5678), 4, 8)
-        self.assertExprEqual(slice1, slice1)
-        self.assertExprEqual(slice2, slice2)
-        self.assertExprNotEqual(slice1, slice2)
+    def test_truncate_subexpr(self):
+        '''Checks equality between truncations with differing subexpressions.'''
+        trunc1 = Truncation(IntLiteral.create(0x1234), 8)
+        trunc2 = Truncation(IntLiteral.create(0x5678), 8)
+        self.assertExprEqual(trunc1, trunc1)
+        self.assertExprEqual(trunc2, trunc2)
+        self.assertExprNotEqual(trunc1, trunc2)
 
-    def test_slice_index(self):
-        '''Checks equality between slices with differing indices.'''
-        slice1 = Slice(IntLiteral.create(0x333), 0, 8)
-        slice2 = Slice(IntLiteral.create(0x333), 4, 8)
-        self.assertExprEqual(slice1, slice1)
-        self.assertExprEqual(slice2, slice2)
-        self.assertExprNotEqual(slice1, slice2)
-
-    def test_slice_width(self):
-        '''Checks equality between slices with differing widths.'''
-        addr = IntLiteral(0x4567, IntType(16))
-        slice1 = Slice(addr, 4, 8)  # $56
-        slice2 = Slice(addr, 4, 12) # $456
-        slice3 = Slice(addr, 4, 16) # $0456
-        self.assertExprEqual(slice1, slice1)
-        self.assertExprEqual(slice2, slice2)
-        self.assertExprEqual(slice3, slice3)
-        self.assertExprNotEqual(slice1, slice2)
-        self.assertExprNotEqual(slice1, slice3)
-        self.assertExprNotEqual(slice2, slice3)
+    def test_truncate_width(self):
+        '''Checks equality between truncations with differing widths.'''
+        addr = IntLiteral(0x456, IntType(12))
+        trunc1 = Truncation(addr, 8)  # $56
+        trunc2 = Truncation(addr, 12) # $456
+        trunc3 = Truncation(addr, 16) # $0456
+        self.assertExprEqual(trunc1, trunc1)
+        self.assertExprEqual(trunc2, trunc2)
+        self.assertExprEqual(trunc3, trunc3)
+        self.assertExprNotEqual(trunc1, trunc2)
+        self.assertExprNotEqual(trunc1, trunc3)
+        self.assertExprNotEqual(trunc2, trunc3)
 
 if __name__ == '__main__':
     unittest.main()

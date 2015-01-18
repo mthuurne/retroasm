@@ -1,7 +1,7 @@
 from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, Expression, IntLiteral,
-    OrOperator, Slice, Truncation, XorOperator
+    OrOperator, RShift, Truncation, XorOperator
     )
 from .expression_parser import (
     AssignmentNode, DefinitionNode, DefinitionKind, IdentifierNode, NumberNode,
@@ -189,7 +189,7 @@ def _convertLookup(exprNode, indexNode, builder):
             'bit index is not constant',
             indexNode.treeLocation
             )
-    return Slice(expr, indexInt, 1)
+    return Truncation(RShift(expr, indexInt), 1)
 
 def _convertSlice(location, exprNode, startNode, endNode, builder):
     expr = buildExpression(exprNode, builder)
@@ -227,7 +227,7 @@ def _convertSlice(location, exprNode, startNode, endNode, builder):
                 )
 
     try:
-        return Slice(expr, index, width)
+        return Truncation(RShift(expr, index), width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, location)
 
@@ -375,7 +375,7 @@ def emitCodeFromStatements(reader, builder, statements):
                     else:
                         assert False, storage
                     sliced = builder.emitCompute(
-                        Slice(rhsConst, offset, storage.width)
+                        Truncation(RShift(rhsConst, offset), storage.width)
                         )
                     builder.emitStore(rid, sliced)
             except ValueError as ex:
