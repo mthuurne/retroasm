@@ -1,3 +1,4 @@
+from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Concatenation, Expression, IntLiteral,
     OrOperator, Slice, Truncation, XorOperator
@@ -391,13 +392,23 @@ def emitCodeFromStatements(reader, builder, statements):
             # Don't evaluate the expression, since that could emit loads.
 
         else:
+            # Evaluate statement for its side effects.
+            numNodesBefore = len(builder.nodes)
             try:
-                expr = buildExpression(node, builder)
+                buildExpression(node, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression in statement: %s', ex,
                     location=ex.location
                     )
-            else:
-                if expr.type is not None:
-                    reader.warning('result is ignored')
+                continue
+
+            stateChanged = False
+            for execNode in builder.nodes[numNodesBefore:]:
+                if isinstance(execNode, Load):
+                    storage = builder.references[execNode.rid]
+                    stateChanged |= storage.canLoadHaveSideEffect()
+                elif isinstance(execNode, Store):
+                    stateChanged = True
+            if not stateChanged:
+                reader.warning('statement has no effect')
