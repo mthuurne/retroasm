@@ -74,7 +74,7 @@ def convertDefinition(node, builder):
     try:
         if kind is DefinitionKind.constant:
             const = builder.emitCompute(expr)
-            builder.context[name] = expr
+            builder.context[name] = const
             return const
         elif kind is DefinitionKind.reference:
             builder.context[name] = expr
