@@ -1,4 +1,4 @@
-from .expression import Expression, IntLiteral
+from .expression import Expression
 from .types import IntType
 
 from inspect import signature
@@ -175,14 +175,13 @@ def checkStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
-    storageTypes = (Concatenation, IntLiteral, ReferencedValue, Storage)
-    return isinstance(storage, storageTypes)
+    return isinstance(storage, (Concatenation, ReferencedValue, Storage))
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
     Each element is a pair of a Storage and an offset.
     '''
-    if isinstance(storage, IntLiteral):
+    if isinstance(storage, FixedValue):
         pass
     elif isinstance(storage, (IOReference, ReferencedValue)):
         yield storage, 0
@@ -313,6 +312,35 @@ class IOReference(Expression, Storage):
 
     def _complexity(self):
         return 4 + self._index._complexity()
+
+class FixedValue(Storage):
+    '''A storage that always reads as the same value and ignores writes.
+    '''
+    __slots__ = ('_cid', '_type')
+
+    cid = property(lambda self: self._cid)
+    type = property(lambda self: self._type)
+    width = property(lambda self: self._type.width)
+
+    def __init__(self, cid, typ):
+        self._cid = cid
+        self._type = typ
+
+    def canLoadHaveSideEffect(self):
+        return False
+
+    def canStoreHaveSideEffect(self):
+        return False
+
+    def isLoadConsistent(self):
+        return True
+
+    def isSticky(self):
+        return False
+
+    def mightBeSame(self, other):
+        # Since we don't store any state, we can pretend to be unique.
+        return self is other
 
 class ReferencedValue(Expression):
     '''A value in a storage location accessed through a reference.

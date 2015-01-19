@@ -10,8 +10,8 @@ from .expression_parser import (
 from .function import Function
 from .linereader import getText
 from .storage import (
-    Concatenation, IOChannel, ReferencedValue, Variable, checkStorage,
-    decomposeConcat
+    Concatenation, FixedValue, IOChannel, ReferencedValue, Variable,
+    checkStorage, decomposeConcat
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -342,22 +342,21 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return Concatenation(_convertConcat(buildStorage, node, builder))
     else:
-        raise BadExpression.withText(
-            'expected storage, found operator (%s)' % operator.name,
-            node.treeLocation
-            )
+        const = builder.emitCompute(_convertOperator(node, builder))
+        return FixedValue(const.cid, const.type)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
-        return IntLiteral(node.value, IntType(node.width))
+        literal = IntLiteral(node.value, IntType(node.width))
+        const = builder.emitCompute(literal)
+        return FixedValue(const.cid, const.type)
     elif isinstance(node, DefinitionNode):
+        expr = convertDefinition(node, builder)
         if node.kind is DefinitionKind.constant:
-            raise BadExpression(
-                'definition of constant "%s" where storage is required'
-                % node.name.name,
-                node.treeLocation
-                )
-        return convertDefinition(node, builder)
+            assert isinstance(expr, ConstantValue), repr(expr)
+            return FixedValue(expr.cid, expr.type)
+        else:
+            return expr
     elif isinstance(node, IdentifierNode):
         expr = _convertIdentifier(node, builder)
         if checkStorage(expr):
@@ -368,11 +367,7 @@ def buildStorage(node, builder):
                 node.location
                 )
         elif isinstance(expr, ConstantValue):
-            raise BadExpression(
-                'use of constant "%s" where storage is required'
-                % node.name,
-                node.location
-                )
+            return FixedValue(expr.cid, expr.type)
         else:
             assert False, expr
     elif isinstance(node, OperatorNode):
