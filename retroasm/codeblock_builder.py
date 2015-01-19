@@ -3,12 +3,10 @@ from .codeblock import (
     Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
-from .expression import (
-    Concatenation, LShift, OrOperator, RShift, Truncation, unit
-    )
+from .expression import LShift, OrOperator, RShift, Truncation, unit
 from .storage import (
-    IOReference, LocalReference, NamedValue, ReferencedValue, Storage, Variable,
-    decomposeConcat
+    Concatenation, IOReference, LocalReference, NamedValue, ReferencedValue,
+    Storage, Variable, decomposeConcat
     )
 from .types import IntType, unlimited
 
@@ -31,7 +29,14 @@ class _CodeBlockContext:
         try:
             return self.localContext[key]
         except KeyError:
-            return self._importReference(self.globalContext[key])
+            ref = self.globalContext[key]
+            if isinstance(ref, Concatenation):
+                return Concatenation(
+                    self._importReference(expr)
+                    for expr in ref.exprs
+                    )
+            else:
+                return self._importReference(ref)
 
     def __setitem__(self, key, value):
         localContext = self.localContext
@@ -46,8 +51,6 @@ class _CodeBlockContext:
         been replaced by their local equivalents.
         '''
         if isinstance(ref, NamedValue):
-            # While the initial call to this method happens when the name is
-            # not found, there could be name matches on recursive calls.
             name = ref.name
             try:
                 return self.localContext[name]
@@ -57,11 +60,6 @@ class _CodeBlockContext:
                 refVal = ReferencedValue(rid, ref.type)
                 self.localContext[name] = refVal
                 return refVal
-        elif isinstance(ref, Concatenation):
-            return Concatenation(*(
-                self._importReference(expr)
-                for expr in ref.exprs
-                ))
         else:
             return ref
 

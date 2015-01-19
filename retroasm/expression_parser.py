@@ -87,17 +87,13 @@ def _mergeSpan(fromLocation, toLocation):
     return mergedLocation
 
 class ParseNode:
-    __slots__ = ('location',)
+    __slots__ = ('location', 'treeLocation')
 
     def __init__(self, location):
         self.location = location
-
-    @property
-    def treeLocation(self):
-        '''Returns location information, where the span includes to the entire
-        tree under this node.
-        '''
-        return self.location
+        self.treeLocation = location
+        '''Location information, where the span includes to the entire tree
+        under this node.'''
 
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
@@ -106,10 +102,7 @@ class AssignmentNode(ParseNode):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
-
-    @property
-    def treeLocation(self):
-        return _mergeSpan(self.lhs, self.rhs)
+        self.treeLocation = _mergeSpan(lhs.treeLocation, rhs.treeLocation)
 
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
@@ -123,14 +116,16 @@ class OperatorNode(ParseNode):
         ParseNode.__init__(self, location)
         self.operator = operator
         self.operands = operands
+        self.treeLocation = self._treeLocation()
 
-    @property
-    def treeLocation(self):
+    def _treeLocation(self):
         location = self.location
         baseLocation = updateSpan(location, None)
         treeStart, treeEnd = getSpan(location)
         for operand in self.operands:
-            location = operand.location
+            if operand is None:
+                continue
+            location = operand.treeLocation
             assert updateSpan(location, None) == baseLocation
             start, end = getSpan(location)
             treeStart = min(treeStart, start)
@@ -157,14 +152,8 @@ class DefinitionNode(ParseNode):
         self.decl = decl
         self.name = name
         self.value = value
-
-    @property
-    def treeLocation(self):
-        value = self.value
-        if value is None:
-            return self.location
-        else:
-            return _mergeSpan(self.location, value.treeLocation)
+        if value is not None:
+            self.treeLocation = _mergeSpan(location, value.treeLocation)
 
 class NumberNode(ParseNode):
     __slots__ = ('value', 'width')
@@ -281,10 +270,13 @@ def _parse(exprStr, location, statement):
                 raise badTokenKind('slice/lookup', '":" or "]"')
 
     def parseGroup():
+        openLocation = token.location
         if token.eat(Token.bracket, '('):
             expr = parseTop()
+            closeLocation = token.location
             if not token.eat(Token.bracket, ')'):
                 raise badTokenKind('parenthesized', ')')
+            expr.treeLocation = _mergeSpan(openLocation, closeLocation)
             return expr
         elif token.kind is Token.keyword:
             return parseDefinition()

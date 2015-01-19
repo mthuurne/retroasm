@@ -925,66 +925,13 @@ class Truncation(Expression):
         else:
             return Truncation(expr, width)
 
-class PlaceholderExpression:
-    '''Mixin for expressions that contain parse results in an accessible form,
-    but will be replaced by instances of a different class on simplification.
+def concatenate(*exprs):
+    '''Returns an expression which concatenates the bit strings of the given
+    expressions.
     '''
-    __slots__ = ()
-
-    def _complexity(self):
-        # Encourage replacement of this expression in conditional
-        # simplification.
-        return 1 << 50
-
-    def _convert(self):
-        '''Returns an equivalent expression that can be simplified.
-        '''
-        raise NotImplementedError
-
-    def simplify(self):
-        return self._convert().simplify()
-
-class Concatenation(PlaceholderExpression, ComposedExpression):
-    '''Expression that concatenates bit strings.
-    '''
-    __slots__ = ()
-    operator = ';'
-
-    def __init__(self, expr1, *exprs):
-        Expression.checkScalar(expr1)
-        for i, expr in enumerate(exprs, 2):
-            if Expression.checkScalar(expr).width is unlimited:
-                raise ValueError(
-                    'all concatenation operands except the first must have '
-                    'a fixed width; operand %d has unlimited width' % i
-                    )
-        width = expr1.width + sum(expr.width for expr in exprs)
-        ComposedExpression.__init__(self, expr1, *exprs, intType=IntType(width))
-
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = self._exprs
-        return signature(self.__class__).bind(*exprs, **kwargs)
-
-    def _equals(self, other):
-        return super()._equals(other) and all(
-            myExpr.width == otherExpr.width
-            for (myExpr, otherExpr) in zip(self._exprs[1:], other._exprs[1:])
-            )
-
-    def iterWithOffset(self):
-        '''Iterates through the concatenated expressions, where each element
-        is a pair of the expression and its offset in the concatenation.
-        '''
-        exprs = self._exprs
-        offset = 0
-        for expr in reversed(exprs[1:]):
-            yield expr, offset
-            offset += expr.width
-        yield exprs[0], offset
-
-    def _convert(self):
-        return OrOperator(
-            *(LShift(*eo) for eo in self.iterWithOffset()),
-            intType=self._type
-            )
+    terms = []
+    width = 0
+    for expr in reversed(exprs):
+        terms.append(LShift(expr, width))
+        width += expr.width
+    return OrOperator(*terms, intType=IntType(width))

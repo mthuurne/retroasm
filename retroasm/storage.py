@@ -1,4 +1,4 @@
-from .expression import Concatenation, Expression, IntLiteral
+from .expression import Expression, IntLiteral
 from .types import IntType
 
 from inspect import signature
@@ -175,10 +175,8 @@ def checkStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
-    return isinstance(storage, (ReferencedValue, Storage)) or (
-        isinstance(storage, Concatenation)
-        and all(checkStorage(expr) for expr in storage.exprs)
-        )
+    storageTypes = (Concatenation, IntLiteral, ReferencedValue, Storage)
+    return isinstance(storage, storageTypes)
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
@@ -189,9 +187,11 @@ def decomposeConcat(storage):
     elif isinstance(storage, (IOReference, ReferencedValue)):
         yield storage, 0
     elif isinstance(storage, Concatenation):
-        for concatTerm, concatOffset in storage.iterWithOffset():
-            for storage, offset in decomposeConcat(concatTerm):
-                yield storage, concatOffset + offset
+        concatOffset = 0
+        for concatTerm in reversed(storage.exprs):
+            for subStorage, offset in decomposeConcat(concatTerm):
+                yield subStorage, concatOffset + offset
+            concatOffset += concatTerm.width
     else:
         raise ValueError('non-storage expression: %s' % storage)
 
@@ -342,3 +342,20 @@ class ReferencedValue(Expression):
 
     def _complexity(self):
         return 4
+
+class Concatenation:
+    '''Concatenates the bit strings of storages.
+    '''
+    __slots__ = ('_exprs',)
+
+    exprs = property(lambda self: self._exprs)
+    width = property(lambda self: sum(expr.width for expr in self._exprs))
+    type = property(lambda self: IntType(self.width))
+
+    def __init__(self, exprs):
+        self._exprs = exprs = tuple(exprs)
+        for expr in exprs:
+            if isinstance(expr, Concatenation):
+                raise TypeError('nested concatenations not allowed')
+            if not checkStorage(expr):
+                raise TypeError('expected storage, got %s' % type(expr))

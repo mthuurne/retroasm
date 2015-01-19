@@ -1,4 +1,4 @@
-from retroasm.expression import Concatenation, IntLiteral, Truncation
+from retroasm.expression import IntLiteral, Truncation, concatenate
 from retroasm.storage import Variable
 from retroasm.types import IntType, unlimited
 
@@ -65,9 +65,9 @@ class EqualsTests(unittest.TestCase):
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
         addr = IntLiteral(0xACDC, IntType(16))
-        cat_int_addr = Concatenation(four_int, addr)
-        cat_u4_addr = Concatenation(four_u4, addr)
-        cat_u8_addr = Concatenation(four_u8, addr)
+        cat_int_addr = concatenate(four_int, addr)
+        cat_u4_addr = concatenate(four_u4, addr)
+        cat_u8_addr = concatenate(four_u8, addr)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_int_addr, cat_int_addr)
         self.assertExprEqual(cat_u4_addr, cat_u4_addr)
@@ -82,8 +82,8 @@ class EqualsTests(unittest.TestCase):
         four_int = IntLiteral.create(4)
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
-        cat_u4_u8 = Concatenation(four_u4, four_u8)
-        cat_u8_u4 = Concatenation(four_u8, four_u4)
+        cat_u4_u8 = concatenate(four_u4, four_u8)
+        cat_u8_u4 = concatenate(four_u8, four_u4)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_u4_u8, cat_u4_u8)
         self.assertExprEqual(cat_u8_u4, cat_u8_u4)

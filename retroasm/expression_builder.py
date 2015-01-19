@@ -1,7 +1,7 @@
 from .codeblock import Load, Store
 from .expression import (
-    AddOperator, AndOperator, Complement, Concatenation, Expression, IntLiteral,
-    OrOperator, RShift, Truncation, XorOperator
+    AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
+    RShift, Truncation, XorOperator, concatenate
     )
 from .expression_parser import (
     AssignmentNode, DefinitionNode, DefinitionKind, IdentifierNode, NumberNode,
@@ -10,7 +10,8 @@ from .expression_parser import (
 from .function import Function
 from .linereader import getText
 from .storage import (
-    IOChannel, ReferencedValue, Variable, checkStorage, decomposeConcat
+    Concatenation, IOChannel, ReferencedValue, Variable, checkStorage,
+    decomposeConcat
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -105,6 +106,7 @@ def _constifyIdentifier(node, builder):
     ident = _convertIdentifier(node, builder)
     if isinstance(ident, IOChannel):
         return ident
+
     def constify(expr):
         if isinstance(expr, ReferencedValue):
             rid = expr.rid
@@ -116,7 +118,11 @@ def _constifyIdentifier(node, builder):
                     )
             return builder.emitLoad(rid)
         return None
-    return ident.substitute(constify)
+
+    if isinstance(ident, Concatenation):
+        return concatenate(*(expr.substitute(constify) for expr in ident.exprs))
+    else:
+        return ident.substitute(constify)
 
 def _convertFunctionCall(nameNode, *argNodes, builder):
     # Get function object.
@@ -173,6 +179,29 @@ def _convertFunctionCall(nameNode, *argNodes, builder):
         return IntLiteral.create(0)
     else:
         return builder.inlineBlock(code, argMap)
+
+def _convertConcat(factory, node, builder):
+    exprNode1, exprNode2 = node.operands
+    expr1 = factory(exprNode1, builder)
+    expr2 = factory(exprNode2, builder)
+    if expr2.width is unlimited:
+        node = exprNode2
+        while isinstance(node, OperatorNode) and \
+                node.operator is Operator.concatenation:
+            node = node.operands[0]
+        raise BadExpression.withText(
+            'only the first concatenation operand is allowed to have '
+            'unlimited width',
+            node.treeLocation
+            )
+    if isinstance(expr1, Concatenation):
+        yield from expr1.exprs
+    else:
+        yield expr1
+    if isinstance(expr2, Concatenation):
+        yield from expr2.exprs
+    else:
+        yield expr2
 
 def _convertLookup(exprNode, indexNode, builder):
     index = buildExpression(indexNode, builder)
@@ -239,6 +268,8 @@ def _convertOperator(node, builder):
         return _convertLookup(*node.operands, builder=builder)
     elif operator is Operator.slice:
         return _convertSlice(node.location, *node.operands, builder=builder)
+    elif operator is Operator.concatenation:
+        return concatenate(*_convertConcat(buildExpression, node, builder))
 
     exprs = tuple(buildExpression(node, builder) for node in node.operands)
     if operator is Operator.bitwise_and:
@@ -254,8 +285,6 @@ def _convertOperator(node, builder):
         return AddOperator(expr1, Complement(expr2))
     elif operator is Operator.complement:
         return Complement(*exprs)
-    elif operator is Operator.concatenation:
-        return Concatenation(*exprs)
     else:
         assert False, operator
 
@@ -309,10 +338,7 @@ def _convertStorageOperator(node, builder):
             node.location
             )
     elif operator is Operator.concatenation:
-        return Concatenation(*(
-            buildStorage(node, builder)
-            for node in node.operands
-            ))
+        return Concatenation(_convertConcat(buildStorage, node, builder))
     else:
         raise BadExpression.withText(
             'expected storage, found operator (%s)' % operator.name,
@@ -332,7 +358,7 @@ def buildStorage(node, builder):
                 node.location
                 )
         else:
-            assert isinstance(expr, Expression), expr
+            assert checkStorage(expr), expr
             return expr
     elif isinstance(node, OperatorNode):
         return _convertStorageOperator(node, builder)
