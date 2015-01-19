@@ -1,4 +1,4 @@
-from .codeblock import Load, Store
+from .codeblock import ConstantValue, Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
     RShift, Truncation, XorOperator, concatenate
@@ -54,11 +54,12 @@ def convertDefinition(node, builder):
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
     elif kind is DefinitionKind.reference:
-        expr = buildStorage(value, builder)
-        if not checkStorage(expr):
+        try:
+            expr = buildStorage(value, builder)
+        except BadExpression as ex:
             raise BadExpression(
-                'value for reference "%s" is not a storage' % name,
-                value.treeLocation
+                'bad value for reference "%s %s": %s' % (typ, name, ex),
+                ex.location
                 )
         if typ.type is not expr.type:
             raise BadExpression(
@@ -154,14 +155,15 @@ def _convertFunctionCall(nameNode, *argNodes, builder):
             value = buildExpression(argNode, builder)
             argMap[name] = builder.emitCompute(value)
         elif isinstance(decl, Reference):
-            value = buildStorage(argNode, builder)
-            if not checkStorage(value):
-                raise BadExpression.withText(
-                    'non-storage value passed for reference argument "%s %s"'
-                    % (decl, name),
-                    argNode.treeLocation
+            try:
+                value = buildStorage(argNode, builder)
+            except BadExpression as ex:
+                raise BadExpression(
+                    'bad value for reference argument "%s %s": %s'
+                    % (decl, name, ex),
+                    ex.location
                     )
-            elif value.type is not decl.type:
+            if value.type is not decl.type:
                 raise BadExpression.withText(
                     'storage of type "%s" passed for reference argument "%s %s"'
                     % (value.type, name, decl),
@@ -349,17 +351,30 @@ def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, DefinitionNode):
+        if node.kind is DefinitionKind.constant:
+            raise BadExpression(
+                'definition of constant "%s" where storage is required'
+                % node.name.name,
+                node.treeLocation
+                )
         return convertDefinition(node, builder)
     elif isinstance(node, IdentifierNode):
         expr = _convertIdentifier(node, builder)
-        if isinstance(expr, IOChannel):
+        if checkStorage(expr):
+            return expr
+        elif isinstance(expr, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
                 node.location
                 )
+        elif isinstance(expr, ConstantValue):
+            raise BadExpression(
+                'use of constant "%s" where storage is required'
+                % node.name,
+                node.location
+                )
         else:
-            assert checkStorage(expr), expr
-            return expr
+            assert False, expr
     elif isinstance(node, OperatorNode):
         return _convertStorageOperator(node, builder)
     else:

@@ -193,7 +193,7 @@ def decomposeConcat(storage):
                 yield subStorage, concatOffset + offset
             concatOffset += concatTerm.width
     else:
-        raise ValueError('non-storage expression: %s' % storage)
+        assert False, storage
 
 class Variable(NamedValue, Storage):
     '''A variable in the local context.
