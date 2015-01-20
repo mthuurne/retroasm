@@ -262,20 +262,25 @@ class Register(NamedValue, Storage):
     def mightBeSame(self, other):
         return self is other or isinstance(other, LocalReference)
 
-class IOReference(Expression, Storage):
+class IOReference(Storage):
     '''Reference to a particular index on an I/O channel.
     '''
     __slots__ = ('_channel', '_index')
 
     channel = property(lambda self: self._channel)
     index = property(lambda self: self._index)
-
-    # pylint: disable=protected-access
+    type = property(lambda self: self._channel.elemType)
+    width = property(lambda self: self._channel.elemType.width)
 
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkScalar(index)
-        Expression.__init__(self, self._channel.elemType)
+
+    def __repr__(self):
+        return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
+
+    def __str__(self):
+        return '%s[%s]' % (self._channel.name, self._index)
 
     def canLoadHaveSideEffect(self):
         return self._channel.canLoadHaveSideEffect(self._index)
@@ -291,27 +296,11 @@ class IOReference(Expression, Storage):
 
     def mightBeSame(self, other):
         if isinstance(other, IOReference):
+            # pylint: disable=protected-access
             return self._channel == other._channel \
                 and self._channel.mightBeSame(self._index, other._index)
         else:
             return isinstance(other, LocalReference)
-
-    def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
-        if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
-        kwargs.setdefault('channel', self._channel)
-        kwargs.setdefault('index', self._index)
-        return signature(cls).bind(**kwargs)
-
-    def __str__(self):
-        return '%s[%s]' % (self._channel.name, self._index)
-
-    def _equals(self, other):
-        return self._channel is other._channel and self._index == other._index
-
-    def _complexity(self):
-        return 4 + self._index._complexity()
 
 class FixedValue(Storage):
     '''A storage that always reads as the same value and ignores writes.
