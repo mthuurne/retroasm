@@ -49,7 +49,13 @@ def convertDefinition(node, builder):
     kind = node.kind
     value = node.value
     if kind is DefinitionKind.constant:
-        expr = buildExpression(value, builder)
+        try:
+            expr = buildExpression(value, builder)
+        except BadExpression as ex:
+            raise BadExpression(
+                'bad value for constant "%s %s": %s' % (typ, name, ex),
+                ex.location
+                )
         declWidth = typ.width
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
