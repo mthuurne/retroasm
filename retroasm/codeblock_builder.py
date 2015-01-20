@@ -5,7 +5,7 @@ from .codeblock import (
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import LShift, OrOperator, RShift, Truncation, unit
 from .storage import (
-    Concatenation, IOReference, LocalReference, NamedValue, ReferencedValue,
+    Concatenation, IOReference, LocalReference, NamedStorage, ReferencedValue,
     Storage, Variable, decomposeConcat
     )
 from .types import IntType, unlimited
@@ -50,7 +50,7 @@ class _CodeBlockContext:
         Returns an expression in which references from the global context have
         been replaced by their local equivalents.
         '''
-        if isinstance(ref, NamedValue):
+        if isinstance(ref, NamedStorage):
             name = ref.name
             try:
                 return self.localContext[name]
@@ -128,12 +128,12 @@ class CodeBlockBuilder:
                 for load in ununitializedLoads:
                     log.error(
                         'variable "%s" is read before it is initialized'
-                        % code.references[load.rid].formatDecl(),
+                        % code.references[load.rid].decl,
                         location=self.loadLocations[load.cid]
                         )
             raise ValueError(
                 'Code block reads uninitialized variable(s): %s' % ', '.join(
-                    code.references[load.rid].formatDecl()
+                    code.references[load.rid].decl
                     for load in ununitializedLoads
                     )
                 )

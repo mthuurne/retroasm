@@ -1,3 +1,5 @@
+from utils_expression import TestValue
+
 from retroasm.expression import RShift, Truncation
 from retroasm.storage import Variable
 from retroasm.types import IntType
@@ -8,7 +10,7 @@ class FormatTests(unittest.TestCase):
 
     def test_slice(self):
         '''Formats slice expressions.'''
-        addr = Variable('A', IntType(16))
+        addr = TestValue('A', IntType(16))
         # Truncation and shift in isolation.
         self.assertEquals(str(Truncation(addr, 8).simplify()), 'A[:8]')
         self.assertEquals(str(RShift(addr, 8).simplify()), 'A[8:]')

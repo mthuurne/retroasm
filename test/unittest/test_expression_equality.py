@@ -1,5 +1,6 @@
+from utils_expression import TestValue
+
 from retroasm.expression import IntLiteral, Truncation, concatenate
-from retroasm.storage import Variable
 from retroasm.types import IntType, unlimited
 
 import unittest
@@ -43,18 +44,10 @@ class EqualsTests(unittest.TestCase):
         self.assertExprEqual(arg2, arg3)
         self.assertExprEqual(arg1, arg3)
 
-    def test_variable(self):
-        '''Checks variables for equality.'''
-        a = Variable('A', IntType(16))
-        b = Variable('B', IntType(8))
-        self.assertExprEqual(a, a)
-        self.assertExprEqual(b, b)
-        self.assertExprNotEqual(a, b)
-
     def test_type_mismatch(self):
         '''Checks equality checks between mismatching types.'''
         zero = IntLiteral.create(0)
-        addr = Variable('A', IntType(16))
+        addr = TestValue('A', IntType(16))
         self.assertExprNotEqual(zero, 0)
         self.assertExprNotEqual(addr, 'A')
         self.assertExprNotEqual(zero, addr)

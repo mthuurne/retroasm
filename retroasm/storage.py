@@ -93,50 +93,18 @@ class IOChannel:
 namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 reName = re.compile(namePat + '$')
 
-class NamedValue(Expression):
-    '''Base class for named values that exist in a global or local context.
-    '''
-    __slots__ = ('_name',)
-
-    name = property(lambda self: self._name)
-
-    def __init__(self, name, typ):
-        if not isinstance(name, str):
-            raise TypeError('name must be string, got %s' % type(name))
-        if not reName.match(name):
-            raise ValueError('invalid name: "%s"', name)
-        Expression.__init__(self, typ)
-        self._name = name
-
-    def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
-        if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
-        kwargs.setdefault('name', self._name)
-        kwargs.setdefault('typ', self._type)
-        return signature(cls).bind(**kwargs)
-
-    def __str__(self):
-        return self._name
-
-    def formatDecl(self):
-        return '%s %s' % (self._type, self._name)
-
-    def _equals(self, other):
-        # There must be one only instance of a class for each name.
-        if self._name == other._name: # pylint: disable=protected-access
-            assert self is other
-            return True
-        else:
-            return False
-
-    def _complexity(self):
-        return 2
-
 class Storage:
     '''A location in which a typed value can be stored.
     '''
-    __slots__ = ()
+    __slots__ = ('_type',)
+
+    type = property(lambda self: self._type)
+    width = property(lambda self: self._type.width)
+
+    def __init__(self, typ):
+        if not isinstance(typ, IntType):
+            raise TypeError('type must be IntType, got %s' % type(typ).__name__)
+        self._type = typ
 
     def canLoadHaveSideEffect(self):
         '''Returns True if reading from this storage might have an effect
@@ -171,6 +139,45 @@ class Storage:
         '''
         raise NotImplementedError
 
+class NamedStorage(Storage):
+    '''Base class for named storages that exist in a global or local context.
+    '''
+    __slots__ = ('_name',)
+
+    name = property(lambda self: self._name)
+    decl = property(lambda self: '%s %s' % (self._type, self._name))
+
+    def __init__(self, name, typ):
+        if not isinstance(name, str):
+            raise TypeError('name must be string, got %s' % type(name))
+        if not reName.match(name):
+            raise ValueError('invalid name: "%s"', name)
+        self._name = name
+        Storage.__init__(self, typ)
+
+    def __repr__(self):
+        return '%s(%s, %s)' % (
+            self.__class__.__name__, repr(self._name), repr(self._type)
+            )
+
+    def __str__(self):
+        return self._name
+
+    def canLoadHaveSideEffect(self):
+        raise NotImplementedError
+
+    def canStoreHaveSideEffect(self):
+        raise NotImplementedError
+
+    def isLoadConsistent(self):
+        raise NotImplementedError
+
+    def isSticky(self):
+        raise NotImplementedError
+
+    def mightBeSame(self, other):
+        raise NotImplementedError
+
 def checkStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
@@ -194,7 +201,7 @@ def decomposeConcat(storage):
     else:
         assert False, storage
 
-class Variable(NamedValue, Storage):
+class Variable(NamedStorage):
     '''A variable in the local context.
     '''
     __slots__ = ()
@@ -214,12 +221,14 @@ class Variable(NamedValue, Storage):
     def mightBeSame(self, other):
         return self is other
 
-class LocalReference(NamedValue, Storage):
+class LocalReference(NamedStorage):
     '''A reference in the local context to a storage location.
     The storage properties depend on which concrete storage will be bound
     to this reference, so we have to assume the worst case.
     '''
     __slots__ = ()
+
+    decl = property(lambda self: '%s& %s' % (self._type, self._name))
 
     def canLoadHaveSideEffect(self):
         return True
@@ -239,10 +248,7 @@ class LocalReference(NamedValue, Storage):
         # is no need to create aliases.
         return not isinstance(other, Variable)
 
-    def formatDecl(self):
-        return '%s& %s' % (self._type, self._name)
-
-class Register(NamedValue, Storage):
+class Register(NamedStorage):
     '''A CPU register.
     '''
     __slots__ = ()
@@ -269,12 +275,11 @@ class IOReference(Storage):
 
     channel = property(lambda self: self._channel)
     index = property(lambda self: self._index)
-    type = property(lambda self: self._channel.elemType)
-    width = property(lambda self: self._channel.elemType.width)
 
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkScalar(index)
+        Storage.__init__(self, channel.elemType)
 
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
@@ -305,15 +310,13 @@ class IOReference(Storage):
 class FixedValue(Storage):
     '''A storage that always reads as the same value and ignores writes.
     '''
-    __slots__ = ('_cid', '_type')
+    __slots__ = ('_cid',)
 
     cid = property(lambda self: self._cid)
-    type = property(lambda self: self._type)
-    width = property(lambda self: self._type.width)
 
     def __init__(self, cid, typ):
         self._cid = cid
-        self._type = typ
+        Storage.__init__(self, typ)
 
     def canLoadHaveSideEffect(self):
         return False
