@@ -244,17 +244,10 @@ class CodeBlockBuilder:
         for rid, ref in code.references.items():
             # Shallow copy is sufficient because references are immutable.
             if isinstance(ref, LocalReference):
-                decomposed = []
-                for storage, offset in decomposeConcat(context[ref.name]):
-                    if isinstance(storage, ReferencedValue):
-                        newRid = storage.rid
-                    elif isinstance(storage, IOReference):
-                        newRid = len(references)
-                        references.append(storage)
-                    else:
-                        assert False, storage
-                    decomposed.append((newRid, offset))
-                ridMap[rid] = decomposed
+                ridMap[rid] = [
+                    (storage.rid, offset)
+                    for storage, offset in decomposeConcat(context[ref.name])
+                    ]
             else:
                 ridMap[rid] = len(references)
                 references.append(ref)

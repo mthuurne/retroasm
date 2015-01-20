@@ -404,16 +404,10 @@ def emitCodeFromStatements(reader, builder, statements):
 
             try:
                 for storage, offset in decomposeConcat(lhs):
-                    if isinstance(storage, ReferencedValue):
-                        rid = storage.rid
-                    elif isinstance(storage, IOReference):
-                        rid = builder._emitReference(storage)
-                    else:
-                        assert False, storage
                     sliced = builder.emitCompute(
                         Truncation(RShift(rhsConst, offset), storage.width)
                         )
-                    builder.emitStore(rid, sliced)
+                    builder.emitStore(storage.rid, sliced)
             except ValueError as ex:
                 reader.error('error on left hand side of assignment: %s', ex)
                 continue

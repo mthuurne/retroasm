@@ -179,11 +179,11 @@ def checkStorage(storage):
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
-    Each element is a pair of a Storage and an offset.
+    Each element is a pair of a ReferencedValue and an offset.
     '''
     if isinstance(storage, FixedValue):
         pass
-    elif isinstance(storage, (IOReference, ReferencedValue)):
+    elif isinstance(storage, ReferencedValue):
         yield storage, 0
     elif isinstance(storage, Concatenation):
         concatOffset = 0
