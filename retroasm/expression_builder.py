@@ -402,15 +402,11 @@ def emitCodeFromStatements(reader, builder, statements):
             else:
                 rhsConst = builder.emitCompute(rhs)
 
-            try:
-                for storage, offset in decomposeConcat(lhs):
-                    sliced = builder.emitCompute(
-                        Truncation(RShift(rhsConst, offset), storage.width)
-                        )
-                    builder.emitStore(storage.rid, sliced)
-            except ValueError as ex:
-                reader.error('error on left hand side of assignment: %s', ex)
-                continue
+            for storage, offset in decomposeConcat(lhs):
+                sliced = builder.emitCompute(
+                    Truncation(RShift(rhsConst, offset), storage.width)
+                    )
+                builder.emitStore(storage.rid, sliced)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.
