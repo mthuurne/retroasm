@@ -81,12 +81,9 @@ def convertDefinition(node, builder):
     # Add definition to context.
     try:
         if kind is DefinitionKind.constant:
-            const = builder.emitCompute(expr)
-            builder.context[name] = const
-            return const
+            return builder.defineConstant(name, expr)
         elif kind is DefinitionKind.reference:
-            builder.context[name] = expr
-            return expr
+            return builder.defineReference(name, expr)
         elif kind is DefinitionKind.variable:
             rid = builder.emitVariable(name, typ)
             return ReferencedValue(rid, typ)

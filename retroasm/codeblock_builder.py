@@ -6,7 +6,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import LShift, OrOperator, RShift, Truncation, unit
 from .storage import (
     Concatenation, IOReference, LocalReference, NamedStorage, ReferencedValue,
-    Storage, Variable, decomposeConcat
+    Storage, Variable, checkStorage, decomposeConcat
     )
 from .types import IntType, unlimited
 
@@ -221,6 +221,25 @@ class CodeBlockBuilder:
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
         return self._emitReference(IOReference(channel, indexConst))
+
+    def defineConstant(self, name, expr):
+        '''Defines a constant with the given name and value.
+        Returns a ConstantValue for the newly defined constant.
+        Raises ValueError if the name is already taken.
+        '''
+        const = self.emitCompute(expr)
+        self.context[name] = const
+        return const
+
+    def defineReference(self, name, storage):
+        '''Defines a reference with the given name and value.
+        Returns the given value.
+        Raises ValueError if the name is already taken.
+        '''
+        if not checkStorage(storage):
+            raise TypeError('expected storage, got %s' % type(storage).__name__)
+        self.context[name] = storage
+        return storage
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
