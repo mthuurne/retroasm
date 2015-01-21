@@ -35,3 +35,15 @@ class Singleton(type):
             instance = super().__call__()
             cls.__instance = instance
         return instance
+
+def checkType(obj, typ, desc):
+    '''Checks whether the given object is of the given type.
+    If it is, the object is returned unchanged, otherwise TypeError is raised,
+    with the "desc" argument used to describe the object in the error message.
+    '''
+    if isinstance(obj, typ):
+        return obj
+    else:
+        raise TypeError(
+            '%s must be %s, got %s' % (desc, typ.__name__, type(obj).__name__)
+            )

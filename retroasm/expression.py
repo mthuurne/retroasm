@@ -1,5 +1,5 @@
 from .types import IntType, unlimited
-from .utils import Singleton
+from .utils import Singleton, checkType
 
 from inspect import signature
 
@@ -31,7 +31,9 @@ class Expression:
     @staticmethod
     def checkInstance(expr):
         if not isinstance(expr, Expression):
-            raise TypeError('expected Expression subclass, got %s' % type(expr))
+            raise TypeError(
+                'expected Expression subclass, got %s' % type(expr).__name__
+                )
         return expr
 
     @staticmethod
@@ -42,7 +44,9 @@ class Expression:
 
     def __init__(self, typ):
         if typ is not None and not isinstance(typ, IntType):
-            raise TypeError('type must be None or IntType, got %s' % type(typ))
+            raise TypeError(
+                'type must be None or IntType, got %s' % type(typ).__name__
+                )
         self._type = typ
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -195,8 +199,7 @@ class IntLiteral(Expression):
         return cls(value, IntType(unlimited))
 
     def __init__(self, value, intType):
-        if not isinstance(value, int):
-            raise TypeError('value must be int, got %s' % type(value))
+        self._value = checkType(value, int, 'value')
         Expression.__init__(self, intType)
         if intType.width is not unlimited:
             if value < 0:
@@ -209,7 +212,6 @@ class IntLiteral(Expression):
                     'integer literal value %d does not fit in type %s'
                     % (value, intType)
                     )
-        self._value = value
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
@@ -680,9 +682,7 @@ class LShift(Expression):
 
     def __init__(self, expr, offset):
         self._expr = Expression.checkScalar(expr)
-        if not isinstance(offset, int):
-            raise TypeError('shift offset must be int, got %s' % type(offset))
-        self._offset = offset
+        self._offset = checkType(offset, int, 'shift offset')
         Expression.__init__(self, IntType(expr.width + offset))
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -754,9 +754,7 @@ class RShift(Expression):
 
     def __init__(self, expr, offset):
         self._expr = Expression.checkScalar(expr)
-        if not isinstance(offset, int):
-            raise TypeError('shift offset must be int, got %s' % type(offset))
-        self._offset = offset
+        self._offset = checkType(offset, int, 'shift offset')
         Expression.__init__(self, IntType(max(expr.width - offset, 0)))
 
     def _ctorargs(self, *exprs, **kwargs):

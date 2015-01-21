@@ -178,7 +178,7 @@ class CodeBlockBuilder:
         '''Adds a reference to the given storage, returning the reference ID.
         '''
         if not isinstance(storage, Storage):
-            raise TypeError('expected Storage, got %s' % type(storage))
+            raise TypeError('expected Storage, got %s' % type(storage).__name__)
         if storage.width is unlimited:
             raise ValueError('storages must have fixed width')
         if isinstance(storage, IOReference):

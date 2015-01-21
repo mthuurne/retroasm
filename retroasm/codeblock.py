@@ -1,6 +1,7 @@
 from .expression import Expression
 from .storage import IOReference, ReferencedValue, Storage
 from .types import IntType
+from .utils import checkType
 
 from collections import OrderedDict
 from inspect import signature
@@ -14,12 +15,8 @@ class Constant:
     type = property(lambda self: self._type)
 
     def __init__(self, cid, intType):
-        if not isinstance(cid, int):
-            raise TypeError('constant ID must be int, got %s' % type(cid))
-        if not isinstance(intType, IntType):
-            raise TypeError('type must be IntType, got %s' % type(intType))
-        self._cid = cid
-        self._type = intType
+        self._cid = checkType(cid, int, 'constant ID')
+        self._type = checkType(intType, IntType, 'constant type')
 
     def __repr__(self):
         return 'Constant(%d, %s)' % (self._cid, repr(self._type))
@@ -52,10 +49,8 @@ class ArgumentConstant(Constant):
     name = property(lambda self: self._name)
 
     def __init__(self, name, cid, argType):
-        if not isinstance(name, str):
-            raise TypeError('name must be a string, got %s' % type(name))
+        self._name = checkType(name, str, 'name')
         Constant.__init__(self, cid, argType)
-        self._name = name
 
     def __repr__(self):
         return 'ArgumentConstant(%s, %d, %s)' % (
@@ -73,10 +68,8 @@ class LoadedConstant(Constant):
     rid = property(lambda self: self._rid)
 
     def __init__(self, cid, rid, refType):
-        if not isinstance(rid, int):
-            raise TypeError('reference ID must be int, got %s' % type(rid))
+        self._rid = checkType(rid, int, 'reference ID')
         Constant.__init__(self, cid, refType)
-        self._rid = rid
 
     def __repr__(self):
         return 'LoadedConstant(%d, %d, %s)' % (
@@ -100,12 +93,8 @@ class AccessNode(Node):
     rid = property(lambda self: self._rid)
 
     def __init__(self, cid, rid):
-        if not isinstance(cid, int):
-            raise TypeError('constant ID must be int, got %s' % type(cid))
-        if not isinstance(rid, int):
-            raise TypeError('reference ID must be int, got %s' % type(rid))
-        self._cid = cid
-        self._rid = rid
+        self._cid = checkType(cid, int, 'constant ID')
+        self._rid = checkType(rid, int, 'reference ID')
 
     def __repr__(self):
         return '%s(%d, %d)' % (self.__class__.__name__, self._cid, self._rid)

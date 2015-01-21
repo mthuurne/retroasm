@@ -1,5 +1,6 @@
 from .expression import Expression
 from .types import IntType
+from .utils import checkType
 
 from inspect import signature
 import re
@@ -17,22 +18,14 @@ class IOChannel:
     def checkInstance(channel):
         if not isinstance(channel, IOChannel):
             raise TypeError(
-                'expected IOChannel subclass, got %s' % type(channel)
+                'expected IOChannel subclass, got %s' % type(channel).__name__
                 )
         return channel
 
     def __init__(self, name, elemType, addrType):
-        if not isinstance(name, str):
-            raise TypeError('name must be string, got %s' % type(name))
-        if not isinstance(elemType, IntType):
-            raise TypeError(
-                'element type must be IntType, got %s' % type(elemType))
-        if not isinstance(addrType, IntType):
-            raise TypeError(
-                'address type must be IntType, got %s' % type(addrType))
-        self._name = name
-        self._elemType = elemType
-        self._addrType = addrType
+        self._name = checkType(name, str, 'channel name')
+        self._elemType = checkType(elemType, IntType, 'element type')
+        self._addrType = checkType(addrType, IntType, 'address type')
 
     def __repr__(self):
         return 'IOChannel(%s, %s, %s)' % (
@@ -102,9 +95,7 @@ class Storage:
     width = property(lambda self: self._type.width)
 
     def __init__(self, typ):
-        if not isinstance(typ, IntType):
-            raise TypeError('type must be IntType, got %s' % type(typ).__name__)
-        self._type = typ
+        self._type = checkType(typ, IntType, 'storage type')
 
     def canLoadHaveSideEffect(self):
         '''Returns True if reading from this storage might have an effect
@@ -148,11 +139,9 @@ class NamedStorage(Storage):
     decl = property(lambda self: '%s %s' % (self._type, self._name))
 
     def __init__(self, name, typ):
-        if not isinstance(name, str):
-            raise TypeError('name must be string, got %s' % type(name))
+        self._name = checkType(name, str, 'storage name')
         if not reName.match(name):
             raise ValueError('invalid name: "%s"', name)
-        self._name = name
         Storage.__init__(self, typ)
 
     def __repr__(self):
@@ -378,4 +367,6 @@ class Concatenation:
             if isinstance(expr, Concatenation):
                 raise TypeError('nested concatenations not allowed')
             if not checkStorage(expr):
-                raise TypeError('expected storage, got %s' % type(expr))
+                raise TypeError(
+                    'expected storage, got %s' % type(expr).__name__
+                    )

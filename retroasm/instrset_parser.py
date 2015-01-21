@@ -7,6 +7,7 @@ from .storage import (
     Concatenation, IOChannel, ReferencedValue, Register, namePat
     )
 from .types import parseType, parseTypeDecl
+from .utils import checkType
 
 from collections import OrderedDict
 from functools import partial
@@ -36,9 +37,7 @@ class _GlobalContextBuilder:
         that, when called with a single argument, will store that argument in
         the global context as the value for the reserved key.
         '''
-        if not isinstance(key, str):
-            raise TypeError('global name must be str, got %s' % type(key))
-
+        checkType(key, str, 'global name')
         oldLineno = self.lineno.get(key)
         if oldLineno is None:
             self.lineno[key] = self.reader.lineno
