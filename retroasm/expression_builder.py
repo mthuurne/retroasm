@@ -4,8 +4,8 @@ from .expression import (
     RShift, Truncation, XorOperator, concatenate
     )
 from .expression_parser import (
-    AssignmentNode, DefinitionNode, DefinitionKind, IdentifierNode, NumberNode,
-    Operator, OperatorNode
+    AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
+    IdentifierNode, NumberNode, Operator, OperatorNode
     )
 from .function import Function
 from .linereader import getText
@@ -31,24 +31,50 @@ class BadExpression(Exception):
         Exception.__init__(self, msg)
         self.location = location
 
-def convertDefinition(node, builder):
+def declareVariable(node, builder):
+    assert node.kind is DeclarationKind.variable, node.kind
+
     # Determine type.
     try:
-        typ = parseTypeDecl(node.decl.name)
+        typ = parseTypeDecl(node.type.name)
     except ValueError as ex:
         raise BadExpression(
             'bad type name in definition: %s' % ex,
-            node.decl.location
+            node.type.location
             )
 
     # Get name.
     nameNode = node.name
     name = nameNode.name
 
+    # Add declaration to context.
+    try:
+        rid = builder.emitVariable(name, typ)
+        return ReferencedValue(rid, typ)
+    except ValueError as ex:
+        raise BadExpression(
+            'failed to declare variable "%s %s": %s' % (typ, name, ex),
+            nameNode.location
+            )
+
+def convertDefinition(node, builder):
+    # Determine type.
+    try:
+        typ = parseTypeDecl(node.decl.type.name)
+    except ValueError as ex:
+        raise BadExpression(
+            'bad type name in definition: %s' % ex,
+            node.decl.type.location
+            )
+
+    # Get name.
+    nameNode = node.decl.name
+    name = nameNode.name
+
     # Build and validate value expression.
-    kind = node.kind
+    kind = node.decl.kind
     value = node.value
-    if kind is DefinitionKind.constant:
+    if kind is DeclarationKind.constant:
         try:
             expr = buildExpression(value, builder)
         except BadExpression as ex:
@@ -59,7 +85,7 @@ def convertDefinition(node, builder):
         declWidth = typ.width
         if expr.width > declWidth:
             expr = Truncation(expr, declWidth)
-    elif kind is DefinitionKind.reference:
+    elif kind is DeclarationKind.reference:
         try:
             expr = buildStorage(value, builder)
         except BadExpression as ex:
@@ -71,22 +97,17 @@ def convertDefinition(node, builder):
             raise BadExpression(
                 'declared type "%s" does not match the value\'s type "%s"'
                 % (typ.type, expr.type),
-                node.decl.location
+                node.decl.type.location
                 )
-    elif kind is DefinitionKind.variable:
-        assert value is None, value
     else:
         assert False, kind
 
     # Add definition to context.
     try:
-        if kind is DefinitionKind.constant:
+        if kind is DeclarationKind.constant:
             return builder.defineConstant(name, expr)
-        elif kind is DefinitionKind.reference:
+        elif kind is DeclarationKind.reference:
             return builder.defineReference(name, expr)
-        elif kind is DefinitionKind.variable:
-            rid = builder.emitVariable(name, typ)
-            return ReferencedValue(rid, typ)
         else:
             assert False, kind
     except ValueError as ex:
@@ -353,9 +374,11 @@ def buildStorage(node, builder):
         literal = IntLiteral(node.value, IntType(node.width))
         const = builder.emitCompute(literal)
         return FixedValue(const.cid, const.type)
+    elif isinstance(node, DeclarationNode):
+        return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
-        if node.kind is DefinitionKind.constant:
+        if node.kind is DeclarationKind.constant:
             assert isinstance(expr, ConstantValue), repr(expr)
             return FixedValue(expr.cid, expr.type)
         else:
