@@ -8,28 +8,16 @@ from .expression_parser import (
     IdentifierNode, NumberNode, Operator, OperatorNode
     )
 from .function import Function
-from .linereader import getText
+from .linereader import BadInput
 from .storage import (
     Concatenation, FixedValue, IOChannel, ReferencedValue, Variable,
     checkStorage, decomposeConcat
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
-class BadExpression(Exception):
+class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
-    The 'location' attribute contains the location in the instruction set
-    definition file that triggered this exception, as a metadata dictionary
-    that can be used with LineReader, or None if this information is not
-    available.
     '''
-
-    @classmethod
-    def withText(cls, msg, location):
-        return cls('%s: %s' % (msg, getText(location)), location)
-
-    def __init__(self, msg, location=None):
-        Exception.__init__(self, msg)
-        self.location = location
 
 def declareVariable(node, builder):
     assert node.kind is DeclarationKind.variable, node.kind

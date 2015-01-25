@@ -147,6 +147,26 @@ class DelayedError(Exception):
     processing.
     '''
 
+class BadInput(Exception):
+    '''An exception which contains information about the part of the input
+    file which is considered to violate a rule.
+    The 'location' attribute contains the location in the instruction set
+    definition file that triggered the exception, as a metadata dictionary that
+    can be used with LineReader, or None if this information is not available.
+    '''
+
+    @classmethod
+    def withText(cls, msg, location):
+        '''Returns an instance of the BadInput (sub)class it is called on,
+        with the input text in the location's span appended after the error
+        message.
+        '''
+        return cls('%s: %s' % (msg, getText(location)), location)
+
+    def __init__(self, msg, location=None):
+        Exception.__init__(self, msg)
+        self.location = location
+
 reComment = re.compile(r'(?<!\\)#')
 
 class DefLineReader(LineReader):
