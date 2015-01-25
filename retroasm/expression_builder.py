@@ -1,4 +1,5 @@
 from .codeblock import ConstantValue, Load, Store
+from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
     RShift, Truncation, XorOperator, concatenate
@@ -39,7 +40,7 @@ def declareVariable(node, builder):
     try:
         rid = builder.emitVariable(name, typ)
         return ReferencedValue(rid, typ)
-    except ValueError as ex:
+    except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
             nameNode.location
@@ -98,7 +99,7 @@ def convertDefinition(node, builder):
             return builder.defineReference(name, expr)
         else:
             assert False, kind
-    except ValueError as ex:
+    except NameExistsError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
             nameNode.location

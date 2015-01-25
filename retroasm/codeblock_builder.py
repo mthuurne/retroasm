@@ -3,6 +3,7 @@ from .codeblock import (
     Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
+from .context import NameExistsError
 from .expression import LShift, OrOperator, RShift, Truncation, unit
 from .storage import (
     Concatenation, IOReference, LocalReference, NamedStorage, ReferencedValue,
@@ -41,7 +42,7 @@ class _CodeBlockContext:
     def __setitem__(self, key, value):
         localContext = self.localContext
         if key in localContext:
-            raise ValueError('attempt to redefine "%s"' % key)
+            raise NameExistsError('attempt to redefine "%s"' % key)
         localContext[key] = value
 
     def _importReference(self, ref):
