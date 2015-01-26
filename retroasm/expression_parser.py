@@ -1,4 +1,3 @@
-from .linereader import getSpan, updateSpan
 from .types import unlimited
 
 from enum import Enum
@@ -61,7 +60,7 @@ class ExpressionTokenizer:
                 break
         self.kind = kind
         self.value = value
-        self.location = updateSpan(self._lineLocation, span)
+        self.location = self._lineLocation.updateSpan(span)
 
     def peek(self, kind, value=None):
         '''Returns True if the current token matches the given kind and,
@@ -80,9 +79,9 @@ class ExpressionTokenizer:
         return found
 
 def _mergeSpan(fromLocation, toLocation):
-    mergedSpan = (getSpan(fromLocation)[0], getSpan(toLocation)[1])
-    mergedLocation = updateSpan(fromLocation, mergedSpan)
-    assert mergedLocation == updateSpan(toLocation, mergedSpan), \
+    mergedSpan = (fromLocation.span[0], toLocation.span[1])
+    mergedLocation = fromLocation.updateSpan(mergedSpan)
+    assert mergedLocation == toLocation.updateSpan(mergedSpan), \
             (fromLocation, toLocation)
     return mergedLocation
 
@@ -120,17 +119,17 @@ class OperatorNode(ParseNode):
 
     def _treeLocation(self):
         location = self.location
-        baseLocation = updateSpan(location, None)
-        treeStart, treeEnd = getSpan(location)
+        baseLocation = location.updateSpan(None)
+        treeStart, treeEnd = location.span
         for operand in self.operands:
             if operand is None:
                 continue
             location = operand.treeLocation
-            assert updateSpan(location, None) == baseLocation
-            start, end = getSpan(location)
+            assert location.updateSpan(None) == baseLocation
+            start, end = location.span
             treeStart = min(treeStart, start)
             treeEnd = max(treeEnd, end)
-        return updateSpan(baseLocation, (treeStart, treeEnd))
+        return baseLocation.updateSpan((treeStart, treeEnd))
 
 class IdentifierNode(ParseNode):
     __slots__ = ('name',)

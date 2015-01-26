@@ -96,46 +96,67 @@ class LineReader:
 
     def __log(self, level, msg, *args, location=None, **kwargs):
         if self.logger.isEnabledFor(level):
-            extra = self.getLocation() if location is None else location
-            self.logger.log(level, msg, *args, extra=extra, **kwargs)
+            if location is None:
+                location = self.getLocation()
+            self.logger.log(level, msg, *args, extra=location.extra, **kwargs)
 
     def getLocation(self, span=None):
-        '''Returns a dictionary describing the current location in the input
-        stream. This can be passed as the "location" argument to the log methods
-        when a message should be logged for a line other than the current one.
-        If the 'span' argument is provided, it must be a tuple of the start
-        and end index of the area of interest within the current line.
+        '''Returns an InputLocation object describing the current location in
+        the input file. This can be passed as the "location" argument to the
+        log methods when a message should be logged for a line other than the
+        current one. If the 'span' argument is provided, it must be a tuple of
+        the start and end index of the area of interest within the current line.
         '''
-        return dict(
+        return InputLocation(
             readerPathname=self.pathname,
             readerLineno=self.lineno,
             readerLastline=self.lastline,
             readerColSpan=span,
             )
 
-def getSpan(location):
-    '''Returns the column span information of the given location,
-    or None if the given location has no column span information.
+class InputLocation:
+    '''Describes a particular location in an input text file.
+    This can be used to provide context in error reporting.
     '''
-    return location.get('readerColSpan')
+    __slots__ = ('extra',)
 
-def getText(location):
-    '''Returns the text described by the given location: the spanned substring
-    if span information is available, otherwise the full line.
-    '''
-    line = location['readerLastline']
-    try:
-        span = location['readerColSpan']
-    except KeyError:
-        return line
-    else:
-        return line[slice(*span)]
+    pathname = property(lambda self: self.extra['readerPathname'])
+    '''The file system path to the input text file.'''
 
-def updateSpan(location, span):
-    '''Adds or updates the column span information of a location.
-    Returns an updated location object; the original is unmodified.
-    '''
-    return dict(location, readerColSpan=span)
+    line = property(lambda self: self.extra['readerLastline'])
+    '''The contents of the input line that this location describes.'''
+
+    lineno = property(lambda self: self.extra['readerLineno'])
+    '''The number of this location's line in the input file, where line 1 is
+    the first line.'''
+
+    span = property(lambda self: self.extra.get('readerColSpan'))
+    '''The column span information of this location, or None if no column span
+    information is available.'''
+
+    def __init__(self, **kwargs):
+        self.extra = kwargs
+
+    def __eq__(self, other):
+        return isinstance(other, InputLocation) and self.extra == other.extra
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def text(self):
+        '''Returns the text described by this location: the spanned substring
+        if span information is available, otherwise the full line.
+        '''
+        line = self.line
+        span = self.span
+        return line if span is None else line[slice(*span)]
+
+    def updateSpan(self, span):
+        '''Adds or updates the column span information of a location.
+        Returns an updated location object; the original is unmodified.
+        '''
+        return InputLocation(**dict(self.extra, readerColSpan=span))
 
 class DelayedError(Exception):
     '''Raised when one or more errors were encountered when processing input.
@@ -161,7 +182,7 @@ class BadInput(Exception):
         with the input text in the location's span appended after the error
         message.
         '''
-        return cls('%s: %s' % (msg, getText(location)), location)
+        return cls('%s: %s' % (msg, location.text), location)
 
     def __init__(self, msg, location=None):
         Exception.__init__(self, msg)
