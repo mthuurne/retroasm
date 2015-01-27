@@ -11,7 +11,6 @@ from .types import parseType, parseTypeDecl
 from .utils import checkType
 
 from collections import OrderedDict
-from functools import partial
 from logging import getLogger
 import re
 
@@ -26,22 +25,19 @@ class _GlobalContextBuilder:
     def __getitem__(self, key):
         return self.exprs[key]
 
-    def reserve(self, key, location):
-        '''Reserves a name in the global context.
-        If the name was available, it is reserved and a function is returned
-        that, when called with a single argument, will store that argument in
-        the global context as the value for the reserved key.
+    def define(self, name, value, location):
+        '''Defines a named item in the global context.
         If the name was already taken, NameExistsError is raised.
         '''
-        checkType(key, str, 'global name')
-        oldLocation = self.locations.get(key)
+        checkType(name, str, 'global name')
+        oldLocation = self.locations.get(name)
         if oldLocation is None:
-            self.locations[key] = location
-            return partial(self.exprs.__setitem__, key)
+            self.locations[name] = location
+            self.exprs[name] = value
         else:
             raise NameExistsError(
                 'global name "%s" redefined; first definition was on line %d'
-                % (key, oldLocation.lineno),
+                % (name, oldLocation.lineno),
                 location
                 )
 
@@ -71,7 +67,7 @@ def _parseRegs(reader, argStr, context):
                     reader.error(str(ex))
                     continue
                 try:
-                    context.reserve(regName, reader.getLocation())(reg)
+                    context.define(regName, reg, reader.getLocation())
                 except NameExistsError as ex:
                     reader.error(
                         'error defining register: %s', ex, location=ex.location
@@ -127,7 +123,7 @@ def _parseRegs(reader, argStr, context):
                 else:
                     unwrapped = unwrap(alias)
                 try:
-                    context.reserve(aliasName, reader.getLocation())(unwrapped)
+                    context.define(aliasName, unwrapped, reader.getLocation())
                 except NameExistsError as ex:
                     reader.error(
                         'error defining register alias: %s', ex,
@@ -155,7 +151,7 @@ def _parseIO(reader, argStr, context):
                 continue
             channel = IOChannel(name, elemType, addrType)
             try:
-                context.reserve(name, reader.getLocation())(channel)
+                context.define(name, channel, reader.getLocation())
             except NameExistsError as ex:
                 reader.error(
                     'error defining I/O channel: %s', ex, location=ex.location
@@ -206,6 +202,8 @@ _reFuncHeader = re.compile(
     )
 
 def _parseFunc(reader, argStr, context):
+    headerLocation = reader.getLocation()
+
     # Parse header line.
     match = _reFuncHeader.match(argStr)
     if not match:
@@ -233,19 +231,14 @@ def _parseFunc(reader, argStr, context):
         reader.skipBlock()
         return
 
-    # Reserve the function name in the global context.
-    try:
-        nameReservation = context.reserve(funcName, reader.getLocation())
-    except NameExistsError as ex:
-        reader.error('error declaring function: %s', ex, location=ex.location)
-        nameReservation = None
-
     # Parse body lines.
     func = createFunc(reader, funcName, retType, args, context.exprs)
 
     # Store function in global context.
-    if nameReservation is not None:
-        nameReservation(func)
+    try:
+        context.define(funcName, func, headerLocation)
+    except NameExistsError as ex:
+        reader.error('error declaring function: %s', ex, location=ex.location)
 
     func.dump()
     print()
