@@ -30,16 +30,14 @@ class _GlobalContextBuilder:
         If the name was already taken, NameExistsError is raised.
         '''
         checkType(name, str, 'global name')
-        oldLocation = self.locations.get(name)
-        if oldLocation is None:
-            self.locations[name] = location
-            self.exprs[name] = value
-        else:
-            raise NameExistsError(
-                'global name "%s" redefined; first definition was on line %d'
-                % (name, oldLocation.lineno),
-                location
-                )
+        if name in self.exprs:
+            msg = 'global name "%s" redefined' % name
+            oldLocation = self.locations[name]
+            if oldLocation is not None:
+                msg += '; first definition was on line %d' % oldLocation.lineno
+            raise NameExistsError(msg, location)
+        self.locations[name] = location
+        self.exprs[name] = value
 
     def items(self):
         return self.exprs.items()
