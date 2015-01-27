@@ -24,11 +24,11 @@ def createFunc(reader, funcName, retType, args, globalContext):
     builder = CodeBlockBuilder(globalContext, reader)
     for argName, argDecl in args.items():
         if isinstance(argDecl, Reference):
-            builder.emitLocalReference(argName, argDecl.type)
+            builder.emitLocalReference(argName, argDecl.type, headerLocation)
         else:
-            builder.emitValueArgument(argName, argDecl)
+            builder.emitValueArgument(argName, argDecl, headerLocation)
     if retType is not None:
-        builder.emitVariable('ret', retType)
+        builder.emitVariable('ret', retType, headerLocation)
 
     try:
         with reader.checkErrors():

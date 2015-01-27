@@ -39,11 +39,11 @@ class _CodeBlockContext:
             else:
                 return self._importReference(ref)
 
-    def __setitem__(self, key, value):
+    def define(self, name, value, location):
         localContext = self.localContext
-        if key in localContext:
-            raise NameExistsError('attempt to redefine "%s"' % key)
-        localContext[key] = value
+        if name in localContext:
+            raise NameExistsError('attempt to redefine "%s"' % name, location)
+        localContext[name] = value
 
     def _importReference(self, ref):
         '''Imports named references in the given reference expression into
@@ -189,18 +189,18 @@ class CodeBlockBuilder:
         self.references.append(storage)
         return rid
 
-    def _addNamedReference(self, ref):
+    def _addNamedReference(self, ref, location):
         rid = self._emitReference(ref)
-        self.context[ref.name] = ReferencedValue(rid, ref.type)
+        self.context.define(ref.name, ReferencedValue(rid, ref.type), location)
         return rid
 
-    def emitVariable(self, name, refType):
-        return self._addNamedReference(Variable(name, refType))
+    def emitVariable(self, name, refType, location):
+        return self._addNamedReference(Variable(name, refType), location)
 
-    def emitLocalReference(self, name, refType):
-        return self._addNamedReference(LocalReference(name, refType))
+    def emitLocalReference(self, name, refType, location):
+        return self._addNamedReference(LocalReference(name, refType), location)
 
-    def emitValueArgument(self, name, decl):
+    def emitValueArgument(self, name, decl, location):
         '''Adds a passed-by-value argument to this code block.
         The initial value is represented by an ArgumentConstant and is loaded
         into the corresponding Variable.
@@ -214,7 +214,7 @@ class CodeBlockBuilder:
         self.constants.append(constant)
 
         # Store initial value.
-        rid = self.emitVariable(name, decl)
+        rid = self.emitVariable(name, decl, location)
         self.nodes.insert(0, Store(cid, rid))
 
         return rid
@@ -223,23 +223,23 @@ class CodeBlockBuilder:
         indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
         return self._emitReference(IOReference(channel, indexConst))
 
-    def defineConstant(self, name, expr):
+    def defineConstant(self, name, expr, location):
         '''Defines a constant with the given name and value.
         Returns a ConstantValue for the newly defined constant.
-        Raises ValueError if the name is already taken.
+        Raises NameExistsError if the name is already taken.
         '''
         const = self.emitCompute(expr)
-        self.context[name] = const
+        self.context.define(name, const, location)
         return const
 
-    def defineReference(self, name, storage):
+    def defineReference(self, name, storage, location):
         '''Defines a reference with the given name and value.
         Returns the given value.
-        Raises ValueError if the name is already taken.
+        Raises NameExistsError if the name is already taken.
         '''
         if not checkStorage(storage):
             raise TypeError('expected storage, got %s' % type(storage).__name__)
-        self.context[name] = storage
+        self.context.define(name, storage, location)
         return storage
 
     def inlineBlock(self, code, context):

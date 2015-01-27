@@ -38,12 +38,12 @@ def declareVariable(node, builder):
 
     # Add declaration to context.
     try:
-        rid = builder.emitVariable(name, typ)
+        rid = builder.emitVariable(name, typ, nameNode.location)
         return ReferencedValue(rid, typ)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
-            nameNode.location
+            ex.location
             )
 
 def convertDefinition(node, builder):
@@ -94,15 +94,15 @@ def convertDefinition(node, builder):
     # Add definition to context.
     try:
         if kind is DeclarationKind.constant:
-            return builder.defineConstant(name, expr)
+            return builder.defineConstant(name, expr, nameNode.location)
         elif kind is DeclarationKind.reference:
-            return builder.defineReference(name, expr)
+            return builder.defineReference(name, expr, nameNode.location)
         else:
             assert False, kind
     except NameExistsError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
-            nameNode.location
+            ex.location
             )
 
 def _convertIdentifier(node, builder):

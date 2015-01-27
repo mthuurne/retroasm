@@ -61,10 +61,10 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
         return self.emitIOReference(channel, index)
 
     def addLocalReference(self, name, width=8):
-        return self.emitLocalReference(name, IntType(width))
+        return self.emitLocalReference(name, IntType(width), None)
 
     def addValueArgument(self, name, width=8):
-        return self.emitValueArgument(name, IntType(width))
+        return self.emitValueArgument(name, IntType(width), None)
 
     def addVariable(self, name, width=8):
-        return self.emitVariable(name, IntType(width))
+        return self.emitVariable(name, IntType(width), None)
