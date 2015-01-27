@@ -1,5 +1,5 @@
 from .codeblock_builder import CodeBlockBuilder
-from .context import NameExistsError
+from .context import Context, NameExistsError
 from .expression_builder import BadExpression, buildStorage
 from .expression_parser import ParseError, parseExpr
 from .function_builder import createFunc
@@ -8,39 +8,12 @@ from .storage import (
     Concatenation, IOChannel, ReferencedValue, Register, namePat
     )
 from .types import parseType, parseTypeDecl
-from .utils import checkType
 
 from collections import OrderedDict
 from logging import getLogger
 import re
 
 logger = getLogger('parse-instr')
-
-class _GlobalContextBuilder:
-
-    def __init__(self):
-        self.exprs = {}
-        self.locations = {}
-
-    def __getitem__(self, key):
-        return self.exprs[key]
-
-    def define(self, name, value, location):
-        '''Defines a named item in the global context.
-        If the name was already taken, NameExistsError is raised.
-        '''
-        checkType(name, str, 'global name')
-        if name in self.exprs:
-            msg = 'global name "%s" redefined' % name
-            oldLocation = self.locations[name]
-            if oldLocation is not None:
-                msg += '; first definition was on line %d' % oldLocation.lineno
-            raise NameExistsError(msg, location)
-        self.locations[name] = location
-        self.exprs[name] = value
-
-    def items(self):
-        return self.exprs.items()
 
 def _parseRegs(reader, argStr, context):
     if argStr:
@@ -230,7 +203,7 @@ def _parseFunc(reader, argStr, context):
         return
 
     # Parse body lines.
-    func = createFunc(reader, funcName, retType, args, context.exprs)
+    func = createFunc(reader, funcName, retType, args, context)
 
     # Store function in global context.
     try:
@@ -243,7 +216,7 @@ def _parseFunc(reader, argStr, context):
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
-        context = _GlobalContextBuilder()
+        context = Context()
         for header in reader:
             if not header:
                 pass
