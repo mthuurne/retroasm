@@ -307,6 +307,12 @@ class FixedValue(Storage):
         self._cid = cid
         Storage.__init__(self, typ)
 
+    def __repr__(self):
+        return 'FixedValue(%d, %s)' % (self._cid, repr(self._type))
+
+    def __str__(self):
+        return 'C%d' % self._cid
+
     def canLoadHaveSideEffect(self):
         return False
 
