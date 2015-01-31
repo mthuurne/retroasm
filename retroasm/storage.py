@@ -2,7 +2,6 @@ from .expression import Expression
 from .types import IntType
 from .utils import checkType
 
-from inspect import signature
 import re
 
 class IOChannel:
@@ -329,34 +328,24 @@ class FixedValue(Storage):
         # Since we don't store any state, we can pretend to be unique.
         return self is other
 
-class ReferencedValue(Expression):
+class ReferencedValue:
     '''A value in a storage location accessed through a reference.
     '''
-    __slots__ = ('_rid',)
+    __slots__ = ('_rid', '_type')
 
     rid = property(lambda self: self._rid)
+    type = property(lambda self: self._type)
+    width = property(lambda self: self._type.width)
 
     def __init__(self, rid, typ):
-        Expression.__init__(self, typ)
         self._rid = rid
+        self._type = typ
 
-    def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
-        if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
-        kwargs.setdefault('rid', self._rid)
-        kwargs.setdefault('typ', self.type)
-        return signature(cls).bind(**kwargs)
+    def __repr__(self):
+        return 'ReferencedValue(%d, %s)' % (self._rid, repr(self._type))
 
     def __str__(self):
         return 'R%d' % self._rid
-
-    def _equals(self, other):
-        # pylint: disable=protected-access
-        return self._rid is other._rid
-
-    def _complexity(self):
-        return 4
 
 class Concatenation:
     '''Concatenates the bit strings of storages.

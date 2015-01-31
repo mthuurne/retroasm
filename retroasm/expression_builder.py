@@ -117,13 +117,10 @@ def _convertIdentifier(node, builder):
         return value
 
 def _constifyIdentifier(node, builder):
-    ident = _convertIdentifier(node, builder)
-    if isinstance(ident, IOChannel):
-        return ident
 
-    def constify(expr):
-        if isinstance(expr, ReferencedValue):
-            rid = expr.rid
+    def constify(value):
+        if isinstance(value, ReferencedValue):
+            rid = value.rid
             ref = builder.references[rid]
             if isinstance(ref, Variable) and ref.name == 'ret':
                 raise BadExpression(
@@ -131,12 +128,18 @@ def _constifyIdentifier(node, builder):
                     node.location
                     )
             return builder.emitLoad(rid)
-        return None
+        elif isinstance(value, Expression):
+            return value
+        else:
+            assert False, repr(value)
 
-    if isinstance(ident, Concatenation):
-        return concatenate(*(expr.substitute(constify) for expr in ident.exprs))
+    ident = _convertIdentifier(node, builder)
+    if isinstance(ident, IOChannel):
+        return ident
+    elif isinstance(ident, Concatenation):
+        return concatenate(*(constify(expr) for expr in ident.exprs))
     else:
-        return ident.substitute(constify)
+        return constify(ident)
 
 def _convertFunctionCall(nameNode, *argNodes, builder):
     # Get function object.
