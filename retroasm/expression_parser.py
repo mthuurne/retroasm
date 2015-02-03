@@ -248,7 +248,7 @@ def _parse(exprStr, location, statement):
     def parseUnary():
         location = token.location
         if token.eat(Token.operator, '-'):
-            return OperatorNode(Operator.complement, parseUnary(), location)
+            return OperatorNode(Operator.complement, (parseUnary(),), location)
         else:
             return parseIndexed()
 
