@@ -170,7 +170,7 @@ def checkStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
-    return isinstance(storage, (Concatenation, ReferencedValue, Storage))
+    return isinstance(storage, (Concatenation, ReferencedValue, Slice, Storage))
 
 def decomposeConcat(storage):
     '''Iterates through the storage locations inside a concatenation.
@@ -186,6 +186,9 @@ def decomposeConcat(storage):
             for subStorage, offset in decomposeConcat(concatTerm):
                 yield subStorage, concatOffset + offset
             concatOffset += concatTerm.width
+    elif isinstance(storage, Slice):
+        # TODO: Implement.
+        print('ignoring slice:', storage)
     else:
         assert False, storage
 
@@ -365,3 +368,40 @@ class Concatenation:
                 raise TypeError(
                     'expected storage, got %s' % type(expr).__name__
                     )
+
+    def __repr__(self):
+        return 'Concatenation(%s)' % ', '.join(
+            repr(expr) for expr in self._exprs
+            )
+
+    def __str__(self):
+        return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)
+
+class Slice:
+    '''Slices the bit strings of a storage.
+    '''
+    __slots__ = ('_expr', '_index', '_width')
+
+    expr = property(lambda self: self._expr)
+    index = property(lambda self: self._index)
+    width = property(lambda self: self._width)
+    type = property(lambda self: IntType(self.width))
+
+    def __init__(self, expr, index, width):
+        self._expr = expr
+        self._index = checkType(index, int, 'slice index')
+        self._width = checkType(width, int, 'slice width')
+        if index < 0:
+            raise ValueError('slice index must not be negative: %d' % index)
+        if width < 0:
+            raise ValueError('slice width must not be negative: %d' % width)
+
+    def __repr__(self):
+        return 'Slice(%s, %d, %d)' % (
+            repr(self._expr), self._index, self._width
+            )
+
+    def __str__(self):
+        return '%s[%d:%d]' % (
+            self._expr, self._index, self._index + self._width
+            )
