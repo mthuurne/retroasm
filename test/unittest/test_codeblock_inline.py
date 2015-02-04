@@ -4,7 +4,7 @@ from retroasm.codeblock import ComputedConstant, Load, Store
 from retroasm.expression import (
     AddOperator, AndOperator, IntLiteral, concatenate
     )
-from retroasm.storage import Concatenation
+from retroasm.storage import Concatenation, Slice
 
 import unittest
 
@@ -155,6 +155,38 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code.verify()
         self.assertEqual(len(code.nodes), 2)
         self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1234)
+
+    def test_pass_slice_by_reference(self):
+        '''Test sliced storages as pass-by-reference arguments.'''
+        inc = TestCodeBlockBuilder()
+        incArgRid = inc.addLocalReference('R')
+        incArgVal = inc.emitLoad(incArgRid)
+        incAdd = inc.emitCompute(
+            AddOperator(incArgVal, IntLiteral.create(0x12))
+            )
+        inc.emitStore(incArgRid, incAdd)
+        incCode = inc.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerR = outer.addRegister('r', 16)
+        regR = outer.context['r']
+        initR = outer.emitCompute(IntLiteral.create(0xcdef))
+        outer.emitStore(outerR, initR)
+        sliceR = Slice(regR, 4, 8)
+        outer.inlineBlock(incCode, {'R': sliceR})
+        outer.inlineBlock(incCode, {'R': sliceR})
+        outer.inlineBlock(incCode, {'R': sliceR})
+        outerRet = outer.addVariable('ret', 16)
+        finalR = outer.emitLoad(outerR)
+        outer.emitStore(outerRet, finalR)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 1)
+        self.assertIntLiteral(
+            code.constants[code.retCid],
+            0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4)
+            )
 
 if __name__ == '__main__':
     verbose = True

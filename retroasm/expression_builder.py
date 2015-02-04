@@ -12,7 +12,7 @@ from .function import Function
 from .linereader import BadInput
 from .storage import (
     Concatenation, FixedValue, IOChannel, ReferencedValue, Slice, Variable,
-    decomposeConcat, isStorage
+    decomposeStorage, isStorage
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -444,11 +444,22 @@ def emitCodeFromStatements(reader, builder, statements):
             else:
                 rhsConst = builder.emitCompute(rhs)
 
-            for storage, offset in decomposeConcat(lhs):
+            for storage, (index, width), offset in decomposeStorage(lhs):
                 sliced = builder.emitCompute(
-                    Truncation(RShift(rhsConst, offset), storage.width)
+                    Truncation(RShift(rhsConst, offset), width)
                     )
-                builder.emitStore(storage.rid, sliced)
+                if index == 0 and width == storage.width:
+                    # Full width.
+                    value = sliced
+                else:
+                    # Partial width: combine with old value.
+                    oldVal = builder.emitLoad(storage.rid)
+                    value = builder.emitCompute(concatenate(
+                        RShift(oldVal, index + width),
+                        sliced,
+                        Truncation(oldVal, index)
+                        ))
+                builder.emitStore(storage.rid, value)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.

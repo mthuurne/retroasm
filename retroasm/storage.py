@@ -172,25 +172,36 @@ def isStorage(storage):
     '''
     return isinstance(storage, (Concatenation, ReferencedValue, Slice, Storage))
 
-def decomposeConcat(storage):
-    '''Iterates through the storage locations inside a concatenation.
-    Each element is a pair of a ReferencedValue and an offset.
-    '''
-    if isinstance(storage, FixedValue):
-        pass
-    elif isinstance(storage, ReferencedValue):
-        yield storage, 0
-    elif isinstance(storage, Concatenation):
-        concatOffset = 0
+def _decompose(storage):
+    if isinstance(storage, Concatenation):
         for concatTerm in reversed(storage.exprs):
-            for subStorage, offset in decomposeConcat(concatTerm):
-                yield subStorage, concatOffset + offset
-            concatOffset += concatTerm.width
+            yield from _decompose(concatTerm)
     elif isinstance(storage, Slice):
-        # TODO: Implement.
-        print('ignoring slice:', storage)
+        sliceStart = storage.index
+        sliceEnd = sliceStart + storage.width
+        offset = 0
+        for subStorage, subStart, subWidth in _decompose(storage.expr):
+            # Clip slice indices to substorage range.
+            start = max(sliceStart, offset)
+            end = min(sliceEnd, offset + subWidth)
+            if start < end:
+                yield subStorage, subStart + start - offset, end - start
+            offset += subWidth
     else:
-        assert False, storage
+        assert isStorage(storage), repr(storage)
+        yield storage, 0, storage.width
+
+def decomposeStorage(storage):
+    '''Iterates through the storage locations inside a concatenation.
+    Each element is a triple of a storage (always a ReferencedValue instance),
+    a slice range for that storage and the bit offset of that slice in the
+    original expression.
+    '''
+    offset = 0
+    for subStorage, subStart, subWidth in _decompose(storage):
+        if not isinstance(subStorage, FixedValue):
+            yield subStorage, (subStart, subWidth), offset
+        offset += subWidth
 
 class Variable(NamedStorage):
     '''A variable in the local context.
