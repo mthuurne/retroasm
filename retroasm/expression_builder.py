@@ -12,7 +12,7 @@ from .function import Function
 from .linereader import BadInput
 from .storage import (
     Concatenation, FixedValue, IOChannel, ReferencedValue, Slice, Variable,
-    checkStorage, decomposeConcat
+    decomposeConcat, isStorage
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -401,7 +401,7 @@ def buildStorage(node, builder):
             return expr
     elif isinstance(node, IdentifierNode):
         expr = _convertIdentifier(node, builder)
-        if checkStorage(expr):
+        if isStorage(expr):
             return expr
         elif isinstance(expr, IOChannel):
             raise BadExpression(

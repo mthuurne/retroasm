@@ -166,7 +166,7 @@ class NamedStorage(Storage):
     def mightBeSame(self, other):
         raise NotImplementedError
 
-def checkStorage(storage):
+def isStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
@@ -364,7 +364,7 @@ class Concatenation:
         for expr in exprs:
             if isinstance(expr, Concatenation):
                 raise TypeError('nested concatenations not allowed')
-            if not checkStorage(expr):
+            if not isStorage(expr):
                 raise TypeError(
                     'expected storage, got %s' % type(expr).__name__
                     )

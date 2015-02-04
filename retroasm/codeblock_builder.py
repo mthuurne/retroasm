@@ -7,7 +7,7 @@ from .context import NameExistsError
 from .expression import LShift, OrOperator, RShift, Truncation, unit
 from .storage import (
     Concatenation, IOReference, LocalReference, NamedStorage, ReferencedValue,
-    Storage, Variable, checkStorage, decomposeConcat
+    Storage, Variable, decomposeConcat, isStorage
     )
 from .types import IntType, unlimited
 
@@ -237,7 +237,7 @@ class CodeBlockBuilder:
         Returns the given value.
         Raises NameExistsError if the name is already taken.
         '''
-        if not checkStorage(storage):
+        if not isStorage(storage):
             raise TypeError('expected storage, got %s' % type(storage).__name__)
         self.context.define(name, storage, location)
         return storage
