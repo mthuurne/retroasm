@@ -212,14 +212,7 @@ def _convertConcat(factory, node, builder):
             'unlimited width',
             node.treeLocation
             )
-    if isinstance(expr1, Concatenation):
-        yield from expr1.exprs
-    else:
-        yield expr1
-    if isinstance(expr2, Concatenation):
-        yield from expr2.exprs
-    else:
-        yield expr2
+    return expr1, expr2
 
 def _convertLookup(exprNode, indexNode, builder):
     index = buildExpression(indexNode, builder)

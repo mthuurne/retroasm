@@ -378,8 +378,6 @@ class Concatenation:
     def __init__(self, exprs):
         self._exprs = exprs = tuple(exprs)
         for expr in exprs:
-            if isinstance(expr, Concatenation):
-                raise TypeError('nested concatenations not allowed')
             if not isStorage(expr):
                 raise TypeError(
                     'expected storage, got %s' % type(expr).__name__
