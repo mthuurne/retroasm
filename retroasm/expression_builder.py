@@ -444,22 +444,25 @@ def emitCodeFromStatements(reader, builder, statements):
             else:
                 rhsConst = builder.emitCompute(rhs)
 
-            for storage, (index, width), offset in decomposeStorage(lhs):
-                sliced = builder.emitCompute(
-                    Truncation(RShift(rhsConst, offset), width)
-                    )
-                if index == 0 and width == storage.width:
-                    # Full width.
-                    value = sliced
-                else:
-                    # Partial width: combine with old value.
-                    oldVal = builder.emitLoad(storage.rid)
-                    value = builder.emitCompute(concatenate(
-                        RShift(oldVal, index + width),
-                        sliced,
-                        Truncation(oldVal, index)
-                        ))
-                builder.emitStore(storage.rid, value)
+            offset = 0
+            for storage, index, width in decomposeStorage(lhs):
+                if not isinstance(storage, FixedValue):
+                    sliced = builder.emitCompute(
+                        Truncation(RShift(rhsConst, offset), width)
+                        )
+                    if index == 0 and width == storage.width:
+                        # Full width.
+                        value = sliced
+                    else:
+                        # Partial width: combine with old value.
+                        oldVal = builder.emitLoad(storage.rid)
+                        value = builder.emitCompute(concatenate(
+                            RShift(oldVal, index + width),
+                            sliced,
+                            Truncation(oldVal, index)
+                            ))
+                    builder.emitStore(storage.rid, value)
+                offset += width
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.

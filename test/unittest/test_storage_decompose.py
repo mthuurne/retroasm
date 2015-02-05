@@ -28,16 +28,18 @@ class DecomposeTests(unittest.TestCase):
                 )
 
     def test_fixed_value(self):
-        '''Checks that FixedValues are skipped.'''
+        '''Checks that FixedValues are yielded whole.'''
         storage = FixedValue(0, IntType(8))
-        expected = ()
+        expected = (
+            (storage, 0, 8),
+            )
         self.assertDecomposed(storage, expected)
 
     def test_referenced_value(self):
         '''Checks that ReferencedValues are yielded whole.'''
         storage = ReferencedValue(0, IntType(8))
         expected = (
-            (storage, (0, 8), 0),
+            (storage, 0, 8),
             )
         self.assertDecomposed(storage, expected)
 
@@ -48,8 +50,9 @@ class DecomposeTests(unittest.TestCase):
         ref1 = ReferencedValue(1, IntType(13))
         storage = Concatenation((ref0, fix0, ref1))
         expected = (
-            (ref1, (0, 13), 0),
-            (ref0, (0, 7), 16),
+            (ref1, 0, 13),
+            (fix0, 0, 3),
+            (ref0, 0, 7),
             )
         self.assertDecomposed(storage, expected)
 
@@ -58,7 +61,7 @@ class DecomposeTests(unittest.TestCase):
         ref0 = ReferencedValue(0, IntType(8))
         storage = Slice(ref0, 2, 3)
         expected = (
-            (ref0, (2, 3), 0),
+            (ref0, 2, 3),
             )
         self.assertDecomposed(storage, expected)
 
@@ -67,7 +70,7 @@ class DecomposeTests(unittest.TestCase):
         ref0 = ReferencedValue(0, IntType(8))
         storage = Slice(ref0, 2, 30)
         expected = (
-            (ref0, (2, 6), 0),
+            (ref0, 2, 6),
             )
         self.assertDecomposed(storage, expected)
 
@@ -79,9 +82,9 @@ class DecomposeTests(unittest.TestCase):
         concat = Concatenation((ref0, ref1, ref2))
         storage = Slice(concat, 5, 13)
         expected = (
-            (ref2, (5, 3), 0),
-            (ref1, (0, 8), 3),
-            (ref0, (0, 2), 11),
+            (ref2, 5, 3),
+            (ref1, 0, 8),
+            (ref0, 0, 2),
             )
         self.assertDecomposed(storage, expected)
 
@@ -95,8 +98,8 @@ class DecomposeTests(unittest.TestCase):
         concatB = Concatenation((ref2, sliceA))
         storage = Slice(concatB, 4, 7)
         expected = (
-            (ref1, (1, 2), 0),
-            (ref2, (0, 5), 2),
+            (ref1, 1, 2),
+            (ref2, 0, 5),
             )
         self.assertDecomposed(storage, expected)
 

@@ -8,8 +8,8 @@ from .expression import (
     LShift, OrOperator, RShift, Truncation, concatenate, unit
     )
 from .storage import (
-    Concatenation, IOReference, LocalReference, NamedStorage, ReferencedValue,
-    Storage, Variable, decomposeStorage, isStorage
+    Concatenation, FixedValue, IOReference, LocalReference, NamedStorage,
+    ReferencedValue, Storage, Variable, decomposeStorage, isStorage
     )
 from .types import IntType, unlimited
 
@@ -266,10 +266,11 @@ class CodeBlockBuilder:
         for rid, ref in code.references.items():
             # Shallow copy is sufficient because references are immutable.
             if isinstance(ref, LocalReference):
+                argVal = context[ref.name]
                 ridMap[rid] = [
-                    (storage.rid, index, width, offset)
-                    for storage, (index, width), offset
-                    in decomposeStorage(context[ref.name])
+                    (storage.rid, index, width)
+                    for storage, index, width in decomposeStorage(argVal)
+                    if not isinstance(storage, FixedValue)
                     ]
             else:
                 ridMap[rid] = len(references)
@@ -311,7 +312,7 @@ class CodeBlockBuilder:
         # because at that time the constants haven't been added yet.
         for newRid in ridMap.values():
             if isinstance(newRid, list):
-                rids = [rid for rid, index, width, offset in newRid]
+                rids = [rid for rid, index, width in newRid]
             else:
                 rids = [newRid]
             for rid in rids:
@@ -329,18 +330,23 @@ class CodeBlockBuilder:
             newRid = ridMap[node.rid]
             if isinstance(newRid, list):
                 if isinstance(node, Load):
-                    consts = [
-                        (Truncation(RShift(self.emitLoad(rid), index), width), \
-                         offset)
-                        for rid, index, width, offset in newRid
-                        ]
-                    combined = OrOperator(*(LShift(*eo) for eo in consts))
+                    def loadStorage():
+                        offset = 0
+                        for rid, index, width in newRid:
+                            value = self.emitLoad(rid)
+                            yield LShift(
+                                Truncation(RShift(value, index), width),
+                                offset
+                                )
+                            offset += width
+                    combined = OrOperator(*loadStorage())
                     newCid = cidMap[node.cid]
                     constants[newCid] = ComputedConstant(newCid, combined)
                 elif isinstance(node, Store):
                     const = constants[cidMap[node.cid]]
                     value = ConstantValue(const.cid, const.type)
-                    for rid, index, width, offset in newRid:
+                    offset = 0
+                    for rid, index, width in newRid:
                         sliced = self.emitCompute(
                             Truncation(RShift(value, offset), width)
                             )
@@ -353,6 +359,7 @@ class CodeBlockBuilder:
                                 Truncation(oldVal, index)
                                 ))
                         nodes.append(Store(sliced.cid, rid))
+                        offset += width
                 else:
                     assert False, node
             else:
