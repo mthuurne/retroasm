@@ -267,14 +267,15 @@ class CodeBlockBuilder:
             # Shallow copy is sufficient because references are immutable.
             if isinstance(ref, LocalReference):
                 argVal = ComposedStorage.decompose(context[ref.name])
-                ridMap[rid] = [
+                ridMap[rid] = tuple(
                     (storage.rid, index, width)
                     for storage, index, width in argVal
                     if not isinstance(storage, FixedValue)
-                    ]
+                    )
             else:
-                ridMap[rid] = len(references)
+                newRid = len(references)
                 references.append(ref)
+                ridMap[rid] = ((newRid, 0, ref.width),)
 
         # Copy constants.
         for cid, const in code.constants.items():
@@ -296,14 +297,8 @@ class CodeBlockBuilder:
                     const.expr.substitute(substCid)
                     ))
             elif isinstance(const, LoadedConstant):
-                rid = ridMap[const.rid]
-                if isinstance(rid, list):
-                    # Will be filled in when Load node is copied.
-                    constants.append(None)
-                else:
-                    constants.append(
-                        LoadedConstant(cidMap[const.cid], rid, const.type)
-                        )
+                # Will be filled in when Load node is copied.
+                constants.append(None)
             else:
                 assert False, const
 
@@ -311,11 +306,7 @@ class CodeBlockBuilder:
         # This cannot be done when originally copying the references
         # because at that time the constants haven't been added yet.
         for newRid in ridMap.values():
-            if isinstance(newRid, list):
-                rids = [rid for rid, index, width in newRid]
-            else:
-                rids = [newRid]
-            for rid in rids:
+            for rid, index_, width_ in newRid:
                 ref = references[rid]
                 if isinstance(ref, IOReference):
                     references[rid] = IOReference(
@@ -328,43 +319,39 @@ class CodeBlockBuilder:
         # Copy nodes.
         for node in code.nodes:
             newRid = ridMap[node.rid]
-            if isinstance(newRid, list):
-                if isinstance(node, Load):
-                    def loadStorage():
-                        offset = 0
-                        for rid, index, width in newRid:
-                            value = self.emitLoad(rid)
-                            yield LShift(
-                                Truncation(RShift(value, index), width),
-                                offset
-                                )
-                            offset += width
-                    combined = OrOperator(*loadStorage())
-                    newCid = cidMap[node.cid]
-                    constants[newCid] = ComputedConstant(newCid, combined)
-                elif isinstance(node, Store):
-                    const = constants[cidMap[node.cid]]
-                    value = ConstantValue(const.cid, const.type)
+            if isinstance(node, Load):
+                def loadStorage():
                     offset = 0
                     for rid, index, width in newRid:
-                        sliced = self.emitCompute(
-                            Truncation(RShift(value, offset), width)
+                        value = self.emitLoad(rid)
+                        yield LShift(
+                            Truncation(RShift(value, index), width),
+                            offset
                             )
-                        if index != 0 or width != references[rid].width:
-                            # Partial width: combine with old value.
-                            oldVal = self.emitLoad(rid)
-                            sliced = self.emitCompute(concatenate(
-                                RShift(oldVal, index + width),
-                                sliced,
-                                Truncation(oldVal, index)
-                                ))
-                        nodes.append(Store(sliced.cid, rid))
                         offset += width
-                else:
-                    assert False, node
-            else:
+                combined = OrOperator(*loadStorage())
                 newCid = cidMap[node.cid]
-                nodes.append(node.__class__(newCid, newRid))
+                constants[newCid] = ComputedConstant(newCid, combined)
+            elif isinstance(node, Store):
+                const = constants[cidMap[node.cid]]
+                value = ConstantValue(const.cid, const.type)
+                offset = 0
+                for rid, index, width in newRid:
+                    sliced = self.emitCompute(
+                        Truncation(RShift(value, offset), width)
+                        )
+                    if index != 0 or width != references[rid].width:
+                        # Partial width: combine with old value.
+                        oldVal = self.emitLoad(rid)
+                        sliced = self.emitCompute(concatenate(
+                            RShift(oldVal, index + width),
+                            sliced,
+                            Truncation(oldVal, index)
+                            ))
+                    nodes.append(Store(sliced.cid, rid))
+                    offset += width
+            else:
+                assert False, node
 
         # Determine return value.
         retCid = code.retCid
