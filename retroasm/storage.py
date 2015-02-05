@@ -174,8 +174,8 @@ def isStorage(storage):
 
 def _decomposeStorage(storage):
     '''Iterates through the basic storages inside the given composed storage.
-    Each element is a triple of a ReferencedValue or FixedValue instance and
-    the start index and the width of the slice of the storage that is affected.
+    Each element is a triple of a reference ID and the start index and the width
+    of the slice of the storage that is affected.
     '''
     if isinstance(storage, Concatenation):
         for concatTerm in reversed(storage.exprs):
@@ -184,16 +184,16 @@ def _decomposeStorage(storage):
         sliceStart = storage.index
         sliceEnd = sliceStart + storage.width
         offset = 0
-        for subStorage, subStart, subWidth in _decomposeStorage(storage.expr):
+        for rid, subStart, subWidth in _decomposeStorage(storage.expr):
             # Clip slice indices to substorage range.
             start = max(sliceStart, offset)
             end = min(sliceEnd, offset + subWidth)
             if start < end:
-                yield subStorage, subStart + start - offset, end - start
+                yield rid, subStart + start - offset, end - start
             offset += subWidth
     else:
-        assert isStorage(storage), repr(storage)
-        yield storage, 0, storage.width
+        assert isinstance(storage, ReferencedValue), repr(storage)
+        yield storage.rid, 0, storage.width
 
 class ComposedStorage:
     __slots__ = ('_decomposed',)

@@ -447,22 +447,22 @@ def emitCodeFromStatements(reader, builder, statements):
                 rhsConst = builder.emitCompute(rhs)
 
             offset = 0
-            for storage, index, width in lhs:
+            for rid, index, width in lhs:
                 sliced = builder.emitCompute(
                     Truncation(RShift(rhsConst, offset), width)
                     )
-                if index == 0 and width == storage.width:
+                if index == 0 and width == builder.references[rid].width:
                     # Full width.
                     value = sliced
                 else:
                     # Partial width: combine with old value.
-                    oldVal = builder.emitLoad(storage.rid)
+                    oldVal = builder.emitLoad(rid)
                     value = builder.emitCompute(concatenate(
                         RShift(oldVal, index + width),
                         sliced,
                         Truncation(oldVal, index)
                         ))
-                builder.emitStore(storage.rid, value)
+                builder.emitStore(rid, value)
                 offset += width
 
         elif isinstance(node, DefinitionNode):

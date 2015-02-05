@@ -268,20 +268,17 @@ class CodeBlockBuilder:
                 )
             )
 
-        # Copy references.
+        # For each old rid, create a corresponding storage in this block.
         ridMap = {}
         for rid, ref in code.references.items():
-            # Shallow copy is sufficient because references are immutable.
             if isinstance(ref, LocalReference):
-                argVal = ComposedStorage.decompose(context[ref.name])
-                ridMap[rid] = tuple(
-                    (storage.rid, index, width)
-                    for storage, index, width in argVal
-                    )
+                storage = context[ref.name]
             else:
+                # Shallow copy is sufficient because references are immutable.
                 newRid = len(references)
                 references.append(ref)
-                ridMap[rid] = ((newRid, 0, ref.width),)
+                storage = ReferencedValue(newRid, ref.type)
+            ridMap[rid] = ComposedStorage.decompose(storage)
 
         # Copy constants.
         for cid, const in code.constants.items():
