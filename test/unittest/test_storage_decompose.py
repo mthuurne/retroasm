@@ -1,5 +1,5 @@
 from retroasm.storage import (
-    Concatenation, FixedValue, ReferencedValue, Slice, decomposeStorage
+    ComposedStorage, Concatenation, FixedValue, ReferencedValue, Slice
     )
 from retroasm.types import IntType
 
@@ -9,12 +9,12 @@ class DecomposeTests(unittest.TestCase):
 
     def assertDecomposed(self, storage, expected):
         i = 0
-        for actualItem in decomposeStorage(storage):
+        for actualItem in ComposedStorage.decompose(storage):
             try:
                 expectedItem = expected[i]
             except IndexError:
                 self.fail(
-                    'decomposeStorage() produced more than the %d expected '
+                    'ComposedStorage produced more than the %d expected '
                     'items' % len(expected)
                     )
                 self.fail('execution continues after fail')
@@ -23,7 +23,7 @@ class DecomposeTests(unittest.TestCase):
             self.assertEqual(actualItem, expectedItem)
         if i < len(expected):
             self.fail(
-                'decomposeStorage() produced only %d of the %d expected items'
+                'ComposedStorage produced only %d of the %d expected items'
                 % (i, len(expected))
                 )
 

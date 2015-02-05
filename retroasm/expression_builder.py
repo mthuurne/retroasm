@@ -11,8 +11,8 @@ from .expression_parser import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    Concatenation, FixedValue, IOChannel, ReferencedValue, Slice, Variable,
-    decomposeStorage, isStorage
+    ComposedStorage, Concatenation, FixedValue, IOChannel, ReferencedValue,
+    Slice, Variable, isStorage
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -425,7 +425,7 @@ def emitCodeFromStatements(reader, builder, statements):
 
         if isinstance(node, AssignmentNode):
             try:
-                lhs = buildStorage(node.lhs, builder)
+                lhs = ComposedStorage.decompose(buildStorage(node.lhs, builder))
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,
@@ -445,7 +445,7 @@ def emitCodeFromStatements(reader, builder, statements):
                 rhsConst = builder.emitCompute(rhs)
 
             offset = 0
-            for storage, index, width in decomposeStorage(lhs):
+            for storage, index, width in lhs:
                 if not isinstance(storage, FixedValue):
                     sliced = builder.emitCompute(
                         Truncation(RShift(rhsConst, offset), width)

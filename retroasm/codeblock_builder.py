@@ -8,8 +8,8 @@ from .expression import (
     LShift, OrOperator, RShift, Truncation, concatenate, unit
     )
 from .storage import (
-    Concatenation, FixedValue, IOReference, LocalReference, NamedStorage,
-    ReferencedValue, Storage, Variable, decomposeStorage, isStorage
+    ComposedStorage, Concatenation, FixedValue, IOReference, LocalReference,
+    NamedStorage, ReferencedValue, Storage, Variable, isStorage
     )
 from .types import IntType, unlimited
 
@@ -266,10 +266,10 @@ class CodeBlockBuilder:
         for rid, ref in code.references.items():
             # Shallow copy is sufficient because references are immutable.
             if isinstance(ref, LocalReference):
-                argVal = context[ref.name]
+                argVal = ComposedStorage.decompose(context[ref.name])
                 ridMap[rid] = [
                     (storage.rid, index, width)
-                    for storage, index, width in decomposeStorage(argVal)
+                    for storage, index, width in argVal
                     if not isinstance(storage, FixedValue)
                     ]
             else:
