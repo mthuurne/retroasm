@@ -227,11 +227,10 @@ class CodeBlockBuilder:
 
     def emitFixedValue(self, expr):
         '''Emits a constant representing the result of the given expression.
-        Returns that constant wrapped in a FixedValue object.
-        Note that while FixedValue is a Storage, it is not added as a reference.
+        Returns the reference ID of the corresponding FixedValue.
         '''
         const = self.emitCompute(expr)
-        return FixedValue(const.cid, const.type)
+        return self._emitReference(FixedValue(const.cid, const.type))
 
     def defineConstant(self, name, expr, location):
         '''Defines a constant with the given name and value.
@@ -278,7 +277,6 @@ class CodeBlockBuilder:
                 ridMap[rid] = tuple(
                     (storage.rid, index, width)
                     for storage, index, width in argVal
-                    if not isinstance(storage, FixedValue)
                     )
             else:
                 newRid = len(references)

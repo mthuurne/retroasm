@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
-from .storage import IOReference, Register, Variable
+from .storage import FixedValue, IOReference, Register, Variable
 
 from collections import defaultdict
 
@@ -163,7 +163,9 @@ class CodeBlockSimplifier(CodeBlock):
                     cidsInUse.add(node.cid)
         # Mark constants used in references.
         for ref in references.values():
-            if isinstance(ref, IOReference):
+            if isinstance(ref, FixedValue):
+                cidsInUse.add(ref.cid)
+            elif isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
         # Mark constant that contains return value.
         retCid = self.retCid
@@ -259,16 +261,19 @@ class CodeBlockSimplifier(CodeBlock):
         references = self.references
         nodes = self.nodes
 
-        # Remove redundant loads by keeping track of the current value of
-        # storages.
+        # Remove redundant loads and stores by keeping track of the current
+        # value of storages.
         currentValueCids = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
             cid = node.cid
             rid = node.rid
-            valueCid = currentValueCids.get(rid)
             storage = references[rid]
+            if isinstance(storage, FixedValue):
+                valueCid = storage.cid
+            else:
+                valueCid = currentValueCids.get(rid)
             if isinstance(node, Load):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
@@ -317,10 +322,11 @@ class CodeBlockSimplifier(CodeBlock):
                     willBeOverwritten.discard(rid)
                 elif isinstance(node, Store):
                     if rid in willBeOverwritten \
-                            or isinstance(storage, Variable):
+                            or isinstance(storage, (FixedValue, Variable)):
                         changed = True
                         del nodes[i]
-                        if storage.name == 'ret':
+                        if isinstance(storage, Variable) \
+                                and storage.name == 'ret':
                             assert self.retCid is None, self.retCid
                             self.retCid = node.cid
                     else:

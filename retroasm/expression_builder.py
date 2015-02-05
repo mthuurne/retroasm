@@ -11,8 +11,8 @@ from .expression_parser import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    ComposedStorage, Concatenation, FixedValue, IOChannel, ReferencedValue,
-    Slice, Variable, isStorage
+    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice, Variable,
+    isStorage
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -332,6 +332,10 @@ def buildExpression(node, builder):
     else:
         assert False, node
 
+def _convertFixedValue(expr, builder):
+    rid = builder.emitFixedValue(expr)
+    return ReferencedValue(rid, expr.type)
+
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
     if isinstance(exprNode, IdentifierNode):
@@ -382,19 +386,19 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return Concatenation(_convertConcat(buildStorage, node, builder))
     else:
-        return builder.emitFixedValue(_convertOperator(node, builder))
+        return _convertFixedValue(_convertOperator(node, builder), builder)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value, IntType(node.width))
-        return builder.emitFixedValue(literal)
+        return _convertFixedValue(literal, builder)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
         if node.kind is DeclarationKind.constant:
             assert isinstance(expr, ConstantValue), repr(expr)
-            return builder.emitFixedValue(expr)
+            return _convertFixedValue(expr, builder)
         else:
             return expr
     elif isinstance(node, IdentifierNode):
@@ -407,7 +411,7 @@ def buildStorage(node, builder):
                 node.location
                 )
         elif isinstance(expr, ConstantValue):
-            return builder.emitFixedValue(expr)
+            return _convertFixedValue(expr, builder)
         else:
             assert False, expr
     elif isinstance(node, OperatorNode):
@@ -444,22 +448,21 @@ def emitCodeFromStatements(reader, builder, statements):
 
             offset = 0
             for storage, index, width in lhs:
-                if not isinstance(storage, FixedValue):
-                    sliced = builder.emitCompute(
-                        Truncation(RShift(rhsConst, offset), width)
-                        )
-                    if index == 0 and width == storage.width:
-                        # Full width.
-                        value = sliced
-                    else:
-                        # Partial width: combine with old value.
-                        oldVal = builder.emitLoad(storage.rid)
-                        value = builder.emitCompute(concatenate(
-                            RShift(oldVal, index + width),
-                            sliced,
-                            Truncation(oldVal, index)
-                            ))
-                    builder.emitStore(storage.rid, value)
+                sliced = builder.emitCompute(
+                    Truncation(RShift(rhsConst, offset), width)
+                    )
+                if index == 0 and width == storage.width:
+                    # Full width.
+                    value = sliced
+                else:
+                    # Partial width: combine with old value.
+                    oldVal = builder.emitLoad(storage.rid)
+                    value = builder.emitCompute(concatenate(
+                        RShift(oldVal, index + width),
+                        sliced,
+                        Truncation(oldVal, index)
+                        ))
+                builder.emitStore(storage.rid, value)
                 offset += width
 
         elif isinstance(node, DefinitionNode):

@@ -1,5 +1,5 @@
 from .expression import Expression
-from .storage import IOReference, ReferencedValue, Storage
+from .storage import FixedValue, IOReference, ReferencedValue, Storage
 from .types import IntType
 from .utils import checkType
 
@@ -216,9 +216,11 @@ class CodeBlock:
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
 
-        # Check that cids in I/O references are valid.
+        # Check that cids in storage references are valid.
         for ref in self.references.values():
-            if isinstance(ref, IOReference):
+            if isinstance(ref, FixedValue):
+                assert ref.cid in cids
+            elif isinstance(ref, IOReference):
                 assert ref.index.cid in cids
 
         # Check that the return value cid is valid.

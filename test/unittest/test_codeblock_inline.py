@@ -4,7 +4,8 @@ from retroasm.codeblock import ComputedConstant, Load, Store
 from retroasm.expression import (
     AddOperator, AndOperator, IntLiteral, concatenate
     )
-from retroasm.storage import Concatenation, Slice
+from retroasm.storage import Concatenation, ReferencedValue, Slice
+from retroasm.types import IntType
 
 import unittest
 
@@ -155,6 +156,38 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code.verify()
         self.assertEqual(len(code.nodes), 2)
         self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1234)
+
+    def test_pass_concat_fixed_by_reference(self):
+        '''Test concatenated storages arguments containing FixedValues.'''
+        inc = TestCodeBlockBuilder()
+        incArgRid = inc.addLocalReference('R', 16)
+        incArgVal = inc.emitLoad(incArgRid)
+        incAdd = inc.emitCompute(
+            AddOperator(incArgVal, IntLiteral.create(0x1234))
+            )
+        inc.emitStore(incArgRid, incAdd)
+        incCode = inc.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerH = outer.addRegister('h')
+        outerL = IntLiteral(0xcd, IntType(8))
+        regH = outer.context['h']
+        fixedL = ReferencedValue(outer.emitFixedValue(outerL), outerL.type)
+        initH = outer.emitCompute(IntLiteral.create(0xab))
+        outer.emitStore(outerH, initH)
+        regHL = Concatenation((regH, fixedL))
+        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, {'R': regHL})
+        outerRet = outer.addVariable('ret', 16)
+        finalH = outer.emitLoad(outerH)
+        finalHL = outer.emitCompute(concatenate(finalH, outerL))
+        outer.emitStore(outerRet, finalHL)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 1)
+        self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1300)
 
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
