@@ -225,6 +225,14 @@ class CodeBlockBuilder:
         indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
         return self._emitReference(IOReference(channel, indexConst))
 
+    def emitFixedValue(self, expr):
+        '''Emits a constant representing the result of the given expression.
+        Returns that constant wrapped in a FixedValue object.
+        Note that while FixedValue is a Storage, it is not added as a reference.
+        '''
+        const = self.emitCompute(expr)
+        return FixedValue(const.cid, const.type)
+
     def defineConstant(self, name, expr, location):
         '''Defines a constant with the given name and value.
         Returns a ConstantValue for the newly defined constant.

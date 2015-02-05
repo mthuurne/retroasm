@@ -382,21 +382,19 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return Concatenation(_convertConcat(buildStorage, node, builder))
     else:
-        const = builder.emitCompute(_convertOperator(node, builder))
-        return FixedValue(const.cid, const.type)
+        return builder.emitFixedValue(_convertOperator(node, builder))
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value, IntType(node.width))
-        const = builder.emitCompute(literal)
-        return FixedValue(const.cid, const.type)
+        return builder.emitFixedValue(literal)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
         if node.kind is DeclarationKind.constant:
             assert isinstance(expr, ConstantValue), repr(expr)
-            return FixedValue(expr.cid, expr.type)
+            return builder.emitFixedValue(expr)
         else:
             return expr
     elif isinstance(node, IdentifierNode):
@@ -409,7 +407,7 @@ def buildStorage(node, builder):
                 node.location
                 )
         elif isinstance(expr, ConstantValue):
-            return FixedValue(expr.cid, expr.type)
+            return builder.emitFixedValue(expr)
         else:
             assert False, expr
     elif isinstance(node, OperatorNode):
