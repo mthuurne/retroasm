@@ -11,8 +11,7 @@ from .expression_parser import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice, Variable,
-    isStorage
+    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice, isStorage
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -134,13 +133,6 @@ def _constifyIdentifier(node, builder):
         return ident
     else:
         composedStorage = ComposedStorage.decompose(ident)
-        for rid, index_, width_ in composedStorage:
-            ref = builder.references[rid]
-            if isinstance(ref, Variable) and ref.name == 'ret':
-                raise BadExpression(
-                    'function return value "ret" is write-only',
-                    node.location
-                    )
         return composedStorage.emitLoad(builder)
 
 def _convertFunctionCall(nameNode, *argNodes, builder):
