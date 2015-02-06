@@ -124,17 +124,6 @@ def _convertIdentifier(node, builder):
     else:
         assert False, repr(value)
 
-def _constifyIdentifier(node, builder):
-    '''Looks up an identifier in the builder's context.
-    Returns either an IOChannel or an Expression.
-    '''
-    ident = _convertIdentifier(node, builder)
-    if isinstance(ident, IOChannel):
-        return ident
-    else:
-        composedStorage = ComposedStorage.decompose(ident)
-        return composedStorage.emitLoad(builder)
-
 def _convertFunctionCall(nameNode, *argNodes, builder):
     # Get function object.
     assert isinstance(nameNode, IdentifierNode), nameNode
@@ -211,9 +200,12 @@ def _convertConcat(factory, node, builder):
 def _convertLookup(exprNode, indexNode, builder):
     index = buildExpression(indexNode, builder)
     if isinstance(exprNode, IdentifierNode):
-        expr = _constifyIdentifier(exprNode, builder)
-        if isinstance(expr, IOChannel):
-            return builder.emitLoad(builder.emitIOReference(expr, index))
+        ident = _convertIdentifier(exprNode, builder)
+        if isinstance(ident, IOChannel):
+            return builder.emitLoad(builder.emitIOReference(ident, index))
+        else:
+            composedStorage = ComposedStorage.decompose(ident)
+            expr = composedStorage.emitLoad(builder)
     else:
         expr = buildExpression(exprNode, builder)
     try:
@@ -302,13 +294,15 @@ def buildExpression(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
     elif isinstance(node, IdentifierNode):
-        expr = _constifyIdentifier(node, builder)
-        if isinstance(expr, IOChannel):
+        ident = _convertIdentifier(node, builder)
+        if isinstance(ident, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
                 node.location
                 )
-        return expr
+        else:
+            composedStorage = ComposedStorage.decompose(ident)
+            return composedStorage.emitLoad(builder)
     elif isinstance(node, OperatorNode):
         return _convertOperator(node, builder)
     elif isinstance(node, DefinitionNode):
