@@ -125,7 +125,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalReference('R')
+        incArgRid = inc.addLocalReference('R', 16)
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(
             AddOperator(incArgVal, IntLiteral.create(0x1234))

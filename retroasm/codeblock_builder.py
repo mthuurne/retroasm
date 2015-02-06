@@ -273,6 +273,7 @@ class CodeBlockBuilder:
         for rid, ref in code.references.items():
             if isinstance(ref, LocalReference):
                 storage = context[ref.name]
+                assert ref.type == storage.type, (ref.type, storage.type)
             else:
                 # Shallow copy is sufficient because references are immutable.
                 newRid = len(references)
