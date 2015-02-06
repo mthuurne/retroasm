@@ -307,8 +307,8 @@ class CodeBlockBuilder:
         # Substitute index constants.
         # This cannot be done when originally copying the references
         # because at that time the constants haven't been added yet.
-        for newRid in ridMap.values():
-            for rid, index_, width_ in newRid:
+        for composedStorage in ridMap.values():
+            for rid, index_, width_ in composedStorage:
                 ref = references[rid]
                 if isinstance(ref, IOReference):
                     references[rid] = IOReference(
@@ -320,16 +320,16 @@ class CodeBlockBuilder:
 
         # Copy nodes.
         for node in code.nodes:
-            newRid = ridMap[node.rid]
+            composedStorage = ridMap[node.rid]
             if isinstance(node, Load):
                 newCid = cidMap[node.cid]
-                value = newRid.emitLoad(self)
+                value = composedStorage.emitLoad(self)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 const = constants[cidMap[node.cid]]
                 value = ConstantValue(const.cid, const.type)
                 offset = 0
-                for rid, index, width in newRid:
+                for rid, index, width in composedStorage:
                     sliced = self.emitCompute(
                         Truncation(RShift(value, offset), width)
                         )
