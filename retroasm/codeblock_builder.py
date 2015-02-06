@@ -4,9 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import NameExistsError
-from .expression import (
-    LShift, OrOperator, RShift, Truncation, concatenate, unit
-    )
+from .expression import RShift, Truncation, concatenate, unit
 from .storage import (
     ComposedStorage, Concatenation, FixedValue, IOReference, LocalReference,
     NamedStorage, ReferencedValue, Storage, Variable, isStorage
@@ -324,18 +322,9 @@ class CodeBlockBuilder:
         for node in code.nodes:
             newRid = ridMap[node.rid]
             if isinstance(node, Load):
-                def loadStorage():
-                    offset = 0
-                    for rid, index, width in newRid:
-                        value = self.emitLoad(rid)
-                        yield LShift(
-                            Truncation(RShift(value, index), width),
-                            offset
-                            )
-                        offset += width
-                combined = OrOperator(*loadStorage())
                 newCid = cidMap[node.cid]
-                constants[newCid] = ComputedConstant(newCid, combined)
+                value = newRid.emitLoad(self)
+                constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 const = constants[cidMap[node.cid]]
                 value = ConstantValue(const.cid, const.type)

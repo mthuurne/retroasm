@@ -1,4 +1,4 @@
-from .expression import Expression
+from .expression import Expression, LShift, OrOperator, RShift, Truncation
 from .types import IntType
 from .utils import checkType
 
@@ -207,6 +207,19 @@ class ComposedStorage:
 
     def __iter__(self):
         return iter(self._decomposed)
+
+    def emitLoad(self, builder):
+        '''Loads the value of this composed storage by emitting Load nodes on
+        the given builder.
+        Returns an Expression with the loaded value.
+        '''
+        terms = []
+        offset = 0
+        for rid, index, width in self._decomposed:
+            sliced = Truncation(RShift(builder.emitLoad(rid), index), width)
+            terms.append(LShift(sliced, offset))
+            offset += width
+        return OrOperator(*terms, intType=IntType(offset))
 
 class Variable(NamedStorage):
     '''A variable in the local context.

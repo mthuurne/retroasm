@@ -106,6 +106,9 @@ def convertDefinition(node, builder):
             )
 
 def _convertIdentifier(node, builder):
+    '''Looks up an identifier in the builder's context.
+    Returns either an IOChannel or a storage.
+    '''
     name = node.name
     try:
         value = builder.context[name]
@@ -113,33 +116,32 @@ def _convertIdentifier(node, builder):
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
         raise BadExpression('function "%s" is not called' % name, node.location)
-    else:
+    elif isinstance(value, IOChannel):
         return value
+    elif isinstance(value, Expression):
+        return _convertFixedValue(value, builder)
+    elif isStorage(value):
+        return value
+    else:
+        assert False, repr(value)
 
 def _constifyIdentifier(node, builder):
-
-    def constify(value):
-        if isinstance(value, ReferencedValue):
-            rid = value.rid
+    '''Looks up an identifier in the builder's context.
+    Returns either an IOChannel or an Expression.
+    '''
+    ident = _convertIdentifier(node, builder)
+    if isinstance(ident, IOChannel):
+        return ident
+    else:
+        composedStorage = ComposedStorage.decompose(ident)
+        for rid, index_, width_ in composedStorage:
             ref = builder.references[rid]
             if isinstance(ref, Variable) and ref.name == 'ret':
                 raise BadExpression(
                     'function return value "ret" is write-only',
                     node.location
                     )
-            return builder.emitLoad(rid)
-        elif isinstance(value, Expression):
-            return value
-        else:
-            assert False, repr(value)
-
-    ident = _convertIdentifier(node, builder)
-    if isinstance(ident, IOChannel):
-        return ident
-    elif isinstance(ident, Concatenation):
-        return concatenate(*(constify(expr) for expr in ident.exprs))
-    else:
-        return constify(ident)
+        return composedStorage.emitLoad(builder)
 
 def _convertFunctionCall(nameNode, *argNodes, builder):
     # Get function object.
@@ -403,8 +405,6 @@ def buildStorage(node, builder):
                 'I/O channel "%s" can only be used for lookup' % node.name,
                 node.location
                 )
-        elif isinstance(expr, ConstantValue):
-            return _convertFixedValue(expr, builder)
         else:
             assert False, expr
     elif isinstance(node, OperatorNode):
