@@ -7,7 +7,7 @@ from .context import NameExistsError
 from .expression import Truncation, unit
 from .storage import (
     ComposedStorage, Concatenation, FixedValue, IOReference, LocalReference,
-    NamedStorage, ReferencedValue, Storage, Variable, isStorage
+    NamedStorage, ReferencedValue, Slice, Storage, Variable, isStorage
     )
 from .types import IntType, unlimited
 
@@ -32,11 +32,13 @@ class _CodeBlockContext:
         except KeyError:
             ref = self.globalContext[key]
             if isinstance(ref, Concatenation):
+                # Aliases are converted to Slices-in-Concatenation.
                 return Concatenation(
-                    self._importReference(expr)
-                    for expr in ref.exprs
+                    Slice(self._importReference(sl.expr), sl.index, sl.width)
+                    for sl in ref.exprs
                     )
             else:
+                # Plain register.
                 return self._importReference(ref)
 
     def define(self, name, value, location):

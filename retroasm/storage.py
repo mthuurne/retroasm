@@ -207,6 +207,11 @@ class ComposedStorage:
     def __init__(self, decomposed):
         self._decomposed = tuple(decomposed)
 
+    def __repr__(self):
+        return 'ComposedStorage((%s))' % ', '.join(
+            repr(storageSlice) for storageSlice in self._decomposed
+            )
+
     def __iter__(self):
         return iter(self._decomposed)
 
@@ -243,6 +248,12 @@ class ComposedStorage:
                     )
             builder.emitStore(rid, combined)
             offset += width
+
+    def unwrap(self, references):
+        return Concatenation(
+            Slice(references[rid], index, width)
+            for rid, index, width in self._decomposed
+            )
 
 class Variable(NamedStorage):
     '''A variable in the local context.

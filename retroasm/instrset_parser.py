@@ -4,9 +4,7 @@ from .expression_builder import BadExpression, buildStorage
 from .expression_parser import ParseError, parseExpr
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import (
-    Concatenation, IOChannel, ReferencedValue, Register, namePat
-    )
+from .storage import ComposedStorage, IOChannel, Register, namePat
 from .types import parseType, parseTypeDecl
 
 from collections import OrderedDict
@@ -81,18 +79,9 @@ def _parseRegs(reader, argStr, context):
                 # TODO: Handle this better.
                 reader.error('alias produces nodes')
             else:
-                def unwrap(storage):
-                    # pylint: disable=cell-var-from-loop
-                    if isinstance(storage, ReferencedValue):
-                        return builder.references[storage.rid]
-                    else:
-                        return storage
-                if isinstance(alias, Concatenation):
-                    unwrapped = Concatenation(
-                        unwrap(expr) for expr in alias.exprs
-                        )
-                else:
-                    unwrapped = unwrap(alias)
+                # Unwrap all ReferencedValues in the context.
+                composedStorage = ComposedStorage.decompose(alias)
+                unwrapped = composedStorage.unwrap(builder.references)
                 try:
                     context.define(aliasName, unwrapped, reader.getLocation())
                 except NameExistsError as ex:
