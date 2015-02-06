@@ -1,4 +1,6 @@
-from .expression import Expression, LShift, OrOperator, RShift, Truncation
+from .expression import (
+    Expression, LShift, OrOperator, RShift, Truncation, concatenate
+    )
 from .types import IntType
 from .utils import checkType
 
@@ -220,6 +222,27 @@ class ComposedStorage:
             terms.append(LShift(sliced, offset))
             offset += width
         return OrOperator(*terms, intType=IntType(offset))
+
+    def emitStore(self, builder, value):
+        '''Stores the given value in this composed storage by emitting Store
+        nodes (and Load nodes for partial updates) on the given builder.
+        '''
+        offset = 0
+        for rid, index, width in self._decomposed:
+            valueSlice = Truncation(RShift(value, offset), width)
+            if index == 0 and width == builder.references[rid].width:
+                # Full width: store only.
+                combined = valueSlice
+            else:
+                # Partial width: combine with loaded old value.
+                oldVal = builder.emitLoad(rid)
+                combined = concatenate(
+                    RShift(oldVal, index + width),
+                    valueSlice,
+                    Truncation(oldVal, index)
+                    )
+            builder.emitStore(rid, combined)
+            offset += width
 
 class Variable(NamedStorage):
     '''A variable in the local context.

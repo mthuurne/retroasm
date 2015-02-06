@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import NameExistsError
-from .expression import RShift, Truncation, concatenate, unit
+from .expression import Truncation, unit
 from .storage import (
     ComposedStorage, Concatenation, FixedValue, IOReference, LocalReference,
     NamedStorage, ReferencedValue, Storage, Variable, isStorage
@@ -256,7 +256,6 @@ class CodeBlockBuilder:
         '''
         constants = self.constants
         references = self.references
-        nodes = self.nodes
 
         # Map old constant IDs to new IDs; don't copy yet.
         cidMap = dict(
@@ -328,21 +327,7 @@ class CodeBlockBuilder:
             elif isinstance(node, Store):
                 const = constants[cidMap[node.cid]]
                 value = ConstantValue(const.cid, const.type)
-                offset = 0
-                for rid, index, width in composedStorage:
-                    sliced = self.emitCompute(
-                        Truncation(RShift(value, offset), width)
-                        )
-                    if index != 0 or width != references[rid].width:
-                        # Partial width: combine with old value.
-                        oldVal = self.emitLoad(rid)
-                        sliced = self.emitCompute(concatenate(
-                            RShift(oldVal, index + width),
-                            sliced,
-                            Truncation(oldVal, index)
-                            ))
-                    nodes.append(Store(sliced.cid, rid))
-                    offset += width
+                composedStorage.emitStore(self, value)
             else:
                 assert False, node
 
