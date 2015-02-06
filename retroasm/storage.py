@@ -255,6 +255,12 @@ class ComposedStorage:
             for rid, index, width in self._decomposed
             )
 
+    def wrap(self, references):
+        return Concatenation(
+            Slice(ReferencedValue(rid, references[rid].type), index, width)
+            for rid, index, width in self._decomposed
+            )
+
 class Variable(NamedStorage):
     '''A variable in the local context.
     '''

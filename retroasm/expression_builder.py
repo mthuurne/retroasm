@@ -118,9 +118,9 @@ def _convertIdentifier(node, builder):
     elif isinstance(value, IOChannel):
         return value
     elif isinstance(value, Expression):
-        return _convertFixedValue(value, builder)
+        return ComposedStorage.decompose(_convertFixedValue(value, builder))
     elif isStorage(value):
-        return value
+        return ComposedStorage.decompose(value)
     else:
         assert False, repr(value)
 
@@ -204,8 +204,7 @@ def _convertLookup(exprNode, indexNode, builder):
         if isinstance(ident, IOChannel):
             return builder.emitLoad(builder.emitIOReference(ident, index))
         else:
-            composedStorage = ComposedStorage.decompose(ident)
-            expr = composedStorage.emitLoad(builder)
+            expr = ident.emitLoad(builder)
     else:
         expr = buildExpression(exprNode, builder)
     try:
@@ -301,8 +300,7 @@ def buildExpression(node, builder):
                 node.location
                 )
         else:
-            composedStorage = ComposedStorage.decompose(ident)
-            return composedStorage.emitLoad(builder)
+            return ident.emitLoad(builder)
     elif isinstance(node, OperatorNode):
         return _convertOperator(node, builder)
     elif isinstance(node, DefinitionNode):
@@ -383,16 +381,14 @@ def buildStorage(node, builder):
         else:
             return expr
     elif isinstance(node, IdentifierNode):
-        expr = _convertIdentifier(node, builder)
-        if isStorage(expr):
-            return expr
-        elif isinstance(expr, IOChannel):
+        ident = _convertIdentifier(node, builder)
+        if isinstance(ident, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
                 node.location
                 )
         else:
-            assert False, expr
+            return ident.wrap(builder.references)
     elif isinstance(node, OperatorNode):
         return _convertStorageOperator(node, builder)
     else:
