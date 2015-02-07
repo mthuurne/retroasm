@@ -5,9 +5,10 @@ from .codeblock import (
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import NameExistsError
 from .expression import Truncation, unit
+from .function import Function
 from .storage import (
-    ComposedStorage, Concatenation, FixedValue, IOReference, LocalReference,
-    NamedStorage, ReferencedValue, Slice, Storage, Variable, isStorage
+    ComposedStorage, Concatenation, FixedValue, IOChannel, IOReference,
+    LocalReference, NamedStorage, ReferencedValue, Storage, Variable, isStorage
     )
 from .types import IntType, unlimited
 
@@ -31,15 +32,18 @@ class _CodeBlockContext:
             return self.localContext[key]
         except KeyError:
             ref = self.globalContext[key]
-            if isinstance(ref, Concatenation):
+            if isinstance(ref, (Function, IOChannel)):
+                return ref
+            elif isinstance(ref, Concatenation):
                 # Aliases are converted to Slices-in-Concatenation.
-                return Concatenation(
-                    Slice(self._importReference(sl.expr), sl.index, sl.width)
+                return ComposedStorage((
+                    (self._importReference(sl.expr), sl.index, sl.width)
                     for sl in ref.exprs
-                    )
+                    ))
             else:
                 # Plain register.
-                return self._importReference(ref)
+                rid = self._importReference(ref)
+                return ComposedStorage.single(rid, ref.width)
 
     def define(self, name, value, location):
         localContext = self.localContext
@@ -48,23 +52,22 @@ class _CodeBlockContext:
         localContext[name] = value
 
     def _importReference(self, ref):
-        '''Imports named references in the given reference expression into
-        the local context.
-        Returns an expression in which references from the global context have
-        been replaced by their local equivalents.
+        '''Imports the given named reference into the local context.
+        Returns the local reference ID.
         '''
-        if isinstance(ref, NamedStorage):
-            name = ref.name
-            try:
-                return self.localContext[name]
-            except KeyError:
-                # pylint: disable=protected-access
-                rid = self.builder._emitReference(ref)
-                refVal = ReferencedValue(rid, ref.type)
-                self.localContext[name] = refVal
-                return refVal
+        # Note: At the moment only named storages are allowed in the global
+        #       context.
+        assert isinstance(ref, NamedStorage), repr(ref)
+        name = ref.name
+        try:
+            composed = self.localContext[name]
+        except KeyError:
+            # pylint: disable=protected-access
+            location = self.globalContext.locations[name]
+            rid = self.builder._addNamedReference(ref, location)
         else:
-            return ref
+            (rid, index_, width_), = composed
+        return rid
 
 class CodeBlockBuilder:
 
@@ -193,7 +196,8 @@ class CodeBlockBuilder:
 
     def _addNamedReference(self, ref, location):
         rid = self._emitReference(ref)
-        self.context.define(ref.name, ReferencedValue(rid, ref.type), location)
+        composed = ComposedStorage.single(rid, ref.width)
+        self.context.define(ref.name, composed, location)
         return rid
 
     def emitVariable(self, name, refType, location):
@@ -248,7 +252,8 @@ class CodeBlockBuilder:
         '''
         if not isStorage(storage):
             raise TypeError('expected storage, got %s' % type(storage).__name__)
-        self.context.define(name, storage, location)
+        composed = ComposedStorage.decompose(storage)
+        self.context.define(name, composed, location)
         return storage
 
     def inlineBlock(self, code, context):

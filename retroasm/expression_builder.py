@@ -11,7 +11,7 @@ from .expression_parser import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice, isStorage
+    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice
     )
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
@@ -115,12 +115,10 @@ def _convertIdentifier(node, builder):
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
         raise BadExpression('function "%s" is not called' % name, node.location)
-    elif isinstance(value, IOChannel):
+    elif isinstance(value, (ComposedStorage, IOChannel)):
         return value
     elif isinstance(value, Expression):
         return ComposedStorage.decompose(_convertFixedValue(value, builder))
-    elif isStorage(value):
-        return ComposedStorage.decompose(value)
     else:
         assert False, repr(value)
 

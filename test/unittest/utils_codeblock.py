@@ -1,5 +1,6 @@
 from retroasm.codeblock import ComputedConstant
 from retroasm.codeblock_builder import CodeBlockBuilder
+from retroasm.context import Context
 from retroasm.expression import IntLiteral
 from retroasm.storage import IOChannel, Register
 from retroasm.types import IntType
@@ -25,40 +26,46 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
 
     def __init__(self, globalContext=None):
         if globalContext is None:
-            globalContext = {}
+            globalContext = Context()
         self.globalContext = globalContext
         CodeBlockBuilder.__init__(self, globalContext)
 
     def addRegister(self, name, width=8):
-        reg = self.globalContext.get(name)
-        if reg is None:
+        try:
+            reg = self.globalContext[name]
+        except KeyError:
             # Insert register into global context.
             reg = Register(name, IntType(width))
-            self.globalContext[name] = reg
+            self.globalContext.define(name, reg, None)
         else:
             # Check that existing global context entry is this register.
             assert isinstance(reg, Register), reg
             assert reg.width == width, reg
         # Import register from global context into local context.
-        return self.context[name].rid
+        (localRid, localIndex, localWidth), = self.context[name]
+        assert localIndex == 0, localIndex
+        assert localWidth == width, (localWidth, width)
+        return localRid
 
     def addIOReference(self, channelName, index, elemWidth=8, addrWidth=16):
-        channel = self.globalContext.get(channelName)
-        if channel is None:
+        try:
+            channel = self.globalContext[channelName]
+        except KeyError:
             # Insert channel into global context.
             channel = IOChannel(
                 channelName, IntType(elemWidth), IntType(addrWidth)
                 )
-            self.globalContext[channelName] = channel
+            self.globalContext.define(channelName, channel, None)
         else:
             # Check that existing global context entry is this channel.
             assert isinstance(channel, IOChannel), channel
             assert channel.elemType.width == elemWidth, channel
             assert channel.addrType.width == addrWidth, channel
         # Import channel from global context into local context.
-        channel = self.context[channelName]
+        localChannel = self.context[channelName]
+        assert localChannel is channel
         # Create IOReference.
-        return self.emitIOReference(channel, index)
+        return self.emitIOReference(localChannel, index)
 
     def addLocalReference(self, name, width=8):
         return self.emitLocalReference(name, IntType(width), None)

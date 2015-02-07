@@ -104,7 +104,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerA = outer.addRegister('a')
-        regA = outer.context['a']
+        regA = outer.context['a'].wrap(outer.references)
         initA = outer.emitCompute(IntLiteral.create(100))
         outer.emitStore(outerA, initA)
         outer.inlineBlock(incCode, {'R': regA})
@@ -136,8 +136,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
         outerL = outer.addRegister('l')
-        regH = outer.context['h']
-        regL = outer.context['l']
+        regH = outer.context['h'].wrap(outer.references)
+        regL = outer.context['l'].wrap(outer.references)
         initH = outer.emitCompute(IntLiteral.create(0xab))
         initL = outer.emitCompute(IntLiteral.create(0xcd))
         outer.emitStore(outerH, initH)
@@ -171,7 +171,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
         outerL = IntLiteral(0xcd, IntType(8))
-        regH = outer.context['h']
+        regH = outer.context['h'].wrap(outer.references)
         fixedL = ReferencedValue(outer.emitFixedValue(outerL), outerL.type)
         initH = outer.emitCompute(IntLiteral.create(0xab))
         outer.emitStore(outerH, initH)
@@ -202,7 +202,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerR = outer.addRegister('r', 16)
-        regR = outer.context['r']
+        regR = outer.context['r'].wrap(outer.references)
         initR = outer.emitCompute(IntLiteral.create(0xcdef))
         outer.emitStore(outerR, initR)
         sliceR = Slice(regR, 4, 8)

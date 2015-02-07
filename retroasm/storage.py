@@ -204,6 +204,10 @@ class ComposedStorage:
     def decompose(cls, storage):
         return cls(_decomposeStorage(storage))
 
+    @classmethod
+    def single(cls, rid, width):
+        return cls(((rid, 0, width),))
+
     def __init__(self, decomposed):
         self._decomposed = tuple(decomposed)
 
