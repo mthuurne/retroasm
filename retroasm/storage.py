@@ -200,6 +200,9 @@ def _decomposeStorage(storage):
 class ComposedStorage:
     __slots__ = ('_decomposed',)
 
+    width = property(lambda self: sum(term[2] for term in self._decomposed))
+    type = property(lambda self: IntType(self.width))
+
     @classmethod
     def decompose(cls, storage):
         return cls(_decomposeStorage(storage))

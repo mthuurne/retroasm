@@ -75,7 +75,7 @@ def convertDefinition(node, builder):
             expr = Truncation(expr, declWidth)
     elif kind is DeclarationKind.reference:
         try:
-            expr = buildStorage(value, builder)
+            expr = ComposedStorage.decompose(buildStorage(value, builder))
         except BadExpression as ex:
             raise BadExpression(
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
@@ -377,7 +377,7 @@ def buildStorage(node, builder):
             assert isinstance(expr, ConstantValue), repr(expr)
             return _convertFixedValue(expr, builder)
         else:
-            return expr
+            return expr.wrap(builder.references)
     elif isinstance(node, IdentifierNode):
         ident = _convertIdentifier(node, builder)
         if isinstance(ident, IOChannel):

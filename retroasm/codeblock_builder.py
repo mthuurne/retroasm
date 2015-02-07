@@ -8,9 +8,10 @@ from .expression import Truncation, unit
 from .function import Function
 from .storage import (
     ComposedStorage, Concatenation, FixedValue, IOChannel, IOReference,
-    LocalReference, NamedStorage, ReferencedValue, Storage, Variable, isStorage
+    LocalReference, NamedStorage, ReferencedValue, Storage, Variable
     )
 from .types import IntType, unlimited
+from .utils import checkType
 
 class _CodeBlockContext:
     '''A cache for local references and on-demand imported global references.
@@ -245,16 +246,14 @@ class CodeBlockBuilder:
         self.context.define(name, const, location)
         return const
 
-    def defineReference(self, name, storage, location):
+    def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
         Returns the given value.
         Raises NameExistsError if the name is already taken.
         '''
-        if not isStorage(storage):
-            raise TypeError('expected storage, got %s' % type(storage).__name__)
-        composed = ComposedStorage.decompose(storage)
-        self.context.define(name, composed, location)
-        return storage
+        checkType(value, ComposedStorage, 'value')
+        self.context.define(name, value, location)
+        return value
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
