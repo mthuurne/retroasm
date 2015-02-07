@@ -38,7 +38,7 @@ def declareVariable(node, builder):
     # Add declaration to context.
     try:
         rid = builder.emitVariable(name, typ, nameNode.location)
-        return ReferencedValue(rid, typ)
+        return ComposedStorage.single(rid, typ.width)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
@@ -372,7 +372,7 @@ def buildStorage(node, builder):
         value = _convertFixedValue(literal, builder)
         return value.wrap(builder.references)
     elif isinstance(node, DeclarationNode):
-        return declareVariable(node, builder)
+        return declareVariable(node, builder).wrap(builder.references)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
         if node.kind is DeclarationKind.constant:
