@@ -118,7 +118,7 @@ def _convertIdentifier(node, builder):
     elif isinstance(value, (ComposedStorage, IOChannel)):
         return value
     elif isinstance(value, Expression):
-        return ComposedStorage.decompose(_convertFixedValue(value, builder))
+        return _convertFixedValue(value, builder)
     else:
         assert False, repr(value)
 
@@ -311,7 +311,7 @@ def buildExpression(node, builder):
 
 def _convertFixedValue(expr, builder):
     rid = builder.emitFixedValue(expr)
-    return ReferencedValue(rid, expr.type)
+    return ComposedStorage.single(rid, expr.width)
 
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
@@ -363,19 +363,22 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return Concatenation(_convertConcat(buildStorage, node, builder))
     else:
-        return _convertFixedValue(_convertOperator(node, builder), builder)
+        value = _convertFixedValue(_convertOperator(node, builder), builder)
+        return value.wrap(builder.references)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value, IntType(node.width))
-        return _convertFixedValue(literal, builder)
+        value = _convertFixedValue(literal, builder)
+        return value.wrap(builder.references)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
         if node.kind is DeclarationKind.constant:
             assert isinstance(expr, ConstantValue), repr(expr)
-            return _convertFixedValue(expr, builder)
+            value = _convertFixedValue(expr, builder)
+            return value.wrap(builder.references)
         else:
             return expr.wrap(builder.references)
     elif isinstance(node, IdentifierNode):
