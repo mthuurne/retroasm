@@ -10,9 +10,7 @@ from .expression_parser import (
     )
 from .function import Function
 from .linereader import BadInput
-from .storage import (
-    ComposedStorage, Concatenation, IOChannel, ReferencedValue, Slice
-    )
+from .storage import ComposedStorage, Concatenation, IOChannel, Slice
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
 class BadExpression(BadInput):
@@ -321,7 +319,7 @@ def _convertStorageLookup(node, builder):
             channel = ident
             index = buildExpression(indexNode, builder)
             rid = builder.emitIOReference(channel, index)
-            return ReferencedValue(rid, channel.elemType)
+            return ComposedStorage.single(rid, channel.elemType.width)
 
     expr = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
@@ -333,7 +331,7 @@ def _convertStorageLookup(node, builder):
             indexNode.treeLocation
             )
     try:
-        return Slice(expr, indexInt, 1)
+        return ComposedStorage.decompose(Slice(expr, indexInt, 1))
     except ValueError as ex:
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
@@ -343,9 +341,13 @@ def _convertStorageSlice(location, exprNode, startNode, endNode, builder):
         location, expr.width, startNode, endNode, builder
         )
     try:
-        return Slice(expr, index, width)
+        return ComposedStorage.decompose(Slice(expr, index, width))
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, location)
+
+def _convertStorageConcat(node, builder):
+    exprs = _convertConcat(buildStorage, node, builder)
+    return ComposedStorage.decompose(Concatenation(exprs))
 
 def _convertStorageOperator(node, builder):
     operator = node.operator
@@ -361,10 +363,9 @@ def _convertStorageOperator(node, builder):
             node.location, *node.operands, builder=builder
             )
     elif operator is Operator.concatenation:
-        return Concatenation(_convertConcat(buildStorage, node, builder))
+        return _convertStorageConcat(node, builder)
     else:
-        value = _convertFixedValue(_convertOperator(node, builder), builder)
-        return value.wrap(builder.references)
+        return _convertFixedValue(_convertOperator(node, builder), builder)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
@@ -391,7 +392,7 @@ def buildStorage(node, builder):
         else:
             return ident.wrap(builder.references)
     elif isinstance(node, OperatorNode):
-        return _convertStorageOperator(node, builder)
+        return _convertStorageOperator(node, builder).wrap(builder.references)
     else:
         assert False, node
 
