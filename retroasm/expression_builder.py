@@ -10,7 +10,7 @@ from .expression_parser import (
     )
 from .function import Function
 from .linereader import BadInput
-from .storage import ComposedStorage, IOChannel, Slice
+from .storage import ComposedStorage, IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
 from itertools import chain
@@ -323,7 +323,7 @@ def _convertStorageLookup(node, builder):
             rid = builder.emitIOReference(channel, index)
             return ComposedStorage.single(rid, channel.elemType.width)
 
-    expr = buildStorage(exprNode, builder).wrap(builder.references)
+    storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
         indexInt = index.simplify().value
@@ -333,17 +333,17 @@ def _convertStorageLookup(node, builder):
             indexNode.treeLocation
             )
     try:
-        return ComposedStorage.decompose(Slice(expr, indexInt, 1))
+        return storage.slice(indexInt, 1)
     except ValueError as ex:
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
 def _convertStorageSlice(location, exprNode, startNode, endNode, builder):
-    expr = buildStorage(exprNode, builder).wrap(builder.references)
+    storage = buildStorage(exprNode, builder)
     index, width = _convertSliceRange(
-        location, expr.width, startNode, endNode, builder
+        location, storage.width, startNode, endNode, builder
         )
     try:
-        return ComposedStorage.decompose(Slice(expr, index, width))
+        return storage.slice(index, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, location)
 

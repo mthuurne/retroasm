@@ -174,6 +174,16 @@ def isStorage(storage):
     '''
     return isinstance(storage, (Concatenation, ReferencedValue, Slice, Storage))
 
+def _sliceStorage(decomposed, index, width):
+    offset = 0
+    for rid, subStart, subWidth in decomposed:
+        # Clip slice indices to substorage range.
+        start = max(index, offset)
+        end = min(index + width, offset + subWidth)
+        if start < end:
+            yield rid, subStart + start - offset, end - start
+        offset += subWidth
+
 def _decomposeStorage(storage):
     '''Iterates through the basic storages inside the given composed storage.
     Each element is a triple of a reference ID and the start index and the width
@@ -183,16 +193,9 @@ def _decomposeStorage(storage):
         for concatTerm in reversed(storage.exprs):
             yield from _decomposeStorage(concatTerm)
     elif isinstance(storage, Slice):
-        sliceStart = storage.index
-        sliceEnd = sliceStart + storage.width
-        offset = 0
-        for rid, subStart, subWidth in _decomposeStorage(storage.expr):
-            # Clip slice indices to substorage range.
-            start = max(sliceStart, offset)
-            end = min(sliceEnd, offset + subWidth)
-            if start < end:
-                yield rid, subStart + start - offset, end - start
-            offset += subWidth
+        yield from _sliceStorage(
+            _decomposeStorage(storage.expr), storage.index, storage.width
+            )
     else:
         assert isinstance(storage, ReferencedValue), repr(storage)
         yield storage.rid, 0, storage.width
@@ -221,6 +224,11 @@ class ComposedStorage:
 
     def __iter__(self):
         return iter(self._decomposed)
+
+    def slice(self, index, width):
+        '''Return a new ComposedStorage instance that is a slice of this one.
+        '''
+        return self.__class__(_sliceStorage(self._decomposed, index, width))
 
     def emitLoad(self, builder):
         '''Loads the value of this composed storage by emitting Load nodes on
