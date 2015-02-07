@@ -10,8 +10,10 @@ from .expression_parser import (
     )
 from .function import Function
 from .linereader import BadInput
-from .storage import ComposedStorage, Concatenation, IOChannel, Slice
+from .storage import ComposedStorage, IOChannel, Slice
 from .types import IntType, Reference, parseTypeDecl, unlimited
+
+from itertools import chain
 
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
@@ -73,7 +75,7 @@ def convertDefinition(node, builder):
             expr = Truncation(expr, declWidth)
     elif kind is DeclarationKind.reference:
         try:
-            expr = ComposedStorage.decompose(buildStorage(value, builder))
+            expr = buildStorage(value, builder)
         except BadExpression as ex:
             raise BadExpression(
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
@@ -321,7 +323,7 @@ def _convertStorageLookup(node, builder):
             rid = builder.emitIOReference(channel, index)
             return ComposedStorage.single(rid, channel.elemType.width)
 
-    expr = buildStorage(exprNode, builder)
+    expr = buildStorage(exprNode, builder).wrap(builder.references)
     index = buildExpression(indexNode, builder)
     try:
         indexInt = index.simplify().value
@@ -336,7 +338,7 @@ def _convertStorageLookup(node, builder):
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
 def _convertStorageSlice(location, exprNode, startNode, endNode, builder):
-    expr = buildStorage(exprNode, builder)
+    expr = buildStorage(exprNode, builder).wrap(builder.references)
     index, width = _convertSliceRange(
         location, expr.width, startNode, endNode, builder
         )
@@ -346,8 +348,8 @@ def _convertStorageSlice(location, exprNode, startNode, endNode, builder):
         raise BadExpression('invalid slice: %s' % ex, location)
 
 def _convertStorageConcat(node, builder):
-    exprs = _convertConcat(buildStorage, node, builder)
-    return ComposedStorage.decompose(Concatenation(exprs))
+    expr1, expr2 = _convertConcat(buildStorage, node, builder)
+    return ComposedStorage(chain(expr2, expr1))
 
 def _convertStorageOperator(node, builder):
     operator = node.operator
@@ -370,18 +372,16 @@ def _convertStorageOperator(node, builder):
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value, IntType(node.width))
-        value = _convertFixedValue(literal, builder)
-        return value.wrap(builder.references)
+        return _convertFixedValue(literal, builder)
     elif isinstance(node, DeclarationNode):
-        return declareVariable(node, builder).wrap(builder.references)
+        return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
         expr = convertDefinition(node, builder)
         if node.kind is DeclarationKind.constant:
             assert isinstance(expr, ConstantValue), repr(expr)
-            value = _convertFixedValue(expr, builder)
-            return value.wrap(builder.references)
+            return _convertFixedValue(expr, builder)
         else:
-            return expr.wrap(builder.references)
+            return expr
     elif isinstance(node, IdentifierNode):
         ident = _convertIdentifier(node, builder)
         if isinstance(ident, IOChannel):
@@ -390,9 +390,9 @@ def buildStorage(node, builder):
                 node.location
                 )
         else:
-            return ident.wrap(builder.references)
+            return ident
     elif isinstance(node, OperatorNode):
-        return _convertStorageOperator(node, builder).wrap(builder.references)
+        return _convertStorageOperator(node, builder)
     else:
         assert False, node
 
@@ -404,7 +404,7 @@ def emitCodeFromStatements(reader, builder, statements):
 
         if isinstance(node, AssignmentNode):
             try:
-                lhs = ComposedStorage.decompose(buildStorage(node.lhs, builder))
+                lhs = buildStorage(node.lhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,

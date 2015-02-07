@@ -4,7 +4,7 @@ from .expression_builder import BadExpression, buildStorage
 from .expression_parser import ParseError, parseExpr
 from .function_builder import createFunc
 from .linereader import DefLineReader, DelayedError
-from .storage import ComposedStorage, IOChannel, Register, namePat
+from .storage import IOChannel, Register, namePat
 from .types import parseType, parseTypeDecl
 
 from collections import OrderedDict
@@ -80,8 +80,7 @@ def _parseRegs(reader, argStr, context):
                 reader.error('alias produces nodes')
             else:
                 # Unwrap all ReferencedValues in the context.
-                composedStorage = ComposedStorage.decompose(alias)
-                unwrapped = composedStorage.unwrap(builder.references)
+                unwrapped = alias.unwrap(builder.references)
                 try:
                     context.define(aliasName, unwrapped, reader.getLocation())
                 except NameExistsError as ex:
