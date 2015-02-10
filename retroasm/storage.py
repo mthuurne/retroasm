@@ -173,7 +173,7 @@ def isStorage(storage):
     '''Returns True if the given expression is a storage or a concatenation
     of storages, False otherwise.
     '''
-    return isinstance(storage, (Concatenation, ReferencedValue, Slice, Storage))
+    return isinstance(storage, (Concatenation, Slice, Storage))
 
 def sliceStorage(decomposed, index, width):
     offset = 0
@@ -396,25 +396,6 @@ class FixedValue(Storage):
     def mightBeSame(self, other):
         # Since we don't store any state, we can pretend to be unique.
         return self is other
-
-class ReferencedValue:
-    '''A value in a storage location accessed through a reference.
-    '''
-    __slots__ = ('_rid', '_type')
-
-    rid = property(lambda self: self._rid)
-    type = property(lambda self: self._type)
-    width = property(lambda self: self._type.width)
-
-    def __init__(self, rid, typ):
-        self._rid = rid
-        self._type = typ
-
-    def __repr__(self):
-        return 'ReferencedValue(%d, %s)' % (self._rid, repr(self._type))
-
-    def __str__(self):
-        return 'R%d' % self._rid
 
 class Concatenation:
     '''Concatenates the bit strings of storages.

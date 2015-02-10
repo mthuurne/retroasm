@@ -1,5 +1,5 @@
 from .expression import Expression
-from .storage import FixedValue, IOReference, ReferencedValue, Storage
+from .storage import FixedValue, IOReference, Storage
 from .types import IntType
 from .utils import checkType
 
@@ -208,7 +208,6 @@ class CodeBlock:
 
         # Check that computed constants use valid subexpressions.
         def checkUsage(expr):
-            assert not isinstance(expr, ReferencedValue), expr
             assert not isinstance(expr, Storage), expr
             if isinstance(expr, ConstantValue):
                 assert expr.cid in cids

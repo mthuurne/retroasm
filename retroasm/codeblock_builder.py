@@ -8,7 +8,7 @@ from .expression import Truncation, unit
 from .function import Function
 from .storage import (
     ComposedStorage, Concatenation, FixedValue, IOChannel, IOReference,
-    LocalReference, NamedStorage, ReferencedValue, Storage, Variable
+    LocalReference, NamedStorage, Storage, Variable
     )
 from .types import IntType, unlimited
 from .utils import checkType

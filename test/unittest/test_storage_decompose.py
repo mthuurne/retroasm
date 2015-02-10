@@ -1,9 +1,26 @@
 from retroasm.storage import (
-    ComposedStorage, Concatenation, ReferencedValue, Slice, sliceStorage
+    ComposedStorage, Concatenation, Slice, Storage, sliceStorage
     )
 from retroasm.types import IntType
 
 import unittest
+
+class ReferencedValue(Storage):
+    '''A value in a storage location accessed through a reference.
+    '''
+    __slots__ = ('_rid',)
+
+    rid = property(lambda self: self._rid)
+
+    def __init__(self, rid, typ):
+        Storage.__init__(self, typ)
+        self._rid = rid
+
+    def __repr__(self):
+        return 'ReferencedValue(%d, %s)' % (self._rid, repr(self._type))
+
+    def __str__(self):
+        return 'R%d' % self._rid
 
 def _decomposeStorage(storage):
     '''Iterates through the basic storages inside the given composed storage.

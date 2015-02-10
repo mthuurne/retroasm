@@ -79,7 +79,7 @@ def _parseRegs(reader, argStr, context):
                 # TODO: Handle this better.
                 reader.error('alias produces nodes')
             else:
-                # Unwrap all ReferencedValues in the context.
+                # TODO: Use ComposedStorages in the global context as well.
                 unwrapped = alias.unwrap(builder.references)
                 try:
                     context.define(aliasName, unwrapped, reader.getLocation())
