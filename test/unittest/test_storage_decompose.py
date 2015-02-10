@@ -1,15 +1,31 @@
 from retroasm.storage import (
-    ComposedStorage, Concatenation, ReferencedValue, Slice
+    ComposedStorage, Concatenation, ReferencedValue, Slice, sliceStorage
     )
 from retroasm.types import IntType
 
 import unittest
 
+def _decomposeStorage(storage):
+    '''Iterates through the basic storages inside the given composed storage.
+    Each element is a triple of a reference ID and the start index and the width
+    of the slice of the storage that is affected.
+    '''
+    if isinstance(storage, Concatenation):
+        for concatTerm in reversed(storage.exprs):
+            yield from _decomposeStorage(concatTerm)
+    elif isinstance(storage, Slice):
+        yield from sliceStorage(
+            _decomposeStorage(storage.expr), storage.index, storage.width
+            )
+    else:
+        assert isinstance(storage, ReferencedValue), repr(storage)
+        yield storage.rid, 0, storage.width
+
 class DecomposeTests(unittest.TestCase):
 
     def assertDecomposed(self, storage, expected):
         i = 0
-        for actualItem in ComposedStorage.decompose(storage):
+        for actualItem in ComposedStorage(_decomposeStorage(storage)):
             try:
                 expectedItem = expected[i]
             except IndexError:

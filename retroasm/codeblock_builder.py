@@ -281,8 +281,8 @@ class CodeBlockBuilder:
                 # Shallow copy is sufficient because references are immutable.
                 newRid = len(references)
                 references.append(ref)
-                storage = ReferencedValue(newRid, ref.type)
-            ridMap[rid] = ComposedStorage.decompose(storage)
+                storage = ComposedStorage.single(newRid, ref.width)
+            ridMap[rid] = storage
 
         # Copy constants.
         for cid, const in code.constants.items():

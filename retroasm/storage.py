@@ -4,6 +4,7 @@ from .expression import (
 from .types import IntType
 from .utils import checkType
 
+from itertools import chain
 import re
 
 class IOChannel:
@@ -174,7 +175,7 @@ def isStorage(storage):
     '''
     return isinstance(storage, (Concatenation, ReferencedValue, Slice, Storage))
 
-def _sliceStorage(decomposed, index, width):
+def sliceStorage(decomposed, index, width):
     offset = 0
     for rid, subStart, subWidth in decomposed:
         # Clip slice indices to substorage range.
@@ -184,31 +185,11 @@ def _sliceStorage(decomposed, index, width):
             yield rid, subStart + start - offset, end - start
         offset += subWidth
 
-def _decomposeStorage(storage):
-    '''Iterates through the basic storages inside the given composed storage.
-    Each element is a triple of a reference ID and the start index and the width
-    of the slice of the storage that is affected.
-    '''
-    if isinstance(storage, Concatenation):
-        for concatTerm in reversed(storage.exprs):
-            yield from _decomposeStorage(concatTerm)
-    elif isinstance(storage, Slice):
-        yield from _sliceStorage(
-            _decomposeStorage(storage.expr), storage.index, storage.width
-            )
-    else:
-        assert isinstance(storage, ReferencedValue), repr(storage)
-        yield storage.rid, 0, storage.width
-
 class ComposedStorage:
     __slots__ = ('_decomposed',)
 
     width = property(lambda self: sum(term[2] for term in self._decomposed))
     type = property(lambda self: IntType(self.width))
-
-    @classmethod
-    def decompose(cls, storage):
-        return cls(_decomposeStorage(storage))
 
     @classmethod
     def single(cls, rid, width):
@@ -225,10 +206,17 @@ class ComposedStorage:
     def __iter__(self):
         return iter(self._decomposed)
 
+    def concat(self, other):
+        '''Return a new ComposedStorage instance that is the concatenation of
+        this one as the least significant part and the given ComposedStorage
+        as the most significant part.
+        '''
+        return self.__class__(chain(self, other))
+
     def slice(self, index, width):
         '''Return a new ComposedStorage instance that is a slice of this one.
         '''
-        return self.__class__(_sliceStorage(self._decomposed, index, width))
+        return self.__class__(sliceStorage(self._decomposed, index, width))
 
     def emitLoad(self, builder):
         '''Loads the value of this composed storage by emitting Load nodes on
@@ -267,12 +255,6 @@ class ComposedStorage:
     def unwrap(self, references):
         return Concatenation(
             Slice(references[rid], index, width)
-            for rid, index, width in self._decomposed
-            )
-
-    def wrap(self, references):
-        return Concatenation(
-            Slice(ReferencedValue(rid, references[rid].type), index, width)
             for rid, index, width in self._decomposed
             )
 
