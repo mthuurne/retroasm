@@ -195,78 +195,14 @@ def _convertConcat(factory, node, builder):
             )
     return expr1, expr2
 
-def _convertLookup(exprNode, indexNode, builder):
-    index = buildExpression(indexNode, builder)
-    if isinstance(exprNode, IdentifierNode):
-        ident = _convertIdentifier(exprNode, builder)
-        if isinstance(ident, IOChannel):
-            return builder.emitLoad(builder.emitIOReference(ident, index))
-        else:
-            expr = ident.emitLoad(builder)
-    else:
-        expr = buildExpression(exprNode, builder)
-    try:
-        indexInt = index.simplify().value
-    except AttributeError:
-        raise BadExpression.withText(
-            'bit index is not constant',
-            indexNode.treeLocation
-            )
-    return Truncation(RShift(expr, indexInt), 1)
-
-def _convertSliceRange(location, exprWidth, startNode, endNode, builder):
-    if startNode is None:
-        index = 0
-    else:
-        start = buildExpression(startNode, builder)
-        start = start.simplify()
-        try:
-            index = start.value
-        except AttributeError:
-            raise BadExpression.withText(
-                'start index is not constant',
-                startNode.treeLocation
-                )
-
-    if endNode is None:
-        width = exprWidth
-        if width is unlimited:
-            raise BadExpression.withText(
-                'omitting the end index not allowed when slicing '
-                'an unlimited width expression',
-                location
-                )
-    else:
-        end = buildExpression(endNode, builder)
-        end = end.simplify()
-        try:
-            width = end.value - index
-        except AttributeError:
-            raise BadExpression.withText(
-                'end index is not constant',
-                endNode.treeLocation
-                )
-
-    return index, width
-
-def _convertSlice(location, exprNode, startNode, endNode, builder):
-    expr = buildExpression(exprNode, builder)
-    index, width = _convertSliceRange(
-        location, expr.width, startNode, endNode, builder
-        )
-    try:
-        return Truncation(RShift(expr, index), width)
-    except ValueError as ex:
-        raise BadExpression('invalid slice: %s' % ex, location)
-
 def _convertOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
         return _convertFunctionCall(*node.operands, builder=builder)
     elif operator is Operator.lookup:
-        return _convertLookup(*node.operands, builder=builder)
+        return _convertStorageLookup(node, builder).emitLoad(builder)
     elif operator is Operator.slice:
-        return _convertSlice(node.location, *node.operands, builder=builder)
+        return _convertStorageSlice(node, builder).emitLoad(builder)
     elif operator is Operator.concatenation:
         return concatenate(*_convertConcat(buildExpression, node, builder))
 
@@ -337,15 +273,46 @@ def _convertStorageLookup(node, builder):
     except ValueError as ex:
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
-def _convertStorageSlice(location, exprNode, startNode, endNode, builder):
+def _convertStorageSlice(node, builder):
+    exprNode, startNode, endNode = node.operands
     storage = buildStorage(exprNode, builder)
-    index, width = _convertSliceRange(
-        location, storage.width, startNode, endNode, builder
-        )
+
+    if startNode is None:
+        index = 0
+    else:
+        start = buildExpression(startNode, builder)
+        start = start.simplify()
+        try:
+            index = start.value
+        except AttributeError:
+            raise BadExpression.withText(
+                'start index is not constant',
+                startNode.treeLocation
+                )
+
+    if endNode is None:
+        width = storage.width
+        if width is unlimited:
+            raise BadExpression.withText(
+                'omitting the end index not allowed when slicing '
+                'an unlimited width expression',
+                node.location
+                )
+    else:
+        end = buildExpression(endNode, builder)
+        end = end.simplify()
+        try:
+            width = end.value - index
+        except AttributeError:
+            raise BadExpression.withText(
+                'end index is not constant',
+                endNode.treeLocation
+                )
+
     try:
         return storage.slice(index, width)
     except ValueError as ex:
-        raise BadExpression('invalid slice: %s' % ex, location)
+        raise BadExpression('invalid slice: %s' % ex, node.location)
 
 def _convertStorageConcat(node, builder):
     expr1, expr2 = _convertConcat(buildStorage, node, builder)
@@ -361,9 +328,7 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)
     elif operator is Operator.slice:
-        return _convertStorageSlice(
-            node.location, *node.operands, builder=builder
-            )
+        return _convertStorageSlice(node, builder)
     elif operator is Operator.concatenation:
         return _convertStorageConcat(node, builder)
     else:
