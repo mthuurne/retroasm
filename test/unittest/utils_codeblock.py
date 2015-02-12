@@ -30,6 +30,12 @@ class TestCodeBlockBuilder(CodeBlockBuilder):
         self.globalContext = globalContext
         CodeBlockBuilder.__init__(self, globalContext)
 
+    def emitLoad(self, rid, location=None):
+        return super().emitLoad(rid, location)
+
+    def emitStore(self, rid, expr, location=None):
+        return super().emitStore(rid, expr, location)
+
     def addRegister(self, name, width=8):
         try:
             reg = self.globalContext[name]

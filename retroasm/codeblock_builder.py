@@ -72,13 +72,11 @@ class _CodeBlockContext:
 
 class CodeBlockBuilder:
 
-    def __init__(self, globalContext={}, reader=None):
+    def __init__(self, globalContext={}):
         self.constants = []
         self.references = []
         self.nodes = []
         self.context = _CodeBlockContext(self, globalContext)
-        self.reader = reader
-        self.loadLocations = {}
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -106,14 +104,11 @@ class CodeBlockBuilder:
         for node in self.nodes:
             print('        %s' % node)
 
-    def getLocation(self):
-        return None if self.reader is None else self.reader.getLocation()
-
-    def createCodeBlock(self):
+    def createCodeBlock(self, log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         Raises ValueError if this builder does not represent a valid code block.
-        If a reader was provided to the constructor, errors are logged as well.
+        If a log is provided, errors are logged individually as well.
         '''
         code = CodeBlockSimplifier(self.constants, self.references, self.nodes)
 
@@ -130,13 +125,12 @@ class CodeBlockBuilder:
                 elif isinstance(node, Store):
                     initializedVariables.add(rid)
         if ununitializedLoads:
-            log = self.reader
             if log is not None:
                 for load in ununitializedLoads:
                     log.error(
                         'variable "%s" is read before it is initialized'
                         % code.references[load.rid].decl,
-                        location=self.loadLocations[load.cid]
+                        location=load.location
                         )
             raise ValueError(
                 'Code block reads uninitialized variable(s): %s' % ', '.join(
@@ -162,24 +156,23 @@ class CodeBlockBuilder:
             self.constants.append(constant)
             return ConstantValue(cid, expr.type)
 
-    def emitLoad(self, rid):
+    def emitLoad(self, rid, location):
         '''Adds a node that loads a value from the referenced storage.
         Returns an expression that wraps the loaded value.
         '''
         cid = len(self.constants)
-        self.loadLocations[cid] = self.getLocation()
-        load = Load(cid, rid)
+        load = Load(cid, rid, location)
         self.nodes.append(load)
         refType = self.references[rid].type
         constant = LoadedConstant(cid, rid, refType)
         self.constants.append(constant)
         return ConstantValue(cid, refType)
 
-    def emitStore(self, rid, expr):
+    def emitStore(self, rid, expr, location):
         '''Adds a node that stores a value in the referenced storage.
         '''
         constant = self.emitCompute(expr)
-        self.nodes.append(Store(constant.cid, rid))
+        self.nodes.append(Store(constant.cid, rid, location))
 
     def _emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.
@@ -222,7 +215,7 @@ class CodeBlockBuilder:
 
         # Store initial value.
         rid = self.emitVariable(name, decl, location)
-        self.nodes.insert(0, Store(cid, rid))
+        self.nodes.insert(0, Store(cid, rid, location))
 
         return rid
 
@@ -328,12 +321,12 @@ class CodeBlockBuilder:
             composedStorage = ridMap[node.rid]
             if isinstance(node, Load):
                 newCid = cidMap[node.cid]
-                value = composedStorage.emitLoad(self)
+                value = composedStorage.emitLoad(self, node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 const = constants[cidMap[node.cid]]
                 value = ConstantValue(const.cid, const.type)
-                composedStorage.emitStore(self, value)
+                composedStorage.emitStore(self, value, node.location)
             else:
                 assert False, node
 

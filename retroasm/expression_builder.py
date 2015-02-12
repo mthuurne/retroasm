@@ -200,9 +200,11 @@ def _convertOperator(node, builder):
     if operator is Operator.call:
         return _convertFunctionCall(*node.operands, builder=builder)
     elif operator is Operator.lookup:
-        return _convertStorageLookup(node, builder).emitLoad(builder)
+        return _convertStorageLookup(node, builder)\
+            .emitLoad(builder, node.treeLocation)
     elif operator is Operator.slice:
-        return _convertStorageSlice(node, builder).emitLoad(builder)
+        return _convertStorageSlice(node, builder)\
+            .emitLoad(builder, node.treeLocation)
     elif operator is Operator.concatenation:
         return concatenate(*_convertConcat(buildExpression, node, builder))
 
@@ -234,7 +236,7 @@ def buildExpression(node, builder):
                 node.location
                 )
         else:
-            return ident.emitLoad(builder)
+            return ident.emitLoad(builder, node.location)
     elif isinstance(node, OperatorNode):
         return _convertOperator(node, builder)
     elif isinstance(node, DefinitionNode):
@@ -388,7 +390,7 @@ def emitCodeFromStatements(reader, builder, statements):
             else:
                 rhsConst = builder.emitCompute(rhs)
 
-            lhs.emitStore(builder, rhsConst)
+            lhs.emitStore(builder, rhsConst, node.lhs.treeLocation)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference/variable definition.

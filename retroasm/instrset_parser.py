@@ -60,7 +60,7 @@ def _parseRegs(reader, argStr, context):
                 continue
 
             # Parse right hand side.
-            builder = CodeBlockBuilder(context, reader)
+            builder = CodeBlockBuilder(context)
             try:
                 tree = parseExpr(parts[1], reader.getLocation())
                 alias = buildStorage(tree, builder)

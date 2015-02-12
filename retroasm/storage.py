@@ -222,7 +222,7 @@ class ComposedStorage:
         '''
         return self.__class__(sliceStorage(self._decomposed, index, width))
 
-    def emitLoad(self, builder):
+    def emitLoad(self, builder, location):
         '''Loads the value of this composed storage by emitting Load nodes on
         the given builder.
         Returns an Expression with the loaded value.
@@ -230,12 +230,13 @@ class ComposedStorage:
         terms = []
         offset = 0
         for rid, index, width in self._decomposed:
-            sliced = Truncation(RShift(builder.emitLoad(rid), index), width)
+            value = builder.emitLoad(rid, location)
+            sliced = Truncation(RShift(value, index), width)
             terms.append(LShift(sliced, offset))
             offset += width
         return OrOperator(*terms, intType=IntType(offset))
 
-    def emitStore(self, builder, value):
+    def emitStore(self, builder, value, location):
         '''Stores the given value in this composed storage by emitting Store
         nodes (and Load nodes for partial updates) on the given builder.
         '''
@@ -247,13 +248,13 @@ class ComposedStorage:
                 combined = valueSlice
             else:
                 # Partial width: combine with loaded old value.
-                oldVal = builder.emitLoad(rid)
+                oldVal = builder.emitLoad(rid, location)
                 combined = concatenate(
                     RShift(oldVal, index + width),
                     valueSlice,
                     Truncation(oldVal, index)
                     )
-            builder.emitStore(rid, combined)
+            builder.emitStore(rid, combined, location)
             offset += width
 
     def unwrap(self, references):

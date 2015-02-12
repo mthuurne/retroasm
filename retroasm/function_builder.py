@@ -21,7 +21,7 @@ def _parseBody(reader):
 def createFunc(reader, funcName, retType, args, globalContext):
     headerLocation = reader.getLocation()
 
-    builder = CodeBlockBuilder(globalContext, reader)
+    builder = CodeBlockBuilder(globalContext)
     for argName, argDecl in args.items():
         if isinstance(argDecl, Reference):
             builder.emitLocalReference(argName, argDecl.type, headerLocation)
@@ -37,7 +37,7 @@ def createFunc(reader, funcName, retType, args, globalContext):
         code = None
     else:
         try:
-            code = builder.createCodeBlock()
+            code = builder.createCodeBlock(reader)
         except ValueError:
             code = None
 

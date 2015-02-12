@@ -87,17 +87,21 @@ class Node:
 class AccessNode(Node):
     '''Base class for Load and Store.
     '''
-    __slots__ = ('_cid', '_rid')
+    __slots__ = ('_cid', '_rid', '_location')
 
     cid = property(lambda self: self._cid)
     rid = property(lambda self: self._rid)
+    location = property(lambda self: self._location)
 
-    def __init__(self, cid, rid):
+    def __init__(self, cid, rid, location=None):
         self._cid = checkType(cid, int, 'constant ID')
         self._rid = checkType(rid, int, 'reference ID')
+        self._location = location
 
     def __repr__(self):
-        return '%s(%d, %d)' % (self.__class__.__name__, self._cid, self._rid)
+        return '%s(%d, %d, %s)' % (
+            self.__class__.__name__, self._cid, self._rid, repr(self._location)
+            )
 
     def clone(self, cid=None, rid=None):
         '''Create a clone of this node, with optionally a different CID or RID.
@@ -108,7 +112,7 @@ class AccessNode(Node):
             cid = self._cid
         if rid is None:
             rid = self._rid
-        return self.__class__(cid, rid)
+        return self.__class__(cid, rid, self._location)
 
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
