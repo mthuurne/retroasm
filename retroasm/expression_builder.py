@@ -393,12 +393,20 @@ def emitCodeFromStatements(reader, builder, statements):
             lhs.emitStore(builder, rhsConst, node.lhs.treeLocation)
 
         elif isinstance(node, DefinitionNode):
-            # Constant/reference/variable definition.
+            # Constant/reference definition.
             try:
                 convertDefinition(node, builder)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.
+            continue
+
+        elif isinstance(node, DeclarationNode):
+            # Variable declaration.
+            try:
+                declareVariable(node, builder)
+            except BadExpression as ex:
+                reader.error(str(ex), location=ex.location)
             continue
 
         else:
