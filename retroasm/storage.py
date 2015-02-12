@@ -176,6 +176,10 @@ def isStorage(storage):
     return isinstance(storage, (Concatenation, Slice, Storage))
 
 def sliceStorage(decomposed, index, width):
+    if index < 0:
+        raise ValueError('slice index must not be negative: %d' % index)
+    if width < 0:
+        raise ValueError('slice width must not be negative: %d' % width)
     offset = 0
     for rid, subStart, subWidth in decomposed:
         # Clip slice indices to substorage range.
