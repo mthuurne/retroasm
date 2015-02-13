@@ -907,11 +907,20 @@ class Truncation(Expression):
             if changed:
                 return Truncation(AddOperator(*terms), width).simplify()
             # Distribute truncation over terms.
-            alt = AddOperator(
-                *(Truncation(term, width) for term in expr.exprs)
-                ).simplify()
-            if alt._complexity() < expr._complexity():
-                return Truncation(alt, width)
+            # Consider reductions in width a simplification as well, since
+            # for example truncating unused bits from literals does make them
+            # simpler.
+            terms = []
+            changed = False
+            for term in expr.exprs:
+                alt = Truncation(term, width).simplify()
+                if (alt._complexity(), alt.width) \
+                        < (term._complexity(), term.width):
+                    term = alt
+                    changed = True
+                terms.append(term)
+            if changed:
+                return Truncation(AddOperator(*terms), width)
         elif isinstance(expr, Complement):
             # Apply truncation to subexpr.
             alt = Complement(Truncation(expr.expr, width)).simplify()

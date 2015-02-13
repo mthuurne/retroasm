@@ -391,6 +391,13 @@ class ArithmeticTests(TestUtils):
             )
         self.assertIs(expr.simplify(), a)
 
+    def test_add_truncate_literal(self):
+        '''Test simplification of truncation of added literal.'''
+        a = TestValue('A', IntType(16))
+        expr = Truncation(AddOperator(a, IntLiteral.create(0x10001)), 16)
+        expected = Truncation(AddOperator(a, IntLiteral.create(1)), 16)
+        self.assertEqual(expr.simplify(), expected)
+
 class LShiftTests(TestUtils):
 
     def test_literals(self):
