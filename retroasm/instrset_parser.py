@@ -1,9 +1,9 @@
 from .codeblock_builder import CodeBlockBuilder
 from .context import Context, NameExistsError
-from .expression_builder import BadExpression, buildStorage
-from .expression_parser import ParseError, parseExpr
+from .expression_builder import buildStorage
+from .expression_parser import parseExpr
 from .function_builder import createFunc
-from .linereader import DefLineReader, DelayedError
+from .linereader import BadInput, DefLineReader, DelayedError
 from .storage import IOChannel, Register, namePat
 from .types import parseType, parseTypeDecl
 
@@ -64,8 +64,17 @@ def _parseRegs(reader, argStr, context):
             try:
                 tree = parseExpr(parts[1], reader.getLocation())
                 alias = buildStorage(tree, builder)
-            except (ParseError, BadExpression) as ex:
-                reader.error(str(ex))
+            except BadInput as ex:
+                location = ex.location
+                if location is not None:
+                    span = location.span
+                    if span is not None:
+                        # Correct the span information.
+                        shift = len(parts[0]) + 1
+                        location = location.updateSpan(
+                            (span[0] + shift, span[1] + shift)
+                            )
+                reader.error(str(ex), location=location)
                 continue
             if alias.type is not aliasType:
                 reader.error(

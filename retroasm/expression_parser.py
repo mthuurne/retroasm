@@ -1,18 +1,12 @@
+from .linereader import BadInput
 from .types import unlimited
 
 from enum import Enum
 import re
 
-class ParseError(Exception):
+class ParseError(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
-    The 'location' attribute contains the location in the instruction set
-    definition file that could not be parsed, as a metadata dictionary that can
-    be used with LineReader, or None if this information is not available.
     '''
-
-    def __init__(self, msg, location=None):
-        Exception.__init__(self, msg)
-        self.location = location
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
     'keyword', 'identifier', 'number', 'operator', 'bracket', 'assignment',

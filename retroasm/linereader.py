@@ -171,9 +171,9 @@ class DelayedError(Exception):
 class BadInput(Exception):
     '''An exception which contains information about the part of the input
     file which is considered to violate a rule.
-    The 'location' attribute contains the location in the instruction set
-    definition file that triggered the exception, as a metadata dictionary that
-    can be used with LineReader, or None if this information is not available.
+    The 'location' attribute contains an InputLocation object describing
+    the location in the input file that triggered the exception, or None if
+    this information is not available.
     '''
 
     @classmethod
