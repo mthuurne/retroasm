@@ -32,7 +32,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         # Share the global context to make sure that the outer and inner block
         # are using the same registers.
-        outer = TestCodeBlockBuilder(inner.globalContext)
+        outer = TestCodeBlockBuilder(inner.globalBuilder)
         outerA = outer.addRegister('a', 16)
         zero = outer.emitCompute(IntLiteral.create(0))
         outer.emitStore(outerA, zero)

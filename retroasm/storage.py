@@ -257,12 +257,6 @@ class ComposedStorage:
             builder.emitStore(rid, combined, location)
             offset += width
 
-    def unwrap(self, references):
-        return Concatenation(
-            Slice(references[rid], index, width)
-            for rid, index, width in self._decomposed
-            )
-
 class Variable(NamedStorage):
     '''A variable in the local context.
     '''

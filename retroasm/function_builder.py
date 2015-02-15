@@ -1,4 +1,4 @@
-from .codeblock_builder import CodeBlockBuilder
+from .codeblock_builder import LocalCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, parseStatement
 from .function import Function
@@ -18,10 +18,10 @@ def _parseBody(reader):
                 'failed to parse statement: %s', ex, location=ex.location
                 )
 
-def createFunc(reader, funcName, retType, args, globalContext):
+def createFunc(reader, funcName, retType, args, globalBuilder):
     headerLocation = reader.getLocation()
 
-    builder = CodeBlockBuilder(globalContext)
+    builder = LocalCodeBlockBuilder(globalBuilder)
     for argName, argDecl in args.items():
         if isinstance(argDecl, Reference):
             builder.emitLocalReference(argName, argDecl.type, headerLocation)

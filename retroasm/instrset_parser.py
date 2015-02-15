@@ -1,5 +1,5 @@
-from .codeblock_builder import CodeBlockBuilder
-from .context import Context, NameExistsError
+from .codeblock_builder import GlobalCodeBlockBuilder
+from .context import NameExistsError
 from .expression_builder import buildStorage
 from .expression_parser import parseExpr
 from .function_builder import createFunc
@@ -13,7 +13,7 @@ import re
 
 logger = getLogger('parse-instr')
 
-def _parseRegs(reader, argStr, context):
+def _parseRegs(reader, argStr, builder):
     if argStr:
         reader.error('register definition must have no arguments')
 
@@ -36,7 +36,7 @@ def _parseRegs(reader, argStr, context):
                     reader.error(str(ex))
                     continue
                 try:
-                    context.define(regName, reg, reader.getLocation())
+                    builder.emitRegister(reg, reader.getLocation())
                 except NameExistsError as ex:
                     reader.error(
                         'error defining register: %s', ex, location=ex.location
@@ -60,7 +60,6 @@ def _parseRegs(reader, argStr, context):
                 continue
 
             # Parse right hand side.
-            builder = CodeBlockBuilder(context)
             try:
                 tree = parseExpr(parts[1], reader.getLocation())
                 alias = buildStorage(tree, builder)
@@ -81,22 +80,17 @@ def _parseRegs(reader, argStr, context):
                     'alias has declared type %s but actual type %s'
                     % (aliasType, alias.type)
                     )
-            elif builder.constants:
-                # TODO: Handle this better.
-                reader.error('alias produces constants')
-            elif builder.nodes:
-                # TODO: Handle this better.
-                reader.error('alias produces nodes')
-            else:
-                # TODO: Use ComposedStorages in the global context as well.
-                unwrapped = alias.unwrap(builder.references)
-                try:
-                    context.define(aliasName, unwrapped, reader.getLocation())
-                except NameExistsError as ex:
-                    reader.error(
-                        'error defining register alias: %s', ex,
-                        location=ex.location
-                        )
+                continue
+
+            # Add alias definition.
+            try:
+                location = reader.getLocation()
+                builder.defineReference(aliasName, alias, location)
+            except NameExistsError as ex:
+                reader.error(
+                    'error defining register alias: %s', ex,
+                    location=ex.location
+                    )
         else:
             reader.error('register definition line with multiple "="')
 
@@ -169,7 +163,7 @@ _reFuncHeader = re.compile(
     r'(?:' + _nameTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
 
-def _parseFunc(reader, argStr, context):
+def _parseFunc(reader, argStr, builder):
     headerLocation = reader.getLocation()
 
     # Parse header line.
@@ -200,11 +194,11 @@ def _parseFunc(reader, argStr, context):
         return
 
     # Parse body lines.
-    func = createFunc(reader, funcName, retType, args, context)
+    func = createFunc(reader, funcName, retType, args, builder)
 
     # Store function in global context.
     try:
-        context.define(funcName, func, headerLocation)
+        builder.context.define(funcName, func, headerLocation)
     except NameExistsError as ex:
         reader.error('error declaring function: %s', ex, location=ex.location)
 
@@ -213,7 +207,7 @@ def _parseFunc(reader, argStr, context):
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
-        context = Context()
+        builder = GlobalCodeBlockBuilder()
         for header in reader:
             if not header:
                 pass
@@ -226,11 +220,11 @@ def parseInstrSet(pathname):
                     defType = parts[0]
                     argStr = '' if len(parts) == 1 else parts[1]
                     if defType == 'reg':
-                        _parseRegs(reader, argStr, context)
+                        _parseRegs(reader, argStr, builder)
                     elif defType == 'io':
-                        _parseIO(reader, argStr, context)
+                        _parseIO(reader, argStr, builder.context)
                     elif defType == 'func':
-                        _parseFunc(reader, argStr, context)
+                        _parseFunc(reader, argStr, builder)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()
@@ -241,7 +235,7 @@ def parseInstrSet(pathname):
 
     logger.debug('regs: %s', ', '.join(
         '%s = %s' % (key, repr(value))
-        for key, value in sorted(context.items())
+        for key, value in sorted(builder.context.items())
         ))
 
     return None

@@ -22,7 +22,7 @@ class Context:
         return self.elements.items()
 
     def define(self, name, value, location):
-        '''Defines a named item in the global context.
+        '''Defines a named item in the this context.
         If the name was already taken, NameExistsError is raised.
         '''
         checkType(name, str, 'context element name')

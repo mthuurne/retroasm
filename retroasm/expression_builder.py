@@ -122,7 +122,9 @@ def _convertIdentifier(node, builder):
     else:
         assert False, repr(value)
 
-def _convertFunctionCall(nameNode, *argNodes, builder):
+def _convertFunctionCall(callNode, builder):
+    nameNode, *argNodes = callNode.operands
+
     # Get function object.
     assert isinstance(nameNode, IdentifierNode), nameNode
     funcName = nameNode.name
@@ -172,12 +174,7 @@ def _convertFunctionCall(nameNode, *argNodes, builder):
             assert False, decl
 
     # Inline function call.
-    code = func.code
-    if code is None:
-        # Missing body, probably because of earlier errors.
-        return IntLiteral.create(0)
-    else:
-        return builder.inlineBlock(code, argMap)
+    return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
 
 def _convertConcat(factory, node, builder):
     exprNode1, exprNode2 = node.operands
@@ -198,7 +195,7 @@ def _convertConcat(factory, node, builder):
 def _convertOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        return _convertFunctionCall(*node.operands, builder=builder)
+        return _convertFunctionCall(node, builder)
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)\
             .emitLoad(builder, node.treeLocation)
