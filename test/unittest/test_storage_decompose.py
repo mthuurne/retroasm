@@ -1,7 +1,6 @@
-from retroasm.storage import (
-    ComposedStorage, Concatenation, Slice, Storage, sliceStorage
-    )
+from retroasm.storage import ComposedStorage, Storage, sliceStorage
 from retroasm.types import IntType
+from retroasm.utils import checkType
 
 import unittest
 
@@ -21,6 +20,60 @@ class ReferencedValue(Storage):
 
     def __str__(self):
         return 'R%d' % self._rid
+
+class Concatenation:
+    '''Concatenates the bit strings of storages.
+    '''
+    __slots__ = ('_exprs',)
+
+    exprs = property(lambda self: self._exprs)
+    width = property(lambda self: sum(expr.width for expr in self._exprs))
+    type = property(lambda self: IntType(self.width))
+
+    def __init__(self, exprs):
+        self._exprs = exprs = tuple(exprs)
+        for expr in exprs:
+            if not isinstance(expr, (Concatenation, Slice, Storage)):
+                raise TypeError(
+                    'expected storage, got %s' % type(expr).__name__
+                    )
+
+    def __repr__(self):
+        return 'Concatenation(%s)' % ', '.join(
+            repr(expr) for expr in self._exprs
+            )
+
+    def __str__(self):
+        return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)
+
+class Slice:
+    '''Slices the bit strings of a storage.
+    '''
+    __slots__ = ('_expr', '_index', '_width')
+
+    expr = property(lambda self: self._expr)
+    index = property(lambda self: self._index)
+    width = property(lambda self: self._width)
+    type = property(lambda self: IntType(self.width))
+
+    def __init__(self, expr, index, width):
+        self._expr = expr
+        self._index = checkType(index, int, 'slice index')
+        self._width = checkType(width, int, 'slice width')
+        if index < 0:
+            raise ValueError('slice index must not be negative: %d' % index)
+        if width < 0:
+            raise ValueError('slice width must not be negative: %d' % width)
+
+    def __repr__(self):
+        return 'Slice(%s, %d, %d)' % (
+            repr(self._expr), self._index, self._width
+            )
+
+    def __str__(self):
+        return '%s[%d:%d]' % (
+            self._expr, self._index, self._index + self._width
+            )
 
 def _decomposeStorage(storage):
     '''Iterates through the basic storages inside the given composed storage.

@@ -169,12 +169,6 @@ class NamedStorage(Storage):
     def mightBeSame(self, other):
         raise NotImplementedError
 
-def isStorage(storage):
-    '''Returns True if the given expression is a storage or a concatenation
-    of storages, False otherwise.
-    '''
-    return isinstance(storage, (Concatenation, Slice, Storage))
-
 def sliceStorage(decomposed, index, width):
     if index < 0:
         raise ValueError('slice index must not be negative: %d' % index)
@@ -395,57 +389,3 @@ class FixedValue(Storage):
     def mightBeSame(self, other):
         # Since we don't store any state, we can pretend to be unique.
         return self is other
-
-class Concatenation:
-    '''Concatenates the bit strings of storages.
-    '''
-    __slots__ = ('_exprs',)
-
-    exprs = property(lambda self: self._exprs)
-    width = property(lambda self: sum(expr.width for expr in self._exprs))
-    type = property(lambda self: IntType(self.width))
-
-    def __init__(self, exprs):
-        self._exprs = exprs = tuple(exprs)
-        for expr in exprs:
-            if not isStorage(expr):
-                raise TypeError(
-                    'expected storage, got %s' % type(expr).__name__
-                    )
-
-    def __repr__(self):
-        return 'Concatenation(%s)' % ', '.join(
-            repr(expr) for expr in self._exprs
-            )
-
-    def __str__(self):
-        return '(%s)' % ' ; '.join(str(expr) for expr in self._exprs)
-
-class Slice:
-    '''Slices the bit strings of a storage.
-    '''
-    __slots__ = ('_expr', '_index', '_width')
-
-    expr = property(lambda self: self._expr)
-    index = property(lambda self: self._index)
-    width = property(lambda self: self._width)
-    type = property(lambda self: IntType(self.width))
-
-    def __init__(self, expr, index, width):
-        self._expr = expr
-        self._index = checkType(index, int, 'slice index')
-        self._width = checkType(width, int, 'slice width')
-        if index < 0:
-            raise ValueError('slice index must not be negative: %d' % index)
-        if width < 0:
-            raise ValueError('slice width must not be negative: %d' % width)
-
-    def __repr__(self):
-        return 'Slice(%s, %d, %d)' % (
-            repr(self._expr), self._index, self._width
-            )
-
-    def __str__(self):
-        return '%s[%d:%d]' % (
-            self._expr, self._index, self._index + self._width
-            )
