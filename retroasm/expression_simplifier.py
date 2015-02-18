@@ -1,10 +1,26 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, Truncation, XorOperator
+    RShift, SimplifiableComposedExpression, Truncation, XorOperator
     )
 from .types import IntType, unlimited
 
 # pylint: disable=protected-access
+
+def complexity(expr):
+    '''Returns a postive number that reflects the complexity of the given
+    expression: the higher the number, the more complex the expression.
+    This is used to compare simplification candidates.
+    '''
+    if isinstance(expr, IntLiteral):
+        return 2 if expr.width is unlimited else 1
+    elif isinstance(expr, SimplifiableComposedExpression):
+        return expr.nodeComplexity + sum(
+            complexity(subExpr) for subExpr in expr.exprs
+            )
+    elif isinstance(expr, (Complement, LShift, RShift, Truncation)):
+        return 1 + complexity(expr.expr)
+    else:
+        return 2
 
 def _simplifyLiteral(literal):
     value = literal.value
@@ -105,9 +121,7 @@ def _customSimplifyAnd(node, exprs):
     if not exprs:
         return
 
-    myComplexity = node.nodeComplexity + sum(
-        expr._complexity() for expr in exprs
-        )
+    myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
 
     width = min(expr.width for expr in exprs)
     if width is not unlimited:
@@ -115,7 +129,7 @@ def _customSimplifyAnd(node, exprs):
         changed = width < node.width
         for i, expr in enumerate(exprs):
             trunc = simplifyExpression(Truncation(expr, width))
-            if trunc._complexity() < expr._complexity():
+            if complexity(trunc) < complexity(expr):
                 exprs[i] = trunc
                 changed = True
         if changed:
@@ -158,7 +172,7 @@ def _customSimplifyAnd(node, exprs):
                         RShift(clone, trailingZeroes),
                         trailingZeroes
                         ))
-                    if alt._complexity() < myComplexity:
+                    if complexity(alt) < myComplexity:
                         exprs[:] = [alt]
                         return
 
@@ -172,7 +186,7 @@ def _customSimplifyAnd(node, exprs):
                 ))
             alt._tryDistributeOrOverAnd = False
             alt = simplifyExpression(alt)
-            if alt._complexity() < myComplexity:
+            if complexity(alt) < myComplexity:
                 exprs[:] = [alt]
                 return
 
@@ -192,9 +206,7 @@ def _customSimplifyOr(node, exprs):
     else:
         assert width == curWidth, node
 
-    myComplexity = node.nodeComplexity + sum(
-        expr._complexity() for expr in exprs
-        )
+    myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
     for i, expr in enumerate(exprs):
         if isinstance(expr, AndOperator) and node._tryDistributeOrOverAnd:
             # Distribute OR over AND.
@@ -205,7 +217,7 @@ def _customSimplifyOr(node, exprs):
                 ))
             alt._tryDistributeAndOverOr = False
             alt = simplifyExpression(alt)
-            if alt._complexity() < myComplexity:
+            if complexity(alt) < myComplexity:
                 exprs[:] = [alt]
                 return
 
@@ -315,7 +327,7 @@ def _simplifyLShift(lshift):
         if not getattr(expr, '_tryMaskToShift', True):
             alt._tryMaskToShift = False
         alt = simplifyExpression(alt)
-        if alt._complexity() <= lshift._complexity():
+        if complexity(alt) <= complexity(lshift):
             return alt
 
     if expr is lshift.expr:
@@ -364,7 +376,7 @@ def _simplifyRShift(rshift):
         if not getattr(expr, '_tryMaskToShift', True):
             alt._tryMaskToShift = False
         alt = simplifyExpression(alt)
-        if alt._complexity() < rshift._complexity():
+        if complexity(alt) < complexity(rshift):
             return alt
 
     if expr is rshift.expr:
@@ -406,7 +418,7 @@ def _simplifyTruncation(truncation):
         subExpr = expr.expr
         offset = expr.offset
         alt = simplifyExpression(Truncation(subExpr, width + offset))
-        if alt._complexity() < subExpr._complexity():
+        if complexity(alt) < complexity(subExpr):
             return simplifyExpression(
                 Truncation(RShift(alt, offset), width)
                 )
@@ -417,7 +429,7 @@ def _simplifyTruncation(truncation):
         alt = simplifyExpression(type(expr)(
             *(Truncation(term, width) for term in expr.exprs)
             ))
-        if alt._complexity() < expr._complexity():
+        if complexity(alt) < complexity(expr):
             return simplifyExpression(Truncation(alt, width))
     elif isinstance(expr, AddOperator):
         # Eliminate inner truncations that are not narrower than the outer
@@ -442,8 +454,7 @@ def _simplifyTruncation(truncation):
         changed = False
         for term in expr.exprs:
             alt = simplifyExpression(Truncation(term, width))
-            if (alt._complexity(), alt.width) \
-                    < (term._complexity(), term.width):
+            if (complexity(alt), alt.width) < (complexity(term), term.width):
                 term = alt
                 changed = True
             terms.append(term)
@@ -452,7 +463,7 @@ def _simplifyTruncation(truncation):
     elif isinstance(expr, Complement):
         # Apply truncation to subexpr.
         alt = simplifyExpression(Complement(Truncation(expr.expr, width)))
-        if alt._complexity() < expr._complexity():
+        if complexity(alt) < complexity(expr):
             return Truncation(alt, width)
 
     if expr is truncation.expr:

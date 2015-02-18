@@ -156,9 +156,6 @@ class ConstantValue(Expression):
         # pylint: disable=protected-access
         return self._cid is other._cid
 
-    def _complexity(self):
-        return 2
-
 class CodeBlock:
 
     def __init__(self, constants, references, nodes):

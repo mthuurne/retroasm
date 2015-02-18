@@ -108,13 +108,6 @@ class Expression:
         return None if typ is None else typ._width
     width = property(_getWidth)
 
-    def _complexity(self):
-        '''Returns a postive number that reflects the complexity of this
-        expression: the higher the number, the more complex the expression.
-        This is used to compare simplification candidates.
-        '''
-        raise NotImplementedError
-
     def substitute(self, func):
         '''Applies the given substitution function to this expression and
         returns the resulting expression.
@@ -173,9 +166,6 @@ class Unit(Expression, metaclass=Singleton):
         '''
         raise ValueError('attempt to use unit value')
 
-    def _complexity(self):
-        return 1
-
 unit = Unit()
 
 class IntLiteral(Expression):
@@ -228,9 +218,6 @@ class IntLiteral(Expression):
     def _equals(self, other):
         return self._value == other._value
 
-    def _complexity(self):
-        return 2 if self.width is unlimited else 1
-
 class ComposedExpression(Expression):
     '''Base class for expressions that combine multiple subexpressions.
     '''
@@ -263,9 +250,6 @@ class ComposedExpression(Expression):
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
 
-    def _complexity(self):
-        raise NotImplementedError
-
 class SimplifiableComposedExpression(ComposedExpression):
     '''Base class for composed expressions that can be simplified using
     their algebraic properties.
@@ -280,11 +264,6 @@ class SimplifiableComposedExpression(ComposedExpression):
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
-
-    def _complexity(self):
-        return self.nodeComplexity + sum(
-            expr._complexity() for expr in self._exprs
-            )
 
     # pylint: disable=unused-argument
 
@@ -388,9 +367,6 @@ class Complement(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
-    def _complexity(self):
-        return 1 + self._expr._complexity()
-
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
@@ -416,9 +392,6 @@ class LShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
-    def _complexity(self):
-        return 1 + self._expr._complexity()
-
 class RShift(Expression):
     '''Drops the lower N bits from a bit string.
     '''
@@ -443,9 +416,6 @@ class RShift(Expression):
 
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
-
-    def _complexity(self):
-        return 1 + self._expr._complexity()
 
 class Truncation(Expression):
     '''Extracts the lower N bits from a bit string.
@@ -474,9 +444,6 @@ class Truncation(Expression):
 
     def _equals(self, other):
         return self.width == other.width and self._expr == other._expr
-
-    def _complexity(self):
-        return 1 + self._expr._complexity()
 
 def concatenate(*exprs):
     '''Returns an expression which concatenates the bit strings of the given

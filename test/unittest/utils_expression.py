@@ -26,6 +26,3 @@ class TestValue(Expression):
 
     def _equals(self, other):
         return self is other
-
-    def _complexity(self):
-        return 2
