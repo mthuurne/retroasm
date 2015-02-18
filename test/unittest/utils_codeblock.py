@@ -10,7 +10,7 @@ from retroasm.types import IntType
 class NodeChecker:
 
     def assertNode(self, actual, correct):
-        self.assertEqual(type(actual), type(correct))
+        self.assertIsInstance(actual, type(correct))
         self.assertEqual(actual.cid, correct.cid)
         self.assertEqual(actual.rid, correct.rid)
 
@@ -20,8 +20,8 @@ class NodeChecker:
             self.assertNode(a, c)
 
     def assertIntLiteral(self, constant, value):
-        self.assertEqual(type(constant), ComputedConstant)
-        self.assertEqual(type(constant.expr), IntLiteral)
+        self.assertIsInstance(constant, ComputedConstant)
+        self.assertIsInstance(constant.expr, IntLiteral)
         self.assertEqual(constant.expr.value, value)
 
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):

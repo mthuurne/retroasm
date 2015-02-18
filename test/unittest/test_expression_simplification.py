@@ -15,12 +15,12 @@ class TestUtils(unittest.TestCase):
         with the given value.
         '''
         comparison = IntLiteral.create(value)
-        self.assertIs(type(expr), IntLiteral)
-        self.assertIs(type(expr.type), IntType)
+        self.assertIsInstance(expr, IntLiteral)
+        self.assertIsInstance(expr.type, IntType)
         self.assertEqual(expr.value, value)
 
     def assertAnd(self, expr, *args):
-        self.assertIs(type(expr), AndOperator)
+        self.assertIsInstance(expr, AndOperator)
         exprs = expr.exprs
         self.assertEqual(len(exprs), len(args))
         found = [False] * len(exprs)
@@ -39,7 +39,7 @@ class TestUtils(unittest.TestCase):
                 )
 
     def assertOr(self, expr, *args):
-        self.assertIs(type(expr), OrOperator)
+        self.assertIsInstance(expr, OrOperator)
         exprs = expr.exprs
         self.assertEqual(len(exprs), len(args))
         found = [False] * len(exprs)
@@ -77,14 +77,14 @@ class TestUtils(unittest.TestCase):
         trunc = Truncation(shift, width) if needsTrunc else shift
         self.assertEqual(str(expr), str(trunc))
         self.assertEqual(expr, trunc)
-        self.assertIs(type(expr), type(trunc))
-        self.assertIs(type(expr.type), IntType)
+        self.assertIsInstance(expr, type(trunc))
+        self.assertIsInstance(expr.type, IntType)
         if needsShift:
             shiftExpr = expr.expr if needsTrunc else expr
             self.assertEqual(str(shiftExpr), str(shift))
             self.assertEqual(shiftExpr, shift)
-            self.assertIs(type(shiftExpr), RShift)
-            self.assertIs(type(shiftExpr.type), IntType)
+            self.assertIsInstance(shiftExpr, RShift)
+            self.assertIsInstance(shiftExpr.type, IntType)
             self.assertEqual(shiftExpr.offset, index)
             self.assertEqual(shiftExpr.expr, subExpr)
         else:
@@ -178,7 +178,7 @@ class AndTests(TestUtils):
         hl = concatenate(h, l)
         # Test whether (HL & $FF00) simplifies to H;$00.
         expr = AndOperator(hl, IntLiteral(0xFF00, IntType(16))).simplify()
-        self.assertIs(type(expr), LShift)
+        self.assertIsInstance(expr, LShift)
         self.assertIs(expr.expr, h)
         self.assertEqual(expr.offset, 8)
 
@@ -332,7 +332,7 @@ class ComplementTests(TestUtils):
             IntLiteral(0xDE, IntType(8)),
             addr
             )).simplify()
-        self.assertIs(type(expr), Complement)
+        self.assertIsInstance(expr, Complement)
         self.assertConcat(expr.expr, (IntLiteral(0xC0DE, IntType(16)), addr))
 
 class ArithmeticTests(TestUtils):
@@ -415,7 +415,7 @@ class LShiftTests(TestUtils):
         '''Shifts a value to the left twice.'''
         addr = TestValue('A', IntType(16))
         expr = LShift(LShift(addr, 3), 5).simplify()
-        self.assertIs(type(expr), LShift)
+        self.assertIsInstance(expr, LShift)
         self.assertIs(expr.expr, addr)
         self.assertEqual(expr.offset, 8)
 
@@ -442,7 +442,7 @@ class LShiftTests(TestUtils):
         self.assertIntLiteral(expr1, 0)
         # Shift only H out of the truncation range.
         expr2 = Truncation(LShift(hl, 8), 16).simplify()
-        self.assertIs(type(expr2), LShift)
+        self.assertIsInstance(expr2, LShift)
         self.assertIs(expr2.expr, l)
         self.assertEqual(expr2.offset, 8)
 
@@ -453,7 +453,7 @@ class RShiftTests(TestUtils):
         addr = TestValue('A', IntType(16))
         # Shift less to the left than to the right.
         rwin = RShift(LShift(addr, 3), 5).simplify()
-        self.assertIs(type(rwin), RShift)
+        self.assertIsInstance(rwin, RShift)
         self.assertEqual(rwin.offset, 2)
         self.assertIs(rwin.expr, addr)
         # Shift equal amounts to the left and to the right.
@@ -461,7 +461,7 @@ class RShiftTests(TestUtils):
         self.assertIs(draw, addr)
         # Shift more to the left than to the right.
         lwin = RShift(LShift(addr, 5), 3).simplify()
-        self.assertIs(type(lwin), LShift)
+        self.assertIsInstance(lwin, LShift)
         self.assertEqual(lwin.offset, 2)
         self.assertIs(lwin.expr, addr)
 
