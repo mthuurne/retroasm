@@ -1,5 +1,5 @@
 from .expression import (
-    Expression, LShift, OrOperator, RShift, Truncation, concatenate
+    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, Truncation
     )
 from .types import IntType
 from .utils import checkType
@@ -237,16 +237,22 @@ class ComposedStorage:
         offset = 0
         for rid, index, width in self._decomposed:
             valueSlice = Truncation(RShift(value, offset), width)
-            if index == 0 and width == builder.references[rid].width:
+            storageWidth = builder.references[rid].width
+            if index == 0 and width == storageWidth:
                 # Full width: store only.
                 combined = valueSlice
             else:
                 # Partial width: combine with loaded old value.
                 oldVal = builder.emitLoad(rid, location)
-                combined = concatenate(
-                    RShift(oldVal, index + width),
-                    valueSlice,
-                    Truncation(oldVal, index)
+                storageMask = (1 << storageWidth) - 1
+                valueMask = ((1 << width) - 1) << index
+                maskLit = IntLiteral(
+                    storageMask & ~valueMask, IntType(storageWidth)
+                    )
+                combined = OrOperator(
+                    AndOperator(oldVal, maskLit),
+                    LShift(valueSlice, index),
+                    intType=IntType(storageWidth)
                     )
             builder.emitStore(rid, combined, location)
             offset += width
