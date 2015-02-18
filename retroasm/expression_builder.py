@@ -2,7 +2,7 @@ from .codeblock import ConstantValue, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    RShift, Truncation, XorOperator, concatenate
+    Truncation, XorOperator, concatenate
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -257,7 +257,8 @@ def _convertStorageLookup(node, builder):
             channel = ident
             index = buildExpression(indexNode, builder)
             rid = builder.emitIOReference(channel, index)
-            return ComposedStorage.single(rid, channel.elemType.width)
+            elemType = channel.elemType # pylint: disable=no-member
+            return ComposedStorage.single(rid, elemType.width)
 
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
