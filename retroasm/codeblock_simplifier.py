@@ -2,6 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
+from .expression import simplifyExpression
 from .storage import FixedValue, IOReference, Register, Variable
 
 from collections import defaultdict
@@ -59,7 +60,7 @@ class CodeBlockSimplifier(CodeBlock):
         for cid in list(constants.keys()):
             const = constants[cid]
             if isinstance(const, ComputedConstant):
-                expr = const.expr.simplify()
+                expr = simplifyExpression(const.expr)
                 if isinstance(expr, ConstantValue):
                     # This constant is equal to another constant.
                     self.replaceConstant(cid, expr.cid)

@@ -115,11 +115,7 @@ class Expression:
         '''
         raise NotImplementedError
 
-    def simplify(self):
-        '''Returns an equivalent expression that is simpler (fewer nodes),
-        or this expression object itself if no simplification was found.
-        Simplified expressions can have reduced width.
-        '''
+    def _simplify(self):
         return self
 
     def substitute(self, func):
@@ -238,7 +234,7 @@ class IntLiteral(Expression):
     def _complexity(self):
         return 2 if self.width is unlimited else 1
 
-    def simplify(self):
+    def _simplify(self):
         value = self._value
         if value >= 0:
             valueWidth = value.bit_length()
@@ -301,9 +297,9 @@ class SimplifiableComposedExpression(ComposedExpression):
             expr._complexity() for expr in self._exprs
             )
 
-    def simplify(self):
+    def _simplify(self):
         # Simplify the subexpressions individually.
-        exprs = [expr.simplify() for expr in self._exprs]
+        exprs = [simplifyExpression(expr) for expr in self._exprs]
 
         if self.associative:
             # Merge subexpressions of the same type into this expression.
@@ -346,13 +342,13 @@ class SimplifiableComposedExpression(ComposedExpression):
                 if expr is None:
                     i += 1
                 else:
-                    exprs[i-1:i+1] = [expr.simplify()]
+                    exprs[i-1:i+1] = [simplifyExpression(expr)]
 
         absorber = self.absorber
         if absorber is not None:
             # If any absorber is present, the result is the absorber.
             if any(expr == absorber for expr in exprs):
-                return absorber.simplify()
+                return simplifyExpression(absorber)
 
         identity = self.identity
         if identity is not None:
@@ -379,7 +375,7 @@ class SimplifiableComposedExpression(ComposedExpression):
         if len(exprs) == 0:
             substitute = self.emptySubstitute
             assert substitute is not None
-            return substitute.simplify()
+            return simplifyExpression(substitute)
         elif len(exprs) == 1:
             return exprs[0]
         elif len(exprs) == len(self._exprs) \
@@ -439,7 +435,7 @@ class AndOperator(SimplifiableComposedExpression):
             # Try truncating each subexpression to the minimum width.
             changed = width < self.width
             for i, expr in enumerate(exprs):
-                trunc = Truncation(expr, width).simplify()
+                trunc = simplifyExpression(Truncation(expr, width))
                 if trunc._complexity() < expr._complexity():
                     exprs[i] = trunc
                     changed = True
@@ -450,7 +446,7 @@ class AndOperator(SimplifiableComposedExpression):
                     alt._tryDistributeAndOverOr = False
                 if not self._tryMaskToShift:
                     alt._tryMaskToShift = False
-                exprs[:] = [alt.simplify()]
+                exprs[:] = [simplifyExpression(alt)]
                 return
 
             last = exprs[-1]
@@ -461,7 +457,7 @@ class AndOperator(SimplifiableComposedExpression):
                     # This bit mask application is essentially truncating;
                     # convert it to an actual Truncation expression.
                     expr = Truncation(AndOperator(*exprs[:-1]), width)
-                    exprs[:] = [expr.simplify()]
+                    exprs[:] = [simplifyExpression(expr)]
                     return
 
                 assert value != 0, self
@@ -479,10 +475,10 @@ class AndOperator(SimplifiableComposedExpression):
                     if self._tryMaskToShift:
                         clone = AndOperator(*exprs)
                         clone._tryMaskToShift = False
-                        alt = LShift(
+                        alt = simplifyExpression(LShift(
                             RShift(clone, trailingZeroes),
                             trailingZeroes
-                            ).simplify()
+                            ))
                         if alt._complexity() < myComplexity:
                             exprs[:] = [alt]
                             return
@@ -496,7 +492,7 @@ class AndOperator(SimplifiableComposedExpression):
                     for term in expr.exprs
                     ))
                 alt._tryDistributeOrOverAnd = False
-                alt = alt.simplify()
+                alt = simplifyExpression(alt)
                 if alt._complexity() < myComplexity:
                     exprs[:] = [alt]
                     return
@@ -530,7 +526,7 @@ class OrOperator(SimplifiableComposedExpression):
             alt = OrOperator(*exprs, intType=IntType(width))
             if not self._tryDistributeOrOverAnd:
                 alt._tryDistributeOrOverAnd = False
-            exprs[:] = [alt.simplify()]
+            exprs[:] = [simplifyExpression(alt)]
             return
         else:
             assert width == curWidth, self
@@ -547,7 +543,7 @@ class OrOperator(SimplifiableComposedExpression):
                     for term in expr.exprs
                     ))
                 alt._tryDistributeAndOverOr = False
-                alt = alt.simplify()
+                alt = simplifyExpression(alt)
                 if alt._complexity() < myComplexity:
                     exprs[:] = [alt]
                     return
@@ -585,7 +581,7 @@ class XorOperator(SimplifiableComposedExpression):
         width = max(expr.width for expr in exprs)
         if width < curWidth:
             alt = XorOperator(*exprs, intType=IntType(width))
-            exprs[:] = [alt.simplify()]
+            exprs[:] = [simplifyExpression(alt)]
             return
         else:
             assert width == curWidth, self
@@ -655,18 +651,18 @@ class Complement(Expression):
     def _complexity(self):
         return 1 + self._expr._complexity()
 
-    def simplify(self):
-        expr = self._expr.simplify()
+    def _simplify(self):
+        expr = simplifyExpression(self._expr)
         if isinstance(expr, IntLiteral):
-            return IntLiteral.create(-expr.value).simplify()
+            return simplifyExpression(IntLiteral.create(-expr.value))
         elif isinstance(expr, Complement):
             return expr._expr
         elif isinstance(expr, AddOperator):
             # Distribute complement over addition terms:
             #   -(x + y + z) = -x + -y + -z
-            return AddOperator(
+            return simplifyExpression(AddOperator(
                 *(Complement(term) for term in expr._exprs)
-                ).simplify()
+                ))
         elif expr is self._expr:
             return self
         else:
@@ -700,8 +696,8 @@ class LShift(Expression):
     def _complexity(self):
         return 1 + self._expr._complexity()
 
-    def simplify(self):
-        expr = self._expr.simplify()
+    def _simplify(self):
+        expr = simplifyExpression(self._expr)
 
         offset = self._offset
         if offset == 0:
@@ -714,7 +710,7 @@ class LShift(Expression):
             return IntLiteral(expr.value << offset, IntType(width))
         elif isinstance(expr, LShift):
             # Combine both shifts into one.
-            return LShift(expr._expr, offset + expr._offset).simplify()
+            return simplifyExpression(LShift(expr._expr, offset + expr._offset))
         elif isinstance(expr, RShift):
             roffset = expr.offset
             mask = (0 if expr.width is unlimited else 1 << expr.width) - 1
@@ -722,20 +718,20 @@ class LShift(Expression):
             masked._tryMaskToShift = False
             if roffset < offset:
                 # Left shift wins.
-                return LShift(masked, offset - roffset).simplify()
+                return simplifyExpression(LShift(masked, offset - roffset))
             elif roffset == offset:
                 # Left and right shift cancel each other out.
-                return masked.simplify()
+                return simplifyExpression(masked)
             else:
                 # Right shift wins.
-                return RShift(masked, roffset - offset).simplify()
+                return simplifyExpression(RShift(masked, roffset - offset))
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(LShift(term, offset) for term in expr.exprs)
                 )
             if not getattr(expr, '_tryMaskToShift', True):
                 alt._tryMaskToShift = False
-            alt = alt.simplify()
+            alt = simplifyExpression(alt)
             if alt._complexity() <= self._complexity():
                 return alt
 
@@ -772,8 +768,8 @@ class RShift(Expression):
     def _complexity(self):
         return 1 + self._expr._complexity()
 
-    def simplify(self):
-        expr = self._expr.simplify()
+    def _simplify(self):
+        expr = simplifyExpression(self._expr)
 
         offset = self._offset
         if offset == 0:
@@ -791,26 +787,28 @@ class RShift(Expression):
             loffset = expr.offset
             if loffset < offset:
                 # Right shift wins.
-                return RShift(expr.expr, offset - loffset).simplify()
+                return simplifyExpression(RShift(expr.expr, offset - loffset))
             elif loffset == offset:
                 # Left and right shift cancel each other out.
                 return expr.expr
             else:
                 # Left shift wins.
-                return LShift(expr.expr, loffset - offset).simplify()
+                return simplifyExpression(LShift(expr.expr, loffset - offset))
         elif isinstance(expr, RShift):
             # Combine both shifts into one.
-            return RShift(expr._expr, offset + expr._offset).simplify()
+            return simplifyExpression(RShift(expr._expr, offset + expr._offset))
         elif isinstance(expr, Truncation):
             # Truncate after shifting: this maps better to the slice semantics.
-            return Truncation(RShift(expr.expr, offset), width).simplify()
+            return simplifyExpression(
+                Truncation(RShift(expr.expr, offset), width)
+                )
         elif isinstance(expr, (AndOperator, OrOperator)):
             alt = type(expr)(
                 *(RShift(term, offset) for term in expr.exprs)
                 )
             if not getattr(expr, '_tryMaskToShift', True):
                 alt._tryMaskToShift = False
-            alt = alt.simplify()
+            alt = simplifyExpression(alt)
             if alt._complexity() < self._complexity():
                 return alt
 
@@ -850,7 +848,7 @@ class Truncation(Expression):
     def _complexity(self):
         return 1 + self._expr._complexity()
 
-    def simplify(self):
+    def _simplify(self):
         width = self.width
         assert width is not unlimited, self
         if width == 0:
@@ -859,7 +857,7 @@ class Truncation(Expression):
 
         # Note that simplification can reduce the width of the subexpression,
         # so do subexpression simplification before checking the width.
-        expr = self._expr.simplify()
+        expr = simplifyExpression(self._expr)
 
         # If we're truncating beyond the subexpression's width, reduce the
         # truncation width.
@@ -868,7 +866,9 @@ class Truncation(Expression):
             return expr
 
         if isinstance(expr, IntLiteral):
-            return IntLiteral.create(expr.value & ((1 << width) - 1)).simplify()
+            return simplifyExpression(
+                IntLiteral.create(expr.value & ((1 << width) - 1))
+                )
         elif isinstance(expr, LShift):
             offset = expr.offset
             if offset >= width:
@@ -877,22 +877,24 @@ class Truncation(Expression):
             else:
                 # Truncate before left-shifting.
                 trunc = Truncation(expr.expr, width - offset)
-                return LShift(trunc, offset).simplify()
+                return simplifyExpression(LShift(trunc, offset))
         elif isinstance(expr, RShift):
             subExpr = expr.expr
             offset = expr.offset
-            alt = Truncation(subExpr, width + offset).simplify()
+            alt = simplifyExpression(Truncation(subExpr, width + offset))
             if alt._complexity() < subExpr._complexity():
-                return Truncation(RShift(alt, offset), width).simplify()
+                return simplifyExpression(
+                    Truncation(RShift(alt, offset), width)
+                    )
         elif isinstance(expr, Truncation):
             # Combine both truncations into one.
-            return Truncation(expr._expr, width).simplify()
+            return simplifyExpression(Truncation(expr._expr, width))
         elif isinstance(expr, (AndOperator, OrOperator)):
-            alt = type(expr)(
+            alt = simplifyExpression(type(expr)(
                 *(Truncation(term, width) for term in expr.exprs)
-                ).simplify()
+                ))
             if alt._complexity() < expr._complexity():
-                return Truncation(alt, width).simplify()
+                return simplifyExpression(Truncation(alt, width))
         elif isinstance(expr, AddOperator):
             # Eliminate inner truncations that are not narrower than the outer
             # trunctation.
@@ -905,7 +907,9 @@ class Truncation(Expression):
                 else:
                     terms.append(term)
             if changed:
-                return Truncation(AddOperator(*terms), width).simplify()
+                return simplifyExpression(
+                    Truncation(AddOperator(*terms), width)
+                    )
             # Distribute truncation over terms.
             # Consider reductions in width a simplification as well, since
             # for example truncating unused bits from literals does make them
@@ -913,7 +917,7 @@ class Truncation(Expression):
             terms = []
             changed = False
             for term in expr.exprs:
-                alt = Truncation(term, width).simplify()
+                alt = simplifyExpression(Truncation(term, width))
                 if (alt._complexity(), alt.width) \
                         < (term._complexity(), term.width):
                     term = alt
@@ -923,7 +927,7 @@ class Truncation(Expression):
                 return Truncation(AddOperator(*terms), width)
         elif isinstance(expr, Complement):
             # Apply truncation to subexpr.
-            alt = Complement(Truncation(expr.expr, width)).simplify()
+            alt = simplifyExpression(Complement(Truncation(expr.expr, width)))
             if alt._complexity() < expr._complexity():
                 return Truncation(alt, width)
 
@@ -942,3 +946,10 @@ def concatenate(*exprs):
         terms.append(LShift(expr, width))
         width += expr.width
     return OrOperator(*terms, intType=IntType(width))
+
+def simplifyExpression(expr):
+    '''Returns an equivalent expression that is simpler (fewer nodes), or the
+    given expression object itself if no simplification was found.
+    Simplified expressions can have reduced width.
+    '''
+    return expr._simplify()

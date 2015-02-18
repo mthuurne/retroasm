@@ -2,7 +2,7 @@ from .codeblock import ConstantValue, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    RShift, Truncation, XorOperator, concatenate
+    RShift, Truncation, XorOperator, concatenate, simplifyExpression
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -261,7 +261,7 @@ def _convertStorageLookup(node, builder):
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
-        indexInt = index.simplify().value
+        indexInt = simplifyExpression(index).value
     except AttributeError:
         raise BadExpression.withText(
             'bit index is not constant',
@@ -280,7 +280,7 @@ def _convertStorageSlice(node, builder):
         index = 0
     else:
         start = buildExpression(startNode, builder)
-        start = start.simplify()
+        start = simplifyExpression(start)
         try:
             index = start.value
         except AttributeError:
@@ -299,7 +299,7 @@ def _convertStorageSlice(node, builder):
                 )
     else:
         end = buildExpression(endNode, builder)
-        end = end.simplify()
+        end = simplifyExpression(end)
         try:
             width = end.value - index
         except AttributeError:
