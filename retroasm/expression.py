@@ -267,7 +267,7 @@ class SimplifiableComposedExpression(ComposedExpression):
 
     # pylint: disable=unused-argument
 
-    def _combineLiterals(self, literal1, literal2):
+    def combineLiterals(self, literal1, literal2):
         '''Attempt to combine the two given literals into a single expression.
         Returns the new expression if successful, None otherwise.
         The default implementation returns None, subclasses are encouraged
@@ -292,7 +292,7 @@ class AndOperator(SimplifiableComposedExpression):
         # Set this to False to block the simplification attempt.
         self._tryMaskToShift = True
 
-    def _combineLiterals(self, literal1, literal2):
+    def combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value & literal2.value)
 
 class OrOperator(SimplifiableComposedExpression):
@@ -310,7 +310,7 @@ class OrOperator(SimplifiableComposedExpression):
         # Set this to False to block the simplification attempt.
         self._tryDistributeOrOverAnd = True
 
-    def _combineLiterals(self, literal1, literal2):
+    def combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value | literal2.value)
 
 class XorOperator(SimplifiableComposedExpression):
@@ -322,7 +322,7 @@ class XorOperator(SimplifiableComposedExpression):
     identity = IntLiteral.create(0)
     absorber = None
 
-    def _combineLiterals(self, literal1, literal2):
+    def combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value ^ literal2.value)
 
 class AddOperator(SimplifiableComposedExpression):
@@ -344,7 +344,7 @@ class AddOperator(SimplifiableComposedExpression):
                 fragments += ('+', str(expr))
         return '(%s)' % ' '.join(fragments)
 
-    def _combineLiterals(self, literal1, literal2):
+    def combineLiterals(self, literal1, literal2):
         return IntLiteral.create(literal1.value + literal2.value)
 
 class Complement(Expression):

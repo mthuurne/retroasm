@@ -4,8 +4,6 @@ from .expression import (
     )
 from .types import IntType, unlimited
 
-# pylint: disable=protected-access
-
 def complexity(expr):
     '''Returns a postive number that reflects the complexity of the given
     expression: the higher the number, the more complex the expression.
@@ -40,8 +38,9 @@ def _simplifyComposed(composed):
         while i < len(exprs):
             expr = exprs[i]
             if expr.__class__ is composed.__class__:
-                exprs[i:i+1] = expr._exprs
-                i += len(expr._exprs)
+                subExprs = expr.exprs
+                exprs[i:i+1] = subExprs
+                i += len(subExprs)
             else:
                 i += 1
 
@@ -71,7 +70,7 @@ def _simplifyComposed(composed):
             if not isinstance(expr2, IntLiteral):
                 i += 2
                 continue
-            expr = composed._combineLiterals(expr1, expr2)
+            expr = composed.combineLiterals(expr1, expr2)
             if expr is None:
                 i += 1
             else:
@@ -118,6 +117,7 @@ def _simplifyComposed(composed):
         return composed.__class__(*exprs)
 
 def _customSimplifyAnd(node, exprs):
+    # pylint: disable=protected-access
     if not exprs:
         return
 
@@ -191,6 +191,7 @@ def _customSimplifyAnd(node, exprs):
                 return
 
 def _customSimplifyOr(node, exprs):
+    # pylint: disable=protected-access
     if not exprs:
         return
 
@@ -279,12 +280,12 @@ def _simplifyComplement(complement):
     if isinstance(expr, IntLiteral):
         return simplifyExpression(IntLiteral.create(-expr.value))
     elif isinstance(expr, Complement):
-        return expr._expr
+        return expr.expr
     elif isinstance(expr, AddOperator):
         # Distribute complement over addition terms:
         #   -(x + y + z) = -x + -y + -z
         return simplifyExpression(AddOperator(
-            *(Complement(term) for term in expr._exprs)
+            *(Complement(term) for term in expr.exprs)
             ))
     elif expr is complement.expr:
         return complement
@@ -305,12 +306,12 @@ def _simplifyLShift(lshift):
         return IntLiteral(expr.value << offset, IntType(width))
     elif isinstance(expr, LShift):
         # Combine both shifts into one.
-        return simplifyExpression(LShift(expr._expr, offset + expr._offset))
+        return simplifyExpression(LShift(expr.expr, offset + expr.offset))
     elif isinstance(expr, RShift):
         roffset = expr.offset
         mask = (0 if expr.width is unlimited else 1 << expr.width) - 1
         masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
-        masked._tryMaskToShift = False
+        masked._tryMaskToShift = False # pylint: disable=protected-access
         if roffset < offset:
             # Left shift wins.
             return simplifyExpression(LShift(masked, offset - roffset))
@@ -325,7 +326,7 @@ def _simplifyLShift(lshift):
             *(LShift(term, offset) for term in expr.exprs)
             )
         if not getattr(expr, '_tryMaskToShift', True):
-            alt._tryMaskToShift = False
+            alt._tryMaskToShift = False # pylint: disable=protected-access
         alt = simplifyExpression(alt)
         if complexity(alt) <= complexity(lshift):
             return alt
@@ -363,7 +364,7 @@ def _simplifyRShift(rshift):
             return simplifyExpression(LShift(expr.expr, loffset - offset))
     elif isinstance(expr, RShift):
         # Combine both shifts into one.
-        return simplifyExpression(RShift(expr._expr, offset + expr._offset))
+        return simplifyExpression(RShift(expr.expr, offset + expr.offset))
     elif isinstance(expr, Truncation):
         # Truncate after shifting: this maps better to the slice semantics.
         return simplifyExpression(
@@ -374,7 +375,7 @@ def _simplifyRShift(rshift):
             *(RShift(term, offset) for term in expr.exprs)
             )
         if not getattr(expr, '_tryMaskToShift', True):
-            alt._tryMaskToShift = False
+            alt._tryMaskToShift = False # pylint: disable=protected-access
         alt = simplifyExpression(alt)
         if complexity(alt) < complexity(rshift):
             return alt
@@ -424,7 +425,7 @@ def _simplifyTruncation(truncation):
                 )
     elif isinstance(expr, Truncation):
         # Combine both truncations into one.
-        return simplifyExpression(Truncation(expr._expr, width))
+        return simplifyExpression(Truncation(expr.expr, width))
     elif isinstance(expr, (AndOperator, OrOperator)):
         alt = simplifyExpression(type(expr)(
             *(Truncation(term, width) for term in expr.exprs)
@@ -438,7 +439,7 @@ def _simplifyTruncation(truncation):
         changed = False
         for term in expr.exprs:
             if isinstance(term, Truncation) and term.width >= width:
-                terms.append(term._expr)
+                terms.append(term.expr)
                 changed = True
             else:
                 terms.append(term)
