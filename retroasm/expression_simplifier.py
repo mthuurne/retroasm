@@ -28,23 +28,26 @@ def _simplifyLiteral(literal):
             return IntLiteral(value, IntType(valueWidth))
     return literal
 
-def _simplifyComposed(composed):
-    # Simplify the subexpressions individually.
-    exprs = [simplifyExpression(expr) for expr in composed.exprs]
+def _simplifyAlgebraic(cls, exprs):
+    '''Simplify the given list of expressions using algebraic properties of the
+    given SimplifiableComposedExpression subclass.
+    Returns True if the expression list was changed, False otherwise.
+    '''
+    changed = False
 
-    if composed.associative:
+    if cls.associative:
         # Merge subexpressions of the same type into this expression.
         i = 0
         while i < len(exprs):
             expr = exprs[i]
-            if expr.__class__ is composed.__class__:
+            if expr.__class__ is cls:
                 subExprs = expr.exprs
                 exprs[i:i+1] = subExprs
-                i += len(subExprs)
+                changed = True
             else:
                 i += 1
 
-    if composed.associative and composed.commutative:
+    if cls.associative and cls.commutative:
         # Move all literals to the end.
         # This makes the later merge step more effective.
         numExprs = len(exprs)
@@ -55,10 +58,11 @@ def _simplifyComposed(composed):
                 del exprs[i]
                 exprs.append(expr)
                 numExprs -= 1
+                changed = True
             else:
                 i += 1
 
-    if composed.associative or len(exprs) == 2:
+    if cls.associative or len(exprs) == 2:
         # Merge literals.
         i = 1
         while i < len(exprs):
@@ -70,24 +74,36 @@ def _simplifyComposed(composed):
             if not isinstance(expr2, IntLiteral):
                 i += 2
                 continue
-            expr = composed.combineLiterals(expr1, expr2)
+            expr = cls.combineLiterals(expr1, expr2)
             if expr is None:
                 i += 1
             else:
                 exprs[i-1:i+1] = [_simplifyLiteral(expr)]
+                changed = True
 
-    absorber = composed.absorber
+    absorber = cls.absorber
     if absorber is not None:
+        absorber = simplifyExpression(absorber)
         # If any absorber is present, the result is the absorber.
         if any(expr == absorber for expr in exprs):
-            return simplifyExpression(absorber)
+            changed |= len(exprs) != 1
+            exprs[:] = [absorber]
+            return changed
 
-    identity = composed.identity
+    identity = cls.identity
     if identity is not None:
         # Remove identity values.
-        exprs = [expr for expr in exprs if expr != identity]
+        numExprs = len(exprs)
+        i = 0
+        while i < numExprs:
+            if exprs[i] == identity:
+                del exprs[i]
+                numExprs -= 1
+                changed = True
+            else:
+                i += 1
 
-    if composed.idempotent:
+    if cls.idempotent:
         # Remove duplicate values.
         numExprs = len(exprs)
         i = 0
@@ -99,8 +115,35 @@ def _simplifyComposed(composed):
                 if exprs[j] == expr:
                     del exprs[j]
                     numExprs -= 1
+                    changed = True
                 else:
                     j += 1
+
+    return changed
+
+def _simplifyList(exprs):
+    '''Simplify the given list of expressions individually.
+    Returns True if any of the expressions was replaced by a simpler equivalent,
+    False otherwise.
+    '''
+    changed = False
+    for i, expr in enumerate(exprs):
+        simplified = simplifyExpression(expr)
+        if simplified is not expr:
+            exprs[i] = simplified
+            changed = True
+    return changed
+
+def _simplifyComposed(composed):
+    exprs = list(composed.exprs)
+
+    # Perform basic simplifications until we get no more improvements from them.
+    _simplifyAlgebraic(composed.__class__, exprs)
+    while True:
+        if not _simplifyList(exprs):
+            break
+        if not _simplifyAlgebraic(composed.__class__, exprs):
+            break
 
     _customSimplifiers[type(composed)](composed, exprs)
 
@@ -118,7 +161,7 @@ def _simplifyComposed(composed):
 
 def _customSimplifyAnd(node, exprs):
     # pylint: disable=protected-access
-    if not exprs:
+    if len(exprs) < 2:
         return
 
     myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)

@@ -267,7 +267,8 @@ class SimplifiableComposedExpression(ComposedExpression):
 
     # pylint: disable=unused-argument
 
-    def combineLiterals(self, literal1, literal2):
+    @classmethod
+    def combineLiterals(cls, literal1, literal2):
         '''Attempt to combine the two given literals into a single expression.
         Returns the new expression if successful, None otherwise.
         The default implementation returns None, subclasses are encouraged
@@ -292,7 +293,8 @@ class AndOperator(SimplifiableComposedExpression):
         # Set this to False to block the simplification attempt.
         self._tryMaskToShift = True
 
-    def combineLiterals(self, literal1, literal2):
+    @classmethod
+    def combineLiterals(cls, literal1, literal2):
         return IntLiteral.create(literal1.value & literal2.value)
 
 class OrOperator(SimplifiableComposedExpression):
@@ -310,7 +312,8 @@ class OrOperator(SimplifiableComposedExpression):
         # Set this to False to block the simplification attempt.
         self._tryDistributeOrOverAnd = True
 
-    def combineLiterals(self, literal1, literal2):
+    @classmethod
+    def combineLiterals(cls, literal1, literal2):
         return IntLiteral.create(literal1.value | literal2.value)
 
 class XorOperator(SimplifiableComposedExpression):
@@ -322,7 +325,8 @@ class XorOperator(SimplifiableComposedExpression):
     identity = IntLiteral.create(0)
     absorber = None
 
-    def combineLiterals(self, literal1, literal2):
+    @classmethod
+    def combineLiterals(cls, literal1, literal2):
         return IntLiteral.create(literal1.value ^ literal2.value)
 
 class AddOperator(SimplifiableComposedExpression):
@@ -334,6 +338,10 @@ class AddOperator(SimplifiableComposedExpression):
     identity = IntLiteral.create(0)
     absorber = None
 
+    @classmethod
+    def combineLiterals(cls, literal1, literal2):
+        return IntLiteral.create(literal1.value + literal2.value)
+
     def __str__(self):
         exprs = self._exprs
         fragments = [str(exprs[0])]
@@ -343,9 +351,6 @@ class AddOperator(SimplifiableComposedExpression):
             else:
                 fragments += ('+', str(expr))
         return '(%s)' % ' '.join(fragments)
-
-    def combineLiterals(self, literal1, literal2):
-        return IntLiteral.create(literal1.value + literal2.value)
 
 class Complement(Expression):
     __slots__ = ('_expr',)
