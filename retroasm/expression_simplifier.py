@@ -74,7 +74,7 @@ def _simplifyComposed(composed):
             if expr is None:
                 i += 1
             else:
-                exprs[i-1:i+1] = [simplifyExpression(expr)]
+                exprs[i-1:i+1] = [_simplifyLiteral(expr)]
 
     absorber = composed.absorber
     if absorber is not None:
