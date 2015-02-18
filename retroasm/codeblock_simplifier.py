@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
     LoadedConstant, Store
     )
-from .expression import simplifyExpression
+from .expression_simplifier import simplifyExpression
 from .storage import FixedValue, IOReference, Register, Variable
 
 from collections import defaultdict

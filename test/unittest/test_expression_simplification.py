@@ -2,8 +2,9 @@ from utils_expression import TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, Truncation, XorOperator, concatenate, simplifyExpression
+    RShift, Truncation, XorOperator, concatenate
     )
+from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 
 import unittest

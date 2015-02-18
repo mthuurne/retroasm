@@ -1,6 +1,7 @@
 from utils_expression import TestValue
 
-from retroasm.expression import RShift, Truncation, simplifyExpression
+from retroasm.expression import RShift, Truncation
+from retroasm.expression_simplifier import simplifyExpression
 from retroasm.storage import Variable
 from retroasm.types import IntType
 

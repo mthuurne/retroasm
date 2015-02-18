@@ -2,12 +2,13 @@ from .codeblock import ConstantValue, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    RShift, Truncation, XorOperator, concatenate, simplifyExpression
+    RShift, Truncation, XorOperator, concatenate
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
     IdentifierNode, NumberNode, Operator, OperatorNode
     )
+from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .storage import ComposedStorage, IOChannel
