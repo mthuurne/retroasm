@@ -14,8 +14,6 @@ from .linereader import BadInput
 from .storage import ComposedStorage, IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
 
-from itertools import chain
-
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
     '''
@@ -317,7 +315,7 @@ def _convertStorageSlice(node, builder):
 
 def _convertStorageConcat(node, builder):
     expr1, expr2 = _convertConcat(buildStorage, node, builder)
-    return ComposedStorage(chain(expr2, expr1))
+    return expr2.concat(expr1)
 
 def _convertStorageOperator(node, builder):
     operator = node.operator
