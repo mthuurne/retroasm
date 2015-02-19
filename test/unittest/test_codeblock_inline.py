@@ -1,9 +1,7 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import ComputedConstant, Load, Store
-from retroasm.expression import (
-    AddOperator, AndOperator, IntLiteral, concatenate
-    )
+from retroasm.codeblock import Store
+from retroasm.expression import AddOperator, IntLiteral
 from retroasm.storage import ComposedStorage
 from retroasm.types import IntType
 
@@ -138,18 +136,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerL = outer.addRegister('l')
         regH = outer.context['h']
         regL = outer.context['l']
+        regHL = regL.concat(regH)
+
         initH = outer.emitCompute(IntLiteral.create(0xab))
         initL = outer.emitCompute(IntLiteral.create(0xcd))
         outer.emitStore(outerH, initH)
         outer.emitStore(outerL, initL)
-        regHL = regL.concat(regH)
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outerRet = outer.addVariable('ret', 16)
-        finalH = outer.emitLoad(outerH)
-        finalL = outer.emitLoad(outerL)
-        finalHL = outer.emitCompute(concatenate(finalH, finalL))
+        finalHL = regHL.emitLoad(outer, None)
         outer.emitStore(outerRet, finalHL)
 
         code = createSimplifiedCode(outer)
@@ -170,20 +167,18 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
-        outerL = IntLiteral(0xcd, IntType(8))
+        outerL = outer.emitFixedValue(IntLiteral(0xcd, IntType(8)))
         regH = outer.context['h']
-        fixedL = ComposedStorage.single(
-            outer.emitFixedValue(outerL), outerL.width
-            )
+        fixedL = ComposedStorage.single(outerL, 8)
+        regHL = fixedL.concat(regH)
+
         initH = outer.emitCompute(IntLiteral.create(0xab))
         outer.emitStore(outerH, initH)
-        regHL = fixedL.concat(regH)
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outerRet = outer.addVariable('ret', 16)
-        finalH = outer.emitLoad(outerH)
-        finalHL = outer.emitCompute(concatenate(finalH, outerL))
+        finalHL = regHL.emitLoad(outer, None)
         outer.emitStore(outerRet, finalHL)
 
         code = createSimplifiedCode(outer)
