@@ -2,7 +2,7 @@ from .codeblock import ConstantValue, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    Truncation, XorOperator, concatenate
+    Truncation, XorOperator
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -175,22 +175,6 @@ def _convertFunctionCall(callNode, builder):
     # Inline function call.
     return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
 
-def _convertConcat(factory, node, builder):
-    exprNode1, exprNode2 = node.operands
-    expr1 = factory(exprNode1, builder)
-    expr2 = factory(exprNode2, builder)
-    if expr2.width is unlimited:
-        node = exprNode2
-        while isinstance(node, OperatorNode) and \
-                node.operator is Operator.concatenation:
-            node = node.operands[0]
-        raise BadExpression.withText(
-            'only the first concatenation operand is allowed to have '
-            'unlimited width',
-            node.treeLocation
-            )
-    return expr1, expr2
-
 def _convertArithmetic(node, builder):
     operator = node.operator
     exprs = tuple(buildExpression(node, builder) for node in node.operands)
@@ -221,7 +205,8 @@ def _convertExpressionOperator(node, builder):
         return _convertStorageSlice(node, builder)\
             .emitLoad(builder, node.treeLocation)
     elif operator is Operator.concatenation:
-        return concatenate(*_convertConcat(buildExpression, node, builder))
+        return _convertStorageConcat(node, builder)\
+            .emitLoad(builder, node.treeLocation)
     else:
         return _convertArithmetic(node, builder)
 
@@ -318,7 +303,19 @@ def _convertStorageSlice(node, builder):
         raise BadExpression('invalid slice: %s' % ex, node.location)
 
 def _convertStorageConcat(node, builder):
-    expr1, expr2 = _convertConcat(buildStorage, node, builder)
+    exprNode1, exprNode2 = node.operands
+    expr1 = buildStorage(exprNode1, builder)
+    expr2 = buildStorage(exprNode2, builder)
+    if expr2.width is unlimited:
+        node = exprNode2
+        while isinstance(node, OperatorNode) and \
+                node.operator is Operator.concatenation:
+            node = node.operands[0]
+        raise BadExpression.withText(
+            'only the first concatenation operand is allowed to have '
+            'unlimited width',
+            node.treeLocation
+            )
     return expr2.concat(expr1)
 
 def _convertStorageOperator(node, builder):
