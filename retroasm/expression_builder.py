@@ -191,19 +191,8 @@ def _convertConcat(factory, node, builder):
             )
     return expr1, expr2
 
-def _convertOperator(node, builder):
+def _convertArithmetic(node, builder):
     operator = node.operator
-    if operator is Operator.call:
-        return _convertFunctionCall(node, builder)
-    elif operator is Operator.lookup:
-        return _convertStorageLookup(node, builder)\
-            .emitLoad(builder, node.treeLocation)
-    elif operator is Operator.slice:
-        return _convertStorageSlice(node, builder)\
-            .emitLoad(builder, node.treeLocation)
-    elif operator is Operator.concatenation:
-        return concatenate(*_convertConcat(buildExpression, node, builder))
-
     exprs = tuple(buildExpression(node, builder) for node in node.operands)
     if operator is Operator.bitwise_and:
         return AndOperator(*exprs)
@@ -221,6 +210,21 @@ def _convertOperator(node, builder):
     else:
         assert False, operator
 
+def _convertExpressionOperator(node, builder):
+    operator = node.operator
+    if operator is Operator.call:
+        return _convertFunctionCall(node, builder)
+    elif operator is Operator.lookup:
+        return _convertStorageLookup(node, builder)\
+            .emitLoad(builder, node.treeLocation)
+    elif operator is Operator.slice:
+        return _convertStorageSlice(node, builder)\
+            .emitLoad(builder, node.treeLocation)
+    elif operator is Operator.concatenation:
+        return concatenate(*_convertConcat(buildExpression, node, builder))
+    else:
+        return _convertArithmetic(node, builder)
+
 def buildExpression(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value, IntType(node.width))
@@ -234,7 +238,7 @@ def buildExpression(node, builder):
         else:
             return ident.emitLoad(builder, node.location)
     elif isinstance(node, OperatorNode):
-        return _convertOperator(node, builder)
+        return _convertExpressionOperator(node, builder)
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
             '%s definition not allowed here' % node.kind.name,
@@ -331,7 +335,7 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return _convertStorageConcat(node, builder)
     else:
-        return _convertFixedValue(_convertOperator(node, builder), builder)
+        return _convertFixedValue(_convertArithmetic(node, builder), builder)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
