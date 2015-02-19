@@ -425,18 +425,20 @@ class RShift(Expression):
 class Truncation(Expression):
     '''Extracts the lower N bits from a bit string.
     '''
-    __slots__ = ('_expr', )
+    __slots__ = ('_expr', '_width')
 
     expr = property(lambda self: self._expr)
+    width = property(lambda self: self._width)
 
     def __init__(self, expr, width):
         self._expr = Expression.checkScalar(expr)
+        self._width = checkType(width, int, 'width')
         Expression.__init__(self, IntType(width))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = (self._expr,)
-        kwargs.setdefault('width', self.width)
+        kwargs.setdefault('width', self._width)
         return signature(self.__class__).bind(*exprs, **kwargs)
 
     def __str__(self):
@@ -448,4 +450,4 @@ class Truncation(Expression):
             return '%s[:%d]' % (self._expr, self.width)
 
     def _equals(self, other):
-        return self.width == other.width and self._expr == other._expr
+        return self._width == other._width and self._expr == other._expr
