@@ -1,8 +1,8 @@
 from .codeblock import ConstantValue, Load, Store
 from .context import NameExistsError
 from .expression import (
-    AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    Truncation, XorOperator
+    AddOperator, AndOperator, Complement, IntLiteral, OrOperator, Truncation,
+    XorOperator
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -105,7 +105,7 @@ def convertDefinition(node, builder):
 
 def _convertIdentifier(node, builder):
     '''Looks up an identifier in the builder's context.
-    Returns either an IOChannel or a storage.
+    Returns either an IOChannel or a ComposedStorage.
     '''
     name = node.name
     try:
@@ -116,8 +116,6 @@ def _convertIdentifier(node, builder):
         raise BadExpression('function "%s" is not called' % name, node.location)
     elif isinstance(value, (ComposedStorage, IOChannel)):
         return value
-    elif isinstance(value, Expression):
-        return _convertFixedValue(value, builder)
     else:
         assert False, repr(value)
 
