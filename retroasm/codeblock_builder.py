@@ -278,12 +278,14 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return code
 
     def emitLoad(self, rid, location):
-        cid = len(self.constants)
-        load = Load(cid, rid, location)
-        self.nodes.append(load)
-        refType = self.references[rid].type
-        constant = LoadedConstant(cid, rid, refType)
-        self.constants.append(constant)
+        ref = self.references[rid]
+        refType = ref.type
+        if isinstance(ref, FixedValue):
+            cid = ref.cid
+        else:
+            cid = len(self.constants)
+            self.nodes.append(Load(cid, rid, location))
+            self.constants.append(LoadedConstant(cid, rid, refType))
         return ConstantValue(cid, refType)
 
     def emitStore(self, rid, expr, location):
