@@ -1,9 +1,20 @@
 from utils_expression import TestValue
 
-from retroasm.expression import IntLiteral, Truncation, concatenate
+from retroasm.expression import IntLiteral, LShift, OrOperator, Truncation
 from retroasm.types import IntType, unlimited
 
 import unittest
+
+def concatenate(*exprs):
+    '''Returns an expression which concatenates the bit strings of the given
+    expressions.
+    '''
+    terms = []
+    width = 0
+    for expr in reversed(exprs):
+        terms.append(LShift(expr, width))
+        width += expr.width
+    return OrOperator(*terms, intType=IntType(width))
 
 class EqualsTests(unittest.TestCase):
 
