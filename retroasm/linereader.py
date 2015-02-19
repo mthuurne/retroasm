@@ -137,6 +137,12 @@ class InputLocation:
     def __init__(self, **kwargs):
         self.extra = kwargs
 
+    def __repr__(self):
+        return 'InputLocation(%s)' % ', '.join(
+            '%s=%s' % (key, repr(value))
+            for key, value in self.extra.items()
+            )
+
     def __eq__(self, other):
         return isinstance(other, InputLocation) and self.extra == other.extra
 
