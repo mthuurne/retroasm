@@ -5,16 +5,8 @@ from retroasm.types import IntType, unlimited
 
 import unittest
 
-def concatenate(*exprs):
-    '''Returns an expression which concatenates the bit strings of the given
-    expressions.
-    '''
-    terms = []
-    width = 0
-    for expr in reversed(exprs):
-        terms.append(LShift(expr, width))
-        width += expr.width
-    return OrOperator(*terms, intType=IntType(width))
+def makeConcat(exprH, exprL, widthL):
+    return OrOperator(exprL, LShift(exprH, widthL))
 
 class EqualsTests(unittest.TestCase):
 
@@ -69,9 +61,9 @@ class EqualsTests(unittest.TestCase):
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
         addr = IntLiteral(0xACDC, IntType(16))
-        cat_int_addr = concatenate(four_int, addr)
-        cat_u4_addr = concatenate(four_u4, addr)
-        cat_u8_addr = concatenate(four_u8, addr)
+        cat_int_addr = makeConcat(four_int, addr, 16)
+        cat_u4_addr = makeConcat(four_u4, addr, 16)
+        cat_u8_addr = makeConcat(four_u8, addr, 16)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_int_addr, cat_int_addr)
         self.assertExprEqual(cat_u4_addr, cat_u4_addr)
@@ -86,13 +78,12 @@ class EqualsTests(unittest.TestCase):
         four_int = IntLiteral.create(4)
         four_u4 = IntLiteral(4, IntType(4))
         four_u8 = IntLiteral(4, IntType(8))
-        cat_u4_u8 = concatenate(four_u4, four_u8)
-        cat_u8_u4 = concatenate(four_u8, four_u4)
+        cat_u4_u8 = makeConcat(four_u4, four_u8, 8)
+        cat_u8_u4 = makeConcat(four_u8, four_u4, 4)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_u4_u8, cat_u4_u8)
         self.assertExprEqual(cat_u8_u4, cat_u8_u4)
         # Test that position of integer within concatenation is considered.
-        self.assertExprEqual(cat_u4_u8.width, cat_u8_u4.width)
         self.assertExprNotEqual(cat_u4_u8, cat_u8_u4)
 
     def test_truncate_subexpr(self):
