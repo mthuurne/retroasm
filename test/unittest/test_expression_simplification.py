@@ -2,7 +2,7 @@ from utils_expression import TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, Truncation, XorOperator, concatenate
+    RShift, Truncation, XorOperator
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -95,6 +95,9 @@ class TestUtils(unittest.TestCase):
 def makeSlice(expr, index, width):
     return Truncation(RShift(expr, index), width)
 
+def makeConcat(exprH, exprL, widthL):
+    return OrOperator(exprL, LShift(exprH, widthL))
+
 class AndTests(TestUtils):
 
     def test_literals(self):
@@ -154,7 +157,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions using the subexpression widths.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         maskLo = IntLiteral(0x00F0, IntType(16))
         maskHi = IntLiteral(0xF000, IntType(16))
         # Test whether (HL & $00F0) cuts off H.
@@ -170,7 +173,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         # Test whether (HL & $003F) simplifies to L[0:6].
         mask6 = IntLiteral(0x003F, IntType(16))
         self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 0, 6)
@@ -182,7 +185,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         # Test whether (HL & $FF00) simplifies to H;$00.
         expr = simplifyExpression(
             AndOperator(hl, IntLiteral(0xFF00, IntType(16)))
@@ -344,11 +347,13 @@ class ComplementTests(TestUtils):
     def test_subexpr(self):
         '''Takes the complement of a simplifiable subexpression.'''
         addr = TestValue('A', IntType(16))
-        expr = simplifyExpression(Complement(concatenate(
-            IntLiteral(0xC0, IntType(8)),
-            IntLiteral(0xDE, IntType(8)),
-            addr
-            )))
+        expr = simplifyExpression(Complement(
+            addr.concat(makeConcat(
+                IntLiteral(0xC0, IntType(8)),
+                IntLiteral(0xDE, IntType(8)),
+                8
+                ))
+            ))
         self.assertIsInstance(expr, Complement)
         self.assertConcat(expr.expr, (IntLiteral(0xC0DE, IntType(16)), addr))
 
@@ -401,7 +406,7 @@ class ArithmeticTests(TestUtils):
         self.assertIntLiteral(
             simplifyExpression(AddOperator(c, Complement(d))), 0
             )
-        e = concatenate(a, b)
+        e = b.concat(a)
         self.assertIntLiteral(
             simplifyExpression(AddOperator(e, Complement(e))), 0
             )
@@ -463,7 +468,7 @@ class LShiftTests(TestUtils):
         '''Tests truncation of a left-shifted expression.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         # Shift H and L out of the truncation range.
         expr1 = simplifyExpression(Truncation(LShift(hl, 8), 8))
         self.assertIntLiteral(expr1, 0)
@@ -500,21 +505,21 @@ class ConcatTests(TestUtils):
         im = Complement(ip)
         u4 = IntLiteral(0xD, IntType(4))
         u8 = IntLiteral(0x29, IntType(8))
-        cat_ip_u4 = simplifyExpression(concatenate(ip, u4))
+        cat_ip_u4 = simplifyExpression(makeConcat(ip, u4, 4))
         self.assertIntLiteral(cat_ip_u4, 0x40 + 0xD)
-        cat_ip_u8 = simplifyExpression(concatenate(ip, u8))
+        cat_ip_u8 = simplifyExpression(makeConcat(ip, u8, 8))
         self.assertIntLiteral(cat_ip_u8, 0x400 + 0x29)
-        cat_im_u4 = simplifyExpression(concatenate(im, u4))
+        cat_im_u4 = simplifyExpression(makeConcat(im, u4, 4))
         self.assertIntLiteral(cat_im_u4, -0x40 + 0xD)
-        cat_im_u8 = simplifyExpression(concatenate(im, u8))
+        cat_im_u8 = simplifyExpression(makeConcat(im, u8, 8))
         self.assertIntLiteral(cat_im_u8, -0x400 + 0x29)
-        cat_u4_u4 = simplifyExpression(concatenate(u4, u4))
+        cat_u4_u4 = simplifyExpression(makeConcat(u4, u4, 4))
         self.assertIntLiteral(cat_u4_u4, 0xDD)
-        cat_u4_u8 = simplifyExpression(concatenate(u4, u8))
+        cat_u4_u8 = simplifyExpression(makeConcat(u4, u8, 8))
         self.assertIntLiteral(cat_u4_u8, 0xD29)
-        cat_u8_u4 = simplifyExpression(concatenate(u8, u4))
+        cat_u8_u4 = simplifyExpression(makeConcat(u8, u4, 4))
         self.assertIntLiteral(cat_u8_u4, 0x29D)
-        cat_u8_u8 = simplifyExpression(concatenate(u8, u8))
+        cat_u8_u8 = simplifyExpression(makeConcat(u8, u8, 8))
         self.assertIntLiteral(cat_u8_u8, 0x2929)
 
     def test_identity(self):
@@ -522,44 +527,62 @@ class ConcatTests(TestUtils):
         addr = TestValue('A', IntType(16))
         # Check whether empty bitstrings are filtered out.
         empty = IntLiteral(0, IntType(0))
-        head = concatenate(empty, addr, addr)
+        head = makeConcat(makeConcat(empty, addr, 16), addr, 16)
         self.assertConcat(simplifyExpression(head), (addr, addr))
-        mid = concatenate(addr, empty, addr)
+        mid = makeConcat(makeConcat(addr, empty, 0), addr, 16)
         self.assertConcat(simplifyExpression(mid), (addr, addr))
-        tail = concatenate(addr, addr, empty)
+        tail = makeConcat(makeConcat(addr, addr, 16), empty, 0)
         self.assertConcat(simplifyExpression(tail), (addr, addr))
-        many = concatenate(empty, empty, addr, empty, empty, addr, empty, empty)
+        many = makeConcat(
+            makeConcat(
+                makeConcat(
+                    makeConcat(
+                        makeConcat(
+                            makeConcat(
+                                makeConcat(empty, empty, 0),
+                                addr, 16
+                                ),
+                            empty, 0
+                            ),
+                        empty, 0
+                        ),
+                    addr, 16
+                    ),
+                empty, 0
+                ),
+            empty, 0
+            )
         self.assertConcat(simplifyExpression(many), (addr, addr))
         # Check graceful handling when zero subexpressions remain.
-        only = concatenate(empty, empty, empty)
+        only = makeConcat(makeConcat(empty, empty, 0), empty, 0)
         self.assertIntLiteral(simplifyExpression(only), 0)
         # Check whether non-empty fixed-width zero-valued bitstrings are kept.
         zero_u8 = IntLiteral(0, IntType(8))
-        mid_u8 = concatenate(addr, zero_u8, addr)
+        mid_u8 = makeConcat(makeConcat(addr, zero_u8, 8), addr, 16)
         self.assertConcat(simplifyExpression(mid_u8), (addr, zero_u8, addr))
-        tail_u8 = concatenate(addr, addr, zero_u8)
+        tail_u8 = makeConcat(makeConcat(addr, addr, 16), zero_u8, 8)
         self.assertConcat(simplifyExpression(tail_u8), (addr, addr, zero_u8))
         # Check whether unlimited-width zero-valued bitstrings are kept.
         zero_int = IntLiteral.create(0)
-        head_int = concatenate(zero_int, addr, addr)
+        head_int = makeConcat(makeConcat(zero_int, addr, 16), addr, 16)
         self.assertConcat(simplifyExpression(head_int), (zero_int, addr, addr))
 
     def test_associative(self):
         '''Test simplification using the associativity of concatenation.
         '''
         addr = TestValue('A', IntType(16))
-        arg1 = concatenate(addr, addr) # (A ; A)
-        arg2 = concatenate(arg1, arg1) # ((A ; A) ; (A ; A))
-        arg3 = concatenate(arg1, arg2) # ((A ; A) ; ((A ; A) ; (A ; A)))
+        arg1 = makeConcat(addr, addr, 16) # (A ; A)
+        arg2 = makeConcat(arg1, arg1, 32) # ((A ; A) ; (A ; A))
+        arg3 = makeConcat(arg1, arg2, 64) # ((A ; A) ; ((A ; A) ; (A ; A)))
         self.assertConcat(simplifyExpression(arg3), (addr, ) * 6)
 
     def test_associative2(self):
         '''Test simplification using the associativity of concatenation.
         '''
         addr = TestValue('A', IntType(16))
-        arg1 = concatenate(addr, IntLiteral(0x9, IntType(4))) # (A ; $9)
-        arg2 = concatenate(IntLiteral(0x63, IntType(8)), addr) # ($63 ; A)
-        arg3 = concatenate(arg1, arg2) # ((A ; $9) ; ($63 ; A))
+        arg1 = makeConcat(addr, IntLiteral(0x9, IntType(4)), 4) # (A ; $9)
+        arg2 = makeConcat(IntLiteral(0x63, IntType(8)), addr, 16) # ($63 ; A)
+        arg3 = makeConcat(arg1, arg2, 24) # ((A ; $9) ; ($63 ; A))
         self.assertConcat(
             simplifyExpression(arg3),
             (addr, IntLiteral(0x963, IntType(12)), addr)
@@ -616,7 +639,7 @@ class SliceTests(TestUtils):
         b = TestValue('B', IntType(8))
         c = TestValue('C', IntType(8))
         d = TestValue('D', IntType(8))
-        abcd = concatenate(a, b, c, d)
+        abcd = d.concat(c.concat(b.concat(a)))
         # Test slicing out individual values.
         self.assertIs(simplifySlice(abcd, 0, 8), d)
         self.assertIs(simplifySlice(abcd, 8, 8), c)
@@ -643,7 +666,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a logical AND.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         # Test whether slicing cuts off L.
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
         self.assertSlice(simplifySlice(expr1, 8, 6), h, 0, 6)
@@ -654,7 +677,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing an addition.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
         up8 = simplifySlice(expr, 8, 8)
@@ -679,7 +702,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a complement.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = concatenate(h, l)
+        hl = l.concat(h)
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
         up8 = makeSlice(expr, 8, 8)
@@ -704,12 +727,12 @@ class SliceTests(TestUtils):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
         addr = TestValue('A', IntType(16))
         expr_int = makeSlice(
-            concatenate(IntLiteral.create(7), makeSlice(addr, 8, 12)),
+            makeConcat(IntLiteral.create(7), makeSlice(addr, 8, 12), 12),
             8, 8
             )
         self.assertIntLiteral(simplifyExpression(expr_int), 0x70)
         expr_u8 = makeSlice(
-            concatenate(IntLiteral(7, IntType(4)), makeSlice(addr, 8, 12)),
+            makeConcat(IntLiteral(7, IntType(4)), makeSlice(addr, 8, 12), 12),
             8, 8
             )
         self.assertIntLiteral(simplifyExpression(expr_u8), 0x70)

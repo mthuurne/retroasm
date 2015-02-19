@@ -449,14 +449,3 @@ class Truncation(Expression):
 
     def _equals(self, other):
         return self.width == other.width and self._expr == other._expr
-
-def concatenate(*exprs):
-    '''Returns an expression which concatenates the bit strings of the given
-    expressions.
-    '''
-    terms = []
-    width = 0
-    for expr in reversed(exprs):
-        terms.append(LShift(expr, width))
-        width += expr.width
-    return OrOperator(*terms, intType=IntType(width))
