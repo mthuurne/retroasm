@@ -80,11 +80,11 @@ def convertDefinition(node, builder):
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
                 ex.location
                 )
-        if typ.type is not expr.type:
-            raise BadExpression(
-                'declared type "%s" does not match the value\'s type "%s"'
-                % (typ.type, expr.type),
-                node.decl.type.location
+        if typ.type.width != expr.width:
+            raise BadExpression.withText(
+                '%d-bit value does not match declared type "%s"'
+                % (expr.width, typ.type),
+                value.treeLocation
                 )
     else:
         assert False, kind
@@ -159,10 +159,10 @@ def _convertFunctionCall(callNode, builder):
                     % (decl, name, ex),
                     ex.location
                     )
-            if value.type is not decl.type:
+            if value.width != decl.type.width:
                 raise BadExpression.withText(
-                    'storage of type "%s" passed for reference argument "%s %s"'
-                    % (value.type, name, decl),
+                    'storage of %d bits wide passed for reference argument '
+                    '"%s %s"' % (value.width, decl, name),
                     argNode.treeLocation
                     )
             else:

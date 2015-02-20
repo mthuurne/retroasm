@@ -75,10 +75,10 @@ def _parseRegs(reader, argStr, builder):
                             )
                 reader.error(str(ex), location=location)
                 continue
-            if alias.type is not aliasType:
+            if alias.width != aliasType.width:
                 reader.error(
-                    'alias has declared type %s but actual type %s'
-                    % (aliasType, alias.type)
+                    'alias is declared as %d bits wide but its definition is '
+                    '%d bits wide', aliasType.width, alias.width
                     )
                 continue
 

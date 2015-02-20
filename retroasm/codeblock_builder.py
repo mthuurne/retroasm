@@ -42,7 +42,7 @@ class CodeBlockBuilder:
                 assert False, const
         print('    references:')
         for rid, ref in enumerate(self.references):
-            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, rid, ref))
+            print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the
@@ -91,7 +91,7 @@ class CodeBlockBuilder:
         Returns the reference ID of the corresponding FixedValue.
         '''
         const = self.emitCompute(expr)
-        return self._emitReference(FixedValue(const.cid, const.type))
+        return self._emitReference(FixedValue(const.cid, const.width))
 
     def defineConstant(self, name, expr, location):
         '''Defines a constant with the given name and value.
@@ -218,7 +218,7 @@ class _LocalContext(Context):
                 expr = const.expr
                 cid = len(localBuilder.constants)
                 localBuilder.constants.append(ComputedConstant(cid, expr))
-                ref = FixedValue(cid, ref.type)
+                ref = FixedValue(cid, ref.width)
             # pylint: disable=protected-access
             localRid = localBuilder._emitReference(ref)
             importMap[globalRid] = localRid
@@ -279,7 +279,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitLoad(self, rid, location):
         ref = self.references[rid]
-        refType = ref.type
+        refType = IntType(ref.width)
         if isinstance(ref, FixedValue):
             cid = ref.cid
         else:
@@ -340,7 +340,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for rid, ref in code.references.items():
             if isinstance(ref, LocalReference):
                 storage = context[ref.name]
-                assert ref.type == storage.type, (ref.type, storage.type)
+                assert ref.width == storage.width, (ref.width, storage.width)
             else:
                 # Shallow copy is sufficient because references are immutable.
                 newRid = len(references)

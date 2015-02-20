@@ -280,7 +280,7 @@ class CodeBlockSimplifier(CodeBlock):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
                     constants[cid] = ComputedConstant(
-                        cid, ConstantValue(valueCid, storage.type)
+                        cid, ConstantValue(valueCid, IntType(storage.width))
                         )
                     changed = True
                     if not storage.canLoadHaveSideEffect():

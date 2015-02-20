@@ -251,7 +251,7 @@ class CodeBlock:
                 ))
         print('    references:')
         for rid, ref in self.references.items():
-            print('        %-4s R%-2d = %s' % ('%s&' % ref.type, rid, ref))
+            print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)

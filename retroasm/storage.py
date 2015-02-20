@@ -91,13 +91,14 @@ reName = re.compile(namePat + '$')
 class Storage:
     '''A location in which a typed value can be stored.
     '''
-    __slots__ = ('_type',)
+    __slots__ = ('_width',)
 
-    type = property(lambda self: self._type)
-    width = property(lambda self: self._type.width)
+    width = property(lambda self: self._width)
 
-    def __init__(self, typ):
-        self._type = checkType(typ, IntType, 'storage type')
+    def __init__(self, width):
+        self._width = checkType(width, int, 'storage width')
+        if width < 0:
+            raise ValueError('storage width must not be negative: %d' % width)
 
     def canLoadHaveSideEffect(self):
         '''Returns True if reading from this storage might have an effect
@@ -135,16 +136,18 @@ class Storage:
 class NamedStorage(Storage):
     '''Base class for named storages that exist in a global or local context.
     '''
-    __slots__ = ('_name',)
+    __slots__ = ('_name', '_type')
 
     name = property(lambda self: self._name)
+    type = property(lambda self: self._type)
     decl = property(lambda self: '%s %s' % (self._type, self._name))
 
     def __init__(self, name, typ):
         self._name = checkType(name, str, 'storage name')
         if not reName.match(name):
             raise ValueError('invalid name: "%s"', name)
-        Storage.__init__(self, typ)
+        self._type = checkType(typ, IntType, 'named storage value type')
+        Storage.__init__(self, typ.width)
 
     def __repr__(self):
         return '%s(%s, %s)' % (
@@ -187,7 +190,6 @@ class ComposedStorage:
     __slots__ = ('_decomposed',)
 
     width = property(lambda self: sum(term[2] for term in self._decomposed))
-    type = property(lambda self: IntType(self.width))
 
     @classmethod
     def single(cls, rid, width):
@@ -335,7 +337,7 @@ class IOReference(Storage):
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkScalar(index)
-        Storage.__init__(self, IntType(channel.elemWidth))
+        Storage.__init__(self, channel.elemWidth)
 
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
@@ -370,12 +372,12 @@ class FixedValue(Storage):
 
     cid = property(lambda self: self._cid)
 
-    def __init__(self, cid, typ):
+    def __init__(self, cid, width):
+        Storage.__init__(self, width)
         self._cid = cid
-        Storage.__init__(self, typ)
 
     def __repr__(self):
-        return 'FixedValue(%d, %s)' % (self._cid, repr(self._type))
+        return 'FixedValue(%d, %d)' % (self._cid, self._width)
 
     def __str__(self):
         return 'C%d' % self._cid
