@@ -83,7 +83,7 @@ class CodeBlockBuilder:
         return self._addNamedReference(LocalReference(name, refType), location)
 
     def emitIOReference(self, channel, index):
-        indexConst = self.emitCompute(Truncation(index, channel.addrType.width))
+        indexConst = self.emitCompute(Truncation(index, channel.addrWidth))
         return self._emitReference(IOReference(channel, indexConst))
 
     def emitFixedValue(self, expr):
@@ -383,7 +383,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     references[rid] = IOReference(
                         ref.channel,
                         ConstantValue(
-                            cidMap[ref.index.cid], ref.channel.addrType
+                            cidMap[ref.index.cid],
+                            IntType(ref.channel.addrWidth)
                             )
                         )
 

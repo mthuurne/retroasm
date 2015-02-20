@@ -242,8 +242,7 @@ def _convertStorageLookup(node, builder):
             channel = ident
             index = buildExpression(indexNode, builder)
             rid = builder.emitIOReference(channel, index)
-            elemType = channel.elemType # pylint: disable=no-member
-            return ComposedStorage.single(rid, elemType.width)
+            return ComposedStorage.single(rid, channel.elemWidth)
 
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)

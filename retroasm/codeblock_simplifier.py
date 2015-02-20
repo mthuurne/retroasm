@@ -4,6 +4,7 @@ from .codeblock import (
     )
 from .expression_simplifier import simplifyExpression
 from .storage import FixedValue, IOReference, Register, Variable
+from .types import IntType
 
 from collections import defaultdict
 
@@ -124,7 +125,7 @@ class CodeBlockSimplifier(CodeBlock):
             if isinstance(ref, IOReference) and ref.index.cid == oldCid:
                 references[rid] = IOReference(
                     ref.channel,
-                    ConstantValue(newCid, ref.channel.addrType)
+                    ConstantValue(newCid, IntType(ref.channel.addrWidth))
                     )
 
         # Replace constant in nodes.

@@ -111,7 +111,7 @@ def _parseIO(reader, argStr, context):
             except ValueError as ex:
                 reader.error(str(ex))
                 continue
-            channel = IOChannel(name, elemType, addrType)
+            channel = IOChannel(name, elemType.width, addrType.width)
             try:
                 context.define(name, channel, reader.getLocation())
             except NameExistsError as ex:

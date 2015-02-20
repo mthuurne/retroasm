@@ -10,11 +10,11 @@ import re
 class IOChannel:
     '''A channel through which a CPU can do input and output.
     '''
-    __slots__ = ('_name', '_elemType', '_addrType')
+    __slots__ = ('_name', '_elemWidth', '_addrWidth')
 
     name = property(lambda self: self._name)
-    elemType = property(lambda self: self._elemType)
-    addrType = property(lambda self: self._addrType)
+    elemWidth = property(lambda self: self._elemWidth)
+    addrWidth = property(lambda self: self._addrWidth)
 
     @staticmethod
     def checkInstance(channel):
@@ -24,18 +24,18 @@ class IOChannel:
                 )
         return channel
 
-    def __init__(self, name, elemType, addrType):
+    def __init__(self, name, elemWidth, addrWidth):
         self._name = checkType(name, str, 'channel name')
-        self._elemType = checkType(elemType, IntType, 'element type')
-        self._addrType = checkType(addrType, IntType, 'address type')
+        self._elemWidth = checkType(elemWidth, int, 'element width')
+        self._addrWidth = checkType(addrWidth, int, 'address width')
 
     def __repr__(self):
-        return 'IOChannel(%s, %s, %s)' % (
-            repr(self._name), repr(self._elemType), repr(self._addrType)
+        return 'IOChannel(%s, %d, %d)' % (
+            repr(self._name), self._elemWidth, self._addrWidth
             )
 
     def __str__(self):
-        return '%s %s[%s]' % (self._elemType, self._name, self._addrType)
+        return 'u%d %s[u%d]' % (self._elemWidth, self._name, self._addrWidth)
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
@@ -335,7 +335,7 @@ class IOReference(Storage):
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkScalar(index)
-        Storage.__init__(self, channel.elemType)
+        Storage.__init__(self, IntType(channel.elemWidth))
 
     def __repr__(self):
         return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))

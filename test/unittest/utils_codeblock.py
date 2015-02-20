@@ -62,15 +62,13 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             channel = self.globalBuilder.context[channelName]
         except KeyError:
             # Insert channel into global context.
-            channel = IOChannel(
-                channelName, IntType(elemWidth), IntType(addrWidth)
-                )
+            channel = IOChannel(channelName, elemWidth, addrWidth)
             self.globalBuilder.context.define(channelName, channel, None)
         else:
             # Check that existing global context entry is this channel.
             assert isinstance(channel, IOChannel), channel
-            assert channel.elemType.width == elemWidth, channel
-            assert channel.addrType.width == addrWidth, channel
+            assert channel.elemWidth == elemWidth, channel
+            assert channel.addrWidth == addrWidth, channel
         # Import channel from global context into local context.
         localChannel = self.context[channelName]
         assert localChannel is channel
