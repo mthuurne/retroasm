@@ -70,20 +70,19 @@ def convertDefinition(node, builder):
                 ex.location
                 )
         declWidth = typ.width
-        if expr.width > declWidth:
-            expr = Truncation(expr, declWidth)
+        storage = _convertFixedValue(Truncation(expr, declWidth), builder)
     elif kind is DeclarationKind.reference:
         try:
-            expr = buildStorage(value, builder)
+            storage = buildStorage(value, builder)
         except BadExpression as ex:
             raise BadExpression(
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
                 ex.location
                 )
-        if typ.type.width != expr.width:
+        if typ.type.width != storage.width:
             raise BadExpression.withText(
                 '%d-bit value does not match declared type "%s"'
-                % (expr.width, typ.type),
+                % (storage.width, typ.type),
                 value.treeLocation
                 )
     else:
@@ -91,12 +90,7 @@ def convertDefinition(node, builder):
 
     # Add definition to context.
     try:
-        if kind is DeclarationKind.constant:
-            return builder.defineConstant(name, expr, nameNode.location)
-        elif kind is DeclarationKind.reference:
-            return builder.defineReference(name, expr, nameNode.location)
-        else:
-            assert False, kind
+        return builder.defineReference(name, storage, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),

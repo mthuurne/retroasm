@@ -93,15 +93,6 @@ class CodeBlockBuilder:
         const = self.emitCompute(expr)
         return self._emitReference(FixedValue(const.cid, const.width))
 
-    def defineConstant(self, name, expr, location):
-        '''Defines a constant with the given name and value.
-        Returns a ConstantValue for the newly defined constant.
-        Raises NameExistsError if the name is already taken.
-        '''
-        const = self.emitCompute(expr)
-        self.context.define(name, const, location)
-        return const
-
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
         Returns the given value.
