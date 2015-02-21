@@ -1,4 +1,4 @@
-from .codeblock import ConstantValue, Load, Store
+from .codeblock import Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, OrOperator, Truncation,
@@ -216,9 +216,14 @@ def buildExpression(node, builder):
             return ident.emitLoad(builder, node.location)
     elif isinstance(node, OperatorNode):
         return _convertExpressionOperator(node, builder)
+    elif isinstance(node, DeclarationNode):
+        raise BadExpression(
+            'variable declaration is not allowed here',
+            node.treeLocation
+            )
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
-            '%s definition not allowed here' % node.kind.name,
+            'definition must be only statement on a line',
             node.treeLocation
             )
     else:
@@ -332,12 +337,10 @@ def buildStorage(node, builder):
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
-        expr = convertDefinition(node, builder)
-        if node.kind is DeclarationKind.constant:
-            assert isinstance(expr, ConstantValue), repr(expr)
-            return _convertFixedValue(expr, builder)
-        else:
-            return expr
+        raise BadExpression(
+            'definition must be only statement on a line',
+            node.treeLocation
+            )
     elif isinstance(node, IdentifierNode):
         ident = _convertIdentifier(node, builder)
         if isinstance(ident, IOChannel):
