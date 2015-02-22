@@ -70,7 +70,9 @@ def convertDefinition(node, builder):
                 ex.location
                 )
         declWidth = typ.width
-        storage = _convertFixedValue(Truncation(expr, declWidth), builder)
+        storage = _convertFixedValue(
+            Truncation(expr, declWidth), declWidth, builder
+            )
     elif kind is DeclarationKind.reference:
         try:
             storage = buildStorage(value, builder)
@@ -229,9 +231,9 @@ def buildExpression(node, builder):
     else:
         assert False, node
 
-def _convertFixedValue(expr, builder):
+def _convertFixedValue(expr, width, builder):
     rid = builder.emitFixedValue(expr)
-    return ComposedStorage.single(rid, expr.width)
+    return ComposedStorage.single(rid, width)
 
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
@@ -322,12 +324,13 @@ def _convertStorageOperator(node, builder):
     elif operator is Operator.concatenation:
         return _convertStorageConcat(node, builder)
     else:
-        return _convertFixedValue(_convertArithmetic(node, builder), builder)
+        expr = _convertArithmetic(node, builder)
+        return _convertFixedValue(expr, unlimited, builder)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value, IntType(node.width))
-        return _convertFixedValue(literal, builder)
+        return _convertFixedValue(literal, node.width, builder)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):
