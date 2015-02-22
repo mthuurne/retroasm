@@ -1,7 +1,7 @@
 from .expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, Truncation
     )
-from .types import IntType, maskForWidth
+from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
 from itertools import chain
@@ -96,7 +96,7 @@ class Storage:
     width = property(lambda self: self._width)
 
     def __init__(self, width):
-        self._width = checkType(width, int, 'storage width')
+        self._width = checkType(width, (int, type(unlimited)), 'storage width')
         if width < 0:
             raise ValueError('storage width must not be negative: %d' % width)
 
@@ -187,9 +187,9 @@ def sliceStorage(decomposed, index, width):
         offset += subWidth
 
 class ComposedStorage:
-    __slots__ = ('_decomposed',)
+    __slots__ = ('_decomposed', '_width')
 
-    width = property(lambda self: sum(term[2] for term in self._decomposed))
+    width = property(lambda self: self._width)
 
     @classmethod
     def single(cls, rid, width):
@@ -197,6 +197,15 @@ class ComposedStorage:
 
     def __init__(self, decomposed):
         self._decomposed = tuple(decomposed)
+        totalWidth = 0
+        for rid_, index_, width in self._decomposed:
+            if totalWidth is unlimited:
+                raise ValueError(
+                    'unlimited width is only allowed on most significant '
+                    'storage'
+                    )
+            totalWidth += width
+        self._width = totalWidth
 
     def __repr__(self):
         return 'ComposedStorage((%s))' % ', '.join(

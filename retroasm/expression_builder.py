@@ -276,12 +276,6 @@ def _convertStorageSlice(node, builder):
 
     if endNode is None:
         width = storage.width
-        if width is unlimited:
-            raise BadExpression.withText(
-                'omitting the end index not allowed when slicing '
-                'an unlimited width expression',
-                node.location
-                )
     else:
         end = buildExpression(endNode, builder)
         end = simplifyExpression(end)

@@ -11,7 +11,7 @@ from .storage import (
     ComposedStorage, FixedValue, IOChannel, IOReference, LocalReference,
     Register, Storage, Variable
     )
-from .types import IntType, unlimited
+from .types import IntType
 from .utils import checkType
 
 class CodeBlockBuilder:
@@ -61,8 +61,6 @@ class CodeBlockBuilder:
         '''
         if not isinstance(storage, Storage):
             raise TypeError('expected Storage, got %s' % type(storage).__name__)
-        if storage.width is unlimited:
-            raise ValueError('storages must have fixed width')
         if isinstance(storage, IOReference):
             if not isinstance(storage.index, ConstantValue):
                 raise TypeError('I/O index must be ConstantValue')
