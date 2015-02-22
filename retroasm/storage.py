@@ -1,7 +1,7 @@
 from .expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, Truncation
     )
-from .types import IntType
+from .types import IntType, maskForWidth
 from .utils import checkType
 
 from itertools import chain
@@ -246,8 +246,8 @@ class ComposedStorage:
             else:
                 # Partial width: combine with loaded old value.
                 oldVal = builder.emitLoad(rid, location)
-                storageMask = (1 << storageWidth) - 1
-                valueMask = ((1 << width) - 1) << index
+                storageMask = maskForWidth(storageWidth)
+                valueMask = maskForWidth(width) << index
                 maskLit = IntLiteral(
                     storageMask & ~valueMask, IntType(storageWidth)
                     )

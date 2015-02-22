@@ -70,6 +70,9 @@ class Unlimited(metaclass=Singleton):
 
 unlimited = Unlimited()
 
+def maskForWidth(width):
+    return -1 if width is unlimited else (1 << width) - 1
+
 class IntType(metaclass=Unique):
     '''An integer value type of "width" bits.
     Width can be an integer or the singleton 'unlimited', which indicates an

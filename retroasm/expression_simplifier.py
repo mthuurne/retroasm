@@ -2,7 +2,7 @@ from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
     RShift, SimplifiableComposedExpression, Truncation, XorOperator
     )
-from .types import IntType, unlimited
+from .types import IntType, maskForWidth, unlimited
 
 def complexity(expr):
     '''Returns a postive number that reflects the complexity of the given
@@ -188,7 +188,7 @@ def _customSimplifyAnd(node, exprs):
         last = exprs[-1]
         if isinstance(last, IntLiteral):
             value = last.value
-            mask = (1 << width) - 1
+            mask = maskForWidth(width)
             if value & mask == mask:
                 # This bit mask application is essentially truncating;
                 # convert it to an actual Truncation expression.
@@ -352,7 +352,7 @@ def _simplifyLShift(lshift):
         return simplifyExpression(LShift(expr.expr, offset + expr.offset))
     elif isinstance(expr, RShift):
         roffset = expr.offset
-        mask = (0 if expr.width is unlimited else 1 << expr.width) - 1
+        mask = maskForWidth(expr.width)
         masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
         masked._tryMaskToShift = False # pylint: disable=protected-access
         if roffset < offset:
@@ -447,7 +447,7 @@ def _simplifyTruncation(truncation):
 
     if isinstance(expr, IntLiteral):
         return simplifyExpression(
-            IntLiteral.create(expr.value & ((1 << width) - 1))
+            IntLiteral.create(expr.value & maskForWidth(width))
             )
     elif isinstance(expr, LShift):
         offset = expr.offset
