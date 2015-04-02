@@ -26,11 +26,3 @@ class TestValue(Expression):
 
     def _equals(self, other):
         return self is other
-
-    def concat(self, expr):
-        '''Return a new Expression that is the concatenation of this TestValue
-        as the least significant part and the given Expression as the most
-        significant part.
-        '''
-        Expression.checkScalar(expr)
-        return OrOperator(self, LShift(expr, self.width))

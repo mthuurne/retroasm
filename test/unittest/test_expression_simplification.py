@@ -157,7 +157,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions using the subexpression widths.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         maskLo = IntLiteral(0x00F0, IntType(16))
         maskHi = IntLiteral(0xF000, IntType(16))
         # Test whether (HL & $00F0) cuts off H.
@@ -173,7 +173,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         # Test whether (HL & $003F) simplifies to L[0:6].
         mask6 = IntLiteral(0x003F, IntType(16))
         self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 0, 6)
@@ -185,7 +185,7 @@ class AndTests(TestUtils):
         '''Simplifies logical AND expressions that are essentially slicing.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         # Test whether (HL & $FF00) simplifies to H;$00.
         expr = simplifyExpression(
             AndOperator(hl, IntLiteral(0xFF00, IntType(16)))
@@ -348,11 +348,14 @@ class ComplementTests(TestUtils):
         '''Takes the complement of a simplifiable subexpression.'''
         addr = TestValue('A', IntType(16))
         expr = simplifyExpression(Complement(
-            addr.concat(makeConcat(
-                IntLiteral(0xC0, IntType(8)),
-                IntLiteral(0xDE, IntType(8)),
-                8
-                ))
+            makeConcat(
+                makeConcat(
+                    IntLiteral(0xC0, IntType(8)),
+                    IntLiteral(0xDE, IntType(8)),
+                    8
+                    ),
+                addr, 16
+                )
             ))
         self.assertIsInstance(expr, Complement)
         self.assertConcat(expr.expr, (IntLiteral(0xC0DE, IntType(16)), addr))
@@ -406,7 +409,7 @@ class ArithmeticTests(TestUtils):
         self.assertIntLiteral(
             simplifyExpression(AddOperator(c, Complement(d))), 0
             )
-        e = b.concat(a)
+        e = makeConcat(a, b, 8)
         self.assertIntLiteral(
             simplifyExpression(AddOperator(e, Complement(e))), 0
             )
@@ -468,7 +471,7 @@ class LShiftTests(TestUtils):
         '''Tests truncation of a left-shifted expression.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         # Shift H and L out of the truncation range.
         expr1 = simplifyExpression(Truncation(LShift(hl, 8), 8))
         self.assertIntLiteral(expr1, 0)
@@ -639,7 +642,7 @@ class SliceTests(TestUtils):
         b = TestValue('B', IntType(8))
         c = TestValue('C', IntType(8))
         d = TestValue('D', IntType(8))
-        abcd = d.concat(c.concat(b.concat(a)))
+        abcd = makeConcat(makeConcat(makeConcat(a, b, 8), c, 8), d, 8)
         # Test slicing out individual values.
         self.assertIs(simplifySlice(abcd, 0, 8), d)
         self.assertIs(simplifySlice(abcd, 8, 8), c)
@@ -666,7 +669,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a logical AND.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         # Test whether slicing cuts off L.
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
         self.assertSlice(simplifySlice(expr1, 8, 6), h, 0, 6)
@@ -677,7 +680,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing an addition.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
         up8 = simplifySlice(expr, 8, 8)
@@ -702,7 +705,7 @@ class SliceTests(TestUtils):
         '''Tests simplification of slicing a complement.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
-        hl = l.concat(h)
+        hl = makeConcat(h, l, 8)
         expr = Complement(hl)
         # Simplifcation fails because index is not 0.
         up8 = makeSlice(expr, 8, 8)
