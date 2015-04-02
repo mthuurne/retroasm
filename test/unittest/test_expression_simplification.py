@@ -61,14 +61,14 @@ class TestUtils(unittest.TestCase):
     def assertConcat(self, expr, subExprs):
         compExprs = []
         offset = 0
-        for term in reversed(subExprs):
+        for term, width in reversed(subExprs):
             shifted = simplifyExpression(LShift(term, offset))
             if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
                 compExprs.append(shifted)
-            if term.width is unlimited:
+            if width is unlimited:
                 offset = None
             else:
-                offset += term.width
+                offset += width
         self.assertOr(expr, *compExprs)
 
     def assertSlice(self, expr, subExpr, index, width):
@@ -358,7 +358,10 @@ class ComplementTests(TestUtils):
                 )
             ))
         self.assertIsInstance(expr, Complement)
-        self.assertConcat(expr.expr, (IntLiteral(0xC0DE, IntType(16)), addr))
+        self.assertConcat(expr.expr, (
+            (IntLiteral(0xC0DE, IntType(16)), 16),
+            (addr, 16)
+            ))
 
 class ArithmeticTests(TestUtils):
 
@@ -531,11 +534,11 @@ class ConcatTests(TestUtils):
         # Check whether empty bitstrings are filtered out.
         empty = IntLiteral(0, IntType(0))
         head = makeConcat(makeConcat(empty, addr, 16), addr, 16)
-        self.assertConcat(simplifyExpression(head), (addr, addr))
+        self.assertConcat(simplifyExpression(head), ((addr, 16), (addr, 16)))
         mid = makeConcat(makeConcat(addr, empty, 0), addr, 16)
-        self.assertConcat(simplifyExpression(mid), (addr, addr))
+        self.assertConcat(simplifyExpression(mid), ((addr, 16), (addr, 16)))
         tail = makeConcat(makeConcat(addr, addr, 16), empty, 0)
-        self.assertConcat(simplifyExpression(tail), (addr, addr))
+        self.assertConcat(simplifyExpression(tail), ((addr, 16), (addr, 16)))
         many = makeConcat(
             makeConcat(
                 makeConcat(
@@ -555,20 +558,26 @@ class ConcatTests(TestUtils):
                 ),
             empty, 0
             )
-        self.assertConcat(simplifyExpression(many), (addr, addr))
+        self.assertConcat(simplifyExpression(many), ((addr, 16), (addr, 16)))
         # Check graceful handling when zero subexpressions remain.
         only = makeConcat(makeConcat(empty, empty, 0), empty, 0)
         self.assertIntLiteral(simplifyExpression(only), 0)
         # Check whether non-empty fixed-width zero-valued bitstrings are kept.
         zero_u8 = IntLiteral(0, IntType(8))
         mid_u8 = makeConcat(makeConcat(addr, zero_u8, 8), addr, 16)
-        self.assertConcat(simplifyExpression(mid_u8), (addr, zero_u8, addr))
+        self.assertConcat(simplifyExpression(mid_u8),
+            ((addr, 16), (zero_u8, 8), (addr, 16))
+            )
         tail_u8 = makeConcat(makeConcat(addr, addr, 16), zero_u8, 8)
-        self.assertConcat(simplifyExpression(tail_u8), (addr, addr, zero_u8))
+        self.assertConcat(simplifyExpression(tail_u8),
+            ((addr, 16), (addr, 16), (zero_u8, 8))
+            )
         # Check whether unlimited-width zero-valued bitstrings are kept.
         zero_int = IntLiteral.create(0)
         head_int = makeConcat(makeConcat(zero_int, addr, 16), addr, 16)
-        self.assertConcat(simplifyExpression(head_int), (zero_int, addr, addr))
+        self.assertConcat(simplifyExpression(head_int),
+            ((zero_int, unlimited), (addr, 16), (addr, 16))
+            )
 
     def test_associative(self):
         '''Test simplification using the associativity of concatenation.
@@ -577,7 +586,7 @@ class ConcatTests(TestUtils):
         arg1 = makeConcat(addr, addr, 16) # (A ; A)
         arg2 = makeConcat(arg1, arg1, 32) # ((A ; A) ; (A ; A))
         arg3 = makeConcat(arg1, arg2, 64) # ((A ; A) ; ((A ; A) ; (A ; A)))
-        self.assertConcat(simplifyExpression(arg3), (addr, ) * 6)
+        self.assertConcat(simplifyExpression(arg3), ((addr, 16), ) * 6)
 
     def test_associative2(self):
         '''Test simplification using the associativity of concatenation.
@@ -588,7 +597,7 @@ class ConcatTests(TestUtils):
         arg3 = makeConcat(arg1, arg2, 24) # ((A ; $9) ; ($63 ; A))
         self.assertConcat(
             simplifyExpression(arg3),
-            (addr, IntLiteral(0x963, IntType(12)), addr)
+            ((addr, 16), (IntLiteral(0x963, IntType(12)), 12), (addr, 16))
             )
 
 def simplifySlice(expr, index, width):
@@ -650,7 +659,7 @@ class SliceTests(TestUtils):
         self.assertIs(simplifySlice(abcd, 24, 8), a)
         # Test slice edges at subexpression boundaries.
         bc = simplifySlice(abcd, 8, 16)
-        self.assertConcat(bc, (b, c))
+        self.assertConcat(bc, ((b, 8), (c, 8)))
         self.assertEqual(bc.width, 16)
         # Test one slice edge at subexpression boundaries.
         self.assertSlice(simplifySlice(abcd, 0, 5), d, 0, 5)
@@ -662,7 +671,7 @@ class SliceTests(TestUtils):
         # Test slice across subexpression boundaries.
         self.assertConcat(
             simplifySlice(abcd, 10, 9),
-            (Truncation(b, 3), RShift(c, 2))
+            ((Truncation(b, 3), 3), (RShift(c, 2), 6))
             )
 
     def test_and(self):
