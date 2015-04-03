@@ -660,7 +660,6 @@ class SliceTests(TestUtils):
         # Test slice edges at subexpression boundaries.
         bc = simplifySlice(abcd, 8, 16)
         self.assertConcat(bc, ((b, 8), (c, 8)))
-        self.assertEqual(bc.width, 16)
         # Test one slice edge at subexpression boundaries.
         self.assertSlice(simplifySlice(abcd, 0, 5), d, 0, 5)
         self.assertSlice(simplifySlice(abcd, 8, 5), c, 0, 5)
