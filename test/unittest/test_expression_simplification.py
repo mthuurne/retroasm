@@ -71,10 +71,10 @@ class TestUtils(unittest.TestCase):
                 offset += width
         self.assertOr(expr, *compExprs)
 
-    def assertSlice(self, expr, subExpr, index, width):
+    def assertSlice(self, expr, subExpr, subWidth, index, width):
         needsShift = index != 0
         shift = RShift(subExpr, index) if needsShift else subExpr
-        needsTrunc = subExpr.width != index + width
+        needsTrunc = subWidth != index + width
         trunc = Truncation(shift, width) if needsTrunc else shift
         self.assertEqual(str(expr), str(trunc))
         self.assertEqual(expr, trunc)
@@ -90,7 +90,6 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(shiftExpr.expr, subExpr)
         else:
             self.assertEqual(expr.expr, subExpr)
-        self.assertEqual(expr.width, width)
 
 def makeSlice(expr, index, width):
     return Truncation(RShift(expr, index), width)
@@ -176,7 +175,7 @@ class AndTests(TestUtils):
         hl = makeConcat(h, l, 8)
         # Test whether (HL & $003F) simplifies to L[0:6].
         mask6 = IntLiteral(0x003F, IntType(16))
-        self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 0, 6)
+        self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 8, 0, 6)
         # Test whether (HL & $00FF) simplifies to L.
         mask8 = IntLiteral(0x00FF, IntType(16))
         self.assertIs(simplifyExpression(AndOperator(hl, mask8)), l)
@@ -637,13 +636,13 @@ class SliceTests(TestUtils):
         expr = simplifySlice(addr, 0, 20) # $0xxxx
         self.assertIs(expr, addr)
         expr = simplifySlice(addr, 8, 12) # $0xx
-        self.assertSlice(expr, addr, 8, 8)
+        self.assertSlice(expr, addr, 16, 8, 8)
 
     def test_double_slice(self):
         '''Slices a range from another slice.'''
         addr = TestValue('A', IntType(16))
         expr = simplifySlice(makeSlice(addr, 3, 10), 2, 6)
-        self.assertSlice(expr, addr, 5, 6)
+        self.assertSlice(expr, addr, 16, 5, 6)
 
     def test_concat(self):
         '''Slices a range from a concatenation.'''
@@ -661,12 +660,12 @@ class SliceTests(TestUtils):
         bc = simplifySlice(abcd, 8, 16)
         self.assertConcat(bc, ((b, 8), (c, 8)))
         # Test one slice edge at subexpression boundaries.
-        self.assertSlice(simplifySlice(abcd, 0, 5), d, 0, 5)
-        self.assertSlice(simplifySlice(abcd, 8, 5), c, 0, 5)
-        self.assertSlice(simplifySlice(abcd, 19, 5), b, 3, 5)
-        self.assertSlice(simplifySlice(abcd, 27, 5), a, 3, 5)
+        self.assertSlice(simplifySlice(abcd, 0, 5), d, 8, 0, 5)
+        self.assertSlice(simplifySlice(abcd, 8, 5), c, 8, 0, 5)
+        self.assertSlice(simplifySlice(abcd, 19, 5), b, 8, 3, 5)
+        self.assertSlice(simplifySlice(abcd, 27, 5), a, 8, 3, 5)
         # Test slice entirely inside one subexpression.
-        self.assertSlice(simplifySlice(abcd, 10, 4), c, 2, 4)
+        self.assertSlice(simplifySlice(abcd, 10, 4), c, 8, 2, 4)
         # Test slice across subexpression boundaries.
         self.assertConcat(
             simplifySlice(abcd, 10, 9),
@@ -680,7 +679,7 @@ class SliceTests(TestUtils):
         hl = makeConcat(h, l, 8)
         # Test whether slicing cuts off L.
         expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
-        self.assertSlice(simplifySlice(expr1, 8, 6), h, 0, 6)
+        self.assertSlice(simplifySlice(expr1, 8, 6), h, 8, 0, 6)
         # Test whether redundant slicing can be eliminated.
         self.assertAnd(simplifySlice(AndOperator(h, l), 0, 8), h, l)
 
@@ -692,7 +691,7 @@ class SliceTests(TestUtils):
         expr = AddOperator(hl, IntLiteral.create(2))
         # Simplifcation fails because index is not 0.
         up8 = simplifySlice(expr, 8, 8)
-        self.assertSlice(up8, simplifyExpression(expr), 8, 8)
+        self.assertSlice(up8, simplifyExpression(expr), unlimited, 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
         add8 = Truncation(AddOperator(l, IntLiteral.create(2)), 8)
@@ -718,7 +717,7 @@ class SliceTests(TestUtils):
         # Simplifcation fails because index is not 0.
         up8 = makeSlice(expr, 8, 8)
         self.assertSlice(
-            simplifyExpression(up8), simplifyExpression(expr), 8, 8
+            simplifyExpression(up8), simplifyExpression(expr), unlimited, 8, 8
             )
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
@@ -732,7 +731,7 @@ class SliceTests(TestUtils):
         self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
         low12 = simplifyExpression(Truncation(expr, 12))
-        self.assertSlice(low12, simplifyExpression(expr), 0, 12)
+        self.assertSlice(low12, simplifyExpression(expr), unlimited, 0, 12)
 
     def test_mixed(self):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
