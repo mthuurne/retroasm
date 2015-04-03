@@ -28,7 +28,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         loadA = self.builder.emitLoad(ridA)
         incA = self.builder.emitCompute(
-            AddOperator(loadA, IntLiteral.create(1))
+            AddOperator(loadA, IntLiteral(1))
             )
         storeA = self.builder.emitStore(ridA, incA)
 
@@ -44,9 +44,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_duplicate_const(self):
         '''Test whether duplicate constants are removed.'''
-        const1 = self.builder.emitCompute(IntLiteral.create(2))
+        const1 = self.builder.emitCompute(IntLiteral(2))
         const2 = self.builder.emitCompute(
-            AddOperator(IntLiteral.create(1), IntLiteral.create(1))
+            AddOperator(IntLiteral(1), IntLiteral(1))
             )
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
@@ -94,10 +94,10 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_duplicate_ioref(self):
         '''Test whether duplicate I/O references are removed.'''
-        ridM1 = self.builder.addIOReference('mem', IntLiteral.create(0x8765))
-        ridM2 = self.builder.addIOReference('mem', IntLiteral.create(0x8765))
-        ridM3 = self.builder.addIOReference('mem', IntLiteral.create(0xABCD))
-        ridM4 = self.builder.addIOReference('io', IntLiteral.create(0x8765))
+        ridM1 = self.builder.addIOReference('mem', IntLiteral(0x8765))
+        ridM2 = self.builder.addIOReference('mem', IntLiteral(0x8765))
+        ridM3 = self.builder.addIOReference('mem', IntLiteral(0xABCD))
+        ridM4 = self.builder.addIOReference('io', IntLiteral(0x8765))
         loadM1 = self.builder.emitLoad(ridM1)
         loadM2 = self.builder.emitLoad(ridM2)
         storeM2 = self.builder.emitStore(ridM2, loadM1)
@@ -129,7 +129,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         loadA = self.builder.emitLoad(ridA)
         andA = self.builder.emitCompute(
-            AndOperator(loadA, IntLiteral.create(0))
+            AndOperator(loadA, IntLiteral(0))
             )
         storeA = self.builder.emitStore(ridA, andA)
 
@@ -142,7 +142,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
-        addr = self.builder.emitCompute(IntLiteral.create(0xD0D0))
+        addr = self.builder.emitCompute(IntLiteral(0xD0D0))
         ridM = self.builder.addIOReference('mem', addr)
         loadM = self.builder.emitLoad(ridM)
 
@@ -177,9 +177,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
         loadA1 = self.builder.emitLoad(ridA)
-        incA = self.builder.emitCompute(
-            AddOperator(loadA1, IntLiteral.create(1))
-            )
+        incA = self.builder.emitCompute(AddOperator(loadA1, IntLiteral(1)))
         storeB = self.builder.emitStore(ridA, incA)
         loadA2 = self.builder.emitLoad(ridA)
         storeC = self.builder.emitStore(ridB, loadA2)
@@ -229,7 +227,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
-        const = self.builder.emitCompute(IntLiteral.create(23))
+        const = self.builder.emitCompute(IntLiteral(23))
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
         ridC = self.builder.addRegister('c')
@@ -275,9 +273,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         ridV = self.builder.addValueArgument('V')
         loadV = self.builder.emitLoad(ridV)
-        incV = self.builder.emitCompute(
-            AddOperator(loadV, IntLiteral.create(1))
-            )
+        incV = self.builder.emitCompute(AddOperator(loadV, IntLiteral(1)))
         storeV = self.builder.emitStore(ridV, incV)
         storeA = self.builder.emitStore(ridA, incV)
 
@@ -321,7 +317,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
     def test_return_value_renumber(self):
         '''Test a simplification that must replace the return value cid.'''
         ridA = self.builder.addRegister('a')
-        const = self.builder.emitCompute(IntLiteral.create(23))
+        const = self.builder.emitCompute(IntLiteral(23))
         storeA = self.builder.emitStore(ridA, const)
         loadA = self.builder.emitLoad(ridA)
         outerRet = self.builder.addVariable('ret')
@@ -340,12 +336,10 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         def emitInc():
             loadA = self.builder.emitLoad(ridA)
-            incA = self.builder.emitCompute(
-                AddOperator(loadA, IntLiteral.create(1))
-                )
+            incA = self.builder.emitCompute(AddOperator(loadA, IntLiteral(1)))
             self.builder.emitStore(ridA, incA)
 
-        initA = self.builder.emitCompute(IntLiteral.create(23))
+        initA = self.builder.emitCompute(IntLiteral(23))
         self.builder.emitStore(ridA, initA)
         emitInc()
         emitInc()

@@ -257,7 +257,7 @@ class ComposedStorage:
                 oldVal = builder.emitLoad(rid, location)
                 storageMask = maskForWidth(storageWidth)
                 valueMask = maskForWidth(width) << index
-                maskLit = IntLiteral.create(storageMask & ~valueMask)
+                maskLit = IntLiteral(storageMask & ~valueMask)
                 combined = OrOperator(
                     AndOperator(oldVal, maskLit),
                     LShift(valueSlice, index),

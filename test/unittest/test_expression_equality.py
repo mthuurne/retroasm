@@ -27,17 +27,17 @@ class EqualsTests(unittest.TestCase):
         self.assertIs(expr2 != expr1, True)
 
     def test_int(self):
-        '''Checks unlimited-width integer literals for equality.'''
-        arg1a = IntLiteral.create(1)
-        arg1b = IntLiteral.create(1)
-        arg2 = IntLiteral.create(2)
+        '''Checks integer literals for equality.'''
+        arg1a = IntLiteral(1)
+        arg1b = IntLiteral(1)
+        arg2 = IntLiteral(2)
         self.assertExprEqual(arg1a, arg1b)
         self.assertExprNotEqual(arg1a, arg2)
         self.assertExprEqual(arg2, arg2)
 
     def test_type_mismatch(self):
         '''Checks equality checks between mismatching types.'''
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         addr = TestValue('A', IntType(16))
         self.assertExprNotEqual(zero, 0)
         self.assertExprNotEqual(addr, 'A')
@@ -45,7 +45,7 @@ class EqualsTests(unittest.TestCase):
 
     def test_concat_internal(self):
         '''Checks equality between different concatenations of equal width.'''
-        four = IntLiteral.create(4)
+        four = IntLiteral(4)
         cat_u4_u8 = makeConcat(four, four, 8)
         cat_u8_u4 = makeConcat(four, four, 4)
         # Test expression being equal to itself.
@@ -56,15 +56,15 @@ class EqualsTests(unittest.TestCase):
 
     def test_truncate_subexpr(self):
         '''Checks equality between truncations with differing subexpressions.'''
-        trunc1 = Truncation(IntLiteral.create(0x1234), 8)
-        trunc2 = Truncation(IntLiteral.create(0x5678), 8)
+        trunc1 = Truncation(IntLiteral(0x1234), 8)
+        trunc2 = Truncation(IntLiteral(0x5678), 8)
         self.assertExprEqual(trunc1, trunc1)
         self.assertExprEqual(trunc2, trunc2)
         self.assertExprNotEqual(trunc1, trunc2)
 
     def test_truncate_width(self):
         '''Checks equality between truncations with differing widths.'''
-        addr = IntLiteral.create(0x456)
+        addr = IntLiteral(0x456)
         trunc1 = Truncation(addr, 8)  # $56
         trunc2 = Truncation(addr, 12) # $456
         trunc3 = Truncation(addr, 16) # $0456

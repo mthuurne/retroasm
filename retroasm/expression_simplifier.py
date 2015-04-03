@@ -313,7 +313,7 @@ _customSimplifiers = {
 def _simplifyComplement(complement):
     expr = simplifyExpression(complement.expr)
     if isinstance(expr, IntLiteral):
-        return IntLiteral.create(-expr.value)
+        return IntLiteral(-expr.value)
     elif isinstance(expr, Complement):
         return expr.expr
     elif isinstance(expr, AddOperator):
@@ -336,14 +336,14 @@ def _simplifyLShift(lshift):
         return expr
 
     if isinstance(expr, IntLiteral):
-        return IntLiteral.create(expr.value << offset)
+        return IntLiteral(expr.value << offset)
     elif isinstance(expr, LShift):
         # Combine both shifts into one.
         return simplifyExpression(LShift(expr.expr, offset + expr.offset))
     elif isinstance(expr, RShift):
         roffset = expr.offset
         mask = maskForWidth(expr.width)
-        masked = AndOperator(expr.expr, IntLiteral.create(mask << roffset))
+        masked = AndOperator(expr.expr, IntLiteral(mask << roffset))
         masked._tryMaskToShift = False # pylint: disable=protected-access
         if roffset < offset:
             # Left shift wins.
@@ -380,10 +380,10 @@ def _simplifyRShift(rshift):
     width = expr.width - offset
     if width <= 0:
         # Entire subexpression is discarded by the shift.
-        return IntLiteral.create(0)
+        return IntLiteral(0)
 
     if isinstance(expr, IntLiteral):
-        return IntLiteral.create(expr.value >> offset)
+        return IntLiteral(expr.value >> offset)
     elif isinstance(expr, LShift):
         loffset = expr.offset
         if loffset < offset:
@@ -423,7 +423,7 @@ def _simplifyTruncation(truncation):
     assert width is not unlimited, truncation
     if width == 0:
         # Every zero-width expression is equivalent to an empty bitstring.
-        return IntLiteral.create(0)
+        return IntLiteral(0)
 
     # Note that simplification can reduce the width of the subexpression,
     # so do subexpression simplification before checking the width.
@@ -437,12 +437,12 @@ def _simplifyTruncation(truncation):
 
     if isinstance(expr, IntLiteral):
         return expr if expr.width <= width else \
-            IntLiteral.create(expr.value & maskForWidth(width))
+            IntLiteral(expr.value & maskForWidth(width))
     elif isinstance(expr, LShift):
         offset = expr.offset
         if offset >= width:
             # Result contains nothing but trailing zeroes.
-            return IntLiteral.create(0)
+            return IntLiteral(0)
         else:
             # Truncate before left-shifting.
             trunc = Truncation(expr.expr, width - offset)

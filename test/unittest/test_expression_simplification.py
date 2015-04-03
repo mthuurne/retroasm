@@ -15,7 +15,7 @@ class TestUtils(unittest.TestCase):
         '''Asserts that the given expression is an unlimited-width int literal
         with the given value.
         '''
-        comparison = IntLiteral.create(value)
+        comparison = IntLiteral(value)
         self.assertIsInstance(expr, IntLiteral)
         self.assertIsInstance(expr.type, IntType)
         self.assertEqual(expr.value, value)
@@ -101,17 +101,17 @@ class AndTests(TestUtils):
 
     def test_literals(self):
         '''Applies logical AND to integer literals.'''
-        a = IntLiteral.create(0xE3)
-        b = IntLiteral.create(0x7A)
+        a = IntLiteral(0xE3)
+        b = IntLiteral(0x7A)
         self.assertIntLiteral(simplifyExpression(AndOperator(a, b)), 0x62)
-        c = IntLiteral.create(0xFF00)
-        d = IntLiteral.create(0x123456)
+        c = IntLiteral(0xFF00)
+        d = IntLiteral(0x123456)
         self.assertIntLiteral(simplifyExpression(AndOperator(c, d)), 0x3400)
 
     def test_identity(self):
         '''Simplifies logical AND expressions containing -1.'''
         addr = TestValue('A', IntType(16))
-        ones = IntLiteral.create(-1)
+        ones = IntLiteral(-1)
         # Check whether identity values are filtered out.
         self.assertIs(simplifyExpression(AndOperator(ones, addr)), addr)
         self.assertIs(simplifyExpression(AndOperator(addr, ones)), addr)
@@ -124,7 +124,7 @@ class AndTests(TestUtils):
     def test_absorbtion(self):
         '''Simplifies logical AND expressions containing 0.'''
         addr = TestValue('A', IntType(16))
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         self.assertIntLiteral(simplifyExpression(AndOperator(zero, addr)), 0)
         self.assertIntLiteral(simplifyExpression(AndOperator(addr, zero)), 0)
         self.assertIntLiteral(
@@ -146,8 +146,8 @@ class AndTests(TestUtils):
         a = TestValue('A', IntType(8))
         b = TestValue('B', IntType(8))
         # Test literal merging.
-        expr1 = OrOperator(a, IntLiteral.create(0x5500))
-        expr2 = AndOperator(expr1, IntLiteral.create(0xAAFF))
+        expr1 = OrOperator(a, IntLiteral(0x5500))
+        expr2 = AndOperator(expr1, IntLiteral(0xAAFF))
         expr3 = simplifyExpression(expr2)
         self.assertEqual(str(expr3), str(a))
         self.assertIs(expr3, a)
@@ -157,8 +157,8 @@ class AndTests(TestUtils):
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
-        maskLo = IntLiteral.create(0x00F0)
-        maskHi = IntLiteral.create(0xF000)
+        maskLo = IntLiteral(0x00F0)
+        maskHi = IntLiteral(0xF000)
         # Test whether (HL & $00F0) cuts off H.
         self.assertAnd(simplifyExpression(AndOperator(hl, maskLo)), maskLo, l)
         # Test whether (HL & H) cuts off H.
@@ -174,10 +174,10 @@ class AndTests(TestUtils):
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
         # Test whether (HL & $003F) simplifies to L[0:6].
-        mask6 = IntLiteral.create(0x003F)
+        mask6 = IntLiteral(0x003F)
         self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 8, 0, 6)
         # Test whether (HL & $00FF) simplifies to L.
-        mask8 = IntLiteral.create(0x00FF)
+        mask8 = IntLiteral(0x00FF)
         self.assertIs(simplifyExpression(AndOperator(hl, mask8)), l)
 
     def test_mask_concat(self):
@@ -187,7 +187,7 @@ class AndTests(TestUtils):
         hl = makeConcat(h, l, 8)
         # Test whether (HL & $FF00) simplifies to H;$00.
         expr = simplifyExpression(
-            AndOperator(hl, IntLiteral.create(0xFF00))
+            AndOperator(hl, IntLiteral(0xFF00))
             )
         self.assertIsInstance(expr, LShift)
         self.assertIs(expr.expr, h)
@@ -198,17 +198,17 @@ class OrTests(TestUtils):
 
     def test_literals(self):
         '''Applies logical OR to integer literals.'''
-        a = IntLiteral.create(0x4C)
-        b = IntLiteral.create(0x91)
+        a = IntLiteral(0x4C)
+        b = IntLiteral(0x91)
         self.assertIntLiteral(simplifyExpression(OrOperator(a, b)), 0xDD)
-        c = IntLiteral.create(0x00FF)
-        d = IntLiteral.create(0x120021)
+        c = IntLiteral(0x00FF)
+        d = IntLiteral(0x120021)
         self.assertIntLiteral(simplifyExpression(OrOperator(c, d)), 0x1200FF)
 
     def test_identity(self):
         '''Simplifies logical OR expressions containing 0.'''
         addr = TestValue('A', IntType(16))
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         # Check whether identity values are filtered out.
         self.assertIs(simplifyExpression(OrOperator(zero, addr)), addr)
         self.assertIs(simplifyExpression(OrOperator(addr, zero)), addr)
@@ -221,7 +221,7 @@ class OrTests(TestUtils):
     def test_absorbtion(self):
         '''Simplifies logical OR expressions containing -1.'''
         addr = TestValue('A', IntType(16))
-        ones = IntLiteral.create(-1)
+        ones = IntLiteral(-1)
         self.assertIntLiteral(simplifyExpression(OrOperator(ones, addr)), -1)
         self.assertIntLiteral(simplifyExpression(OrOperator(addr, ones)), -1)
         self.assertIntLiteral(
@@ -242,8 +242,8 @@ class OrTests(TestUtils):
         '''Simplifies expressions containing OR and AND.'''
         x = TestValue('X', IntType(8))
         # (X & $55) | $AA  ==  (X | $AA) & ($55 | $AA)  ==  (X | $AA)
-        mask1 = IntLiteral.create(0x55)
-        mask2 = IntLiteral.create(0xAA)
+        mask1 = IntLiteral(0x55)
+        mask2 = IntLiteral(0xAA)
         expr1 = AndOperator(x, mask1)
         expr2 = OrOperator(expr1, mask2)
         self.assertOr(simplifyExpression(expr2), x, mask2)
@@ -252,17 +252,17 @@ class XorTests(TestUtils):
 
     def test_literals(self):
         '''Applies logical XOR to integer literals.'''
-        a = IntLiteral.create(0xDC)
-        b = IntLiteral.create(0x58)
+        a = IntLiteral(0xDC)
+        b = IntLiteral(0x58)
         self.assertIntLiteral(simplifyExpression(XorOperator(a, b)), 0x84)
-        c = IntLiteral.create(0xF00F)
-        d = IntLiteral.create(0x123456)
+        c = IntLiteral(0xF00F)
+        d = IntLiteral(0x123456)
         self.assertIntLiteral(simplifyExpression(XorOperator(c, d)), 0x12C459)
 
     def test_identity(self):
         '''Simplifies logical XOR expressions containing 0.'''
         addr = TestValue('A', IntType(16))
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         # Check whether identity values are filtered out.
         self.assertIs(simplifyExpression(XorOperator(zero, addr)), addr)
         self.assertIs(simplifyExpression(XorOperator(addr, zero)), addr)
@@ -276,7 +276,7 @@ class XorTests(TestUtils):
         '''Simplifies logical XOR expressions containing duplicates.'''
         a = TestValue('A', IntType(8))
         b = TestValue('B', IntType(8))
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         # Check that duplicate values are filtered out.
         self.assertIs(simplifyExpression(XorOperator(a)), a)
         self.assertEqual(simplifyExpression(XorOperator(a, a)), zero)
@@ -290,28 +290,28 @@ class AddTests(TestUtils):
 
     def test_int(self):
         '''Adds two unlimited width integer literals.'''
-        arg1 = IntLiteral.create(3)
-        arg2 = IntLiteral.create(20)
+        arg1 = IntLiteral(3)
+        arg2 = IntLiteral(20)
         expr = simplifyExpression(AddOperator(arg1, arg2))
         self.assertIntLiteral(expr, 23)
 
     def test_fixed_width(self):
         '''Adds two fixed width integer literals.'''
-        arg1 = IntLiteral.create(8)
-        arg2 = IntLiteral.create(127)
+        arg1 = IntLiteral(8)
+        arg2 = IntLiteral(127)
         expr = simplifyExpression(AddOperator(arg1, arg2))
         self.assertIntLiteral(expr, 135)
 
     def test_nested(self):
         '''Adds several integers in an expression tree.'''
-        arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
-        arg2 = AddOperator(IntLiteral.create(3), IntLiteral.create(4))
+        arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
+        arg2 = AddOperator(IntLiteral(3), IntLiteral(4))
         expr = simplifyExpression(AddOperator(arg1, arg2))
         self.assertIntLiteral(expr, 10)
 
     def test_zero(self):
         '''Test simplification of zero literal terms.'''
-        zero = IntLiteral.create(0)
+        zero = IntLiteral(0)
         addr = TestValue('A', IntType(16))
         self.assertIs(simplifyExpression(AddOperator(zero, addr)), addr)
         self.assertIs(simplifyExpression(AddOperator(addr, zero)), addr)
@@ -320,22 +320,22 @@ class AddTests(TestUtils):
     def test_associative(self):
         '''Test simplification using the associativity of addition.'''
         addr = TestValue('A', IntType(16))
-        arg1 = AddOperator(addr, IntLiteral.create(1))
-        arg2 = AddOperator(IntLiteral.create(2), IntLiteral.create(-3))
+        arg1 = AddOperator(addr, IntLiteral(1))
+        arg2 = AddOperator(IntLiteral(2), IntLiteral(-3))
         self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
 
     def test_commutative(self):
         '''Test simplification using the commutativity of addition.'''
         addr = TestValue('A', IntType(16))
-        arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
-        arg2 = AddOperator(addr, IntLiteral.create(-3))
+        arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
+        arg2 = AddOperator(addr, IntLiteral(-3))
         self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
 
 class ComplementTests(TestUtils):
 
     def test_int(self):
         '''Takes the complement of an integer literal.'''
-        expr = Complement(IntLiteral.create(4))
+        expr = Complement(IntLiteral(4))
         self.assertIntLiteral(simplifyExpression(expr), -4)
 
     def test_twice(self):
@@ -348,29 +348,20 @@ class ComplementTests(TestUtils):
         addr = TestValue('A', IntType(16))
         expr = simplifyExpression(Complement(
             makeConcat(
-                makeConcat(
-                    IntLiteral.create(0xC0),
-                    IntLiteral.create(0xDE),
-                    8
-                    ),
+                makeConcat(IntLiteral(0xC0), IntLiteral(0xDE), 8),
                 addr, 16
                 )
             ))
         self.assertIsInstance(expr, Complement)
-        self.assertConcat(expr.expr, (
-            (IntLiteral.create(0xC0DE), 16),
-            (addr, 16)
-            ))
+        self.assertConcat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
 
 class ArithmeticTests(TestUtils):
 
     def test_int(self):
         '''Uses add/complement on several integer literals.'''
         expr = AddOperator(
-            AddOperator(IntLiteral.create(0), Complement(IntLiteral.create(39))),
-            Complement(
-                AddOperator(IntLiteral.create(101), IntLiteral.create(-1001))
-                )
+            AddOperator(IntLiteral(0), Complement(IntLiteral(39))),
+            Complement(AddOperator(IntLiteral(101), IntLiteral(-1001)))
             )
         self.assertIntLiteral(simplifyExpression(expr), 861)
 
@@ -380,8 +371,8 @@ class ArithmeticTests(TestUtils):
         is converted into an addition first.
         '''
         addr = TestValue('A', IntType(16))
-        arg1 = AddOperator(addr, Complement(IntLiteral.create(1)))
-        arg2 = AddOperator(IntLiteral.create(-2), IntLiteral.create(3))
+        arg1 = AddOperator(addr, Complement(IntLiteral(1)))
+        arg2 = AddOperator(IntLiteral(-2), IntLiteral(3))
         self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
 
     def test_commutative(self):
@@ -390,8 +381,8 @@ class ArithmeticTests(TestUtils):
         is converted into an addition first.
         '''
         addr = TestValue('A', IntType(16))
-        arg1 = AddOperator(IntLiteral.create(1), IntLiteral.create(2))
-        arg2 = AddOperator(Complement(addr), IntLiteral.create(3))
+        arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
+        arg2 = AddOperator(Complement(addr), IntLiteral(3))
         self.assertIs(
             simplifyExpression(AddOperator(arg1, Complement(arg2))), addr
             )
@@ -421,8 +412,8 @@ class ArithmeticTests(TestUtils):
         a = TestValue('A', IntType(16))
         expr = Truncation(
             AddOperator(
-                Truncation(AddOperator(a, IntLiteral.create(1)), 16),
-                IntLiteral.create(-1)
+                Truncation(AddOperator(a, IntLiteral(1)), 16),
+                IntLiteral(-1)
                 ),
             16
             )
@@ -431,8 +422,8 @@ class ArithmeticTests(TestUtils):
     def test_add_truncate_literal(self):
         '''Test simplification of truncation of added literal.'''
         a = TestValue('A', IntType(16))
-        expr = Truncation(AddOperator(a, IntLiteral.create(0x10001)), 16)
-        expected = Truncation(AddOperator(a, IntLiteral.create(1)), 16)
+        expr = Truncation(AddOperator(a, IntLiteral(0x10001)), 16)
+        expected = Truncation(AddOperator(a, IntLiteral(1)), 16)
         self.assertEqual(simplifyExpression(expr), expected)
 
 class LShiftTests(TestUtils):
@@ -440,11 +431,11 @@ class LShiftTests(TestUtils):
     def test_literals(self):
         '''Shifts an integer literal to the left.'''
         self.assertIntLiteral(
-            simplifyExpression(LShift(IntLiteral.create(0x1234), 8)),
+            simplifyExpression(LShift(IntLiteral(0x1234), 8)),
             0x123400
             )
         self.assertIntLiteral(
-            simplifyExpression(LShift(IntLiteral.create(0xDA), 16)),
+            simplifyExpression(LShift(IntLiteral(0xDA), 16)),
             0xDA0000
             )
 
@@ -461,14 +452,13 @@ class LShiftTests(TestUtils):
         addr = TestValue('A', IntType(16))
         # Shift more to the right than to the left.
         rwin = simplifyExpression(LShift(RShift(addr, 5), 3))
-        self.assertSlice(rwin,
-            AndOperator(addr, IntLiteral.create(0xFFE0)), 16, 2, 14)
+        self.assertSlice(rwin, AndOperator(addr, IntLiteral(0xFFE0)), 16, 2, 14)
         # Shift equal amounts to the right and to the left.
         draw = simplifyExpression(LShift(RShift(addr, 4), 4))
-        self.assertAnd(draw, addr, IntLiteral.create(0xFFF0))
+        self.assertAnd(draw, addr, IntLiteral(0xFFF0))
         # Shift less to the right than to the left.
         lwin = simplifyExpression(LShift(RShift(addr, 3), 5))
-        self.assertAnd(lwin, LShift(addr, 2), IntLiteral.create(0x3FFE0))
+        self.assertAnd(lwin, LShift(addr, 2), IntLiteral(0x3FFE0))
 
     def test_truncate(self):
         '''Tests truncation of a left-shifted expression.'''
@@ -507,10 +497,10 @@ class ConcatTests(TestUtils):
 
     def test_literals(self):
         '''Concatenates integer literals.'''
-        ip = IntLiteral.create(4)
+        ip = IntLiteral(4)
         im = Complement(ip)
-        u4 = IntLiteral.create(0xD)
-        u8 = IntLiteral.create(0x29)
+        u4 = IntLiteral(0xD)
+        u8 = IntLiteral(0x29)
         cat_ip_u4 = simplifyExpression(makeConcat(ip, u4, 4))
         self.assertIntLiteral(cat_ip_u4, 0x40 + 0xD)
         cat_ip_u8 = simplifyExpression(makeConcat(ip, u8, 8))
@@ -532,7 +522,7 @@ class ConcatTests(TestUtils):
         '''Simplifies concatenations containing identity values.'''
         addr = TestValue('A', IntType(16))
         # Check whether empty bitstrings are filtered out.
-        empty = IntLiteral.create(0)
+        empty = IntLiteral(0)
         head = makeConcat(makeConcat(empty, addr, 16), addr, 16)
         self.assertConcat(simplifyExpression(head), ((addr, 16), (addr, 16)))
         mid = makeConcat(makeConcat(addr, empty, 0), addr, 16)
@@ -563,7 +553,7 @@ class ConcatTests(TestUtils):
         only = makeConcat(makeConcat(empty, empty, 0), empty, 0)
         self.assertIntLiteral(simplifyExpression(only), 0)
         # Check whether non-empty fixed-width zero-valued bitstrings are kept.
-        zero_u8 = IntLiteral.create(0)
+        zero_u8 = IntLiteral(0)
         mid_u8 = makeConcat(makeConcat(addr, zero_u8, 8), addr, 16)
         self.assertConcat(simplifyExpression(mid_u8),
             ((addr, 16), (zero_u8, 8), (addr, 16))
@@ -573,7 +563,7 @@ class ConcatTests(TestUtils):
             ((addr, 16), (addr, 16), (zero_u8, 8))
             )
         # Check whether unlimited-width zero-valued bitstrings are kept.
-        zero_int = IntLiteral.create(0)
+        zero_int = IntLiteral(0)
         head_int = makeConcat(makeConcat(zero_int, addr, 16), addr, 16)
         self.assertConcat(simplifyExpression(head_int),
             ((zero_int, unlimited), (addr, 16), (addr, 16))
@@ -592,12 +582,12 @@ class ConcatTests(TestUtils):
         '''Test simplification using the associativity of concatenation.
         '''
         addr = TestValue('A', IntType(16))
-        arg1 = makeConcat(addr, IntLiteral.create(0x9), 4) # (A ; $9)
-        arg2 = makeConcat(IntLiteral.create(0x63), addr, 16) # ($63 ; A)
+        arg1 = makeConcat(addr, IntLiteral(0x9), 4) # (A ; $9)
+        arg2 = makeConcat(IntLiteral(0x63), addr, 16) # ($63 ; A)
         arg3 = makeConcat(arg1, arg2, 24) # ((A ; $9) ; ($63 ; A))
         self.assertConcat(
             simplifyExpression(arg3),
-            ((addr, 16), (IntLiteral.create(0x963), 12), (addr, 16))
+            ((addr, 16), (IntLiteral(0x963), 12), (addr, 16))
             )
 
 def simplifySlice(expr, index, width):
@@ -607,11 +597,11 @@ class SliceTests(TestUtils):
 
     def test_literals(self):
         '''Slices integer literals.'''
-        addr = IntLiteral.create(0xFD56)
+        addr = IntLiteral(0xFD56)
         self.assertIntLiteral(simplifySlice(addr, 0, 16), 0xFD56)
         self.assertIntLiteral(simplifySlice(addr, 4, 8), 0xD5)
         self.assertIntLiteral(simplifySlice(addr, 8, 12), 0x0FD)
-        signed = IntLiteral.create(-0x1995)
+        signed = IntLiteral(-0x1995)
         self.assertIntLiteral(simplifySlice(signed, 0, 16), 0xE66B)
         self.assertIntLiteral(simplifySlice(signed, 4, 8), 0x66)
         self.assertIntLiteral(simplifySlice(signed, 8, 12), 0xFE6)
@@ -679,7 +669,7 @@ class SliceTests(TestUtils):
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
         # Test whether slicing cuts off L.
-        expr1 = AndOperator(hl, IntLiteral.create(0xBFFF))
+        expr1 = AndOperator(hl, IntLiteral(0xBFFF))
         self.assertSlice(simplifySlice(expr1, 8, 6), h, 8, 0, 6)
         # Test whether redundant slicing can be eliminated.
         self.assertAnd(simplifySlice(AndOperator(h, l), 0, 8), h, l)
@@ -689,18 +679,18 @@ class SliceTests(TestUtils):
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
-        expr = AddOperator(hl, IntLiteral.create(2))
+        expr = AddOperator(hl, IntLiteral(2))
         # Simplifcation fails because index is not 0.
         up8 = simplifySlice(expr, 8, 8)
         self.assertSlice(up8, simplifyExpression(expr), unlimited, 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
-        add8 = Truncation(AddOperator(l, IntLiteral.create(2)), 8)
+        add8 = Truncation(AddOperator(l, IntLiteral(2)), 8)
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
         add6 = Truncation(
-            AddOperator(Truncation(l, 6), IntLiteral.create(2)), 6
+            AddOperator(Truncation(l, 6), IntLiteral(2)), 6
             )
         self.assertEqual(low6, add6)
         # Simplification fails because expression becomes more complex.
@@ -738,12 +728,12 @@ class SliceTests(TestUtils):
         '''Tests a mixture of slicing, concatenation and leading zeroes.'''
         addr = TestValue('A', IntType(16))
         expr_int = makeSlice(
-            makeConcat(IntLiteral.create(7), makeSlice(addr, 8, 12), 12),
+            makeConcat(IntLiteral(7), makeSlice(addr, 8, 12), 12),
             8, 8
             )
         self.assertIntLiteral(simplifyExpression(expr_int), 0x70)
         expr_u8 = makeSlice(
-            makeConcat(IntLiteral.create(7), makeSlice(addr, 8, 12), 12),
+            makeConcat(IntLiteral(7), makeSlice(addr, 8, 12), 12),
             8, 8
             )
         self.assertIntLiteral(simplifyExpression(expr_u8), 0x70)

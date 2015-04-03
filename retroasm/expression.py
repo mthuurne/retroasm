@@ -183,23 +183,15 @@ class IntLiteral(Expression):
         return unlimited if value < 0 else value.bit_length()
     width = property(_getWidth)
 
-    @classmethod
-    def create(cls, value):
-        '''Returns an unlimited-width integer literal with the given value.
-        '''
-        return cls(value, IntType(unlimited))
-
-    def __init__(self, value, intType):
+    def __init__(self, value):
         self._value = checkType(value, int, 'value')
-        Expression.__init__(self, intType)
-        assert intType.width is unlimited, self
+        Expression.__init__(self, IntType(unlimited))
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
         if exprs:
             raise ValueError('%s does not take expression args' % cls.__name__)
         kwargs.setdefault('value', self._value)
-        kwargs.setdefault('intType', self._type)
         return signature(cls).bind(**kwargs)
 
     def __str__(self):
@@ -280,8 +272,8 @@ class AndOperator(SimplifiableComposedExpression):
     associative = True
     commutative = True
     idempotent = True
-    identity = IntLiteral.create(-1)
-    absorber = IntLiteral.create(0)
+    identity = IntLiteral(-1)
+    absorber = IntLiteral(0)
 
     def __init__(self, *exprs, intType=IntType(unlimited)):
         SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
@@ -293,7 +285,7 @@ class AndOperator(SimplifiableComposedExpression):
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
-        return IntLiteral.create(literal1.value & literal2.value)
+        return IntLiteral(literal1.value & literal2.value)
 
 class OrOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeOrOverAnd', )
@@ -301,8 +293,8 @@ class OrOperator(SimplifiableComposedExpression):
     associative = True
     commutative = True
     idempotent = True
-    identity = IntLiteral.create(0)
-    absorber = IntLiteral.create(-1)
+    identity = IntLiteral(0)
+    absorber = IntLiteral(-1)
 
     def __init__(self, *exprs, intType=IntType(unlimited)):
         SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
@@ -312,7 +304,7 @@ class OrOperator(SimplifiableComposedExpression):
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
-        return IntLiteral.create(literal1.value | literal2.value)
+        return IntLiteral(literal1.value | literal2.value)
 
 class XorOperator(SimplifiableComposedExpression):
     __slots__ = ()
@@ -320,12 +312,12 @@ class XorOperator(SimplifiableComposedExpression):
     associative = True
     commutative = True
     idempotent = False
-    identity = IntLiteral.create(0)
+    identity = IntLiteral(0)
     absorber = None
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
-        return IntLiteral.create(literal1.value ^ literal2.value)
+        return IntLiteral(literal1.value ^ literal2.value)
 
 class AddOperator(SimplifiableComposedExpression):
     __slots__ = ()
@@ -333,12 +325,12 @@ class AddOperator(SimplifiableComposedExpression):
     associative = True
     commutative = True
     idempotent = False
-    identity = IntLiteral.create(0)
+    identity = IntLiteral(0)
     absorber = None
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
-        return IntLiteral.create(literal1.value + literal2.value)
+        return IntLiteral(literal1.value + literal2.value)
 
     def __str__(self):
         exprs = self._exprs

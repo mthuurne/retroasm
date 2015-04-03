@@ -25,14 +25,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         '''Test whether inlining works when there are no complications.'''
         inner = TestCodeBlockBuilder()
         innerA = inner.addRegister('a', 16)
-        const = inner.emitCompute(IntLiteral.create(12345))
+        const = inner.emitCompute(IntLiteral(12345))
         inner.emitStore(innerA, const)
 
         # Share the global context to make sure that the outer and inner block
         # are using the same registers.
         outer = TestCodeBlockBuilder(inner.globalBuilder)
         outerA = outer.addRegister('a', 16)
-        zero = outer.emitCompute(IntLiteral.create(0))
+        zero = outer.emitCompute(IntLiteral(0))
         outer.emitStore(outerA, zero)
         outer.inlineBlock(inner.createCodeBlock(), {})
         loadA = outer.emitLoad(outerA)
@@ -51,13 +51,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc = TestCodeBlockBuilder()
         incArgRid = inc.addValueArgument('V')
         incArgVal = inc.emitLoad(incArgRid)
-        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        step0 = outer.emitCompute(IntLiteral.create(100))
+        step0 = outer.emitCompute(IntLiteral(100))
         step1 = outer.inlineBlock(incCode, {'V': step0})
         step2 = outer.inlineBlock(incCode, {'V': step1})
         step3 = outer.inlineBlock(incCode, {'V': step2})
@@ -74,13 +74,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc = TestCodeBlockBuilder()
         incArgRid = inc.addValueArgument('V')
         incArgVal = inc.emitLoad(incArgRid)
-        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        step0 = outer.emitCompute(IntLiteral.create(0x89FE))
+        step0 = outer.emitCompute(IntLiteral(0x89FE))
         step1 = outer.inlineBlock(incCode, {'V': step0})
         step2 = outer.inlineBlock(incCode, {'V': step1})
         step3 = outer.inlineBlock(incCode, {'V': step2})
@@ -96,14 +96,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc = TestCodeBlockBuilder()
         incArgRid = inc.addLocalReference('R')
         incArgVal = inc.emitLoad(incArgRid)
-        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral.create(1)))
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         inc.emitStore(incArgRid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
         outerA = outer.addRegister('a')
         regA = outer.context['a']
-        initA = outer.emitCompute(IntLiteral.create(100))
+        initA = outer.emitCompute(IntLiteral(100))
         outer.emitStore(outerA, initA)
         outer.inlineBlock(incCode, {'R': regA})
         outer.inlineBlock(incCode, {'R': regA})
@@ -126,7 +126,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgRid = inc.addLocalReference('R', 16)
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(
-            AddOperator(incArgVal, IntLiteral.create(0x1234))
+            AddOperator(incArgVal, IntLiteral(0x1234))
             )
         inc.emitStore(incArgRid, incAdd)
         incCode = inc.createCodeBlock()
@@ -138,8 +138,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regL = outer.context['l']
         regHL = regL.concat(regH)
 
-        initH = outer.emitCompute(IntLiteral.create(0xab))
-        initL = outer.emitCompute(IntLiteral.create(0xcd))
+        initH = outer.emitCompute(IntLiteral(0xab))
+        initL = outer.emitCompute(IntLiteral(0xcd))
         outer.emitStore(outerH, initH)
         outer.emitStore(outerL, initL)
         outer.inlineBlock(incCode, {'R': regHL})
@@ -159,20 +159,18 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc = TestCodeBlockBuilder()
         incArgRid = inc.addLocalReference('R', 16)
         incArgVal = inc.emitLoad(incArgRid)
-        incAdd = inc.emitCompute(
-            AddOperator(incArgVal, IntLiteral.create(0x1234))
-            )
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x1234)))
         inc.emitStore(incArgRid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
-        outerL = outer.emitFixedValue(IntLiteral.create(0xcd))
+        outerL = outer.emitFixedValue(IntLiteral(0xcd))
         regH = outer.context['h']
         fixedL = ComposedStorage.single(outerL, 8)
         regHL = fixedL.concat(regH)
 
-        initH = outer.emitCompute(IntLiteral.create(0xab))
+        initH = outer.emitCompute(IntLiteral(0xab))
         outer.emitStore(outerH, initH)
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
@@ -191,16 +189,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc = TestCodeBlockBuilder()
         incArgRid = inc.addLocalReference('R')
         incArgVal = inc.emitLoad(incArgRid)
-        incAdd = inc.emitCompute(
-            AddOperator(incArgVal, IntLiteral.create(0x12))
-            )
+        incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x12)))
         inc.emitStore(incArgRid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
         outerR = outer.addRegister('r', 16)
         regR = outer.context['r']
-        initR = outer.emitCompute(IntLiteral.create(0xcdef))
+        initR = outer.emitCompute(IntLiteral(0xcdef))
         outer.emitStore(outerR, initR)
         sliceR = regR.slice(4, 8)
         outer.inlineBlock(incCode, {'R': sliceR})

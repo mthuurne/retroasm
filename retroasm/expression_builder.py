@@ -206,7 +206,7 @@ def _convertExpressionOperator(node, builder):
 
 def buildExpression(node, builder):
     if isinstance(node, NumberNode):
-        return IntLiteral.create(node.value)
+        return IntLiteral(node.value)
     elif isinstance(node, IdentifierNode):
         ident = _convertIdentifier(node, builder)
         if isinstance(ident, IOChannel):
@@ -329,7 +329,7 @@ def _convertStorageOperator(node, builder):
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
-        literal = IntLiteral.create(node.value)
+        literal = IntLiteral(node.value)
         return _convertFixedValue(literal, node.width, builder)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)

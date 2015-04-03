@@ -304,7 +304,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
-            return IntLiteral.create(0)
+            return IntLiteral(0)
         else:
             return self.inlineBlock(code, argMap)
 
