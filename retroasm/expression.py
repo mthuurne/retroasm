@@ -175,6 +175,14 @@ class IntLiteral(Expression):
 
     value = property(lambda self: self._value)
 
+    def _getWidth(self):
+        '''Returns the width of this integer literal's value in bits;
+        unlimited for negative numbers.
+        '''
+        value = self._value
+        return unlimited if value < 0 else value.bit_length()
+    width = property(_getWidth)
+
     @classmethod
     def create(cls, value):
         '''Returns an unlimited-width integer literal with the given value.
@@ -184,17 +192,7 @@ class IntLiteral(Expression):
     def __init__(self, value, intType):
         self._value = checkType(value, int, 'value')
         Expression.__init__(self, intType)
-        if intType.width is not unlimited:
-            if value < 0:
-                raise ValueError(
-                    'unsigned integer literal value must not be negative: '
-                    '%d' % value
-                    )
-            if value >= 1 << intType.width:
-                raise ValueError(
-                    'integer literal value %d does not fit in type %s'
-                    % (value, intType)
-                    )
+        assert intType.width is unlimited, self
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__

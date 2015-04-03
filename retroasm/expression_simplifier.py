@@ -10,7 +10,7 @@ def complexity(expr):
     This is used to compare simplification candidates.
     '''
     if isinstance(expr, IntLiteral):
-        return 2 if expr.width is unlimited else 1
+        return 1
     elif isinstance(expr, SimplifiableComposedExpression):
         return expr.nodeComplexity + sum(
             complexity(subExpr) for subExpr in expr.exprs
@@ -19,14 +19,6 @@ def complexity(expr):
         return 1 + complexity(expr.expr)
     else:
         return 2
-
-def _simplifyLiteral(literal):
-    value = literal.value
-    if value >= 0:
-        valueWidth = value.bit_length()
-        if valueWidth < literal.width:
-            return IntLiteral(value, IntType(valueWidth))
-    return literal
 
 def _simplifyAlgebraic(cls, exprs):
     '''Simplify the given list of expressions using algebraic properties of the
@@ -78,7 +70,7 @@ def _simplifyAlgebraic(cls, exprs):
             if expr is None:
                 i += 1
             else:
-                exprs[i-1:i+1] = [_simplifyLiteral(expr)]
+                exprs[i-1:i+1] = [expr]
                 changed = True
 
     absorber = cls.absorber
@@ -321,7 +313,7 @@ _customSimplifiers = {
 def _simplifyComplement(complement):
     expr = simplifyExpression(complement.expr)
     if isinstance(expr, IntLiteral):
-        return simplifyExpression(IntLiteral.create(-expr.value))
+        return IntLiteral.create(-expr.value)
     elif isinstance(expr, Complement):
         return expr.expr
     elif isinstance(expr, AddOperator):
@@ -343,10 +335,8 @@ def _simplifyLShift(lshift):
         # No actual shift occurs.
         return expr
 
-    width = expr.width + offset
-
     if isinstance(expr, IntLiteral):
-        return IntLiteral(expr.value << offset, IntType(width))
+        return IntLiteral.create(expr.value << offset)
     elif isinstance(expr, LShift):
         # Combine both shifts into one.
         return simplifyExpression(LShift(expr.expr, offset + expr.offset))
@@ -393,7 +383,7 @@ def _simplifyRShift(rshift):
         return IntLiteral.create(0)
 
     if isinstance(expr, IntLiteral):
-        return IntLiteral(expr.value >> offset, IntType(width))
+        return IntLiteral.create(expr.value >> offset)
     elif isinstance(expr, LShift):
         loffset = expr.offset
         if loffset < offset:
@@ -433,7 +423,7 @@ def _simplifyTruncation(truncation):
     assert width is not unlimited, truncation
     if width == 0:
         # Every zero-width expression is equivalent to an empty bitstring.
-        return IntLiteral(0, IntType(0))
+        return IntLiteral.create(0)
 
     # Note that simplification can reduce the width of the subexpression,
     # so do subexpression simplification before checking the width.
@@ -446,14 +436,13 @@ def _simplifyTruncation(truncation):
         return expr
 
     if isinstance(expr, IntLiteral):
-        return simplifyExpression(
+        return expr if expr.width <= width else \
             IntLiteral.create(expr.value & maskForWidth(width))
-            )
     elif isinstance(expr, LShift):
         offset = expr.offset
         if offset >= width:
             # Result contains nothing but trailing zeroes.
-            return IntLiteral(0, IntType(0))
+            return IntLiteral.create(0)
         else:
             # Truncate before left-shifting.
             trunc = Truncation(expr.expr, width - offset)
@@ -491,14 +480,12 @@ def _simplifyTruncation(truncation):
                 Truncation(AddOperator(*terms), width)
                 )
         # Distribute truncation over terms.
-        # Consider reductions in width a simplification as well, since
-        # for example truncating unused bits from literals does make them
-        # simpler.
         terms = []
         changed = False
         for term in expr.exprs:
             alt = simplifyExpression(Truncation(term, width))
-            if (complexity(alt), alt.width) < (complexity(term), term.width):
+            if complexity(alt) < complexity(term) or (
+                    isinstance(term, IntLiteral) and alt.width < term.width):
                 term = alt
                 changed = True
             terms.append(term)
@@ -516,7 +503,6 @@ def _simplifyTruncation(truncation):
         return Truncation(expr, width)
 
 _simplifiers = {
-    IntLiteral: _simplifyLiteral,
     AndOperator: _simplifyComposed,
     OrOperator: _simplifyComposed,
     XorOperator: _simplifyComposed,

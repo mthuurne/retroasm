@@ -461,7 +461,8 @@ class LShiftTests(TestUtils):
         addr = TestValue('A', IntType(16))
         # Shift more to the right than to the left.
         rwin = simplifyExpression(LShift(RShift(addr, 5), 3))
-        self.assertAnd(rwin, RShift(addr, 2), IntLiteral.create(0x3FF8))
+        self.assertSlice(rwin,
+            AndOperator(addr, IntLiteral.create(0xFFE0)), 16, 2, 14)
         # Shift equal amounts to the right and to the left.
         draw = simplifyExpression(LShift(RShift(addr, 4), 4))
         self.assertAnd(draw, addr, IntLiteral.create(0xFFF0))
