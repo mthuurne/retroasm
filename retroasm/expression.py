@@ -195,15 +195,11 @@ class IntLiteral(Expression):
         return signature(cls).bind(**kwargs)
 
     def __str__(self):
-        width = self.width
-        if width is unlimited:
+        value = self._value
+        if value < 10: # small, zero or negative -> print as decimal
             return str(self._value)
-        elif width == 0:
-            return '0[0:0]'
-        elif width % 4 == 0:
-            return ('${:0%dX}' % (width // 4)).format(self._value)
-        else:
-            return ('%%{:0%db}' % width).format(self._value)
+        else: # print as hexadecimal
+            return ('${:0%dX}' % (self.width // 4)).format(value)
 
     def _equals(self, other):
         return self._value == other._value
