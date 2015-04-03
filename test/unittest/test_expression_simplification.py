@@ -74,7 +74,7 @@ class TestUtils(unittest.TestCase):
     def assertSlice(self, expr, subExpr, subWidth, index, width):
         needsShift = index != 0
         shift = RShift(subExpr, index) if needsShift else subExpr
-        needsTrunc = subWidth != index + width
+        needsTrunc = subWidth > index + width
         trunc = Truncation(shift, width) if needsTrunc else shift
         self.assertEqual(str(expr), str(trunc))
         self.assertEqual(expr, trunc)
