@@ -35,18 +35,6 @@ class EqualsTests(unittest.TestCase):
         self.assertExprNotEqual(arg1a, arg2)
         self.assertExprEqual(arg2, arg2)
 
-    def test_fixed_width(self):
-        '''Checks fixed-width integer literals for equality.'''
-        arg1 = IntLiteral(6, IntType(4))
-        arg2 = IntLiteral(6, IntType(8))
-        arg3 = IntLiteral(6, IntType(unlimited))
-        self.assertExprEqual(arg1, arg1)
-        self.assertExprEqual(arg2, arg2)
-        self.assertExprEqual(arg3, arg3)
-        self.assertExprEqual(arg1, arg2)
-        self.assertExprEqual(arg2, arg3)
-        self.assertExprEqual(arg1, arg3)
-
     def test_type_mismatch(self):
         '''Checks equality checks between mismatching types.'''
         zero = IntLiteral.create(0)
@@ -55,31 +43,11 @@ class EqualsTests(unittest.TestCase):
         self.assertExprNotEqual(addr, 'A')
         self.assertExprNotEqual(zero, addr)
 
-    def test_concat_width(self):
-        '''Checks equality between equal concatenations of different width.'''
-        four_int = IntLiteral.create(4)
-        four_u4 = IntLiteral(4, IntType(4))
-        four_u8 = IntLiteral(4, IntType(8))
-        addr = IntLiteral(0xACDC, IntType(16))
-        cat_int_addr = makeConcat(four_int, addr, 16)
-        cat_u4_addr = makeConcat(four_u4, addr, 16)
-        cat_u8_addr = makeConcat(four_u8, addr, 16)
-        # Test expression being equal to itself.
-        self.assertExprEqual(cat_int_addr, cat_int_addr)
-        self.assertExprEqual(cat_u4_addr, cat_u4_addr)
-        self.assertExprEqual(cat_u8_addr, cat_u8_addr)
-        # Test that first term width is ignored.
-        self.assertExprEqual(cat_int_addr, cat_u4_addr)
-        self.assertExprEqual(cat_int_addr, cat_u8_addr)
-        self.assertExprEqual(cat_u4_addr, cat_u8_addr)
-
     def test_concat_internal(self):
         '''Checks equality between different concatenations of equal width.'''
-        four_int = IntLiteral.create(4)
-        four_u4 = IntLiteral(4, IntType(4))
-        four_u8 = IntLiteral(4, IntType(8))
-        cat_u4_u8 = makeConcat(four_u4, four_u8, 8)
-        cat_u8_u4 = makeConcat(four_u8, four_u4, 4)
+        four = IntLiteral.create(4)
+        cat_u4_u8 = makeConcat(four, four, 8)
+        cat_u8_u4 = makeConcat(four, four, 4)
         # Test expression being equal to itself.
         self.assertExprEqual(cat_u4_u8, cat_u4_u8)
         self.assertExprEqual(cat_u8_u4, cat_u8_u4)
@@ -96,7 +64,7 @@ class EqualsTests(unittest.TestCase):
 
     def test_truncate_width(self):
         '''Checks equality between truncations with differing widths.'''
-        addr = IntLiteral(0x456, IntType(12))
+        addr = IntLiteral.create(0x456)
         trunc1 = Truncation(addr, 8)  # $56
         trunc2 = Truncation(addr, 12) # $456
         trunc3 = Truncation(addr, 16) # $0456
