@@ -84,12 +84,12 @@ class CodeBlockBuilder:
         indexConst = self.emitCompute(Truncation(index, channel.addrWidth))
         return self._emitReference(IOReference(channel, indexConst))
 
-    def emitFixedValue(self, expr):
+    def emitFixedValue(self, expr, width):
         '''Emits a constant representing the result of the given expression.
         Returns the reference ID of the corresponding FixedValue.
         '''
         const = self.emitCompute(expr)
-        return self._emitReference(FixedValue(const.cid, const.width))
+        return self._emitReference(FixedValue(const.cid, width))
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.

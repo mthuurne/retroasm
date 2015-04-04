@@ -232,7 +232,7 @@ def buildExpression(node, builder):
         assert False, node
 
 def _convertFixedValue(expr, width, builder):
-    rid = builder.emitFixedValue(expr)
+    rid = builder.emitFixedValue(expr, width)
     return ComposedStorage.single(rid, width)
 
 def _convertStorageLookup(node, builder):
