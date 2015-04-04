@@ -341,10 +341,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
-                value = context[const.name]
-                declWidth = const.type.width
-                if value.width > declWidth:
-                    value = Truncation(value, declWidth)
+                value = Truncation(context[const.name], const.type.width)
                 constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
