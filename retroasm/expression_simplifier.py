@@ -164,7 +164,7 @@ def _customSimplifyAnd(node, exprs):
         changed = width < node.width
         for i, expr in enumerate(exprs):
             trunc = simplifyExpression(Truncation(expr, width))
-            if complexity(trunc) < complexity(expr):
+            if complexity(trunc) <= complexity(expr) and trunc is not expr:
                 exprs[i] = trunc
                 changed = True
         if changed:
@@ -182,34 +182,33 @@ def _customSimplifyAnd(node, exprs):
             value = last.value
             mask = maskForWidth(width)
             if value & mask == mask:
-                # This bit mask application is essentially truncating;
-                # convert it to an actual Truncation expression.
-                expr = Truncation(AndOperator(*exprs[:-1]), width)
-                exprs[:] = [simplifyExpression(expr)]
-                return
-
-            assert value != 0, node
-            trailingZeroes = 0
-            while (value >> trailingZeroes) & 1 == 0:
-                trailingZeroes += 1
-            if trailingZeroes != 0:
-                # Check whether there are any expressions that are fully
-                # consumed by the trailing zeroes.
-                for expr in exprs:
-                    width = expr.width
-                    if width <= trailingZeroes:
-                        exprs[:] = [node.absorber]
-                        return
-                if node._tryMaskToShift:
-                    clone = AndOperator(*exprs)
-                    clone._tryMaskToShift = False
-                    alt = simplifyExpression(LShift(
-                        RShift(clone, trailingZeroes),
-                        trailingZeroes
-                        ))
-                    if complexity(alt) < myComplexity:
-                        exprs[:] = [alt]
-                        return
+                # This bit mask application is essentially truncating.
+                if all(expr.width <= width for expr in exprs):
+                    # Remove redundant mask.
+                    del exprs[-1]
+            else:
+                assert value != 0, node
+                trailingZeroes = 0
+                while (value >> trailingZeroes) & 1 == 0:
+                    trailingZeroes += 1
+                if trailingZeroes != 0:
+                    # Check whether there are any expressions that are fully
+                    # consumed by the trailing zeroes.
+                    for expr in exprs:
+                        width = expr.width
+                        if width <= trailingZeroes:
+                            exprs[:] = [node.absorber]
+                            return
+                    if node._tryMaskToShift:
+                        clone = AndOperator(*exprs)
+                        clone._tryMaskToShift = False
+                        alt = simplifyExpression(LShift(
+                            RShift(clone, trailingZeroes),
+                            trailingZeroes
+                            ))
+                        if complexity(alt) < myComplexity:
+                            exprs[:] = [alt]
+                            return
 
     for i, expr in enumerate(exprs):
         if isinstance(expr, OrOperator) and node._tryDistributeAndOverOr:
