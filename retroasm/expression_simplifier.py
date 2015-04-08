@@ -156,73 +156,93 @@ def _customSimplifyAnd(node, exprs):
     if len(exprs) < 2:
         return
 
+    def simplifyRestricted(alt):
+        assert isinstance(alt, AndOperator), alt
+        if not node._tryDistributeAndOverOr:
+            alt._tryDistributeAndOverOr = False
+        if not node._tryMaskToShift:
+            alt._tryMaskToShift = False
+        return simplifyExpression(alt)
+
+    # Find the smallest bit mask that produces an identical result.
+    orgMaskLiteral = exprs[-1]
+    if isinstance(orgMaskLiteral, IntLiteral):
+        mask = orgMaskLiteral.value
+        del exprs[-1]
+    else:
+        mask = -1
+        orgMaskLiteral = None
+    for expr in exprs:
+        mask &= maskForWidth(expr.width)
+
+    # Try to simplify individual subexpressions by applying bit mask.
+    changed = False
+    maskLiteral = IntLiteral(mask)
+    truncWidth = maskLiteral.width
+    for i, expr in enumerate(exprs):
+        if len(exprs) >= 2:
+            masked = simplifyRestricted(AndOperator(expr, maskLiteral))
+            if masked is not expr and complexity(masked) <= complexity(expr):
+                exprs[i] = expr = masked
+                changed = True
+        if expr.width > truncWidth:
+            trunc = _simplifyTruncation(Truncation(expr, truncWidth))
+            if trunc is not expr and complexity(trunc) <= complexity(expr):
+                exprs[i] = expr = trunc
+                changed = True
+    if changed:
+        # Force earlier simplification steps to run again.
+        alt = simplifyRestricted(AndOperator(*(exprs + [maskLiteral])))
+        exprs[:] = [simplifyExpression(alt)]
+        return
+
+    # Append mask if it is not redundant.
+    if mask != -1:
+        widthMasks = (maskForWidth(expr.width) for expr in exprs)
+        if any((widthMask & mask) != widthMask for widthMask in widthMasks):
+            if orgMaskLiteral is not None and mask == orgMaskLiteral.value:
+                exprs.append(orgMaskLiteral)
+            else:
+                exprs.append(IntLiteral(mask))
+
     myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
 
-    width = min(expr.width for expr in exprs)
-    if width is not unlimited:
-        # Try truncating each subexpression to the minimum width.
-        changed = False
-        for i, expr in enumerate(exprs):
-            trunc = simplifyExpression(Truncation(expr, width))
-            if complexity(trunc) <= complexity(expr) and trunc is not expr:
-                exprs[i] = trunc
-                changed = True
-        if changed:
-            # Force earlier simplification steps to run again.
-            alt = AndOperator(*exprs)
-            if not node._tryDistributeAndOverOr:
-                alt._tryDistributeAndOverOr = False
-            if not node._tryMaskToShift:
-                alt._tryMaskToShift = False
-            exprs[:] = [simplifyExpression(alt)]
-            return
-
-        last = exprs[-1]
-        if isinstance(last, IntLiteral):
-            value = last.value
-            mask = maskForWidth(width)
-            if value & mask == mask:
-                # This bit mask application is essentially truncating.
-                if all(expr.width <= width for expr in exprs):
-                    # Remove redundant mask.
-                    del exprs[-1]
-            else:
-                assert value != 0, node
-                trailingZeroes = 0
-                while (value >> trailingZeroes) & 1 == 0:
-                    trailingZeroes += 1
-                if trailingZeroes != 0:
-                    # Check whether there are any expressions that are fully
-                    # consumed by the trailing zeroes.
-                    for expr in exprs:
-                        width = expr.width
-                        if width <= trailingZeroes:
-                            exprs[:] = [node.absorber]
-                            return
-                    if node._tryMaskToShift:
-                        clone = AndOperator(*exprs)
-                        clone._tryMaskToShift = False
-                        alt = simplifyExpression(LShift(
-                            RShift(clone, trailingZeroes),
-                            trailingZeroes
-                            ))
-                        if complexity(alt) < myComplexity:
-                            exprs[:] = [alt]
-                            return
-
-    for i, expr in enumerate(exprs):
-        if isinstance(expr, OrOperator) and node._tryDistributeAndOverOr:
-            # Distribute AND over OR.
-            andExprs = exprs[:i] + exprs[i+1:]
-            alt = OrOperator(*(
-                AndOperator(term, *andExprs)
-                for term in expr.exprs
+    assert mask != 0, node
+    trailingZeroes = 0
+    while (mask >> trailingZeroes) & 1 == 0:
+        trailingZeroes += 1
+    if trailingZeroes != 0:
+        # Check whether there are any expressions that are fully consumed by
+        # the trailing zeroes.
+        for expr in exprs:
+            if expr.width <= trailingZeroes:
+                exprs[:] = [node.absorber]
+                return
+        if node._tryMaskToShift:
+            clone = AndOperator(*exprs)
+            clone._tryMaskToShift = False
+            alt = simplifyExpression(LShift(
+                RShift(clone, trailingZeroes),
+                trailingZeroes
                 ))
-            alt._tryDistributeOrOverAnd = False
-            alt = simplifyExpression(alt)
             if complexity(alt) < myComplexity:
                 exprs[:] = [alt]
                 return
+
+    if node._tryDistributeAndOverOr:
+        for i, expr in enumerate(exprs):
+            if isinstance(expr, OrOperator):
+                # Distribute AND over OR.
+                andExprs = exprs[:i] + exprs[i+1:]
+                alt = OrOperator(*(
+                    AndOperator(term, *andExprs)
+                    for term in expr.exprs
+                    ))
+                alt._tryDistributeOrOverAnd = False
+                alt = simplifyExpression(alt)
+                if complexity(alt) < myComplexity:
+                    exprs[:] = [alt]
+                    return
 
 def _customSimplifyOr(node, exprs):
     # pylint: disable=protected-access
