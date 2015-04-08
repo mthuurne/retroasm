@@ -211,23 +211,16 @@ def _customSimplifyAnd(node, exprs):
     trailingZeroes = 0
     while (mask >> trailingZeroes) & 1 == 0:
         trailingZeroes += 1
-    if trailingZeroes != 0:
-        # Check whether there are any expressions that are fully consumed by
-        # the trailing zeroes.
-        for expr in exprs:
-            if expr.width <= trailingZeroes:
-                exprs[:] = [node.absorber]
-                return
-        if node._tryMaskToShift:
-            clone = AndOperator(*exprs)
-            clone._tryMaskToShift = False
-            alt = simplifyExpression(LShift(
-                RShift(clone, trailingZeroes),
-                trailingZeroes
-                ))
-            if complexity(alt) < myComplexity:
-                exprs[:] = [alt]
-                return
+    if trailingZeroes != 0 and node._tryMaskToShift:
+        clone = AndOperator(*exprs)
+        clone._tryMaskToShift = False
+        alt = simplifyExpression(LShift(
+            RShift(clone, trailingZeroes),
+            trailingZeroes
+            ))
+        if complexity(alt) < myComplexity:
+            exprs[:] = [alt]
+            return
 
     if node._tryDistributeAndOverOr:
         for i, expr in enumerate(exprs):
