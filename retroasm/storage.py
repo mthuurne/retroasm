@@ -239,7 +239,7 @@ class ComposedStorage:
             sliced = Truncation(RShift(value, index), width)
             terms.append(LShift(sliced, offset))
             offset += width
-        return OrOperator(*terms, intType=IntType(offset))
+        return OrOperator(*terms)
 
     def emitStore(self, builder, value, location):
         '''Stores the given value in this composed storage by emitting Store
@@ -260,8 +260,7 @@ class ComposedStorage:
                 maskLit = IntLiteral(storageMask & ~valueMask)
                 combined = OrOperator(
                     AndOperator(oldVal, maskLit),
-                    LShift(valueSlice, index),
-                    intType=IntType(storageWidth)
+                    LShift(valueSlice, index)
                     )
             builder.emitStore(rid, combined, location)
             offset += width

@@ -2,7 +2,7 @@ from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
     RShift, SimplifiableComposedExpression, Truncation, XorOperator
     )
-from .types import IntType, maskForWidth, unlimited
+from .types import maskForWidth, unlimited
 
 def complexity(expr):
     '''Returns a postive number that reflects the complexity of the given
@@ -161,7 +161,7 @@ def _customSimplifyAnd(node, exprs):
     width = min(expr.width for expr in exprs)
     if width is not unlimited:
         # Try truncating each subexpression to the minimum width.
-        changed = width < node.width
+        changed = False
         for i, expr in enumerate(exprs):
             trunc = simplifyExpression(Truncation(expr, width))
             if complexity(trunc) <= complexity(expr) and trunc is not expr:
@@ -169,7 +169,7 @@ def _customSimplifyAnd(node, exprs):
                 changed = True
         if changed:
             # Force earlier simplification steps to run again.
-            alt = AndOperator(*exprs, intType=IntType(width))
+            alt = AndOperator(*exprs)
             if not node._tryDistributeAndOverOr:
                 alt._tryDistributeAndOverOr = False
             if not node._tryMaskToShift:
@@ -229,18 +229,6 @@ def _customSimplifyOr(node, exprs):
     if not exprs:
         return
 
-    # Reduce expression width if possible.
-    curWidth = node.width
-    width = max(expr.width for expr in exprs)
-    if width < curWidth:
-        alt = OrOperator(*exprs, intType=IntType(width))
-        if not node._tryDistributeOrOverAnd:
-            alt._tryDistributeOrOverAnd = False
-        exprs[:] = [simplifyExpression(alt)]
-        return
-    else:
-        assert width == curWidth, node
-
     myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
     for i, expr in enumerate(exprs):
         if isinstance(expr, AndOperator) and node._tryDistributeOrOverAnd:
@@ -256,7 +244,7 @@ def _customSimplifyOr(node, exprs):
                 exprs[:] = [alt]
                 return
 
-def _customSimplifyXor(node, exprs):
+def _customSimplifyXor(node, exprs): # pylint: disable=unused-argument
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -271,16 +259,6 @@ def _customSimplifyXor(node, exprs):
 
     if not exprs:
         return
-
-    # Reduce expression width if possible.
-    curWidth = node.width
-    width = max(expr.width for expr in exprs)
-    if width < curWidth:
-        alt = XorOperator(*exprs, intType=IntType(width))
-        exprs[:] = [simplifyExpression(alt)]
-        return
-    else:
-        assert width == curWidth, node
 
     # TODO: Distribution over AND and OR.
 

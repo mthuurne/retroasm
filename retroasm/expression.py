@@ -212,19 +212,24 @@ class ComposedExpression(Expression):
 
     exprs = property(lambda self: self._exprs)
 
-    def __init__(self, *exprs, intType=IntType(unlimited)):
+    def __init__(self, *exprs):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
             Expression.checkScalar(expr)
-        Expression.__init__(self, intType)
+        Expression.__init__(self, IntType(self.computeWidth(exprs)))
         self._exprs = exprs
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = self._exprs
-        kwargs.setdefault('intType', self._type)
         return signature(self.__class__).bind(*exprs, **kwargs)
+
+    @classmethod
+    def computeWidth(cls, exprs):
+        '''Returns the width of the composition of the given expressions.
+        '''
+        raise NotImplementedError
 
     def __str__(self):
         sep = ' %s ' % self.operator
@@ -251,6 +256,10 @@ class SimplifiableComposedExpression(ComposedExpression):
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
 
+    @classmethod
+    def computeWidth(cls, exprs):
+        raise NotImplementedError
+
     # pylint: disable=unused-argument
 
     @classmethod
@@ -271,13 +280,17 @@ class AndOperator(SimplifiableComposedExpression):
     identity = IntLiteral(-1)
     absorber = IntLiteral(0)
 
-    def __init__(self, *exprs, intType=IntType(unlimited)):
-        SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
+    def __init__(self, *exprs):
+        SimplifiableComposedExpression.__init__(self, *exprs)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeAndOverOr = True
         # Set this to False to block the simplification attempt.
         self._tryMaskToShift = True
+
+    @classmethod
+    def computeWidth(cls, exprs):
+        return min(expr.width for expr in exprs)
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -292,11 +305,15 @@ class OrOperator(SimplifiableComposedExpression):
     identity = IntLiteral(0)
     absorber = IntLiteral(-1)
 
-    def __init__(self, *exprs, intType=IntType(unlimited)):
-        SimplifiableComposedExpression.__init__(self, *exprs, intType=intType)
+    def __init__(self, *exprs):
+        SimplifiableComposedExpression.__init__(self, *exprs)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeOrOverAnd = True
+
+    @classmethod
+    def computeWidth(cls, exprs):
+        return max(expr.width for expr in exprs)
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -312,6 +329,10 @@ class XorOperator(SimplifiableComposedExpression):
     absorber = None
 
     @classmethod
+    def computeWidth(cls, exprs):
+        return max(expr.width for expr in exprs)
+
+    @classmethod
     def combineLiterals(cls, literal1, literal2):
         return IntLiteral(literal1.value ^ literal2.value)
 
@@ -323,6 +344,16 @@ class AddOperator(SimplifiableComposedExpression):
     idempotent = False
     identity = IntLiteral(0)
     absorber = None
+
+    @classmethod
+    def computeWidth(cls, exprs):
+        maxValue = 0
+        for expr in exprs:
+            width = expr.width
+            if width is unlimited:
+                return unlimited
+            maxValue += (1 << width) - 1
+        return maxValue.bit_length()
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
