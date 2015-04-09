@@ -164,16 +164,14 @@ def _customSimplifyAnd(node, exprs):
             alt._tryMaskToShift = False
         return simplifyExpression(alt)
 
-    # Find the smallest bit mask that produces an identical result.
+    mask = node.computeMask(exprs)
+
+    # Remove mask literal from subexpressions; we'll re-add it later if needed.
     orgMaskLiteral = exprs[-1]
     if isinstance(orgMaskLiteral, IntLiteral):
-        mask = orgMaskLiteral.value
         del exprs[-1]
     else:
-        mask = -1
         orgMaskLiteral = None
-    for expr in exprs:
-        mask &= expr.mask
 
     # Try to simplify individual subexpressions by applying bit mask.
     changed = False
@@ -197,13 +195,12 @@ def _customSimplifyAnd(node, exprs):
         return
 
     # Append mask if it is not redundant.
-    if mask != -1:
-        widthMasks = (maskForWidth(expr.width) for expr in exprs)
-        if any((widthMask & mask) != widthMask for widthMask in widthMasks):
-            if orgMaskLiteral is not None and mask == orgMaskLiteral.value:
-                exprs.append(orgMaskLiteral)
-            else:
-                exprs.append(IntLiteral(mask))
+    if mask != -1 and mask != node.computeMask(exprs):
+        if orgMaskLiteral is not None and mask == orgMaskLiteral.value:
+            # Non-simplified expressions should remain the same objects.
+            exprs.append(orgMaskLiteral)
+        else:
+            exprs.append(IntLiteral(mask))
 
     myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
 
