@@ -375,13 +375,23 @@ class AddOperator(SimplifiableComposedExpression):
         return '(%s)' % ' '.join(fragments)
 
 class Complement(Expression):
-    __slots__ = ('_expr',)
+    __slots__ = ('_expr', '_mask')
 
     expr = property(lambda self: self._expr)
+    mask = property(lambda self: self._mask)
 
     def __init__(self, expr):
         self._expr = Expression.checkScalar(expr)
-        Expression.__init__(self, IntType(unlimited))
+        exprMask = expr.mask
+        if exprMask == 0:
+            mask = 0
+        else:
+            trailingZeroes = 0
+            while (exprMask >> trailingZeroes) & 1 == 0:
+                trailingZeroes += 1
+            mask = -1 << trailingZeroes
+        self._mask = mask
+        Expression.__init__(self, IntType(widthForMask(mask)))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:

@@ -82,6 +82,9 @@ class MaskTests(unittest.TestCase):
         v8 = TestValue('A', IntType(8))
         self.assertEqual(Complement(v8).mask, -1)
         self.assertEqual(Complement(IntLiteral(-123)).mask, -1)
+        self.assertEqual(Complement(IntLiteral(0)).mask, 0)
+        self.assertEqual(Complement(IntLiteral(68)).mask, -4)
+        self.assertEqual(Complement(IntLiteral(-68)).mask, -4)
 
     def test_lshift(self):
         '''Checks mask for left shift.'''
