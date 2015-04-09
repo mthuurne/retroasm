@@ -76,6 +76,26 @@ def maskForWidth(width):
 def widthForMask(mask):
     return unlimited if mask < 0 else mask.bit_length()
 
+def maskToSegments(mask):
+    '''Iterates through pairs of start and end indices of maximally long
+    segments of consecutive set bits in the given mask.
+    '''
+    i = 0
+    while True:
+        if mask == 0:
+            break
+        while (mask & 1) == 0:
+            i += 1
+            mask >>= 1
+        if mask == -1:
+            yield i, unlimited
+            break
+        start = i
+        while (mask & 1) == 1:
+            i += 1
+            mask >>= 1
+        yield start, i
+
 class IntType(metaclass=Unique):
     '''An integer value type of "width" bits.
     Width can be an integer or the singleton 'unlimited', which indicates an

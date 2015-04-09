@@ -1,8 +1,11 @@
-from .types import IntType, maskForWidth, unlimited, widthForMask
+from .types import (
+    IntType, maskForWidth, maskToSegments, unlimited, widthForMask
+    )
 from .utils import Singleton, checkType
 
 from functools import reduce
 from inspect import signature
+from itertools import chain
 
 # pylint: disable=protected-access
 
@@ -352,13 +355,25 @@ class AddOperator(SimplifiableComposedExpression):
 
     @classmethod
     def computeMask(cls, exprs):
-        maxValue = 0
-        for expr in exprs:
-            width = expr.width
-            if width is unlimited:
-                return -1
-            maxValue += (1 << width) - 1
-        return (1 << maxValue.bit_length()) - 1
+        result = 0
+        cmbValue = 0
+        cmbMask = 0
+        for start, end in sorted(chain(*(
+                maskToSegments(expr.mask) for expr in exprs))):
+            # Compute bit mask for this segment.
+            segMask = maskForWidth(end - start) << start
+            # If masks don't overlap, restart adding.
+            if (segMask & cmbMask) == 0:
+                cmbStart = start
+                cmbValue = 0
+            # Maximum value is when the value is equal to the mask.
+            cmbValue += segMask if segMask >= 0 else unlimited
+            # Compute bit mask for maximum combined value.
+            cmbMask = -1 << cmbStart
+            if cmbValue is not unlimited:
+                cmbMask &= (1 << cmbValue.bit_length()) - 1
+            result |= cmbMask
+        return result
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):

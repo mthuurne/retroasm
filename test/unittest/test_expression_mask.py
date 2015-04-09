@@ -76,6 +76,18 @@ class MaskTests(unittest.TestCase):
         self.assertEqual(AddOperator(v8, v16).mask, 0x1FFFF)
         self.assertEqual(AddOperator(v8, v8, IntLiteral(1)).mask, 0x1FF)
         self.assertEqual(AddOperator(v8, vu).mask, -1)
+        self.assertEqual(
+            AddOperator(IntLiteral(0xFC00), IntLiteral(0x300)).mask,
+            0xFF00
+            )
+        self.assertEqual(
+            AddOperator(IntLiteral(0xFF00), IntLiteral(0x300)).mask,
+            0x1FF00
+            )
+        self.assertEqual(
+            AddOperator(IntLiteral(0xFF00FF), IntLiteral(0xFF00FF)).mask,
+            0x1FF01FF
+            )
 
     def test_complement(self):
         '''Checks mask for complement.'''
