@@ -1,6 +1,7 @@
-from .types import IntType, unlimited
+from .types import IntType, maskForWidth, unlimited, widthForMask
 from .utils import Singleton, checkType
 
+from functools import reduce
 from inspect import signature
 
 # pylint: disable=protected-access
@@ -27,6 +28,11 @@ class Expression:
     __slots__ = ('_type',)
 
     type = property(lambda self: self._type)
+    mask = property(lambda self: maskForWidth(self.width))
+    '''A bit mask for the potential values of this expression: the mask is 1
+    for bits that might be 1 in the values and is 0 for bits that are certainly
+    0 in all possible values.
+    '''
 
     @staticmethod
     def checkInstance(expr):
@@ -174,14 +180,8 @@ class IntLiteral(Expression):
     __slots__ = ('_value',)
 
     value = property(lambda self: self._value)
-
-    def _getWidth(self):
-        '''Returns the width of this integer literal's value in bits;
-        unlimited for negative numbers.
-        '''
-        value = self._value
-        return unlimited if value < 0 else value.bit_length()
-    width = property(_getWidth)
+    mask = property(lambda self: self._value)
+    width = property(lambda self: widthForMask(self._value))
 
     def __init__(self, value):
         self._value = checkType(value, int, 'value')
@@ -207,18 +207,21 @@ class IntLiteral(Expression):
 class ComposedExpression(Expression):
     '''Base class for expressions that combine multiple subexpressions.
     '''
-    __slots__ = ('_exprs',)
+    __slots__ = ('_exprs', '_mask')
     operator = property()
 
     exprs = property(lambda self: self._exprs)
+    mask = property(lambda self: self._mask)
 
     def __init__(self, *exprs):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
             Expression.checkScalar(expr)
-        Expression.__init__(self, IntType(self.computeWidth(exprs)))
+        mask = self.computeMask(exprs)
+        Expression.__init__(self, IntType(widthForMask(mask)))
         self._exprs = exprs
+        self._mask = mask
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -226,8 +229,8 @@ class ComposedExpression(Expression):
         return signature(self.__class__).bind(*exprs, **kwargs)
 
     @classmethod
-    def computeWidth(cls, exprs):
-        '''Returns the width of the composition of the given expressions.
+    def computeMask(cls, exprs):
+        '''Returns the bit mask for the composition of the given expressions.
         '''
         raise NotImplementedError
 
@@ -257,7 +260,7 @@ class SimplifiableComposedExpression(ComposedExpression):
     '''Contribution of the expression node itself to expression complexity.'''
 
     @classmethod
-    def computeWidth(cls, exprs):
+    def computeMask(cls, exprs):
         raise NotImplementedError
 
     # pylint: disable=unused-argument
@@ -289,8 +292,8 @@ class AndOperator(SimplifiableComposedExpression):
         self._tryMaskToShift = True
 
     @classmethod
-    def computeWidth(cls, exprs):
-        return min(expr.width for expr in exprs)
+    def computeMask(cls, exprs):
+        return reduce(int.__and__, (expr.mask for expr in exprs), -1)
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -312,8 +315,8 @@ class OrOperator(SimplifiableComposedExpression):
         self._tryDistributeOrOverAnd = True
 
     @classmethod
-    def computeWidth(cls, exprs):
-        return max(expr.width for expr in exprs)
+    def computeMask(cls, exprs):
+        return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -329,8 +332,10 @@ class XorOperator(SimplifiableComposedExpression):
     absorber = None
 
     @classmethod
-    def computeWidth(cls, exprs):
-        return max(expr.width for expr in exprs)
+    def computeMask(cls, exprs):
+        # Note: OR not XOR, since we don't know whether a bit is set in an
+        #       even or an odd number of subexpressions.
+        return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -346,14 +351,14 @@ class AddOperator(SimplifiableComposedExpression):
     absorber = None
 
     @classmethod
-    def computeWidth(cls, exprs):
+    def computeMask(cls, exprs):
         maxValue = 0
         for expr in exprs:
             width = expr.width
             if width is unlimited:
-                return unlimited
+                return -1
             maxValue += (1 << width) - 1
-        return maxValue.bit_length()
+        return (1 << maxValue.bit_length()) - 1
 
     @classmethod
     def combineLiterals(cls, literal1, literal2):
@@ -396,6 +401,7 @@ class LShift(Expression):
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
+    mask = property(lambda self: self._expr.mask << self._offset)
 
     def __init__(self, expr, offset):
         self._expr = Expression.checkScalar(expr)
@@ -421,6 +427,7 @@ class RShift(Expression):
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
+    mask = property(lambda self: self._expr.mask >> self._offset)
 
     def __init__(self, expr, offset):
         self._expr = Expression.checkScalar(expr)

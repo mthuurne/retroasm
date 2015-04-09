@@ -173,7 +173,7 @@ def _customSimplifyAnd(node, exprs):
         mask = -1
         orgMaskLiteral = None
     for expr in exprs:
-        mask &= maskForWidth(expr.width)
+        mask &= expr.mask
 
     # Try to simplify individual subexpressions by applying bit mask.
     changed = False
