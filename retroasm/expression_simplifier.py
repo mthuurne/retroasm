@@ -160,8 +160,6 @@ def _customSimplifyAnd(node, exprs):
         assert isinstance(alt, AndOperator), alt
         if not node._tryDistributeAndOverOr:
             alt._tryDistributeAndOverOr = False
-        if not node._tryMaskToShift:
-            alt._tryMaskToShift = False
         return simplifyExpression(alt)
 
     mask = node.computeMask(exprs)
@@ -202,24 +200,9 @@ def _customSimplifyAnd(node, exprs):
         else:
             exprs.append(IntLiteral(mask))
 
-    myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
-
-    assert mask != 0, node
-    trailingZeroes = 0
-    while (mask >> trailingZeroes) & 1 == 0:
-        trailingZeroes += 1
-    if trailingZeroes != 0 and node._tryMaskToShift:
-        clone = AndOperator(*exprs)
-        clone._tryMaskToShift = False
-        alt = simplifyExpression(LShift(
-            RShift(clone, trailingZeroes),
-            trailingZeroes
-            ))
-        if complexity(alt) < myComplexity:
-            exprs[:] = [alt]
-            return
-
     if node._tryDistributeAndOverOr:
+        myComplexity = node.nodeComplexity \
+            + sum(complexity(expr) for expr in exprs)
         for i, expr in enumerate(exprs):
             if isinstance(expr, OrOperator):
                 # Distribute AND over OR.
@@ -331,7 +314,6 @@ def _simplifyLShift(lshift):
         roffset = expr.offset
         mask = maskForWidth(expr.width)
         masked = AndOperator(expr.expr, IntLiteral(mask << roffset))
-        masked._tryMaskToShift = False # pylint: disable=protected-access
         if roffset < offset:
             # Left shift wins.
             return simplifyExpression(LShift(masked, offset - roffset))
@@ -345,8 +327,6 @@ def _simplifyLShift(lshift):
         alt = type(expr)(
             *(LShift(term, offset) for term in expr.exprs)
             )
-        if not getattr(expr, '_tryMaskToShift', True):
-            alt._tryMaskToShift = False # pylint: disable=protected-access
         alt = simplifyExpression(alt)
         if complexity(alt) <= complexity(lshift):
             return alt
@@ -394,8 +374,6 @@ def _simplifyRShift(rshift):
         alt = type(expr)(
             *(RShift(term, offset) for term in expr.exprs)
             )
-        if not getattr(expr, '_tryMaskToShift', True):
-            alt._tryMaskToShift = False # pylint: disable=protected-access
         alt = simplifyExpression(alt)
         if complexity(alt) < complexity(rshift):
             return alt

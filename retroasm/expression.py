@@ -278,7 +278,7 @@ class SimplifiableComposedExpression(ComposedExpression):
         return None
 
 class AndOperator(SimplifiableComposedExpression):
-    __slots__ = ('_tryDistributeAndOverOr', '_tryMaskToShift')
+    __slots__ = ('_tryDistributeAndOverOr',)
     operator = '&'
     associative = True
     commutative = True
@@ -291,8 +291,6 @@ class AndOperator(SimplifiableComposedExpression):
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeAndOverOr = True
-        # Set this to False to block the simplification attempt.
-        self._tryMaskToShift = True
 
     @classmethod
     def computeMask(cls, exprs):
