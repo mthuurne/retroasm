@@ -181,11 +181,11 @@ def _customSimplifyAnd(node, exprs):
             if masked is not expr and complexity(masked) <= complexity(expr):
                 exprs[i] = expr = masked
                 changed = True
-        if expr.width > truncWidth:
-            trunc = _simplifyTruncation(Truncation(expr, truncWidth))
-            if trunc is not expr and complexity(trunc) <= complexity(expr):
-                exprs[i] = expr = trunc
-                changed = True
+        trunc = _simplifyTruncationToWidth(expr, truncWidth)
+        if trunc is not None and trunc is not expr \
+                and complexity(trunc) <= complexity(expr):
+            exprs[i] = expr = trunc
+            changed = True
     if changed:
         # Force earlier simplification steps to run again.
         alt = simplifyRestricted(AndOperator(*(exprs + [maskLiteral])))
@@ -384,18 +384,22 @@ def _simplifyRShift(rshift):
         return RShift(expr, offset)
 
 def _simplifyTruncation(truncation):
-    width = truncation.width
-    assert width is not unlimited, truncation
+    expr = simplifyExpression(truncation.expr)
+    truncated = _simplifyTruncationToWidth(expr, truncation.width)
+    if truncated is not None:
+        return truncated
+    elif expr is truncation.expr:
+        return truncation
+    else:
+        return Truncation(expr, truncation.width)
+
+def _simplifyTruncationToWidth(expr, width):
+    assert width is not unlimited, expr
+
     if width == 0:
-        # Every zero-width expression is equivalent to an empty bitstring.
+        # Every zero-width expression has the value zero.
         return IntLiteral(0)
 
-    # Note that simplification can reduce the width of the subexpression,
-    # so do subexpression simplification before checking the width.
-    expr = simplifyExpression(truncation.expr)
-
-    # If we're truncating beyond the subexpression's width, reduce the
-    # truncation width.
     if expr.width <= width:
         # The subexpression already fits: no truncation needed.
         return expr
@@ -462,10 +466,7 @@ def _simplifyTruncation(truncation):
         if complexity(alt) < complexity(expr):
             return Truncation(alt, width)
 
-    if expr is truncation.expr:
-        return truncation
-    else:
-        return Truncation(expr, width)
+    return None
 
 _simplifiers = {
     AndOperator: _simplifyComposed,
