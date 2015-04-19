@@ -658,10 +658,17 @@ class SliceTests(TestUtils):
         # Test slice entirely inside one subexpression.
         self.assertSlice(simplifySlice(abcd, 10, 4), c, 8, 2, 4)
         # Test slice across subexpression boundaries.
-        self.assertConcat(
+        self.assertSlice(
             simplifySlice(abcd, 10, 9),
-            ((Truncation(b, 3), 3), (RShift(c, 2), 6))
+            makeConcat(b, RShift(c, 2), 6), 14, 0, 9
             )
+        # Note: Earlier code produced b[:3] ; c[2:] instead of (b ; c[2:])[:9].
+        #       The complexity() function considers them equally complex,
+        #       although I prefer the former in readability.
+        #self.assertConcat(
+            #simplifySlice(abcd, 10, 9),
+            #((Truncation(b, 3), 3), (RShift(c, 2), 6))
+            #)
 
     def test_and(self):
         '''Tests simplification of slicing a logical AND.'''
@@ -689,9 +696,7 @@ class SliceTests(TestUtils):
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
-        add6 = Truncation(
-            AddOperator(Truncation(l, 6), IntLiteral(2)), 6
-            )
+        add6 = Truncation(AddOperator(l, IntLiteral(2)), 6)
         self.assertEqual(low6, add6)
         # Simplification fails because expression becomes more complex.
         low12 = Truncation(simplifyExpression(expr), 12)
@@ -717,7 +722,7 @@ class SliceTests(TestUtils):
         self.assertEqual(low8, cpl8)
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
-        cpl6 = Truncation(Complement(Truncation(l, 6)), 6)
+        cpl6 = Truncation(Complement(l), 6)
         self.assertEqual(str(low6), str(cpl6))
         self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
