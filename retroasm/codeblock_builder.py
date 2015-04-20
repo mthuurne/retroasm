@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import IntLiteral, Truncation, unit
+from .expression import IntLiteral, truncate, unit
 from .function import Function
 from .linereader import BadInput
 from .storage import (
@@ -81,7 +81,7 @@ class CodeBlockBuilder:
         return self._addNamedReference(LocalReference(name, refType), location)
 
     def emitIOReference(self, channel, index):
-        indexConst = self.emitCompute(Truncation(index, channel.addrWidth))
+        indexConst = self.emitCompute(truncate(index, channel.addrWidth))
         return self._emitReference(IOReference(channel, indexConst))
 
     def emitFixedValue(self, expr, width):
@@ -341,7 +341,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
-                value = Truncation(context[const.name], const.type.width)
+                value = truncate(context[const.name], const.type.width)
                 constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):

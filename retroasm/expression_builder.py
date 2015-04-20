@@ -1,8 +1,8 @@
 from .codeblock import Load, Store
 from .context import NameExistsError
 from .expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, OrOperator, Truncation,
-    XorOperator
+    AddOperator, AndOperator, Complement, IntLiteral, OrOperator, XorOperator,
+    truncate
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -71,7 +71,7 @@ def convertDefinition(node, builder):
                 )
         declWidth = typ.width
         storage = _convertFixedValue(
-            Truncation(expr, declWidth), declWidth, builder
+            truncate(expr, declWidth), declWidth, builder
             )
     elif kind is DeclarationKind.reference:
         try:

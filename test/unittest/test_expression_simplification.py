@@ -2,7 +2,7 @@ from utils_expression import TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, Truncation, XorOperator
+    RShift, XorOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -75,7 +75,7 @@ class TestUtils(unittest.TestCase):
         needsShift = index != 0
         shift = RShift(subExpr, index) if needsShift else subExpr
         needsTrunc = subWidth > index + width
-        trunc = Truncation(shift, width) if needsTrunc else shift
+        trunc = truncate(shift, width) if needsTrunc else shift
         self.assertEqual(str(expr), str(trunc))
         self.assertEqual(expr, trunc)
         self.assertIsInstance(expr, type(trunc))
@@ -92,7 +92,7 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(expr.expr, subExpr)
 
 def makeSlice(expr, index, width):
-    return Truncation(RShift(expr, index), width)
+    return truncate(RShift(expr, index), width)
 
 def makeConcat(exprH, exprL, widthL):
     return OrOperator(exprL, LShift(exprH, widthL))
@@ -410,9 +410,9 @@ class ArithmeticTests(TestUtils):
     def test_add_truncate(self):
         '''Test simplification of truncation of adding truncated expressions.'''
         a = TestValue('A', IntType(16))
-        expr = Truncation(
+        expr = truncate(
             AddOperator(
-                Truncation(AddOperator(a, IntLiteral(1)), 16),
+                truncate(AddOperator(a, IntLiteral(1)), 16),
                 IntLiteral(-1)
                 ),
             16
@@ -422,8 +422,8 @@ class ArithmeticTests(TestUtils):
     def test_add_truncate_literal(self):
         '''Test simplification of truncation of added literal.'''
         a = TestValue('A', IntType(16))
-        expr = Truncation(AddOperator(a, IntLiteral(0x10001)), 16)
-        expected = Truncation(AddOperator(a, IntLiteral(1)), 16)
+        expr = truncate(AddOperator(a, IntLiteral(0x10001)), 16)
+        expected = truncate(AddOperator(a, IntLiteral(1)), 16)
         self.assertEqual(simplifyExpression(expr), expected)
 
 class LShiftTests(TestUtils):
@@ -466,10 +466,10 @@ class LShiftTests(TestUtils):
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
         # Shift H and L out of the truncation range.
-        expr1 = simplifyExpression(Truncation(LShift(hl, 8), 8))
+        expr1 = simplifyExpression(truncate(LShift(hl, 8), 8))
         self.assertIntLiteral(expr1, 0)
         # Shift only H out of the truncation range.
-        expr2 = simplifyExpression(Truncation(LShift(hl, 8), 16))
+        expr2 = simplifyExpression(truncate(LShift(hl, 8), 16))
         self.assertIsInstance(expr2, LShift)
         self.assertIs(expr2.expr, l)
         self.assertEqual(expr2.offset, 8)
@@ -667,7 +667,7 @@ class SliceTests(TestUtils):
         #       although I prefer the former in readability.
         #self.assertConcat(
             #simplifySlice(abcd, 10, 9),
-            #((Truncation(b, 3), 3), (RShift(c, 2), 6))
+            #((truncate(b, 3), 3), (RShift(c, 2), 6))
             #)
 
     def test_and(self):
@@ -692,14 +692,14 @@ class SliceTests(TestUtils):
         self.assertSlice(up8, simplifyExpression(expr), unlimited, 8, 8)
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
-        add8 = Truncation(AddOperator(l, IntLiteral(2)), 8)
+        add8 = truncate(AddOperator(l, IntLiteral(2)), 8)
         self.assertEqual(low8, add8)
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
-        add6 = Truncation(AddOperator(l, IntLiteral(2)), 6)
+        add6 = truncate(AddOperator(l, IntLiteral(2)), 6)
         self.assertEqual(low6, add6)
         # Simplification fails because expression becomes more complex.
-        low12 = Truncation(simplifyExpression(expr), 12)
+        low12 = truncate(simplifyExpression(expr), 12)
         low12s = simplifyExpression(low12)
         self.assertEqual(str(low12s), str(low12))
         self.assertEqual(low12s, low12)
@@ -717,16 +717,16 @@ class SliceTests(TestUtils):
             )
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
-        cpl8 = Truncation(Complement(l), 8)
+        cpl8 = truncate(Complement(l), 8)
         self.assertEqual(str(low8), str(cpl8))
         self.assertEqual(low8, cpl8)
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
-        cpl6 = Truncation(Complement(l), 6)
+        cpl6 = truncate(Complement(l), 6)
         self.assertEqual(str(low6), str(cpl6))
         self.assertEqual(low6, cpl6)
         # Simplification fails because expression becomes more complex.
-        low12 = simplifyExpression(Truncation(expr, 12))
+        low12 = simplifyExpression(truncate(expr, 12))
         self.assertSlice(low12, simplifyExpression(expr), unlimited, 0, 12)
 
     def test_mixed(self):

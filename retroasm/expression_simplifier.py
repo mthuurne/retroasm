@@ -1,6 +1,6 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, SimplifiableComposedExpression, Truncation, XorOperator
+    RShift, SimplifiableComposedExpression, Truncation, XorOperator, truncate
     )
 from .types import maskForWidth, widthForMask
 
@@ -195,7 +195,7 @@ def _customSimplifyAnd(node, exprs):
         width = widthForMask(mask)
         if maskForWidth(width) == mask:
             # Convert mask to truncation.
-            trunc = Truncation(AndOperator(*exprs), width)
+            trunc = truncate(AndOperator(*exprs), width)
             exprs[:] = [simplifyExpression(trunc)]
             return
         if orgMaskLiteral is not None and mask == orgMaskLiteral.value:
@@ -372,7 +372,7 @@ def _simplifyRShift(rshift):
     elif isinstance(expr, Truncation):
         # Truncate after shifting: this maps better to the slice semantics.
         return simplifyExpression(
-            Truncation(RShift(expr.expr, offset), width)
+            truncate(RShift(expr.expr, offset), width)
             )
     elif isinstance(expr, (AndOperator, OrOperator)):
         alt = type(expr)(

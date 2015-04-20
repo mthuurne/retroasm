@@ -1,6 +1,6 @@
 from utils_expression import TestValue
 
-from retroasm.expression import IntLiteral, LShift, OrOperator, Truncation
+from retroasm.expression import IntLiteral, LShift, OrOperator, truncate
 from retroasm.types import IntType, unlimited
 
 import unittest
@@ -56,8 +56,8 @@ class EqualsTests(unittest.TestCase):
 
     def test_truncate_subexpr(self):
         '''Checks equality between truncations with differing subexpressions.'''
-        trunc1 = Truncation(IntLiteral(0x1234), 8)
-        trunc2 = Truncation(IntLiteral(0x5678), 8)
+        trunc1 = truncate(IntLiteral(0x1234), 8)
+        trunc2 = truncate(IntLiteral(0x5678), 8)
         self.assertExprEqual(trunc1, trunc1)
         self.assertExprEqual(trunc2, trunc2)
         self.assertExprNotEqual(trunc1, trunc2)
@@ -65,9 +65,9 @@ class EqualsTests(unittest.TestCase):
     def test_truncate_width(self):
         '''Checks equality between truncations with differing widths.'''
         addr = IntLiteral(0x456)
-        trunc1 = Truncation(addr, 8)  # $56
-        trunc2 = Truncation(addr, 12) # $456
-        trunc3 = Truncation(addr, 16) # $0456
+        trunc1 = truncate(addr, 8)  # $56
+        trunc2 = truncate(addr, 12) # $456
+        trunc3 = truncate(addr, 16) # $0456
         self.assertExprEqual(trunc1, trunc1)
         self.assertExprEqual(trunc2, trunc2)
         self.assertExprEqual(trunc3, trunc3)

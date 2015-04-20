@@ -498,3 +498,6 @@ class Truncation(Expression):
 
     def _equals(self, other):
         return self._width == other._width and self._expr == other._expr
+
+def truncate(expr, width):
+    return Truncation(expr, width)

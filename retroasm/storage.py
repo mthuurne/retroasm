@@ -1,5 +1,5 @@
 from .expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, Truncation
+    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
     )
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
@@ -236,7 +236,7 @@ class ComposedStorage:
         offset = 0
         for rid, index, width in self._decomposed:
             value = builder.emitLoad(rid, location)
-            sliced = Truncation(RShift(value, index), width)
+            sliced = truncate(RShift(value, index), width)
             terms.append(LShift(sliced, offset))
             offset += width
         return OrOperator(*terms)
@@ -247,7 +247,7 @@ class ComposedStorage:
         '''
         offset = 0
         for rid, index, width in self._decomposed:
-            valueSlice = Truncation(RShift(value, offset), width)
+            valueSlice = truncate(RShift(value, offset), width)
             storageWidth = builder.references[rid].width
             if index == 0 and width == storageWidth:
                 # Full width: store only.
