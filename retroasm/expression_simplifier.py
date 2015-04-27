@@ -442,19 +442,16 @@ def _simplifyMasked(expr, mask):
     Only mask-related simplifications are examined: typically callers will
     already have performed simplification of the full expression.
     '''
-    exprMask = expr.mask
-
-    # Check edge cases.
-    if (exprMask & mask) == 0:
+    if (expr.mask & mask) == 0:
         # All potentially set bits are zeroed after masking.
         return IntLiteral(0)
-    if (exprMask & mask) == exprMask:
-        # The mask doesn't change the expression value.
-        return expr
 
     if isinstance(expr, IntLiteral):
         # Apply mask to value.
-        return IntLiteral(expr.value & mask)
+        value = expr.value
+        maskedValue = value & mask
+        if value != maskedValue:
+            return IntLiteral(maskedValue)
     elif isinstance(expr, LShift):
         # Shift mask in the opposite direction.
         subExpr = expr.expr
