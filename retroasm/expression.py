@@ -292,6 +292,29 @@ class AndOperator(SimplifiableComposedExpression):
         # Set this to False to block the simplification attempt.
         self._tryDistributeAndOverOr = True
 
+    def __str__(self):
+        exprs = self.exprs
+        last = exprs[-1]
+        if isinstance(last, IntLiteral):
+            value = last.value
+            width = widthForMask(value)
+            if maskForWidth(width) == value:
+                # Special formatting for truncation and slicing.
+                if len(exprs) == 2:
+                    first = exprs[0]
+                    if isinstance(first, RShift):
+                        offset = first.offset
+                        return '%s[%d:%d]' % (
+                            first.expr, offset, offset + width
+                            )
+                    else:
+                        return '%s[:%d]' % (first, width)
+                else:
+                    return '(%s)[:%d]' % (
+                        ' & '.join(str(expr) for expr in exprs[:-1]), width
+                        )
+        return super().__str__()
+
     @classmethod
     def computeMask(cls, exprs):
         return reduce(int.__and__, (expr.mask for expr in exprs), -1)
@@ -469,35 +492,5 @@ class RShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
-class Truncation(Expression):
-    '''Extracts the lower N bits from a bit string.
-    '''
-    __slots__ = ('_expr', '_width')
-
-    expr = property(lambda self: self._expr)
-    width = property(lambda self: self._width)
-
-    def __init__(self, expr, width):
-        self._expr = Expression.checkScalar(expr)
-        self._width = checkType(width, int, 'width')
-        Expression.__init__(self, IntType(width))
-
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('width', self._width)
-        return signature(self.__class__).bind(*exprs, **kwargs)
-
-    def __str__(self):
-        expr = self._expr
-        if isinstance(expr, RShift):
-            offset = expr.offset
-            return '%s[%d:%d]' % (expr.expr, offset, offset + self.width)
-        else:
-            return '%s[:%d]' % (self._expr, self.width)
-
-    def _equals(self, other):
-        return self._width == other._width and self._expr == other._expr
-
 def truncate(expr, width):
-    return Truncation(expr, width)
+    return AndOperator(expr, IntLiteral(maskForWidth(width)))

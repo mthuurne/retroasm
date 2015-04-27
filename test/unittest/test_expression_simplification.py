@@ -80,8 +80,8 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(expr, trunc)
         self.assertIsInstance(expr, type(trunc))
         self.assertIsInstance(expr.type, IntType)
+        shiftExpr = expr.exprs[0] if needsTrunc else expr
         if needsShift:
-            shiftExpr = expr.expr if needsTrunc else expr
             self.assertEqual(str(shiftExpr), str(shift))
             self.assertEqual(shiftExpr, shift)
             self.assertIsInstance(shiftExpr, RShift)
@@ -89,7 +89,7 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(shiftExpr.offset, index)
             self.assertEqual(shiftExpr.expr, subExpr)
         else:
-            self.assertEqual(expr.expr, subExpr)
+            self.assertEqual(shiftExpr, subExpr)
 
 def makeSlice(expr, index, width):
     return truncate(RShift(expr, index), width)
@@ -417,6 +417,7 @@ class ArithmeticTests(TestUtils):
                 ),
             16
             )
+        self.assertIs(str(simplifyExpression(expr)), str(a))
         self.assertIs(simplifyExpression(expr), a)
 
     def test_add_truncate_literal(self):

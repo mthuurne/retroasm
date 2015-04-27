@@ -1,6 +1,6 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, SimplifiableComposedExpression, Truncation, XorOperator, truncate
+    RShift, SimplifiableComposedExpression, XorOperator
     )
 from .types import maskForWidth, widthForMask
 
@@ -15,7 +15,7 @@ def complexity(expr):
         return expr.nodeComplexity + sum(
             complexity(subExpr) for subExpr in expr.exprs
             )
-    elif isinstance(expr, (Complement, LShift, RShift, Truncation)):
+    elif isinstance(expr, (Complement, LShift, RShift)):
         return 1 + complexity(expr.expr)
     else:
         return 2
@@ -192,17 +192,9 @@ def _customSimplifyAnd(node, exprs):
 
     # Append mask if it is not redundant.
     if mask != -1 and mask != node.computeMask(exprs):
-        width = widthForMask(mask)
-        if maskForWidth(width) == mask:
-            # Convert mask to truncation.
-            trunc = truncate(AndOperator(*exprs), width)
-            exprs[:] = [simplifyExpression(trunc)]
-            return
-        if orgMaskLiteral is not None and mask == orgMaskLiteral.value:
-            # Non-simplified expressions should remain the same objects.
-            exprs.append(orgMaskLiteral)
-        else:
-            exprs.append(IntLiteral(mask))
+        # Non-simplified expressions should remain the same objects.
+        maskChanged = orgMaskLiteral is None or mask != orgMaskLiteral.value
+        exprs.append(IntLiteral(mask) if maskChanged else orgMaskLiteral)
 
     if node._tryDistributeAndOverOr:
         myComplexity = node.nodeComplexity \
@@ -369,11 +361,6 @@ def _simplifyRShift(rshift):
     elif isinstance(expr, RShift):
         # Combine both shifts into one.
         return simplifyExpression(RShift(expr.expr, offset + expr.offset))
-    elif isinstance(expr, Truncation):
-        # Truncate after shifting: this maps better to the slice semantics.
-        return simplifyExpression(
-            truncate(RShift(expr.expr, offset), width)
-            )
     elif isinstance(expr, (AndOperator, OrOperator)):
         alt = type(expr)(
             *(RShift(term, offset) for term in expr.exprs)
@@ -386,54 +373,6 @@ def _simplifyRShift(rshift):
         return rshift
     else:
         return RShift(expr, offset)
-
-def _simplifyTruncation(truncation):
-    expr = truncation.expr
-    width = truncation.width
-    masked = _simplifyMasked(simplifyExpression(expr), maskForWidth(width))
-    if masked.width <= width:
-        return masked
-
-    # Pylint mistakenly thinks 'masked' is always an IntLiteral.
-    # pylint: disable=no-member
-    if isinstance(masked, Truncation):
-        # Drop inner truncation since outer one is narrower.
-        return Truncation(masked.expr, width)
-    elif isinstance(masked, AddOperator):
-        # Eliminate inner truncations that are not narrower than the outer
-        # trunctation.
-        terms = []
-        changed = False
-        for term in masked.exprs:
-            if isinstance(term, Truncation) and term.width >= width:
-                terms.append(term.expr)
-                changed = True
-            else:
-                terms.append(term)
-        if changed:
-            return simplifyExpression(Truncation(AddOperator(*terms), width))
-        # Distribute truncation over terms.
-        terms = []
-        changed = False
-        for term in masked.exprs:
-            alt = simplifyExpression(Truncation(term, width))
-            if complexity(alt) < complexity(term) or (
-                    isinstance(term, IntLiteral) and alt.width < term.width):
-                term = alt
-                changed = True
-            terms.append(term)
-        if changed:
-            return Truncation(AddOperator(*terms), width)
-    elif isinstance(masked, Complement):
-        # Apply truncation to subexpression.
-        alt = simplifyExpression(Complement(Truncation(masked.expr, width)))
-        if complexity(alt) < complexity(masked):
-            return Truncation(alt, width)
-
-    if masked is expr:
-        return truncation
-    else:
-        return Truncation(masked, width)
 
 def _simplifyMasked(expr, mask):
     '''Returns a simplified version of the given expression, such that it
@@ -466,13 +405,6 @@ def _simplifyMasked(expr, mask):
         subMasked = _simplifyMasked(subExpr, mask << offset)
         if subMasked is not subExpr:
             return simplifyExpression(RShift(subMasked, offset))
-    elif isinstance(expr, Truncation):
-        # Include truncation into mask.
-        subExpr = expr.expr
-        width = expr.width
-        subMasked = _simplifyMasked(subExpr, mask & maskForWidth(width))
-        if subMasked is not subExpr:
-            return simplifyExpression(Truncation(subMasked, width))
     elif isinstance(expr, (AndOperator, OrOperator, XorOperator, AddOperator)):
         # Apply mask to each term.
         if isinstance(expr, AddOperator):
@@ -488,6 +420,12 @@ def _simplifyMasked(expr, mask):
             maskedTerm = _simplifyMasked(term, termMask)
             terms.append(maskedTerm)
             changed |= maskedTerm is not term
+        if isinstance(expr, AndOperator) and len(terms) >= 2:
+            last = terms[-1]
+            if isinstance(last, IntLiteral) and last.value == mask:
+                # Eliminate inner mask that is equal to the applied mask.
+                del terms[-1]
+                changed = True
         if changed:
             return simplifyExpression(type(expr)(*terms))
     elif isinstance(expr, Complement):
@@ -506,7 +444,6 @@ _simplifiers = {
     Complement: _simplifyComplement,
     LShift: _simplifyLShift,
     RShift: _simplifyRShift,
-    Truncation: _simplifyTruncation,
     }
 
 def simplifyExpression(expr):
