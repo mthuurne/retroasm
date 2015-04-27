@@ -308,8 +308,7 @@ def _simplifyLShift(lshift):
         return simplifyExpression(LShift(expr.expr, offset + expr.offset))
     elif isinstance(expr, RShift):
         roffset = expr.offset
-        mask = maskForWidth(expr.width)
-        masked = AndOperator(expr.expr, IntLiteral(mask << roffset))
+        masked = AndOperator(expr.expr, IntLiteral(expr.mask << roffset))
         if roffset < offset:
             # Left shift wins.
             return simplifyExpression(LShift(masked, offset - roffset))
@@ -340,8 +339,7 @@ def _simplifyRShift(rshift):
         # No actual shift occurs.
         return expr
 
-    width = expr.width - offset
-    if width <= 0:
+    if expr.mask >> offset == 0:
         # Entire subexpression is discarded by the shift.
         return IntLiteral(0)
 
