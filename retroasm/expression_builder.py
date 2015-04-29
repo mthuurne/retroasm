@@ -146,7 +146,6 @@ def _convertFunctionCall(callNode, builder):
     for (name, decl), argNode in zip(func.args.items(), argNodes):
         if isinstance(decl, IntType):
             value = buildExpression(argNode, builder)
-            argMap[name] = builder.emitCompute(value)
         elif isinstance(decl, Reference):
             try:
                 value = buildStorage(argNode, builder)
@@ -162,10 +161,9 @@ def _convertFunctionCall(callNode, builder):
                     '"%s %s"' % (value.width, decl, name),
                     argNode.treeLocation
                     )
-            else:
-                argMap[name] = value
         else:
             assert False, decl
+        argMap[name] = value
 
     # Inline function call.
     return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
