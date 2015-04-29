@@ -137,9 +137,10 @@ def _convertFunctionCall(callNode, builder):
     # Fill argument map.
     if len(argNodes) != len(func.args):
         raise BadExpression(
-            'argument count mismatch: %s takes %d argument(s), '
+            'argument count mismatch: function "%s" takes %d argument(s), '
             'while call provides %d argument(s)'
-            % (funcName, len(func.args), len(argNodes))
+            % (funcName, len(func.args), len(argNodes)),
+            callNode.location
             )
     argMap = {}
     for (name, decl), argNode in zip(func.args.items(), argNodes):
