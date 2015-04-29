@@ -4,7 +4,6 @@ from .codeblock import (
     )
 from .expression_simplifier import simplifyExpression
 from .storage import FixedValue, IOReference, Register, Variable
-from .types import IntType
 
 from collections import defaultdict
 
@@ -108,7 +107,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Replace constant in other constants' expressions.
         def substCid(sexpr):
             if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                return ConstantValue(newCid, sexpr.type)
+                return ConstantValue(newCid)
             else:
                 return None
         for cid in list(constants.keys()):
@@ -124,8 +123,7 @@ class CodeBlockSimplifier(CodeBlock):
             ref = references[rid]
             if isinstance(ref, IOReference) and ref.index.cid == oldCid:
                 references[rid] = IOReference(
-                    ref.channel,
-                    ConstantValue(newCid, IntType(ref.channel.addrWidth))
+                    ref.channel, ConstantValue(newCid)
                     )
 
         # Replace constant in nodes.
@@ -248,9 +246,7 @@ class CodeBlockSimplifier(CodeBlock):
                     rid = const.rid
                     replacement = duplicates.get(rid)
                     if replacement is not None:
-                        self.constants[cid] = LoadedConstant(
-                            cid, replacement, const.type
-                            )
+                        self.constants[cid] = LoadedConstant(cid, replacement)
             for rid, replacement in duplicates.items():
                 del references[rid]
             return True
@@ -280,7 +276,7 @@ class CodeBlockSimplifier(CodeBlock):
                 if valueCid is not None:
                     # Re-use earlier loaded value.
                     constants[cid] = ComputedConstant(
-                        cid, ConstantValue(valueCid, IntType(storage.width))
+                        cid, ConstantValue(valueCid)
                         )
                     changed = True
                     if not storage.canLoadHaveSideEffect():

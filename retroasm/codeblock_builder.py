@@ -54,7 +54,7 @@ class CodeBlockBuilder:
             cid = len(self.constants)
             constant = ComputedConstant(cid, expr)
             self.constants.append(constant)
-            return ConstantValue(cid, expr.type)
+            return ConstantValue(cid)
 
     def _emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.
@@ -268,14 +268,13 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitLoad(self, rid, location):
         ref = self.references[rid]
-        refType = IntType(ref.width)
         if isinstance(ref, FixedValue):
             cid = ref.cid
         else:
             cid = len(self.constants)
             self.nodes.append(Load(cid, rid, location))
-            self.constants.append(LoadedConstant(cid, rid, refType))
-        return ConstantValue(cid, refType)
+            self.constants.append(LoadedConstant(cid, rid))
+        return ConstantValue(cid)
 
     def emitStore(self, rid, expr, location):
         constant = self.emitCompute(expr)
@@ -291,7 +290,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Add ArgumentConstant.
         cid = len(self.constants)
-        constant = ArgumentConstant(name, cid, decl)
+        constant = ArgumentConstant(name, cid)
         self.constants.append(constant)
 
         # Store initial value.
@@ -366,7 +365,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
                     if isinstance(expr, ConstantValue):
-                        return ConstantValue(cidMap[expr.cid], expr.type)
+                        return ConstantValue(cidMap[expr.cid])
                     else:
                         return None
                 constants.append(ComputedConstant(
@@ -388,30 +387,22 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 if isinstance(ref, IOReference):
                     references[rid] = IOReference(
                         ref.channel,
-                        ConstantValue(
-                            cidMap[ref.index.cid],
-                            IntType(ref.channel.addrWidth)
-                            )
+                        ConstantValue(cidMap[ref.index.cid])
                         )
 
         # Copy nodes.
         for node in code.nodes:
             composedStorage = ridMap[node.rid]
+            newCid = cidMap[node.cid]
             if isinstance(node, Load):
-                newCid = cidMap[node.cid]
                 value = composedStorage.emitLoad(self, node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
-                const = constants[cidMap[node.cid]]
-                value = ConstantValue(const.cid, const.type)
+                value = ConstantValue(newCid)
                 composedStorage.emitStore(self, value, node.location)
             else:
                 assert False, node
 
         # Determine return value.
         retCid = code.retCid
-        if retCid is None:
-            return unit
-        else:
-            retCid = cidMap[retCid]
-            return ConstantValue(retCid, constants[retCid].type)
+        return unit if retCid is None else ConstantValue(cidMap[retCid])

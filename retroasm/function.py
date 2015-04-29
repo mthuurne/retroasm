@@ -17,12 +17,6 @@ class Function:
                 raise ValueError(
                     'missing return value assignment in function "%s"' % name
                     )
-            elif code.constants[code.retCid].type != retType:
-                raise ValueError(
-                    'function "%s" has return type "%s", '
-                    'but its code block has return type "%s"'
-                    % (name, retType, code.constants[code.retCid].type)
-                    )
 
         self.name = name
         self.retType = retType

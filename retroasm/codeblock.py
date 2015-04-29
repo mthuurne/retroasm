@@ -1,6 +1,6 @@
 from .expression import Expression
 from .storage import FixedValue, IOReference, Storage
-from .types import IntType
+from .types import IntType, unlimited
 from .utils import checkType
 
 from collections import OrderedDict
@@ -9,20 +9,18 @@ from inspect import signature
 class Constant:
     '''Definition of a local constant value.
     '''
-    __slots__ = ('_cid', '_type')
+    __slots__ = ('_cid',)
 
     cid = property(lambda self: self._cid)
-    type = property(lambda self: self._type)
 
-    def __init__(self, cid, intType):
+    def __init__(self, cid):
         self._cid = checkType(cid, int, 'constant ID')
-        self._type = checkType(intType, IntType, 'constant type')
 
     def __repr__(self):
-        return 'Constant(%d, %s)' % (self._cid, repr(self._type))
+        return 'Constant(%d)' % self._cid
 
     def __str__(self):
-        return '%s C%d' % (self._type, self._cid)
+        return 'int C%d' % self._cid
 
 class ComputedConstant(Constant):
     '''A constant defined by evaluating an expression.
@@ -33,7 +31,7 @@ class ComputedConstant(Constant):
 
     def __init__(self, cid, expr):
         self._expr = Expression.checkScalar(expr)
-        Constant.__init__(self, cid, expr.type)
+        Constant.__init__(self, cid)
 
     def __repr__(self):
         return 'ComputedConstant(%d, %s)' % (self._cid, repr(self._expr))
@@ -48,14 +46,12 @@ class ArgumentConstant(Constant):
 
     name = property(lambda self: self._name)
 
-    def __init__(self, name, cid, argType):
+    def __init__(self, name, cid):
         self._name = checkType(name, str, 'name')
-        Constant.__init__(self, cid, argType)
+        Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'ArgumentConstant(%s, %d, %s)' % (
-            repr(self._name), self._cid, repr(self.type)
-            )
+        return 'ArgumentConstant(%s, %d)' % (repr(self._name), self._cid)
 
     def __str__(self):
         return '%s :  %s' % (super().__str__(), self._name)
@@ -67,14 +63,12 @@ class LoadedConstant(Constant):
 
     rid = property(lambda self: self._rid)
 
-    def __init__(self, cid, rid, refType):
+    def __init__(self, cid, rid):
         self._rid = checkType(rid, int, 'reference ID')
-        Constant.__init__(self, cid, refType)
+        Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'LoadedConstant(%d, %d, %s)' % (
-            self._cid, self._rid, repr(self.type)
-            )
+        return 'LoadedConstant(%d, %d)' % (self._cid, self._rid)
 
     def __str__(self):
         return '%s <- R%s' % (super().__str__(), self._rid)
@@ -137,8 +131,8 @@ class ConstantValue(Expression):
 
     cid = property(lambda self: self._cid)
 
-    def __init__(self, cid, typ):
-        Expression.__init__(self, typ)
+    def __init__(self, cid):
+        Expression.__init__(self, IntType(unlimited))
         self._cid = cid
 
     def _ctorargs(self, *exprs, **kwargs):
@@ -146,7 +140,6 @@ class ConstantValue(Expression):
         if exprs:
             raise ValueError('%s does not take expression args' % cls.__name__)
         kwargs.setdefault('cid', self._cid)
-        kwargs.setdefault('typ', self.type)
         return signature(cls).bind(**kwargs)
 
     def __str__(self):
@@ -232,23 +225,15 @@ class CodeBlock:
         print('    constants:')
         for const in self.constants.values():
             if isinstance(const, ComputedConstant):
-                print('        %-4s C%-2d =  %s' % (
-                    const.type, const.cid, const.expr
-                    ))
+                print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        %-4s C%-2d <- R%d' % (
-                    const.type, const.cid, const.rid
-                    ))
+                print('        C%-2d <- R%d' % (const.cid, const.rid))
             elif isinstance(const, ArgumentConstant):
-                print('        %-4s C%-2d :  %s' % (
-                    const.type, const.cid, const.name
-                    ))
+                print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
         if self.retCid is not None:
-            print('        %-4s ret =  C%d' % (
-                self.constants[self.retCid].type, self.retCid
-                ))
+            print('        ret =  C%d' % self.retCid)
         print('    references:')
         for rid, ref in self.references.items():
             print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
