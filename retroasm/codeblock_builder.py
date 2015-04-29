@@ -11,7 +11,7 @@ from .storage import (
     ComposedStorage, FixedValue, IOChannel, IOReference, LocalReference,
     Register, Storage, Variable
     )
-from .types import IntType
+from .types import IntType, Reference
 from .utils import checkType
 
 class CodeBlockBuilder:
@@ -301,12 +301,32 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return rid
 
     def inlineFunctionCall(self, func, argMap, location):
+        '''Inlines a call to a given function.
+        Returns an expression representing the return value of the inlined
+        function body.
+        '''
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
             return IntLiteral(0)
-        else:
-            return self.inlineBlock(code, argMap)
+
+        argMap = dict(argMap)
+        newMap = {}
+        for name, decl in func.args.items():
+            value = argMap.pop(name)
+            if isinstance(decl, IntType):
+                value = truncate(value, decl.width)
+            elif isinstance(decl, Reference):
+                pass
+            else:
+                assert False, decl
+            newMap[name] = value
+        if argMap:
+            raise KeyError(
+                'Non-existing arguments passed: %s' % ', '.join(argMap.keys())
+                )
+
+        return self.inlineBlock(code, newMap)
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
@@ -341,7 +361,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
-                value = truncate(context[const.name], const.type.width)
+                value = context[const.name]
                 constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):

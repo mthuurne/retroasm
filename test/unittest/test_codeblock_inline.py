@@ -2,6 +2,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
 from retroasm.codeblock import Store
 from retroasm.expression import AddOperator, IntLiteral
+from retroasm.function import Function
 from retroasm.storage import ComposedStorage
 from retroasm.types import IntType
 
@@ -78,12 +79,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
+        func = Function('inc', IntType(9), {'V': IntType(8)}, incCode)
 
         outer = TestCodeBlockBuilder()
         step0 = outer.emitCompute(IntLiteral(0x89FE))
-        step1 = outer.inlineBlock(incCode, {'V': step0})
-        step2 = outer.inlineBlock(incCode, {'V': step1})
-        step3 = outer.inlineBlock(incCode, {'V': step2})
+        step1 = outer.inlineFunctionCall(func, {'V': step0}, None)
+        step2 = outer.inlineFunctionCall(func, {'V': step1}, None)
+        step3 = outer.inlineFunctionCall(func, {'V': step2}, None)
         outerRet = outer.addVariable('ret', 16)
         outer.emitStore(outerRet, step3)
 
