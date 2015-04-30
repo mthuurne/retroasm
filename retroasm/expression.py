@@ -1,6 +1,4 @@
-from .types import (
-    IntType, maskForWidth, maskToSegments, unlimited, widthForMask
-    )
+from .types import maskForWidth, maskToSegments, unlimited, widthForMask
 from .utils import Singleton, checkType
 
 from functools import reduce
@@ -10,28 +8,15 @@ from itertools import chain
 # pylint: disable=protected-access
 
 class Expression:
-    '''Abstract base class for typed expressions.
+    '''Abstract base class for integer expressions.
 
     Expressions are considered equal if they have the same tree form.
     This means that for example (A + (B + C)) and ((A + B) + C) are considered
     unequal: they represent the same computation, but not the same tree.
-
-    Since most operators convert their arguments to unlimited width integers,
-    the width of an expression is not ignored when determining equality.
-    In cases where the width matters, such as concatenation, the operand
-    class must check the widths of subexpressions when determining equality
-    between two expressions.
-
-    When the parser creates expressions, it follows the typing rules from the
-    instruction set description language, which apply most operations on
-    unlimited width integers. However, for analysis and code generation it is
-    useful to have width reduced as much as possible, so constructors will
-    accept narrower types and width reduction is a goal of simplification.
     '''
-    __slots__ = ('_type',)
+    __slots__ = ()
 
-    type = property(lambda self: self._type)
-    mask = property(lambda self: maskForWidth(self.width))
+    mask = property()
     '''A bit mask for the potential values of this expression: the mask is 1
     for bits that might be 1 in the values and is 0 for bits that are certainly
     0 in all possible values.
@@ -50,13 +35,6 @@ class Expression:
         Expression.checkInstance(expr)
         expr._checkScalar()
         return expr
-
-    def __init__(self, typ):
-        if typ is not None and not isinstance(typ, IntType):
-            raise TypeError(
-                'type must be None or IntType, got %s' % type(typ).__name__
-                )
-        self._type = typ
 
     def _ctorargs(self, *exprs, **kwargs):
         '''Returns the constructor arguments that can be used to re-create
@@ -109,14 +87,6 @@ class Expression:
         '''
         pass
 
-    def _getWidth(self):
-        '''Returns the width of this expression in bits (possibly unlimited),
-        or None if the expression is not a scalar.
-        '''
-        typ = self._type
-        return None if typ is None else typ._width
-    width = property(_getWidth)
-
     def substitute(self, func):
         '''Applies the given substitution function to this expression and
         returns the resulting expression.
@@ -157,9 +127,6 @@ class Unit(Expression, metaclass=Singleton):
     '''
     __slots__ = ()
 
-    def __init__(self):
-        Expression.__init__(self, None)
-
     def _ctorargs(self, *exprs, **kwargs):
         return signature(self.__class__).bind()
 
@@ -184,11 +151,10 @@ class IntLiteral(Expression):
 
     value = property(lambda self: self._value)
     mask = property(lambda self: self._value)
-    width = property(lambda self: widthForMask(self._value))
 
     def __init__(self, value):
         self._value = checkType(value, int, 'value')
-        Expression.__init__(self, IntType(unlimited))
+        Expression.__init__(self)
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
@@ -202,7 +168,7 @@ class IntLiteral(Expression):
         if value < 10: # small, zero or negative -> print as decimal
             return str(self._value)
         else: # print as hexadecimal
-            return ('${:0%dX}' % (self.width // 4)).format(value)
+            return '$%X' % value
 
     def _equals(self, other):
         return self._value == other._value
@@ -221,10 +187,9 @@ class ComposedExpression(Expression):
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
             Expression.checkScalar(expr)
-        mask = self.computeMask(exprs)
-        Expression.__init__(self, IntType(widthForMask(mask)))
+        Expression.__init__(self)
         self._exprs = exprs
-        self._mask = mask
+        self._mask = self.computeMask(exprs)
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -417,7 +382,9 @@ class Complement(Expression):
     mask = property(lambda self: self._mask)
 
     def __init__(self, expr):
+        Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
+
         exprMask = expr.mask
         if exprMask == 0:
             mask = 0
@@ -427,7 +394,6 @@ class Complement(Expression):
                 trailingZeroes += 1
             mask = -1 << trailingZeroes
         self._mask = mask
-        Expression.__init__(self, IntType(widthForMask(mask)))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -450,9 +416,9 @@ class LShift(Expression):
     mask = property(lambda self: self._expr.mask << self._offset)
 
     def __init__(self, expr, offset):
+        Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = checkType(offset, int, 'shift offset')
-        Expression.__init__(self, IntType(expr.width + offset))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -476,9 +442,9 @@ class RShift(Expression):
     mask = property(lambda self: self._expr.mask >> self._offset)
 
     def __init__(self, expr, offset):
+        Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = checkType(offset, int, 'shift offset')
-        Expression.__init__(self, IntType(max(expr.width - offset, 0)))
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:

@@ -17,7 +17,6 @@ class TestUtils(unittest.TestCase):
         '''
         comparison = IntLiteral(value)
         self.assertIsInstance(expr, IntLiteral)
-        self.assertIsInstance(expr.type, IntType)
         self.assertEqual(expr.value, value)
 
     def assertAnd(self, expr, *args):
@@ -79,13 +78,11 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(str(expr), str(trunc))
         self.assertEqual(expr, trunc)
         self.assertIsInstance(expr, type(trunc))
-        self.assertIsInstance(expr.type, IntType)
         shiftExpr = expr.exprs[0] if needsTrunc else expr
         if needsShift:
             self.assertEqual(str(shiftExpr), str(shift))
             self.assertEqual(shiftExpr, shift)
             self.assertIsInstance(shiftExpr, RShift)
-            self.assertIsInstance(shiftExpr.type, IntType)
             self.assertEqual(shiftExpr.offset, index)
             self.assertEqual(shiftExpr.expr, subExpr)
         else:

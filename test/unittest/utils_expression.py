@@ -1,17 +1,22 @@
 from retroasm.expression import Expression, LShift, OrOperator
+from retroasm.types import IntType, maskForWidth
 
 from inspect import signature
 
 class TestValue(Expression):
-    __slots__ = ('_name',)
+    __slots__ = ('_name', '_type')
 
     name = property(lambda self: self._name)
+    mask = property(lambda self: maskForWidth(self._type.width))
 
     def __init__(self, name, typ):
         if not isinstance(name, str):
             raise TypeError('name must be string, got %s' % type(name).__name__)
-        Expression.__init__(self, typ)
+        if not isinstance(typ, IntType):
+            raise TypeError('typ must be IntType, got %s' % type(type).__name__)
+        Expression.__init__(self)
         self._name = name
+        self._type = typ
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__

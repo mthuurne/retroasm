@@ -1,6 +1,5 @@
 from .expression import Expression
 from .storage import FixedValue, IOReference, Storage
-from .types import IntType, unlimited
 from .utils import checkType
 
 from collections import OrderedDict
@@ -130,9 +129,10 @@ class ConstantValue(Expression):
     __slots__ = ('_cid',)
 
     cid = property(lambda self: self._cid)
+    mask = property(lambda self: -1)
 
     def __init__(self, cid):
-        Expression.__init__(self, IntType(unlimited))
+        Expression.__init__(self)
         self._cid = cid
 
     def _ctorargs(self, *exprs, **kwargs):
