@@ -27,17 +27,11 @@ class CodeBlockBuilder:
         print('    constants:')
         for const in self.constants:
             if isinstance(const, ComputedConstant):
-                print('        %-4s C%-2d =  %s' % (
-                    const.type, const.cid, const.expr
-                    ))
+                print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        %-4s C%-2d <- R%d' % (
-                    const.type, const.cid, const.rid
-                    ))
+                print('        C%-2d <- R%d' % (const.cid, const.rid))
             elif isinstance(const, ArgumentConstant):
-                print('        %-4s C%-2d :  %s' % (
-                    const.type, const.cid, const.name
-                    ))
+                print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
         print('    references:')
