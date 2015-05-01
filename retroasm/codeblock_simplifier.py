@@ -4,6 +4,7 @@ from .codeblock import (
     )
 from .expression_simplifier import simplifyExpression
 from .storage import FixedValue, IOReference, Register, Variable
+from .types import maskForWidth
 
 from collections import defaultdict
 
@@ -107,7 +108,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Replace constant in other constants' expressions.
         def substCid(sexpr):
             if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                return ConstantValue(newCid)
+                return ConstantValue(newCid, sexpr.mask)
             else:
                 return None
         for cid in list(constants.keys()):
@@ -121,10 +122,12 @@ class CodeBlockSimplifier(CodeBlock):
         references = self.references
         for rid in list(references.keys()):
             ref = references[rid]
-            if isinstance(ref, IOReference) and ref.index.cid == oldCid:
-                references[rid] = IOReference(
-                    ref.channel, ConstantValue(newCid)
-                    )
+            if isinstance(ref, IOReference):
+                index = ref.index
+                if index.cid == oldCid:
+                    references[rid] = IOReference(
+                        ref.channel, ConstantValue(newCid, index.mask)
+                        )
 
         # Replace constant in nodes.
         nodes = self.nodes
@@ -261,7 +264,7 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
-        currentValueCids = {}
+        currentValues = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
@@ -269,24 +272,24 @@ class CodeBlockSimplifier(CodeBlock):
             rid = node.rid
             storage = references[rid]
             if isinstance(storage, FixedValue):
-                valueCid = storage.cid
+                value = ConstantValue(storage.cid, maskForWidth(storage.width))
             else:
-                valueCid = currentValueCids.get(rid)
+                value = currentValues.get(rid)
             if isinstance(node, Load):
-                if valueCid is not None:
+                if value is not None:
                     # Re-use earlier loaded value.
-                    constants[cid] = ComputedConstant(
-                        cid, ConstantValue(valueCid)
-                        )
+                    constants[cid] = ComputedConstant(cid, value)
                     changed = True
                     if not storage.canLoadHaveSideEffect():
                         del nodes[i]
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValueCids[rid] = cid
+                    currentValues[rid] = ConstantValue(
+                        cid, maskForWidth(storage.width)
+                        )
             elif isinstance(node, Store):
-                if valueCid == cid:
+                if value is not None and value.cid == cid:
                     # Value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
@@ -294,14 +297,16 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValueCids[rid] = cid
+                    currentValues[rid] = ConstantValue(
+                        cid, maskForWidth(storage.width)
+                        )
                 # Remove values for references that might be aliases.
-                for rid2 in list(currentValueCids.keys()):
+                for rid2 in list(currentValues.keys()):
                     if rid != rid2 and storage.mightBeSame(references[rid2]):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValueCids[rid2] != cid:
-                            del currentValueCids[rid2]
+                        if currentValues[rid2].cid != cid:
+                            del currentValues[rid2]
             i += 1
 
         # Remove stores for which the value is overwritten before it is loaded.

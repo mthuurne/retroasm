@@ -11,7 +11,7 @@ from .storage import (
     ComposedStorage, FixedValue, IOChannel, IOReference, LocalReference,
     Register, Storage, Variable
     )
-from .types import IntType, Reference
+from .types import IntType, Reference, maskForWidth
 from .utils import checkType
 
 class CodeBlockBuilder:
@@ -54,7 +54,7 @@ class CodeBlockBuilder:
             cid = len(self.constants)
             constant = ComputedConstant(cid, expr)
             self.constants.append(constant)
-            return ConstantValue(cid)
+            return ConstantValue(cid, expr.mask)
 
     def _emitReference(self, storage):
         '''Adds a reference to the given storage, returning the reference ID.
@@ -274,7 +274,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             cid = len(self.constants)
             self.nodes.append(Load(cid, rid, location))
             self.constants.append(LoadedConstant(cid, rid))
-        return ConstantValue(cid)
+        return ConstantValue(cid, maskForWidth(ref.width))
 
     def emitStore(self, rid, expr, location):
         constant = self.emitCompute(expr)
@@ -365,7 +365,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
                     if isinstance(expr, ConstantValue):
-                        return ConstantValue(cidMap[expr.cid])
+                        return ConstantValue(cidMap[expr.cid], expr.mask)
                     else:
                         return None
                 constants.append(ComputedConstant(
@@ -385,9 +385,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             for rid, index_, width_ in composedStorage:
                 ref = references[rid]
                 if isinstance(ref, IOReference):
+                    index = ref.index
                     references[rid] = IOReference(
                         ref.channel,
-                        ConstantValue(cidMap[ref.index.cid])
+                        ConstantValue(cidMap[index.cid], index.mask)
                         )
 
         # Copy nodes.
@@ -398,11 +399,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 value = composedStorage.emitLoad(self, node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
-                value = ConstantValue(newCid)
+                value = ConstantValue(newCid, -1)
                 composedStorage.emitStore(self, value, node.location)
             else:
                 assert False, node
 
         # Determine return value.
         retCid = code.retCid
-        return unit if retCid is None else ConstantValue(cidMap[retCid])
+        return unit if retCid is None else ConstantValue(cidMap[retCid], -1)

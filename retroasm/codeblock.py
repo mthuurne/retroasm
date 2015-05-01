@@ -126,20 +126,22 @@ class Store(AccessNode):
 class ConstantValue(Expression):
     '''A synthetic constant containing an intermediate value.
     '''
-    __slots__ = ('_cid',)
+    __slots__ = ('_cid', '_mask')
 
     cid = property(lambda self: self._cid)
-    mask = property(lambda self: -1)
+    mask = property(lambda self: self._mask)
 
-    def __init__(self, cid):
+    def __init__(self, cid, mask):
         Expression.__init__(self)
         self._cid = cid
+        self._mask = mask
 
     def _ctorargs(self, *exprs, **kwargs):
         cls = self.__class__
         if exprs:
             raise ValueError('%s does not take expression args' % cls.__name__)
         kwargs.setdefault('cid', self._cid)
+        kwargs.setdefault('mask', self._mask)
         return signature(cls).bind(**kwargs)
 
     def __str__(self):
