@@ -69,6 +69,27 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertEqual(len(code.nodes), 0)
         self.assertIntLiteral(code.constants[code.retCid], 103)
 
+    def test_multiret(self):
+        '''Test whether inlining works when "ret" is written multiple times.'''
+        inner = TestCodeBlockBuilder()
+        val0 = inner.emitCompute(IntLiteral(1000))
+        val1 = inner.emitCompute(IntLiteral(2000))
+        val2 = inner.emitCompute(IntLiteral(3000))
+        innerRet = inner.addVariable('ret', 16)
+        inner.emitStore(innerRet, val0)
+        inner.emitStore(innerRet, val1)
+        inner.emitStore(innerRet, val2)
+        innerCode = inner.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        inlinedVal = outer.inlineBlock(innerCode, {})
+        outerRet = outer.addVariable('ret', 16)
+        outer.emitStore(outerRet, inlinedVal)
+
+        code = createSimplifiedCode(outer)
+        self.assertEqual(len(code.nodes), 0)
+        self.assertIntLiteral(code.constants[code.retCid], 3000)
+
     def test_arg_truncate(self):
         '''Test whether expressions passed via value arguments are truncated.'''
         # Note: Default width is 8 bits.

@@ -324,16 +324,15 @@ class CodeBlockSimplifier(CodeBlock):
                     assert not isinstance(storage, Variable), storage
                     willBeOverwritten.discard(rid)
                 elif isinstance(node, Store):
+                    if isinstance(storage, Variable) and storage.name == 'ret':
+                        if rid not in willBeOverwritten:
+                            assert self.retCid is None, self.retCid
+                            self.retCid = node.cid
                     if rid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):
                         changed = True
                         del nodes[i]
-                        if isinstance(storage, Variable) \
-                                and storage.name == 'ret':
-                            assert self.retCid is None, self.retCid
-                            self.retCid = node.cid
-                    else:
-                        willBeOverwritten.add(rid)
+                    willBeOverwritten.add(rid)
             i -= 1
 
         return changed
