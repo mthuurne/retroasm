@@ -312,7 +312,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
-        self.assertEqual(code.retCid, add.cid)
+        self.assertEqual(code.retRef.cid, add.cid)
 
     def test_return_value_renumber(self):
         '''Test a simplification that must replace the return value cid.'''
@@ -329,7 +329,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
-        self.assertEqual(code.retCid, const.cid)
+        self.assertEqual(code.retRef.cid, const.cid)
 
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''
@@ -350,7 +350,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         correct = (
-            Store(code.retCid, ridA),
+            Store(code.retRef.cid, ridA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)

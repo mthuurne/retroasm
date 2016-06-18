@@ -163,8 +163,16 @@ class CodeBlock:
         self.constants = constantsDict
         self.references = OrderedDict(enumerate(references))
         self.nodes = list(nodes)
-        self.retCid = None
+        self.retRid = None
         assert self.verify() is None
+
+    @property
+    def retRef(self):
+        '''The Storage in which the block's return value is stored,
+        or None if the block does not return any value.
+        '''
+        retRid = self.retRid
+        return None if retRid is None else self.references[retRid]
 
     def verify(self):
         '''Performs consistency checks on the data in this code block.
@@ -206,7 +214,7 @@ class CodeBlock:
         def checkUsage(expr):
             assert not isinstance(expr, Storage), expr
             if isinstance(expr, ConstantValue):
-                assert expr.cid in cids
+                assert expr.cid in cids, expr
         for const in self.constants.values():
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
@@ -214,12 +222,13 @@ class CodeBlock:
         # Check that cids in storage references are valid.
         for ref in self.references.values():
             if isinstance(ref, FixedValue):
-                assert ref.cid in cids
+                assert ref.cid in cids, ref
             elif isinstance(ref, IOReference):
-                assert ref.index.cid in cids
+                assert ref.index.cid in cids, ref
 
-        # Check that the return value cid is valid.
-        assert self.retCid is None or self.retCid in cids, self.retCid
+        # Check that the return value rid is valid.
+        assert self.retRid is None or self.retRid in self.references, \
+            self.retRid
 
     def dump(self):
         '''Prints this code block on stdout.
@@ -234,8 +243,8 @@ class CodeBlock:
                 print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
-        if self.retCid is not None:
-            print('        ret =  C%d' % self.retCid)
+        if self.retRid is not None:
+            print('        ret =  C%d' % self.retRef.cid)
         print('    references:')
         for rid, ref in self.references.items():
             print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))

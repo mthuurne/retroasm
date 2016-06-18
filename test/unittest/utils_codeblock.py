@@ -4,7 +4,7 @@ from retroasm.codeblock_builder import (
     )
 from retroasm.context import Context
 from retroasm.expression import IntLiteral
-from retroasm.storage import ComposedStorage, IOChannel, Register
+from retroasm.storage import ComposedStorage, FixedValue, IOChannel, Register
 from retroasm.types import IntType
 
 class NodeChecker:
@@ -25,7 +25,10 @@ class NodeChecker:
         self.assertEqual(constant.expr.value, value)
 
     def assertRetVal(self, code, value):
-        self.assertIntLiteral(code.constants[code.retCid], value)
+        retRef = code.retRef
+        self.assertIsNotNone(retRef)
+        self.assertIsInstance(retRef, FixedValue)
+        self.assertIntLiteral(code.constants[retRef.cid], value)
 
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 

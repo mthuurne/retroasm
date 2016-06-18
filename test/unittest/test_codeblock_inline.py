@@ -42,7 +42,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         correct = (
-            Store(code.retCid, outerA),
+            Store(code.retRef.cid, outerA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -156,7 +156,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         code.verify()
         correct = (
-            Store(code.retCid, outerA),
+            Store(code.retRef.cid, outerA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)

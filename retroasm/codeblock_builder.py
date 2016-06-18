@@ -344,10 +344,14 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 storage = context[ref.name]
                 assert ref.width == storage.width, (ref.width, storage.width)
             else:
-                # Shallow copy is sufficient because references are immutable.
+                if isinstance(ref, FixedValue):
+                    newRef = FixedValue(cidMap[ref.cid], ref.width)
+                else:
+                    # Shallow copy because references are immutable.
+                    newRef = ref
                 newRid = len(references)
-                references.append(ref)
-                storage = ComposedStorage.single(newRid, ref.width)
+                references.append(newRef)
+                storage = ComposedStorage.single(newRid, newRef.width)
             ridMap[rid] = storage
 
         # Copy constants.
@@ -399,5 +403,5 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 assert False, node
 
         # Determine return value.
-        retCid = code.retCid
-        return unit if retCid is None else ConstantValue(cidMap[retCid], -1)
+        retRef = code.retRef
+        return unit if retRef is None else ConstantValue(cidMap[retRef.cid], -1)

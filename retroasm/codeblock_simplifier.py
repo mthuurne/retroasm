@@ -128,16 +128,14 @@ class CodeBlockSimplifier(CodeBlock):
                     references[rid] = IOReference(
                         ref.channel, ConstantValue(newCid, index.mask)
                         )
+            elif isinstance(ref, FixedValue):
+                references[rid] = FixedValue(newCid, ref.width)
 
         # Replace constant in nodes.
         nodes = self.nodes
         for i, node in enumerate(nodes):
             if node.cid == oldCid:
                 nodes[i] = node.clone(cid=newCid)
-
-        # Replace return constant.
-        if self.retCid == oldCid:
-            self.retCid = newCid
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -170,10 +168,6 @@ class CodeBlockSimplifier(CodeBlock):
                 cidsInUse.add(ref.cid)
             elif isinstance(ref, IOReference):
                 cidsInUse.add(ref.index.cid)
-        # Mark constant that contains return value.
-        retCid = self.retCid
-        if retCid is not None:
-            cidsInUse.add(retCid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -196,7 +190,7 @@ class CodeBlockSimplifier(CodeBlock):
                     assert False, const
             return True
         else:
-            assert len(cidsInUse) == len(constants)
+            assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
 
     def removeUnusedReferences(self):
@@ -205,6 +199,9 @@ class CodeBlockSimplifier(CodeBlock):
         unusedRids = set(self.references.keys())
         for node in self.nodes:
             unusedRids.discard(node.rid)
+        retRid = self.retRid
+        if retRid is not None:
+            unusedRids.discard(retRid)
         for rid in unusedRids:
             del self.references[rid]
         return bool(unusedRids)
@@ -326,8 +323,11 @@ class CodeBlockSimplifier(CodeBlock):
                 elif isinstance(node, Store):
                     if isinstance(storage, Variable) and storage.name == 'ret':
                         if rid not in willBeOverwritten:
-                            assert self.retCid is None, self.retCid
-                            self.retCid = node.cid
+                            assert self.retRid is None, self.retRid
+                            self.retRid = rid
+                            references[rid] = FixedValue(
+                                node.cid, storage.width
+                                )
                     if rid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):
                         changed = True

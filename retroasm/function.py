@@ -8,12 +8,12 @@ class Function:
         if code is not None:
             # Check consistency between declared return type and code block.
             if retType is None:
-                if code.retCid is not None:
+                if code.retRid is not None:
                     raise ValueError(
                         'function "%s" has no return type, '
                         'but its code block has a return value' % name
                         )
-            elif code.retCid is None:
+            elif code.retRid is None:
                 raise ValueError(
                     'missing return value assignment in function "%s"' % name
                     )
