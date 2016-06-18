@@ -90,6 +90,24 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertEqual(len(code.nodes), 0)
         self.assertRetVal(code, 3000)
 
+    def test_ret_truncate(self):
+        '''Test whether the value returned by a block is truncated.'''
+        inner = TestCodeBlockBuilder()
+        innerVal = inner.emitCompute(IntLiteral(0x8472))
+        innerRet = inner.addVariable('ret', 8)
+        inner.emitStore(innerRet, innerVal)
+        innerCode = inner.createCodeBlock()
+        func = Function('get', IntType(8), {}, innerCode)
+
+        outer = TestCodeBlockBuilder()
+        outerVal = outer.inlineFunctionCall(func, {}, None)
+        outerRet = outer.addVariable('ret', 16)
+        outer.emitStore(outerRet, outerVal)
+
+        code = createSimplifiedCode(outer)
+        self.assertEqual(len(code.nodes), 0)
+        self.assertRetVal(code, 0x72)
+
     def test_arg_truncate(self):
         '''Test whether expressions passed via value arguments are truncated.'''
         # Note: Default width is 8 bits.
