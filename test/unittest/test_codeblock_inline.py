@@ -59,9 +59,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         step0 = outer.emitCompute(IntLiteral(100))
-        step1 = outer.inlineBlock(incCode, {'V': step0})
-        step2 = outer.inlineBlock(incCode, {'V': step1})
-        step3 = outer.inlineBlock(incCode, {'V': step2})
+        step1 = outer.inlineBlock(incCode, {'V': step0}).emitLoad(outer, None)
+        step2 = outer.inlineBlock(incCode, {'V': step1}).emitLoad(outer, None)
+        step3 = outer.inlineBlock(incCode, {'V': step2}).emitLoad(outer, None)
         outerRet = outer.addVariable('ret')
         outer.emitStore(outerRet, step3)
 
@@ -82,7 +82,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        inlinedVal = outer.inlineBlock(innerCode, {})
+        inlinedVal = outer.inlineBlock(innerCode, {}).emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
         outer.emitStore(outerRet, inlinedVal)
 

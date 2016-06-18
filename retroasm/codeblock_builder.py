@@ -319,12 +319,16 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 'Non-existing arguments passed: %s' % ', '.join(argMap.keys())
                 )
 
-        return self.inlineBlock(code, newMap)
+        retStorage = self.inlineBlock(code, newMap)
+        if retStorage is None:
+            return unit
+        else:
+            return retStorage.emitLoad(self, location)
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
-        Returns an expression representing the return value of the inlined
-        block.
+        Returns a ComposedStorage containing the value returned by the inlined
+        block, or None if the inlined block does not return anything.
         '''
         constants = self.constants
         references = self.references
@@ -403,5 +407,5 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 assert False, node
 
         # Determine return value.
-        retRef = code.retRef
-        return unit if retRef is None else ConstantValue(cidMap[retRef.cid], -1)
+        retRid = code.retRid
+        return None if retRid is None else ridMap[retRid]
