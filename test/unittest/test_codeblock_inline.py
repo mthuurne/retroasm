@@ -45,7 +45,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
             Store(code.retCid, outerA),
             )
         self.assertNodes(code.nodes, correct)
-        self.assertIntLiteral(code.constants[code.retCid], 12345)
+        self.assertRetVal(code, 12345)
 
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
@@ -67,7 +67,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
-        self.assertIntLiteral(code.constants[code.retCid], 103)
+        self.assertRetVal(code, 103)
 
     def test_multiret(self):
         '''Test whether inlining works when "ret" is written multiple times.'''
@@ -88,7 +88,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
-        self.assertIntLiteral(code.constants[code.retCid], 3000)
+        self.assertRetVal(code, 3000)
 
     def test_arg_truncate(self):
         '''Test whether expressions passed via value arguments are truncated.'''
@@ -112,7 +112,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
-        self.assertIntLiteral(code.constants[code.retCid], 1)
+        self.assertRetVal(code, 1)
 
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
@@ -141,7 +141,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
             Store(code.retCid, outerA),
             )
         self.assertNodes(code.nodes, correct)
-        self.assertIntLiteral(code.constants[code.retCid], 103)
+        self.assertRetVal(code, 103)
 
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
@@ -175,7 +175,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         code.verify()
         self.assertEqual(len(code.nodes), 2)
-        self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1234)
+        self.assertRetVal(code, 0xabcd + 3 * 0x1234)
 
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
@@ -205,7 +205,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         code.verify()
         self.assertEqual(len(code.nodes), 1)
-        self.assertIntLiteral(code.constants[code.retCid], 0xabcd + 3 * 0x1300)
+        self.assertRetVal(code, 0xabcd + 3 * 0x1300)
 
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
@@ -232,10 +232,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         code.verify()
         self.assertEqual(len(code.nodes), 1)
-        self.assertIntLiteral(
-            code.constants[code.retCid],
-            0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4)
-            )
+        self.assertRetVal(code, 0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4))
 
 if __name__ == '__main__':
     verbose = True

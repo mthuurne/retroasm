@@ -24,6 +24,9 @@ class NodeChecker:
         self.assertIsInstance(constant.expr, IntLiteral)
         self.assertEqual(constant.expr.value, value)
 
+    def assertRetVal(self, code, value):
+        self.assertIntLiteral(code.constants[code.retCid], value)
+
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
     def __init__(self, globalBuilder=None):

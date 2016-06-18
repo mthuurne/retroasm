@@ -353,7 +353,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
             Store(code.retCid, ridA),
             )
         self.assertNodes(code.nodes, correct)
-        self.assertIntLiteral(code.constants[code.retCid], 26)
+        self.assertRetVal(code, 26)
 
 if __name__ == '__main__':
     verbose = True
