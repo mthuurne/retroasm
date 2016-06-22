@@ -44,23 +44,11 @@ def declareVariable(node, builder):
             ex.location
             )
 
-def convertDefinition(node, builder):
-    # Determine type.
-    try:
-        typ = parseTypeDecl(node.decl.type.name)
-    except ValueError as ex:
-        raise BadExpression(
-            'bad type name in definition: %s' % ex,
-            node.decl.type.location
-            )
-
+def convertDefinition(kind, nameNode, typ, value, builder):
     # Get name.
-    nameNode = node.decl.name
     name = nameNode.name
 
     # Build and validate value expression.
-    kind = node.decl.kind
-    value = node.value
     if kind is DeclarationKind.constant:
         try:
             expr = buildExpression(value, builder)
@@ -166,11 +154,7 @@ def _convertFunctionCall(callNode, builder):
         argMap[name] = value
 
     # Inline function call.
-    retStorage = builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
-    if retStorage is None:
-        return unit
-    else:
-        return retStorage.emitLoad(builder, callNode.location)
+    return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
 
 def _convertArithmetic(node, builder):
     operator = node.operator
@@ -194,7 +178,11 @@ def _convertArithmetic(node, builder):
 def _convertExpressionOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        return _convertFunctionCall(node, builder)
+        retStorage = _convertFunctionCall(node, builder)
+        if retStorage is None:
+            return unit
+        else:
+            return retStorage.emitLoad(builder, node.treeLocation)
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)\
             .emitLoad(builder, node.treeLocation)
@@ -316,10 +304,14 @@ def _convertStorageConcat(node, builder):
 def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        raise BadExpression(
-            'function calls on the storage side are not supported yet',
-            node.treeLocation
-            )
+        retStorage = _convertFunctionCall(node, builder)
+        if retStorage is None:
+            raise BadExpression(
+                'function does not return anything; expected reference',
+                node.treeLocation
+                )
+        else:
+            return retStorage
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)
     elif operator is Operator.slice:
@@ -355,7 +347,7 @@ def buildStorage(node, builder):
     else:
         assert False, node
 
-def emitCodeFromStatements(reader, builder, statements):
+def emitCodeFromStatements(reader, builder, statements, retType):
     '''Emits a code block from the given statements.
     '''
     for node in statements:
@@ -386,8 +378,35 @@ def emitCodeFromStatements(reader, builder, statements):
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference definition.
+            decl = node.decl
+            kind = decl.kind
+            nameNode = decl.name
+            typeNode = decl.type
+            if typeNode is None:
+                # For a function returning a reference, the reference type
+                # is declared in the function header rather than on the
+                # definition line.
+                assert kind == DeclarationKind.reference, kind
+                assert nameNode.name == 'ret', nameNode.name
+                if not isinstance(retType, Reference):
+                    reader.error(
+                        '"ret" defined as reference in function that returns %s'
+                        % ('nothing' if retType is None else 'value'),
+                        location=decl.location
+                        )
+                    continue
+                typ = retType
+            else:
+                # Determine type.
+                try:
+                    typ = parseTypeDecl(typeNode.name)
+                except ValueError as ex:
+                    raise BadExpression(
+                        'bad type name in definition: %s' % ex,
+                        typeNode.location
+                        )
             try:
-                convertDefinition(node, builder)
+                convertDefinition(kind, nameNode, typ, node.value, builder)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             # Don't evaluate the expression, since that could emit loads.

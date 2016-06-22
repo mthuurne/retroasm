@@ -11,12 +11,20 @@ class Function:
                 if code.retRef is not None:
                     raise ValueError(
                         'function "%s" has no return type, '
-                        'but its code block has a return value' % name
+                        'but its code block defines "ret"' % name
                         )
-            elif code.retRef is None:
-                raise ValueError(
-                    'missing return value assignment in function "%s"' % name
-                    )
+            elif isinstance(retType, Reference):
+                if code.retRef is None:
+                    raise ValueError(
+                        'function "%s" should return a reference '
+                        'but does not define "ret"' % name
+                        )
+            else: # returns a value
+                if code.retRef is None:
+                    raise ValueError(
+                        'missing return value assignment in function "%s"'
+                        % name
+                        )
 
         self.name = name
         self.retType = retType

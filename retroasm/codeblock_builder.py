@@ -255,6 +255,14 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     )
                 )
 
+        if 'ret' in self.context:
+            if not any(
+                    isinstance(ref, Variable) and ref.name == 'ret'
+                    for ref in code.references.values()
+                    ):
+                assert code.retRef is None, code.retRef
+                code.retRef = self.context['ret']
+
         # Finalize code block.
         code.simplify()
         code.freeze()

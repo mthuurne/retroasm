@@ -159,8 +159,9 @@ def _parseFuncArgs(log, argsStr):
                 args[argName] = arg
     return args
 
+_typeTok = r'\s*(' + namePat + r'&?)\s*'
 _reFuncHeader = re.compile(
-    r'(?:' + _nameTok + r'\s)?' + _nameTok + r'\((.*)\)$'
+    r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
 
 def _parseFunc(reader, argStr, builder):
@@ -179,7 +180,7 @@ def _parseFunc(reader, argStr, builder):
         retType = None
     else:
         try:
-            retType = parseType(retTypeStr)
+            retType = parseTypeDecl(retTypeStr)
         except ValueError as ex:
             reader.error('bad return type: %s', ex)
             reader.skipBlock()

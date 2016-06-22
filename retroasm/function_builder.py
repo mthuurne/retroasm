@@ -27,12 +27,12 @@ def createFunc(reader, funcName, retType, args, globalBuilder):
             builder.emitLocalReference(argName, argDecl.type, headerLocation)
         else:
             builder.emitValueArgument(argName, argDecl, headerLocation)
-    if retType is not None:
+    if retType is not None and not isinstance(retType, Reference):
         builder.emitVariable('ret', retType, headerLocation)
 
     try:
         with reader.checkErrors():
-            emitCodeFromStatements(reader, builder, _parseBody(reader))
+            emitCodeFromStatements(reader, builder, _parseBody(reader), retType)
     except DelayedError:
         code = None
     else:

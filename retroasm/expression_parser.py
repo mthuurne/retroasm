@@ -144,7 +144,8 @@ class DeclarationNode(ParseNode):
         self.kind = kind
         self.type = typ
         self.name = name
-        self.treeLocation = _mergeSpan(location, name.treeLocation)
+        self.treeLocation = name.treeLocation if location is None else \
+                _mergeSpan(location, name.treeLocation)
 
 class DefinitionNode(ParseNode):
     __slots__ = ('decl', 'value')
@@ -281,7 +282,15 @@ def _parse(exprStr, location, statement):
         elif token.kind is Token.keyword:
             return parseDefinition()
         elif token.kind is Token.identifier:
-            return parseIdent()
+            ident = parseIdent()
+            if isinstance(ident, IdentifierNode) and ident.name == 'ret':
+                declNode = DeclarationNode(
+                    DeclarationKind.reference, None, ident, None
+                    )
+                defLocation = token.location
+                if token.eat(Token.definition):
+                    return DefinitionNode(declNode, parseTop(), defLocation)
+            return ident
         elif token.kind is Token.number:
             return parseNumber()
         else:
