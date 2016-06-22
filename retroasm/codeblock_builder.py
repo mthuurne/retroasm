@@ -14,6 +14,8 @@ from .storage import (
 from .types import IntType, Reference, maskForWidth
 from .utils import checkType
 
+from itertools import chain
+
 class CodeBlockBuilder:
 
     def __init__(self, context):
@@ -342,7 +344,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             )
 
         # For each old rid, create a corresponding storage in this block.
-        ridMap = {}
+        refMap = {}
         for rid, ref in code.references.items():
             if isinstance(ref, LocalReference):
                 storage = context[ref.name]
@@ -356,7 +358,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 newRid = len(references)
                 references.append(newRef)
                 storage = ComposedStorage.single(newRid, newRef.width)
-            ridMap[rid] = storage
+            refMap[rid] = storage
 
         # Copy constants.
         for cid, const in code.constants.items():
@@ -383,7 +385,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Substitute index constants.
         # This cannot be done when originally copying the references
         # because at that time the constants haven't been added yet.
-        for composedStorage in ridMap.values():
+        for composedStorage in refMap.values():
             for rid, index_, width_ in composedStorage:
                 ref = references[rid]
                 if isinstance(ref, IOReference):
@@ -395,7 +397,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Copy nodes.
         for node in code.nodes:
-            composedStorage = ridMap[node.rid]
+            composedStorage = refMap[node.rid]
             newCid = cidMap[node.cid]
             if isinstance(node, Load):
                 value = composedStorage.emitLoad(self, node.location)
@@ -407,5 +409,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 assert False, node
 
         # Determine return value.
-        retRid = code.retRid
-        return None if retRid is None else ridMap[retRid]
+        retRef = code.retRef
+        return None if retRef is None else ComposedStorage(chain.from_iterable(
+            refMap[rid].slice(index, width)
+            for rid, index, width in retRef
+            ))

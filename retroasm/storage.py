@@ -215,6 +215,16 @@ class ComposedStorage:
     def __iter__(self):
         return iter(self._decomposed)
 
+    def present(self, references):
+        return ' ; '.join(
+            '%s[%s:%s]' % (
+                references[rid],
+                '' if index == 0 else index,
+                '' if width is unlimited else index + width
+                )
+            for rid, index, width in self._decomposed
+            )
+
     def concat(self, other):
         '''Return a new ComposedStorage instance that is the concatenation of
         this one as the least significant part and the given ComposedStorage

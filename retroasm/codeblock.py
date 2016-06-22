@@ -163,16 +163,8 @@ class CodeBlock:
         self.constants = constantsDict
         self.references = OrderedDict(enumerate(references))
         self.nodes = list(nodes)
-        self.retRid = None
+        self.retRef = None
         assert self.verify() is None
-
-    @property
-    def retRef(self):
-        '''The Storage in which the block's return value is stored,
-        or None if the block does not return any value.
-        '''
-        retRid = self.retRid
-        return None if retRid is None else self.references[retRid]
 
     def verify(self):
         '''Performs consistency checks on the data in this code block.
@@ -226,9 +218,10 @@ class CodeBlock:
             elif isinstance(ref, IOReference):
                 assert ref.index.cid in cids, ref
 
-        # Check that the return value rid is valid.
-        assert self.retRid is None or self.retRid in self.references, \
-            self.retRid
+        # Check that the return value rids are valid.
+        if self.retRef is not None:
+            for rid, index_, width_ in self.retRef:
+                assert rid in self.references, rid
 
     def dump(self):
         '''Prints this code block on stdout.
@@ -243,11 +236,11 @@ class CodeBlock:
                 print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
-        if self.retRid is not None:
-            print('        ret =  C%d' % self.retRef.cid)
         print('    references:')
         for rid, ref in self.references.items():
             print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
+        if self.retRef is not None:
+            print('        ret      = %s' % self.retRef.present(self.references))
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)

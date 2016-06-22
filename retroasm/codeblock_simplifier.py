@@ -3,7 +3,9 @@ from .codeblock import (
     LoadedConstant, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import FixedValue, IOReference, Register, Variable
+from .storage import (
+    ComposedStorage, FixedValue, IOReference, Register, Variable
+    )
 from .types import maskForWidth
 
 from collections import defaultdict
@@ -199,9 +201,10 @@ class CodeBlockSimplifier(CodeBlock):
         unusedRids = set(self.references.keys())
         for node in self.nodes:
             unusedRids.discard(node.rid)
-        retRid = self.retRid
-        if retRid is not None:
-            unusedRids.discard(retRid)
+        retRef = self.retRef
+        if retRef is not None:
+            for rid, index_, width_ in retRef:
+                unusedRids.discard(rid)
         for rid in unusedRids:
             del self.references[rid]
         return bool(unusedRids)
@@ -323,11 +326,10 @@ class CodeBlockSimplifier(CodeBlock):
                 elif isinstance(node, Store):
                     if isinstance(storage, Variable) and storage.name == 'ret':
                         if rid not in willBeOverwritten:
-                            assert self.retRid is None, self.retRid
-                            self.retRid = rid
-                            references[rid] = FixedValue(
-                                node.cid, storage.width
-                                )
+                            width = storage.width
+                            assert self.retRef is None, self.retRef
+                            self.retRef = ComposedStorage.single(rid, width)
+                            references[rid] = FixedValue(node.cid, width)
                     if rid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):
                         changed = True

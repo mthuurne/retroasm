@@ -37,15 +37,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerA, zero)
         outer.inlineBlock(inner.createCodeBlock(), {})
         loadA = outer.emitLoad(outerA)
-        outerRet = outer.addVariable('ret')
+        outerRet = outer.addVariable('ret', 16)
         outer.emitStore(outerRet, loadA)
 
         code = createSimplifiedCode(outer)
+        retCid, retWidth = self.getRetVal(code)
         correct = (
-            Store(code.retRef.cid, outerA),
+            Store(retCid, outerA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
+        self.assertEqual(retWidth, 16)
 
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
@@ -155,11 +157,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
+        retCid, retWidth = self.getRetVal(code)
         correct = (
-            Store(code.retRef.cid, outerA),
+            Store(retCid, outerA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
+        self.assertEqual(retWidth, 8)
 
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''

@@ -24,11 +24,24 @@ class NodeChecker:
         self.assertIsInstance(constant.expr, IntLiteral)
         self.assertEqual(constant.expr.value, value)
 
-    def assertRetVal(self, code, value):
+    def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        self.assertIsInstance(retRef, FixedValue)
-        self.assertIntLiteral(code.constants[retRef.cid], value)
+        self.assertIsInstance(retRef, ComposedStorage)
+        decomposed = tuple(retRef)
+        self.assertEqual(len(decomposed), 1)
+        (rid, index, width), = decomposed
+        self.assertEqual(index, 0)
+        ref = code.references[rid]
+        self.assertIsInstance(ref, FixedValue)
+        return ref.cid, width
+
+    def assertRetVal(self, code, value):
+        cid, width = self.getRetVal(code)
+        constant = code.constants[cid]
+        self.assertIsInstance(constant, ComputedConstant)
+        self.assertIsInstance(constant.expr, IntLiteral)
+        self.assertEqual(constant.expr.value & ((1 << width) - 1), value)
 
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
