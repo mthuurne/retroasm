@@ -2,7 +2,7 @@ from .codeblock import Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, OrOperator, XorOperator,
-    truncate
+    truncate, unit
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -166,7 +166,11 @@ def _convertFunctionCall(callNode, builder):
         argMap[name] = value
 
     # Inline function call.
-    return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
+    retStorage = builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
+    if retStorage is None:
+        return unit
+    else:
+        return retStorage.emitLoad(builder, callNode.location)
 
 def _convertArithmetic(node, builder):
     operator = node.operator

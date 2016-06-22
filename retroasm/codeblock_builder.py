@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import IntLiteral, truncate, unit
+from .expression import IntLiteral, truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
@@ -109,7 +109,8 @@ class CodeBlockBuilder:
 
     def inlineFunctionCall(self, func, argMap, location):
         '''Inlines a call to the given function with the given arguments.
-        Returns an expression that represents the return value of the call.
+        Returns a ComposedStorage containing the value returned by the inlined
+        function, or None if the function does not return anything.
         '''
         raise NotImplementedError
 
@@ -142,9 +143,6 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
             )
 
     def inlineFunctionCall(self, func, argMap, location):
-        '''Inlines a call to the given function with the given arguments.
-        Returns an expression that represents the return value of the call.
-        '''
         raise BadGlobalOperation(
             'attempt to call function ("%s") in global scope' % func.name,
             location
@@ -296,10 +294,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return rid
 
     def inlineFunctionCall(self, func, argMap, location):
-        '''Inlines a call to a given function.
-        Returns an expression representing the return value of the inlined
-        function body.
-        '''
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
@@ -321,11 +315,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 'Non-existing arguments passed: %s' % ', '.join(argMap.keys())
                 )
 
-        retStorage = self.inlineBlock(code, newMap)
-        if retStorage is None:
-            return unit
-        else:
-            return retStorage.emitLoad(self, location)
+        return self.inlineBlock(code, newMap)
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
