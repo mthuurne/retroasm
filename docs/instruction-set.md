@@ -60,11 +60,19 @@ The `#` character marks the remainder of the line as a comment, which is ignored
 Types
 -----
 
+Currently only integer types are supported.
+
+### Integer Types
+
 The type `u`*N* is an unsigned integer type of *N* bits wide. So for example `u8` is a byte and `u1` can hold a Boolean value. The type `s`*N* is a signed integer type of *N* bits wide, where bit *N*-1 is the sign bit. The types `u0` and `s0` are valid and the only value in those types is the number 0. The type `int` is an integer type that can contain arbitrary signed integers (unlimited width).
 
 The `int` type is used in arithmetical expressions. The `u`*N* types are used to describe aspects of the hardware, such as registers. The `s`*N* types are not often used, but are necessary to for example describe signed offsets in relative addressing modes.
 
-Currently no other types besides integers are supported.
+### References
+
+A reference to a storage location is denoted by placing an ampersand after the type. For example `u8&` is a reference to a byte.
+
+A type declaration that is not a reference is called a value type.
 
 Literals
 --------
@@ -122,7 +130,7 @@ Type Conversions
 
 Conversion from fixed-width (`u`*N* or `s`*N*) integer to arbitrary-sized integer (`int`) is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
 
-Conversion from arbitrary-sized integer (`int`) to fixed-width (`u`*N*) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*[0:*N*] will convert *A* to `u`*N*. Truncation is also done implicitly when an integer value is assigned to a fixed-width storage location or passed as a fixed-width argument.
+Conversion from arbitrary-sized integer (`int`) to fixed-width (`u`*N*) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*[0:*N*] will convert *A* to `u`*N*. Truncation is also done implicitly when an integer value is assigned to a fixed-width storage location.
 
 Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example `$84` is an `u8` with numeric value 132, but when converted to `s8` the value becomes -124. Explicit conversion can be performed using the `to_s` and `to_u` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the storage location or argument slot.
 
@@ -169,3 +177,89 @@ For example the Z80 has a 64K (2<sup>16</sup>) memory address space and 256 (2<s
     u8 port[u8]
 
 For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
+
+Statements
+----------
+
+Statements are used to define the operation of the processor.
+
+Each line of a statement block contains a single statement. As usual, an empty line ends a block. It is possible to indent a statement block for better readability, but this optional and has no syntactical meaning.
+
+### Assignment
+
+The most common statement is assignment, which uses the `<lhs> := <rhs>` syntax. An assignment will compute the value of the expression on its right-hand side and store it into the storage location on its left-hand side, for example:
+
+    a := a + 1
+
+Multiple storage locations can be stored into in a single assignment using concatenation. It is also possible to assign to a slice of a storage location, which will load its value, combine it with the assigned value and store the result:
+
+    a[0:4] ; mem[hl] := mem[hl] ; a[0:4]
+
+### Variables
+
+Variables can be declared using the syntax `var <type> <name>`. Optionally, the variable can be assigned a value in the same statement:
+
+    var u8 X
+    var u1 C := 1
+
+Variables are storage locations that don't represent registers or other hardware storage.
+
+### Constants
+
+Constants can be defined using the syntax `def <type> <name> = <expr>`:
+
+    def u8 V = a
+
+As the name implies, constants are immutable. The expression value is evaluated when the constant is defined, so in the example above `V` represents the value of the `a` register at the time that control reaches the `def` statement.
+
+### References
+
+References to storage locations can be defined using the syntax `def <type>& <name> = <expr>`:
+
+    def u8& R = a
+
+The referenced storage location is loaded from or stored to when the reference is used in expressions or assignments, not at the time of the `def` statement. However, expressions used as indices to select a storage location in an I/O channel are evaluated as part of the `def` statement:
+
+    def u8& R = mem[hl]
+
+This will create a reference to the memory location at the address specified by the value of `hl` at the time of the `def` statement. That fixed memory location will be read or written when `R` is loaded from or stored to, even when `hl` is modified later.
+
+### Flow Control
+
+Statements for flow control (branching) of the instruction set definition language are not implemented yet.
+
+Flow control of the instruction set definition is unrelated to flow control of the processor being defined. The latter is modeled by assigning to the `pc` register.
+
+Functions
+---------
+
+Functions can be defined to avoid duplication in instruction set definitions:
+
+    = func <return type> <name>(<arguments>)
+    <statements>
+
+Arguments are specified as a type followed by a name and separates by commas. Value arguments are specified using just the type name, while reference arguments use the usual reference syntax of the type name followed by an ampersand. For example the following function header declares a value argument named `A` and a reference argument named `V`:
+
+    = func u1 foo(u16 A, u8& V)
+
+Inside a function, value arguments are treated as local variables, meaning they can be modified.
+
+If the return type is empty, the function does not return anything:
+
+    = func push(u8 V)
+        mem[$01 ; s] := V
+        s := s - 1
+
+If the return type is a value type, the function returns a value by assigning it to a variable named `ret`:
+
+    = func u16 read16(u16 A)
+        var u8 L := mem[A]
+        var u8 H := mem[A + 1]
+        ret := H ; L
+
+If the return type is a reference type, the function returns a reference by defining a reference named `ret`:
+
+    = func u8& indx(u8 A)
+        def u8 L = mem[(A + x    )[:8]]
+        def u8 H = mem[(A + x + 1)[:8]]
+        ret = mem[H ; L]
