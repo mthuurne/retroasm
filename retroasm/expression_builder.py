@@ -1,8 +1,8 @@
 from .codeblock import Load, Store
 from .context import NameExistsError
 from .expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, OrOperator, XorOperator,
-    truncate, unit
+    AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
+    XorOperator, truncate
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -13,10 +13,34 @@ from .function import Function
 from .linereader import BadInput
 from .storage import ComposedStorage, IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
+from .utils import Singleton
+
+from inspect import signature
 
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
     '''
+
+class Unit(Expression, metaclass=Singleton):
+    '''Expression that represents the absense of a value.
+    '''
+    __slots__ = ()
+
+    def _ctorargs(self, *exprs, **kwargs):
+        return signature(self.__class__).bind()
+
+    def __str__(self):
+        return 'unit'
+
+    def _equals(self, other):
+        return self is other
+
+    def _checkScalar(self):
+        raise BadExpression(
+            'attempt to use return value of function that returns nothing'
+            )
+
+unit = Unit()
 
 def declareVariable(node, builder):
     assert node.kind is DeclarationKind.variable, node.kind
@@ -364,17 +388,15 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                 continue
 
             try:
-                rhs = buildExpression(node.rhs, builder)
+                rhs = builder.emitCompute(buildExpression(node.rhs, builder))
             except BadExpression as ex:
                 reader.error(
                     'bad expression on right hand side of assignment: %s', ex,
                     location=ex.location
                     )
                 continue
-            else:
-                rhsConst = builder.emitCompute(rhs)
 
-            lhs.emitStore(builder, rhsConst, node.lhs.treeLocation)
+            lhs.emitStore(builder, rhs, node.lhs.treeLocation)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference definition.

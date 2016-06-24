@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import IntLiteral, truncate
+from .expression import truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
@@ -305,7 +305,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
-            return IntLiteral(0)
+            return None
 
         argMap = dict(argMap)
         newMap = {}

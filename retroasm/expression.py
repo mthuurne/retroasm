@@ -1,5 +1,5 @@
 from .types import maskForWidth, maskToSegments, unlimited, widthForMask
-from .utils import Singleton, checkType
+from .utils import checkType
 
 from functools import reduce
 from inspect import signature
@@ -121,28 +121,6 @@ class Expression:
             return self.__class__(*binding.args, **binding.kwargs)
         else:
             return self
-
-class Unit(Expression, metaclass=Singleton):
-    '''Expression that represents the absense of a value.
-    '''
-    __slots__ = ()
-
-    def _ctorargs(self, *exprs, **kwargs):
-        return signature(self.__class__).bind()
-
-    def __str__(self):
-        return 'unit'
-
-    def _equals(self, other):
-        return self is other
-
-    def _checkScalar(self):
-        '''Does nothing if this expression returns a single value.
-        Otherwise, ValueError is raised.
-        '''
-        raise ValueError('attempt to use unit value')
-
-unit = Unit()
 
 class IntLiteral(Expression):
     '''An integer literal.
