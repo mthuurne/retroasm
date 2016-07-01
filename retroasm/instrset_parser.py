@@ -60,20 +60,12 @@ def _parseRegs(reader, argStr, builder):
                 continue
 
             # Parse right hand side.
+            rhsLoc = reader.getLocation((len(parts[0]) + 1, len(line)))
             try:
-                tree = parseExpr(parts[1], reader.getLocation())
+                tree = parseExpr(parts[1], rhsLoc)
                 alias = buildStorage(tree, builder)
             except BadInput as ex:
-                location = ex.location
-                if location is not None:
-                    span = location.span
-                    if span is not None:
-                        # Correct the span information.
-                        shift = len(parts[0]) + 1
-                        location = location.updateSpan(
-                            (span[0] + shift, span[1] + shift)
-                            )
-                reader.error(str(ex), location=location)
+                reader.error(str(ex), location=ex.location)
                 continue
             if alias.width != aliasType.width:
                 reader.error(

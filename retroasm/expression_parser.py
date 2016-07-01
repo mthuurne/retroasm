@@ -52,6 +52,10 @@ class ExpressionTokenizer:
                 value = match.group(group)
                 span = match.span(group)
                 break
+        baseSpan = self._lineLocation.span
+        if baseSpan is not None:
+            shift = baseSpan[0]
+            span = (shift + span[0], shift + span[1])
         self.kind = kind
         self.value = value
         self.location = self._lineLocation.updateSpan(span)
