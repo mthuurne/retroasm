@@ -102,10 +102,9 @@ class LineReader:
 
     def getLocation(self, span=None):
         '''Returns an InputLocation object describing the current location in
-        the input file. This can be passed as the "location" argument to the
-        log methods when a message should be logged for a line other than the
-        current one. If the 'span' argument is provided, it must be a tuple of
-        the start and end index of the area of interest within the current line.
+        the input file. If the 'span' argument is provided, it must be a tuple
+        of the start and end index of the area of interest within the current
+        line.
         '''
         return InputLocation(
             readerPathname=self.pathname,
@@ -114,9 +113,30 @@ class LineReader:
             readerColSpan=span,
             )
 
+    def splitOn(self, matches):
+        '''Iterates through the fields in the current line which are generated
+        by splitting on the given matches. The 'matches' argument must iterate
+        through regular expression match objects, each matching the separator
+        sequence that terminates the field before it. Each field is yielded as
+        a (str, InputLocation) pair, where the string is the field contents and
+        the location can be used for logging.
+        '''
+        line = self.lastline
+        location = self.getLocation()
+        i = None
+        for match in matches:
+            assert match.string == line
+            sepFrom, sepTo = match.span()
+            if i is None:
+                i = match.pos
+            assert sepFrom >= i, (sepFrom, i)
+            yield line[i:sepFrom], location.updateSpan((i, sepFrom))
+            i = sepTo
+
 class InputLocation:
     '''Describes a particular location in an input text file.
-    This can be used to provide context in error reporting.
+    This can be used to provide context in error reporting, by passing it as
+    the value of the 'location' argument to the log methods of LineReader.
     '''
     __slots__ = ('extra',)
 
