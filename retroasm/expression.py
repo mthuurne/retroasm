@@ -384,6 +384,27 @@ class Complement(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
+class Negation(Expression):
+    __slots__ = ('_expr',)
+
+    expr = property(lambda self: self._expr)
+    mask = 1
+
+    def __init__(self, expr):
+        Expression.__init__(self)
+        self._expr = Expression.checkScalar(expr)
+
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
+    def __str__(self):
+        return '!%s' % self._expr
+
+    def _equals(self, other):
+        return self._expr == other._expr
+
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''

@@ -1,8 +1,8 @@
 from .codeblock import Load, Store
 from .context import NameExistsError
 from .expression import (
-    AddOperator, AndOperator, Complement, Expression, IntLiteral, OrOperator,
-    XorOperator, truncate
+    AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
+    OrOperator, XorOperator, truncate
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
@@ -196,6 +196,8 @@ def _convertArithmetic(node, builder):
         return AddOperator(expr1, Complement(expr2))
     elif operator is Operator.complement:
         return Complement(*exprs)
+    elif operator is Operator.negation:
+        return Negation(*exprs)
     else:
         assert False, operator
 
@@ -344,7 +346,8 @@ def _convertStorageOperator(node, builder):
         return _convertStorageConcat(node, builder)
     else:
         expr = _convertArithmetic(node, builder)
-        return _convertFixedValue(expr, unlimited, builder)
+        width = 1 if operator is Operator.negation else unlimited
+        return _convertFixedValue(expr, width, builder)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):

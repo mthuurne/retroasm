@@ -105,7 +105,7 @@ type conversion     | to_s(*A*)         | u*N* &rarr; s*N*
                     | to_u(*A*)         | s*N* &rarr; u*N*
 complement          | -*A*              | int &rarr; int
 bitwise complement  | ~*A*              | int &rarr; int
-logical negation    | !*A*              | u1 &rarr; u1
+logical negation    | !*A*              | int &rarr; u1
 equality            | *A* == *B*        | int &times; int &rarr; u1
 inequality          | *A* != *B*        | int &times; int &rarr; u1
 concatenation       | *A* ; *B*         | int &times; (u&#124;s)*N* &rarr; int
@@ -116,6 +116,8 @@ bitwise lookup      | *A*[*K*]          | int &rarr; u1
 I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*
 
 Most of these operators should be familiar to the reader, but a few may require a more detailed explanation.
+
+The logical negation operator works as in the C language: the negation of zero is 1, the negation of any non-zero number is 0.
 
 Concatenation puts one fixed width bit string after another. For example, the concatenation of `%11` and `%001` is `%11001`. In numeric value: *A* ; *B* = *A*\*2<sup>*N*</sup> + *B*, where *B* is of type `u`*N*. The signedness of the result of a concatenation matches the signedness of the first operand.
 

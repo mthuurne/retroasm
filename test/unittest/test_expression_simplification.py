@@ -1,8 +1,8 @@
 from utils_expression import TestValue
 
 from retroasm.expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, XorOperator, truncate
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
+    OrOperator, RShift, XorOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -351,6 +351,74 @@ class ComplementTests(TestUtils):
             ))
         self.assertIsInstance(expr, Complement)
         self.assertConcat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
+
+class NegationTests(TestUtils):
+
+    def test_int(self):
+        '''Negates an integer literal.'''
+        self.assertIntLiteral(simplifyExpression(Negation(IntLiteral(-1))), 0)
+        self.assertIntLiteral(simplifyExpression(Negation(IntLiteral(0))), 1)
+        self.assertIntLiteral(simplifyExpression(Negation(IntLiteral(1))), 0)
+        self.assertIntLiteral(simplifyExpression(Negation(IntLiteral(2))), 0)
+        self.assertIntLiteral(simplifyExpression(Negation(IntLiteral(3))), 0)
+
+    def test_subexpr(self):
+        '''Negates a simplifiable subexpression.'''
+        self.assertIntLiteral(simplifyExpression(
+            Negation(makeConcat(IntLiteral(0x0), IntLiteral(0x00), 8))
+            ), 1)
+        self.assertIntLiteral(simplifyExpression(
+            Negation(makeConcat(IntLiteral(0xB), IntLiteral(0x00), 8))
+            ), 0)
+        self.assertIntLiteral(simplifyExpression(
+            Negation(makeConcat(IntLiteral(0x0), IntLiteral(0x07), 8))
+            ), 0)
+
+    def test_or(self):
+        '''Negates an OR expression.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(OrOperator(addr, IntLiteral(0x76)))
+            ), 0)
+
+    def test_add(self):
+        '''Negates an addition.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(AddOperator(addr, IntLiteral(1)))
+            ), 0)
+
+    def test_complement(self):
+        '''Negates a complement.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(Complement(OrOperator(addr, IntLiteral(0x76))))
+            ), 0)
+
+    def test_twice(self):
+        '''Negates a negation.'''
+        boolVal = TestValue('B', IntType(1))
+        intVal = TestValue('I', IntType(16))
+        self.assertIs(simplifyExpression(Negation(Negation(boolVal))), boolVal)
+        notNotInt = Negation(Negation(intVal))
+        self.assertIs(simplifyExpression(notNotInt), notNotInt)
+        combi = AndOperator(boolVal, intVal)
+        self.assertIs(simplifyExpression(Negation(Negation(combi))), combi)
+
+    def test_lshift(self):
+        '''Negates a left-shifted expression.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(LShift(AddOperator(addr, IntLiteral(1)), 8))
+            ), 0)
+
+    def test_rshift(self):
+        '''Negates a right-shifted expression.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(RShift(OrOperator(addr, IntLiteral(0x345)), 8))
+            ), 0)
+
 
 class ArithmeticTests(TestUtils):
 

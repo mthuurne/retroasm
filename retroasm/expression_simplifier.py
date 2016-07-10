@@ -1,6 +1,6 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, SimplifiableComposedExpression, XorOperator
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
+    OrOperator, RShift, SimplifiableComposedExpression, XorOperator
     )
 from .types import maskForWidth, widthForMask
 
@@ -15,7 +15,7 @@ def complexity(expr):
         return expr.nodeComplexity + sum(
             complexity(subExpr) for subExpr in expr.exprs
             )
-    elif isinstance(expr, (Complement, LShift, RShift)):
+    elif isinstance(expr, (Complement, Negation, LShift, RShift)):
         return 1 + complexity(expr.expr)
     else:
         return 2
@@ -293,6 +293,46 @@ def _simplifyComplement(complement):
     else:
         return Complement(expr)
 
+def _simplifyNegation(negation):
+    expr = simplifyExpression(negation.expr)
+
+    if isinstance(expr, IntLiteral):
+        return IntLiteral(int(not expr.value))
+    elif isinstance(expr, (LShift, Complement)):
+        return _simplifyNegation(Negation(expr.expr))
+    elif isinstance(expr, Negation):
+        if expr.expr.mask == 1:
+            return expr.expr
+
+    if expr is not negation.expr:
+        negation = Negation(expr)
+
+    alt = None
+    if isinstance(expr, AddOperator):
+        if all(term.mask >= 0 for term in expr.exprs):
+            # If all terms are non-negative, one non-zero term will take the
+            # result above zero.
+            alt = simplifyExpression(AndOperator(*(
+                Negation(term) for term in expr.exprs
+                )))
+    elif isinstance(expr, OrOperator):
+        # OR produces zero iff all of its terms are zero.
+        alt = simplifyExpression(AndOperator(*(
+            Negation(term) for term in expr.exprs
+            )))
+    elif isinstance(expr, RShift):
+        subExpr = expr.expr
+        if isinstance(subExpr, (AndOperator, OrOperator, XorOperator)):
+            # Distribute RShift over bitwise operator.
+            alt = simplifyExpression(Negation(subExpr.__class__(*(
+                RShift(term, expr.offset) for term in subExpr.exprs
+                ))))
+
+    if alt is not None and complexity(alt) < complexity(negation):
+        return alt
+    else:
+        return negation
+
 def _simplifyLShift(lshift):
     expr = simplifyExpression(lshift.expr)
 
@@ -440,6 +480,7 @@ _simplifiers = {
     XorOperator: _simplifyComposed,
     AddOperator: _simplifyComposed,
     Complement: _simplifyComplement,
+    Negation: _simplifyNegation,
     LShift: _simplifyLShift,
     RShift: _simplifyRShift,
     }
