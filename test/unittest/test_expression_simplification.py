@@ -178,7 +178,7 @@ class AndTests(TestUtils):
         self.assertIs(simplifyExpression(AndOperator(hl, mask8)), l)
 
     def test_mask_concat(self):
-        '''Simplifies logical AND expressions that are essentially slicing.'''
+        '''Simplifies logical AND expressions that mask concatenated terms.'''
         h = TestValue('H', IntType(8))
         l = TestValue('L', IntType(8))
         hl = makeConcat(h, l, 8)
@@ -190,6 +190,15 @@ class AndTests(TestUtils):
         self.assertIs(expr.expr, h)
         self.assertEqual(expr.offset, 8)
 
+    def test_mask_literal(self):
+        '''Tests elimination of redundant literals from AND expressions.'''
+        addr = TestValue('A', IntType(16))
+        self.assertAnd(simplifyExpression(
+            AndOperator(
+                Complement(AndOperator(addr, IntLiteral(0x3FFF))),
+                IntLiteral(0x3FF0)
+                )
+            ), Complement(addr), IntLiteral(0x3FF0))
 
 class OrTests(TestUtils):
 
