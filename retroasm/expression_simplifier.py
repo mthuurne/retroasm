@@ -458,12 +458,16 @@ def _simplifyMasked(expr, mask):
             maskedTerm = _simplifyMasked(term, termMask)
             terms.append(maskedTerm)
             changed |= maskedTerm is not term
-        if isinstance(expr, AndOperator) and len(terms) >= 2:
+        if isinstance(expr, (AndOperator, OrOperator)) and len(terms) >= 2:
             last = terms[-1]
             if isinstance(last, IntLiteral) and last.value == mask:
-                # Eliminate inner mask that is equal to the applied mask.
-                del terms[-1]
-                changed = True
+                if isinstance(expr, AndOperator):
+                    # Eliminate inner mask that is equal to the applied mask.
+                    del terms[-1]
+                    changed = True
+                elif isinstance(expr, OrOperator):
+                    # Eliminate OR that is all-ones in masked area.
+                    return IntLiteral(-1)
         if changed:
             return simplifyExpression(type(expr)(*terms))
     elif isinstance(expr, Complement):

@@ -254,6 +254,16 @@ class OrTests(TestUtils):
         expr2 = OrOperator(expr1, mask2)
         self.assertOr(simplifyExpression(expr2), x, mask2)
 
+    def test_mask_literal(self):
+        '''Tests elimination of masked OR expressions.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIs(simplifyExpression(
+            AndOperator(
+                OrOperator(LShift(addr, 8), IntLiteral(0xFFFF)),
+                addr
+                )
+            ), addr)
+
 class XorTests(TestUtils):
 
     def test_literals(self):
