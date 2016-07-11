@@ -293,6 +293,13 @@ def _simplifyComplement(complement):
     else:
         return Complement(expr)
 
+def _testBit(expr, bit):
+    '''Returns True if the given bit of the given expression is certainly set,
+    or False if it is unknown or certainly unset.
+    '''
+    masked = _simplifyMasked(expr, 1 << bit)
+    return isinstance(masked, IntLiteral) and masked.value != 0
+
 def _simplifyNegation(negation):
     expr = simplifyExpression(negation.expr)
 
@@ -306,6 +313,22 @@ def _simplifyNegation(negation):
 
     if expr is not negation.expr:
         negation = Negation(expr)
+
+    # If any bit of the expression's value is 1, the value is non-zero.
+    if expr.mask >= 0:
+        # Test each individual bit position that could possibly be set.
+        mask = expr.mask
+        bit = 0
+        while mask >> bit:
+            if (mask >> bit) & 1:
+                if _testBit(expr, bit):
+                    return IntLiteral(0)
+            bit += 1
+    else:
+        # The expression's value likely has leading ones, so pick an arbitrary
+        # high bit position and test that.
+        if _testBit(expr, 1025):
+            return IntLiteral(0)
 
     alt = None
     if isinstance(expr, AddOperator):

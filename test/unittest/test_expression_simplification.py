@@ -400,6 +400,23 @@ class NegationTests(TestUtils):
             Negation(OrOperator(addr, IntLiteral(0x76)))
             ), 0)
 
+    def test_and(self):
+        '''Negates an AND expression.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(AndOperator(
+                OrOperator(IntLiteral(0x60), addr),
+                IntLiteral(0xF0)
+                ))
+            ), 0)
+
+    def test_xor(self):
+        '''Negates a XOR expression.'''
+        addr = TestValue('A', IntType(16))
+        self.assertIntLiteral(simplifyExpression(
+            Negation(XorOperator(addr, IntLiteral(-1)))
+            ), 0)
+
     def test_add(self):
         '''Negates an addition.'''
         addr = TestValue('A', IntType(16))
