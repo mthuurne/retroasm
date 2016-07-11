@@ -92,6 +92,16 @@ class ParseNode:
         '''Location information, where the span includes to the entire tree
         under this node.'''
 
+    def __repr__(self):
+        return '%s(%s)' % (
+            self.__class__.__name__,
+            ', '.join(
+                '%s=%s' % (slot, getattr(self, slot))
+                for cls in self.__class__.__mro__[:-2] # drop ParseNode, object
+                for slot in cls.__slots__
+                )
+            )
+
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
 
