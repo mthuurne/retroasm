@@ -122,7 +122,7 @@ class OperatorNode(ParseNode):
     def __init__(self, operator, operands, location):
         ParseNode.__init__(self, location)
         self.operator = operator
-        self.operands = operands
+        self.operands = tuple(operands)
         self.treeLocation = self._treeLocation()
 
     def _treeLocation(self):
