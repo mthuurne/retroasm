@@ -149,27 +149,27 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
             )
 
 class _LocalContext(Context):
-    '''A context for local blocks, that can import entries from the global
+    '''A context for local blocks, that can import entries from its parent
     context on demand.
     Its goal is to avoid a lot of redundant references when a block is first
     created: although the simplifier can remove those, that is a pretty
     inefficient operation which should be applied to non-trivial cases only.
     '''
 
-    def __init__(self, localBuilder, globalBuilder):
+    def __init__(self, localBuilder, parentBuilder):
         Context.__init__(self)
         self.localBuilder = localBuilder
-        self.globalBuilder = globalBuilder
+        self.parentBuilder = parentBuilder
         self.importMap = {}
 
     def __contains__(self, key):
-        return super().__contains__(key) or key in self.globalBuilder.context
+        return super().__contains__(key) or key in self.parentBuilder.context
 
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
         except KeyError:
-            storage = self.globalBuilder.context[key]
+            storage = self.parentBuilder.context[key]
             if isinstance(storage, (Function, IOChannel)):
                 pass
             elif isinstance(storage, ComposedStorage):
@@ -183,20 +183,20 @@ class _LocalContext(Context):
             self.locations[key] = None
             return storage
 
-    def _importReference(self, globalRid):
-        '''Imports the given global reference ID into the local context.
+    def _importReference(self, parentRid):
+        '''Imports the given parent reference ID into the local context.
         Returns the local reference ID.
         '''
         importMap = self.importMap
         try:
-            return importMap[globalRid]
+            return importMap[parentRid]
         except KeyError:
-            globalBuilder = self.globalBuilder
+            parentBuilder = self.parentBuilder
             localBuilder = self.localBuilder
-            ref = globalBuilder.references[globalRid]
+            ref = parentBuilder.references[parentRid]
             if isinstance(ref, FixedValue):
                 # Import constant ID as well.
-                const = globalBuilder.constants[ref.cid]
+                const = parentBuilder.constants[ref.cid]
                 assert isinstance(const, ComputedConstant), repr(const)
                 expr = const.expr
                 cid = len(localBuilder.constants)
@@ -204,13 +204,13 @@ class _LocalContext(Context):
                 ref = FixedValue(cid, ref.width)
             # pylint: disable=protected-access
             localRid = localBuilder._emitReference(ref)
-            importMap[globalRid] = localRid
+            importMap[parentRid] = localRid
             return localRid
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
 
-    def __init__(self, globalBuilder):
-        context = _LocalContext(self, globalBuilder)
+    def __init__(self, parentBuilder):
+        context = _LocalContext(self, parentBuilder)
         CodeBlockBuilder.__init__(self, context)
         self.nodes = []
 
