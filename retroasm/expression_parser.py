@@ -178,7 +178,11 @@ class NumberNode(ParseNode):
         self.value = value
         self.width = width
 
-def _parse(exprStr, location, statement):
+_ParseMode = Enum('_ParseMode', ( # pylint: disable=invalid-name
+    'single', 'multi', 'statement'
+    ))
+
+def _parse(exprStr, location, mode):
     token = ExpressionTokenizer(exprStr, location)
 
     def badTokenKind(where, expected):
@@ -198,6 +202,13 @@ def _parse(exprStr, location, statement):
             return AssignmentNode(expr, parseTop(), location)
         else:
             return expr
+
+    def parseList():
+        exprs = []
+        while True:
+            exprs.append(parseTop())
+            if not token.eat(Token.separator, ','):
+                return exprs
 
     def parseOr():
         expr = parseXor()
@@ -438,8 +449,13 @@ def _parse(exprStr, location, statement):
                 )
 
     parseTop = parseOr
+    topForMode = {
+        _ParseMode.single: parseTop,
+        _ParseMode.multi: parseList,
+        _ParseMode.statement: parseAssign,
+        }
 
-    expr = parseAssign() if statement else parseTop()
+    expr = topForMode[mode]()
     if token.kind is Token.other:
         raise ParseError(
             'unexpected character "%s" in expression' % token.value,
@@ -455,7 +471,10 @@ def _parse(exprStr, location, statement):
         return expr
 
 def parseExpr(exprStr, location):
-    return _parse(exprStr, location, statement=False)
+    return _parse(exprStr, location, _ParseMode.single)
+
+def parseExprList(exprStr, location):
+    return _parse(exprStr, location, _ParseMode.multi)
 
 def parseStatement(exprStr, location):
-    return _parse(exprStr, location, statement=True)
+    return _parse(exprStr, location, _ParseMode.statement)

@@ -265,3 +265,66 @@ If the return type is a reference type, the function returns a reference by defi
         def u8 L = mem[(A + x    )[:8]]
         def u8 H = mem[(A + x + 1)[:8]]
         ret = mem[H ; L]
+
+Modes
+-----
+
+Modes define patterns for specifying the operands of instructions. This includes addressing modes for accessing memory, but also register use.
+
+A mode definition uses the syntax below. There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table:
+
+    = mode <name>
+    <opcode> . <mnemonic> . <semantics> . <context>
+
+The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on.
+
+The mnemonic field contains the syntax used in assembly language.
+
+The semantics field contains a expression, either a value or a reference to a storage location, that describes the operand in a way RetroAsm can analyze. The expression field can be omitted, in which case the mnemonic field is parsed as the expression; this is useful for registers where the mnemonic is usually just the register name. If the semantics cannot be expressed in a single expression, a function call can be used to include a longer definition.
+
+The optional context field will be explained soon, but first an example using only the first three fields. In this example, a mode is defined that describes the way the Z80 accesses 8-bit operands: (index registers omitted for simplicity's sake)
+
+    = mode reg8
+    %000    . b
+    %001    . c
+    %010    . d
+    %011    . e
+    %100    . h
+    %101    . l
+    %110    . (hl)    . mem[hl]
+    %111    . a
+
+The simplest use of the context field is to include a mode defined earlier as part of a new mode:
+
+    = mode reg16
+    %00     . bc
+    %01     . de
+    %10     . hl
+    %11     . sp
+
+    = mode reg16af
+    R       . R         . R         . reg16 R
+    %11     . af
+
+In the first entry of `reg16af`, the context field is used here to match according to the `reg16` mode and use the match as-is. The second entry then replaces `sp` with `af`.
+
+When an entry's encoding is the same as the encoding of an earlier entry, the later entry overrides the earlier entry. In `reg16af` in the example above, not only does the encoding `%11` map to the mnemonic `af`, but the mnemonic `sp` does not occur at all in mode `reg16af`.
+
+The `R` in the example above is a placeholder introduced by the context field. In each other field, the placeholder represents the same field in the matched entry from the other mode. For example, the `R` in the encoding field represents the encoding of the matched entry, while the `R` in the mnemonic field represents the mnemonic of the matched entry.
+
+Placeholders can be used in expressions, for example to define the Z80 flag tests:
+
+    = mode cond2
+    %00     . nz        . !zf
+    %01     . z         .  zf
+    %10     . nc        . !cf
+    %11     . c         .  cf
+
+    = mode cond3
+    %0;C    . C         . C         . cond2 C
+    %100    . po        . !pf
+    %101    . pe        .  pf
+    %110    . p         . !sf
+    %111    . m         .  sf
+
+In the above example, the placeholder `C` represents the match made in the `cond2` mode table. Let's say that the third entry in `cond2` was the one matched. In the first entry of `cond3`, the `C` in the second column reproduces the matched mnemonic `nc` as-is, while the `C` in the third column reproduces the semantic expression `!cf` as-is. In the first column, `C` matches the encoding `%10` which is concatenated to a fixed bit of 0 to form the 3-bit encoding `%010`.

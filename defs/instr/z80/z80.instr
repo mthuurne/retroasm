@@ -68,3 +68,41 @@ u8 port[u8]
 = func pop(u16& R)
     R := read16(sp)
     sp := sp + 2
+
+# 8-bit registers
+
+# TODO: IX and IY are missing.
+
+= mode reg8
+%000        . b
+%001        . c
+%010        . d
+%011        . e
+%100        . h
+%101        . l
+%110        . (hl)          . mem[hl]
+%111        . a
+
+# 16-bit registers
+
+= mode reg16
+%00         . bc
+%01         . de
+%10         . hl
+%11         . sp
+
+# Condition codes
+
+= mode cond2
+%00         . nz            . !zf
+%01         . z             .  zf
+%10         . nc            . !cf
+%11         . c             .  cf
+
+= mode cond3
+# TODO: Support including other modes.
+#%0;C        . C             .               . cond2 C
+%100        . po            . !pf
+%101        . pe            .  pf
+%110        . p             . !sf
+%111        . m             .  sf

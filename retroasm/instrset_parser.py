@@ -1,7 +1,7 @@
-from .codeblock_builder import GlobalCodeBlockBuilder
+from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
 from .context import NameExistsError
-from .expression_builder import buildStorage
-from .expression_parser import parseExpr
+from .expression_builder import buildStorage, evalExpr
+from .expression_parser import parseExpr, parseExprList
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .storage import IOChannel, Register, namePat
@@ -198,6 +198,92 @@ def _parseFunc(reader, argStr, builder):
     func.dump()
     print()
 
+_reModeHeader = re.compile(_nameTok + r'$')
+_reCommaSep = re.compile(r'\s*(?:\,\s*|$)')
+_reDotSep = re.compile(r'\s*(?:\.\s*|$)')
+
+def _parseMode(reader, argStr, globalBuilder):
+    # Parse header line.
+    match = _reModeHeader.match(argStr)
+    if not match:
+        reader.error('invalid mode header')
+        reader.skipBlock()
+        return
+    modeName, = match.groups()
+
+    for line in reader.iterBlock():
+        # Split mode line into 4 fields.
+        fields = list(reader.splitOn(_reDotSep.finditer(line)))
+        if len(fields) < 2:
+            reader.error('field separator "." missing in mode line')
+            continue
+        if len(fields) > 4:
+            reader.error('too many fields (%d) in mode line' % len(fields))
+            continue
+        fields += [('', None)] * (4 - len(fields))
+        (encStr, encLoc), (mnemStr, mnemLoc), (semStr, semLoc), \
+                (ctxStr, ctxLoc) = fields
+
+        # Parse context.
+        context = {}
+        if ctxStr:
+            for ctxElem, ctxElemLoc in reader.splitOn(
+                    _reCommaSep.finditer(line, *ctxLoc.span)
+                    ):
+                try:
+                    modeStr, name = ctxElem.split()
+                except ValueError:
+                    reader.error(
+                        'context element not of the form "<mode> <name>"',
+                        location=ctxElemLoc
+                        )
+                else:
+                    try:
+                        typ = parseType(modeStr)
+                    except ValueError:
+                        # TODO: Lookup modes.
+                        reader.warning(
+                            'unhandled mode "%s"' % modeStr,
+                            location=ctxElemLoc
+                            )
+                        continue
+
+                    if name in context:
+                        reader.error(
+                            'duplicate placeholder ("%s")' % name,
+                            location=ctxElemLoc
+                            )
+                    else:
+                        context[name] = (typ, ctxElemLoc)
+
+        # Parse encoding.
+        def evalEnc(exprNode):
+            builder = LocalCodeBlockBuilder(globalBuilder)
+            expr, width = evalExpr(exprNode, builder, reader)
+            return expr, width, exprNode.treeLocation
+        try:
+            encoding = [evalEnc(node) for node in parseExprList(encStr, encLoc)]
+        except BadInput as ex:
+            reader.error('error in encoding: %s' % ex, location=ex.location)
+            continue
+
+        # Parse mnemonic.
+        # TODO: We have no infrastructure for mnemonics yet.
+        mnemonic = mnemStr
+
+        # Parse semantics.
+        if not semStr:
+            # Parse mnemonic as semantics.
+            semStr = mnemStr
+            semLoc = mnemLoc
+        semBuilder = LocalCodeBlockBuilder(globalBuilder)
+        try:
+            semExpr = parseExpr(semStr, semLoc)
+            semantics = buildStorage(semExpr, semBuilder)
+        except BadInput as ex:
+            reader.error('error in semantics: %s' % ex, location=ex.location)
+            continue
+
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
         builder = GlobalCodeBlockBuilder()
@@ -218,6 +304,8 @@ def parseInstrSet(pathname):
                         _parseIO(reader, argStr, builder.context)
                     elif defType == 'func':
                         _parseFunc(reader, argStr, builder)
+                    elif defType == 'mode':
+                        _parseMode(reader, argStr, builder)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()
