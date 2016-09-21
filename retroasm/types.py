@@ -140,6 +140,8 @@ class Reference(metaclass=Unique):
         return '%s&' % self._type
 
 def parseType(typeName):
+    if typeName == 'int':
+        return IntType(unlimited)
     if not typeName.startswith('u'):
         raise ValueError('type name "%s" does not start with "u"' % typeName)
     widthStr = typeName[1:]
