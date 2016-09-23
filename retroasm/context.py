@@ -18,6 +18,9 @@ class Context:
     def __getitem__(self, key):
         return self.elements[key]
 
+    def keys(self):
+        return self.elements.keys()
+
     def items(self):
         return self.elements.items()
 

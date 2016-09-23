@@ -1,7 +1,7 @@
 from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
 from .expression_builder import buildStorage
-from .expression_parser import parseExpr, parseExprList
+from .expression_parser import IdentifierNode, parseExpr, parseExprList
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate, Mode
@@ -236,6 +236,7 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                 (ctxStr, ctxLoc) = fields
 
         # Parse context.
+        knownNames = set()
         immediates = {}
         includedModes = {}
         if ctxStr:
@@ -250,12 +251,14 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                         location=ctxElemLoc
                         )
                     continue
-                if name in immediates or name in includedModes:
+                if name in knownNames:
                     reader.error(
                         'duplicate placeholder ("%s")' % name,
                         location=ctxElemLoc
                         )
                     continue
+                else:
+                    knownNames.add(name)
 
                 includedMode = modes.get(ctxType)
                 if includedMode is not None:
@@ -272,11 +275,24 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                     else:
                         immediates[name] = Immediate(name, typ, ctxElemLoc)
 
+        knownNames |= globalBuilder.context.keys()
+        def checkIdentifiers(exprTree):
+            for node in exprTree:
+                if isinstance(node, IdentifierNode):
+                    name = node.name
+                    if name not in knownNames:
+                        reader.error(
+                            'unknown identifier: %s' % name,
+                            location=node.location
+                            )
+
         try:
             with reader.checkErrors():
                 # Parse encoding.
                 try:
                     encoding = parseExprList(encStr, encLoc)
+                    for encElem in encoding:
+                        checkIdentifiers(encElem)
                 except BadInput as ex:
                     reader.error(
                         'error in encoding: %s' % ex, location=ex.location
@@ -293,6 +309,7 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                     semLoc = mnemLoc
                 try:
                     semantics = parseExpr(semStr, semLoc)
+                    checkIdentifiers(semantics)
                 except BadInput as ex:
                     reader.error(
                         'error in semantics: %s' % ex, location=ex.location
