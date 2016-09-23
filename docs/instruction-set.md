@@ -271,10 +271,12 @@ Modes
 
 Modes define patterns for specifying the operands of instructions. This includes addressing modes for accessing memory, but also register use.
 
-A mode definition uses the syntax below. There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table:
+A mode definition uses the syntax below:
 
     = mode <name>
     <opcode> . <mnemonic> . <semantics> . <context>
+
+There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table. If a mode with the given name already exists, the entries are added to that mode, otherwise a new mode is defined.
 
 The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on.
 

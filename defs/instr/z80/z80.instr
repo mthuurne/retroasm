@@ -100,8 +100,7 @@ u8 port[u8]
 %11         . c             .  cf
 
 = mode cond3
-# TODO: Support including other modes.
-#%0;C        . C             .               . cond2 C
+%0;C        . C             .               . cond2 C
 %100        . po            . !pf
 %101        . pe            .  pf
 %110        . p             . !sf

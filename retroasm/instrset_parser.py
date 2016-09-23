@@ -1,9 +1,10 @@
-from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
+from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
-from .expression_builder import buildStorage, evalExpr
+from .expression_builder import buildStorage
 from .expression_parser import parseExpr, parseExprList
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
+from .mode import Immediate, Mode
 from .storage import IOChannel, Register, namePat
 from .types import parseType, parseTypeDecl
 
@@ -202,7 +203,7 @@ _reModeHeader = re.compile(_nameTok + r'$')
 _reCommaSep = re.compile(r'\s*(?:\,\s*|$)')
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
-def _parseMode(reader, argStr, globalBuilder):
+def _parseMode(reader, argStr, globalBuilder, modes):
     # Parse header line.
     match = _reModeHeader.match(argStr)
     if not match:
@@ -210,6 +211,16 @@ def _parseMode(reader, argStr, globalBuilder):
         reader.skipBlock()
         return
     modeName, = match.groups()
+    mode = modes.get(modeName)
+    if mode is None:
+        try:
+            parseType(modeName)
+        except ValueError as ex:
+            pass
+        else:
+            reader.warning('mode name "%s" is also valid as a type' % modeName)
+        mode = Mode()
+        modes[modeName] = mode
 
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
@@ -225,68 +236,76 @@ def _parseMode(reader, argStr, globalBuilder):
                 (ctxStr, ctxLoc) = fields
 
         # Parse context.
-        context = {}
+        immediates = {}
+        includedModes = {}
         if ctxStr:
             for ctxElem, ctxElemLoc in reader.splitOn(
                     _reCommaSep.finditer(line, *ctxLoc.span)
                     ):
                 try:
-                    modeStr, name = ctxElem.split()
+                    ctxType, name = ctxElem.split()
                 except ValueError:
                     reader.error(
                         'context element not of the form "<mode> <name>"',
                         location=ctxElemLoc
                         )
+                    continue
+                if name in immediates or name in includedModes:
+                    reader.error(
+                        'duplicate placeholder ("%s")' % name,
+                        location=ctxElemLoc
+                        )
+                    continue
+
+                includedMode = modes.get(ctxType)
+                if includedMode is not None:
+                    includedModes[name] = includedMode
                 else:
                     try:
-                        typ = parseType(modeStr)
+                        typ = parseType(ctxType)
                     except ValueError:
-                        # TODO: Lookup modes.
-                        reader.warning(
-                            'unhandled mode "%s"' % modeStr,
+                        reader.error(
+                            'there is no type or mode named "%s"' % ctxType,
                             location=ctxElemLoc
                             )
                         continue
-
-                    if name in context:
-                        reader.error(
-                            'duplicate placeholder ("%s")' % name,
-                            location=ctxElemLoc
-                            )
                     else:
-                        context[name] = (typ, ctxElemLoc)
+                        immediates[name] = Immediate(name, typ, ctxElemLoc)
 
-        # Parse encoding.
-        def evalEnc(exprNode):
-            builder = LocalCodeBlockBuilder(globalBuilder)
-            expr, width = evalExpr(exprNode, builder, reader)
-            return expr, width, exprNode.treeLocation
         try:
-            encoding = [evalEnc(node) for node in parseExprList(encStr, encLoc)]
-        except BadInput as ex:
-            reader.error('error in encoding: %s' % ex, location=ex.location)
+            with reader.checkErrors():
+                # Parse encoding.
+                try:
+                    encoding = parseExprList(encStr, encLoc)
+                except BadInput as ex:
+                    reader.error(
+                        'error in encoding: %s' % ex, location=ex.location
+                        )
+
+                # Parse mnemonic.
+                # TODO: We have no infrastructure for mnemonics yet.
+                mnemonic = (mnemStr, mnemLoc)
+
+                # Parse semantics.
+                if not semStr:
+                    # Parse mnemonic as semantics.
+                    semStr = mnemStr
+                    semLoc = mnemLoc
+                try:
+                    semantics = parseExpr(semStr, semLoc)
+                except BadInput as ex:
+                    reader.error(
+                        'error in semantics: %s' % ex, location=ex.location
+                        )
+        except DelayedError:
             continue
 
-        # Parse mnemonic.
-        # TODO: We have no infrastructure for mnemonics yet.
-        mnemonic = mnemStr
-
-        # Parse semantics.
-        if not semStr:
-            # Parse mnemonic as semantics.
-            semStr = mnemStr
-            semLoc = mnemLoc
-        semBuilder = LocalCodeBlockBuilder(globalBuilder)
-        try:
-            semExpr = parseExpr(semStr, semLoc)
-            semantics = buildStorage(semExpr, semBuilder)
-        except BadInput as ex:
-            reader.error('error in semantics: %s' % ex, location=ex.location)
-            continue
+        mode.add(encoding, mnemonic, semantics, immediates, includedModes)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
         builder = GlobalCodeBlockBuilder()
+        modes = {}
         for header in reader:
             if not header:
                 pass
@@ -305,7 +324,7 @@ def parseInstrSet(pathname):
                     elif defType == 'func':
                         _parseFunc(reader, argStr, builder)
                     elif defType == 'mode':
-                        _parseMode(reader, argStr, builder)
+                        _parseMode(reader, argStr, builder, modes)
                     else:
                         reader.error('unknown definition type "%s"', defType)
                         reader.skipBlock()
