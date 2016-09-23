@@ -222,6 +222,16 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         mode = Mode()
         modes[modeName] = mode
 
+    def checkIdentifiers(exprTree, knownNames):
+        for node in exprTree:
+            if isinstance(node, IdentifierNode):
+                name = node.name
+                if name not in knownNames:
+                    reader.error(
+                        'unknown identifier "%s"' % name,
+                        location=node.location
+                        )
+
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
         fields = list(reader.splitOn(_reDotSep.finditer(line)))
@@ -235,64 +245,58 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         (encStr, encLoc), (mnemStr, mnemLoc), (semStr, semLoc), \
                 (ctxStr, ctxLoc) = fields
 
-        # Parse context.
-        knownNames = set()
-        immediates = {}
-        includedModes = {}
-        if ctxStr:
-            for ctxElem, ctxElemLoc in reader.splitOn(
-                    _reCommaSep.finditer(line, *ctxLoc.span)
-                    ):
-                try:
-                    ctxType, name = ctxElem.split()
-                except ValueError:
-                    reader.error(
-                        'context element not of the form "<mode> <name>"',
-                        location=ctxElemLoc
-                        )
-                    continue
-                if name in knownNames:
-                    reader.error(
-                        'duplicate placeholder ("%s")' % name,
-                        location=ctxElemLoc
-                        )
-                    continue
-                else:
-                    knownNames.add(name)
-
-                includedMode = modes.get(ctxType)
-                if includedMode is not None:
-                    includedModes[name] = includedMode
-                else:
-                    try:
-                        typ = parseType(ctxType)
-                    except ValueError:
-                        reader.error(
-                            'there is no type or mode named "%s"' % ctxType,
-                            location=ctxElemLoc
-                            )
-                        continue
-                    else:
-                        immediates[name] = Immediate(name, typ, ctxElemLoc)
-
-        knownNames |= globalBuilder.context.keys()
-        def checkIdentifiers(exprTree):
-            for node in exprTree:
-                if isinstance(node, IdentifierNode):
-                    name = node.name
-                    if name not in knownNames:
-                        reader.error(
-                            'unknown identifier: %s' % name,
-                            location=node.location
-                            )
-
         try:
             with reader.checkErrors():
+                # Parse context.
+                knownNames = set()
+                immediates = {}
+                includedModes = {}
+                if ctxStr:
+                    for ctxElem, ctxElemLoc in reader.splitOn(
+                            _reCommaSep.finditer(line, *ctxLoc.span)):
+                        try:
+                            ctxType, name = ctxElem.split()
+                        except ValueError:
+                            reader.error(
+                                'context element not of the form '
+                                '"<mode> <name>"',
+                                location=ctxElemLoc
+                                )
+                            continue
+                        if name in knownNames:
+                            reader.error(
+                                'duplicate placeholder ("%s")' % name,
+                                location=ctxElemLoc
+                                )
+                            continue
+                        else:
+                            knownNames.add(name)
+
+                        includedMode = modes.get(ctxType)
+                        if includedMode is not None:
+                            includedModes[name] = includedMode
+                        else:
+                            try:
+                                typ = parseType(ctxType)
+                            except ValueError:
+                                reader.error(
+                                    'there is no type or mode '
+                                    'named "%s"' % ctxType,
+                                    location=ctxElemLoc
+                                    )
+                                continue
+                            else:
+                                immediates[name] = Immediate(
+                                    name, typ, ctxElemLoc
+                                    )
+
+                knownNames |= globalBuilder.context.keys()
+
                 # Parse encoding.
                 try:
                     encoding = parseExprList(encStr, encLoc)
                     for encElem in encoding:
-                        checkIdentifiers(encElem)
+                        checkIdentifiers(encElem, knownNames)
                 except BadInput as ex:
                     reader.error(
                         'error in encoding: %s' % ex, location=ex.location
@@ -309,15 +313,15 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                     semLoc = mnemLoc
                 try:
                     semantics = parseExpr(semStr, semLoc)
-                    checkIdentifiers(semantics)
+                    checkIdentifiers(semantics, knownNames)
                 except BadInput as ex:
                     reader.error(
                         'error in semantics: %s' % ex, location=ex.location
                         )
         except DelayedError:
-            continue
-
-        mode.add(encoding, mnemonic, semantics, immediates, includedModes)
+            pass
+        else:
+            mode.add(encoding, mnemonic, semantics, immediates, includedModes)
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
