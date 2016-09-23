@@ -102,6 +102,9 @@ class ParseNode:
                 )
             )
 
+    def __iter__(self):
+        yield self
+
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
 
@@ -110,6 +113,11 @@ class AssignmentNode(ParseNode):
         self.lhs = lhs
         self.rhs = rhs
         self.treeLocation = _mergeSpan(lhs.treeLocation, rhs.treeLocation)
+
+    def __iter__(self):
+        yield self
+        yield from self.lhs
+        yield from self.rhs
 
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
@@ -124,6 +132,12 @@ class OperatorNode(ParseNode):
         self.operator = operator
         self.operands = tuple(operands)
         self.treeLocation = self._treeLocation()
+
+    def __iter__(self):
+        yield self
+        for operand in self.operands:
+            if operand is not None:
+                yield from operand
 
     def _treeLocation(self):
         location = self.location
@@ -169,6 +183,11 @@ class DefinitionNode(ParseNode):
         self.decl = decl
         self.value = value
         self.treeLocation = _mergeSpan(decl.treeLocation, value.treeLocation)
+
+    def __iter__(self):
+        yield self
+        yield from self.decl
+        yield from self.value
 
 class NumberNode(ParseNode):
     __slots__ = ('value', 'width')
