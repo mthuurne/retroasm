@@ -4,7 +4,7 @@
 
 ### Registers
 
-= reg
+reg
 # accumulator
 u8  a
 # index registers
@@ -21,53 +21,53 @@ u16 pc
 
 ### I/O
 
-= io
+io
 u8 mem[u16]
 
 
 ### Stack access
 
-= func push(u8 V)
+func push(u8 V)
     mem[sp] := V
     s := s - 1
 
-= func pull(u8& D)
+func pull(u8& D)
     s := s + 1
     D := mem[sp]
 
 
 ### Addressing modes
 
-= mode immediate
+mode immediate
 N               . \#N           . N                 . u8 N
 
-= mode zeropage
+mode zeropage
 A               . A             . mem[A]            . u8 A
 
-= mode zeropage_x
+mode zeropage_x
 A               . A,x           . mem[(A+x)[:8]]    . u8 A
 
-= mode absolute
+mode absolute
 A[:8], A[8:]    . A             . mem[A]            . u16 A
 
-= mode absolute_x
+mode absolute_x
 A[:8], A[8:]    . A,x           . mem[A+x]          . u16 A
 
-= mode absolute_y
+mode absolute_y
 A[:8], A[8:]    . A,y           . mem[A+y]          . u16 A
 
-= func u16 indx(u8 A)
+func u16 indx(u8 A)
     def u8 L = mem[(A+x  )[:8]]
     def u8 H = mem[(A+x+1)[:8]]
     ret := H;L
 
-= mode indexed_indirect
+mode indexed_indirect
 A               . (A,x)         . mem[indx(A)]      . u8 A
 
-= func u16 indy(u8 A)
+func u16 indy(u8 A)
     def u8 L = mem[A]
     def u8 H = mem[(A+1)[:8]]
     ret := H;L + y
 
-= mode indirect_indexed
+mode indirect_indexed
 A               . (A),y         . mem[indy(A)]      . u8 A

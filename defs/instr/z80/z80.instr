@@ -8,7 +8,7 @@
 
 ### Registers
 
-= reg
+reg
 # flags:
 u1  sf  zf  yf  hf  xf  pf  nf  cf
 u1  sf' zf' yf' hf' xf' pf' nf' cf'
@@ -39,7 +39,7 @@ u2  im
 
 ### I/O
 
-= io
+io
 u8 mem[u16]
 u8 port[u8]
 
@@ -48,24 +48,24 @@ u8 port[u8]
 
 # 16-bit memory access
 
-= func u16 read16(u16 A)
+func u16 read16(u16 A)
     var u8 L := mem[A]
     var u8 H := mem[A + 1]
     ret := H ; L
 
-= func write16(u16 A, u16 V)
+func write16(u16 A, u16 V)
     mem[A]     := V[0:8]
     mem[A + 1] := V[8:16]
 
-= func write16_rev(u16 A, u16 V)
+func write16_rev(u16 A, u16 V)
     mem[A + 1] := V[8:16]
     mem[A]     := V[0:8]
 
-= func push(u16 V)
+func push(u16 V)
     sp := sp - 2
     write16_rev(sp, V)
 
-= func pop(u16& R)
+func pop(u16& R)
     R := read16(sp)
     sp := sp + 2
 
@@ -73,7 +73,7 @@ u8 port[u8]
 
 # TODO: IX and IY are missing.
 
-= mode reg8
+mode reg8
 %000        . b
 %001        . c
 %010        . d
@@ -89,34 +89,34 @@ u8 port[u8]
 
 # 16-bit registers
 
-= mode reg16
+mode reg16
 %00         . bc
 %01         . de
 %10         . hl
 %11         . sp
 
-= mode hlx
+mode hlx
             . hl
             . ix            .               . ?ix
             . iy            .               . ?iy
 
-= mode reg16x
+mode reg16x
 R           . R             . R             . reg16 R
 %10         . R             . R             . hlx R
 
-= mode reg16af
+mode reg16af
 R           . R             . R             . reg16x R
 %11         . af
 
 # Condition codes
 
-= mode cond2
+mode cond2
 %00         . nz            . !zf
 %01         . z             .  zf
 %10         . nc            . !cf
 %11         . c             .  cf
 
-= mode cond3
+mode cond3
 %0;C        . C             .               . cond2 C
 %100        . po            . !pf
 %101        . pe            .  pf

@@ -53,6 +53,8 @@ Instruction sets are defined in text files with the `.instr` file name extension
 Structure
 ---------
 
+A block starts with a header line followed by a number of lines of block contents. The header line starts with keyword indicating the block type (`instr`, `func`, `reg` etc.) followed by zero or more arguments, depending on the block type.
+
 Empty lines terminate blocks. Empty lines outside blocks are ignored. Trailing whitespace is stripped; this implies that lines containing only whitespace are considered empty lines.
 
 The `#` character marks the remainder of the line as a comment, which is ignored. Lines containing only a comment are not considered empty and therefore do not terminate a block. A literal `#` character can be produced by preceding it with a backslash: `\#`.
@@ -141,13 +143,13 @@ Registers
 
 A register definition consists of a name and a fixed-width type. A register definition block can define multiple registers and register aliases:
 
-    = reg
+    reg
     <type> <name>*
     <type> <alias> = <expr>
 
 For example this block defines all registers of the 6502:
 
-    = reg
+    reg
     u8  a x y
     u1  n v b d i z c
     u8  p = n ; v ; %1 ; b ; d ; i ; z ; c
@@ -169,12 +171,12 @@ Input/output (I/O) is when a CPU reads or writes data from/to memory or peripher
 
 The syntax for defining I/O channels is as follows:
 
-    = io
+    io
     <element type> <channel name>[<address type>]
 
 For example the Z80 has a 64K (2<sup>16</sup>) memory address space and 256 (2<sup>8</sup>) I/O ports that are one byte wide:
 
-    = io
+    io
     u8 mem[u16]
     u8 port[u8]
 
@@ -237,31 +239,31 @@ Functions
 
 Functions can be defined to avoid duplication in instruction set definitions:
 
-    = func <return type> <name>(<arguments>)
+    func <return type> <name>(<arguments>)
     <statements>
 
 Arguments are specified as a type followed by a name and separates by commas. Value arguments are specified using just the type name, while reference arguments use the usual reference syntax of the type name followed by an ampersand. For example the following function header declares a value argument named `A` and a reference argument named `V`:
 
-    = func u1 foo(u16 A, u8& V)
+    func u1 foo(u16 A, u8& V)
 
 Inside a function, value arguments are treated as local variables, meaning they can be modified.
 
 If the return type is empty, the function does not return anything:
 
-    = func push(u8 V)
+    func push(u8 V)
         mem[$01 ; s] := V
         s := s - 1
 
 If the return type is a value type, the function returns a value by assigning it to a variable named `ret`:
 
-    = func u16 read16(u16 A)
+    func u16 read16(u16 A)
         var u8 L := mem[A]
         var u8 H := mem[A + 1]
         ret := H ; L
 
 If the return type is a reference type, the function returns a reference by defining a reference named `ret`:
 
-    = func u8& indx(u8 A)
+    func u8& indx(u8 A)
         def u8 L = mem[(A + x    )[:8]]
         def u8 H = mem[(A + x + 1)[:8]]
         ret = mem[H ; L]
@@ -273,7 +275,7 @@ Modes define patterns for specifying the operands of instructions. This includes
 
 A mode definition uses the syntax below:
 
-    = mode <name>
+    mode <name>
     <opcode> . <mnemonic> . <semantics> . <context>
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table. If a mode with the given name already exists, the entries are added to that mode, otherwise a new mode is defined.
@@ -286,7 +288,7 @@ The semantics field contains a expression, either a value or a reference to a st
 
 The optional context field will be explained soon, but first an example using only the first three fields. In this example, a mode is defined that describes the way the Z80 accesses 8-bit operands: (index registers omitted for simplicity's sake)
 
-    = mode reg8
+    mode reg8
     %000    . b
     %001    . c
     %010    . d
@@ -298,13 +300,13 @@ The optional context field will be explained soon, but first an example using on
 
 The simplest use of the context field is to include a mode defined earlier as part of a new mode:
 
-    = mode reg16
+    mode reg16
     %00     . bc
     %01     . de
     %10     . hl
     %11     . sp
 
-    = mode reg16af
+    mode reg16af
     R       . R         . R         . reg16 R
     %11     . af
 
@@ -316,13 +318,13 @@ The `R` in the example above is a placeholder introduced by the context field. I
 
 Placeholders can be used in expressions, for example to define the Z80 flag tests:
 
-    = mode cond2
+    mode cond2
     %00     . nz        . !zf
     %01     . z         .  zf
     %10     . nc        . !cf
     %11     . c         .  cf
 
-    = mode cond3
+    mode cond3
     %0;C    . C         . C         . cond2 C
     %100    . po        . !pf
     %101    . pe        .  pf

@@ -349,28 +349,20 @@ def parseInstrSet(pathname):
         modes = {}
         for header in reader:
             if not header:
-                pass
-            elif header[0] == '=':
-                parts = header[1:].split(maxsplit=1)
-                if len(parts) == 0:
-                    reader.error('expected definition type after "="')
-                    reader.skipBlock()
-                else:
-                    defType = parts[0]
-                    argStr = '' if len(parts) == 1 else parts[1]
-                    if defType == 'reg':
-                        _parseRegs(reader, argStr, builder)
-                    elif defType == 'io':
-                        _parseIO(reader, argStr, builder.context)
-                    elif defType == 'func':
-                        _parseFunc(reader, argStr, builder)
-                    elif defType == 'mode':
-                        _parseMode(reader, argStr, builder, modes)
-                    else:
-                        reader.error('unknown definition type "%s"', defType)
-                        reader.skipBlock()
+                continue
+            parts = header.split(maxsplit=1)
+            defType = parts[0]
+            argStr = '' if len(parts) == 1 else parts[1]
+            if defType == 'reg':
+                _parseRegs(reader, argStr, builder)
+            elif defType == 'io':
+                _parseIO(reader, argStr, builder.context)
+            elif defType == 'func':
+                _parseFunc(reader, argStr, builder)
+            elif defType == 'mode':
+                _parseMode(reader, argStr, builder, modes)
             else:
-                reader.error('expected definition block (starting with "=")')
+                reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
         reader.summarize()
 
