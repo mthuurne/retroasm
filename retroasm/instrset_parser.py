@@ -4,7 +4,7 @@ from .expression_builder import buildStorage
 from .expression_parser import IdentifierNode, parseExpr, parseExprList
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
-from .mode import Immediate, Mode
+from .mode import Immediate
 from .storage import IOChannel, Register, namePat
 from .types import parseType, parseTypeDecl
 
@@ -219,7 +219,7 @@ def _parseMode(reader, argStr, globalBuilder, modes):
             pass
         else:
             reader.warning('mode name "%s" is also valid as a type' % modeName)
-        mode = Mode()
+        mode = []
         modes[modeName] = mode
 
     def checkIdentifiers(exprTree, knownNames):
@@ -321,7 +321,9 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         except DelayedError:
             pass
         else:
-            mode.add(encoding, mnemonic, semantics, immediates, includedModes)
+            mode.append(
+                (encoding, mnemonic, semantics, immediates, includedModes)
+                )
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:

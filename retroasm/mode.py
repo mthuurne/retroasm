@@ -36,13 +36,3 @@ class Immediate(Expression):
     def _equals(self, other):
         # pylint: disable=protected-access
         return self._name == other._name
-
-class Mode:
-
-    def __init__(self):
-        self._entries = []
-
-    def add(self, encoding, mnemonic, semantics, immediates, includedModes):
-        self._entries.append(
-            (encoding, mnemonic, semantics, immediates, includedModes)
-            )
