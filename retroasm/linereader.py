@@ -125,7 +125,7 @@ class LineReader:
         location = self.getLocation()
         i = None
         for match in matches:
-            assert match.string == line
+            assert line.startswith(match.string)
             sepFrom, sepTo = match.span()
             if i is None:
                 i = match.pos
