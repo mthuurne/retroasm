@@ -278,7 +278,7 @@ A mode definition uses the syntax below:
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table. If a mode with the given name already exists, the entries are added to that mode, otherwise a new mode is defined.
 
-The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on.
+The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on. If the opcode field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
 
 The mnemonic field contains the syntax used in assembly language.
 

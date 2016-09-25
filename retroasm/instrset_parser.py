@@ -1,7 +1,9 @@
 from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
 from .expression_builder import buildStorage
-from .expression_parser import IdentifierNode, parseExpr, parseExprList
+from .expression_parser import (
+    IdentifierNode, NumberNode, parseExpr, parseExprList
+    )
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate
@@ -293,14 +295,17 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                 knownNames |= globalBuilder.context.keys()
 
                 # Parse encoding.
-                try:
-                    encoding = parseExprList(encStr, encLoc)
-                    for encElem in encoding:
-                        checkIdentifiers(encElem, knownNames)
-                except BadInput as ex:
-                    reader.error(
-                        'error in encoding: %s' % ex, location=ex.location
-                        )
+                if encStr:
+                    try:
+                        encoding = parseExprList(encStr, encLoc)
+                        for encElem in encoding:
+                            checkIdentifiers(encElem, knownNames)
+                    except BadInput as ex:
+                        reader.error(
+                            'error in encoding: %s' % ex, location=ex.location
+                            )
+                else:
+                    encoding = NumberNode(0, 0, encLoc)
 
                 # Parse mnemonic.
                 # TODO: We have no infrastructure for mnemonics yet.
