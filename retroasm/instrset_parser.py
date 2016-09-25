@@ -253,9 +253,21 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                 knownNames = set()
                 immediates = {}
                 includedModes = {}
+                flagsRequired = set()
                 if ctxStr:
                     for ctxElem, ctxElemLoc in reader.splitOn(
                             _reCommaSep.finditer(line, *ctxLoc.span)):
+                        if ctxElem.startswith('?'):
+                            name = ctxElem[1:]
+                            if ' ' in name:
+                                reader.error(
+                                    'flag test not of the form "?<name>"',
+                                    location=ctxElemLoc
+                                    )
+                            else:
+                                flagsRequired.add(name)
+                            continue
+
                         try:
                             ctxType, name = ctxElem.split()
                         except ValueError:
@@ -326,9 +338,10 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         except DelayedError:
             pass
         else:
-            mode.append(
-                (encoding, mnemonic, semantics, immediates, includedModes)
-                )
+            mode.append((
+                encoding, mnemonic, semantics,
+                immediates, includedModes, flagsRequired
+                ))
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:

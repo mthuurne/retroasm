@@ -330,3 +330,14 @@ Placeholders can be used in expressions, for example to define the Z80 flag test
     %111    . m         .  sf
 
 In the above example, the placeholder `C` represents the match made in the `cond2` mode table. Let's say that the third entry in `cond2` was the one matched. In the first entry of `cond3`, the `C` in the second column reproduces the matched mnemonic `nc` as-is, while the `C` in the third column reproduces the semantic expression `!cf` as-is. In the first column, `C` matches the encoding `%10` which is concatenated to a fixed bit of 0 to form the 3-bit encoding `%010`.
+
+The context field can also be used to filter on instruction decoding flags, using the syntax `?<name>`. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the `reg8` mode from the earlier example:
+
+    %100    . h
+    %100    . ixh       .          . ?ix
+    %100    . iyh       .          . ?iy
+    %101    . l
+    %101    . ixl       .          . ?ix
+    %101    . iyl       .          . ?iy
+
+A mode entry will only be considered a match if all flags listed in the context are set.

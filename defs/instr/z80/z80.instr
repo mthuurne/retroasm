@@ -79,7 +79,11 @@ u8 port[u8]
 %010        . d
 %011        . e
 %100        . h
+%100        . ixh           .               . ?ix
+%100        . iyh           .               . ?iy
 %101        . l
+%101        . ixl           .               . ?ix
+%101        . iyl           .               . ?iy
 %110        . (hl)          . mem[hl]
 %111        . a
 
@@ -90,6 +94,19 @@ u8 port[u8]
 %01         . de
 %10         . hl
 %11         . sp
+
+= mode hlx
+            . hl
+            . ix            .               . ?ix
+            . iy            .               . ?iy
+
+= mode reg16x
+R           . R             . R             . reg16 R
+%10         . R             . R             . hlx R
+
+= mode reg16af
+R           . R             . R             . reg16x R
+%11         . af
 
 # Condition codes
 
