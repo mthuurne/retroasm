@@ -3,6 +3,7 @@ from weakref import WeakValueDictionary
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there
     is only one instance.
+    Arguments must be of hashable types.
     Keyword constructor arguments are not supported.
     Weak references are used to keep track of instances, so if you define
     __slots__ in your class, make sure you include '__weakref__' in __slots__.
