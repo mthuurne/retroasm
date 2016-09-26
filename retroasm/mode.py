@@ -1,5 +1,4 @@
 from .expression import Expression
-from .types import maskForWidth
 
 from inspect import signature
 
@@ -12,7 +11,7 @@ class Immediate(Expression):
 
     name = property(lambda self: self._name)
     type = property(lambda self: self._type)
-    mask = property(lambda self: maskForWidth(self._type.width))
+    mask = property(lambda self: self._type.mask)
     location = property(lambda self: self._location)
 
     def __init__(self, name, typ, location):

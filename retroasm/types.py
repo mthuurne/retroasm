@@ -106,6 +106,7 @@ class IntType(metaclass=Unique):
     __slots__ = ('_width', '__weakref__')
 
     width = property(lambda self: self._width)
+    mask = property(lambda self: maskForWidth(self._width))
 
     def __init__(self, width):
         if isinstance(width, int):

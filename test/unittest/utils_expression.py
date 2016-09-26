@@ -1,5 +1,5 @@
 from retroasm.expression import Expression, LShift, OrOperator
-from retroasm.types import IntType, maskForWidth
+from retroasm.types import IntType
 
 from inspect import signature
 
@@ -7,7 +7,7 @@ class TestValue(Expression):
     __slots__ = ('_name', '_type')
 
     name = property(lambda self: self._name)
-    mask = property(lambda self: maskForWidth(self._type.width))
+    mask = property(lambda self: self._type.mask)
 
     def __init__(self, name, typ):
         if not isinstance(name, str):
