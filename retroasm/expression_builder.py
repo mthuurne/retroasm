@@ -10,7 +10,7 @@ from .expression_parser import (
     )
 from .expression_simplifier import simplifyExpression
 from .function import Function
-from .linereader import BadInput, DelayedError
+from .linereader import BadInput
 from .storage import ComposedStorage, IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
 from .utils import Singleton
@@ -373,52 +373,6 @@ def buildStorage(node, builder):
         return _convertStorageOperator(node, builder)
     else:
         assert False, node
-
-def evalExpr(node, builder, log):
-    '''Evaluates the given expression parse tree in the context of the given
-    builder. Returns a pair containing the expression's value (Expression
-    object) and width. It is considered an error if the expression accesses
-    state. BadInput is raised if one or more errors occurred; additional error
-    messages will be logged to the given log. Emits will happen on the given
-    builder; use a fresh builder for every evaluation.
-    '''
-    location = node.treeLocation
-    storage = buildStorage(node, builder)
-
-    ret = builder.emitVariable('ret', IntType(storage.width), location)
-    expr = storage.emitLoad(builder, location)
-    builder.emitStore(ret, expr, location)
-
-    try:
-        with log.checkErrors():
-            try:
-                code = builder.createCodeBlock(log)
-            except ValueError:
-                # DelayedError will be raised when leaving "with" scope.
-                pass
-            else:
-                stateAccessed = False
-                for operation in code.nodes:
-                    if isinstance(operation, Load):
-                        log.error('expression reads state',
-                            location=operation.location)
-                        stateAccessed = True
-                    elif isinstance(operation, Store):
-                        log.error('expression writes state',
-                            location=operation.location)
-                        stateAccessed = True
-                if not stateAccessed:
-                    # There are no load/store nodes, so all other nodes (if any)
-                    # should have been eliminated.
-                    assert not code.nodes, code.nodes
-    except DelayedError:
-        raise BadInput.withText('preceding error(s) triggered by', location)
-
-    (rid, index, width), = code.retRef
-    assert index == 0, code.retRef
-    assert width == storage.width, code.retRef
-    value = code.constants[code.references[rid].cid].expr
-    return value, width
 
 def emitCodeFromStatements(reader, builder, statements, retType):
     '''Emits a code block from the given statements.
