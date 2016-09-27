@@ -8,7 +8,7 @@ from .expression import truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    FixedValue, IOChannel, IOReference, LocalReference, Register, Storage,
+    FixedValue, IOChannel, IOReference, Register, Storage, UnknownStorage,
     Variable
     )
 from .types import IntType, Reference, maskForWidth
@@ -72,9 +72,6 @@ class CodeBlockBuilder:
 
     def emitVariable(self, name, refType, location):
         return self._addNamedReference(Variable(name, refType), location)
-
-    def emitLocalReference(self, name, refType, location):
-        return self._addNamedReference(LocalReference(name, refType), location)
 
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(truncate(index, channel.addrWidth))
@@ -301,6 +298,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         return rid
 
+    def emitReferenceArgument(self, name, refType, location):
+        return self._addNamedReference(UnknownStorage(name, refType), location)
+
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
         if code is None:
@@ -344,7 +344,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # For each old rid, create a corresponding storage in this block.
         refMap = {}
         for rid, ref in code.references.items():
-            if isinstance(ref, LocalReference):
+            if isinstance(ref, UnknownStorage):
                 storage = context[ref.name]
                 assert ref.width == storage.width, (ref.width, storage.width)
             else:

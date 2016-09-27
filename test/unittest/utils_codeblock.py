@@ -94,11 +94,11 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         # Create IOReference.
         return self.emitIOReference(localChannel, index)
 
-    def addLocalReference(self, name, width=8):
-        return self.emitLocalReference(name, IntType(width), None)
-
     def addValueArgument(self, name, width=8):
         return self.emitValueArgument(name, IntType(width), None)
+
+    def addReferenceArgument(self, name, width=8):
+        return self.emitReferenceArgument(name, IntType(width), None)
 
     def addVariable(self, name, width=8):
         return self.emitVariable(name, IntType(width), None)

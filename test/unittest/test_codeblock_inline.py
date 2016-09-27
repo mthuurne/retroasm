@@ -136,7 +136,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalReference('R')
+        incArgRid = inc.addReferenceArgument('R')
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         inc.emitStore(incArgRid, incAdd)
@@ -167,7 +167,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalReference('R', 16)
+        incArgRid = inc.addReferenceArgument('R', 16)
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(
             AddOperator(incArgVal, IntLiteral(0x1234))
@@ -201,7 +201,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalReference('R', 16)
+        incArgRid = inc.addReferenceArgument('R', 16)
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x1234)))
         inc.emitStore(incArgRid, incAdd)
@@ -231,7 +231,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addLocalReference('R')
+        incArgRid = inc.addReferenceArgument('R')
         incArgVal = inc.emitLoad(incArgRid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x12)))
         inc.emitStore(incArgRid, incAdd)

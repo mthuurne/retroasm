@@ -24,7 +24,7 @@ def createFunc(reader, funcName, retType, args, globalBuilder):
     builder = LocalCodeBlockBuilder(globalBuilder)
     for argName, argDecl in args.items():
         if isinstance(argDecl, Reference):
-            builder.emitLocalReference(argName, argDecl.type, headerLocation)
+            builder.emitReferenceArgument(argName, argDecl.type, headerLocation)
         else:
             builder.emitValueArgument(argName, argDecl, headerLocation)
     if retType is not None and not isinstance(retType, Reference):

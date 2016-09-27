@@ -231,7 +231,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
         ridC = self.builder.addRegister('c')
-        ridX = self.builder.addLocalReference('X')
+        ridX = self.builder.addReferenceArgument('X')
         loadA1 = self.builder.emitLoad(ridA)
         storeX = self.builder.emitStore(ridX, const)
         loadA2 = self.builder.emitLoad(ridA)
@@ -253,7 +253,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         '''Test handling of writing the same value to a potential alias.'''
         ridA = self.builder.addRegister('a')
         ridB = self.builder.addRegister('b')
-        ridX = self.builder.addLocalReference('X')
+        ridX = self.builder.addReferenceArgument('X')
         loadA1 = self.builder.emitLoad(ridA)
         storeX = self.builder.emitStore(ridX, loadA1)
         loadA2 = self.builder.emitLoad(ridA)

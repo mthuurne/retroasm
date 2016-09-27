@@ -1,6 +1,6 @@
 from retroasm.expression import IntLiteral
 from retroasm.storage import (
-    IOChannel, IOReference, LocalReference, Register, Variable
+    IOChannel, IOReference, Register, UnknownStorage, Variable
     )
 from retroasm.types import IntType
 
@@ -27,7 +27,7 @@ class AliasTests(unittest.TestCase):
         a = Register('a', IntType(8))
         b = Register('b', IntType(8))
         l = Variable('L', IntType(8))
-        r = LocalReference('R', IntType(8))
+        r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
         m = IOReference(mem, IntLiteral(0xC000))
         self.assertAlias(a, a)
@@ -41,7 +41,7 @@ class AliasTests(unittest.TestCase):
         l = Variable('L', IntType(8))
         l2 = Variable('L2', IntType(8))
         a = Register('a', IntType(8))
-        r = LocalReference('R', IntType(8))
+        r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
         m = IOReference(mem, IntLiteral(0xC000))
         self.assertAlias(l, l)
@@ -52,8 +52,8 @@ class AliasTests(unittest.TestCase):
 
     def test_local_reference_aliasing(self):
         '''Test when local references might be aliased.'''
-        r = LocalReference('R', IntType(8))
-        r2 = LocalReference('R2', IntType(8))
+        r = UnknownStorage('R', IntType(8))
+        r2 = UnknownStorage('R2', IntType(8))
         a = Register('a', IntType(8))
         l = Variable('L', IntType(8))
         mem = IOChannel('mem', 8, 16)
@@ -68,7 +68,7 @@ class AliasTests(unittest.TestCase):
         '''Test when I/O references might be aliased.'''
         a = Register('a', IntType(8))
         l = Variable('L', IntType(8))
-        r = LocalReference('R', IntType(8))
+        r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
         io = IOChannel('io', 8, 16)
         m = IOReference(mem, IntLiteral(0xC000))
