@@ -1,11 +1,9 @@
 from .codeblock import (
-    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
-    LoadedConstant, Store
+    ArgumentConstant, BoundReference, CodeBlock, ComputedConstant,
+    ConstantValue, Load, LoadedConstant, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import (
-    BoundReference, FixedValue, IOReference, Register, Variable
-    )
+from .storage import FixedValue, IOReference, Register, Variable
 from .types import maskForWidth
 
 from collections import defaultdict

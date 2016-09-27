@@ -1,6 +1,6 @@
 from .codeblock import (
-    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
-    Store
+    ArgumentConstant, BoundReference, ComputedConstant, ConstantValue, Load,
+    LoadedConstant, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
@@ -8,8 +8,8 @@ from .expression import truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    BoundReference, FixedValue, IOChannel, IOReference, LocalReference,
-    Register, Storage, Variable
+    FixedValue, IOChannel, IOReference, LocalReference, Register, Storage,
+    Variable
     )
 from .types import IntType, Reference, maskForWidth
 from .utils import checkType

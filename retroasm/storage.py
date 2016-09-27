@@ -1,10 +1,7 @@
-from .expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
-    )
-from .types import IntType, maskForWidth, unlimited
+from .expression import Expression
+from .types import IntType, unlimited
 from .utils import checkType
 
-from itertools import chain
 import re
 
 class IOChannel:
@@ -185,95 +182,6 @@ def sliceStorage(decomposed, index, width):
         if start < end:
             yield rid, subStart + start - offset, end - start
         offset += subWidth
-
-class BoundReference:
-    __slots__ = ('_decomposed', '_width')
-
-    width = property(lambda self: self._width)
-
-    @classmethod
-    def single(cls, rid, width):
-        return cls(((rid, 0, width),))
-
-    def __init__(self, decomposed):
-        self._decomposed = tuple(decomposed)
-        totalWidth = 0
-        for rid_, index_, width in self._decomposed:
-            if totalWidth is unlimited:
-                raise ValueError(
-                    'unlimited width is only allowed on most significant '
-                    'storage'
-                    )
-            totalWidth += width
-        self._width = totalWidth
-
-    def __repr__(self):
-        return 'BoundReference((%s))' % ', '.join(
-            repr(storageSlice) for storageSlice in self._decomposed
-            )
-
-    def __iter__(self):
-        return iter(self._decomposed)
-
-    def present(self, references):
-        return ' ; '.join(
-            '%s[%s:%s]' % (
-                references[rid],
-                '' if index == 0 else index,
-                '' if width is unlimited else index + width
-                )
-            for rid, index, width in self._decomposed
-            )
-
-    def concat(self, other):
-        '''Return a new BoundReference instance that is the concatenation of
-        this one as the least significant part and the given BoundReference
-        as the most significant part.
-        '''
-        return self.__class__(chain(self, other))
-
-    def slice(self, index, width):
-        '''Return a new BoundReference instance that is a slice of this one.
-        '''
-        return self.__class__(sliceStorage(self._decomposed, index, width))
-
-    def emitLoad(self, builder, location):
-        '''Loads the value of this composed storage by emitting Load nodes on
-        the given builder.
-        Returns an Expression with the loaded value.
-        '''
-        terms = []
-        offset = 0
-        for rid, index, width in self._decomposed:
-            value = builder.emitLoad(rid, location)
-            sliced = truncate(RShift(value, index), width)
-            terms.append(LShift(sliced, offset))
-            offset += width
-        return OrOperator(*terms)
-
-    def emitStore(self, builder, value, location):
-        '''Stores the given value in this composed storage by emitting Store
-        nodes (and Load nodes for partial updates) on the given builder.
-        '''
-        offset = 0
-        for rid, index, width in self._decomposed:
-            valueSlice = truncate(RShift(value, offset), width)
-            storageWidth = builder.references[rid].width
-            if index == 0 and width == storageWidth:
-                # Full width: store only.
-                combined = valueSlice
-            else:
-                # Partial width: combine with loaded old value.
-                oldVal = builder.emitLoad(rid, location)
-                storageMask = maskForWidth(storageWidth)
-                valueMask = maskForWidth(width) << index
-                maskLit = IntLiteral(storageMask & ~valueMask)
-                combined = OrOperator(
-                    AndOperator(oldVal, maskLit),
-                    LShift(valueSlice, index)
-                    )
-            builder.emitStore(rid, combined, location)
-            offset += width
 
 class Variable(NamedStorage):
     '''A variable in the local context.

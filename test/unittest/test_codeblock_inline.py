@@ -1,9 +1,8 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import Store
+from retroasm.codeblock import BoundReference, Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
-from retroasm.storage import BoundReference
 from retroasm.types import IntType
 
 import unittest

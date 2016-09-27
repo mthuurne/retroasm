@@ -1,4 +1,4 @@
-from .codeblock import Load, Store
+from .codeblock import BoundReference, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
@@ -11,7 +11,7 @@ from .expression_parser import (
 from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
-from .storage import BoundReference, IOChannel
+from .storage import IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
 from .utils import Singleton
 

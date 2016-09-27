@@ -1,4 +1,4 @@
-from retroasm.storage import BoundReference
+from retroasm.codeblock import BoundReference
 
 import unittest
 
