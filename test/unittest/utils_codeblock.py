@@ -4,7 +4,7 @@ from retroasm.codeblock_builder import (
     )
 from retroasm.context import Context
 from retroasm.expression import IntLiteral
-from retroasm.storage import ComposedStorage, FixedValue, IOChannel, Register
+from retroasm.storage import BoundReference, FixedValue, IOChannel, Register
 from retroasm.types import IntType
 
 class NodeChecker:
@@ -27,7 +27,7 @@ class NodeChecker:
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        self.assertIsInstance(retRef, ComposedStorage)
+        self.assertIsInstance(retRef, BoundReference)
         decomposed = tuple(retRef)
         self.assertEqual(len(decomposed), 1)
         (rid, index, width), = decomposed
@@ -67,7 +67,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             storage = self.context[name]
 
         # Check that existing global context entry is this register.
-        assert isinstance(storage, ComposedStorage), storage
+        assert isinstance(storage, BoundReference), storage
         (rid, index, cmpWidth), = storage
         assert index == 0, storage
         assert width == cmpWidth, storage

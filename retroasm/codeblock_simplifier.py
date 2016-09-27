@@ -4,7 +4,7 @@ from .codeblock import (
     )
 from .expression_simplifier import simplifyExpression
 from .storage import (
-    ComposedStorage, FixedValue, IOReference, Register, Variable
+    BoundReference, FixedValue, IOReference, Register, Variable
     )
 from .types import maskForWidth
 
@@ -328,7 +328,7 @@ class CodeBlockSimplifier(CodeBlock):
                         if rid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
-                            self.retRef = ComposedStorage.single(rid, width)
+                            self.retRef = BoundReference.single(rid, width)
                             references[rid] = FixedValue(node.cid, width)
                     if rid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):

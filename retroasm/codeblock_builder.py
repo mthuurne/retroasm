@@ -8,7 +8,7 @@ from .expression import truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    ComposedStorage, FixedValue, IOChannel, IOReference, LocalReference,
+    BoundReference, FixedValue, IOChannel, IOReference, LocalReference,
     Register, Storage, Variable
     )
 from .types import IntType, Reference, maskForWidth
@@ -66,7 +66,7 @@ class CodeBlockBuilder:
 
     def _addNamedReference(self, ref, location):
         rid = self._emitReference(ref)
-        composed = ComposedStorage.single(rid, ref.width)
+        composed = BoundReference.single(rid, ref.width)
         self.context.define(ref.name, composed, location)
         return rid
 
@@ -92,7 +92,7 @@ class CodeBlockBuilder:
         Returns the given value.
         Raises NameExistsError if the name is already taken.
         '''
-        checkType(value, ComposedStorage, 'value')
+        checkType(value, BoundReference, 'value')
         self.context.define(name, value, location)
         return value
 
@@ -109,7 +109,7 @@ class CodeBlockBuilder:
 
     def inlineFunctionCall(self, func, argMap, location):
         '''Inlines a call to the given function with the given arguments.
-        Returns a ComposedStorage containing the value returned by the inlined
+        Returns a BoundReference containing the value returned by the inlined
         function, or None if the function does not return anything.
         '''
         raise NotImplementedError
@@ -172,8 +172,8 @@ class _LocalContext(Context):
             storage = self.parentBuilder.context[key]
             if isinstance(storage, (Function, IOChannel)):
                 pass
-            elif isinstance(storage, ComposedStorage):
-                storage = ComposedStorage((
+            elif isinstance(storage, BoundReference):
+                storage = BoundReference((
                     (self._importReference(rid), index, width)
                     for rid, index, width in storage
                     ))
@@ -327,7 +327,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
-        Returns a ComposedStorage containing the value returned by the inlined
+        Returns a BoundReference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
         '''
         constants = self.constants
@@ -355,7 +355,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     newRef = ref
                 newRid = len(references)
                 references.append(newRef)
-                storage = ComposedStorage.single(newRid, newRef.width)
+                storage = BoundReference.single(newRid, newRef.width)
             refMap[rid] = storage
 
         # Copy constants.
@@ -383,8 +383,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Substitute index constants.
         # This cannot be done when originally copying the references
         # because at that time the constants haven't been added yet.
-        for composedStorage in refMap.values():
-            for rid, index_, width_ in composedStorage:
+        for boundReference in refMap.values():
+            for rid, index_, width_ in boundReference:
                 ref = references[rid]
                 if isinstance(ref, IOReference):
                     index = ref.index
@@ -395,20 +395,20 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Copy nodes.
         for node in code.nodes:
-            composedStorage = refMap[node.rid]
+            boundReference = refMap[node.rid]
             newCid = cidMap[node.cid]
             if isinstance(node, Load):
-                value = composedStorage.emitLoad(self, node.location)
+                value = boundReference.emitLoad(self, node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 value = ConstantValue(newCid, -1)
-                composedStorage.emitStore(self, value, node.location)
+                boundReference.emitStore(self, value, node.location)
             else:
                 assert False, node
 
         # Determine return value.
         retRef = code.retRef
-        return None if retRef is None else ComposedStorage(chain.from_iterable(
+        return None if retRef is None else BoundReference(chain.from_iterable(
             refMap[rid].slice(index, width)
             for rid, index, width in retRef
             ))

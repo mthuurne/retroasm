@@ -3,7 +3,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from retroasm.codeblock import Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
-from retroasm.storage import ComposedStorage
+from retroasm.storage import BoundReference
 from retroasm.types import IntType
 
 import unittest
@@ -212,7 +212,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerH = outer.addRegister('h')
         outerL = outer.emitFixedValue(IntLiteral(0xcd), 8)
         regH = outer.context['h']
-        fixedL = ComposedStorage.single(outerL, 8)
+        fixedL = BoundReference.single(outerL, 8)
         regHL = fixedL.concat(regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))

@@ -186,7 +186,7 @@ def sliceStorage(decomposed, index, width):
             yield rid, subStart + start - offset, end - start
         offset += subWidth
 
-class ComposedStorage:
+class BoundReference:
     __slots__ = ('_decomposed', '_width')
 
     width = property(lambda self: self._width)
@@ -208,7 +208,7 @@ class ComposedStorage:
         self._width = totalWidth
 
     def __repr__(self):
-        return 'ComposedStorage((%s))' % ', '.join(
+        return 'BoundReference((%s))' % ', '.join(
             repr(storageSlice) for storageSlice in self._decomposed
             )
 
@@ -226,14 +226,14 @@ class ComposedStorage:
             )
 
     def concat(self, other):
-        '''Return a new ComposedStorage instance that is the concatenation of
-        this one as the least significant part and the given ComposedStorage
+        '''Return a new BoundReference instance that is the concatenation of
+        this one as the least significant part and the given BoundReference
         as the most significant part.
         '''
         return self.__class__(chain(self, other))
 
     def slice(self, index, width):
-        '''Return a new ComposedStorage instance that is a slice of this one.
+        '''Return a new BoundReference instance that is a slice of this one.
         '''
         return self.__class__(sliceStorage(self._decomposed, index, width))
 

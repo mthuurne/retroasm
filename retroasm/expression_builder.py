@@ -11,7 +11,7 @@ from .expression_parser import (
 from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
-from .storage import ComposedStorage, IOChannel
+from .storage import BoundReference, IOChannel
 from .types import IntType, Reference, parseTypeDecl, unlimited
 from .utils import Singleton
 
@@ -61,7 +61,7 @@ def declareVariable(node, builder):
     # Add declaration to context.
     try:
         rid = builder.emitVariable(name, typ, nameNode.location)
-        return ComposedStorage.single(rid, typ.width)
+        return BoundReference.single(rid, typ.width)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
@@ -113,7 +113,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
 
 def _convertIdentifier(node, builder):
     '''Looks up an identifier in the builder's context.
-    Returns either an IOChannel or a ComposedStorage.
+    Returns either an IOChannel or a BoundReference.
     '''
     name = node.name
     try:
@@ -122,7 +122,7 @@ def _convertIdentifier(node, builder):
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
         raise BadExpression('function "%s" is not called' % name, node.location)
-    elif isinstance(value, (ComposedStorage, IOChannel)):
+    elif isinstance(value, (BoundReference, IOChannel)):
         return value
     else:
         assert False, repr(value)
@@ -250,7 +250,7 @@ def buildExpression(node, builder):
 
 def _convertFixedValue(expr, width, builder):
     rid = builder.emitFixedValue(expr, width)
-    return ComposedStorage.single(rid, width)
+    return BoundReference.single(rid, width)
 
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
@@ -260,7 +260,7 @@ def _convertStorageLookup(node, builder):
             channel = ident
             index = buildExpression(indexNode, builder)
             rid = builder.emitIOReference(channel, index)
-            return ComposedStorage.single(rid, channel.elemWidth)
+            return BoundReference.single(rid, channel.elemWidth)
 
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
