@@ -1,6 +1,6 @@
 from retroasm.expression import IntLiteral
 from retroasm.storage import (
-    IOChannel, IOReference, Register, UnknownStorage, Variable
+    IOChannel, IOStorage, Register, UnknownStorage, Variable
     )
 from retroasm.types import IntType
 
@@ -29,7 +29,7 @@ class AliasTests(unittest.TestCase):
         l = Variable('L', IntType(8))
         r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
-        m = IOReference(mem, IntLiteral(0xC000))
+        m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(a, a)
         self.assertNoAlias(a, b)
         self.assertNoAlias(a, l)
@@ -43,7 +43,7 @@ class AliasTests(unittest.TestCase):
         a = Register('a', IntType(8))
         r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
-        m = IOReference(mem, IntLiteral(0xC000))
+        m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(l, l)
         self.assertNoAlias(l, l2)
         self.assertNoAlias(l, a)
@@ -57,7 +57,7 @@ class AliasTests(unittest.TestCase):
         a = Register('a', IntType(8))
         l = Variable('L', IntType(8))
         mem = IOChannel('mem', 8, 16)
-        m = IOReference(mem, IntLiteral(0xC000))
+        m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(r, r)
         self.assertAlias(r, r2)
         self.assertAlias(r, a)
@@ -71,9 +71,9 @@ class AliasTests(unittest.TestCase):
         r = UnknownStorage('R', IntType(8))
         mem = IOChannel('mem', 8, 16)
         io = IOChannel('io', 8, 16)
-        m = IOReference(mem, IntLiteral(0xC000))
-        i = IOReference(io, IntLiteral(0xC000))
-        m2 = IOReference(mem, IntLiteral(0xE000))
+        m = IOStorage(mem, IntLiteral(0xC000))
+        i = IOStorage(io, IntLiteral(0xC000))
+        m2 = IOStorage(mem, IntLiteral(0xE000))
         self.assertAlias(m, m)
         self.assertAlias(m, m2)
         self.assertNoAlias(m, i)

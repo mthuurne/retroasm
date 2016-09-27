@@ -91,7 +91,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         # Import channel from global context into local context.
         localChannel = self.context[channelName]
         assert localChannel is channel
-        # Create IOReference.
+        # Create I/O reference.
         return self.emitIOReference(localChannel, index)
 
     def addValueArgument(self, name, width=8):

@@ -1,7 +1,7 @@
 from .expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
     )
-from .storage import FixedValue, IOReference, Storage, sliceStorage
+from .storage import FixedValue, IOStorage, Storage, sliceStorage
 from .types import maskForWidth, unlimited
 from .utils import checkType
 
@@ -308,7 +308,7 @@ class CodeBlock:
         for ref in self.references.values():
             if isinstance(ref, FixedValue):
                 assert ref.cid in cids, ref
-            elif isinstance(ref, IOReference):
+            elif isinstance(ref, IOStorage):
                 assert ref.index.cid in cids, ref
 
         # Check that the return value rids are valid.

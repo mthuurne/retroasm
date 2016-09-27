@@ -251,8 +251,8 @@ class Register(NamedStorage):
     def mightBeSame(self, other):
         return self is other or isinstance(other, UnknownStorage)
 
-class IOReference(Storage):
-    '''Reference to a particular index on an I/O channel.
+class IOStorage(Storage):
+    '''Storage location accessed via an I/O channel at a particular index.
     '''
     __slots__ = ('_channel', '_index')
 
@@ -265,7 +265,7 @@ class IOReference(Storage):
         Storage.__init__(self, channel.elemWidth)
 
     def __repr__(self):
-        return 'IOReference(%s, %s)' % (repr(self._channel), repr(self._index))
+        return 'IOStorage(%s, %s)' % (repr(self._channel), repr(self._index))
 
     def __str__(self):
         return '%s[%s]' % (self._channel.name, self._index)
@@ -283,7 +283,7 @@ class IOReference(Storage):
         return self._channel.isSticky(self._index)
 
     def mightBeSame(self, other):
-        if isinstance(other, IOReference):
+        if isinstance(other, IOStorage):
             # pylint: disable=protected-access
             return self._channel == other._channel \
                 and self._channel.mightBeSame(self._index, other._index)

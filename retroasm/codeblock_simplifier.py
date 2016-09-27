@@ -3,7 +3,7 @@ from .codeblock import (
     ConstantValue, Load, LoadedConstant, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import FixedValue, IOReference, Register, Variable
+from .storage import FixedValue, IOStorage, Register, Variable
 from .types import maskForWidth
 
 from collections import defaultdict
@@ -122,10 +122,10 @@ class CodeBlockSimplifier(CodeBlock):
         references = self.references
         for rid in list(references.keys()):
             ref = references[rid]
-            if isinstance(ref, IOReference):
+            if isinstance(ref, IOStorage):
                 index = ref.index
                 if index.cid == oldCid:
-                    references[rid] = IOReference(
+                    references[rid] = IOStorage(
                         ref.channel, ConstantValue(newCid, index.mask)
                         )
             elif isinstance(ref, FixedValue):
@@ -166,7 +166,7 @@ class CodeBlockSimplifier(CodeBlock):
         for ref in references.values():
             if isinstance(ref, FixedValue):
                 cidsInUse.add(ref.cid)
-            elif isinstance(ref, IOReference):
+            elif isinstance(ref, IOStorage):
                 cidsInUse.add(ref.index.cid)
 
         if len(cidsInUse) < len(constants):
@@ -225,7 +225,7 @@ class CodeBlockSimplifier(CodeBlock):
                     registerNameToRid[name] = rid
                 else:
                     duplicates[rid] = replacement
-            elif isinstance(ref, IOReference):
+            elif isinstance(ref, IOStorage):
                 cid = ref.index.cid
                 indices = channelNameToIndices[ref.channel.name]
                 for rid2, index2 in indices:

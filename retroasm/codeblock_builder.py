@@ -8,7 +8,7 @@ from .expression import truncate
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    FixedValue, IOChannel, IOReference, Register, Storage, UnknownStorage,
+    FixedValue, IOChannel, IOStorage, Register, Storage, UnknownStorage,
     Variable
     )
 from .types import IntType, Reference, maskForWidth
@@ -57,7 +57,7 @@ class CodeBlockBuilder:
         '''
         if not isinstance(storage, Storage):
             raise TypeError('expected Storage, got %s' % type(storage).__name__)
-        if isinstance(storage, IOReference):
+        if isinstance(storage, IOStorage):
             if not isinstance(storage.index, ConstantValue):
                 raise TypeError('I/O index must be ConstantValue')
         rid = len(self.references)
@@ -75,7 +75,7 @@ class CodeBlockBuilder:
 
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(truncate(index, channel.addrWidth))
-        return self._emitReference(IOReference(channel, indexConst))
+        return self._emitReference(IOStorage(channel, indexConst))
 
     def emitFixedValue(self, expr, width):
         '''Emits a constant representing the result of the given expression.
@@ -386,9 +386,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for boundReference in refMap.values():
             for rid, index_, width_ in boundReference:
                 ref = references[rid]
-                if isinstance(ref, IOReference):
+                if isinstance(ref, IOStorage):
                     index = ref.index
-                    references[rid] = IOReference(
+                    references[rid] = IOStorage(
                         ref.channel,
                         ConstantValue(cidMap[index.cid], index.mask)
                         )
