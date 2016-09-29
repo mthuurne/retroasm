@@ -50,8 +50,8 @@ class AliasTests(unittest.TestCase):
         self.assertNoAlias(l, r)
         self.assertNoAlias(l, m)
 
-    def test_local_reference_aliasing(self):
-        '''Test when local references might be aliased.'''
+    def test_unknown_storage_aliasing(self):
+        '''Test when unknown storages might be aliased.'''
         r = UnknownStorage('R', IntType(8))
         r2 = UnknownStorage('R2', IntType(8))
         a = Register('a', IntType(8))
@@ -65,7 +65,7 @@ class AliasTests(unittest.TestCase):
         self.assertAlias(r, m)
 
     def test_io_aliasing(self):
-        '''Test when I/O references might be aliased.'''
+        '''Test when I/O storages might be aliased.'''
         a = Register('a', IntType(8))
         l = Variable('L', IntType(8))
         r = UnknownStorage('R', IntType(8))

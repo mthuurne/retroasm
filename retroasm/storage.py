@@ -175,12 +175,12 @@ def sliceStorage(decomposed, index, width):
     if width < 0:
         raise ValueError('slice width must not be negative: %d' % width)
     offset = 0
-    for rid, subStart, subWidth in decomposed:
+    for sid, subStart, subWidth in decomposed:
         # Clip slice indices to substorage range.
         start = max(index, offset)
         end = min(index + width, offset + subWidth)
         if start < end:
-            yield rid, subStart + start - offset, end - start
+            yield sid, subStart + start - offset, end - start
         offset += subWidth
 
 class Variable(NamedStorage):

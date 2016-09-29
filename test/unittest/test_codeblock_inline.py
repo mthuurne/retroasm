@@ -51,8 +51,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addValueArgument('V')
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addValueArgument('V')
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
@@ -113,8 +113,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         '''Test whether expressions passed via value arguments are truncated.'''
         # Note: Default width is 8 bits.
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addValueArgument('V')
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addValueArgument('V')
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
@@ -136,10 +136,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addReferenceArgument('R')
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addReferenceArgument('R')
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
-        inc.emitStore(incArgRid, incAdd)
+        inc.emitStore(incArgSid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
@@ -167,12 +167,12 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addReferenceArgument('R', 16)
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addReferenceArgument('R', 16)
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(
             AddOperator(incArgVal, IntLiteral(0x1234))
             )
-        inc.emitStore(incArgRid, incAdd)
+        inc.emitStore(incArgSid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
@@ -201,10 +201,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addReferenceArgument('R', 16)
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addReferenceArgument('R', 16)
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x1234)))
-        inc.emitStore(incArgRid, incAdd)
+        inc.emitStore(incArgSid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
@@ -231,10 +231,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
         inc = TestCodeBlockBuilder()
-        incArgRid = inc.addReferenceArgument('R')
-        incArgVal = inc.emitLoad(incArgRid)
+        incArgSid = inc.addReferenceArgument('R')
+        incArgVal = inc.emitLoad(incArgSid)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(0x12)))
-        inc.emitStore(incArgRid, incAdd)
+        inc.emitStore(incArgSid, incAdd)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()

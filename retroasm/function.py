@@ -75,10 +75,10 @@ class Function:
                         return const
         elif isinstance(arg, Reference):
             # Look for an UnknownStorage with the same name.
-            for ref in self.code.references.values():
-                if isinstance(ref, UnknownStorage):
-                    if ref.name == argName:
-                        return ref
+            for storage in self.code.storages.values():
+                if isinstance(storage, UnknownStorage):
+                    if storage.name == argName:
+                        return storage
         else:
             assert False, arg
         return None

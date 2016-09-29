@@ -20,7 +20,7 @@ class CodeBlockBuilder:
 
     def __init__(self, context):
         self.constants = []
-        self.references = []
+        self.storages = []
         self.context = context
 
     def dump(self):
@@ -31,14 +31,14 @@ class CodeBlockBuilder:
             if isinstance(const, ComputedConstant):
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        C%-2d <- R%d' % (const.cid, const.rid))
+                print('        C%-2d <- R%d' % (const.cid, const.sid))
             elif isinstance(const, ArgumentConstant):
                 print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
-        print('    references:')
-        for rid, ref in enumerate(self.references):
-            print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
+        print('    storages:')
+        for sid, storage in enumerate(self.storages):
+            print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the
@@ -52,37 +52,38 @@ class CodeBlockBuilder:
             self.constants.append(constant)
             return ConstantValue(cid, expr.mask)
 
-    def _emitReference(self, storage):
-        '''Adds a reference to the given storage, returning the reference ID.
+    def _addStorage(self, storage):
+        '''Adds the given storage to this code block.
+        Returns the storage ID.
         '''
         if not isinstance(storage, Storage):
             raise TypeError('expected Storage, got %s' % type(storage).__name__)
         if isinstance(storage, IOStorage):
             if not isinstance(storage.index, ConstantValue):
                 raise TypeError('I/O index must be ConstantValue')
-        rid = len(self.references)
-        self.references.append(storage)
-        return rid
+        sid = len(self.storages)
+        self.storages.append(storage)
+        return sid
 
-    def _addNamedReference(self, ref, location):
-        rid = self._emitReference(ref)
-        composed = BoundReference.single(rid, ref.width)
-        self.context.define(ref.name, composed, location)
-        return rid
+    def _addNamedStorage(self, storage, location):
+        sid = self._addStorage(storage)
+        ref = BoundReference.single(sid, storage.width)
+        self.context.define(storage.name, ref, location)
+        return sid
 
     def emitVariable(self, name, refType, location):
-        return self._addNamedReference(Variable(name, refType), location)
+        return self._addNamedStorage(Variable(name, refType), location)
 
-    def emitIOReference(self, channel, index):
+    def emitIOStorage(self, channel, index):
         indexConst = self.emitCompute(truncate(index, channel.addrWidth))
-        return self._emitReference(IOStorage(channel, indexConst))
+        return self._addStorage(IOStorage(channel, indexConst))
 
     def emitFixedValue(self, expr, width):
         '''Emits a constant representing the result of the given expression.
-        Returns the reference ID of the corresponding FixedValue.
+        Returns the storage ID of the corresponding FixedValue.
         '''
         const = self.emitCompute(expr)
-        return self._emitReference(FixedValue(const.cid, width))
+        return self._addStorage(FixedValue(const.cid, width))
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -93,14 +94,14 @@ class CodeBlockBuilder:
         self.context.define(name, value, location)
         return value
 
-    def emitLoad(self, rid, location):
-        '''Adds a node that loads a value from the referenced storage.
+    def emitLoad(self, sid, location):
+        '''Adds a node that loads a value from the given storage.
         Returns an expression that wraps the loaded value.
         '''
         raise NotImplementedError
 
-    def emitStore(self, rid, expr, location):
-        '''Adds a node that stores a value in the referenced storage.
+    def emitStore(self, sid, expr, location):
+        '''Adds a node that stores a value in the given storage.
         '''
         raise NotImplementedError
 
@@ -123,19 +124,19 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitRegister(self, reg, location):
         checkType(reg, Register, 'register')
-        return self._addNamedReference(reg, location)
+        return self._addNamedStorage(reg, location)
 
-    def emitLoad(self, rid, location):
+    def emitLoad(self, sid, location):
         raise BadGlobalOperation(
             'attempt to read from storage in global scope: %s'
-            % self.references[rid],
+            % self.storages[sid],
             location
             )
 
-    def emitStore(self, rid, expr, location):
+    def emitStore(self, sid, expr, location):
         raise BadGlobalOperation(
             'attempt to write to storage in global scope: %s'
-            % self.references[rid],
+            % self.storages[sid],
             location
             )
 
@@ -166,43 +167,43 @@ class _LocalContext(Context):
         try:
             return super().__getitem__(key)
         except KeyError:
-            storage = self.parentBuilder.context[key]
-            if isinstance(storage, (Function, IOChannel)):
+            value = self.parentBuilder.context[key]
+            if isinstance(value, (Function, IOChannel)):
                 pass
-            elif isinstance(storage, BoundReference):
-                storage = BoundReference((
-                    (self._importReference(rid), index, width)
-                    for rid, index, width in storage
+            elif isinstance(value, BoundReference):
+                value = BoundReference((
+                    (self._importStorage(sid), index, width)
+                    for sid, index, width in value
                     ))
             else:
-                assert False, (key, repr(storage))
-            self.elements[key] = storage
+                assert False, (key, repr(value))
+            self.elements[key] = value
             self.locations[key] = None
-            return storage
+            return value
 
-    def _importReference(self, parentRid):
-        '''Imports the given parent reference ID into the local context.
-        Returns the local reference ID.
+    def _importStorage(self, parentSid):
+        '''Imports the given parent storage ID into the local context.
+        Returns the local storage ID.
         '''
         importMap = self.importMap
         try:
-            return importMap[parentRid]
+            return importMap[parentSid]
         except KeyError:
             parentBuilder = self.parentBuilder
             localBuilder = self.localBuilder
-            ref = parentBuilder.references[parentRid]
-            if isinstance(ref, FixedValue):
+            storage = parentBuilder.storages[parentSid]
+            if isinstance(storage, FixedValue):
                 # Import constant ID as well.
-                const = parentBuilder.constants[ref.cid]
+                const = parentBuilder.constants[storage.cid]
                 assert isinstance(const, ComputedConstant), repr(const)
                 expr = const.expr
                 cid = len(localBuilder.constants)
                 localBuilder.constants.append(ComputedConstant(cid, expr))
-                ref = FixedValue(cid, ref.width)
+                storage = FixedValue(cid, storage.width)
             # pylint: disable=protected-access
-            localRid = localBuilder._emitReference(ref)
-            importMap[parentRid] = localRid
-            return localRid
+            localSid = localBuilder._addStorage(storage)
+            importMap[parentSid] = localSid
+            return localSid
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
 
@@ -223,39 +224,39 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(self.constants, self.references, self.nodes)
+        code = CodeBlockSimplifier(self.constants, self.storages, self.nodes)
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
         initializedVariables = set()
         for node in code.nodes:
-            rid = node.rid
-            ref = code.references[rid]
-            if isinstance(ref, Variable):
+            sid = node.sid
+            storage = code.storages[sid]
+            if isinstance(storage, Variable):
                 if isinstance(node, Load):
-                    if rid not in initializedVariables:
+                    if sid not in initializedVariables:
                         ununitializedLoads.append(node)
                 elif isinstance(node, Store):
-                    initializedVariables.add(rid)
+                    initializedVariables.add(sid)
         if ununitializedLoads:
             if log is not None:
                 for load in ununitializedLoads:
                     log.error(
                         'variable "%s" is read before it is initialized'
-                        % code.references[load.rid].decl,
+                        % code.storages[load.sid].decl,
                         location=load.location
                         )
             raise ValueError(
                 'Code block reads uninitialized variable(s): %s' % ', '.join(
-                    code.references[load.rid].decl
+                    code.storages[load.sid].decl
                     for load in ununitializedLoads
                     )
                 )
 
         if 'ret' in self.context:
             if not any(
-                    isinstance(ref, Variable) and ref.name == 'ret'
-                    for ref in code.references.values()
+                    isinstance(storage, Variable) and storage.name == 'ret'
+                    for storage in code.storages.values()
                     ):
                 assert code.retRef is None, code.retRef
                 code.retRef = self.context['ret']
@@ -265,25 +266,25 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def emitLoad(self, rid, location):
-        ref = self.references[rid]
-        if isinstance(ref, FixedValue):
-            cid = ref.cid
+    def emitLoad(self, sid, location):
+        storage = self.storages[sid]
+        if isinstance(storage, FixedValue):
+            cid = storage.cid
         else:
             cid = len(self.constants)
-            self.nodes.append(Load(cid, rid, location))
-            self.constants.append(LoadedConstant(cid, rid))
-        return ConstantValue(cid, maskForWidth(ref.width))
+            self.nodes.append(Load(cid, sid, location))
+            self.constants.append(LoadedConstant(cid, sid))
+        return ConstantValue(cid, maskForWidth(storage.width))
 
-    def emitStore(self, rid, expr, location):
+    def emitStore(self, sid, expr, location):
         constant = self.emitCompute(expr)
-        self.nodes.append(Store(constant.cid, rid, location))
+        self.nodes.append(Store(constant.cid, sid, location))
 
     def emitValueArgument(self, name, decl, location):
         '''Adds a passed-by-value argument to this code block.
         The initial value is represented by an ArgumentConstant and is loaded
         into the corresponding Variable.
-        Returns the reference ID of the corresponding Variable.
+        Returns the storage ID of the corresponding Variable.
         '''
         assert isinstance(decl, IntType), decl
 
@@ -293,13 +294,13 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         self.constants.append(constant)
 
         # Store initial value.
-        rid = self.emitVariable(name, decl, location)
-        self.nodes.insert(0, Store(cid, rid, location))
+        sid = self.emitVariable(name, decl, location)
+        self.nodes.insert(0, Store(cid, sid, location))
 
-        return rid
+        return sid
 
     def emitReferenceArgument(self, name, refType, location):
-        return self._addNamedReference(UnknownStorage(name, refType), location)
+        return self._addNamedStorage(UnknownStorage(name, refType), location)
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
@@ -331,7 +332,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         block, or None if the inlined block does not return anything.
         '''
         constants = self.constants
-        references = self.references
+        storages = self.storages
 
         # Map old constant IDs to new IDs; don't copy yet.
         cidMap = dict(
@@ -341,22 +342,22 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 )
             )
 
-        # For each old rid, create a corresponding storage in this block.
+        # For each old sid, create a corresponding storage in this block.
         refMap = {}
-        for rid, ref in code.references.items():
-            if isinstance(ref, UnknownStorage):
-                storage = context[ref.name]
-                assert ref.width == storage.width, (ref.width, storage.width)
+        for sid, storage in code.storages.items():
+            if isinstance(storage, UnknownStorage):
+                ref = context[storage.name]
+                assert storage.width == ref.width, (storage.width, ref.width)
             else:
-                if isinstance(ref, FixedValue):
-                    newRef = FixedValue(cidMap[ref.cid], ref.width)
+                if isinstance(storage, FixedValue):
+                    newStorage = FixedValue(cidMap[storage.cid], storage.width)
                 else:
-                    # Shallow copy because references are immutable.
-                    newRef = ref
-                newRid = len(references)
-                references.append(newRef)
-                storage = BoundReference.single(newRid, newRef.width)
-            refMap[rid] = storage
+                    # Shallow copy because storages are immutable.
+                    newStorage = storage
+                newSid = len(storages)
+                storages.append(newStorage)
+                ref = BoundReference.single(newSid, newStorage.width)
+            refMap[sid] = ref
 
         # Copy constants.
         for cid, const in code.constants.items():
@@ -381,21 +382,21 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 assert False, const
 
         # Substitute index constants.
-        # This cannot be done when originally copying the references
+        # This cannot be done when originally copying the storages
         # because at that time the constants haven't been added yet.
         for boundReference in refMap.values():
-            for rid, index_, width_ in boundReference:
-                ref = references[rid]
-                if isinstance(ref, IOStorage):
-                    index = ref.index
-                    references[rid] = IOStorage(
-                        ref.channel,
+            for sid, index_, width_ in boundReference:
+                storage = storages[sid]
+                if isinstance(storage, IOStorage):
+                    index = storage.index
+                    storages[sid] = IOStorage(
+                        storage.channel,
                         ConstantValue(cidMap[index.cid], index.mask)
                         )
 
         # Copy nodes.
         for node in code.nodes:
-            boundReference = refMap[node.rid]
+            boundReference = refMap[node.sid]
             newCid = cidMap[node.cid]
             if isinstance(node, Load):
                 value = boundReference.emitLoad(self, node.location)
@@ -409,6 +410,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Determine return value.
         retRef = code.retRef
         return None if retRef is None else BoundReference(chain.from_iterable(
-            refMap[rid].slice(index, width)
-            for rid, index, width in retRef
+            refMap[sid].slice(index, width)
+            for sid, index, width in retRef
             ))

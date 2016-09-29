@@ -23,8 +23,8 @@ class CodeBlockSimplifier(CodeBlock):
             changed = False
             changed |= self.inlineConstants()
             changed |= self.simplifyConstants()
-            changed |= self.removeUnusedReferences()
-            changed |= self.removeDuplicateReferences()
+            changed |= self.removeUnusedStorages()
+            changed |= self.removeDuplicateStorages()
             changed |= self.removeRedundantNodes()
             if not changed:
                 break
@@ -118,18 +118,18 @@ class CodeBlockSimplifier(CodeBlock):
                 if newExpr is not const.expr:
                     constants[cid] = ComputedConstant(cid, newExpr)
 
-        # Replace constant in references.
-        references = self.references
-        for rid in list(references.keys()):
-            ref = references[rid]
-            if isinstance(ref, IOStorage):
-                index = ref.index
+        # Replace constant in storages.
+        storages = self.storages
+        for sid in list(storages.keys()):
+            storage = storages[sid]
+            if isinstance(storage, IOStorage):
+                index = storage.index
                 if index.cid == oldCid:
-                    references[rid] = IOStorage(
-                        ref.channel, ConstantValue(newCid, index.mask)
+                    storages[sid] = IOStorage(
+                        storage.channel, ConstantValue(newCid, index.mask)
                         )
-            elif isinstance(ref, FixedValue):
-                references[rid] = FixedValue(newCid, ref.width)
+            elif isinstance(storage, FixedValue):
+                storages[sid] = FixedValue(newCid, storage.width)
 
         # Replace constant in nodes.
         nodes = self.nodes
@@ -142,7 +142,7 @@ class CodeBlockSimplifier(CodeBlock):
         Returns True if any constants were removed, False otherwise.
         '''
         constants = self.constants
-        references = self.references
+        storages = self.storages
         cidsInUse = set()
 
         # Mark constants used in computations.
@@ -157,17 +157,17 @@ class CodeBlockSimplifier(CodeBlock):
             if isinstance(node, Store):
                 cidsInUse.add(node.cid)
             elif isinstance(node, Load):
-                if references[node.rid].canLoadHaveSideEffect():
+                if storages[node.sid].canLoadHaveSideEffect():
                     # We can't eliminate this load because it may have a useful
                     # side effect and we can't eliminate the constant because
                     # every load needs one, so pretend the constant is in use.
                     cidsInUse.add(node.cid)
-        # Mark constants used in references.
-        for ref in references.values():
-            if isinstance(ref, FixedValue):
-                cidsInUse.add(ref.cid)
-            elif isinstance(ref, IOStorage):
-                cidsInUse.add(ref.index.cid)
+        # Mark constants used in storages.
+        for storage in storages.values():
+            if isinstance(storage, FixedValue):
+                cidsInUse.add(storage.cid)
+            elif isinstance(storage, IOStorage):
+                cidsInUse.add(storage.index.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -193,63 +193,63 @@ class CodeBlockSimplifier(CodeBlock):
             assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
 
-    def removeUnusedReferences(self):
-        '''Removes references that are not used by any load/store node.
+    def removeUnusedStorages(self):
+        '''Removes storages that are not used by any load/store node.
         '''
-        unusedRids = set(self.references.keys())
+        unusedSids = set(self.storages.keys())
         for node in self.nodes:
-            unusedRids.discard(node.rid)
+            unusedSids.discard(node.sid)
         retRef = self.retRef
         if retRef is not None:
-            for rid, index_, width_ in retRef:
-                unusedRids.discard(rid)
-        for rid in unusedRids:
-            del self.references[rid]
-        return bool(unusedRids)
+            for sid, index_, width_ in retRef:
+                unusedSids.discard(sid)
+        for sid in unusedSids:
+            del self.storages[sid]
+        return bool(unusedSids)
 
-    def removeDuplicateReferences(self):
-        '''Removes references that are obvious duplicates of other references.
+    def removeDuplicateStorages(self):
+        '''Removes storages that are obvious duplicates of other storages.
         Note that non-obvious duplicates (aliases) can remain.
         '''
-        references = self.references
+        storages = self.storages
 
-        # Figure out which references are duplicates.
+        # Figure out which storages are duplicates.
         duplicates = {}
-        registerNameToRid = {}
+        registerNameToSid = {}
         channelNameToIndices = defaultdict(list)
-        for rid, ref in references.items():
-            if isinstance(ref, Register):
-                name = ref.name
-                replacement = registerNameToRid.get(name)
+        for sid, storage in storages.items():
+            if isinstance(storage, Register):
+                name = storage.name
+                replacement = registerNameToSid.get(name)
                 if replacement is None:
-                    registerNameToRid[name] = rid
+                    registerNameToSid[name] = sid
                 else:
-                    duplicates[rid] = replacement
-            elif isinstance(ref, IOStorage):
-                cid = ref.index.cid
-                indices = channelNameToIndices[ref.channel.name]
-                for rid2, index2 in indices:
+                    duplicates[sid] = replacement
+            elif isinstance(storage, IOStorage):
+                cid = storage.index.cid
+                indices = channelNameToIndices[storage.channel.name]
+                for sid2, index2 in indices:
                     if index2.cid == cid:
-                        duplicates[rid] = rid2
+                        duplicates[sid] = sid2
                         break
                 else:
-                    indices.append((rid, ref.index))
+                    indices.append((sid, storage.index))
 
         # Remove the duplicates.
         if duplicates:
             nodes = self.nodes
             for i, node in enumerate(nodes):
-                replacement = duplicates.get(node.rid)
+                replacement = duplicates.get(node.sid)
                 if replacement is not None:
-                    nodes[i] = node.clone(rid=replacement)
+                    nodes[i] = node.clone(sid=replacement)
             for cid, const in self.constants.items():
                 if isinstance(const, LoadedConstant):
-                    rid = const.rid
-                    replacement = duplicates.get(rid)
+                    sid = const.sid
+                    replacement = duplicates.get(sid)
                     if replacement is not None:
                         self.constants[cid] = LoadedConstant(cid, replacement)
-            for rid, replacement in duplicates.items():
-                del references[rid]
+            for sid, replacement in duplicates.items():
+                del storages[sid]
             return True
         else:
             return False
@@ -257,7 +257,7 @@ class CodeBlockSimplifier(CodeBlock):
     def removeRedundantNodes(self):
         changed = False
         constants = self.constants
-        references = self.references
+        storages = self.storages
         nodes = self.nodes
 
         # Remove redundant loads and stores by keeping track of the current
@@ -267,12 +267,12 @@ class CodeBlockSimplifier(CodeBlock):
         while i < len(nodes):
             node = nodes[i]
             cid = node.cid
-            rid = node.rid
-            storage = references[rid]
+            sid = node.sid
+            storage = storages[sid]
             if isinstance(storage, FixedValue):
                 value = ConstantValue(storage.cid, maskForWidth(storage.width))
             else:
-                value = currentValues.get(rid)
+                value = currentValues.get(sid)
             if isinstance(node, Load):
                 if value is not None:
                     # Re-use earlier loaded value.
@@ -283,7 +283,7 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValues[rid] = ConstantValue(
+                    currentValues[sid] = ConstantValue(
                         cid, maskForWidth(storage.width)
                         )
             elif isinstance(node, Store):
@@ -295,16 +295,16 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[rid] = ConstantValue(
+                    currentValues[sid] = ConstantValue(
                         cid, maskForWidth(storage.width)
                         )
-                # Remove values for references that might be aliases.
-                for rid2 in list(currentValues.keys()):
-                    if rid != rid2 and storage.mightBeSame(references[rid2]):
+                # Remove values for storages that might be aliases.
+                for sid2 in list(currentValues.keys()):
+                    if sid != sid2 and storage.mightBeSame(storages[sid2]):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValues[rid2].cid != cid:
-                            del currentValues[rid2]
+                        if currentValues[sid2].cid != cid:
+                            del currentValues[sid2]
             i += 1
 
         # Remove stores for which the value is overwritten before it is loaded.
@@ -315,24 +315,24 @@ class CodeBlockSimplifier(CodeBlock):
         i = len(nodes) - 1
         while i >= 0:
             node = nodes[i]
-            rid = node.rid
-            storage = references[rid]
+            sid = node.sid
+            storage = storages[sid]
             if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
                     assert not isinstance(storage, Variable), storage
-                    willBeOverwritten.discard(rid)
+                    willBeOverwritten.discard(sid)
                 elif isinstance(node, Store):
                     if isinstance(storage, Variable) and storage.name == 'ret':
-                        if rid not in willBeOverwritten:
+                        if sid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
-                            self.retRef = BoundReference.single(rid, width)
-                            references[rid] = FixedValue(node.cid, width)
-                    if rid in willBeOverwritten \
+                            self.retRef = BoundReference.single(sid, width)
+                            storages[sid] = FixedValue(node.cid, width)
+                    if sid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):
                         changed = True
                         del nodes[i]
-                    willBeOverwritten.add(rid)
+                    willBeOverwritten.add(sid)
             i -= 1
 
         return changed

@@ -62,19 +62,19 @@ class ArgumentConstant(Constant):
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
     '''
-    __slots__ = ('_rid',)
+    __slots__ = ('_sid',)
 
-    rid = property(lambda self: self._rid)
+    sid = property(lambda self: self._sid)
 
-    def __init__(self, cid, rid):
-        self._rid = checkType(rid, int, 'reference ID')
+    def __init__(self, cid, sid):
+        self._sid = checkType(sid, int, 'storage ID')
         Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'LoadedConstant(%d, %d)' % (self._cid, self._rid)
+        return 'LoadedConstant(%d, %d)' % (self._cid, self._sid)
 
     def __str__(self):
-        return '%s <- R%s' % (super().__str__(), self._rid)
+        return '%s <- S%s' % (super().__str__(), self._sid)
 
 class Node:
     '''Base class for nodes.
@@ -84,32 +84,32 @@ class Node:
 class AccessNode(Node):
     '''Base class for Load and Store.
     '''
-    __slots__ = ('_cid', '_rid', '_location')
+    __slots__ = ('_cid', '_sid', '_location')
 
     cid = property(lambda self: self._cid)
-    rid = property(lambda self: self._rid)
+    sid = property(lambda self: self._sid)
     location = property(lambda self: self._location)
 
-    def __init__(self, cid, rid, location=None):
+    def __init__(self, cid, sid, location=None):
         self._cid = checkType(cid, int, 'constant ID')
-        self._rid = checkType(rid, int, 'reference ID')
+        self._sid = checkType(sid, int, 'storage ID')
         self._location = location
 
     def __repr__(self):
         return '%s(%d, %d, %s)' % (
-            self.__class__.__name__, self._cid, self._rid, repr(self._location)
+            self.__class__.__name__, self._cid, self._sid, repr(self._location)
             )
 
-    def clone(self, cid=None, rid=None):
-        '''Create a clone of this node, with optionally a different CID or RID.
+    def clone(self, cid=None, sid=None):
+        '''Create a clone of this node, with optionally a different CID or SID.
         Since nodes are immutable, there is really no point in cloning unless
-        the CID or RID is overridden, but it is allowed.
+        the CID or SID is overridden, but it is allowed.
         '''
         if cid is None:
             cid = self._cid
-        if rid is None:
-            rid = self._rid
-        return self.__class__(cid, rid, self._location)
+        if sid is None:
+            sid = self._sid
+        return self.__class__(cid, sid, self._location)
 
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
@@ -117,7 +117,7 @@ class Load(AccessNode):
     __slots__ = ()
 
     def __str__(self):
-        return 'load C%d from R%d' % (self._cid, self._rid)
+        return 'load C%d from S%d' % (self._cid, self._sid)
 
 class Store(AccessNode):
     '''A node that stores a value into a storage location.
@@ -125,7 +125,7 @@ class Store(AccessNode):
     __slots__ = ()
 
     def __str__(self):
-        return 'store C%d in R%d' % (self._cid, self._rid)
+        return 'store C%d in S%d' % (self._cid, self._sid)
 
 class ConstantValue(Expression):
     '''A synthetic constant containing an intermediate value.
@@ -161,13 +161,13 @@ class BoundReference:
     width = property(lambda self: self._width)
 
     @classmethod
-    def single(cls, rid, width):
-        return cls(((rid, 0, width),))
+    def single(cls, sid, width):
+        return cls(((sid, 0, width),))
 
     def __init__(self, decomposed):
         self._decomposed = tuple(decomposed)
         totalWidth = 0
-        for rid_, index_, width in self._decomposed:
+        for sid_, index_, width in self._decomposed:
             if totalWidth is unlimited:
                 raise ValueError(
                     'unlimited width is only allowed on most significant '
@@ -184,14 +184,14 @@ class BoundReference:
     def __iter__(self):
         return iter(self._decomposed)
 
-    def present(self, references):
+    def present(self, storages):
         return ' ; '.join(
             '%s[%s:%s]' % (
-                references[rid],
+                storages[sid],
                 '' if index == 0 else index,
                 '' if width is unlimited else index + width
                 )
-            for rid, index, width in self._decomposed
+            for sid, index, width in self._decomposed
             )
 
     def concat(self, other):
@@ -207,33 +207,33 @@ class BoundReference:
         return self.__class__(sliceStorage(self._decomposed, index, width))
 
     def emitLoad(self, builder, location):
-        '''Loads the value of this composed storage by emitting Load nodes on
+        '''Loads the value of this bound reference by emitting Load nodes on
         the given builder.
         Returns an Expression with the loaded value.
         '''
         terms = []
         offset = 0
-        for rid, index, width in self._decomposed:
-            value = builder.emitLoad(rid, location)
+        for sid, index, width in self._decomposed:
+            value = builder.emitLoad(sid, location)
             sliced = truncate(RShift(value, index), width)
             terms.append(LShift(sliced, offset))
             offset += width
         return OrOperator(*terms)
 
     def emitStore(self, builder, value, location):
-        '''Stores the given value in this composed storage by emitting Store
+        '''Stores the given value in this bound reference by emitting Store
         nodes (and Load nodes for partial updates) on the given builder.
         '''
         offset = 0
-        for rid, index, width in self._decomposed:
+        for sid, index, width in self._decomposed:
             valueSlice = truncate(RShift(value, offset), width)
-            storageWidth = builder.references[rid].width
+            storageWidth = builder.storages[sid].width
             if index == 0 and width == storageWidth:
                 # Full width: store only.
                 combined = valueSlice
             else:
                 # Partial width: combine with loaded old value.
-                oldVal = builder.emitLoad(rid, location)
+                oldVal = builder.emitLoad(sid, location)
                 storageMask = maskForWidth(storageWidth)
                 valueMask = maskForWidth(width) << index
                 maskLit = IntLiteral(storageMask & ~valueMask)
@@ -241,12 +241,12 @@ class BoundReference:
                     AndOperator(oldVal, maskLit),
                     LShift(valueSlice, index)
                     )
-            builder.emitStore(rid, combined, location)
+            builder.emitStore(sid, combined, location)
             offset += width
 
 class CodeBlock:
 
-    def __init__(self, constants, references, nodes):
+    def __init__(self, constants, storages, nodes):
         constantsDict = OrderedDict()
         for const in constants:
             cid = const.cid
@@ -254,7 +254,7 @@ class CodeBlock:
                 raise ValueError('duplicate constant ID: %d' % cid)
             constantsDict[cid] = const
         self.constants = constantsDict
-        self.references = OrderedDict(enumerate(references))
+        self.storages = OrderedDict(enumerate(storages))
         self.nodes = list(nodes)
         self.retRef = None
         assert self.verify() is None
@@ -269,10 +269,10 @@ class CodeBlock:
             assert const.cid == cid, const
         cids = self.constants.keys()
 
-        # Check that cids and rids in nodes are valid.
+        # Check that cids and sids in nodes are valid.
         for node in self.nodes:
             assert node.cid in cids, node
-            assert node.rid in self.references, node
+            assert node.sid in self.storages, node
 
         # Check that each loaded constant belongs to exactly one Load node.
         cidsFromLoadedConstants = set(
@@ -290,10 +290,10 @@ class CodeBlock:
             cidsFromLoadedConstants, cidsFromLoadNodes
             )
 
-        # Check that loaded constants use valid rids.
+        # Check that loaded constants use valid sids.
         for const in self.constants.values():
             if isinstance(const, LoadedConstant):
-                assert const.rid in self.references, const
+                assert const.sid in self.storages, const
 
         # Check that computed constants use valid subexpressions.
         def checkUsage(expr):
@@ -304,17 +304,17 @@ class CodeBlock:
             if isinstance(const, ComputedConstant):
                 const.expr.substitute(checkUsage)
 
-        # Check that cids in storage references are valid.
-        for ref in self.references.values():
-            if isinstance(ref, FixedValue):
-                assert ref.cid in cids, ref
-            elif isinstance(ref, IOStorage):
-                assert ref.index.cid in cids, ref
+        # Check that cids in storages are valid.
+        for storage in self.storages.values():
+            if isinstance(storage, FixedValue):
+                assert storage.cid in cids, storage
+            elif isinstance(storage, IOStorage):
+                assert storage.index.cid in cids, storage
 
-        # Check that the return value rids are valid.
+        # Check that the return value sids are valid.
         if self.retRef is not None:
-            for rid, index_, width_ in self.retRef:
-                assert rid in self.references, rid
+            for sid, index_, width_ in self.retRef:
+                assert sid in self.storages, sid
 
     def dump(self):
         '''Prints this code block on stdout.
@@ -324,16 +324,16 @@ class CodeBlock:
             if isinstance(const, ComputedConstant):
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        C%-2d <- R%d' % (const.cid, const.rid))
+                print('        C%-2d <- S%d' % (const.cid, const.sid))
             elif isinstance(const, ArgumentConstant):
                 print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
-        print('    references:')
-        for rid, ref in self.references.items():
-            print('        %-4s R%-2d = %s' % ('u%d&' % ref.width, rid, ref))
+        print('    storages:')
+        for sid, storage in self.storages.items():
+            print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
-            print('        ret      = %s' % self.retRef.present(self.references))
+            print('        ret      = %s' % self.retRef.present(self.storages))
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)

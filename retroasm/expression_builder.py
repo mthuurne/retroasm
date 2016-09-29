@@ -60,8 +60,8 @@ def declareVariable(node, builder):
 
     # Add declaration to context.
     try:
-        rid = builder.emitVariable(name, typ, nameNode.location)
-        return BoundReference.single(rid, typ.width)
+        sid = builder.emitVariable(name, typ, nameNode.location)
+        return BoundReference.single(sid, typ.width)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
@@ -249,8 +249,8 @@ def buildExpression(node, builder):
         assert False, node
 
 def _convertFixedValue(expr, width, builder):
-    rid = builder.emitFixedValue(expr, width)
-    return BoundReference.single(rid, width)
+    sid = builder.emitFixedValue(expr, width)
+    return BoundReference.single(sid, width)
 
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
@@ -259,8 +259,8 @@ def _convertStorageLookup(node, builder):
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, builder)
-            rid = builder.emitIOReference(channel, index)
-            return BoundReference.single(rid, channel.elemWidth)
+            sid = builder.emitIOStorage(channel, index)
+            return BoundReference.single(sid, channel.elemWidth)
 
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)
@@ -459,7 +459,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
         stateChanged = False
         for execNode in builder.nodes[numNodesBefore:]:
             if isinstance(execNode, Load):
-                storage = builder.references[execNode.rid]
+                storage = builder.storages[execNode.sid]
                 stateChanged |= storage.canLoadHaveSideEffect()
             elif isinstance(execNode, Store):
                 stateChanged = True
