@@ -204,11 +204,11 @@ def _convertArithmetic(node, builder):
 def _convertExpressionOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        retStorage = _convertFunctionCall(node, builder)
-        if retStorage is None:
+        retRef = _convertFunctionCall(node, builder)
+        if retRef is None:
             return unit
         else:
-            return retStorage.emitLoad(builder, node.treeLocation)
+            return retRef.emitLoad(builder, node.treeLocation)
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)\
             .emitLoad(builder, node.treeLocation)
@@ -330,14 +330,14 @@ def _convertStorageConcat(node, builder):
 def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        retStorage = _convertFunctionCall(node, builder)
-        if retStorage is None:
+        retRef = _convertFunctionCall(node, builder)
+        if retRef is None:
             raise BadExpression(
                 'function does not return anything; expected reference',
                 node.treeLocation
                 )
         else:
-            return retStorage
+            return retRef
     elif operator is Operator.lookup:
         return _convertStorageLookup(node, builder)
     elif operator is Operator.slice:
