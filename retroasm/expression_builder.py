@@ -259,8 +259,7 @@ def _convertStorageLookup(node, builder):
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, builder)
-            sid = builder.emitIOStorage(channel, index)
-            return BoundReference.single(sid, channel.elemWidth)
+            return builder.emitIOReference(channel, index)
 
     storage = buildStorage(exprNode, builder)
     index = buildExpression(indexNode, builder)

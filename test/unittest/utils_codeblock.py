@@ -107,7 +107,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         localChannel = self.context[channelName]
         assert localChannel is channel
         # Create I/O storage.
-        return self.emitIOStorage(localChannel, index)
+        return self.emitIOReference(localChannel, index)
 
     def addValueArgument(self, name, width=8):
         return self.emitValueArgument(name, IntType(width), None)

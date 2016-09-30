@@ -77,22 +77,27 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_duplicate_iostorage(self):
         '''Test whether duplicate I/O storages are removed.'''
-        sidM1 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
-        sidM2 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
-        sidM3 = self.builder.addIOStorage('mem', IntLiteral(0xABCD))
-        sidM4 = self.builder.addIOStorage('io', IntLiteral(0x8765))
-        loadM1 = self.builder.emitLoad(sidM1)
-        loadM2 = self.builder.emitLoad(sidM2)
-        self.builder.emitStore(sidM2, loadM1)
-        self.builder.emitStore(sidM3, loadM2)
-        self.builder.emitStore(sidM4, loadM1)
+        refM1 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
+        refM2 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
+        refM3 = self.builder.addIOStorage('mem', IntLiteral(0xABCD))
+        refM4 = self.builder.addIOStorage('io', IntLiteral(0x8765))
+        loadM1 = refM1.emitLoad(self.builder, None)
+        loadM2 = refM2.emitLoad(self.builder, None)
+        refM2.emitStore(self.builder, loadM1, None)
+        refM3.emitStore(self.builder, loadM2, None)
+        refM4.emitStore(self.builder, loadM1, None)
 
+        cidM1 = self.getCid(loadM1)
+        cidM2 = self.getCid(loadM2)
+        sidM1 = self.getSid(refM1)
+        sidM3 = self.getSid(refM3)
+        sidM4 = self.getSid(refM4)
         correct = (
-            Load(loadM1.cid, sidM1),
-            Load(loadM2.cid, sidM1),
-            Store(loadM1.cid, sidM1),
-            Store(loadM2.cid, sidM3),
-            Store(loadM1.cid, sidM4),
+            Load(cidM1, sidM1),
+            Load(cidM2, sidM1),
+            Store(cidM1, sidM1),
+            Store(cidM2, sidM3),
+            Store(cidM1, sidM4),
             )
 
         code = CodeBlockSimplifier(
@@ -127,11 +132,12 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
         addr = self.builder.emitCompute(IntLiteral(0xD0D0))
-        sidM = self.builder.addIOStorage('mem', addr)
-        loadM = self.builder.emitLoad(sidM)
+        refM = self.builder.addIOStorage('mem', addr)
+        loadM = refM.emitLoad(self.builder, None)
 
+        sidM = self.getSid(refM)
         correct = (
-            Load(loadM.cid, sidM),
+            Load(self.getCid(loadM), sidM),
             )
 
         code = self.createSimplifiedCode()
