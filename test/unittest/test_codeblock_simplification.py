@@ -1,6 +1,6 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import Load, Store
+from retroasm.codeblock import ComputedConstant, Load, Store
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral
 
@@ -25,22 +25,29 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_no_change(self):
         '''Test whether a basic sequence survives a simplification attempt.'''
-        sidA = self.builder.addRegister('a')
-        loadA = self.builder.emitLoad(sidA)
+        refA = self.builder.addRegister('a')
+        loadA = refA.emitLoad(self.builder, None)
         incA = self.builder.emitCompute(
             AddOperator(loadA, IntLiteral(1))
             )
-        storeA = self.builder.emitStore(sidA, incA)
+        refA.emitStore(self.builder, incA, None)
 
-        correct = (
-            Load(loadA.cid, sidA),
-            Store(incA.cid, sidA),
-            )
+        cidA = self.getCid(loadA)
+        sidA = self.getSid(refA)
+        def checkNodes(code):
+            self.assertEqual(len(code.nodes), 2)
+            load, store = code.nodes
+            self.assertIsInstance(load, Load)
+            self.assertIsInstance(store, Store)
+            self.assertEqual(load.sid, sidA)
+            self.assertEqual(store.sid, sidA)
+            self.assertEqual(load.cid, cidA)
+            self.assertIsInstance(code.constants[store.cid], ComputedConstant)
 
         code = self.builder.createCodeBlock()
-        self.assertNodes(code.nodes, correct)
+        checkNodes(code)
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        checkNodes(code)
 
     def test_duplicate_const(self):
         '''Test whether duplicate constants are removed.'''
@@ -48,11 +55,13 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         const2 = self.builder.emitCompute(
             AddOperator(IntLiteral(1), IntLiteral(1))
             )
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        storeA = self.builder.emitStore(sidA, const1)
-        storeB = self.builder.emitStore(sidB, const2)
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        refA.emitStore(self.builder, const1, None)
+        refB.emitStore(self.builder, const2, None)
 
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
         correct = (
             Store(const1.cid, sidA),
             Store(const1.cid, sidB),
@@ -66,32 +75,6 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         code.verify()
         self.assertNodes(code.nodes, correct)
 
-    def test_duplicate_register(self):
-        '''Test whether duplicate registers are removed.'''
-        sidA1 = self.builder.addRegister('a')
-        sidA2 = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        sidC = self.builder.addRegister('c')
-        loadA1 = self.builder.emitLoad(sidA1)
-        loadA2 = self.builder.emitLoad(sidA2)
-        storeB = self.builder.emitStore(sidB, loadA1)
-        storeC = self.builder.emitStore(sidC, loadA2)
-
-        correct = (
-            Load(loadA1.cid, sidA1),
-            Load(loadA2.cid, sidA1),
-            Store(loadA1.cid, sidB),
-            Store(loadA2.cid, sidC),
-            )
-
-        code = CodeBlockSimplifier(
-            self.builder.constants, self.builder.storages, self.builder.nodes
-            )
-        code.verify()
-        code.removeDuplicateStorages()
-        code.verify()
-        self.assertNodes(code.nodes, correct)
-
     def test_duplicate_iostorage(self):
         '''Test whether duplicate I/O storages are removed.'''
         sidM1 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
@@ -100,9 +83,9 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         sidM4 = self.builder.addIOStorage('io', IntLiteral(0x8765))
         loadM1 = self.builder.emitLoad(sidM1)
         loadM2 = self.builder.emitLoad(sidM2)
-        storeM2 = self.builder.emitStore(sidM2, loadM1)
-        storeM3 = self.builder.emitStore(sidM3, loadM2)
-        storeM4 = self.builder.emitStore(sidM4, loadM1)
+        self.builder.emitStore(sidM2, loadM1)
+        self.builder.emitStore(sidM3, loadM2)
+        self.builder.emitStore(sidM4, loadM1)
 
         correct = (
             Load(loadM1.cid, sidM1),
@@ -126,19 +109,20 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_unused_load(self):
         '''Test whether unused loads are removed.'''
-        sidA = self.builder.addRegister('a')
-        loadA = self.builder.emitLoad(sidA)
+        refA = self.builder.addRegister('a')
+        loadA = refA.emitLoad(self.builder, None)
         andA = self.builder.emitCompute(
             AndOperator(loadA, IntLiteral(0))
             )
-        storeA = self.builder.emitStore(sidA, andA)
+        refA.emitStore(self.builder, andA, None)
 
-        correct = (
-            Store(andA.cid, sidA),
-            )
-
+        sidA = self.getSid(refA)
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertEqual(len(code.nodes), 1)
+        node = code.nodes[0]
+        self.assertIsInstance(node, Store)
+        self.assertEqual(node.sid, sidA)
+        self.assertIntLiteral(code.constants[node.cid], 0)
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
@@ -155,18 +139,22 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_redundant_load_after_load(self):
         '''Test whether redundant successive loads are removed.'''
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        sidC = self.builder.addRegister('c')
-        loadA1 = self.builder.emitLoad(sidA)
-        loadA2 = self.builder.emitLoad(sidA)
-        storeB = self.builder.emitStore(sidB, loadA1)
-        storeC = self.builder.emitStore(sidC, loadA2)
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        refC = self.builder.addRegister('c')
+        loadA1 = refA.emitLoad(self.builder, None)
+        loadA2 = refA.emitLoad(self.builder, None)
+        refB.emitStore(self.builder, loadA1, None)
+        refC.emitStore(self.builder, loadA2, None)
 
+        cidA1 = self.getCid(loadA1)
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
+        sidC = self.getSid(refC)
         correct = (
-            Load(loadA1.cid, sidA),
-            Store(loadA1.cid, sidB),
-            Store(loadA1.cid, sidC),
+            Load(cidA1, sidA),
+            Store(cidA1, sidB),
+            Store(cidA1, sidC),
             )
 
         code = self.createSimplifiedCode()
@@ -174,34 +162,45 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_redundant_load_after_store(self):
         '''Test whether a redundant load after a store is removed.'''
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        loadA1 = self.builder.emitLoad(sidA)
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        loadA1 = refA.emitLoad(self.builder, None)
         incA = self.builder.emitCompute(AddOperator(loadA1, IntLiteral(1)))
-        storeB = self.builder.emitStore(sidA, incA)
-        loadA2 = self.builder.emitLoad(sidA)
-        storeC = self.builder.emitStore(sidB, loadA2)
+        refA.emitStore(self.builder, incA, None)
+        loadA2 = refA.emitLoad(self.builder, None)
+        refB.emitStore(self.builder, loadA2, None)
 
-        correct = (
-            Load(loadA1.cid, sidA),
-            Store(incA.cid, sidA),
-            Store(incA.cid, sidB),
-            )
+        cidA1 = self.getCid(loadA1)
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertEqual(len(code.nodes), 3)
+        load, store1, store2 = code.nodes
+        self.assertIsInstance(load, Load)
+        self.assertIsInstance(store1, Store)
+        self.assertIsInstance(store2, Store)
+        self.assertEqual(load.sid, sidA)
+        self.assertEqual(store1.sid, sidA)
+        self.assertEqual(store2.sid, sidB)
+        self.assertEqual(load.cid, cidA1)
+        self.assertEqual(store1.cid, store2.cid)
+        self.assertIsInstance(code.constants[store1.cid], ComputedConstant)
 
     def test_redundant_same_value_store(self):
         '''Test removal of storing the same value in the same storage twice.'''
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        loadA = self.builder.emitLoad(sidA)
-        storeB1 = self.builder.emitStore(sidB, loadA)
-        storeB2 = self.builder.emitStore(sidB, loadA)
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        loadA = refA.emitLoad(self.builder, None)
+        refB.emitStore(self.builder, loadA, None)
+        refB.emitStore(self.builder, loadA, None)
 
+        cidA = self.getCid(loadA)
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
         correct = (
-            Load(loadA.cid, sidA),
-            Store(loadA.cid, sidB),
+            Load(cidA, sidA),
+            Store(cidA, sidB),
             )
 
         code = self.createSimplifiedCode()
@@ -209,17 +208,20 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_redundant_other_value_store(self):
         '''Test removal of storing a different value in the same storage.'''
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        sidC = self.builder.addRegister('c')
-        loadA = self.builder.emitLoad(sidA)
-        loadB = self.builder.emitLoad(sidB)
-        storeC1 = self.builder.emitStore(sidC, loadA)
-        storeC2 = self.builder.emitStore(sidC, loadB)
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        refC = self.builder.addRegister('c')
+        loadA = refA.emitLoad(self.builder, None)
+        loadB = refB.emitLoad(self.builder, None)
+        refC.emitStore(self.builder, loadA, None)
+        refC.emitStore(self.builder, loadB, None)
 
+        cidB = self.getCid(loadB)
+        sidB = self.getSid(refB)
+        sidC = self.getSid(refC)
         correct = (
-            Load(loadB.cid, sidB),
-            Store(loadB.cid, sidC),
+            Load(cidB, sidB),
+            Store(cidB, sidC),
             )
 
         code = self.createSimplifiedCode()
@@ -228,22 +230,27 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
         const = self.builder.emitCompute(IntLiteral(23))
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
-        sidC = self.builder.addRegister('c')
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
+        refC = self.builder.addRegister('c')
         sidX = self.builder.addReferenceArgument('X')
-        loadA1 = self.builder.emitLoad(sidA)
-        storeX = self.builder.emitStore(sidX, const)
-        loadA2 = self.builder.emitLoad(sidA)
-        storeB = self.builder.emitStore(sidB, loadA1)
-        storeC = self.builder.emitStore(sidC, loadA2)
+        loadA1 = refA.emitLoad(self.builder, None)
+        self.builder.emitStore(sidX, const)
+        loadA2 = refA.emitLoad(self.builder, None)
+        refB.emitStore(self.builder, loadA1, None)
+        refC.emitStore(self.builder, loadA2, None)
 
+        cidA1 = self.getCid(loadA1)
+        cidA2 = self.getCid(loadA2)
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
+        sidC = self.getSid(refC)
         correct = (
-            Load(loadA1.cid, sidA),
+            Load(cidA1, sidA),
             Store(const.cid, sidX),
-            Load(loadA2.cid, sidA),
-            Store(loadA1.cid, sidB),
-            Store(loadA2.cid, sidC),
+            Load(cidA2, sidA),
+            Store(cidA1, sidB),
+            Store(cidA2, sidC),
             )
 
         code = self.createSimplifiedCode()
@@ -251,18 +258,21 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_same_value_redundant_load(self):
         '''Test handling of writing the same value to a potential alias.'''
-        sidA = self.builder.addRegister('a')
-        sidB = self.builder.addRegister('b')
+        refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
         sidX = self.builder.addReferenceArgument('X')
-        loadA1 = self.builder.emitLoad(sidA)
-        storeX = self.builder.emitStore(sidX, loadA1)
-        loadA2 = self.builder.emitLoad(sidA)
-        storeC = self.builder.emitStore(sidB, loadA2)
+        loadA1 = refA.emitLoad(self.builder, None)
+        self.builder.emitStore(sidX, loadA1)
+        loadA2 = refA.emitLoad(self.builder, None)
+        refB.emitStore(self.builder, loadA2, None)
 
+        cidA1 = self.getCid(loadA1)
+        sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
         correct = (
-            Load(loadA1.cid, sidA),
-            Store(loadA1.cid, sidX),
-            Store(loadA1.cid, sidB),
+            Load(cidA1, sidA),
+            Store(cidA1, sidX),
+            Store(cidA1, sidB),
             )
 
         code = self.createSimplifiedCode()
@@ -270,24 +280,26 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_local_value(self):
         '''Test whether load and stores of variables are removed.'''
-        sidA = self.builder.addRegister('a')
+        refA = self.builder.addRegister('a')
         sidV = self.builder.addValueArgument('V')
         loadV = self.builder.emitLoad(sidV)
         incV = self.builder.emitCompute(AddOperator(loadV, IntLiteral(1)))
-        storeV = self.builder.emitStore(sidV, incV)
-        storeA = self.builder.emitStore(sidA, incV)
+        self.builder.emitStore(sidV, incV)
+        refA.emitStore(self.builder, incV, None)
 
-        correct = (
-            Store(incV.cid, sidA),
-            )
+        sidA = self.getSid(refA)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertEqual(len(code.nodes), 1)
+        node = code.nodes[0]
+        self.assertIsInstance(node, Store)
+        self.assertEqual(node.sid, sidA)
+        self.assertIsInstance(code.constants[node.cid], ComputedConstant)
 
     def test_unused_storage_removal(self):
         '''Test whether unused storages are removed.'''
-        sidA = self.builder.addRegister('a')
-        loadA = self.builder.emitLoad(sidA)
+        refA = self.builder.addRegister('a')
+        loadA = refA.emitLoad(self.builder, None)
         sidM = self.builder.addIOStorage('mem', loadA)
 
         correct = (
@@ -298,16 +310,18 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_return_value(self):
         '''Test whether a return value constant is created correctly.'''
-        sidA = self.builder.addRegister('a')
+        refA = self.builder.addRegister('a')
         sidV = self.builder.addValueArgument('V')
         sidRet = self.builder.addVariable('ret')
-        loadA = self.builder.emitLoad(sidA)
+        loadA = refA.emitLoad(self.builder, None)
         loadV = self.builder.emitLoad(sidV)
         add = self.builder.emitCompute(AddOperator(loadA, loadV))
-        storeRet = self.builder.emitStore(sidRet, add)
+        self.builder.emitStore(sidRet, add)
 
+        cidA = self.getCid(loadA)
+        sidA = self.getSid(refA)
         correct = (
-            Load(loadA.cid, sidA),
+            Load(cidA, sidA),
             )
 
         code = self.createSimplifiedCode()
@@ -318,42 +332,45 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
 
     def test_return_value_renumber(self):
         '''Test a simplification that must replace the return value cid.'''
-        sidA = self.builder.addRegister('a')
+        refA = self.builder.addRegister('a')
         const = self.builder.emitCompute(IntLiteral(23))
-        storeA = self.builder.emitStore(sidA, const)
-        loadA = self.builder.emitLoad(sidA)
+        refA.emitStore(self.builder, const, None)
+        loadA = refA.emitLoad(self.builder, None)
         outerRet = self.builder.addVariable('ret')
-        storeRet = self.builder.emitStore(outerRet, loadA)
+        self.builder.emitStore(outerRet, loadA)
 
-        correct = (
-            Store(const.cid, sidA),
-            )
+        sidA = self.getSid(refA)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertEqual(len(code.nodes), 1)
+        node = code.nodes[0]
+        self.assertIsInstance(node, Store)
+        self.assertEqual(node.sid, sidA)
+        self.assertIntLiteral(code.constants[node.cid], 23)
         retCid, retWidth = self.getRetVal(code)
-        self.assertEqual(retCid, const.cid)
+        self.assertEqual(retCid, node.cid)
         self.assertEqual(retWidth, 8)
 
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''
-        sidA = self.builder.addRegister('a')
+        refA = self.builder.addRegister('a')
         def emitInc():
-            loadA = self.builder.emitLoad(sidA)
+            loadA = refA.emitLoad(self.builder, None)
             incA = self.builder.emitCompute(AddOperator(loadA, IntLiteral(1)))
-            self.builder.emitStore(sidA, incA)
+            refA.emitStore(self.builder, incA, None)
 
         initA = self.builder.emitCompute(IntLiteral(23))
-        self.builder.emitStore(sidA, initA)
+        refA.emitStore(self.builder, initA, None)
         emitInc()
         emitInc()
         emitInc()
-        finalA = self.builder.emitLoad(sidA)
+        finalA = refA.emitLoad(self.builder, None)
         ret = self.builder.addVariable('ret')
         self.builder.emitStore(ret, finalA)
 
         code = self.createSimplifiedCode()
         retCid, retWidth = self.getRetVal(code)
+        sidA = self.getSid(refA)
         correct = (
             Store(retCid, sidA),
             )

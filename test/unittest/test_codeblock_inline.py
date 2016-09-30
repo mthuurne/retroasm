@@ -26,23 +26,24 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner = TestCodeBlockBuilder()
         innerA = inner.addRegister('a', 16)
         const = inner.emitCompute(IntLiteral(12345))
-        inner.emitStore(innerA, const)
+        innerA.emitStore(inner, const, None)
 
         # Share the global context to make sure that the outer and inner block
         # are using the same registers.
         outer = TestCodeBlockBuilder(inner.globalBuilder)
         outerA = outer.addRegister('a', 16)
         zero = outer.emitCompute(IntLiteral(0))
-        outer.emitStore(outerA, zero)
+        outerA.emitStore(outer, zero, None)
         outer.inlineBlock(inner.createCodeBlock(), {})
-        loadA = outer.emitLoad(outerA)
+        loadA = outerA.emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
         outer.emitStore(outerRet, loadA)
 
         code = createSimplifiedCode(outer)
         retCid, retWidth = self.getRetVal(code)
+        sidA = self.getSid(outerA)
         correct = (
-            Store(retCid, outerA),
+            Store(retCid, sidA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -146,19 +147,20 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerA = outer.addRegister('a')
         regA = outer.context['a']
         initA = outer.emitCompute(IntLiteral(100))
-        outer.emitStore(outerA, initA)
+        outerA.emitStore(outer, initA, None)
         outer.inlineBlock(incCode, {'R': regA})
         outer.inlineBlock(incCode, {'R': regA})
         outer.inlineBlock(incCode, {'R': regA})
         outerRet = outer.addVariable('ret')
-        finalA = outer.emitLoad(outerA)
+        finalA = outerA.emitLoad(outer, None)
         outer.emitStore(outerRet, finalA)
 
         code = createSimplifiedCode(outer)
         code.verify()
         retCid, retWidth = self.getRetVal(code)
+        sidA = self.getSid(outerA)
         correct = (
-            Store(retCid, outerA),
+            Store(retCid, sidA),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -184,8 +186,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         initH = outer.emitCompute(IntLiteral(0xab))
         initL = outer.emitCompute(IntLiteral(0xcd))
-        outer.emitStore(outerH, initH)
-        outer.emitStore(outerL, initL)
+        outerH.emitStore(outer, initH, None)
+        outerL.emitStore(outer, initL, None)
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
@@ -215,7 +217,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regHL = fixedL.concat(regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
-        outer.emitStore(outerH, initH)
+        outerH.emitStore(outer, initH, None)
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
         outer.inlineBlock(incCode, {'R': regHL})
@@ -241,13 +243,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerR = outer.addRegister('r', 16)
         regR = outer.context['r']
         initR = outer.emitCompute(IntLiteral(0xcdef))
-        outer.emitStore(outerR, initR)
+        outerR.emitStore(outer, initR, None)
         sliceR = regR.slice(4, 8)
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})
         outerRet = outer.addVariable('ret', 16)
-        finalR = outer.emitLoad(outerR)
+        finalR = outerR.emitLoad(outer, None)
         outer.emitStore(outerRet, finalR)
 
         code = createSimplifiedCode(outer)
