@@ -285,7 +285,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         '''Adds a passed-by-value argument to this code block.
         The initial value is represented by an ArgumentConstant and is loaded
         into the corresponding Variable.
-        Returns the storage ID of the corresponding Variable.
+        Returns the BoundReference to the corresponding Variable.
         '''
         assert isinstance(decl, IntType), decl
 
@@ -298,7 +298,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         sid = self.emitVariable(name, decl, location)
         self.nodes.insert(0, Store(cid, sid, location))
 
-        return sid
+        return BoundReference.single(sid, decl.width)
 
     def emitReferenceArgument(self, name, refType, location):
         return self._addNamedStorage(UnknownStorage(name, refType), location)

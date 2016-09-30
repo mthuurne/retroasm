@@ -52,8 +52,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
         inc = TestCodeBlockBuilder()
-        incArgSid = inc.addValueArgument('V')
-        incArgVal = inc.emitLoad(incArgSid)
+        incArgRef = inc.addValueArgument('V')
+        incArgVal = incArgRef.emitLoad(inc, None)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
@@ -114,8 +114,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         '''Test whether expressions passed via value arguments are truncated.'''
         # Note: Default width is 8 bits.
         inc = TestCodeBlockBuilder()
-        incArgSid = inc.addValueArgument('V')
-        incArgVal = inc.emitLoad(incArgSid)
+        incArgRef = inc.addValueArgument('V')
+        incArgVal = incArgRef.emitLoad(inc, None)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
