@@ -100,12 +100,28 @@ def _parseIO(reader, argStr, context):
         match = _reIOLine.match(line)
         if match:
             elemTypeStr, name, addrTypeStr = match.groups()
+
             try:
                 elemType = parseType(elemTypeStr)
+            except ValueError as ex:
+                reader.error(
+                    'bad I/O element type: %s', ex,
+                    location=reader.getLocation(match.span(1))
+                    )
+                elemType = None
+
+            try:
                 addrType = parseType(addrTypeStr)
             except ValueError as ex:
-                reader.error(str(ex))
+                reader.error(
+                    'bad I/O address type: %s', ex,
+                    location=reader.getLocation(match.span(3))
+                    )
+                addrType = None
+
+            if elemType is None or addrType is None:
                 continue
+
             channel = IOChannel(name, elemType.width, addrType.width)
             try:
                 context.define(name, channel, reader.getLocation())
