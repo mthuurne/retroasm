@@ -5,7 +5,7 @@ from .codeblock import (
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
 from .expression import (
-    AndOperator, IntLiteral, LShift, OrOperator, RShift, truncate
+    AndOperator, IntLiteral, LShift, OrOperator, optSlice, truncate
     )
 from .function import Function
 from .linereader import BadInput
@@ -77,7 +77,7 @@ class CodeBlockBuilder:
         return self._addNamedStorage(Variable(name, refType), location)
 
     def emitIOReference(self, channel, index):
-        indexConst = self.emitCompute(truncate(index, channel.addrWidth))
+        indexConst = self.emitCompute(optSlice(index, 0, channel.addrWidth))
         sid = self._addStorage(IOStorage(channel, indexConst))
         return BoundReference.single(sid, channel.elemWidth)
 
@@ -287,10 +287,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         offset = 0
         for sid, index, width in boundRef:
             value = self._emitSingleLoad(sid, location)
-            sliced = truncate(RShift(value, index), width)
-            terms.append(LShift(sliced, offset))
+            sliced = optSlice(value, index, width)
+            terms.append(sliced if offset == 0 else LShift(sliced, offset))
             offset += width
-        return OrOperator(*terms)
+        return terms[0] if len(terms) == 1 else OrOperator(*terms)
 
     def _emitSingleStore(self, sid, expr, location):
         constant = self.emitCompute(expr)
@@ -299,7 +299,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     def emitStore(self, boundRef, value, location):
         offset = 0
         for sid, index, width in boundRef:
-            valueSlice = truncate(RShift(value, offset), width)
+            valueSlice = optSlice(value, offset, width)
             storageWidth = self.storages[sid].width
             if index == 0 and width == storageWidth:
                 # Full width: store only.

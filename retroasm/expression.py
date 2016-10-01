@@ -459,3 +459,14 @@ class RShift(Expression):
 
 def truncate(expr, width):
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
+
+def optSlice(expr, index, width):
+    '''Return a slice of the given expression, at the given index with the given
+    width, without adding any unnecessary operations.
+    '''
+    if index != 0:
+        expr = RShift(expr, index)
+    mask = expr.mask
+    if mask & maskForWidth(width) != mask:
+        expr = truncate(expr, width)
+    return expr

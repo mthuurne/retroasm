@@ -246,7 +246,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refX = self.builder.addReferenceArgument('X')
         loadA1 = self.builder.emitLoad(refA)
         self.builder.emitStore(refX, const)
-        cidStoreX = len(self.builder.constants) - 1
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
@@ -259,7 +258,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidX = self.getSid(refX)
         correct = (
             Load(cidA1, sidA),
-            Store(cidStoreX, sidX),
+            Store(const.cid, sidX),
             Load(cidA2, sidA),
             Store(cidA1, sidB),
             Store(cidA2, sidC),
