@@ -1,8 +1,6 @@
-from .expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
-    )
+from .expression import Expression
 from .storage import FixedValue, IOStorage, Storage, sliceStorage
-from .types import maskForWidth, unlimited
+from .types import unlimited
 from .utils import checkType
 
 from collections import OrderedDict
@@ -205,44 +203,6 @@ class BoundReference:
         '''Return a new BoundReference instance that is a slice of this one.
         '''
         return self.__class__(sliceStorage(self._decomposed, index, width))
-
-    def emitLoad(self, builder, location):
-        '''Loads the value of this bound reference by emitting Load nodes on
-        the given builder.
-        Returns an Expression with the loaded value.
-        '''
-        terms = []
-        offset = 0
-        for sid, index, width in self._decomposed:
-            value = builder.emitLoad(sid, location)
-            sliced = truncate(RShift(value, index), width)
-            terms.append(LShift(sliced, offset))
-            offset += width
-        return OrOperator(*terms)
-
-    def emitStore(self, builder, value, location):
-        '''Stores the given value in this bound reference by emitting Store
-        nodes (and Load nodes for partial updates) on the given builder.
-        '''
-        offset = 0
-        for sid, index, width in self._decomposed:
-            valueSlice = truncate(RShift(value, offset), width)
-            storageWidth = builder.storages[sid].width
-            if index == 0 and width == storageWidth:
-                # Full width: store only.
-                combined = valueSlice
-            else:
-                # Partial width: combine with loaded old value.
-                oldVal = builder.emitLoad(sid, location)
-                storageMask = maskForWidth(storageWidth)
-                valueMask = maskForWidth(width) << index
-                maskLit = IntLiteral(storageMask & ~valueMask)
-                combined = OrOperator(
-                    AndOperator(oldVal, maskLit),
-                    LShift(valueSlice, index)
-                    )
-            builder.emitStore(sid, combined, location)
-            offset += width
 
 class CodeBlock:
 

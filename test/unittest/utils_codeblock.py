@@ -65,11 +65,11 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         self.globalBuilder = globalBuilder
         LocalCodeBlockBuilder.__init__(self, globalBuilder)
 
-    def emitLoad(self, sid, location=None):
-        return super().emitLoad(sid, location)
+    def emitLoad(self, boundRef, location=None):
+        return super().emitLoad(boundRef, location)
 
-    def emitStore(self, sid, expr, location=None):
-        return super().emitStore(sid, expr, location)
+    def emitStore(self, boundRef, expr, location=None):
+        return super().emitStore(boundRef, expr, location)
 
     def addRegister(self, name, width=8):
         try:

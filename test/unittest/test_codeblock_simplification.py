@@ -30,11 +30,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_no_change(self):
         '''Test whether a basic sequence survives a simplification attempt.'''
         refA = self.builder.addRegister('a')
-        loadA = refA.emitLoad(self.builder, None)
+        loadA = self.builder.emitLoad(refA)
         incA = self.builder.emitCompute(
             AddOperator(loadA, IntLiteral(1))
             )
-        refA.emitStore(self.builder, incA, None)
+        self.builder.emitStore(refA, incA)
 
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
@@ -61,8 +61,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
-        refA.emitStore(self.builder, const1, None)
-        refB.emitStore(self.builder, const2, None)
+        self.builder.emitStore(refA, const1)
+        self.builder.emitStore(refB, const2)
 
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
@@ -85,11 +85,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refM2 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
         refM3 = self.builder.addIOStorage('mem', IntLiteral(0xABCD))
         refM4 = self.builder.addIOStorage('io', IntLiteral(0x8765))
-        loadM1 = refM1.emitLoad(self.builder, None)
-        loadM2 = refM2.emitLoad(self.builder, None)
-        refM2.emitStore(self.builder, loadM1, None)
-        refM3.emitStore(self.builder, loadM2, None)
-        refM4.emitStore(self.builder, loadM1, None)
+        loadM1 = self.builder.emitLoad(refM2)
+        loadM2 = self.builder.emitLoad(refM2)
+        self.builder.emitStore(refM2, loadM1)
+        self.builder.emitStore(refM3, loadM2)
+        self.builder.emitStore(refM4, loadM1)
 
         cidM1 = self.getCid(loadM1)
         cidM2 = self.getCid(loadM2)
@@ -119,11 +119,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_unused_load(self):
         '''Test whether unused loads are removed.'''
         refA = self.builder.addRegister('a')
-        loadA = refA.emitLoad(self.builder, None)
+        loadA = self.builder.emitLoad(refA)
         andA = self.builder.emitCompute(
             AndOperator(loadA, IntLiteral(0))
             )
-        refA.emitStore(self.builder, andA, None)
+        self.builder.emitStore(refA, andA)
 
         sidA = self.getSid(refA)
         code = self.createSimplifiedCode()
@@ -137,7 +137,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test whether unused loads are kept for possible side effects.'''
         addr = self.builder.emitCompute(IntLiteral(0xD0D0))
         refM = self.builder.addIOStorage('mem', addr)
-        loadM = refM.emitLoad(self.builder, None)
+        loadM = self.builder.emitLoad(refM)
 
         sidM = self.getSid(refM)
         correct = (
@@ -152,10 +152,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         refC = self.builder.addRegister('c')
-        loadA1 = refA.emitLoad(self.builder, None)
-        loadA2 = refA.emitLoad(self.builder, None)
-        refB.emitStore(self.builder, loadA1, None)
-        refC.emitStore(self.builder, loadA2, None)
+        loadA1 = self.builder.emitLoad(refA)
+        loadA2 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refB, loadA1)
+        self.builder.emitStore(refC, loadA2)
 
         cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
@@ -174,11 +174,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test whether a redundant load after a store is removed.'''
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
-        loadA1 = refA.emitLoad(self.builder, None)
+        loadA1 = self.builder.emitLoad(refA)
         incA = self.builder.emitCompute(AddOperator(loadA1, IntLiteral(1)))
-        refA.emitStore(self.builder, incA, None)
-        loadA2 = refA.emitLoad(self.builder, None)
-        refB.emitStore(self.builder, loadA2, None)
+        self.builder.emitStore(refA, incA)
+        loadA2 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refB, loadA2)
 
         cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
@@ -201,9 +201,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test removal of storing the same value in the same storage twice.'''
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
-        loadA = refA.emitLoad(self.builder, None)
-        refB.emitStore(self.builder, loadA, None)
-        refB.emitStore(self.builder, loadA, None)
+        loadA = self.builder.emitLoad(refA)
+        self.builder.emitStore(refB, loadA)
+        self.builder.emitStore(refB, loadA)
 
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
@@ -221,10 +221,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         refC = self.builder.addRegister('c')
-        loadA = refA.emitLoad(self.builder, None)
-        loadB = refB.emitLoad(self.builder, None)
-        refC.emitStore(self.builder, loadA, None)
-        refC.emitStore(self.builder, loadB, None)
+        loadA = self.builder.emitLoad(refA)
+        loadB = self.builder.emitLoad(refB)
+        self.builder.emitStore(refC, loadA)
+        self.builder.emitStore(refC, loadB)
 
         cidB = self.getCid(loadB)
         sidB = self.getSid(refB)
@@ -244,12 +244,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refB = self.builder.addRegister('b')
         refC = self.builder.addRegister('c')
         refX = self.builder.addReferenceArgument('X')
-        loadA1 = refA.emitLoad(self.builder, None)
-        refX.emitStore(self.builder, const, None)
+        loadA1 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refX, const)
         cidStoreX = len(self.builder.constants) - 1
-        loadA2 = refA.emitLoad(self.builder, None)
-        refB.emitStore(self.builder, loadA1, None)
-        refC.emitStore(self.builder, loadA2, None)
+        loadA2 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refB, loadA1)
+        self.builder.emitStore(refC, loadA2)
 
         cidA1 = self.getCid(loadA1)
         cidA2 = self.getCid(loadA2)
@@ -273,10 +273,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         refX = self.builder.addReferenceArgument('X')
-        loadA1 = refA.emitLoad(self.builder, None)
-        refX.emitStore(self.builder, loadA1, None)
-        loadA2 = refA.emitLoad(self.builder, None)
-        refB.emitStore(self.builder, loadA2, None)
+        loadA1 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refX, loadA1)
+        loadA2 = self.builder.emitLoad(refA)
+        self.builder.emitStore(refB, loadA2)
 
         cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
@@ -295,10 +295,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test whether load and stores of variables are removed.'''
         refA = self.builder.addRegister('a')
         refV = self.builder.addValueArgument('V')
-        loadV = refV.emitLoad(self.builder, None)
+        loadV = self.builder.emitLoad(refV)
         incV = self.builder.emitCompute(AddOperator(loadV, IntLiteral(1)))
-        refV.emitStore(self.builder, incV, None)
-        refA.emitStore(self.builder, incV, None)
+        self.builder.emitStore(refV, incV)
+        self.builder.emitStore(refA, incV)
 
         sidA = self.getSid(refA)
 
@@ -312,7 +312,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_unused_storage_removal(self):
         '''Test whether unused storages are removed.'''
         refA = self.builder.addRegister('a')
-        loadA = refA.emitLoad(self.builder, None)
+        loadA = self.builder.emitLoad(refA)
         sidM = self.builder.addIOStorage('mem', loadA)
 
         correct = (
@@ -326,10 +326,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refV = self.builder.addValueArgument('V')
         refRet = self.builder.addVariable('ret')
-        loadA = refA.emitLoad(self.builder, None)
-        loadV = refV.emitLoad(self.builder, None)
+        loadA = self.builder.emitLoad(refA)
+        loadV = self.builder.emitLoad(refV)
         combined = self.builder.emitCompute(OrOperator(loadA, loadV))
-        refRet.emitStore(self.builder, combined, None)
+        self.builder.emitStore(refRet, combined)
 
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
@@ -352,10 +352,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test a simplification that must replace the return value cid.'''
         refA = self.builder.addRegister('a')
         const = self.builder.emitCompute(IntLiteral(23))
-        refA.emitStore(self.builder, const, None)
-        loadA = refA.emitLoad(self.builder, None)
+        self.builder.emitStore(refA, const)
+        loadA = self.builder.emitLoad(refA)
         outerRet = self.builder.addVariable('ret')
-        outerRet.emitStore(self.builder, loadA, None)
+        self.builder.emitStore(outerRet, loadA)
 
         sidA = self.getSid(refA)
 
@@ -373,18 +373,18 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test simplification of constants in constant expressions.'''
         refA = self.builder.addRegister('a')
         def emitInc():
-            loadA = refA.emitLoad(self.builder, None)
+            loadA = self.builder.emitLoad(refA)
             incA = self.builder.emitCompute(AddOperator(loadA, IntLiteral(1)))
-            refA.emitStore(self.builder, incA, None)
+            self.builder.emitStore(refA, incA)
 
         initA = self.builder.emitCompute(IntLiteral(23))
-        refA.emitStore(self.builder, initA, None)
+        self.builder.emitStore(refA, initA)
         emitInc()
         emitInc()
         emitInc()
-        finalA = refA.emitLoad(self.builder, None)
+        finalA = self.builder.emitLoad(refA)
         ret = self.builder.addVariable('ret')
-        ret.emitStore(self.builder, finalA, None)
+        self.builder.emitStore(ret, finalA)
 
         code = self.createSimplifiedCode()
         retCid, retWidth = self.getRetVal(code)

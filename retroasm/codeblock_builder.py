@@ -4,7 +4,9 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import truncate
+from .expression import (
+    AndOperator, IntLiteral, LShift, OrOperator, RShift, truncate
+    )
 from .function import Function
 from .linereader import BadInput
 from .storage import (
@@ -95,14 +97,17 @@ class CodeBlockBuilder:
         self.context.define(name, value, location)
         return value
 
-    def emitLoad(self, sid, location):
-        '''Adds a node that loads a value from the given storage.
+    def emitLoad(self, boundRef, location):
+        '''Loads the value of the given bound reference by emitting Load nodes
+        on this builder.
         Returns an expression that wraps the loaded value.
         '''
         raise NotImplementedError
 
-    def emitStore(self, sid, expr, location):
-        '''Adds a node that stores a value in the given storage.
+    def emitStore(self, boundRef, expr, location):
+        '''Stores the value of the given expression in the given bound reference
+        by emitting Store nodes (and Load nodes for partial updates) on this
+        builder.
         '''
         raise NotImplementedError
 
@@ -127,17 +132,17 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
         checkType(reg, Register, 'register')
         return self._addNamedStorage(reg, location)
 
-    def emitLoad(self, sid, location):
+    def emitLoad(self, boundRef, location):
         raise BadGlobalOperation(
             'attempt to read from storage in global scope: %s'
-            % self.storages[sid],
+            % boundRef.present(self.storages),
             location
             )
 
-    def emitStore(self, sid, expr, location):
+    def emitStore(self, boundRef, expr, location):
         raise BadGlobalOperation(
             'attempt to write to storage in global scope: %s'
-            % self.storages[sid],
+            % boundRef.present(self.storages),
             location
             )
 
@@ -267,7 +272,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def emitLoad(self, sid, location):
+    def _emitSingleLoad(self, sid, location):
         storage = self.storages[sid]
         if isinstance(storage, FixedValue):
             cid = storage.cid
@@ -277,9 +282,40 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             self.constants.append(LoadedConstant(cid, sid))
         return ConstantValue(cid, maskForWidth(storage.width))
 
-    def emitStore(self, sid, expr, location):
+    def emitLoad(self, boundRef, location):
+        terms = []
+        offset = 0
+        for sid, index, width in boundRef:
+            value = self._emitSingleLoad(sid, location)
+            sliced = truncate(RShift(value, index), width)
+            terms.append(LShift(sliced, offset))
+            offset += width
+        return OrOperator(*terms)
+
+    def _emitSingleStore(self, sid, expr, location):
         constant = self.emitCompute(expr)
         self.nodes.append(Store(constant.cid, sid, location))
+
+    def emitStore(self, boundRef, value, location):
+        offset = 0
+        for sid, index, width in boundRef:
+            valueSlice = truncate(RShift(value, offset), width)
+            storageWidth = self.storages[sid].width
+            if index == 0 and width == storageWidth:
+                # Full width: store only.
+                combined = valueSlice
+            else:
+                # Partial width: combine with loaded old value.
+                oldVal = self._emitSingleLoad(sid, location)
+                storageMask = maskForWidth(storageWidth)
+                valueMask = maskForWidth(width) << index
+                maskLit = IntLiteral(storageMask & ~valueMask)
+                combined = OrOperator(
+                    AndOperator(oldVal, maskLit),
+                    LShift(valueSlice, index)
+                    )
+            self._emitSingleStore(sid, combined, location)
+            offset += width
 
     def emitValueArgument(self, name, decl, location):
         '''Adds a passed-by-value argument to this code block.
@@ -297,7 +333,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Store initial value.
         ref = self.emitVariable(name, decl, location)
         value = ConstantValue(cid, maskForWidth(decl.width))
-        ref.emitStore(self, value, location)
+        self.emitStore(ref, value, location)
 
         return ref
 
@@ -401,11 +437,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             boundReference = refMap[node.sid]
             newCid = cidMap[node.cid]
             if isinstance(node, Load):
-                value = boundReference.emitLoad(self, node.location)
+                value = self.emitLoad(boundReference, node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 value = ConstantValue(newCid, -1)
-                boundReference.emitStore(self, value, node.location)
+                self.emitStore(boundReference, value, node.location)
             else:
                 assert False, node
 
