@@ -31,7 +31,7 @@ class CodeBlockBuilder:
             if isinstance(const, ComputedConstant):
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        C%-2d <- R%d' % (const.cid, const.sid))
+                print('        C%-2d <- S%d' % (const.cid, const.sid))
             elif isinstance(const, ArgumentConstant):
                 print('        C%-2d :  %s' % (const.cid, const.name))
             else:
