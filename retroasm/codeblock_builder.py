@@ -67,7 +67,7 @@ class CodeBlockBuilder:
 
     def _addNamedStorage(self, storage, location):
         sid = self._addStorage(storage)
-        ref = BoundReference.single(sid, storage.width)
+        ref = BoundReference.single(storage.type, sid)
         self.context.define(storage.name, ref, location)
         return ref
 
@@ -78,15 +78,15 @@ class CodeBlockBuilder:
         addrWidth = channel.addrType.width
         indexConst = self.emitCompute(optSlice(index, 0, addrWidth))
         sid = self._addStorage(IOStorage(channel, indexConst))
-        return BoundReference.single(sid, channel.elemType.width)
+        return BoundReference.single(channel.elemType, sid)
 
-    def emitFixedValue(self, expr, width):
+    def emitFixedValue(self, expr, typ):
         '''Emits a constant representing the result of the given expression.
         Returns a reference bound to the newly created FixedValue.
         '''
         const = self.emitCompute(expr)
-        sid = self._addStorage(FixedValue(const.cid, width))
-        return BoundReference.single(sid, width)
+        sid = self._addStorage(FixedValue(const.cid, typ.width))
+        return BoundReference.single(typ, sid)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -177,10 +177,12 @@ class _LocalContext(Context):
             if isinstance(value, (Function, IOChannel)):
                 pass
             elif isinstance(value, BoundReference):
-                value = BoundReference((
-                    (self._importStorage(sid), index, width)
-                    for sid, index, width in value
-                    ))
+                value = BoundReference(
+                    value.type, (
+                        (self._importStorage(sid), index, width)
+                        for sid, index, width in value
+                        )
+                    )
             else:
                 assert False, (key, repr(value))
             self.elements[key] = value
@@ -389,7 +391,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     newStorage = storage
                 newSid = len(storages)
                 storages.append(newStorage)
-                ref = BoundReference.single(newSid, newStorage.width)
+                # TODO: The type we pick here might not be the same type
+                #       that the original reference had. Once we have signed
+                #       types, I think that would lead to problems when
+                #       re-creating the Load nodes.
+                ref = BoundReference.single(IntType(newStorage.width), newSid)
             refMap[sid] = ref
 
         # Copy constants.
@@ -442,7 +448,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Determine return value.
         retRef = code.retRef
-        return None if retRef is None else BoundReference(chain.from_iterable(
-            refMap[sid].slice(index, width)
-            for sid, index, width in retRef
-            ))
+        return None if retRef is None else BoundReference(
+            retRef.type,
+            chain.from_iterable(
+                refMap[sid].slice(index, width)
+                for sid, index, width in retRef
+                )
+            )

@@ -211,7 +211,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
-        outerL = outer.emitFixedValue(IntLiteral(0xcd), 8)
+        outerL = outer.emitFixedValue(IntLiteral(0xcd), IntType(8))
         regH = outer.context['h']
         regHL = outerL.concat(regH)
 

@@ -1,6 +1,6 @@
 from .expression import Expression
 from .storage import FixedValue, IOStorage, Storage, sliceStorage
-from .types import unlimited
+from .types import IntType, unlimited
 from .utils import checkType
 
 from collections import OrderedDict
@@ -154,15 +154,17 @@ class ConstantValue(Expression):
         return self._cid is other._cid
 
 class BoundReference:
-    __slots__ = ('_decomposed', '_width')
+    __slots__ = ('_decomposed', '_type')
 
-    width = property(lambda self: self._width)
+    type = property(lambda self: self._type)
+    width = property(lambda self: self._type.width)
 
     @classmethod
-    def single(cls, sid, width):
-        return cls(((sid, 0, width),))
+    def single(cls, typ, sid):
+        return cls(typ, ((sid, 0, typ.width),))
 
-    def __init__(self, decomposed):
+    def __init__(self, typ, decomposed):
+        self._type = checkType(typ, IntType, 'value type')
         self._decomposed = tuple(decomposed)
         totalWidth = 0
         for sid_, index_, width in self._decomposed:
@@ -172,7 +174,12 @@ class BoundReference:
                     'storage'
                     )
             totalWidth += width
-        self._width = totalWidth
+        if totalWidth != typ.width:
+            raise ValueError(
+                'combined storages are %d bits wide, '
+                'while value type is %d bits wide'
+                % (totalWidth, typ.width)
+                )
 
     def __repr__(self):
         return 'BoundReference((%s))' % ', '.join(
@@ -197,12 +204,17 @@ class BoundReference:
         this one as the least significant part and the given BoundReference
         as the most significant part.
         '''
-        return self.__class__(chain(self, other))
+        assert isinstance(self.type, IntType)
+        assert isinstance(other.type, IntType)
+        newType = IntType(self.width + other.width)
+        return self.__class__(newType, chain(self, other))
 
     def slice(self, index, width):
         '''Return a new BoundReference instance that is a slice of this one.
         '''
-        return self.__class__(sliceStorage(self._decomposed, index, width))
+        decomposed = tuple(sliceStorage(self._decomposed, index, width))
+        width = sum(width for sid_, index_, width in decomposed)
+        return self.__class__(IntType(width), decomposed)
 
 class CodeBlock:
 

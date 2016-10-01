@@ -81,7 +81,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
                 ex.location
                 )
         declWidth = typ.width
-        ref = builder.emitFixedValue(truncate(expr, declWidth), declWidth)
+        ref = builder.emitFixedValue(truncate(expr, declWidth), typ)
     elif kind is DeclarationKind.reference:
         try:
             ref = buildStorage(value, builder)
@@ -341,13 +341,13 @@ def _convertStorageOperator(node, builder):
         return _convertStorageConcat(node, builder)
     else:
         expr = _convertArithmetic(node, builder)
-        width = 1 if operator is Operator.negation else unlimited
-        return builder.emitFixedValue(expr, width)
+        typ = IntType(1 if operator is Operator.negation else unlimited)
+        return builder.emitFixedValue(expr, typ)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
-        return builder.emitFixedValue(literal, node.width)
+        return builder.emitFixedValue(literal, IntType(node.width))
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):

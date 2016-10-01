@@ -326,7 +326,9 @@ class CodeBlockSimplifier(CodeBlock):
                         if sid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
-                            self.retRef = BoundReference.single(sid, width)
+                            self.retRef = BoundReference.single(
+                                storage.type, sid
+                                )
                             storages[sid] = FixedValue(node.cid, width)
                     if sid in willBeOverwritten \
                             or isinstance(storage, (FixedValue, Variable)):
