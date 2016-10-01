@@ -304,7 +304,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return ref
 
     def emitReferenceArgument(self, name, refType, location):
-        return self._addNamedStorage(UnknownStorage(name, refType), location)
+        sid = self._addNamedStorage(UnknownStorage(name, refType), location)
+        return BoundReference.single(sid, refType.width)
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code

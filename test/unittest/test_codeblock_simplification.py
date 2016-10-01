@@ -243,9 +243,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         refC = self.builder.addRegister('c')
-        sidX = self.builder.addReferenceArgument('X')
+        refX = self.builder.addReferenceArgument('X')
         loadA1 = refA.emitLoad(self.builder, None)
-        self.builder.emitStore(sidX, const)
+        refX.emitStore(self.builder, const, None)
+        cidStoreX = len(self.builder.constants) - 1
         loadA2 = refA.emitLoad(self.builder, None)
         refB.emitStore(self.builder, loadA1, None)
         refC.emitStore(self.builder, loadA2, None)
@@ -255,9 +256,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         sidC = self.getSid(refC)
+        sidX = self.getSid(refX)
         correct = (
             Load(cidA1, sidA),
-            Store(const.cid, sidX),
+            Store(cidStoreX, sidX),
             Load(cidA2, sidA),
             Store(cidA1, sidB),
             Store(cidA2, sidC),
@@ -270,15 +272,16 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test handling of writing the same value to a potential alias.'''
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
-        sidX = self.builder.addReferenceArgument('X')
+        refX = self.builder.addReferenceArgument('X')
         loadA1 = refA.emitLoad(self.builder, None)
-        self.builder.emitStore(sidX, loadA1)
+        refX.emitStore(self.builder, loadA1, None)
         loadA2 = refA.emitLoad(self.builder, None)
         refB.emitStore(self.builder, loadA2, None)
 
         cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
+        sidX = self.getSid(refX)
         correct = (
             Load(cidA1, sidA),
             Store(cidA1, sidX),
