@@ -91,18 +91,19 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
         return ref
 
-    def addIOStorage(self, channelName, index, elemWidth=8, addrWidth=16):
+    def addIOStorage(self, channelName, index,
+            elemType=IntType(8), addrType=IntType(16)):
         try:
             channel = self.globalBuilder.context[channelName]
         except KeyError:
             # Insert channel into global context.
-            channel = IOChannel(channelName, elemWidth, addrWidth)
+            channel = IOChannel(channelName, elemType, addrType)
             self.globalBuilder.context.define(channelName, channel, None)
         else:
             # Check that existing global context entry is this channel.
             assert isinstance(channel, IOChannel), channel
-            assert channel.elemWidth == elemWidth, channel
-            assert channel.addrWidth == addrWidth, channel
+            assert channel.elemType is elemType, channel
+            assert channel.addrType is addrType, channel
         # Import channel from global context into local context.
         localChannel = self.context[channelName]
         assert localChannel is channel

@@ -75,9 +75,10 @@ class CodeBlockBuilder:
         return self._addNamedStorage(Variable(name, refType), location)
 
     def emitIOReference(self, channel, index):
-        indexConst = self.emitCompute(optSlice(index, 0, channel.addrWidth))
+        addrWidth = channel.addrType.width
+        indexConst = self.emitCompute(optSlice(index, 0, addrWidth))
         sid = self._addStorage(IOStorage(channel, indexConst))
-        return BoundReference.single(sid, channel.elemWidth)
+        return BoundReference.single(sid, channel.elemType.width)
 
     def emitFixedValue(self, expr, width):
         '''Emits a constant representing the result of the given expression.

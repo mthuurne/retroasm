@@ -180,6 +180,10 @@ For example the Z80 has a 64K (2<sup>16</sup>) memory address space and 256 (2<s
     u8 mem[u16]
     u8 port[u8]
 
+When reading a value from an I/O channel, the element type determines the type of the read value. When writing a value to an I/O channel, the written value can be of any type, but the width of the element type determines how many bits are actually stored.
+
+The width of the address type determines the number of significant bits in the index. For example, if the address type is `u8`, addresses `0x21` and `0x321` are considered to address the same element, since they are equal in the last 8 bits.
+
 For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
 
 Currently the analyzer assumes that an index of one I/O channel can never alias an index of another I/O channel. In other words, the storages behind two I/O channels are assumed to be disjunct. That might not be true for all hardware however, for example a single register bank might be accessible through both I/O mapped I/O and memory mapped I/O.

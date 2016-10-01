@@ -7,11 +7,11 @@ import re
 class IOChannel:
     '''A channel through which a CPU can do input and output.
     '''
-    __slots__ = ('_name', '_elemWidth', '_addrWidth')
+    __slots__ = ('_name', '_elemType', '_addrType')
 
     name = property(lambda self: self._name)
-    elemWidth = property(lambda self: self._elemWidth)
-    addrWidth = property(lambda self: self._addrWidth)
+    elemType = property(lambda self: self._elemType)
+    addrType = property(lambda self: self._addrType)
 
     @staticmethod
     def checkInstance(channel):
@@ -21,18 +21,18 @@ class IOChannel:
                 )
         return channel
 
-    def __init__(self, name, elemWidth, addrWidth):
+    def __init__(self, name, elemType, addrType):
         self._name = checkType(name, str, 'channel name')
-        self._elemWidth = checkType(elemWidth, int, 'element width')
-        self._addrWidth = checkType(addrWidth, int, 'address width')
+        self._elemType = checkType(elemType, IntType, 'element type')
+        self._addrType = checkType(addrType, IntType, 'address type')
 
     def __repr__(self):
-        return 'IOChannel(%s, %d, %d)' % (
-            repr(self._name), self._elemWidth, self._addrWidth
+        return 'IOChannel(%s, %s, %s)' % (
+            repr(self._name), repr(self._elemType), repr(self._addrType)
             )
 
     def __str__(self):
-        return 'u%d %s[u%d]' % (self._elemWidth, self._name, self._addrWidth)
+        return '%s %s[%s]' % (self._elemType, self._name, self._addrType)
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
@@ -262,7 +262,7 @@ class IOStorage(Storage):
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
         self._index = Expression.checkScalar(index)
-        Storage.__init__(self, channel.elemWidth)
+        Storage.__init__(self, channel.elemType.width)
 
     def __repr__(self):
         return 'IOStorage(%s, %s)' % (repr(self._channel), repr(self._index))

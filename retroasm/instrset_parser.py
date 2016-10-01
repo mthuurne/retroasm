@@ -122,7 +122,7 @@ def _parseIO(reader, argStr, context):
             if elemType is None or addrType is None:
                 continue
 
-            channel = IOChannel(name, elemType.width, addrType.width)
+            channel = IOChannel(name, elemType, addrType)
             try:
                 context.define(name, channel, reader.getLocation())
             except NameExistsError as ex:
