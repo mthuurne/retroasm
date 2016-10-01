@@ -72,7 +72,8 @@ class CodeBlockBuilder:
         return sid
 
     def emitVariable(self, name, refType, location):
-        return self._addNamedStorage(Variable(name, refType), location)
+        sid = self._addNamedStorage(Variable(name, refType), location)
+        return BoundReference.single(sid, refType.width)
 
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(truncate(index, channel.addrWidth))
@@ -295,10 +296,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         self.constants.append(constant)
 
         # Store initial value.
-        sid = self.emitVariable(name, decl, location)
-        self.nodes.insert(0, Store(cid, sid, location))
+        ref = self.emitVariable(name, decl, location)
+        value = ConstantValue(cid, maskForWidth(decl.width))
+        ref.emitStore(self, value, location)
 
-        return BoundReference.single(sid, decl.width)
+        return ref
 
     def emitReferenceArgument(self, name, refType, location):
         return self._addNamedStorage(UnknownStorage(name, refType), location)

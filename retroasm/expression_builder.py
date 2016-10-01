@@ -60,8 +60,7 @@ def declareVariable(node, builder):
 
     # Add declaration to context.
     try:
-        sid = builder.emitVariable(name, typ, nameNode.location)
-        return BoundReference.single(sid, typ.width)
+        return builder.emitVariable(name, typ, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),

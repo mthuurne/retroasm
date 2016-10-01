@@ -37,7 +37,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.inlineBlock(inner.createCodeBlock(), {})
         loadA = outerA.emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
-        outer.emitStore(outerRet, loadA)
+        outerRet.emitStore(outer, loadA, None)
 
         code = createSimplifiedCode(outer)
         retCid, retWidth = self.getRetVal(code)
@@ -56,7 +56,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = incArgRef.emitLoad(inc, None)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
-        inc.emitStore(incRet, incAdd)
+        incRet.emitStore(inc, incAdd, None)
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
@@ -65,7 +65,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         step2 = outer.inlineBlock(incCode, {'V': step1}).emitLoad(outer, None)
         step3 = outer.inlineBlock(incCode, {'V': step2}).emitLoad(outer, None)
         outerRet = outer.addVariable('ret')
-        outer.emitStore(outerRet, step3)
+        outerRet.emitStore(outer, step3, None)
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
@@ -78,15 +78,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         val1 = inner.emitCompute(IntLiteral(2000))
         val2 = inner.emitCompute(IntLiteral(3000))
         innerRet = inner.addVariable('ret', 16)
-        inner.emitStore(innerRet, val0)
-        inner.emitStore(innerRet, val1)
-        inner.emitStore(innerRet, val2)
+        innerRet.emitStore(inner, val0, None)
+        innerRet.emitStore(inner, val1, None)
+        innerRet.emitStore(inner, val2, None)
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
         inlinedVal = outer.inlineBlock(innerCode, {}).emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
-        outer.emitStore(outerRet, inlinedVal)
+        outerRet.emitStore(outer, inlinedVal, None)
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
@@ -97,14 +97,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner = TestCodeBlockBuilder()
         innerVal = inner.emitCompute(IntLiteral(0x8472))
         innerRet = inner.addVariable('ret', 8)
-        inner.emitStore(innerRet, innerVal)
+        innerRet.emitStore(inner, innerVal, None)
         innerCode = inner.createCodeBlock()
         func = Function('get', IntType(8), {}, innerCode)
 
         outer = TestCodeBlockBuilder()
         outerVal = outer.inlineFunctionCall(func, {}, None).emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
-        outer.emitStore(outerRet, outerVal)
+        outerRet.emitStore(outer, outerVal, None)
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
@@ -118,7 +118,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = incArgRef.emitLoad(inc, None)
         incAdd = inc.emitCompute(AddOperator(incArgVal, IntLiteral(1)))
         incRet = inc.addVariable('ret')
-        inc.emitStore(incRet, incAdd)
+        incRet.emitStore(inc, incAdd, None)
         incCode = inc.createCodeBlock()
         func = Function('inc', IntType(9), {'V': IntType(8)}, incCode)
 
@@ -128,7 +128,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         step2 = outer.inlineFunctionCall(func, {'V': step1}, None).emitLoad(outer, None)
         step3 = outer.inlineFunctionCall(func, {'V': step2}, None).emitLoad(outer, None)
         outerRet = outer.addVariable('ret', 16)
-        outer.emitStore(outerRet, step3)
+        outerRet.emitStore(outer, step3, None)
 
         code = createSimplifiedCode(outer)
         self.assertEqual(len(code.nodes), 0)
@@ -153,7 +153,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.inlineBlock(incCode, {'R': regA})
         outerRet = outer.addVariable('ret')
         finalA = outerA.emitLoad(outer, None)
-        outer.emitStore(outerRet, finalA)
+        outerRet.emitStore(outer, finalA, None)
 
         code = createSimplifiedCode(outer)
         code.verify()
@@ -193,7 +193,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.inlineBlock(incCode, {'R': regHL})
         outerRet = outer.addVariable('ret', 16)
         finalHL = regHL.emitLoad(outer, None)
-        outer.emitStore(outerRet, finalHL)
+        outerRet.emitStore(outer, finalHL, None)
 
         code = createSimplifiedCode(outer)
         code.verify()
@@ -223,7 +223,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.inlineBlock(incCode, {'R': regHL})
         outerRet = outer.addVariable('ret', 16)
         finalHL = regHL.emitLoad(outer, None)
-        outer.emitStore(outerRet, finalHL)
+        outerRet.emitStore(outer, finalHL, None)
 
         code = createSimplifiedCode(outer)
         code.verify()
@@ -250,7 +250,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.inlineBlock(incCode, {'R': sliceR})
         outerRet = outer.addVariable('ret', 16)
         finalR = outerR.emitLoad(outer, None)
-        outer.emitStore(outerRet, finalR)
+        outerRet.emitStore(outer, finalR, None)
 
         code = createSimplifiedCode(outer)
         code.verify()

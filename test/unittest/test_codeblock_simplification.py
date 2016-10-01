@@ -1,14 +1,18 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
+from utils_expression import TestExprMixin
 
-from retroasm.codeblock import ComputedConstant, Load, Store
+from retroasm.codeblock import (
+    ArgumentConstant, ComputedConstant, ConstantValue, Load, Store
+    )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
-from retroasm.expression import AddOperator, AndOperator, IntLiteral
+from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator
+from retroasm.expression_simplifier import simplifyExpression
 
 import unittest
 
 verbose = False
 
-class CodeBlockTests(NodeChecker, unittest.TestCase):
+class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
     def setUp(self):
         self.builder = TestCodeBlockBuilder()
@@ -318,11 +322,11 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         '''Test whether a return value constant is created correctly.'''
         refA = self.builder.addRegister('a')
         refV = self.builder.addValueArgument('V')
-        sidRet = self.builder.addVariable('ret')
+        refRet = self.builder.addVariable('ret')
         loadA = refA.emitLoad(self.builder, None)
         loadV = refV.emitLoad(self.builder, None)
-        add = self.builder.emitCompute(AddOperator(loadA, loadV))
-        self.builder.emitStore(sidRet, add)
+        combined = self.builder.emitCompute(OrOperator(loadA, loadV))
+        refRet.emitStore(self.builder, combined, None)
 
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
@@ -333,8 +337,13 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
         retCid, retWidth = self.getRetVal(code)
-        self.assertEqual(retCid, add.cid)
         self.assertEqual(retWidth, 8)
+        self.assertIsInstance(code.constants[0], ArgumentConstant)
+        self.assertOr(
+            code.constants[retCid].expr,
+            simplifyExpression(loadA),
+            ConstantValue(code.constants[0].cid, 255)
+            )
 
     def test_return_value_renumber(self):
         '''Test a simplification that must replace the return value cid.'''
@@ -343,7 +352,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         refA.emitStore(self.builder, const, None)
         loadA = refA.emitLoad(self.builder, None)
         outerRet = self.builder.addVariable('ret')
-        self.builder.emitStore(outerRet, loadA)
+        outerRet.emitStore(self.builder, loadA, None)
 
         sidA = self.getSid(refA)
 
@@ -372,7 +381,7 @@ class CodeBlockTests(NodeChecker, unittest.TestCase):
         emitInc()
         finalA = refA.emitLoad(self.builder, None)
         ret = self.builder.addVariable('ret')
-        self.builder.emitStore(ret, finalA)
+        ret.emitStore(self.builder, finalA, None)
 
         code = self.createSimplifiedCode()
         retCid, retWidth = self.getRetVal(code)
