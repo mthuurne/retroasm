@@ -81,21 +81,19 @@ def convertDefinition(kind, nameNode, typ, value, builder):
                 ex.location
                 )
         declWidth = typ.width
-        storage = _convertFixedValue(
-            truncate(expr, declWidth), declWidth, builder
-            )
+        ref = builder.emitFixedValue(truncate(expr, declWidth), declWidth)
     elif kind is DeclarationKind.reference:
         try:
-            storage = buildStorage(value, builder)
+            ref = buildStorage(value, builder)
         except BadExpression as ex:
             raise BadExpression(
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
                 ex.location
                 )
-        if typ.type.width != storage.width:
+        if typ.type.width != ref.width:
             raise BadExpression.withText(
                 '%d-bit value does not match declared type "%s"'
-                % (storage.width, typ.type),
+                % (ref.width, typ.type),
                 value.treeLocation
                 )
     else:
@@ -103,7 +101,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
 
     # Add definition to context.
     try:
-        return builder.defineReference(name, storage, nameNode.location)
+        return builder.defineReference(name, ref, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
@@ -250,10 +248,6 @@ def buildExpression(node, builder):
     else:
         assert False, node
 
-def _convertFixedValue(expr, width, builder):
-    sid = builder.emitFixedValue(expr, width)
-    return BoundReference.single(sid, width)
-
 def _convertStorageLookup(node, builder):
     exprNode, indexNode = node.operands
     if isinstance(exprNode, IdentifierNode):
@@ -348,12 +342,12 @@ def _convertStorageOperator(node, builder):
     else:
         expr = _convertArithmetic(node, builder)
         width = 1 if operator is Operator.negation else unlimited
-        return _convertFixedValue(expr, width, builder)
+        return builder.emitFixedValue(expr, width)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
-        return _convertFixedValue(literal, node.width, builder)
+        return builder.emitFixedValue(literal, node.width)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):

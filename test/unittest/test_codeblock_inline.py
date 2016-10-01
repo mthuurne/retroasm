@@ -1,6 +1,6 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import BoundReference, Store
+from retroasm.codeblock import Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
 from retroasm.types import IntType
@@ -213,8 +213,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerH = outer.addRegister('h')
         outerL = outer.emitFixedValue(IntLiteral(0xcd), 8)
         regH = outer.context['h']
-        fixedL = BoundReference.single(outerL, 8)
-        regHL = fixedL.concat(regH)
+        regHL = outerL.concat(regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
         outer.emitStore(outerH, initH)

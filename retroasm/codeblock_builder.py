@@ -81,10 +81,11 @@ class CodeBlockBuilder:
 
     def emitFixedValue(self, expr, width):
         '''Emits a constant representing the result of the given expression.
-        Returns the storage ID of the corresponding FixedValue.
+        Returns a reference bound to the newly created FixedValue.
         '''
         const = self.emitCompute(expr)
-        return self._addStorage(FixedValue(const.cid, width))
+        sid = self._addStorage(FixedValue(const.cid, width))
+        return BoundReference.single(sid, width)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
