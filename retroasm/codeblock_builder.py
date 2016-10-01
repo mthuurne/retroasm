@@ -126,7 +126,8 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitRegister(self, reg, location):
         checkType(reg, Register, 'register')
-        return self._addNamedStorage(reg, location)
+        sid = self._addNamedStorage(reg, location)
+        return BoundReference.single(sid, reg.width)
 
     def emitLoad(self, sid, location):
         raise BadGlobalOperation(
