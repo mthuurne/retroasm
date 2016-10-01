@@ -69,11 +69,10 @@ class CodeBlockBuilder:
         sid = self._addStorage(storage)
         ref = BoundReference.single(sid, storage.width)
         self.context.define(storage.name, ref, location)
-        return sid
+        return ref
 
     def emitVariable(self, name, refType, location):
-        sid = self._addNamedStorage(Variable(name, refType), location)
-        return BoundReference.single(sid, refType.width)
+        return self._addNamedStorage(Variable(name, refType), location)
 
     def emitIOReference(self, channel, index):
         indexConst = self.emitCompute(truncate(index, channel.addrWidth))
@@ -126,8 +125,7 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitRegister(self, reg, location):
         checkType(reg, Register, 'register')
-        sid = self._addNamedStorage(reg, location)
-        return BoundReference.single(sid, reg.width)
+        return self._addNamedStorage(reg, location)
 
     def emitLoad(self, sid, location):
         raise BadGlobalOperation(
@@ -304,8 +302,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return ref
 
     def emitReferenceArgument(self, name, refType, location):
-        sid = self._addNamedStorage(UnknownStorage(name, refType), location)
-        return BoundReference.single(sid, refType.width)
+        return self._addNamedStorage(UnknownStorage(name, refType), location)
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
