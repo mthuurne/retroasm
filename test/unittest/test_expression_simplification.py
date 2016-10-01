@@ -1,4 +1,4 @@
-from utils_expression import TestValue
+from utils_expression import TestExprMixin, TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
@@ -9,92 +9,13 @@ from retroasm.types import IntType, unlimited
 
 import unittest
 
-class TestUtils(unittest.TestCase):
-
-    def assertIntLiteral(self, expr, value):
-        '''Asserts that the given expression is an unlimited-width int literal
-        with the given value.
-        '''
-        comparison = IntLiteral(value)
-        self.assertIsInstance(expr, IntLiteral)
-        self.assertEqual(expr.value, value)
-
-    def assertAnd(self, expr, *args):
-        self.assertIsInstance(expr, AndOperator)
-        exprs = expr.exprs
-        self.assertEqual(len(exprs), len(args))
-        found = [False] * len(exprs)
-        missing = []
-        for arg in args:
-            try:
-                found[exprs.index(arg)] = True
-            except ValueError:
-                missing.append(arg)
-        if missing:
-            raise AssertionError(
-                'mismatch on AND arguments: expected %s, got %s' % (
-                    ', '.join("'%s'" % e for e in missing),
-                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                    )
-                )
-
-    def assertOr(self, expr, *args):
-        self.assertIsInstance(expr, OrOperator)
-        exprs = expr.exprs
-        self.assertEqual(len(exprs), len(args))
-        found = [False] * len(exprs)
-        missing = []
-        for arg in args:
-            try:
-                found[exprs.index(arg)] = True
-            except ValueError:
-                missing.append(arg)
-        if missing:
-            raise AssertionError(
-                'mismatch on OR arguments: expected %s, got %s' % (
-                    ', '.join("'%s'" % e for e in missing),
-                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                    )
-                )
-
-    def assertConcat(self, expr, subExprs):
-        compExprs = []
-        offset = 0
-        for term, width in reversed(subExprs):
-            shifted = simplifyExpression(LShift(term, offset))
-            if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
-                compExprs.append(shifted)
-            if width is unlimited:
-                offset = None
-            else:
-                offset += width
-        self.assertOr(expr, *compExprs)
-
-    def assertSlice(self, expr, subExpr, subWidth, index, width):
-        needsShift = index != 0
-        shift = RShift(subExpr, index) if needsShift else subExpr
-        needsTrunc = subWidth > index + width
-        trunc = truncate(shift, width) if needsTrunc else shift
-        self.assertEqual(str(expr), str(trunc))
-        self.assertEqual(expr, trunc)
-        self.assertIsInstance(expr, type(trunc))
-        shiftExpr = expr.exprs[0] if needsTrunc else expr
-        if needsShift:
-            self.assertEqual(str(shiftExpr), str(shift))
-            self.assertEqual(shiftExpr, shift)
-            self.assertIsInstance(shiftExpr, RShift)
-            self.assertEqual(shiftExpr.offset, index)
-            self.assertEqual(shiftExpr.expr, subExpr)
-        else:
-            self.assertEqual(shiftExpr, subExpr)
-
 def makeSlice(expr, index, width):
     return truncate(RShift(expr, index), width)
 
 def makeConcat(exprH, exprL, widthL):
     return OrOperator(exprL, LShift(exprH, widthL))
 
-class AndTests(TestUtils):
+class AndTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Applies logical AND to integer literals.'''
@@ -200,7 +121,7 @@ class AndTests(TestUtils):
                 )
             ), Complement(addr), IntLiteral(0x3FF0))
 
-class OrTests(TestUtils):
+class OrTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Applies logical OR to integer literals.'''
@@ -264,7 +185,7 @@ class OrTests(TestUtils):
                 )
             ), addr)
 
-class XorTests(TestUtils):
+class XorTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Applies logical XOR to integer literals.'''
@@ -302,7 +223,7 @@ class XorTests(TestUtils):
         self.assertIs(simplifyExpression(XorOperator(b, a, b)), a)
         self.assertEqual(simplifyExpression(XorOperator(a, b, b, a)), zero)
 
-class AddTests(TestUtils):
+class AddTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):
         '''Adds two unlimited width integer literals.'''
@@ -347,7 +268,7 @@ class AddTests(TestUtils):
         arg2 = AddOperator(addr, IntLiteral(-3))
         self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
 
-class ComplementTests(TestUtils):
+class ComplementTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):
         '''Takes the complement of an integer literal.'''
@@ -371,7 +292,7 @@ class ComplementTests(TestUtils):
         self.assertIsInstance(expr, Complement)
         self.assertConcat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
 
-class NegationTests(TestUtils):
+class NegationTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):
         '''Negates an integer literal.'''
@@ -456,7 +377,7 @@ class NegationTests(TestUtils):
             ), 0)
 
 
-class ArithmeticTests(TestUtils):
+class ArithmeticTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):
         '''Uses add/complement on several integer literals.'''
@@ -528,7 +449,7 @@ class ArithmeticTests(TestUtils):
         expected = truncate(AddOperator(a, IntLiteral(1)), 16)
         self.assertEqual(simplifyExpression(expr), expected)
 
-class LShiftTests(TestUtils):
+class LShiftTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Shifts an integer literal to the left.'''
@@ -576,7 +497,7 @@ class LShiftTests(TestUtils):
         self.assertIs(expr2.expr, l)
         self.assertEqual(expr2.offset, 8)
 
-class RShiftTests(TestUtils):
+class RShiftTests(TestExprMixin, unittest.TestCase):
 
     def test_lshift(self):
         '''Tests right-shifting after left-shifting.'''
@@ -595,7 +516,7 @@ class RShiftTests(TestUtils):
         self.assertEqual(lwin.offset, 2)
         self.assertIs(lwin.expr, addr)
 
-class ConcatTests(TestUtils):
+class ConcatTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Concatenates integer literals.'''
@@ -695,7 +616,7 @@ class ConcatTests(TestUtils):
 def simplifySlice(expr, index, width):
     return simplifyExpression(makeSlice(expr, index, width))
 
-class SliceTests(TestUtils):
+class SliceTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):
         '''Slices integer literals.'''
