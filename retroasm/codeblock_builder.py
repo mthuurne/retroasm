@@ -4,16 +4,14 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import (
-    AndOperator, IntLiteral, LShift, OrOperator, optSlice, truncate
-    )
+from .expression import AndOperator, IntLiteral, LShift, OrOperator, optSlice
 from .function import Function
 from .linereader import BadInput
 from .storage import (
     FixedValue, IOChannel, IOStorage, Register, Storage, UnknownStorage,
     Variable
     )
-from .types import IntType, Reference, maskForWidth
+from .types import IntType, maskForWidth
 from .utils import checkType
 
 from itertools import chain
@@ -346,23 +344,18 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             # Missing body, probably because of earlier errors.
             return None
 
-        argMap = dict(argMap)
-        newMap = {}
-        for name, decl in func.args.items():
-            value = argMap.pop(name)
-            if isinstance(decl, IntType):
-                value = truncate(value, decl.width)
-            elif isinstance(decl, Reference):
-                pass
-            else:
-                assert False, decl
-            newMap[name] = value
-        if argMap:
+        badArgs = argMap.keys() - func.args.keys()
+        if badArgs:
             raise KeyError(
-                'Non-existing arguments passed: %s' % ', '.join(argMap.keys())
+                'Non-existing arguments passed: %s' % ', '.join(badArgs)
+                )
+        missingArgs = func.args.keys() - argMap.keys()
+        if missingArgs:
+            raise KeyError(
+                'Missing values for arguments: %s' % ', '.join(missingArgs)
                 )
 
-        return self.inlineBlock(code, newMap)
+        return self.inlineBlock(code, argMap)
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
