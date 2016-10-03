@@ -206,7 +206,7 @@ class BoundReference:
         '''
         assert isinstance(self.type, IntType)
         assert isinstance(other.type, IntType)
-        newType = IntType(self.width + other.width)
+        newType = IntType(self.width + other.width, other.type.signed)
         return self.__class__(newType, chain(self, other))
 
     def slice(self, index, width):
@@ -214,7 +214,7 @@ class BoundReference:
         '''
         decomposed = tuple(sliceStorage(self._decomposed, index, width))
         width = sum(width for sid_, index_, width in decomposed)
-        return self.__class__(IntType(width), decomposed)
+        return self.__class__(IntType.u(width), decomposed)
 
 class CodeBlock:
 

@@ -24,11 +24,11 @@ class AliasTests(unittest.TestCase):
 
     def test_register_aliasing(self):
         '''Test when registers might be aliased.'''
-        a = Register('a', IntType(8))
-        b = Register('b', IntType(8))
-        l = Variable('L', IntType(8))
-        r = UnknownStorage('R', IntType(8))
-        mem = IOChannel('mem', IntType(8), IntType(16))
+        a = Register('a', IntType.u(8))
+        b = Register('b', IntType.u(8))
+        l = Variable('L', IntType.u(8))
+        r = UnknownStorage('R', IntType.u(8))
+        mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(a, a)
         self.assertNoAlias(a, b)
@@ -38,11 +38,11 @@ class AliasTests(unittest.TestCase):
 
     def test_variable_aliasing(self):
         '''Test when variables might be aliased.'''
-        l = Variable('L', IntType(8))
-        l2 = Variable('L2', IntType(8))
-        a = Register('a', IntType(8))
-        r = UnknownStorage('R', IntType(8))
-        mem = IOChannel('mem', IntType(8), IntType(16))
+        l = Variable('L', IntType.u(8))
+        l2 = Variable('L2', IntType.u(8))
+        a = Register('a', IntType.u(8))
+        r = UnknownStorage('R', IntType.u(8))
+        mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(l, l)
         self.assertNoAlias(l, l2)
@@ -52,11 +52,11 @@ class AliasTests(unittest.TestCase):
 
     def test_unknown_storage_aliasing(self):
         '''Test when unknown storages might be aliased.'''
-        r = UnknownStorage('R', IntType(8))
-        r2 = UnknownStorage('R2', IntType(8))
-        a = Register('a', IntType(8))
-        l = Variable('L', IntType(8))
-        mem = IOChannel('mem', IntType(8), IntType(16))
+        r = UnknownStorage('R', IntType.u(8))
+        r2 = UnknownStorage('R2', IntType.u(8))
+        a = Register('a', IntType.u(8))
+        l = Variable('L', IntType.u(8))
+        mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(r, r)
         self.assertAlias(r, r2)
@@ -66,11 +66,11 @@ class AliasTests(unittest.TestCase):
 
     def test_io_aliasing(self):
         '''Test when I/O storages might be aliased.'''
-        a = Register('a', IntType(8))
-        l = Variable('L', IntType(8))
-        r = UnknownStorage('R', IntType(8))
-        mem = IOChannel('mem', IntType(8), IntType(16))
-        io = IOChannel('io', IntType(8), IntType(16))
+        a = Register('a', IntType.u(8))
+        l = Variable('L', IntType.u(8))
+        r = UnknownStorage('R', IntType.u(8))
+        mem = IOChannel('mem', IntType.u(8), IntType.u(16))
+        io = IOChannel('io', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         i = IOStorage(io, IntLiteral(0xC000))
         m2 = IOStorage(mem, IntLiteral(0xE000))

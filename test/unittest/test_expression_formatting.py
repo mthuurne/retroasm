@@ -11,7 +11,7 @@ class FormatTests(unittest.TestCase):
 
     def test_slice(self):
         '''Formats slice expressions.'''
-        addr = TestValue('A', IntType(16))
+        addr = TestValue('A', IntType.u(16))
         # Truncation and shift in isolation.
         self.assertEquals(str(simplifyExpression(truncate(addr, 8))), 'A[:8]')
         self.assertEquals(str(simplifyExpression(RShift(addr, 8))), 'A[8:]')

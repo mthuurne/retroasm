@@ -97,18 +97,33 @@ def maskToSegments(mask):
         yield start, i
 
 class IntType(metaclass=Unique):
-    '''An integer value type of "width" bits.
+    '''An integer value type of "width" bits, signed or unsigned.
     Width can be an integer or the singleton 'unlimited', which indicates an
     unlimited width integer type.
-    There is at most one instance of IntType for each width, so instances can
-    be compared using the "is" operator.
+    There is at most one instance of IntType for each width + signedness,
+    so instances can be compared using the "is" operator.
     '''
-    __slots__ = ('_width', '__weakref__')
+    __slots__ = ('_width', '_signed', '__weakref__')
 
     width = property(lambda self: self._width)
-    mask = property(lambda self: maskForWidth(self._width))
+    signed = property(lambda self: self._signed)
+    mask = property(
+         lambda self: -1 if self._signed else maskForWidth(self._width)
+         )
 
-    def __init__(self, width):
+    @classmethod
+    def u(cls, width):
+        '''Creates an unsigned integer type of the given width.
+        '''
+        return cls(width, False)
+
+    @classmethod
+    def s(cls, width):
+        '''Creates a signed integer type of the given width.
+        '''
+        return cls(width, True)
+
+    def __init__(self, width, signed):
         if isinstance(width, int):
             if width < 0:
                 raise ValueError('width must not be negative: %d' % width)
@@ -117,12 +132,17 @@ class IntType(metaclass=Unique):
                 'width must be integer or unlimited, got %s' % type(width)
                 )
         self._width = width
+        self._signed = signed
 
     def __repr__(self):
-        return 'IntType(%s)' % self._width
+        return 'IntType(%d, %s)' % (self._width, self._signed)
 
     def __str__(self):
-        return 'int' if self._width is unlimited else 'u%d' % self._width
+        return 'int' if self._width is unlimited else '%s%d' % (
+            's' if self._signed else 'u', self._width
+            )
+
+IntType.int = IntType(unlimited, True)
 
 class Reference(metaclass=Unique):
     '''A reference to a value of a certain type.
@@ -142,15 +162,12 @@ class Reference(metaclass=Unique):
 
 def parseType(typeName):
     if typeName == 'int':
-        return IntType(unlimited)
-    if not typeName.startswith('u'):
-        raise ValueError('type name "%s" does not start with "u"' % typeName)
-    widthStr = typeName[1:]
-    if not widthStr.isdigit():
-        raise ValueError(
-            'integer type "%s" is not of the form "u<width>"' % typeName
-            )
-    return IntType(int(widthStr))
+        return IntType.int
+    if typeName.startswith('u') or typeName.startswith('s'):
+        widthStr = typeName[1:]
+        if widthStr.isdigit():
+            return IntType(int(widthStr), typeName.startswith('s'))
+    raise ValueError('"%s" is not a valid type name' % typeName)
 
 def parseTypeDecl(typeDecl):
     if typeDecl.endswith('&'):

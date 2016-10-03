@@ -395,7 +395,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 #       that the original reference had. Once we have signed
                 #       types, I think that would lead to problems when
                 #       re-creating the Load nodes.
-                ref = BoundReference.single(IntType(newStorage.width), newSid)
+                ref = BoundReference.single(IntType(newStorage.width, True), newSid)
             refMap[sid] = ref
 
         # Copy constants.

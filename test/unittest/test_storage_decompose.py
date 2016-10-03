@@ -30,7 +30,7 @@ class DecomposeTests(unittest.TestCase):
 
     def test_single(self):
         '''Test construction via BoundReference.single() class method.'''
-        storage = BoundReference.single(IntType(8), 123)
+        storage = BoundReference.single(IntType.u(8), 123)
         expected = (
             (123, 0, 8),
             )
@@ -38,9 +38,9 @@ class DecomposeTests(unittest.TestCase):
 
     def test_basic_concat(self):
         '''Checks concatenated storages.'''
-        ref0 = BoundReference.single(IntType(7), 0)
-        ref1 = BoundReference.single(IntType(3), 1)
-        ref2 = BoundReference.single(IntType(13), 2)
+        ref0 = BoundReference.single(IntType.u(7), 0)
+        ref1 = BoundReference.single(IntType.u(3), 1)
+        ref2 = BoundReference.single(IntType.u(13), 2)
         storage = ref2.concat(ref1).concat(ref0)
         expected = (
             (2, 0, 13),
@@ -51,7 +51,7 @@ class DecomposeTests(unittest.TestCase):
 
     def test_basic_slice(self):
         '''Checks sliced storages.'''
-        ref0 = BoundReference.single(IntType(8), 0)
+        ref0 = BoundReference.single(IntType.u(8), 0)
         storage = ref0.slice(2, 3)
         expected = (
             (0, 2, 3),
@@ -60,7 +60,7 @@ class DecomposeTests(unittest.TestCase):
 
     def test_slice_past_end(self):
         '''Checks clipping of slice width against storage width.'''
-        ref0 = BoundReference.single(IntType(8), 0)
+        ref0 = BoundReference.single(IntType.u(8), 0)
         storage = ref0.slice(2, 30)
         expected = (
             (0, 2, 6),
@@ -69,7 +69,7 @@ class DecomposeTests(unittest.TestCase):
 
     def test_slice_outside(self):
         '''Checks handling of slice index outside storage width.'''
-        ref0 = BoundReference.single(IntType(8), 0)
+        ref0 = BoundReference.single(IntType.u(8), 0)
         storage = ref0.slice(12, 30)
         expected = (
             )
@@ -77,9 +77,9 @@ class DecomposeTests(unittest.TestCase):
 
     def test_slice_concat(self):
         '''Checks slicing concatenated values.'''
-        ref0 = BoundReference.single(IntType(8), 0)
-        ref1 = BoundReference.single(IntType(8), 1)
-        ref2 = BoundReference.single(IntType(8), 2)
+        ref0 = BoundReference.single(IntType.u(8), 0)
+        ref1 = BoundReference.single(IntType.u(8), 1)
+        ref2 = BoundReference.single(IntType.u(8), 2)
         concat = ref2.concat(ref1).concat(ref0)
         storage = concat.slice(5, 13)
         expected = (
@@ -91,11 +91,11 @@ class DecomposeTests(unittest.TestCase):
 
     def test_combined(self):
         '''Checks combinations of slicing and concatenation.'''
-        ref0 = BoundReference.single(IntType(8), 0)
-        ref1 = BoundReference.single(IntType(8), 1)
+        ref0 = BoundReference.single(IntType.u(8), 0)
+        ref1 = BoundReference.single(IntType.u(8), 1)
         concatA = ref0.concat(ref1)
         sliceA = concatA.slice(5, 6)
-        ref2 = BoundReference.single(IntType(8), 2)
+        ref2 = BoundReference.single(IntType.u(8), 2)
         concatB = sliceA.concat(ref2)
         storage = concatB.slice(4, 7)
         expected = (

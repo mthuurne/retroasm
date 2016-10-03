@@ -76,7 +76,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             ref = self.context[name]
         except KeyError:
             # Insert register into global context.
-            reg = Register(name, IntType(width))
+            reg = Register(name, IntType.u(width))
             self.globalBuilder.emitRegister(reg, None)
             ref = self.context[name]
 
@@ -92,7 +92,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         return ref
 
     def addIOStorage(self, channelName, index,
-            elemType=IntType(8), addrType=IntType(16)):
+            elemType=IntType.u(8), addrType=IntType.u(16)):
         try:
             channel = self.globalBuilder.context[channelName]
         except KeyError:
@@ -110,11 +110,11 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         # Create I/O storage.
         return self.emitIOReference(localChannel, index)
 
-    def addValueArgument(self, name, typ=IntType(8)):
+    def addValueArgument(self, name, typ=IntType.u(8)):
         return self.emitValueArgument(name, typ, None)
 
-    def addReferenceArgument(self, name, typ=IntType(8)):
+    def addReferenceArgument(self, name, typ=IntType.u(8)):
         return self.emitReferenceArgument(name, typ, None)
 
-    def addVariable(self, name, typ=IntType(8)):
+    def addVariable(self, name, typ=IntType.u(8)):
         return self.emitVariable(name, typ, None)

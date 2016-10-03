@@ -341,13 +341,14 @@ def _convertStorageOperator(node, builder):
         return _convertStorageConcat(node, builder)
     else:
         expr = _convertArithmetic(node, builder)
-        typ = IntType(1 if operator is Operator.negation else unlimited)
+        typ = IntType.u(1) if operator is Operator.negation else IntType.int
         return builder.emitFixedValue(expr, typ)
 
 def buildStorage(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
-        return builder.emitFixedValue(literal, IntType(node.width))
+        typ = IntType(node.width, node.width is unlimited)
+        return builder.emitFixedValue(literal, typ)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):

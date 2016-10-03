@@ -1,7 +1,7 @@
 from utils_expression import TestValue
 
 from retroasm.expression import IntLiteral, LShift, OrOperator, truncate
-from retroasm.types import IntType, unlimited
+from retroasm.types import IntType
 
 import unittest
 
@@ -38,7 +38,7 @@ class EqualsTests(unittest.TestCase):
     def test_type_mismatch(self):
         '''Checks equality checks between mismatching types.'''
         zero = IntLiteral(0)
-        addr = TestValue('A', IntType(16))
+        addr = TestValue('A', IntType.u(16))
         self.assertExprNotEqual(zero, 0)
         self.assertExprNotEqual(addr, 'A')
         self.assertExprNotEqual(zero, addr)
