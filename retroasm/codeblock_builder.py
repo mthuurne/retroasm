@@ -4,7 +4,9 @@ from .codeblock import (
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import AndOperator, IntLiteral, LShift, OrOperator, optSlice
+from .expression import (
+    AndOperator, IntLiteral, LShift, OrOperator, SignExtension, optSlice
+    )
 from .function import Function
 from .linereader import BadInput
 from .storage import (
@@ -292,7 +294,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             sliced = optSlice(value, index, width)
             terms.append(sliced if offset == 0 else LShift(sliced, offset))
             offset += width
-        return terms[0] if len(terms) == 1 else OrOperator(*terms)
+        result = terms[0] if len(terms) == 1 else OrOperator(*terms)
+        if boundRef.type.signed:
+            result = SignExtension(result, boundRef.type.width)
+        return result
 
     def _emitSingleStore(self, sid, expr, location):
         constant = self.emitCompute(expr)

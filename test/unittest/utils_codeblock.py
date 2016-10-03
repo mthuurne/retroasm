@@ -6,7 +6,7 @@ from retroasm.context import Context
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.storage import FixedValue, IOChannel, Register
-from retroasm.types import IntType
+from retroasm.types import IntType, unlimited
 
 class NodeChecker:
 
@@ -55,7 +55,8 @@ class NodeChecker:
         constant = code.constants[cid]
         self.assertIsInstance(constant, ComputedConstant)
         self.assertIsInstance(constant.expr, IntLiteral)
-        self.assertEqual(constant.expr.value & ((1 << width) - 1), value)
+        mask = -1 if width is unlimited else ((1 << width) - 1)
+        self.assertEqual(constant.expr.value & mask, value)
 
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 

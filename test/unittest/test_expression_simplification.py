@@ -2,7 +2,7 @@ from utils_expression import TestExprMixin, TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
-    OrOperator, RShift, XorOperator, truncate
+    OrOperator, RShift, SignExtension, XorOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -376,6 +376,53 @@ class NegationTests(TestExprMixin, unittest.TestCase):
             Negation(RShift(OrOperator(addr, IntLiteral(0x345)), 8))
             ), 0)
 
+class SignExtensionTests(TestExprMixin, unittest.TestCase):
+
+    def test_int(self):
+        '''Applies sign extension to several integer literals.'''
+        def check(value, width, result):
+            self.assertIntLiteral(
+                simplifyExpression(SignExtension(IntLiteral(value), width)),
+                result
+                )
+        check(123, 8, 123)
+        check(-123, 8, -123)
+        check(-123 & 0xFF, 8, -123)
+        check(0x123456, 8, 0x56)
+        check(0x89ABCD, 8, 0xCD - 0x100)
+        check(0, 0, 0)
+        check(0, 1, 0)
+        check(1, 1, -1)
+
+    def test_mask_concat(self):
+        '''Applies sign extension to concatenated values.'''
+        h = TestValue('H', IntType.u(8))
+        l = TestValue('L', IntType.u(8))
+        hl = makeConcat(h, l, 8)
+        self.assertEqual(
+            simplifyExpression(SignExtension(hl, 8)),
+            SignExtension(l, 8)
+            )
+
+    def test_sign_clear(self):
+        '''Removes sign extension when sign bit is known to be zero.'''
+        h = TestValue('H', IntType.u(8))
+        l = TestValue('L', IntType.u(8))
+        hgapl = makeConcat(h, l, 9)
+        self.assertIs(
+            simplifyExpression(SignExtension(hgapl, 9)),
+            l
+            )
+
+    def test_sign_set(self):
+        '''Removes sign extension when sign bit is known to be one.'''
+        a = TestValue('A', IntType.u(8))
+        b = IntLiteral(0x80)
+        combi = OrOperator(a, b)
+        self.assertEqual(
+            simplifyExpression(SignExtension(combi, 8)),
+            OrOperator(a, IntLiteral(~0x7F))
+            )
 
 class ArithmeticTests(TestExprMixin, unittest.TestCase):
 

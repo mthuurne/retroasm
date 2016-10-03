@@ -1,6 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
-    OrOperator, RShift, SimplifiableComposedExpression, XorOperator
+    OrOperator, RShift, SimplifiableComposedExpression, SignExtension,
+    XorOperator
     )
 from .types import maskForWidth, widthForMask
 
@@ -15,7 +16,8 @@ def complexity(expr):
         return expr.nodeComplexity + sum(
             complexity(subExpr) for subExpr in expr.exprs
             )
-    elif isinstance(expr, (Complement, Negation, LShift, RShift)):
+    elif isinstance(expr, (
+            Complement, Negation, SignExtension, LShift, RShift)):
         return 1 + complexity(expr.expr)
     else:
         return 2
@@ -356,6 +358,34 @@ def _simplifyNegation(negation):
     else:
         return negation
 
+def _simplifySignExtension(signExtend):
+    width = signExtend.width
+    mask = maskForWidth(width)
+    expr = _simplifyMasked(simplifyExpression(signExtend.expr), mask)
+
+    if isinstance(expr, IntLiteral):
+        value = expr.value & mask
+        value -= (value << 1) & (1 << width)
+        return IntLiteral(value)
+
+    # If the sign is known, we can replace the sign extension operator.
+    if width != 0:
+        signMask = 1 << (width - 1)
+        sign = _simplifyMasked(expr, signMask)
+        if isinstance(sign, IntLiteral):
+            nonSign = _simplifyMasked(expr, mask & ~signMask)
+            if sign.value & signMask:
+                return simplifyExpression(
+                    OrOperator(nonSign, IntLiteral(-1 << (width - 1)))
+                    )
+            else:
+                return nonSign
+
+    if expr is signExtend.expr:
+        return signExtend
+    else:
+        return SignExtension(expr, width)
+
 def _simplifyLShift(lshift):
     expr = simplifyExpression(lshift.expr)
 
@@ -508,6 +538,7 @@ _simplifiers = {
     AddOperator: _simplifyComposed,
     Complement: _simplifyComplement,
     Negation: _simplifyNegation,
+    SignExtension: _simplifySignExtension,
     LShift: _simplifyLShift,
     RShift: _simplifyRShift,
     }

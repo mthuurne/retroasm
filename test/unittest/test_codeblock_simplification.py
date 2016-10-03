@@ -7,6 +7,7 @@ from retroasm.codeblock import (
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator
 from retroasm.expression_simplifier import simplifyExpression
+from retroasm.types import IntType
 
 import unittest
 
@@ -394,6 +395,29 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)
         self.assertEqual(retWidth, 8)
+
+    def run_signed_load(self, write, compare):
+        '''Helper method for signed load tests.'''
+        signedVar = self.builder.addVariable('s', IntType.s(8))
+        self.builder.emitStore(signedVar, IntLiteral(write))
+        loaded = self.builder.emitLoad(signedVar)
+        ret = self.builder.addVariable('ret', IntType.int)
+        self.builder.emitStore(ret, loaded)
+
+        code = self.createSimplifiedCode()
+        self.assertRetVal(code, compare)
+
+    def test_signed_load_positive(self):
+        '''Test loading of a positive signed integer.'''
+        self.run_signed_load(56, 56)
+
+    def test_signed_load_negative(self):
+        '''Test loading of a negative signed integer.'''
+        self.run_signed_load(-78, -78)
+
+    def test_signed_load_wrap(self):
+        '''Test loading of an unsigned integer as signed.'''
+        self.run_signed_load(135, 135 - 256)
 
 if __name__ == '__main__':
     verbose = True

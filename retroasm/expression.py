@@ -405,6 +405,32 @@ class Negation(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
+class SignExtension(Expression):
+    '''Extends the sign bit at the front of a given expression.
+    '''
+    __slots__ = ('_expr', '_width')
+
+    expr = property(lambda self: self._expr)
+    width = property(lambda self: self._width)
+    mask = property(lambda self: 0 if self._width == 0 else -1)
+
+    def __init__(self, expr, width):
+        Expression.__init__(self)
+        self._expr = Expression.checkScalar(expr)
+        self._width = checkType(width, int, 'width')
+
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('width', self._width)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
+    def __str__(self):
+        return 's%d(%s)' % (self._width, self._expr)
+
+    def _equals(self, other):
+        return self._expr == other._expr and self._width == other._width
+
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
