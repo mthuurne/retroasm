@@ -110,11 +110,11 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         # Create I/O storage.
         return self.emitIOReference(localChannel, index)
 
-    def addValueArgument(self, name, width=8):
-        return self.emitValueArgument(name, IntType(width), None)
+    def addValueArgument(self, name, typ=IntType(8)):
+        return self.emitValueArgument(name, typ, None)
 
-    def addReferenceArgument(self, name, width=8):
-        return self.emitReferenceArgument(name, IntType(width), None)
+    def addReferenceArgument(self, name, typ=IntType(8)):
+        return self.emitReferenceArgument(name, typ, None)
 
-    def addVariable(self, name, width=8):
-        return self.emitVariable(name, IntType(width), None)
+    def addVariable(self, name, typ=IntType(8)):
+        return self.emitVariable(name, typ, None)
