@@ -382,27 +382,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 )
             )
 
-        # For each old sid, create a corresponding storage in this block.
-        refMap = {}
-        for sid, storage in code.storages.items():
-            if isinstance(storage, UnknownStorage):
-                ref = context[storage.name]
-                assert storage.width == ref.width, (storage.width, ref.width)
-            else:
-                if isinstance(storage, FixedValue):
-                    newStorage = FixedValue(cidMap[storage.cid], storage.width)
-                else:
-                    # Shallow copy because storages are immutable.
-                    newStorage = storage
-                newSid = len(storages)
-                storages.append(newStorage)
-                # TODO: The type we pick here might not be the same type
-                #       that the original reference had. Once we have signed
-                #       types, I think that would lead to problems when
-                #       re-creating the Load nodes.
-                ref = BoundReference.single(IntType(newStorage.width, True), newSid)
-            refMap[sid] = ref
-
         # Copy constants.
         for cid, const in code.constants.items():
             assert cid == const.cid, const
@@ -425,18 +404,32 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             else:
                 assert False, const
 
-        # Substitute index constants.
-        # This cannot be done when originally copying the storages
-        # because at that time the constants haven't been added yet.
-        for boundReference in refMap.values():
-            for sid, index_, width_ in boundReference:
-                storage = storages[sid]
-                if isinstance(storage, IOStorage):
+        # For each old SID, create a corresponding storage in this block.
+        refMap = {}
+        for sid, storage in code.storages.items():
+            if isinstance(storage, UnknownStorage):
+                ref = context[storage.name]
+                assert storage.width == ref.width, (storage.width, ref.width)
+            else:
+                if isinstance(storage, FixedValue):
+                    newStorage = FixedValue(cidMap[storage.cid], storage.width)
+                elif isinstance(storage, IOStorage):
                     index = storage.index
-                    storages[sid] = IOStorage(
+                    newStorage = IOStorage(
                         storage.channel,
                         ConstantValue(cidMap[index.cid], index.mask)
                         )
+                else:
+                    # Shallow copy because storages are immutable.
+                    newStorage = storage
+                newSid = len(storages)
+                storages.append(newStorage)
+                # TODO: The type we pick here might not be the same type
+                #       that the original reference had. Once we have signed
+                #       types, I think that would lead to problems when
+                #       re-creating the Load nodes.
+                ref = BoundReference.single(IntType(newStorage.width, True), newSid)
+            refMap[sid] = ref
 
         # Copy nodes.
         for node in code.nodes:
