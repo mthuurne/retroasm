@@ -424,11 +424,12 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     newStorage = storage
                 newSid = len(storages)
                 storages.append(newStorage)
-                # TODO: The type we pick here might not be the same type
-                #       that the original reference had. Once we have signed
-                #       types, I think that would lead to problems when
-                #       re-creating the Load nodes.
-                ref = BoundReference.single(IntType(newStorage.width, True), newSid)
+                # Note: It doesn't matter if the original reference for this
+                #       storage was signed, since the sign extension will
+                #       have been copied as part of a ComputedConstant.
+                #       We are copying the _emitSingleLoad() output here,
+                #       not the emitLoad() output.
+                ref = BoundReference.single(IntType.u(newStorage.width), newSid)
             refMap[sid] = ref
 
         # Copy nodes.

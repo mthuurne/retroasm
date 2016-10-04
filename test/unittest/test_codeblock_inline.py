@@ -256,6 +256,94 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertEqual(len(code.nodes), 1)
         self.assertRetVal(code, 0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4))
 
+    def test_inline_unsigned_reg(self):
+        '''Test reading of an unsigned register.'''
+        inner = TestCodeBlockBuilder()
+        innerA = inner.addRegister('a')
+        innerLoad = inner.emitLoad(innerA)
+        innerRet = inner.addVariable('ret', IntType.u(16))
+        inner.emitStore(innerRet, innerLoad)
+        innerCode = inner.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerA = outer.addRegister('a')
+        initA = outer.emitCompute(IntLiteral(0xb2))
+        outer.emitStore(outerA, initA)
+        retRef = outer.inlineBlock(innerCode, {})
+        outerRet = outer.addVariable('ret', IntType.u(16))
+        retVal = outer.emitLoad(retRef)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 1)
+        self.assertRetVal(code, 0x00b2)
+
+    def test_inline_signed_reg(self):
+        '''Test reading of a signed register.'''
+        inner = TestCodeBlockBuilder()
+        innerA = inner.addRegister('a', IntType.s(8))
+        innerLoad = inner.emitLoad(innerA)
+        innerRet = inner.addVariable('ret', IntType.u(16))
+        inner.emitStore(innerRet, innerLoad)
+        innerCode = inner.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        outerA = outer.addRegister('a')
+        initA = outer.emitCompute(IntLiteral(0xb2))
+        outer.emitStore(outerA, initA)
+        retRef = outer.inlineBlock(innerCode, {})
+        outerRet = outer.addVariable('ret', IntType.u(16))
+        retVal = outer.emitLoad(retRef)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 1)
+        self.assertRetVal(code, 0xffb2)
+
+    def test_load_from_unsigned_reference_arg(self):
+        '''Test reading of a value passed via an unsigned reference.'''
+        inner = TestCodeBlockBuilder()
+        argRef = inner.addReferenceArgument('R')
+        argVal = inner.emitLoad(argRef)
+        innerRet = inner.addVariable('ret', IntType.u(16))
+        inner.emitStore(innerRet, argVal)
+        innerCode = inner.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        fixedVal = outer.emitFixedValue(IntLiteral(0xa4), IntType.u(8))
+        retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
+        outerRet = outer.addVariable('ret', IntType.u(16))
+        retVal = outer.emitLoad(retRef)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 0)
+        self.assertRetVal(code, 0x00a4)
+
+    def test_load_from_signed_reference_arg(self):
+        '''Test reading of a value passed via a signed reference.'''
+        inner = TestCodeBlockBuilder()
+        argRef = inner.addReferenceArgument('R', IntType.s(8))
+        argVal = inner.emitLoad(argRef)
+        innerRet = inner.addVariable('ret', IntType.u(16))
+        inner.emitStore(innerRet, argVal)
+        innerCode = inner.createCodeBlock()
+
+        outer = TestCodeBlockBuilder()
+        fixedVal = outer.emitFixedValue(IntLiteral(0xa4), IntType.u(8))
+        retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
+        outerRet = outer.addVariable('ret', IntType.u(16))
+        retVal = outer.emitLoad(retRef)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 0)
+        self.assertRetVal(code, 0xffa4)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()
