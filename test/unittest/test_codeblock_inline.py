@@ -24,14 +24,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_easy(self):
         '''Test whether inlining works when there are no complications.'''
         inner = TestCodeBlockBuilder()
-        innerA = inner.addRegister('a', 16)
+        innerA = inner.addRegister('a', IntType.u(16))
         const = inner.emitCompute(IntLiteral(12345))
         inner.emitStore(innerA, const)
 
         # Share the global context to make sure that the outer and inner block
         # are using the same registers.
         outer = TestCodeBlockBuilder(inner.globalBuilder)
-        outerA = outer.addRegister('a', 16)
+        outerA = outer.addRegister('a', IntType.u(16))
         zero = outer.emitCompute(IntLiteral(0))
         outer.emitStore(outerA, zero)
         outer.inlineBlock(inner.createCodeBlock(), {})
@@ -239,7 +239,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        outerR = outer.addRegister('r', 16)
+        outerR = outer.addRegister('r', IntType.u(16))
         regR = outer.context['r']
         initR = outer.emitCompute(IntLiteral(0xcdef))
         outer.emitStore(outerR, initR)

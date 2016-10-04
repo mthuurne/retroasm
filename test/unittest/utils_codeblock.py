@@ -72,12 +72,12 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
     def emitStore(self, boundRef, expr, location=None):
         return super().emitStore(boundRef, expr, location)
 
-    def addRegister(self, name, width=8):
+    def addRegister(self, name, typ=IntType.u(8)):
         try:
             ref = self.context[name]
         except KeyError:
             # Insert register into global context.
-            reg = Register(name, IntType.u(width))
+            reg = Register(name, typ)
             self.globalBuilder.emitRegister(reg, None)
             ref = self.context[name]
 
@@ -85,10 +85,10 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         assert isinstance(ref, BoundReference), ref
         (sid, index, cmpWidth), = ref
         assert index == 0, ref
-        assert width == cmpWidth, ref
+        assert typ.width == cmpWidth, ref
         reg = self.globalBuilder.storages[sid]
         assert reg.name == name, reg
-        assert reg.width == width
+        assert reg.width == typ.width
 
         return ref
 
