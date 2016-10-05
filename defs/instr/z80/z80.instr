@@ -71,8 +71,6 @@ func pop(u16& R)
 
 # 8-bit registers
 
-# TODO: IX and IY are missing.
-
 mode reg8
 %000        . b
 %001        . c
@@ -85,6 +83,8 @@ mode reg8
 %101        . ixl           .               . ?ix
 %101        . iyl           .               . ?iy
 %110        . (hl)          . mem[hl]
+%110, N     . (ix + N)      . mem[ix + N]   . ?ix, s8 N
+%110, N     . (iy + N)      . mem[iy + N]   . ?iy, s8 N
 %111        . a
 
 # 16-bit registers
