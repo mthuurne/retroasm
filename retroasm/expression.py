@@ -247,11 +247,17 @@ class AndOperator(SimplifiableComposedExpression):
                     first = exprs[0]
                     if isinstance(first, RShift):
                         offset = first.offset
-                        return '%s[%d:%d]' % (
-                            first.expr, offset, offset + width
-                            )
+                        if width == 1:
+                            return '%s[%d]' % (first.expr, offset)
+                        else:
+                            return '%s[%d:%d]' % (
+                                first.expr, offset, offset + width
+                                )
                     else:
-                        return '%s[:%d]' % (first, width)
+                        if width == 1:
+                            return '%s[0]' % first
+                        else:
+                            return '%s[:%d]' % (first, width)
                 else:
                     return '(%s)[:%d]' % (
                         ' & '.join(str(expr) for expr in exprs[:-1]), width
@@ -478,7 +484,10 @@ class RShift(Expression):
         return signature(self.__class__).bind(*exprs, **kwargs)
 
     def __str__(self):
-        return '%s[%d:]' % (self._expr, self._offset)
+        if self.mask == 1:
+            return '%s[%d]' % (self._expr, self._offset)
+        else:
+            return '%s[%d:]' % (self._expr, self._offset)
 
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr

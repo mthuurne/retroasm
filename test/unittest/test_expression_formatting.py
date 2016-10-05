@@ -26,5 +26,16 @@ class FormatTests(unittest.TestCase):
             str(simplifyExpression(truncate(RShift(addr, 8), 8))), 'A[8:]'
             )
 
+    def test_index(self):
+        '''Formats bit index expressions.'''
+        addr = TestValue('A', IntType.u(16))
+        self.assertEquals(str(simplifyExpression(truncate(addr, 1))), 'A[0]')
+        self.assertEquals(
+            str(simplifyExpression(truncate(RShift(addr, 11), 1))), 'A[11]'
+            )
+        self.assertEquals(
+            str(simplifyExpression(RShift(addr, 15))), 'A[15]'
+            )
+
 if __name__ == '__main__':
     unittest.main()
