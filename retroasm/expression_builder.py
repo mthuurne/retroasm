@@ -6,7 +6,7 @@ from .expression import (
     )
 from .expression_parser import (
     AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
-    IdentifierNode, NumberNode, Operator, OperatorNode
+    EmptyNode, IdentifierNode, NumberNode, Operator, OperatorNode
     )
 from .expression_simplifier import simplifyExpression
 from .function import Function
@@ -439,6 +439,10 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                 declareVariable(node, builder)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
+            continue
+
+        elif isinstance(node, EmptyNode):
+            # Empty statement (NOP).
             continue
 
         else:

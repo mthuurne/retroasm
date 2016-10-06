@@ -154,3 +154,9 @@ $ED, $47            . i,a               . i := a
 $ED, $4F            . r,a               . r := a
 $ED, $57            . a,i               . load_ir(i)
 $ED, $5F            . a,r               . load_ir(r)
+
+
+### General-Purpose Arithmetic and CPU Control (8.5)
+
+instr
+$00                 . nop

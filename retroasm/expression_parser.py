@@ -18,7 +18,7 @@ class ExpressionTokenizer:
     _pattern = re.compile('|'.join(
         '(?P<%s>%s)' % (token.name, regex) for token, regex in (
             # pylint: disable=bad-whitespace
-            (Token.keyword,     r'var|def'),
+            (Token.keyword,     r'var|def|nop'),
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
             (Token.operator,    r'[&|\^+\-~!;]|==|!='),
@@ -104,6 +104,9 @@ class ParseNode:
 
     def __iter__(self):
         yield self
+
+class EmptyNode(ParseNode):
+    __slots__ = ()
 
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
@@ -213,6 +216,13 @@ def _parse(exprStr, location, mode):
             where, expected, gotDesc
             )
         return ParseError(msg, token.location)
+
+    def parseNOP():
+        location = token.location
+        if token.eat(Token.keyword, 'nop'):
+            return EmptyNode(location)
+        else:
+            return parseAssign()
 
     def parseAssign():
         expr = parseTop()
@@ -325,7 +335,7 @@ def _parse(exprStr, location, mode):
                 raise badTokenKind('parenthesized', ')')
             expr.treeLocation = _mergeSpan(openLocation, closeLocation)
             return expr
-        elif token.kind is Token.keyword:
+        elif token.kind is Token.keyword and token.value in ('var', 'def'):
             return parseDefinition()
         elif token.kind is Token.identifier:
             ident = parseIdent()
@@ -471,7 +481,7 @@ def _parse(exprStr, location, mode):
     topForMode = {
         _ParseMode.single: parseTop,
         _ParseMode.multi: parseList,
-        _ParseMode.statement: parseAssign,
+        _ParseMode.statement: parseNOP,
         }
 
     expr = topForMode[mode]()

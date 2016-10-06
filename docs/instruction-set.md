@@ -240,6 +240,10 @@ Statements for flow control (branching) of the instruction set definition langua
 
 Flow control of the instruction set definition is unrelated to flow control of the processor being defined. The latter is modeled by assigning to the `pc` register.
 
+### No Operation (NOP)
+
+The `nop` statement does absolutely nothing. It can be used in situations where you have to provide a statement but there is nothing to be done.
+
 Functions
 ---------
 
