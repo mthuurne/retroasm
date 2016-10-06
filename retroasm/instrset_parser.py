@@ -2,7 +2,7 @@ from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
 from .expression_builder import buildStorage
 from .expression_parser import (
-    IdentifierNode, NumberNode, parseExpr, parseExprList
+    IdentifierNode, NumberNode, parseExpr, parseExprList, parseStatement
     )
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
@@ -221,25 +221,7 @@ _reModeHeader = re.compile(_nameTok + r'$')
 _reCommaSep = re.compile(r'\s*(?:\,\s*|$)')
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
-def _parseMode(reader, argStr, globalBuilder, modes):
-    # Parse header line.
-    match = _reModeHeader.match(argStr)
-    if not match:
-        reader.error('invalid mode header')
-        reader.skipBlock()
-        return
-    modeName, = match.groups()
-    mode = modes.get(modeName)
-    if mode is None:
-        try:
-            parseType(modeName)
-        except ValueError as ex:
-            pass
-        else:
-            reader.warning('mode name "%s" is also valid as a type' % modeName)
-        mode = []
-        modes[modeName] = mode
-
+def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
     def checkIdentifiers(exprTree, knownNames):
         for node in exprTree:
             if isinstance(node, IdentifierNode):
@@ -320,7 +302,7 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                                     name, typ, ctxElemLoc
                                     )
 
-                knownNames |= globalBuilder.context.keys()
+                knownNames |= globalIdentifiers
 
                 # Parse encoding.
                 if encStr:
@@ -345,7 +327,7 @@ def _parseMode(reader, argStr, globalBuilder, modes):
                     semStr = mnemStr
                     semLoc = mnemLoc
                 try:
-                    semantics = parseExpr(semStr, semLoc)
+                    semantics = parseSem(semStr, semLoc)
                     checkIdentifiers(semantics, knownNames)
                 except BadInput as ex:
                     reader.error(
@@ -354,10 +336,40 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         except DelayedError:
             pass
         else:
-            mode.append((
+            yield (
                 encoding, mnemonic, semantics,
                 immediates, includedModes, flagsRequired
-                ))
+                )
+
+def _parseMode(reader, argStr, globalBuilder, modes):
+    # Parse header line.
+    match = _reModeHeader.match(argStr)
+    if not match:
+        reader.error('invalid mode header')
+        reader.skipBlock()
+        return
+    modeName, = match.groups()
+    mode = modes.get(modeName)
+    if mode is None:
+        try:
+            parseType(modeName)
+        except ValueError:
+            pass
+        else:
+            reader.warning('mode name "%s" is also valid as a type' % modeName)
+        mode = []
+        modes[modeName] = mode
+
+    mode.extend(_parseModeEntries(
+        reader, globalBuilder.context.keys(), modes, parseExpr
+        ))
+
+def _parseInstr(reader, argStr, globalBuilder, modes):
+    mnemBase = argStr
+
+    mode = list(_parseModeEntries(
+        reader, globalBuilder.context.keys(), modes, parseStatement
+        ))
 
 def parseInstrSet(pathname):
     with DefLineReader.open(pathname, logger) as reader:
@@ -377,6 +389,8 @@ def parseInstrSet(pathname):
                 _parseFunc(reader, argStr, builder)
             elif defType == 'mode':
                 _parseMode(reader, argStr, builder, modes)
+            elif defType == 'instr':
+                _parseInstr(reader, argStr, builder, modes)
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()

@@ -72,53 +72,85 @@ func pop(u16& R)
 # 8-bit registers
 
 mode reg8
-%000        . b
-%001        . c
-%010        . d
-%011        . e
-%100        . h
-%100        . ixh           .               . ?ix
-%100        . iyh           .               . ?iy
-%101        . l
-%101        . ixl           .               . ?ix
-%101        . iyl           .               . ?iy
-%110        . (hl)          . mem[hl]
-%110, N     . (ix + N)      . mem[ix + N]   . ?ix, s8 N
-%110, N     . (iy + N)      . mem[iy + N]   . ?iy, s8 N
-%111        . a
+%000                . b
+%001                . c
+%010                . d
+%011                . e
+%100                . h
+%100                . ixh               .                   . ?ix
+%100                . iyh               .                   . ?iy
+%101                . l
+%101                . ixl               .                   . ?ix
+%101                . iyl               .                   . ?iy
+%110                . (hl)              . mem[hl]
+%110, N             . (ix + N)          . mem[ix + N]       . ?ix, s8 N
+%110, N             . (iy + N)          . mem[iy + N]       . ?iy, s8 N
+%111                . a
 
 # 16-bit registers
 
 mode reg16
-%00         . bc
-%01         . de
-%10         . hl
-%11         . sp
+%00                 . bc
+%01                 . de
+%10                 . hl
+%11                 . sp
 
 mode hlx
-            . hl
-            . ix            .               . ?ix
-            . iy            .               . ?iy
+                    . hl
+                    . ix                .                   . ?ix
+                    . iy                .                   . ?iy
 
 mode reg16x
-R           . R             . R             . reg16 R
-%10         . R             . R             . hlx R
+R                   . R                 . R                 . reg16 R
+%10                 . R                 . R                 . hlx R
 
 mode reg16af
-R           . R             . R             . reg16x R
-%11         . af
+R                   . R                 . R                 . reg16x R
+%11                 . af
+
+# 16-bit immediate
+
+mode imm16
+N[:8], N[8:]        . N                 . N                 . u16 N
 
 # Condition codes
 
 mode cond2
-%00         . nz            . !zf
-%01         . z             .  zf
-%10         . nc            . !cf
-%11         . c             .  cf
+%00                 . nz                . !zf
+%01                 . z                 .  zf
+%10                 . nc                . !cf
+%11                 . c                 .  cf
 
 mode cond3
-%0;C        . C             .               . cond2 C
-%100        . po            . !pf
-%101        . pe            .  pf
-%110        . p             . !sf
-%111        . m             .  sf
+%0;C                . C                 .                   . cond2 C
+%100                . po                . !pf
+%101                . pe                .  pf
+%110                . p                 . !sf
+%111                . m                 .  sf
+
+
+### 8-Bit Load (8.1)
+
+func load_ir(u8 S)
+    a  := S
+    sf := S[7]
+    zf := !S
+    yf := S[5]
+    xf := S[3]
+    hf := 0
+    nf := 0
+    pf := iff2
+
+instr ld
+%01;D;S             . D,S               . D := S            . reg8 D, reg8 S
+%00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
+$02                 . (bc),a            . mem[bc] := a
+$12                 . (de),a            . mem[de] := a
+$32, NN             . (NN),a            . mem[NN] := a      . imm16 NN
+$0A                 . a,(bc)            . a := mem[bc]
+$1A                 . a,(de)            . a := mem[de]
+$3A, NN             . a,(NN)            . a := mem[NN]      . imm16 NN
+$ED, $47            . i,a               . i := a
+$ED, $4F            . r,a               . r := a
+$ED, $57            . a,i               . load_ir(i)
+$ED, $5F            . a,r               . load_ir(r)

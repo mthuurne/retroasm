@@ -349,3 +349,34 @@ The context field can also be used to filter on instruction decoding flags, usin
     %101    . iyl       .          . ?iy
 
 A mode entry will only be considered a match if all flags listed in the context are set.
+
+Instructions
+------------
+
+An instruction definition uses the syntax below:
+
+    instr <mnemonic base>
+    <opcode> . <mnemonic> . <semantics> . <context>
+
+There can be as many dot-separated lines as necessary, creating a 4-column table, just like mode definitions. Also like mode definitions, different forms of an instruction can be defined in separate `instr` blocks.
+
+Unlike mode definitions, where the semantics field contains an expression, the semantics field for an instruction contains a statement, such as an assignment or a call to a function that changes a register or performs I/O.
+
+The mnemonic base is prepended to the mnemonic field of every entry. For example, the definition below defines `ld D,S` and `ld D,N` -- two forms of `ld`, the Z80 load instruction:
+
+    instr ld
+    %01;D;S             . D,S               . D := S            . reg8 D, reg8 S
+    %00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
+
+The mnemonic `ld b,h` is matched by the first entry (`D` matching `b` and `S` matching `h`), while `ld b,12` is matched by the second entry (`D` matching `b` and `N` matching `12`).
+
+The mnemonic base can be empty if you want to define separate instructions in a single instruciton block. For example, these are definitions for the 6502 instructions that set and clear flags:
+
+    instr
+    %000;%110;%00       . clc       . c := 0
+    %001;%110;%00       . sec       . c := 1
+    %010;%110;%00       . cli       . i := 0
+    %011;%110;%00       . sei       . i := 1
+    %101;%110;%00       . clv       . v := 0
+    %110;%110;%00       . cld       . d := 0
+    %111;%110;%00       . sed       . d := 1
