@@ -223,6 +223,13 @@ class XorTests(TestExprMixin, unittest.TestCase):
         self.assertIs(simplifyExpression(XorOperator(b, a, b)), a)
         self.assertEqual(simplifyExpression(XorOperator(a, b, b, a)), zero)
 
+    def test_bitwise_complement(self):
+        '''Simplifies XOR expressions used for bitwise complement.'''
+        a = TestValue('A', IntType.u(8))
+        compl1 = XorOperator(IntLiteral(-1), a)
+        compl2 = XorOperator(IntLiteral(-1), compl1)
+        self.assertIs(simplifyExpression(compl2), a)
+
 class AddTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):

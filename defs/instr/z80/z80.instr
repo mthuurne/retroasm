@@ -158,5 +158,13 @@ $ED, $5F            . a,r               . load_ir(r)
 
 ### General-Purpose Arithmetic and CPU Control (8.5)
 
+func cpl()
+    a := ~a
+    hf := 1
+    yf := a[5]
+    xf := a[3]
+    nf := 1
+
 instr
 $00                 . nop
+$2F                 . cpl               . cpl()

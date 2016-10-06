@@ -124,7 +124,7 @@ class AssignmentNode(ParseNode):
 
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
-    'concatenation', 'lookup', 'negation', 'slice', 'call'
+    'bitwise_complement', 'concatenation', 'lookup', 'negation', 'slice', 'call'
     ))
 
 class OperatorNode(ParseNode):
@@ -300,6 +300,10 @@ def _parse(exprStr, location, mode):
             return OperatorNode(Operator.complement, (parseUnary(),), location)
         elif token.eat(Token.operator, '!'):
             return OperatorNode(Operator.negation, (parseUnary(),), location)
+        elif token.eat(Token.operator, '~'):
+            return OperatorNode(
+                Operator.bitwise_complement, (parseUnary(),), location
+                )
         else:
             return parseIndexed()
 

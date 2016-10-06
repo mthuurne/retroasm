@@ -193,6 +193,8 @@ def _convertArithmetic(node, builder):
         return AddOperator(expr1, Complement(expr2))
     elif operator is Operator.complement:
         return Complement(*exprs)
+    elif operator is Operator.bitwise_complement:
+        return XorOperator(IntLiteral(-1), *exprs)
     elif operator is Operator.negation:
         return Negation(*exprs)
     else:
