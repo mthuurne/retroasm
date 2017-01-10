@@ -197,6 +197,10 @@ def _convertArithmetic(node, builder):
         return XorOperator(IntLiteral(-1), *exprs)
     elif operator is Operator.negation:
         return Negation(*exprs)
+    elif operator is Operator.equal:
+        return Negation(XorOperator(*exprs))
+    elif operator is Operator.unequal:
+        return Negation(Negation(XorOperator(*exprs)))
     else:
         assert False, operator
 

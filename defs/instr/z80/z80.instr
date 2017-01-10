@@ -134,7 +134,7 @@ mode cond3
 func load_ir(u8 S)
     a  := S
     sf := S[7]
-    zf := !S
+    zf := S == 0
     yf := S[5]
     xf := S[3]
     hf := 0
