@@ -47,6 +47,9 @@ A                       . A             . mem[A]            . u8 A
 mode zeropage_x
 A                       . A,x           . mem[(A+x)[:8]]    . u8 A
 
+mode zeropage_y
+A                       . A,y           . mem[(A+y)[:8]]    . u8 A
+
 mode absolute
 A[:8], A[8:]            . A             . mem[A]            . u16 A
 
@@ -73,6 +76,74 @@ mode indirect_indexed
 A                       . (A),y         . mem[indy(A)]      . u8 A
 
 
+### Operand encodings
+
+mode ldstx
+%001, A                 . A             .                   . zeropage A
+%011, A                 . A             .                   . absolute A
+%101, A                 . A             .                   . zeropage_y A
+
+mode ldsty
+A                       . A             .                   . ldstx A
+%101, A                 . A             .                   . zeropage_x A
+
+mode incdec
+A                       . A             .                   . ldsty A
+%111, A                 . A             .                   . absolute_x A
+
+mode acc_modes
+A                       . A             .                   . incdec A
+%000, A                 . A             .                   . indexed_indirect A
+%100, A                 . A             .                   . indirect_indexed A
+%110, A                 . A             .                   . absolute_y A
+
+
+### Store
+
+instr
+%100;D[0];%01, D[1:]    . sta D         . D := a            . acc_modes D
+%100;D[0];%10, D[1:]    . stx D         . D := x            . ldstx D
+%100;D[0];%00, D[1:]    . sty D         . D := y            . ldsty D
+
+
+### Load
+
+func load(u8& D, u8 S)
+    D := S
+    n := S[7]
+    z := S == 0
+
+mode lda
+A                       . A             .                   . acc_modes A
+%010, N                 . N             .                   . immediate N
+
+mode ldx
+A                       . A             .                   . ldstx A
+%000, N                 . N             .                   . immediate N
+%111, A                 . A             .                   . absolute_y A
+
+mode ldy
+A                       . A             .                   . ldsty A
+%000, N                 . N             .                   . immediate N
+%111, A                 . A             .                   . absolute_x A
+
+instr
+%101;S[0];%01, S[1:]    . lda S         . load(a, S)        . lda S
+%101;S[0];%10, S[1:]    . ldx S         . load(x, S)        . ldx S
+%101;S[0];%00, S[1:]    . ldy S         . load(y, S)        . ldy S
+
+
+### Transfer
+
+instr
+%101;%010;%00           . tay           . load(y, a)
+%100;%110;%00           . tya           . load(a, y)
+%101;%010;%10           . tax           . load(x, a)
+%100;%010;%10           . txa           . load(a, x)
+%101;%110;%10           . tsx           . load(x, s)
+%100;%110;%10           . txs           . load(s, x)
+
+
 ### Set and clear flags
 
 instr
@@ -83,6 +154,133 @@ instr
 %101;%110;%00           . clv           . v := 0
 %110;%110;%00           . cld           . d := 0
 %111;%110;%00           . sed           . d := 1
+
+
+### Arithmetic
+
+func add_carry(u8 V)
+    c ; var u8 T := a + V + c
+    v := !(V[7] ^ a[7]) & (V[7] ^ T[7])
+    load(a, T)
+
+instr
+%000;S[0];%01, S[1:]    . ora S         . load(a, a | S)    . acc_modes S
+%001;S[0];%01, S[1:]    . and S         . load(a, a & S)    . acc_modes S
+%010;S[0];%01, S[1:]    . eor S         . load(a, a ^ S)    . acc_modes S
+%011;S[0];%01, S[1:]    . adc S         . add_carry(S)      . acc_modes S
+%111;S[0];%01, S[1:]    . sbc S         . add_carry(~S)     . acc_modes S
+
+
+### Compare
+
+func compare(u8 A, u8 B)
+    c ; var u8 T := A + ~B + 1
+    n := T[7]
+    z := T == 0
+
+mode cpxy
+%000, N                 . N             .                   . immediate N
+%001, A                 . A             .                   . zeropage A
+%011, A                 . A             .                   . absolute A
+
+instr
+%110;V[0];%01, V[1:]    . cmp V         . compare(a, V)     . acc_modes V
+%111;V[0];%00, V[1:]    . cpx V         . compare(x, V)     . cpxy V
+%110;V[0];%00, V[1:]    . cpy V         . compare(y, V)     . cpxy V
+
+
+### Increment/decrement
+
+mode incdec
+%001, A                 . A             .                   . zeropage A
+%011, A                 . A             .                   . absolute A
+%101, A                 . A             .                   . zeropage_x A
+%111, A                 . A             .                   . absolute_x A
+
+instr
+%110;D[0];%10, D        . dec D         . load(D, D - 1)    . incdec D
+%111;D[0];%10, D        . inc D         . load(D, D + 1)    . incdec D
+%110;%010;%10           . dex           . load(x, x - 1)
+%100;%010;%00           . dey           . load(y, y - 1)
+%111;%010;%00           . inx           . load(x, x + 1)
+%110;%010;%00           . iny           . load(y, y + 1)
+
+
+### Rotate/shift
+
+func rotate_l(u8& D, u1 B)
+    c ; var u8 T := D ; B
+    load(D, T)
+
+func rotate_r(u8& D, u1 B)
+    var u8 T ; c := B ; D
+    load(D, T)
+
+mode rotate
+A                       . A             .                   . incdec A
+%010                    . a
+
+instr
+%000;D[0];%10, D[1:]    . asl D         . rotate_l(D, 0)    . rotate D
+%010;D[0];%10, D[1:]    . lsr D         . rotate_r(D, 0)    . rotate D
+%001;D[0];%10, D[1:]    . rol D         . rotate_l(D, c)    . rotate D
+%011;D[0];%10, D[1:]    . ror D         . rotate_r(D, c)    . rotate D
+
+
+### Bit mask test
+
+func bit(u8 V)
+    n := V[7]
+    v := V[6]
+    z := (V & a) == 0
+
+instr
+%001;%001;%00, V        . bit V         . bit(V)            . zeropage V
+%001;%011;%00, V        . bit V         . bit(V)            . absolute V
+
+
+### Branch
+
+func jmp_indirect(u16 A)
+    def u8 L = mem[A]
+    # There is no carry on the address increment.
+    # TODO: There is no carry on the NMOS version of the 6502, but there is
+    #       on the CMOS version; what is it for 2A03?
+    def u8 H = mem[A[8:] ; (A + 1)[:8]]
+    pc := H ; L
+
+instr
+%010;%011;%00, A[:8], A[8:] . jmp A     . pc := A           . u16 A
+%011;%011;%00, A[:8], A[8:] . jmp (A)   . jmp_indirect(A)   . u16 A
+
+func jmp_cond(u16 A, u1 F)
+    # TODO: Branching is not supported yet in RetroAsm core.
+    #branch !F @skip
+    pc := A
+    #@skip
+
+mode relative
+# TODO: We want to use the 16-bit address in mnemonics, not "pc + R".
+R                       . pc + R        . pc + R            . s8 R
+
+instr
+%000;%100;%00, A        . bpl A         . jmp_cond(A, !n)   . relative A
+%001;%100;%00, A        . bmi A         . jmp_cond(A,  n)   . relative A
+%010;%100;%00, A        . bvc A         . jmp_cond(A, !v)   . relative A
+%011;%100;%00, A        . bvs A         . jmp_cond(A,  v)   . relative A
+%100;%100;%00, A        . bcc A         . jmp_cond(A, !c)   . relative A
+%101;%100;%00, A        . bcs A         . jmp_cond(A,  c)   . relative A
+%110;%100;%00, A        . bne A         . jmp_cond(A, !z)   . relative A
+%111;%100;%00, A        . beq A         . jmp_cond(A,  z)   . relative A
+
+
+### Push and pull
+
+instr
+%000;%010;%00           . php           . push(p)
+%001;%010;%00           . plp           . pull(p)
+%010;%010;%00           . pha           . push(a)
+%011;%010;%00           . pla           . pull(a)
 
 
 ### NOP
