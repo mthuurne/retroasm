@@ -236,7 +236,16 @@ This will create a reference to the memory location at the address specified by 
 
 ### Flow Control
 
-Statements for flow control (branching) of the instruction set definition language are not implemented yet.
+Labels are names that identify locations within a function that can be jumped to. Labels are local to the function they are defined in. A label is defined by putting its name, prefixed with the `@` symbol, on a line by itself:
+
+    @skip
+
+It is possible to jump to a label using the `branch` statement. An unconditional branch uses the syntax `branch @<label>` and a conditional branch uses the syntax `branch <expr> @<label>`:
+
+    branch !cf @nocarry
+    branch @carry
+
+A conditional branch is taken only if the expression's value is not zero; if the value is zero execution continues at the next statement as usual.
 
 Flow control of the instruction set definition is unrelated to flow control of the processor being defined. The latter is modeled by assigning to the `pc` register.
 

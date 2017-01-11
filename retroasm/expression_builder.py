@@ -5,8 +5,9 @@ from .expression import (
     OrOperator, XorOperator, truncate
     )
 from .expression_parser import (
-    AssignmentNode, DeclarationKind, DeclarationNode, DefinitionNode,
-    EmptyNode, IdentifierNode, NumberNode, Operator, OperatorNode
+    AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
+    DefinitionNode, EmptyNode, IdentifierNode, LabelNode, NumberNode, Operator,
+    OperatorNode
     )
 from .expression_simplifier import simplifyExpression
 from .function import Function
@@ -251,6 +252,12 @@ def buildExpression(node, builder):
             'definition must be only statement on a line',
             node.treeLocation
             )
+    elif isinstance(node, LabelNode):
+        # TODO: Add support.
+        return IntLiteral(123)
+    elif isinstance(node, BranchNode):
+        # TODO: Add support.
+        return IntLiteral(456)
     else:
         assert False, node
 

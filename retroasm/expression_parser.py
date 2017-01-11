@@ -9,8 +9,8 @@ class ParseError(BadInput):
     '''
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
-    'keyword', 'identifier', 'number', 'operator', 'bracket', 'assignment',
-    'definition', 'separator', 'whitespace', 'other', 'end'
+    'keyword', 'identifier', 'label', 'number', 'operator', 'bracket',
+    'assignment', 'definition', 'separator', 'whitespace', 'other', 'end'
     ))
 
 class ExpressionTokenizer:
@@ -18,8 +18,9 @@ class ExpressionTokenizer:
     _pattern = re.compile('|'.join(
         '(?P<%s>%s)' % (token.name, regex) for token, regex in (
             # pylint: disable=bad-whitespace
-            (Token.keyword,     r'var|def|nop'),
+            (Token.keyword,     r'var|def|branch|nop'),
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
+            (Token.label,       r"@[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
             (Token.operator,    r'==|!=|[&|\^+\-~!;]'),
             (Token.bracket,     r'[\[\]()]'),
@@ -107,6 +108,22 @@ class ParseNode:
 
 class EmptyNode(ParseNode):
     __slots__ = ()
+
+class LabelNode(ParseNode):
+    __slots__ = ('name', )
+
+    def __init__(self, name, location):
+        ParseNode.__init__(self, location)
+        self.name = name
+
+class BranchNode(ParseNode):
+    __slots__ = ('cond', 'target')
+
+    def __init__(self, cond, target, location):
+        ParseNode.__init__(self, location)
+        self.cond = cond
+        self.target = target
+        self.treeLocation = _mergeSpan(location, target.treeLocation)
 
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
@@ -220,10 +237,27 @@ def _parse(exprStr, location, mode):
 
     def parseStatementTop():
         location = token.location
-        if token.eat(Token.keyword, 'nop'):
+        if token.peek(Token.label):
+            return parseLabel()
+        elif token.eat(Token.keyword, 'branch'):
+            if token.peek(Token.label):
+                cond = NumberNode(1, 1, location)
+            else:
+                cond = parseExprTop()
+            target = parseLabel()
+            return BranchNode(cond, target, location)
+        elif token.eat(Token.keyword, 'nop'):
             return EmptyNode(location)
         else:
             return parseAssign()
+
+    def parseLabel():
+        value = token.value
+        location = token.location
+        if token.eat(Token.label):
+            return LabelNode(value[1:], location)
+        else:
+            raise badTokenKind('label', '"@<name>"')
 
     def parseAssign():
         expr = parseExprTop()

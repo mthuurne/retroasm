@@ -254,10 +254,9 @@ instr
 %011;%011;%00, A[:8], A[8:] . jmp (A)   . jmp_indirect(A)   . u16 A
 
 func jmp_cond(u16 A, u1 F)
-    # TODO: Branching is not supported yet in RetroAsm core.
-    #branch !F @skip
+    branch !F @skip
     pc := A
-    #@skip
+    @skip
 
 mode relative
 # TODO: We want to use the 16-bit address in mnemonics, not "pc + R".
