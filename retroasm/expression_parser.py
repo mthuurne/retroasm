@@ -218,7 +218,7 @@ def _parse(exprStr, location, mode):
             )
         return ParseError(msg, token.location)
 
-    def parseNOP():
+    def parseStatementTop():
         location = token.location
         if token.eat(Token.keyword, 'nop'):
             return EmptyNode(location)
@@ -226,17 +226,17 @@ def _parse(exprStr, location, mode):
             return parseAssign()
 
     def parseAssign():
-        expr = parseTop()
+        expr = parseExprTop()
         location = token.location
         if token.eat(Token.assignment, ':='):
-            return AssignmentNode(expr, parseTop(), location)
+            return AssignmentNode(expr, parseExprTop(), location)
         else:
             return expr
 
     def parseList():
         exprs = []
         while True:
-            exprs.append(parseTop())
+            exprs.append(parseExprTop())
             if not token.eat(Token.separator, ','):
                 return exprs
 
@@ -328,9 +328,9 @@ def _parse(exprStr, location, mode):
         if not token.eat(Token.bracket, '['):
             return expr
 
-        start = None if token.peek(Token.separator, ':') else parseTop()
+        start = None if token.peek(Token.separator, ':') else parseExprTop()
         if token.eat(Token.separator, ':'):
-            end = None if token.peek(Token.bracket, ']') else parseTop()
+            end = None if token.peek(Token.bracket, ']') else parseExprTop()
             location = _mergeSpan(openLocation, token.location)
             if token.eat(Token.bracket, ']'):
                 return OperatorNode(
@@ -348,7 +348,7 @@ def _parse(exprStr, location, mode):
     def parseGroup():
         openLocation = token.location
         if token.eat(Token.bracket, '('):
-            expr = parseTop()
+            expr = parseExprTop()
             closeLocation = token.location
             if not token.eat(Token.bracket, ')'):
                 raise badTokenKind('parenthesized', ')')
@@ -364,7 +364,7 @@ def _parse(exprStr, location, mode):
                     )
                 defLocation = token.location
                 if token.eat(Token.definition):
-                    return DefinitionNode(declNode, parseTop(), defLocation)
+                    return DefinitionNode(declNode, parseExprTop(), defLocation)
             return ident
         elif token.kind is Token.number:
             return parseNumber()
@@ -432,7 +432,7 @@ def _parse(exprStr, location, mode):
             defLocation = token.location
             if not token.eat(Token.definition):
                 raise badTokenKind('%s value' % kind.name, '"="')
-            return DefinitionNode(declNode, parseTop(), defLocation)
+            return DefinitionNode(declNode, parseExprTop(), defLocation)
 
     def parseIdent():
         name = token.value
@@ -455,7 +455,7 @@ def _parse(exprStr, location, mode):
         closeLocation = token.location
         if not token.eat(Token.bracket, ')'):
             while True:
-                exprs.append(parseTop())
+                exprs.append(parseExprTop())
                 closeLocation = token.location
                 if token.eat(Token.bracket, ')'):
                     break
@@ -496,11 +496,11 @@ def _parse(exprStr, location, mode):
                 location
                 )
 
-    parseTop = parseOr
+    parseExprTop = parseOr
     topForMode = {
-        _ParseMode.single: parseTop,
+        _ParseMode.single: parseExprTop,
         _ParseMode.multi: parseList,
-        _ParseMode.statement: parseNOP,
+        _ParseMode.statement: parseStatementTop,
         }
 
     expr = topForMode[mode]()
