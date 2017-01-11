@@ -5,6 +5,8 @@
 # Young's "The Undocumented Z80 Documented" (maintained by Jan Wilmans).
 #   http://www.myquest.nl/z80undocumented/
 
+# TODO: Add undocumented alternative opcodes (3.4).
+
 
 ### Registers
 
@@ -77,15 +79,18 @@ mode reg8
 %010                . d
 %011                . e
 %100                . h
+%101                . l
+%111                . a
+
+mode reg8x
+R                   . R                 . R                 . reg8 R
 %100                . ixh               .                   . ?ix
 %100                . iyh               .                   . ?iy
-%101                . l
 %101                . ixl               .                   . ?ix
 %101                . iyl               .                   . ?iy
 %110                . (hl)              . mem[hl]
 %110, N             . (ix + N)          . mem[ix + N]       . ?ix, s8 N
 %110, N             . (iy + N)          . mem[iy + N]       . ?iy, s8 N
-%111                . a
 
 # 16-bit registers
 
@@ -142,8 +147,8 @@ func load_ir(u8 S)
     pf := iff2
 
 instr ld
-%01;D;S             . D,S               . D := S            . reg8 D, reg8 S
-%00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
+%01;D;S             . D,S               . D := S            . reg8x D, reg8x S
+%00;D;%110, N       . D,N               . D := N            . reg8x D, u8 N
 $02                 . (bc),a            . mem[bc] := a
 $12                 . (de),a            . mem[de] := a
 $32, NN             . (NN),a            . mem[NN] := a      . imm16 NN
@@ -156,7 +161,229 @@ $ED, $57            . a,i               . load_ir(i)
 $ED, $5F            . a,r               . load_ir(r)
 
 
+### 16-Bit Load (8.2)
+
+instr ld
+%00;D;%0001, N      . D,N               . D := N            . imm16 N, reg16 D
+$2A, A              . D,(A)             . D := read16(A)    . imm16 A, hlx D
+$ED, %01;D;%1011, A . D,(A)             . D := read16(A)    . imm16 A, reg16 D
+$22, A              . (A),S             . write16(A, S)     . imm16 A, hlx S
+$ED, %01;S;%0011, A . (A),S             . write16(A, S)     . imm16 A, reg16 S
+$F9                 . sp,R              . sp := R           . hlx R
+
+instr
+%11;R;%0101         . push R            . push(R)           . reg16af R
+%11;R;%0001         . pop R             . pop(R)            . reg16af R
+
+
+### Exchange, Block Transfer, Search (8.3)
+
+# Exchange
+
+func ex_sp(u16& R)
+    def u16 T = read16(sp)
+    write16(sp, R)
+    R := T
+
+func exx()
+    bc ; bc' := bc' ; bc
+    de ; de' := de' ; de
+    hl ; hl' := hl' ; hl
+
+instr
+$08                 . ex af,af'         . af ; af' := af' ; af
+$EB                 . ex de,hl          . de ; hl  := hl  ; de
+$E3                 . ex (sp),R         . ex_sp(R)          . hlx R
+$D9                 . exx               . exx()
+
+# Block Transfer
+
+func ld_step(int D)
+    def u8 V = mem[hl]
+    mem[de] := V
+    hl := hl + D
+    de := de + D
+    bc := bc - 1
+    def u8 N = V + a
+    yf := N[1]
+    hf := 0
+    xf := N[3]
+    pf := bc != 0
+    nf := 0
+
+func ld_block(int D)
+    ld_step(D)
+    branch bc == 0 @done
+    pc := pc - 2
+    @done
+
+instr
+$ED, $A0            . ldi               . ld_step(1)
+$ED, $A8            . ldd               . ld_step(-1)
+$ED, $B0            . ldir              . ld_block(1)
+$ED, $B8            . lddr              . ld_block(-1)
+
+# Search
+
+func cp_step(int D)
+    def u8 V = mem[hl]
+    def u8 comp = a - V
+    hl := hl + D
+    bc := bc - 1
+    hf := (a[:4] - V[:4])[4]
+    sf := comp[7]
+    zf := comp == 0
+    def u4 comphf = comp - hf
+    yf := comphf[1]
+    xf := comphf[3]
+    pf := bc != 0
+    nf := 1
+
+func cp_block(int D)
+    cp_step(D)
+    branch zf | bc == 0 @done
+    pc := pc - 2
+    @done
+
+instr
+$ED, $A1            . cpi               . cp_step(1)
+$ED, $A9            . cpd               . cp_step(-1)
+$ED, $B1            . cpir              . cp_block(1)
+$ED, $B9            . cpdr              . cp_block(-1)
+
+
+### 8-Bit Arithmetic and Logical (8.4)
+
+# TODO: Much more code re-use should be possible.
+
+# Arithmetic
+
+func add_ac(u8 V, u1 C)
+    hf := (a[0:4] + V[0:4] + C)[4]
+    pf := ((a ^ (a + V + C)) & (V ^ (a + V + C)))[7]
+    cf ; a := a + V + C
+    sf := a[7]
+    zf := a == 0
+    yf := a[5]
+    xf := a[3]
+    nf := 0
+
+instr
+%10000;R            . add a,R           . add_ac(R, 0)      . reg8x R
+%10001;R            . adc a,R           . add_ac(R, cf)     . reg8x R
+%11000;%110, N      . add a,N           . add_ac(N, 0)      . u8 N
+%11001;%110, N      . adc a,N           . add_ac(N, cf)     . u8 N
+
+func sub_ac(u8 V, u1 C)
+    hf := (a[0:4] - V[0:4] - C)[4]
+    pf := ((V ^ a) & (a ^ (a - V - C)))[7]
+    cf ; a := a - V - C
+    sf := a[7]
+    zf := a == 0
+    yf := a[5]
+    xf := a[3]
+    nf := 1
+
+instr
+%10010;R            . sub R             . sub_ac(R, 0)      . reg8x R
+%10011;R            . sbc a,R           . sub_ac(R, cf)     . reg8x R
+%11010;%110, N      . sub N             . sub_ac(N, 0)      . u8 N
+$11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
+
+# Logical
+
+func cp_a(u8 V)
+    hf := (a[0:4] - V[0:4])[4]
+    pf := ((V ^ a) & (a ^ (a - V)))[7]
+    cf ; var u8 comp := a - V
+    sf := comp[7]
+    zf := comp == 0
+    # Note: XF and YF are set based on the operand, not the result.
+    yf := V[5]
+    xf := V[3]
+    nf := 1
+
+func logic(u8 V, u1 H)
+    a := V
+    hf := H
+    pf := V[7] ^ V[6] ^ V[5] ^ V[4] ^ V[3] ^ V[2] ^ V[1] ^ V[0] ^ 1
+    cf := 0
+    sf := V[7]
+    zf := V == 0
+    yf := V[5]
+    xf := V[3]
+    nf := 0
+
+instr
+%10100;R            . and R             . logic(a & R, 1)   . reg8x R
+%10110;R            . or R              . logic(a | R, 0)   . reg8x R
+%10101;R            . xor R             . logic(a ^ R, 0)   . reg8x R
+%10111;R            . cp R              . cp_a(R)           . reg8x R
+%11100;%110, N      . and N             . logic(a & N, 1)   . u8 N
+%11110;%110, N      . or N              . logic(a | N, 0)   . u8 N
+%11101;%110, N      . xor N             . logic(a ^ N, 0)   . u8 N
+%11111;%110, N      . cp N              . cp_a(N)           . u8 N
+
+# Increment/decrement
+
+func inc(u8& R)
+    def u8 V = R + 1
+    R  := V
+    hf := V[0:4] == 0
+    pf := V == 128
+    sf := V[7]
+    zf := V == 0
+    yf := V[5]
+    xf := V[3]
+    nf := 0
+
+func dec(u8& R)
+    def u8 V = R - 1
+    R  := V
+    hf := V[0:4] == 15
+    pf := V == 127
+    sf := V[7]
+    zf := V == 0
+    yf := V[5]
+    xf := V[3]
+    nf := 1
+
+instr
+%00;R;%100          . inc R             . inc(R)            . reg8x R
+%00;R;%101          . dec R             . dec(R)            . reg8x R
+
+
 ### General-Purpose Arithmetic and CPU Control (8.5)
+
+func daa()
+    # Check high/low not decimal.
+    def u1 hnd = a[7] & (a[6] | a[5])
+    def u1 lnd = a[3] & (a[2] | a[1])
+    cf := cf | hnd | (a[4:8] == 9 & lnd)
+    # Determine adjustment low nibble.
+    var u8 adj := 0
+    branch !(hf | lnd) @skip_low_adjust
+    adj[0:4] := 6
+    @skip_low_adjust
+    # Determine adjustment high nibble.
+    branch !cf @skip_high_adjust
+    adj[4:8] := 6
+    @skip_high_adjust
+    # Add/subtract adjustment.
+    branch nf @adjust_sub
+    hf := (a[0:4] + adj[0:4])[4]
+    a := a + adj
+    branch @adjust_done
+    @adjust_sub
+    hf := (a[0:4] - adj[0:4])[4]
+    a := a - adj
+    @adjust_done
+    # Update other flags.
+    pf := a[7] ^ a[6] ^ a[5] ^ a[4] ^ a[3] ^ a[2] ^ a[1] ^ a[0] ^ 1
+    sf := a[7]
+    zf := a == 0
+    yf := a[5]
+    xf := a[3]
 
 func cpl()
     a := ~a
@@ -165,6 +392,254 @@ func cpl()
     xf := a[3]
     nf := 1
 
+func scf()
+    cf := 1
+    hf := 0
+    # Note: Different Z80 models have different behavior for XF and YF.
+    yf := yf | a[5]
+    xf := xf | a[3]
+    nf := 0
+
+func ccf()
+    hf := cf
+    cf := !cf
+    # Note: Different Z80 models have different behavior for XF and YF.
+    yf := yf | a[5]
+    xf := xf | a[3]
+    nf := 0
+
+func neg()
+    cf ; a := 0 - a
+    hf := a[0:4] != 0
+    pf := a == 128
+    sf := a[7]
+    zf := a == 0
+    yf := a[5]
+    xf := a[3]
+    nf := 1
+
+func halt()
+    # TODO: Re-activate once branch support is in.
+    #@hang
+    #branch !iff1 @hang
+
+func set_iff(u1 V)
+    iff1 := V
+    iff2 := V
+
 instr
 $00                 . nop
+$27                 . daa               . daa()
 $2F                 . cpl               . cpl()
+$37                 . scf               . scf()
+$3F                 . ccf               . ccf()
+$76                 . halt              . halt()
+$F3                 . di                . set_iff(0)
+$FB                 . ei                . set_iff(1)
+$ED, $44            . neg               . neg()
+$ED, $46            . im 0              . im := 0
+$ED, $56            . im 1              . im := 1
+$ED, $5E            . im 2              . im := 2
+
+
+### 16-Bit Arithmetic (8.6)
+
+func add16(u16& D, u16 V)
+    def int R = D + V
+    hf := (R ^ D ^ V)[12]
+    cf ; D := R
+    yf := R[13]
+    xf := R[11]
+    nf := 0
+
+func adc16(u16& D, u16 V)
+    def int R = D + V + cf
+    hf := (R ^ D ^ V)[12]
+    pf := ((R ^ D) & (R ^ V))[15]
+    cf ; D := R
+    sf := R[15]
+    zf := R == 0
+    yf := R[13]
+    xf := R[11]
+    nf := 0
+
+func sbc16(u16& D, u16 V)
+    def int R = D - V - cf
+    hf := (R ^ D ^ V)[12]
+    pf := ((V ^ D) & (R ^ D))[15]
+    cf ; D := R
+    sf := R[15]
+    zf := R == 0
+    yf := R[13]
+    xf := R[11]
+    nf := 1
+
+instr
+%00;R;%0011         . inc reg16x R      . R := R + 1        . reg16x R
+%00;R;%1011         . dec reg16x R      . R := R - 1        . reg16x R
+%00;V;%1001         . add D,V           . add16(D, V)       . hlx D, reg16x V
+$ED, %01;V;%1010    . adc hl,V          . adc16(hl, V)      . reg16 V
+$ED, %01;V;%0010    . sbc hl,V          . sbc16(hl, V)      . reg16 V
+
+
+### Rotate and Shift (8.7)
+
+func postrot_a(u8 V)
+    hf := 0
+    yf := V[5]
+    xf := V[3]
+    nf := 0
+
+func rlca()
+    cf ; a := a ; a[7]
+    postrot_a(a)
+
+func rrca()
+    a ; cf := a[0] ; a
+    postrot_a(a)
+
+func rla()
+    cf ; a := a ; cf
+    postrot_a(a)
+
+func rra()
+    a ; cf := cf ; a
+    postrot_a(a)
+
+instr
+$07                 . rlca              . rlca()
+$0F                 . rrca              . rrca()
+$17                 . rla               . rla()
+$1F                 . rra               . rra()
+
+func postrot(u8 V)
+    postrot_a(V)
+    pf := V[7] ^ V[6] ^ V[5] ^ V[4] ^ V[3] ^ V[2] ^ V[1] ^ V[0] ^ 1
+    sf := V[7]
+    zf := V == 0
+
+func rlc(u8& R)
+    var u8 V := R
+    cf ; V := V ; V[7]
+    R := V
+    postrot(V)
+
+func rlcx(u8& R, u16 A)
+    var u8 V := mem[A]
+    cf ; V := V ; V[7]
+    mem[A] := V
+    R := V
+    postrot(V)
+
+func rrc(u8& R)
+    var u8 V := R
+    V ; cf := V[0] ; V
+    R := V
+    postrot(V)
+
+func rl(u8& R)
+    var u8 V := R
+    cf ; V := V ; cf
+    R := V
+    postrot(V)
+
+func rr(u8& R)
+    var u8 V := R
+    V ; cf := cf ; V
+    R := V
+    postrot(V)
+
+func sla(u8& R)
+    var u8 V := R
+    cf ; V := V ; %0
+    R := V
+    postrot(V)
+
+func sra(u8& R)
+    var u8 V := R
+    V ; cf := R[7] ; V
+    R := V
+    postrot(V)
+
+func sll(u8& R)
+    var u8 V := R
+    cf ; V := V ; %1
+    R := V
+    postrot(V)
+
+func srl(u8& R)
+    var u8 V := R
+    V ; cf := %0 ; V
+    R := V
+    postrot(V)
+
+instr
+$CB, %00000;R       . rlc R             . rlc(R)            . reg8x R
+$CB, %00001;R       . rrc R             . rrc(R)            . reg8x R
+$CB, %00010;R       . rl R              . rl(R)             . reg8x R
+$CB, %00011;R       . rr R              . rr(R)             . reg8x R
+$CB, %00100;R       . sla R             . sla(R)            . reg8x R
+$CB, %00101;R       . sra R             . sra(R)            . reg8x R
+$CB, %00110;R       . sll R             . sll(R)            . reg8x R
+$CB, %00111;R       . srl R             . srl(R)            . reg8x R
+$CB, N, %00000;R    . rlc (ix + N), R   . rlcx(R, ix + N)   . ?ix, reg8 R, s8 N
+$CB, N, %00000;R    . rlc (iy + N), R   . rlcx(R, iy + N)   . ?iy, reg8 R, s8 N
+
+func rld()
+    a[0:4] ; mem[hl] := mem[hl] ; a[0:4]
+    postrot(a)
+
+func rrd()
+    mem[hl] ; a[0:4] := a[0:4] ; mem[hl]
+    postrot(a)
+
+instr
+$ED, $6F            . rld               . rld()
+$ED, $67            . rrd               . rrd()
+
+
+### Bit Set, Reset and Test (8.8)
+
+func bit(u3 B, u8 V, u8 X)
+    hf := 1
+    zf := !V[B]
+    pf := zf
+    sf := V[B] & B == 7
+    yf := X[5]
+    xf := X[3]
+    nf := 0
+
+instr bit
+# Note: Sean's doc says that if a register is tested, XF and YF are copied
+#       from R & (1 << B) instead of just R, but that's not the behavior I see
+#       on NMS8250. Also, both openMSX and meisei copy the bits from just R.
+$CB, %01;B;R        . B,R           . bit(B, R, R)                      . u3 B, reg8 R
+# Note: For (HL), XF and YF are copied from an internal Z80 register, which
+#       we don't model, so we reset those bits instead.
+$CB, %01;B;%110     . B,(hl)        . bit(B, mem[hl], 0)                . u3 B
+# Undocumented variants do the same thing but with different encoding.
+$CB, N, %01;B;R     . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u3 B, s8 N, reg8 R
+$CB, N, %01;B;R     . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N, reg8 R
+# Put documented encoding last: we want to select this over the undocumented.
+$CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u3 B, s8 N
+$CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N
+
+func resx(u3 B, u8& R, u16 A)
+    R := mem[A]
+    R[B] := 0
+    mem[A] := R
+
+instr res
+$CB, %10;B;R        . B,R           . R[B] := 0             . u3 B, reg8x R
+$CB, N, %10;B;R     . B,(ix + N),R  . resx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
+$CB, N, %10;B;R     . B,(iy + N),R  . resx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
+
+func setx(u3 B, u8& R, u16 A)
+    R := mem[A]
+    R[B] := 1
+    mem[A] := R
+
+instr set
+$CB, %11;B;R        . B,R           . R[B] := 1             . u3 B, reg8x R
+$CB, N, %11;B;R     . B,(ix + N),R  . setx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
+$CB, N, %11;B;R     . B,(iy + N),R  . setx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
