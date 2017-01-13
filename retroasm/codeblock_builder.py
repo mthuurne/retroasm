@@ -13,7 +13,7 @@ from .storage import (
     FixedValue, IOChannel, IOStorage, Register, Storage, UnknownStorage,
     Variable
     )
-from .types import IntType, maskForWidth
+from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
 from itertools import chain
@@ -295,7 +295,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             terms.append(sliced if offset == 0 else LShift(sliced, offset))
             offset += width
         result = terms[0] if len(terms) == 1 else OrOperator(*terms)
-        if boundRef.type.signed:
+        if boundRef.type.signed and boundRef.type.width is not unlimited:
             result = SignExtension(result, boundRef.type.width)
         return result
 

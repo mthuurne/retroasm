@@ -419,6 +419,22 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test loading of an unsigned integer as signed.'''
         self.run_signed_load(135, 135 - 256)
 
+    def test_signed_load_unlimited(self):
+        '''Test loading of an unlimited width integer.'''
+
+        # No sign extension should be happening here, but the code once
+        # contained a bug where it would try to apply sign extension and
+        # triggered an internal consistency check.
+
+        signedVar = self.builder.addVariable('s', IntType.int)
+        self.builder.emitStore(signedVar, IntLiteral(987654321))
+        loaded = self.builder.emitLoad(signedVar)
+        ret = self.builder.addVariable('ret', IntType.int)
+        self.builder.emitStore(ret, loaded)
+
+        code = self.createSimplifiedCode()
+        self.assertRetVal(code, 987654321)
+
 if __name__ == '__main__':
     verbose = True
     unittest.main()
