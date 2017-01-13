@@ -135,7 +135,7 @@ class IntType(metaclass=Unique):
         self._signed = signed
 
     def __repr__(self):
-        return 'IntType(%d, %s)' % (self._width, self._signed)
+        return 'IntType(%s, %s)' % (self._width, self._signed)
 
     def __str__(self):
         return 'int' if self._width is unlimited else '%s%d' % (
