@@ -72,8 +72,8 @@ def _parseRegs(reader, argStr, builder):
                 continue
             if alias.width != aliasType.width:
                 reader.error(
-                    'alias is declared as %d bits wide but its definition is '
-                    '%d bits wide', aliasType.width, alias.width
+                    'alias is declared as %s bits wide but its definition is '
+                    '%s bits wide', aliasType.width, alias.width
                     )
                 continue
 
