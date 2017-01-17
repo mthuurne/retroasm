@@ -358,26 +358,29 @@ def _parse(exprStr, location, mode):
 
     def parseIndexed():
         expr = parseGroup()
-        openLocation = token.location
-        if not token.eat(Token.bracket, '['):
-            return expr
+        while True:
+            openLocation = token.location
+            if not token.eat(Token.bracket, '['):
+                return expr
 
-        start = None if token.peek(Token.separator, ':') else parseExprTop()
-        if token.eat(Token.separator, ':'):
-            end = None if token.peek(Token.bracket, ']') else parseExprTop()
-            location = _mergeSpan(openLocation, token.location)
-            if token.eat(Token.bracket, ']'):
-                return OperatorNode(
-                    Operator.slice, (expr, start, end), location
-                    )
+            start = None if token.peek(Token.separator, ':') else parseExprTop()
+            if token.eat(Token.separator, ':'):
+                end = None if token.peek(Token.bracket, ']') else parseExprTop()
+                location = _mergeSpan(openLocation, token.location)
+                if token.eat(Token.bracket, ']'):
+                    expr = OperatorNode(
+                        Operator.slice, (expr, start, end), location
+                        )
+                else:
+                    raise badTokenKind('slice', '"]"')
             else:
-                raise badTokenKind('slice', '"]"')
-        else:
-            location = _mergeSpan(openLocation, token.location)
-            if token.eat(Token.bracket, ']'):
-                return OperatorNode(Operator.lookup, (expr, start), location)
-            else:
-                raise badTokenKind('slice/lookup', '":" or "]"')
+                location = _mergeSpan(openLocation, token.location)
+                if token.eat(Token.bracket, ']'):
+                    expr = OperatorNode(
+                        Operator.lookup, (expr, start), location
+                        )
+                else:
+                    raise badTokenKind('slice/lookup', '":" or "]"')
 
     def parseGroup():
         openLocation = token.location
