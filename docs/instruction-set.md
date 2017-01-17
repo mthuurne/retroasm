@@ -110,6 +110,10 @@ bitwise complement  | ~*A*              | int &rarr; int
 logical negation    | !*A*              | int &rarr; u1
 equality            | *A* == *B*        | int &times; int &rarr; u1
 inequality          | *A* != *B*        | int &times; int &rarr; u1
+lesser than         | *A* < *B*         | int &times; int &rarr; u1
+lesser or equal     | *A* <= *B*        | int &times; int &rarr; u1
+greater than        | *A* > *B*         | int &times; int &rarr; u1
+greater or equal    | *A* >= *B*        | int &times; int &rarr; u1
 concatenation       | *A* ; *B*         | int &times; (u&#124;s)*N* &rarr; int
                     |                   | u*M* &times; (u&#124;s)*N* &rarr; u(*M*+*N*)
                     |                   | s*M* &times; (u&#124;s)*N* &rarr; s(*M*+*N*)

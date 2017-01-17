@@ -411,6 +411,29 @@ class Negation(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
+class SignTest(Expression):
+    '''Tests the sign of the given expression.
+    '''
+    __slots__ = ('_expr')
+
+    expr = property(lambda self: self._expr)
+    mask = 1
+
+    def __init__(self, expr):
+        Expression.__init__(self)
+        self._expr = Expression.checkScalar(expr)
+
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
+    def __str__(self):
+        return 'sign(%s)' % self._expr
+
+    def _equals(self, other):
+        return self._expr == other._expr
+
 class SignExtension(Expression):
     '''Extends the sign bit at the front of a given expression.
     '''

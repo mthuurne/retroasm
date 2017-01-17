@@ -22,7 +22,7 @@ class ExpressionTokenizer:
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.label,       r"@[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
-            (Token.operator,    r'==|!=|[&|\^+\-~!;]'),
+            (Token.operator,    r'==|!=|<=|>=|[<>&|\^+\-~!;]'),
             (Token.bracket,     r'[\[\]()]'),
             (Token.assignment,  r':='),
             (Token.definition,  r'='),
@@ -142,7 +142,8 @@ class AssignmentNode(ParseNode):
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
     'bitwise_complement', 'concatenation', 'lookup', 'negation', 'slice',
-    'call', 'equal', 'unequal'
+    'equal', 'unequal', 'lesser', 'lesser_equal', 'greater', 'greater_equal',
+    'call'
     ))
 
 class OperatorNode(ParseNode):
@@ -305,7 +306,7 @@ def _parse(exprStr, location, mode):
             return expr
 
     def parseEqual():
-        expr = parseAddSub()
+        expr = parseCompare()
         location = token.location
         if token.eat(Token.operator, '=='):
             return OperatorNode(
@@ -314,6 +315,28 @@ def _parse(exprStr, location, mode):
         elif token.eat(Token.operator, '!='):
             return OperatorNode(
                 Operator.unequal, (expr, parseEqual()), location
+                )
+        else:
+            return expr
+
+    def parseCompare():
+        expr = parseAddSub()
+        location = token.location
+        if token.eat(Token.operator, '<'):
+            return OperatorNode(
+                Operator.lesser, (expr, parseCompare()), location
+                )
+        elif token.eat(Token.operator, '<='):
+            return OperatorNode(
+                Operator.lesser_equal, (expr, parseCompare()), location
+                )
+        elif token.eat(Token.operator, '>='):
+            return OperatorNode(
+                Operator.greater_equal, (expr, parseCompare()), location
+                )
+        elif token.eat(Token.operator, '>'):
+            return OperatorNode(
+                Operator.greater, (expr, parseCompare()), location
                 )
         else:
             return expr

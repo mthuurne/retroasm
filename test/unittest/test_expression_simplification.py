@@ -2,7 +2,7 @@ from utils_expression import TestExprMixin, TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
-    OrOperator, RShift, SignExtension, XorOperator, truncate
+    OrOperator, RShift, SignExtension, SignTest, XorOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -382,6 +382,28 @@ class NegationTests(TestExprMixin, unittest.TestCase):
         self.assertIntLiteral(simplifyExpression(
             Negation(RShift(OrOperator(addr, IntLiteral(0x345)), 8))
             ), 0)
+
+class SignTestTests(TestExprMixin, unittest.TestCase):
+
+    def test_int(self):
+        '''Tests sign of several integer literals.'''
+        def check(value, result):
+            self.assertIntLiteral(
+                simplifyExpression(SignTest(IntLiteral(value))),
+                result
+                )
+        check(0, 0)
+        check(1, 0)
+        check(-1, 1)
+        check(123, 0)
+        check(-123, 1)
+
+    def test_sign_types(self):
+        '''Test sign of values of signed and unsigned types.'''
+        u = SignTest(TestValue('U', IntType.u(8)))
+        self.assertIntLiteral(simplifyExpression(u), 0)
+        s = SignTest(TestValue('S', IntType.s(8)))
+        self.assertIs(simplifyExpression(s), s)
 
 class SignExtensionTests(TestExprMixin, unittest.TestCase):
 

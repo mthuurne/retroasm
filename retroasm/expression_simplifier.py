@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
     OrOperator, RShift, SimplifiableComposedExpression, SignExtension,
-    XorOperator
+    SignTest, XorOperator
     )
 from .types import maskForWidth, widthForMask
 
@@ -358,6 +358,18 @@ def _simplifyNegation(negation):
     else:
         return negation
 
+def _simplifySignTest(signTest):
+    expr = simplifyExpression(signTest.expr)
+    if expr.mask >= 0:
+        # Negative values must have a negative mask.
+        return IntLiteral(0)
+    elif isinstance(expr, IntLiteral):
+        return IntLiteral(1 if expr.value < 0 else 0)
+    elif expr is signTest.expr:
+        return signTest
+    else:
+        return SignTest(expr)
+
 def _simplifySignExtension(signExtend):
     width = signExtend.width
     mask = maskForWidth(width)
@@ -538,6 +550,7 @@ _simplifiers = {
     AddOperator: _simplifyComposed,
     Complement: _simplifyComplement,
     Negation: _simplifyNegation,
+    SignTest: _simplifySignTest,
     SignExtension: _simplifySignExtension,
     LShift: _simplifyLShift,
     RShift: _simplifyRShift,

@@ -2,7 +2,7 @@ from .codeblock import BoundReference, Load, Store
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
-    OrOperator, XorOperator, truncate
+    OrOperator, SignTest, XorOperator, truncate
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
@@ -202,6 +202,18 @@ def _convertArithmetic(node, builder):
         return Negation(XorOperator(*exprs))
     elif operator is Operator.unequal:
         return Negation(Negation(XorOperator(*exprs)))
+    elif operator is Operator.lesser:
+        expr1, expr2 = exprs
+        return SignTest(AddOperator(expr1, Complement(expr2)))
+    elif operator is Operator.greater:
+        expr1, expr2 = exprs
+        return SignTest(AddOperator(expr2, Complement(expr1)))
+    elif operator is Operator.lesser_equal:
+        expr1, expr2 = exprs
+        return Negation(SignTest(AddOperator(expr2, Complement(expr1))))
+    elif operator is Operator.greater_equal:
+        expr1, expr2 = exprs
+        return Negation(SignTest(AddOperator(expr1, Complement(expr2))))
     else:
         assert False, operator
 
