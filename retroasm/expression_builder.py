@@ -347,6 +347,12 @@ def _convertStorageConcat(node, builder):
             )
     return expr2.concat(expr1)
 
+comparisonOperators = (
+    Operator.negation, Operator.equal, Operator.unequal,
+    Operator.lesser, Operator.lesser_equal,
+    Operator.greater, Operator.greater_equal,
+    )
+
 def _convertStorageOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
@@ -366,7 +372,7 @@ def _convertStorageOperator(node, builder):
         return _convertStorageConcat(node, builder)
     else:
         expr = _convertArithmetic(node, builder)
-        typ = IntType.u(1) if operator is Operator.negation else IntType.int
+        typ = IntType.u(1) if operator in comparisonOperators else IntType.int
         return builder.emitFixedValue(expr, typ)
 
 def buildStorage(node, builder):
