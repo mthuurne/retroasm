@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
     OrOperator, RShift, SimplifiableComposedExpression, SignExtension,
-    SignTest, XorOperator
+    SignTest, XorOperator, optSlice
     )
 from .types import maskForWidth, widthForMask
 
@@ -365,6 +365,8 @@ def _simplifySignTest(signTest):
         return IntLiteral(0)
     elif isinstance(expr, IntLiteral):
         return IntLiteral(1 if expr.value < 0 else 0)
+    elif isinstance(expr, SignExtension):
+        return simplifyExpression(optSlice(expr.expr, expr.width - 1, 1))
     elif expr is signTest.expr:
         return signTest
     else:

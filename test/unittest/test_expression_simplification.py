@@ -405,6 +405,20 @@ class SignTestTests(TestExprMixin, unittest.TestCase):
         s = SignTest(TestValue('S', IntType.s(8)))
         self.assertIs(simplifyExpression(s), s)
 
+    def test_sign_extended(self):
+        '''Test sign of sign extended values.'''
+        v = TestValue('V', IntType.int)
+        self.assertSlice(
+            simplifyExpression(SignTest(SignExtension(v, 8))),
+            v, unlimited, 7, 1
+            )
+        # A zero-width value has no sign bit; sign test should return 0.
+        z = TestValue('Z', IntType.u(0))
+        self.assertIntLiteral(
+            simplifyExpression(SignTest(SignExtension(z, 0))),
+            0
+            )
+
 class SignExtensionTests(TestExprMixin, unittest.TestCase):
 
     def test_int(self):
