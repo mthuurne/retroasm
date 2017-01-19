@@ -9,8 +9,9 @@ class ParseError(BadInput):
     '''
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
-    'keyword', 'identifier', 'label', 'number', 'operator', 'bracket',
-    'assignment', 'definition', 'separator', 'whitespace', 'other', 'end'
+    'keyword', 'identifier', 'label', 'flagtest', 'number', 'operator',
+    'bracket', 'assignment', 'definition', 'separator', 'whitespace', 'other',
+    'end'
     ))
 
 class ExpressionTokenizer:
@@ -21,6 +22,7 @@ class ExpressionTokenizer:
             (Token.keyword,     r'var|def|branch|nop'),
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.label,       r"@[A-Za-z_][A-Za-z0-9_]*'?"),
+            (Token.flagtest,    r"\?[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
             (Token.operator,    r'==|!=|<=|>=|[<>&|\^+\-~!;]'),
             (Token.bracket,     r'[\[\]()]'),
@@ -110,6 +112,13 @@ class EmptyNode(ParseNode):
     __slots__ = ()
 
 class LabelNode(ParseNode):
+    __slots__ = ('name', )
+
+    def __init__(self, name, location):
+        ParseNode.__init__(self, location)
+        self.name = name
+
+class FlagTestNode(ParseNode):
     __slots__ = ('name', )
 
     def __init__(self, name, location):
@@ -220,7 +229,7 @@ class NumberNode(ParseNode):
         self.width = width
 
 _ParseMode = Enum('_ParseMode', ( # pylint: disable=invalid-name
-    'single', 'multi', 'statement'
+    'single', 'multi', 'statement', 'context'
     ))
 
 def _parse(exprStr, location, mode):
@@ -274,6 +283,25 @@ def _parse(exprStr, location, mode):
             exprs.append(parseExprTop())
             if not token.eat(Token.separator, ','):
                 return exprs
+
+    def parseContext():
+        elems = []
+        while True:
+            if token.peek(Token.identifier):
+                node = parseDecl('ctx', token.location)
+                defLocation = token.location
+                if token.eat(Token.definition):
+                    node = DefinitionNode(node, parseExprTop(), defLocation)
+            elif token.peek(Token.flagtest):
+                node = FlagTestNode(token.value[1:], token.location)
+                token.eat(Token.flagtest)
+            else:
+                raise badTokenKind(
+                    'context element', 'placeholder declaration or flag test'
+                    )
+            elems.append(node)
+            if not token.eat(Token.separator, ','):
+                return elems
 
     def parseOr():
         expr = parseXor()
@@ -440,12 +468,32 @@ def _parse(exprStr, location, mode):
         if not token.eat(Token.keyword):
             assert False, token
 
+        # Declaration.
+        declNode = parseDecl(keyword, keywordLocation)
+
+        # Value.
+        if declNode.kind is DeclarationKind.variable:
+            if token.peek(Token.definition):
+                raise ParseError(
+                    'variables can only get values through assignment '
+                    '(use ":=" instead of "=")',
+                    token.location
+                    )
+            return declNode
+        else:
+            defLocation = token.location
+            if not token.eat(Token.definition):
+                raise badTokenKind('%s value' % declNode.kind.name, '"="')
+            return DefinitionNode(declNode, parseExprTop(), defLocation)
+
+    def parseDecl(keyword, startLocation):
         # Type.
         typeName = token.value
         typeLocation = token.location
         if not token.eat(Token.identifier):
             raise badTokenKind(
                 '%s definition' % {
+                    'ctx': 'context',
                     'def': 'constant/reference',
                     'var': 'variable',
                     }[keyword],
@@ -453,16 +501,17 @@ def _parse(exprStr, location, mode):
                 )
         ampLocation = token.location
         if token.eat(Token.operator, '&'):
-            if keyword != 'def':
+            if keyword == 'var':
                 raise ParseError(
                     'references can only be defined using the "def" keyword',
-                    _mergeSpan(keywordLocation, ampLocation)
+                    _mergeSpan(startLocation, ampLocation)
                     )
             typeName += '&'
             typeLocation = _mergeSpan(typeLocation, ampLocation)
             kind = DeclarationKind.reference
         else:
             kind = {
+                'ctx': DeclarationKind.constant,
                 'def': DeclarationKind.constant,
                 'var': DeclarationKind.variable,
                 }[keyword]
@@ -477,22 +526,7 @@ def _parse(exprStr, location, mode):
                 )
         nameNode = IdentifierNode(name, nameLocation)
 
-        declNode = DeclarationNode(kind, typeNode, nameNode, keywordLocation)
-
-        # Value.
-        if kind is DeclarationKind.variable:
-            if token.peek(Token.definition):
-                raise ParseError(
-                    'variables can only get values through assignment '
-                    '(use ":=" instead of "=")',
-                    token.location
-                    )
-            return declNode
-        else:
-            defLocation = token.location
-            if not token.eat(Token.definition):
-                raise badTokenKind('%s value' % kind.name, '"="')
-            return DefinitionNode(declNode, parseExprTop(), defLocation)
+        return DeclarationNode(kind, typeNode, nameNode, startLocation)
 
     def parseIdent():
         name = token.value
@@ -560,6 +594,7 @@ def _parse(exprStr, location, mode):
     topForMode = {
         _ParseMode.single: parseExprTop,
         _ParseMode.multi: parseList,
+        _ParseMode.context: parseContext,
         _ParseMode.statement: parseStatementTop,
         }
 
@@ -583,6 +618,9 @@ def parseExpr(exprStr, location):
 
 def parseExprList(exprStr, location):
     return _parse(exprStr, location, _ParseMode.multi)
+
+def parseContext(exprStr, location):
+    return _parse(exprStr, location, _ParseMode.context)
 
 def parseStatement(exprStr, location):
     return _parse(exprStr, location, _ParseMode.statement)

@@ -2,7 +2,8 @@ from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
 from .expression_builder import buildStorage
 from .expression_parser import (
-    IdentifierNode, NumberNode, parseExpr, parseExprList, parseStatement
+    DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode, NumberNode,
+    parseContext, parseExpr, parseExprList, parseStatement
     )
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
@@ -218,7 +219,6 @@ def _parseFunc(reader, argStr, builder):
     print()
 
 _reModeHeader = re.compile(_nameTok + r'$')
-_reCommaSep = re.compile(r'\s*(?:\,\s*|$)')
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
@@ -253,54 +253,45 @@ def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
                 includedModes = {}
                 flagsRequired = set()
                 if ctxStr:
-                    for ctxElem, ctxElemLoc in reader.splitOn(
-                            _reCommaSep.finditer(line, *ctxLoc.span)):
-                        if ctxElem.startswith('?'):
-                            name = ctxElem[1:]
-                            if ' ' in name:
-                                reader.error(
-                                    'flag test not of the form "?<name>"',
-                                    location=ctxElemLoc
-                                    )
+                    for node in parseContext(ctxStr, ctxLoc):
+                        if isinstance(node, (DeclarationNode, DefinitionNode)):
+                            if isinstance(node, DeclarationNode):
+                                decl = node
                             else:
-                                flagsRequired.add(name)
-                            continue
-
-                        try:
-                            ctxType, name = ctxElem.split()
-                        except ValueError:
-                            reader.error(
-                                'context element not of the form '
-                                '"<mode> <name>"',
-                                location=ctxElemLoc
-                                )
-                            continue
-                        if name in knownNames:
-                            reader.error(
-                                'duplicate placeholder ("%s")' % name,
-                                location=ctxElemLoc
-                                )
-                            continue
-                        else:
-                            knownNames.add(name)
-
-                        includedMode = modes.get(ctxType)
-                        if includedMode is not None:
-                            includedModes[name] = includedMode
-                        else:
-                            try:
-                                typ = parseType(ctxType)
-                            except ValueError:
+                                decl = node.decl
+                            name = decl.name.name
+                            if name in knownNames:
                                 reader.error(
-                                    'there is no type or mode '
-                                    'named "%s"' % ctxType,
-                                    location=ctxElemLoc
+                                    'duplicate placeholder ("%s")' % name,
+                                    location=decl.name.location
                                     )
                                 continue
                             else:
-                                immediates[name] = Immediate(
-                                    name, typ, ctxElemLoc
-                                    )
+                                knownNames.add(name)
+
+                            # TODO: The value part of definitions is not used.
+                            typeName = decl.type.name
+                            includedMode = modes.get(typeName)
+                            if includedMode is not None:
+                                includedModes[name] = includedMode
+                            else:
+                                try:
+                                    typ = parseType(typeName)
+                                except ValueError:
+                                    reader.error(
+                                        'there is no type or mode '
+                                        'named "%s"' % typeName,
+                                        location=decl.type.location
+                                        )
+                                    continue
+                                else:
+                                    immediates[name] = Immediate(
+                                        name, typ, decl.treeLocation
+                                        )
+                        elif isinstance(node, FlagTestNode):
+                            flagsRequired.add(node.name)
+                        else:
+                            assert False, node
 
                 knownNames |= globalIdentifiers
 
