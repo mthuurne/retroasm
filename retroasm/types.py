@@ -76,6 +76,14 @@ def maskForWidth(width):
 def widthForMask(mask):
     return unlimited if mask < 0 else mask.bit_length()
 
+def trailingZeroes(n):
+    if n == 0:
+        return unlimited
+    count = 0
+    while (n >> count) & 1 == 0:
+        count += 1
+    return count
+
 def maskToSegments(mask):
     '''Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.

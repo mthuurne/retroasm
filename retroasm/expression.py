@@ -1,4 +1,6 @@
-from .types import maskForWidth, maskToSegments, unlimited, widthForMask
+from .types import (
+    maskForWidth, maskToSegments, trailingZeroes, unlimited, widthForMask
+    )
 from .utils import checkType
 
 from functools import reduce
@@ -368,16 +370,8 @@ class Complement(Expression):
     def __init__(self, expr):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
-
         exprMask = expr.mask
-        if exprMask == 0:
-            mask = 0
-        else:
-            trailingZeroes = 0
-            while (exprMask >> trailingZeroes) & 1 == 0:
-                trailingZeroes += 1
-            mask = -1 << trailingZeroes
-        self._mask = mask
+        self._mask = 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
