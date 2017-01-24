@@ -509,6 +509,46 @@ class RShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
+class LVShift(Expression):
+    '''Shifts a bit string to the left, appending zero bits at the end.
+    Unlike LShift, our offset is an expression.
+    '''
+    __slots__ = ('_expr', '_offset')
+
+    expr = property(lambda self: self._expr)
+    offset = property(lambda self: self._offset)
+
+    def __init__(self, expr, offset):
+        Expression.__init__(self)
+        self._expr = Expression.checkScalar(expr)
+        self._offset = Expression.checkScalar(offset)
+
+    @property
+    def mask(self):
+        exprMask = self._expr.mask
+        if exprMask == 0:
+            return 0
+        offsetMask = self._offset.mask
+        width = widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask)
+        mask = exprMask
+        for i in range(width):
+            if (offsetMask >> i) & 1:
+                mask |= mask << (1 << i)
+        return mask if offsetMask >= 0 else \
+                mask | (-1 << ((1 << width) + trailingZeroes(exprMask)))
+
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('offset', self._offset)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
+    def __str__(self):
+        return '(%s << %s)' % (self._expr, self._offset)
+
+    def _equals(self, other):
+        return self._offset == other._offset and self._expr == other._expr
+
 def truncate(expr, width):
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
 

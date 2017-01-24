@@ -1,8 +1,8 @@
 from utils_expression import TestValue
 
 from retroasm.expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, OrOperator,
-    RShift, XorOperator
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
+    OrOperator, RShift, XorOperator
     )
 from retroasm.types import IntType
 
@@ -113,6 +113,62 @@ class MaskTests(unittest.TestCase):
         self.assertEqual(RShift(v8, 3).mask, 0x1F)
         self.assertEqual(RShift(v8, 8).mask, 0)
         self.assertEqual(RShift(IntLiteral(0x12345678), 12).mask, 0x12345)
+
+    def test_lvshift(self):
+        '''Checks mask for left variable shift.'''
+        v8 = TestValue('A', IntType.u(8))
+        v1 = TestValue('B', IntType.u(1))
+        i = TestValue('I', IntType.int)
+        # Test expr or offset mask 0.
+        self.assertEqual(LVShift(v8, IntLiteral(0)).mask, 0xFF)
+        self.assertEqual(LVShift(IntLiteral(0), v8).mask, 0)
+        self.assertEqual(LVShift(IntLiteral(0), IntLiteral(0)).mask, 0)
+        # Test generic variable mask.
+        self.assertEqual(
+            LVShift(v8, TestValue('C', IntType.u(3))).mask,
+            0x7FFF
+            )
+        # Test expr masks with gaps.
+        self.assertEqual(
+            LVShift(OrOperator(v1, LShift(v1, 4)), v1).mask,
+            0x33
+            )
+        self.assertEqual(
+            LVShift(OrOperator(LShift(v1, 2), LShift(v1, 4)), v1).mask,
+            0x3C
+            )
+        # Test offset masks with gaps.
+        self.assertEqual(
+            LVShift(v8, OrOperator(v1, LShift(v1, 4))).mask,
+            0x1FF01FF
+            )
+        self.assertEqual(
+            LVShift(v8, OrOperator(LShift(v1, 2), LShift(v1, 4))).mask,
+            0xFFF0FFF
+            )
+        # Test gaps on both args.
+        self.assertEqual(
+            LVShift(
+                OrOperator(LShift(v1, 2), LShift(v1, 7)),
+                OrOperator(LShift(v1, 2), LShift(v1, 4))
+                ).mask,
+            0x8C408C4
+            )
+        # Test negative expression mask.
+        self.assertEqual(LVShift(i, v1).mask, -1)
+        self.assertEqual(LVShift(LShift(i, 4), v1).mask, -1 << 4)
+        self.assertEqual(
+            LVShift(OrOperator(LShift(i, 32), v8), LShift(v1, 4)).mask,
+            (-1 << 32) | 0xFF00FF
+            )
+        # Test negative offset mask.
+        self.assertEqual(LVShift(v8, i).mask, -1)
+        self.assertEqual(LVShift(v8, LShift(i, 4)).mask, (-1 << 16) | 0xFF)
+        self.assertEqual(
+            LVShift(LShift(v8, 16), LShift(i, 4)).mask,
+            (-1 << 32) | 0xFF0000
+            )
+        self.assertEqual(LVShift(IntLiteral(-160), i).mask, -1 << 5)
 
 if __name__ == '__main__':
     unittest.main()

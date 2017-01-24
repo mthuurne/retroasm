@@ -1,5 +1,5 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, Negation,
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift, Negation,
     OrOperator, RShift, SimplifiableComposedExpression, SignExtension,
     SignTest, XorOperator, optSlice
     )
@@ -479,6 +479,20 @@ def _simplifyRShift(rshift):
     else:
         return RShift(expr, offset)
 
+def _simplifyLVShift(lvshift):
+    offset = simplifyExpression(lvshift.offset)
+    if isinstance(offset, IntLiteral):
+        # The offset is constant; convert to LShift.
+        return _simplifyLShift(LShift(lvshift.expr, offset.value))
+
+    # Note: Various other simplifications are possible, but I don't know which
+    #       ones occur often enough in practice to be worth including.
+    expr = simplifyExpression(lvshift.expr)
+    if expr is lvshift.expr and offset is lvshift.offset:
+        return lvshift
+    else:
+        return LVShift(expr, offset)
+
 def _simplifyMasked(expr, mask):
     '''Returns a simplified version of the given expression, such that it
     has the same value when the given mask is applied to it. If no such
@@ -556,6 +570,7 @@ _simplifiers = {
     SignExtension: _simplifySignExtension,
     LShift: _simplifyLShift,
     RShift: _simplifyRShift,
+    LVShift: _simplifyLVShift,
     }
 
 def simplifyExpression(expr):
