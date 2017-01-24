@@ -15,6 +15,18 @@ def makeSlice(expr, index, width):
 def makeConcat(exprH, exprL, widthL):
     return OrOperator(exprL, LShift(exprH, widthL))
 
+class ZeroMaskTests(TestExprMixin, unittest.TestCase):
+
+    def test_literal(self):
+        '''Verify that the same object is returned.'''
+        zero = IntLiteral(0)
+        self.assertIs(simplifyExpression(zero), zero)
+
+    def test_variable(self):
+        '''Verify that a value with width 0 is simplified to the literal 0.'''
+        zvar = TestValue('Z', IntType.u(0))
+        self.assertIntLiteral(simplifyExpression(zvar), 0)
+
 class AndTests(TestExprMixin, unittest.TestCase):
 
     def test_literals(self):

@@ -563,6 +563,14 @@ def simplifyExpression(expr):
     given expression object itself if no simplification was found.
     Simplified expressions can have reduced width.
     '''
+    if expr.mask == 0:
+        # The only value that matches a 0 mask is 0.
+        if isinstance(expr, IntLiteral):
+            assert expr.value == 0, expr.value
+            return expr
+        else:
+            return IntLiteral(0)
+
     simplifier = _simplifiers.get(type(expr))
     if simplifier is None:
         return expr
