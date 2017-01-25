@@ -2,7 +2,7 @@ from utils_expression import TestExprMixin, TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift, Negation,
-    OrOperator, RShift, SignExtension, SignTest, XorOperator, truncate
+    OrOperator, RShift, RVShift, SignExtension, SignTest, XorOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -633,6 +633,24 @@ class LVShiftTests(TestExprMixin, unittest.TestCase):
             )
         self.assertEqual(
             simplifyExpression(LVShift(v8, TestValue('Z', IntType.u(0)))),
+            v8
+            )
+
+class RVShiftTests(TestExprMixin, unittest.TestCase):
+
+    def test_constant(self):
+        '''Shifts a constant number of positions to the left.'''
+        self.assertIntLiteral(
+            simplifyExpression(RVShift(IntLiteral(0x1234), IntLiteral(8))),
+            0x12
+            )
+        v8 = TestValue('A', IntType.u(8))
+        self.assertEqual(
+            simplifyExpression(RVShift(v8, IntLiteral(3))),
+            RShift(v8, 3),
+            )
+        self.assertEqual(
+            simplifyExpression(RVShift(v8, TestValue('Z', IntType.u(0)))),
             v8
             )
 

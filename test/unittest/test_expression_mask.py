@@ -2,7 +2,7 @@ from utils_expression import TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
-    OrOperator, RShift, XorOperator
+    OrOperator, RShift, RVShift, XorOperator
     )
 from retroasm.types import IntType
 
@@ -169,6 +169,52 @@ class MaskTests(unittest.TestCase):
             (-1 << 32) | 0xFF0000
             )
         self.assertEqual(LVShift(IntLiteral(-160), i).mask, -1 << 5)
+
+    def test_rvshift(self):
+        '''Checks mask for right variable shift.'''
+        v8 = TestValue('A', IntType.u(8))
+        v1 = TestValue('B', IntType.u(1))
+        i = TestValue('I', IntType.int)
+        # Test expr or offset mask 0.
+        self.assertEqual(RVShift(v8, IntLiteral(0)).mask, 0xFF)
+        self.assertEqual(RVShift(IntLiteral(0), v8).mask, 0)
+        self.assertEqual(RVShift(IntLiteral(0), IntLiteral(0)).mask, 0)
+        # Test generic variable mask.
+        self.assertEqual(
+            RVShift(v8, TestValue('C', IntType.u(3))).mask,
+            0xFF
+            )
+        # Test expr masks with gaps.
+        self.assertEqual(
+            RVShift(OrOperator(v1, LShift(v1, 4)), v1).mask,
+            0x19
+            )
+        self.assertEqual(
+            RVShift(OrOperator(LShift(v1, 2), LShift(v1, 4)), v1).mask,
+            0x1E
+            )
+        # Test offset masks with gaps.
+        self.assertEqual(
+            RVShift(LShift(v8, 20), OrOperator(v1, LShift(v1, 4))).mask,
+            0xFF80FF8
+            )
+        self.assertEqual(
+            RVShift(LShift(v8, 16), OrOperator(v1, LShift(v1, 4))).mask,
+            0xFF80FF
+            )
+        # Test gaps on both args.
+        self.assertEqual(
+            RVShift(
+                OrOperator(LShift(v1, 12), LShift(v1, 15)),
+                OrOperator(LShift(v1, 1), LShift(v1, 3))
+                ).mask,
+            0xB4B4
+            )
+        # Test negative offset mask.
+        self.assertEqual(RVShift(v8, i).mask, 0xFF)
+        self.assertEqual(RVShift(LShift(v8, 4), LShift(i, 8)).mask, 0xFF0)
+        self.assertEqual(RVShift(LShift(v8, 16), LShift(i, 4)).mask, 0xFF00FF)
+        self.assertEqual(RVShift(IntLiteral(-160), i).mask, -1)
 
 if __name__ == '__main__':
     unittest.main()

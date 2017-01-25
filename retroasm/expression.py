@@ -549,6 +549,54 @@ class LVShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
+class RVShift(Expression):
+    '''Drops the lower N bits from a bit string.
+    Unlike RShift, our offset (N) is an expression.
+    '''
+    __slots__ = ('_expr', '_offset')
+
+    expr = property(lambda self: self._expr)
+    offset = property(lambda self: self._offset)
+
+    def __init__(self, expr, offset):
+        Expression.__init__(self)
+        self._expr = Expression.checkScalar(expr)
+        self._offset = Expression.checkScalar(offset)
+
+    @property
+    def mask(self):
+        exprMask = self._expr.mask
+        offsetMask = self._offset.mask
+        if offsetMask >= 0:
+            # There is a limited number of possible offsets.
+            offsetWidth = widthForMask(offsetMask)
+        elif exprMask >= 0:
+            # There is an unlimited number of possible offsets, but only
+            # offsets below the width of the expression mask contribute.
+            exprWidth = widthForMask(exprMask)
+            offsetWidth = widthForMask(exprWidth)
+        else:
+            # There is no value we can rule out.
+            assert exprMask < 0 and offsetMask < 0, self
+            return -1
+        mask = exprMask
+        for i in range(offsetWidth):
+            if (offsetMask >> i) & 1:
+                mask |= mask >> (1 << i)
+        return mask
+
+    def _ctorargs(self, *exprs, **kwargs):
+        if not exprs:
+            exprs = (self._expr,)
+        kwargs.setdefault('offset', self._offset)
+        return signature(self.__class__).bind(*exprs, **kwargs)
+
+    def __str__(self):
+        return '(%s >> %s)' % (self._expr, self._offset)
+
+    def _equals(self, other):
+        return self._offset == other._offset and self._expr == other._expr
+
 def truncate(expr, width):
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
 
