@@ -169,20 +169,6 @@ class NamedStorage(Storage):
     def mightBeSame(self, other):
         raise NotImplementedError
 
-def sliceStorage(decomposed, index, width):
-    if index < 0:
-        raise ValueError('slice index must not be negative: %d' % index)
-    if width < 0:
-        raise ValueError('slice width must not be negative: %d' % width)
-    offset = 0
-    for sid, subStart, subWidth in decomposed:
-        # Clip slice indices to substorage range.
-        start = max(index, offset)
-        end = min(index + width, offset + subWidth)
-        if start < end:
-            yield sid, subStart + start - offset, end - start
-        offset += subWidth
-
 class Variable(NamedStorage):
     '''A variable in the local context.
     '''

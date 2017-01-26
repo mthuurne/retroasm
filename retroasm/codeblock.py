@@ -1,5 +1,5 @@
 from .expression import Expression
-from .storage import FixedValue, IOStorage, Storage, sliceStorage
+from .storage import FixedValue, IOStorage, Storage
 from .types import IntType, unlimited
 from .utils import checkType
 
@@ -153,6 +153,20 @@ class ConstantValue(Expression):
         # pylint: disable=protected-access
         return self._cid is other._cid
 
+def _sliceRef(decomposed, index, width):
+    if index < 0:
+        raise ValueError('slice index must not be negative: %d' % index)
+    if width < 0:
+        raise ValueError('slice width must not be negative: %d' % width)
+    offset = 0
+    for sid, subStart, subWidth in decomposed:
+        # Clip slice indices to substorage range.
+        start = max(index, offset)
+        end = min(index + width, offset + subWidth)
+        if start < end:
+            yield sid, subStart + start - offset, end - start
+        offset += subWidth
+
 class BoundReference:
     __slots__ = ('_decomposed', '_type')
 
@@ -212,7 +226,7 @@ class BoundReference:
     def slice(self, index, width):
         '''Return a new BoundReference instance that is a slice of this one.
         '''
-        decomposed = tuple(sliceStorage(self._decomposed, index, width))
+        decomposed = tuple(_sliceRef(self._decomposed, index, width))
         width = sum(width for sid_, index_, width in decomposed)
         return self.__class__(IntType.u(width), decomposed)
 
