@@ -118,6 +118,9 @@ concatenation       | *A* ; *B*         | int &times; (u&#124;s)*N* &rarr; int
                     |                   | u*M* &times; (u&#124;s)*N* &rarr; u(*M*+*N*)
                     |                   | s*M* &times; (u&#124;s)*N* &rarr; s(*M*+*N*)
 slicing             | *A*[*K*:*L*]      | int &rarr; u(*L*-*K*)
+                    | *A*[*K*:]         | int &rarr; int
+                    |                   | u*N* &rarr; u(*N*-*K*)
+                    |                   | s*N* &rarr; s(*N*-*K*)
 bitwise lookup      | *A*[*K*]          | int &rarr; u1
 I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*
 
@@ -127,7 +130,9 @@ The logical negation operator works as in the C language: the negation of zero i
 
 Concatenation puts one fixed width bit string after another. For example, the concatenation of `%11` and `%001` is `%11001`. In numeric value: *A* ; *B* = *A*\*2<sup>*N*</sup> + *B*, where *B* is of type `u`*N*. The signedness of the result of a concatenation matches the signedness of the first operand.
 
-Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. In numeric value: *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>.  If the lower index of a slice is omitted, the slice starts from bit 0: `$AB[:4]` = `$B`. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: `$AB[4:]` = `$A`.
+Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. If the lower index of a slice is omitted, the slice starts from bit 0: `$AB[:4]` = `$B`. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: `$AB[4:]` = `$A`.
+
+In terms of numeric values *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>. If the lower index is omitted, the 'div' part has no effect: it would divide by 2<sup>0</sup> = 1. If the upper index is omitted, the 'mod' part is dropped.
 
 A bitwise lookup is equivalent to taking a single bit slice: *A*[*K*] = *A*[*K*:*K*+1].
 
