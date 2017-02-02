@@ -189,7 +189,7 @@ class Variable(NamedStorage):
     def mightBeSame(self, other):
         return self is other
 
-class UnknownStorage(NamedStorage):
+class RefArgStorage(NamedStorage):
     '''A placeholder storage location for a storage passed to a function by
     reference. The storage properties depend on which concrete storage will be
     passed, so until we know the concrete storage we have to assume the worst
@@ -235,7 +235,7 @@ class Register(NamedStorage):
         return True
 
     def mightBeSame(self, other):
-        return self is other or isinstance(other, UnknownStorage)
+        return self is other or isinstance(other, RefArgStorage)
 
 class IOStorage(Storage):
     '''Storage location accessed via an I/O channel at a particular index.
@@ -274,7 +274,7 @@ class IOStorage(Storage):
             return self._channel == other._channel \
                 and self._channel.mightBeSame(self._index, other._index)
         else:
-            return isinstance(other, UnknownStorage)
+            return isinstance(other, RefArgStorage)
 
 class FixedValue(Storage):
     '''A storage that always reads as the same value and ignores writes.

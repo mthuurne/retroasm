@@ -10,7 +10,7 @@ from .expression import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    FixedValue, IOChannel, IOStorage, Register, Storage, UnknownStorage,
+    FixedValue, IOChannel, IOStorage, RefArgStorage, Register, Storage,
     Variable
     )
 from .types import IntType, maskForWidth, unlimited
@@ -345,7 +345,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return ref
 
     def emitReferenceArgument(self, name, refType, location):
-        return self._addNamedStorage(UnknownStorage(name, refType), location)
+        return self._addNamedStorage(RefArgStorage(name, refType), location)
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
@@ -407,7 +407,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # For each old SID, create a corresponding storage in this block.
         refMap = {}
         for sid, storage in code.storages.items():
-            if isinstance(storage, UnknownStorage):
+            if isinstance(storage, RefArgStorage):
                 ref = context[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:

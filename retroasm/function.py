@@ -1,5 +1,5 @@
 from .codeblock import ArgumentConstant
-from .storage import UnknownStorage
+from .storage import RefArgStorage
 from .types import IntType, Reference
 
 class Function:
@@ -58,7 +58,7 @@ class Function:
         '''Searches the representation of the argument with the given name in
         this function's code block.
         For pass-by-value arguments, an ArgumentConstant is returned.
-        For pass-by-reference arguments, an UnknownStorage is returned.
+        For pass-by-reference arguments, a RefArgStorage is returned.
         If the argument does not occur in the code block, None is returned.
         If no argument with the given name existed when the function was
         created, KeyError is raised.
@@ -74,9 +74,9 @@ class Function:
                     if const.name == argName:
                         return const
         elif isinstance(arg, Reference):
-            # Look for an UnknownStorage with the same name.
+            # Look for a RefArgStorage with the same name.
             for storage in self.code.storages.values():
-                if isinstance(storage, UnknownStorage):
+                if isinstance(storage, RefArgStorage):
                     if storage.name == argName:
                         return storage
         else:
