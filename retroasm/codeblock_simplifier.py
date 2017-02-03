@@ -3,7 +3,7 @@ from .codeblock import (
     ConstantValue, Load, LoadedConstant, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import FixedValue, IOStorage, Register, Variable
+from .storage import FixedValue, IOStorage, Variable
 from .types import maskForWidth
 
 from collections import defaultdict
@@ -215,14 +215,14 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Figure out which storages are duplicates.
         duplicates = {}
-        registerNameToSid = {}
+        globalNameToSid = {}
         channelNameToIndices = defaultdict(list)
         for sid, storage in storages.items():
-            if isinstance(storage, Register):
+            if isinstance(storage, Variable) and storage.scope == 0:
                 name = storage.name
-                replacement = registerNameToSid.get(name)
+                replacement = globalNameToSid.get(name)
                 if replacement is None:
-                    registerNameToSid[name] = sid
+                    globalNameToSid[name] = sid
                 else:
                     duplicates[sid] = replacement
             elif isinstance(storage, IOStorage):
@@ -319,10 +319,13 @@ class CodeBlockSimplifier(CodeBlock):
             storage = storages[sid]
             if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
-                    assert not isinstance(storage, Variable), storage
+                    assert not (
+                        isinstance(storage, Variable) and storage.scope == 1
+                        ), storage
                     willBeOverwritten.discard(sid)
                 elif isinstance(node, Store):
-                    if isinstance(storage, Variable) and storage.name == 'ret':
+                    if isinstance(storage, Variable) and storage.scope == 1 \
+                            and storage.name == 'ret':
                         if sid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
@@ -331,7 +334,9 @@ class CodeBlockSimplifier(CodeBlock):
                                 )
                             storages[sid] = FixedValue(node.cid, width)
                     if sid in willBeOverwritten \
-                            or isinstance(storage, (FixedValue, Variable)):
+                            or isinstance(storage, FixedValue) \
+                            or (isinstance(storage, Variable)
+                                and storage.scope == 1):
                         changed = True
                         del nodes[i]
                     willBeOverwritten.add(sid)

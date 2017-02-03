@@ -1,7 +1,5 @@
 from retroasm.expression import IntLiteral
-from retroasm.storage import (
-    IOChannel, IOStorage, RefArgStorage, Register, Variable
-    )
+from retroasm.storage import IOChannel, IOStorage, RefArgStorage, Variable
 from retroasm.types import IntType
 
 import unittest
@@ -24,9 +22,9 @@ class AliasTests(unittest.TestCase):
 
     def test_register_aliasing(self):
         '''Test when registers might be aliased.'''
-        a = Register('a', IntType.u(8))
-        b = Register('b', IntType.u(8))
-        l = Variable('L', IntType.u(8))
+        a = Variable('a', IntType.u(8), 0)
+        b = Variable('b', IntType.u(8), 0)
+        l = Variable('L', IntType.u(8), 1)
         r = RefArgStorage('R', IntType.u(8))
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
@@ -38,9 +36,9 @@ class AliasTests(unittest.TestCase):
 
     def test_variable_aliasing(self):
         '''Test when variables might be aliased.'''
-        l = Variable('L', IntType.u(8))
-        l2 = Variable('L2', IntType.u(8))
-        a = Register('a', IntType.u(8))
+        l = Variable('L', IntType.u(8), 1)
+        l2 = Variable('L2', IntType.u(8), 1)
+        a = Variable('a', IntType.u(8), 0)
         r = RefArgStorage('R', IntType.u(8))
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
@@ -54,8 +52,8 @@ class AliasTests(unittest.TestCase):
         '''Test when unknown storages might be aliased.'''
         r = RefArgStorage('R', IntType.u(8))
         r2 = RefArgStorage('R2', IntType.u(8))
-        a = Register('a', IntType.u(8))
-        l = Variable('L', IntType.u(8))
+        a = Variable('a', IntType.u(8), 0)
+        l = Variable('L', IntType.u(8), 1)
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(r, r)
@@ -66,8 +64,8 @@ class AliasTests(unittest.TestCase):
 
     def test_io_aliasing(self):
         '''Test when I/O storages might be aliased.'''
-        a = Register('a', IntType.u(8))
-        l = Variable('L', IntType.u(8))
+        a = Variable('a', IntType.u(8), 0)
+        l = Variable('L', IntType.u(8), 1)
         r = RefArgStorage('R', IntType.u(8))
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         io = IOChannel('io', IntType.u(8), IntType.u(16))

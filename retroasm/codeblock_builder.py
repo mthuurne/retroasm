@@ -10,8 +10,7 @@ from .expression import (
 from .function import Function
 from .linereader import BadInput
 from .storage import (
-    FixedValue, IOChannel, IOStorage, RefArgStorage, Register, Storage,
-    Variable
+    FixedValue, IOChannel, IOStorage, RefArgStorage, Storage, Variable
     )
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
@@ -19,6 +18,7 @@ from .utils import checkType
 from itertools import chain
 
 class CodeBlockBuilder:
+    _scope = property()
 
     def __init__(self, context):
         self.constants = []
@@ -74,7 +74,8 @@ class CodeBlockBuilder:
         return ref
 
     def emitVariable(self, name, refType, location):
-        return self._addNamedStorage(Variable(name, refType), location)
+        var = Variable(name, refType, self._scope)
+        return self._addNamedStorage(var, location)
 
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
@@ -126,13 +127,10 @@ class BadGlobalOperation(BadInput):
     '''
 
 class GlobalCodeBlockBuilder(CodeBlockBuilder):
+    _scope = 0
 
     def __init__(self):
         CodeBlockBuilder.__init__(self, Context())
-
-    def emitRegister(self, reg, location):
-        checkType(reg, Register, 'register')
-        return self._addNamedStorage(reg, location)
 
     def emitLoad(self, boundRef, location):
         raise BadGlobalOperation(
@@ -216,6 +214,7 @@ class _LocalContext(Context):
             return localSid
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
+    _scope = 1
 
     def __init__(self, parentBuilder):
         context = _LocalContext(self, parentBuilder)
@@ -242,7 +241,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for node in code.nodes:
             sid = node.sid
             storage = code.storages[sid]
-            if isinstance(storage, Variable):
+            if isinstance(storage, Variable) and storage.scope == 1:
                 if isinstance(node, Load):
                     if sid not in initializedVariables:
                         ununitializedLoads.append(node)
@@ -265,7 +264,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         if 'ret' in self.context:
             if not any(
-                    isinstance(storage, Variable) and storage.name == 'ret'
+                    isinstance(storage, Variable) and storage.scope == 1
+                    and storage.name == 'ret'
                     for storage in code.storages.values()
                     ):
                 assert code.retRef is None, code.retRef

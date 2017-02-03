@@ -5,7 +5,7 @@ from retroasm.codeblock_builder import (
 from retroasm.context import Context
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
-from retroasm.storage import FixedValue, IOChannel, Register
+from retroasm.storage import FixedValue, IOChannel, Variable
 from retroasm.types import IntType, unlimited
 
 class NodeChecker:
@@ -77,8 +77,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             ref = self.context[name]
         except KeyError:
             # Insert register into global context.
-            reg = Register(name, typ)
-            self.globalBuilder.emitRegister(reg, None)
+            self.globalBuilder.emitVariable(name, typ, None)
             ref = self.context[name]
 
         # Check that existing global context entry is this register.

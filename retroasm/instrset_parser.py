@@ -8,7 +8,7 @@ from .expression_parser import (
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate
-from .storage import IOChannel, Register, namePat
+from .storage import IOChannel, Variable, namePat
 from .types import parseType, parseTypeDecl
 
 from collections import OrderedDict
@@ -35,12 +35,9 @@ def _parseRegs(reader, argStr, builder):
 
             for regName in parts[1:]:
                 try:
-                    reg = Register(regName, regType)
+                    builder.emitVariable(regName, regType, reader.getLocation())
                 except ValueError as ex:
                     reader.error(str(ex))
-                    continue
-                try:
-                    builder.emitRegister(reg, reader.getLocation())
                 except NameExistsError as ex:
                     reader.error(
                         'error defining register: %s', ex, location=ex.location

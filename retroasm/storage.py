@@ -172,7 +172,13 @@ class NamedStorage(Storage):
 class Variable(NamedStorage):
     '''A variable in the local context.
     '''
-    __slots__ = ()
+    __slots__ = ('_scope',)
+
+    scope = property(lambda self: self._scope)
+
+    def __init__(self, name, typ, scope):
+        self._scope = checkType(scope, int, 'scope level')
+        NamedStorage.__init__(self, name, typ)
 
     def canLoadHaveSideEffect(self):
         return False
@@ -187,7 +193,10 @@ class Variable(NamedStorage):
         return True
 
     def mightBeSame(self, other):
-        return self is other
+        return self is other or (
+            # Global variable might be passed by reference.
+            self._scope == 0 and isinstance(other, RefArgStorage)
+            )
 
 class RefArgStorage(NamedStorage):
     '''A placeholder storage location for a storage passed to a function by
@@ -212,30 +221,9 @@ class RefArgStorage(NamedStorage):
         return False
 
     def mightBeSame(self, other):
-        # A variable has a limited scope, so references passed from outside
-        # that scope cannot possibly alias it, while inside the scope there
-        # is no need to create aliases.
-        return not isinstance(other, Variable)
-
-class Register(NamedStorage):
-    '''A CPU register.
-    '''
-    __slots__ = ()
-
-    def canLoadHaveSideEffect(self):
-        return False
-
-    def canStoreHaveSideEffect(self):
-        return False
-
-    def isLoadConsistent(self):
-        return True
-
-    def isSticky(self):
-        return True
-
-    def mightBeSame(self, other):
-        return self is other or isinstance(other, RefArgStorage)
+        # A variable can only be referenced via arguments if it exists in
+        # the global scope.
+        return not isinstance(other, Variable) or other._scope == 0
 
 class IOStorage(Storage):
     '''Storage location accessed via an I/O channel at a particular index.
