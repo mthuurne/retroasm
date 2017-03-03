@@ -264,12 +264,6 @@ def buildExpression(node, builder):
             'definition must be only statement on a line',
             node.treeLocation
             )
-    elif isinstance(node, LabelNode):
-        # TODO: Add support.
-        return IntLiteral(123)
-    elif isinstance(node, BranchNode):
-        # TODO: Add support.
-        return IntLiteral(456)
     else:
         assert False, node
 
@@ -470,6 +464,14 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                 declareVariable(node, builder)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
+            continue
+
+        elif isinstance(node, BranchNode):
+            # TODO: Add support.
+            continue
+
+        elif isinstance(node, LabelNode):
+            # TODO: Add support.
             continue
 
         elif isinstance(node, EmptyNode):
