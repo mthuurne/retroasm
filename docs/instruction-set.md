@@ -62,7 +62,7 @@ The `#` character marks the remainder of the line as a comment, which is ignored
 Types
 -----
 
-Currently only integer types are supported.
+The language contains value types and reference types. Currently the only supported value types are integer types.
 
 ### Integer Types
 
@@ -70,11 +70,9 @@ The type `u`*N* is an unsigned integer type of *N* bits wide. So for example `u8
 
 The `int` type is used in arithmetical expressions. The `u`*N* types are used to describe aspects of the hardware, such as registers. The `s`*N* types are not often used, but are necessary to for example describe signed offsets in relative addressing modes.
 
-### References
+### Reference Types
 
-A reference to a storage location is denoted by placing an ampersand after the type. For example `u8&` is a reference to a byte.
-
-A type declaration that is not a reference is called a value type.
+A reference to a storage location is denoted by placing an ampersand after the value type. For example `u8&` is a reference to a byte.
 
 Literals
 --------
@@ -153,8 +151,8 @@ Registers
 A register definition consists of a name and a fixed-width type. A register definition block can define multiple registers and register aliases:
 
     reg
-    <type> <name>*
-    <type> <alias> = <expr>
+    <value type> <name>*
+    <value type> <alias> = <expr>
 
 For example this block defines all registers of the 6502:
 
@@ -216,7 +214,7 @@ Multiple storage locations can be stored into in a single assignment using conca
 
 ### Variables
 
-Variables can be declared using the syntax `var <type> <name>`. Optionally, the variable can be assigned a value in the same statement:
+Variables can be declared using the syntax `var <value type> <name>`. Optionally, the variable can be assigned a value in the same statement:
 
     var u8 X
     var u1 C := 1
@@ -225,7 +223,7 @@ Variables are storage locations that don't represent registers or other hardware
 
 ### Constants
 
-Constants can be defined using the syntax `def <type> <name> = <expr>`:
+Constants can be defined using the syntax `def <value type> <name> = <expr>`:
 
     def u8 V = a
 
@@ -233,7 +231,7 @@ As the name implies, constants are immutable. The expression value is evaluated 
 
 ### References
 
-References to storage locations can be defined using the syntax `def <type>& <name> = <expr>`:
+References to storage locations can be defined using the syntax `def <reference type> <name> = <expr>`:
 
     def u8& R = a
 
