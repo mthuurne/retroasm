@@ -13,7 +13,7 @@ from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .storage import IOChannel
-from .types import IntType, Reference, parseTypeDecl, unlimited
+from .types import IntType, ReferenceType, parseTypeDecl, unlimited
 from .utils import Singleton
 
 from inspect import signature
@@ -156,7 +156,7 @@ def _convertFunctionCall(callNode, builder):
     for (name, decl), argNode in zip(func.args.items(), argNodes):
         if isinstance(decl, IntType):
             value = buildExpression(argNode, builder)
-        elif isinstance(decl, Reference):
+        elif isinstance(decl, ReferenceType):
             try:
                 value = buildStorage(argNode, builder)
             except BadExpression as ex:
@@ -434,7 +434,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                 # definition line.
                 assert kind == DeclarationKind.reference, kind
                 assert nameNode.name == 'ret', nameNode.name
-                if not isinstance(retType, Reference):
+                if not isinstance(retType, ReferenceType):
                     reader.error(
                         '"ret" defined as reference in function that returns %s'
                         % ('nothing' if retType is None else 'value'),

@@ -1,6 +1,6 @@
 from .codeblock import ArgumentConstant
 from .storage import RefArgStorage
-from .types import IntType, Reference
+from .types import IntType, ReferenceType
 
 class Function:
 
@@ -13,7 +13,7 @@ class Function:
                         'function "%s" has no return type, '
                         'but its code block defines "ret"' % name
                         )
-            elif isinstance(retType, Reference):
+            elif isinstance(retType, ReferenceType):
                 if code.retRef is None:
                     raise ValueError(
                         'function "%s" should return a reference '
@@ -72,7 +72,7 @@ class Function:
                 if isinstance(const, ArgumentConstant):
                     if const.name == argName:
                         return const
-        elif isinstance(arg, Reference):
+        elif isinstance(arg, ReferenceType):
             # Look for a RefArgStorage with the same name.
             for storage in self.code.storages.values():
                 if isinstance(storage, RefArgStorage):

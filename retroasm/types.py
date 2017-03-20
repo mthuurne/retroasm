@@ -152,7 +152,7 @@ class IntType(metaclass=Unique):
 
 IntType.int = IntType(unlimited, True)
 
-class Reference(metaclass=Unique):
+class ReferenceType(metaclass=Unique):
     '''A reference to a value of a certain type.
     '''
     __slots__ = ('_type', '__weakref__')
@@ -163,7 +163,7 @@ class Reference(metaclass=Unique):
         self._type = typ
 
     def __repr__(self):
-        return 'Reference(%r)' % self._type
+        return 'ReferenceType(%r)' % self._type
 
     def __str__(self):
         return '%s&' % self._type
@@ -179,6 +179,6 @@ def parseType(typeName):
 
 def parseTypeDecl(typeDecl):
     if typeDecl.endswith('&'):
-        return Reference(parseType(typeDecl[:-1]))
+        return ReferenceType(parseType(typeDecl[:-1]))
     else:
         return parseType(typeDecl)

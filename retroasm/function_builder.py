@@ -3,7 +3,7 @@ from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
-from .types import Reference
+from .types import ReferenceType
 
 def _parseBody(reader):
     '''Parses the lines of a code block, yielding the statements.
@@ -23,11 +23,11 @@ def createFunc(reader, funcName, retType, args, globalBuilder):
 
     builder = LocalCodeBlockBuilder(globalBuilder)
     for argName, argDecl in args.items():
-        if isinstance(argDecl, Reference):
+        if isinstance(argDecl, ReferenceType):
             builder.emitReferenceArgument(argName, argDecl.type, headerLocation)
         else:
             builder.emitValueArgument(argName, argDecl, headerLocation)
-    if retType is not None and not isinstance(retType, Reference):
+    if retType is not None and not isinstance(retType, ReferenceType):
         builder.emitVariable('ret', retType, headerLocation)
 
     try:
