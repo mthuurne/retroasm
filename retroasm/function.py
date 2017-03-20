@@ -32,9 +32,8 @@ class Function:
         self.code = code
 
     def __repr__(self):
-        return 'Function(%s, %s, %s, %s)' % (
-            repr(self.name), repr(self.retType), repr(self.args),
-            repr(self.code)
+        return 'Function(%r, %r, %r, %r)' % (
+            self.name, self.retType, self.args, self.code
             )
 
     def __str__(self):

@@ -163,7 +163,7 @@ class Reference(metaclass=Unique):
         self._type = typ
 
     def __repr__(self):
-        return 'Reference(%s)' % repr(self._type)
+        return 'Reference(%r)' % self._type
 
     def __str__(self):
         return '%s&' % self._type

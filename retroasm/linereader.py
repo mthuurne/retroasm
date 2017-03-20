@@ -159,8 +159,7 @@ class InputLocation:
 
     def __repr__(self):
         return 'InputLocation(%s)' % ', '.join(
-            '%s=%s' % (key, repr(value))
-            for key, value in self.extra.items()
+            '%s=%r' % item for item in self.extra.items()
             )
 
     def __eq__(self, other):

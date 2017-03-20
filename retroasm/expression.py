@@ -55,7 +55,7 @@ class Expression:
             for name, value in binding.kwargs.items():
                 param = ctorSignature.parameters.get(name)
                 if param is None or param.default != value:
-                    yield '%s=%s' % (name, repr(value))
+                    yield '%s=%r' % (name, value)
         return '%s(%s)' % (cls.__name__, ', '.join(formatArgs()))
 
     def __eq__(self, other):

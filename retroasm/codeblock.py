@@ -35,7 +35,7 @@ class ComputedConstant(Constant):
         Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'ComputedConstant(%d, %s)' % (self._cid, repr(self._expr))
+        return 'ComputedConstant(%d, %r)' % (self._cid, self._expr)
 
     def __str__(self):
         return '%s = %s' % (super().__str__(), self._expr)
@@ -52,7 +52,7 @@ class ArgumentConstant(Constant):
         Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'ArgumentConstant(%s, %d)' % (repr(self._name), self._cid)
+        return 'ArgumentConstant(%r, %d)' % (self._name, self._cid)
 
     def __str__(self):
         return '%s :  %s' % (super().__str__(), self._name)
@@ -94,8 +94,8 @@ class AccessNode(Node):
         self._location = location
 
     def __repr__(self):
-        return '%s(%d, %d, %s)' % (
-            self.__class__.__name__, self._cid, self._sid, repr(self._location)
+        return '%s(%d, %d, %r)' % (
+            self.__class__.__name__, self._cid, self._sid, self._location
             )
 
     def clone(self, cid=None, sid=None):

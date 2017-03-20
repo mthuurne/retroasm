@@ -385,8 +385,7 @@ def parseInstrSet(pathname):
         reader.summarize()
 
     logger.debug('regs: %s', ', '.join(
-        '%s = %s' % (key, repr(value))
-        for key, value in sorted(builder.context.items())
+        '%s = %r' % item for item in sorted(builder.context.items())
         ))
 
     return None

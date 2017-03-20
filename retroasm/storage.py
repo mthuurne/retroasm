@@ -27,8 +27,8 @@ class IOChannel:
         self._addrType = checkType(addrType, IntType, 'address type')
 
     def __repr__(self):
-        return 'IOChannel(%s, %s, %s)' % (
-            repr(self._name), repr(self._elemType), repr(self._addrType)
+        return 'IOChannel(%r, %r, %r)' % (
+            self._name, self._elemType, self._addrType
             )
 
     def __str__(self):
@@ -147,9 +147,7 @@ class NamedStorage(Storage):
         Storage.__init__(self, typ.width)
 
     def __repr__(self):
-        return '%s(%s, %s)' % (
-            self.__class__.__name__, repr(self._name), repr(self._type)
-            )
+        return '%s(%r, %r)' % (self.__class__.__name__, self._name, self._type)
 
     def __str__(self):
         return self._name
@@ -239,7 +237,7 @@ class IOStorage(Storage):
         Storage.__init__(self, channel.elemType.width)
 
     def __repr__(self):
-        return 'IOStorage(%s, %s)' % (repr(self._channel), repr(self._index))
+        return 'IOStorage(%r, %r)' % (self._channel, self._index)
 
     def __str__(self):
         return '%s[%s]' % (self._channel.name, self._index)
