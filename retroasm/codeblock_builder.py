@@ -1,21 +1,17 @@
 from .codeblock import (
-    ArgumentConstant, BoundReference, ComputedConstant, ConstantValue, Load,
-    LoadedConstant, Store
+    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
+    Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
-from .expression import (
-    AndOperator, IntLiteral, LShift, OrOperator, SignExtension, optSlice
-    )
+from .expression import optSlice
 from .function import Function
 from .linereader import BadInput
 from .storage import (
     FixedValue, IOChannel, IOStorage, RefArgStorage, Storage, Variable
     )
-from .types import IntType, maskForWidth, unlimited
+from .types import IntType, maskForWidth
 from .utils import checkType
-
-from itertools import chain
 
 class CodeBlockBuilder:
     _scope = property()
@@ -69,7 +65,7 @@ class CodeBlockBuilder:
 
     def _addNamedStorage(self, storage, location):
         sid = self._addStorage(storage)
-        ref = BoundReference.single(storage.type, sid)
+        ref = SingleReference(self, sid, storage.type)
         self.context.define(storage.name, ref, location)
         return ref
 
@@ -81,7 +77,7 @@ class CodeBlockBuilder:
         addrWidth = channel.addrType.width
         indexConst = self.emitCompute(optSlice(index, 0, addrWidth))
         sid = self._addStorage(IOStorage(channel, indexConst))
-        return BoundReference.single(channel.elemType, sid)
+        return SingleReference(self, sid, channel.elemType)
 
     def emitFixedValue(self, expr, typ):
         '''Emits a constant representing the result of the given expression.
@@ -89,34 +85,33 @@ class CodeBlockBuilder:
         '''
         const = self.emitCompute(expr)
         sid = self._addStorage(FixedValue(const.cid, typ.width))
-        return BoundReference.single(typ, sid)
+        return SingleReference(self, sid, typ)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
         Returns the given value.
         Raises NameExistsError if the name is already taken.
         '''
-        checkType(value, BoundReference, 'value')
+        checkType(value, Reference, 'value')
         self.context.define(name, value, location)
         return value
 
-    def emitLoad(self, boundRef, location):
-        '''Loads the value of the given bound reference by emitting Load nodes
-        on this builder.
-        Returns an expression that wraps the loaded value.
+    def emitLoadBits(self, sid, location):
+        '''Loads the value from the storage with the given ID by emitting
+        a Load node on this builder.
+        Returns an expression that represents the loaded value.
         '''
         raise NotImplementedError
 
-    def emitStore(self, boundRef, expr, location):
-        '''Stores the value of the given expression in the given bound reference
-        by emitting Store nodes (and Load nodes for partial updates) on this
-        builder.
+    def emitStoreBits(self, sid, value, location):
+        '''Stores the value of the given expression in the storage with the
+        given ID by emitting a Store node on this builder.
         '''
         raise NotImplementedError
 
     def inlineFunctionCall(self, func, argMap, location):
         '''Inlines a call to the given function with the given arguments.
-        Returns a BoundReference containing the value returned by the inlined
+        Returns a Reference containing the value returned by the inlined
         function, or None if the function does not return anything.
         '''
         raise NotImplementedError
@@ -132,17 +127,17 @@ class GlobalCodeBlockBuilder(CodeBlockBuilder):
     def __init__(self):
         CodeBlockBuilder.__init__(self, Context())
 
-    def emitLoad(self, boundRef, location):
+    def emitLoadBits(self, sid, location):
         raise BadGlobalOperation(
             'attempt to read from storage in global scope: %s'
-            % boundRef.present(self.storages),
+            % self.storages[sid],
             location
             )
 
-    def emitStore(self, boundRef, expr, location):
+    def emitStoreBits(self, sid, value, location):
         raise BadGlobalOperation(
             'attempt to write to storage in global scope: %s'
-            % boundRef.present(self.storages),
+            % self.storages[sid],
             location
             )
 
@@ -176,23 +171,19 @@ class _LocalContext(Context):
             value = self.parentBuilder.context[key]
             if isinstance(value, (Function, IOChannel)):
                 pass
-            elif isinstance(value, BoundReference):
-                value = BoundReference(
-                    value.type, (
-                        (self._importStorage(sid), index, width)
-                        for sid, index, width in value
-                        )
-                    )
+            elif isinstance(value, Reference):
+                value = value.clone(self._importSingleRef)
             else:
                 assert False, (key, repr(value))
             self.elements[key] = value
             self.locations[key] = None
             return value
 
-    def _importStorage(self, parentSid):
+    def _importSingleRef(self, parentRef):
         '''Imports the given parent storage ID into the local context.
-        Returns the local storage ID.
+        Returns a reference to the local storage.
         '''
+        parentSid = parentRef.sid
         importMap = self.importMap
         try:
             return importMap[parentSid]
@@ -210,8 +201,9 @@ class _LocalContext(Context):
                 storage = FixedValue(cid, storage.width)
             # pylint: disable=protected-access
             localSid = localBuilder._addStorage(storage)
-            importMap[parentSid] = localSid
-            return localSid
+            localRef = SingleReference(localBuilder, localSid, parentRef.type)
+            importMap[parentSid] = localRef
+            return localRef
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1
@@ -276,7 +268,32 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def _emitSingleLoad(self, sid, location):
+    def emitValueArgument(self, name, decl, location):
+        '''Adds a passed-by-value argument to this code block.
+        The initial value is represented by an ArgumentConstant and is loaded
+        into the corresponding Variable.
+        Returns the Reference to the corresponding Variable.
+        '''
+        assert isinstance(decl, IntType), decl
+
+        # Add ArgumentConstant.
+        cid = len(self.constants)
+        constant = ArgumentConstant(name, cid)
+        self.constants.append(constant)
+
+        # Add Variable.
+        ref = self.emitVariable(name, decl, location)
+
+        # Store initial value.
+        value = ConstantValue(cid, maskForWidth(decl.width))
+        ref.emitStore(value, location)
+
+        return ref
+
+    def emitReferenceArgument(self, name, refType, location):
+        return self._addNamedStorage(RefArgStorage(name, refType), location)
+
+    def emitLoadBits(self, sid, location):
         storage = self.storages[sid]
         if isinstance(storage, FixedValue):
             cid = storage.cid
@@ -286,66 +303,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             self.constants.append(LoadedConstant(cid, sid))
         return ConstantValue(cid, maskForWidth(storage.width))
 
-    def emitLoad(self, boundRef, location):
-        terms = []
-        offset = 0
-        for sid, index, width in boundRef:
-            value = self._emitSingleLoad(sid, location)
-            sliced = optSlice(value, index, width)
-            terms.append(sliced if offset == 0 else LShift(sliced, offset))
-            offset += width
-        result = terms[0] if len(terms) == 1 else OrOperator(*terms)
-        if boundRef.type.signed and boundRef.type.width is not unlimited:
-            result = SignExtension(result, boundRef.type.width)
-        return result
-
-    def _emitSingleStore(self, sid, expr, location):
-        constant = self.emitCompute(expr)
+    def emitStoreBits(self, sid, value, location):
+        constant = self.emitCompute(value)
         self.nodes.append(Store(constant.cid, sid, location))
-
-    def emitStore(self, boundRef, value, location):
-        offset = 0
-        for sid, index, width in boundRef:
-            valueSlice = optSlice(value, offset, width)
-            storageWidth = self.storages[sid].width
-            if index == 0 and width == storageWidth:
-                # Full width: store only.
-                combined = valueSlice
-            else:
-                # Partial width: combine with loaded old value.
-                oldVal = self._emitSingleLoad(sid, location)
-                storageMask = maskForWidth(storageWidth)
-                valueMask = maskForWidth(width) << index
-                maskLit = IntLiteral(storageMask & ~valueMask)
-                combined = OrOperator(
-                    AndOperator(oldVal, maskLit),
-                    LShift(valueSlice, index)
-                    )
-            self._emitSingleStore(sid, combined, location)
-            offset += width
-
-    def emitValueArgument(self, name, decl, location):
-        '''Adds a passed-by-value argument to this code block.
-        The initial value is represented by an ArgumentConstant and is loaded
-        into the corresponding Variable.
-        Returns the BoundReference to the corresponding Variable.
-        '''
-        assert isinstance(decl, IntType), decl
-
-        # Add ArgumentConstant.
-        cid = len(self.constants)
-        constant = ArgumentConstant(name, cid)
-        self.constants.append(constant)
-
-        # Store initial value.
-        ref = self.emitVariable(name, decl, location)
-        value = ConstantValue(cid, maskForWidth(decl.width))
-        self.emitStore(ref, value, location)
-
-        return ref
-
-    def emitReferenceArgument(self, name, refType, location):
-        return self._addNamedStorage(RefArgStorage(name, refType), location)
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
@@ -368,7 +328,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def inlineBlock(self, code, context):
         '''Inlines another code block into this one.
-        Returns a BoundReference containing the value returned by the inlined
+        Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
         '''
         constants = self.constants
@@ -427,30 +387,26 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 # Note: It doesn't matter if the original reference for this
                 #       storage was signed, since the sign extension will
                 #       have been copied as part of a ComputedConstant.
-                #       We are copying the _emitSingleLoad() output here,
+                #       We are copying the _emitLoadBits() output here,
                 #       not the emitLoad() output.
-                ref = BoundReference.single(IntType.u(newStorage.width), newSid)
+                ref = SingleReference(self, newSid, IntType.u(newStorage.width))
             refMap[sid] = ref
 
         # Copy nodes.
         for node in code.nodes:
-            boundReference = refMap[node.sid]
+            ref = refMap[node.sid]
             newCid = cidMap[node.cid]
             if isinstance(node, Load):
-                value = self.emitLoad(boundReference, node.location)
+                value = ref.emitLoad(node.location)
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
                 value = ConstantValue(newCid, -1)
-                self.emitStore(boundReference, value, node.location)
+                ref.emitStore(value, node.location)
             else:
                 assert False, node
 
         # Determine return value.
         retRef = code.retRef
-        return None if retRef is None else BoundReference(
-            retRef.type,
-            chain.from_iterable(
-                refMap[sid].slice(index, width)
-                for sid, index, width in retRef
-                )
+        return None if retRef is None else retRef.clone(
+            lambda ref: refMap[ref.sid]
             )

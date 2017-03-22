@@ -1,4 +1,6 @@
-from .codeblock import BoundReference, Load, Store
+from .codeblock import (
+    ConcatenatedReference, Load, Reference, SlicedReference, Store
+    )
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
@@ -111,7 +113,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
 
 def _convertIdentifier(node, builder):
     '''Looks up an identifier in the builder's context.
-    Returns either an IOChannel or a BoundReference.
+    Returns either an IOChannel or a Reference.
     '''
     name = node.name
     try:
@@ -120,10 +122,10 @@ def _convertIdentifier(node, builder):
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
         raise BadExpression('function "%s" is not called' % name, node.location)
-    elif isinstance(value, (BoundReference, IOChannel)):
+    elif isinstance(value, (IOChannel, Reference)):
         return value
     else:
-        assert False, repr(value)
+        assert False, (name, repr(value))
 
 def _convertFunctionCall(callNode, builder):
     nameNode, *argNodes = callNode.operands
@@ -224,19 +226,13 @@ def _convertExpressionOperator(node, builder):
         if retRef is None:
             return unit
         else:
-            return builder.emitLoad(retRef, node.treeLocation)
+            return retRef.emitLoad(node.treeLocation)
     elif operator is Operator.lookup:
-        return builder.emitLoad(
-            _convertStorageLookup(node, builder), node.treeLocation
-            )
+        return _convertStorageLookup(node, builder).emitLoad(node.treeLocation)
     elif operator is Operator.slice:
-        return builder.emitLoad(
-            _convertStorageSlice(node, builder), node.treeLocation
-            )
+        return _convertStorageSlice(node, builder).emitLoad(node.treeLocation)
     elif operator is Operator.concatenation:
-        return builder.emitLoad(
-            _convertStorageConcat(node, builder), node.treeLocation
-            )
+        return _convertStorageConcat(node, builder).emitLoad(node.treeLocation)
     else:
         return _convertArithmetic(node, builder)
 
@@ -251,7 +247,7 @@ def buildExpression(node, builder):
                 node.location
                 )
         else:
-            return builder.emitLoad(ident, node.location)
+            return ident.emitLoad(node.location)
     elif isinstance(node, OperatorNode):
         return _convertExpressionOperator(node, builder)
     elif isinstance(node, DeclarationNode):
@@ -286,7 +282,7 @@ def _convertStorageLookup(node, builder):
             indexNode.treeLocation
             )
     try:
-        return storage.slice(indexInt, 1)
+        return SlicedReference(storage, indexInt, 1)
     except ValueError as ex:
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
@@ -321,7 +317,7 @@ def _convertStorageSlice(node, builder):
                 )
 
     try:
-        return storage.slice(index, width)
+        return SlicedReference(storage, index, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)
 
@@ -339,7 +335,7 @@ def _convertStorageConcat(node, builder):
             'unlimited width',
             node.treeLocation
             )
-    return expr2.concat(expr1)
+    return ConcatenatedReference(expr2, expr1)
 
 comparisonOperators = (
     Operator.negation, Operator.equal, Operator.unequal,
@@ -420,7 +416,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                     )
                 continue
 
-            builder.emitStore(lhs, rhs, node.lhs.treeLocation)
+            lhs.emitStore(rhs, node.lhs.treeLocation)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference definition.

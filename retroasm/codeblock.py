@@ -1,11 +1,13 @@
-from .expression import Expression
+from .expression import (
+    AndOperator, Expression, IntLiteral, LShift, OrOperator, SignExtension,
+    optSlice, truncate
+    )
 from .storage import FixedValue, IOStorage, Storage
-from .types import IntType, unlimited
+from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
 from collections import OrderedDict
 from inspect import signature
-from itertools import chain
 
 class Constant:
     '''Definition of a local constant value.
@@ -167,68 +169,213 @@ def _sliceRef(decomposed, index, width):
             yield sid, subStart + start - offset, end - start
         offset += subWidth
 
-class BoundReference:
-    __slots__ = ('_decomposed', '_type')
+class Reference:
+    '''Abstract base class for references.
+    '''
+    __slots__ = ('_type',)
 
     type = property(lambda self: self._type)
     width = property(lambda self: self._type.width)
 
-    @classmethod
-    def single(cls, typ, sid):
-        return cls(typ, ((sid, 0, typ.width),))
-
-    def __init__(self, typ, decomposed):
+    def __init__(self, typ):
         self._type = checkType(typ, IntType, 'value type')
-        self._decomposed = tuple(decomposed)
-        totalWidth = 0
-        for sid_, index_, width in self._decomposed:
-            if totalWidth is unlimited:
+
+    def iterSIDs(self):
+        '''Iterates through the IDs of the storages accessed through this
+        reference.
+        '''
+        raise NotImplementedError
+
+    def clone(self, singleRefCloner):
+        '''Returns a deep copy of this reference, in which each SingleReference
+        is passed to the singleRefCloner function and replaced by the Reference
+        returned by that function.
+        '''
+        raise NotImplementedError
+
+    def emitLoad(self, location):
+        '''Emits constants and load operations for loading a typed value from
+        the referenced storage(s).
+        Returns the value as an Expression.
+        '''
+        value = self._emitLoadBits(location)
+
+        # Apply sign extension, if necessary.
+        typ = self._type
+        if typ.signed:
+            width = typ.width
+            if width is not unlimited:
+                return SignExtension(value, width)
+        return value
+
+    def _emitLoadBits(self, location):
+        '''Emits constants and load operations for loading a bit string from
+        the referenced storage(s).
+        Returns the value of the bit string as an Expression.
+        '''
+        raise NotImplementedError
+
+    def emitStore(self, value, location):
+        '''Emits constants and store operations for storing a value into the
+        referenced storage(s).
+        '''
+        self._emitStoreBits(truncate(value, self.width), location)
+
+    def _emitStoreBits(self, value, location):
+        '''Emits constants and store operations for storing a bit string into
+        the referenced storage(s).
+        '''
+        raise NotImplementedError
+
+class SingleReference(Reference):
+    __slots__ = ('_block', '_sid',)
+
+    sid = property(lambda self: self._sid)
+
+    def __init__(self, block, sid, typ):
+        Reference.__init__(self, typ)
+        self._block = block
+        self._sid = checkType(sid, int, 'storage ID')
+
+    def __repr__(self):
+        return 'SingleReference(%r, %d, %r)' % (
+            self._block, self._sid, self._type
+            )
+
+    def __str__(self):
+        return str(self._block.storages[self._sid])
+
+    def iterSIDs(self):
+        yield self._sid
+
+    def clone(self, singleRefCloner):
+        return singleRefCloner(self)
+
+    def _emitLoadBits(self, location):
+        return self._block.emitLoadBits(self._sid, location)
+
+    def _emitStoreBits(self, value, location):
+        self._block.emitStoreBits(self._sid, value, location)
+
+class ConcatenatedReference(Reference):
+    __slots__ = ('_refs',)
+
+    def __init__(self, *refs):
+        '''Creates a concatenation of the given references, in order from least
+        to most significant.
+        '''
+        width = 0
+        for ref in refs:
+            if width is unlimited:
                 raise ValueError(
                     'unlimited width is only allowed on most significant '
                     'storage'
                     )
-            totalWidth += width
-        if totalWidth != typ.width:
-            raise ValueError(
-                'combined storages are %d bits wide, '
-                'while value type is %d bits wide'
-                % (totalWidth, typ.width)
-                )
+            checkType(ref, Reference, 'reference')
+            width += ref.width
+        typ = IntType(width, width != 0 and refs[-1].type.signed)
+        Reference.__init__(self, typ)
+        self._refs = refs
 
     def __repr__(self):
-        return 'BoundReference((%s))' % ', '.join(
-            repr(storageSlice) for storageSlice in self._decomposed
+        return 'ConcatenatedReference(%s)' % ', '.join(
+            repr(ref) for ref in self._refs
             )
 
-    def __iter__(self):
-        return iter(self._decomposed)
+    def __str__(self):
+        return '(%s)' % ' ; '.join(str(ref) for ref in reversed(self._refs))
 
-    def present(self, storages):
-        return ' ; '.join(
-            '%s[%s:%s]' % (
-                storages[sid],
-                '' if index == 0 else index,
-                '' if width is unlimited else index + width
-                )
-            for sid, index, width in self._decomposed
+    def iterSIDs(self):
+        for ref in self._refs:
+            yield from ref.iterSIDs()
+
+    def clone(self, singleRefCloner):
+        return ConcatenatedReference(*(
+            ref.clone(singleRefCloner) for ref in self._refs
+            ))
+
+    def _emitLoadBits(self, location):
+        terms = []
+        offset = 0
+        for ref in self._refs:
+            value = ref._emitLoadBits(location)
+            terms.append(value if offset == 0 else LShift(value, offset))
+            offset += ref.width
+        return OrOperator(*terms)
+
+    def _emitStoreBits(self, value, location):
+        offset = 0
+        for ref in self._refs:
+            width = ref.width
+            valueSlice = optSlice(value, offset, width)
+            ref._emitStoreBits(valueSlice, location)
+            offset += width
+
+class SlicedReference(Reference):
+    __slots__ = ('_ref', '_offset')
+
+    def __init__(self, ref, offset, width):
+        '''Creates a bitwise slice of the given reference.
+        '''
+        checkType(offset, int, 'slice offset')
+        if offset < 0:
+            raise ValueError('slice offset must not be negative: %d' % offset)
+
+        if width is not unlimited:
+            checkType(width, int, 'slice width')
+        if width < 0:
+            raise ValueError('slice width must not be negative: %d' % width)
+
+        self._ref = checkType(ref, Reference, 'reference')
+        self._offset = offset
+        typ = IntType.int if width is unlimited else IntType.u(width)
+        Reference.__init__(self, typ)
+
+    def __repr__(self):
+        return 'SlicedReference(%r, %d, %s)' % (
+            self._ref, self._offset, self.width
             )
 
-    def concat(self, other):
-        '''Return a new BoundReference instance that is the concatenation of
-        this one as the least significant part and the given BoundReference
-        as the most significant part.
-        '''
-        assert isinstance(self.type, IntType)
-        assert isinstance(other.type, IntType)
-        newType = IntType(self.width + other.width, other.type.signed)
-        return self.__class__(newType, chain(self, other))
+    def __str__(self):
+        offset = self._offset
+        width = self.width
+        return '%s[%s:%s]' % (
+            self._ref,
+            '' if offset == 0 else offset,
+            '' if width is unlimited else offset + width
+            )
 
-    def slice(self, index, width):
-        '''Return a new BoundReference instance that is a slice of this one.
-        '''
-        decomposed = tuple(_sliceRef(self._decomposed, index, width))
-        width = sum(width for sid_, index_, width in decomposed)
-        return self.__class__(IntType.u(width), decomposed)
+    def iterSIDs(self):
+        return self._ref.iterSIDs()
+
+    def clone(self, singleRefCloner):
+        return SlicedReference(
+            self._ref.clone(singleRefCloner), self._offset, self.width
+            )
+
+    def _emitLoadBits(self, location):
+        value = self._ref._emitLoadBits(location)
+        return optSlice(value, self._offset, self.width)
+
+    def _emitStoreBits(self, value, location):
+        offset = self._offset
+        width = self.width
+        valueMask = maskForWidth(width) << offset
+        valueSlice = optSlice(value, offset, width)
+
+        # Get mask and previous value of our reference.
+        ref = self._ref
+        fullMask = maskForWidth(ref.width)
+        prevValue = ref._emitLoadBits(location)
+
+        # Combine previous value with new value.
+        maskLit = IntLiteral(fullMask & ~valueMask)
+        combined = OrOperator(
+            AndOperator(prevValue, maskLit),
+            LShift(valueSlice, offset)
+            )
+
+        self._ref._emitStoreBits(combined, location)
 
 class CodeBlock:
 
@@ -299,7 +446,7 @@ class CodeBlock:
 
         # Check that the return value sids are valid.
         if self.retRef is not None:
-            for sid, index_, width_ in self.retRef:
+            for sid in self.retRef.iterSIDs():
                 assert sid in self.storages, sid
 
     def dump(self):
@@ -319,7 +466,7 @@ class CodeBlock:
         for sid, storage in self.storages.items():
             print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
-            print('        ret = %s' % self.retRef.present(self.storages))
+            print('        ret = %s' % self.retRef)
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)

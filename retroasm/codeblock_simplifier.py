@@ -1,6 +1,6 @@
 from .codeblock import (
-    ArgumentConstant, BoundReference, CodeBlock, ComputedConstant,
-    ConstantValue, Load, LoadedConstant, Store
+    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
+    LoadedConstant, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
 from .storage import FixedValue, IOStorage, Variable
@@ -201,8 +201,7 @@ class CodeBlockSimplifier(CodeBlock):
             unusedSids.discard(node.sid)
         retRef = self.retRef
         if retRef is not None:
-            for sid, index_, width_ in retRef:
-                unusedSids.discard(sid)
+            unusedSids.difference_update(retRef.iterSIDs())
         for sid in unusedSids:
             del self.storages[sid]
         return bool(unusedSids)
@@ -329,8 +328,8 @@ class CodeBlockSimplifier(CodeBlock):
                         if sid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
-                            self.retRef = BoundReference.single(
-                                storage.type, sid
+                            self.retRef = SingleReference(
+                                self, sid, storage.type
                                 )
                             storages[sid] = FixedValue(node.cid, width)
                     if sid in willBeOverwritten \
