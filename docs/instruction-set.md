@@ -112,15 +112,16 @@ lesser than         | *A* < *B*         | int &times; int &rarr; u1
 lesser or equal     | *A* <= *B*        | int &times; int &rarr; u1
 greater than        | *A* > *B*         | int &times; int &rarr; u1
 greater or equal    | *A* >= *B*        | int &times; int &rarr; u1
-concatenation       | *A* ; *B*         | int &times; (u&#124;s)*N* &rarr; int
-                    |                   | u*M* &times; (u&#124;s)*N* &rarr; u(*M*+*N*)
-                    |                   | s*M* &times; (u&#124;s)*N* &rarr; s(*M*+*N*)
-slicing             | *A*[*K*:*L*]      | int &rarr; u(*L*-*K*)
-                    | *A*[*K*:]         | int &rarr; int
-                    |                   | u*N* &rarr; u(*N*-*K*)
-                    |                   | s*N* &rarr; s(*N*-*K*)
-bitwise lookup      | *A*[*K*]          | int &rarr; u1
-I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*
+concatenation       | *A* ; *B*         | int& &times; (u&#124;s)*N*& &rarr; int&
+                    |                   | u*M*& &times; (u&#124;s)*N*& &rarr; u(*M*+*N*)&
+                    |                   | s*M*& &times; (u&#124;s)*N*& &rarr; s(*M*+*N*)&
+slicing             | *A*[*K*:*L*]      | int& &rarr; u(*L*-*K*)&
+                    | *A*[:*L*]         | int& &rarr; u*L*&
+                    | *A*[*K*:]         | int& &rarr; int&
+                    |                   | u*N*& &rarr; u(*N*-*K*)&
+                    |                   | s*N*& &rarr; s(*N*-*K*)&
+bitwise lookup      | *A*[*K*]          | int& &rarr; u1&
+I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*&
 
 Most of these operators should be familiar to the reader, but a few may require a more detailed explanation.
 
@@ -141,9 +142,13 @@ Type Conversions
 
 Conversion from fixed-width (`u`*N* or `s`*N*) integer to arbitrary-sized integer (`int`) is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
 
-Conversion from arbitrary-sized integer (`int`) to fixed-width (`u`*N*) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*[0:*N*] will convert *A* to `u`*N*. Truncation is also done implicitly when an integer value is assigned to a fixed-width storage location.
+Conversion from arbitrary-sized integer (`int`) to fixed-width (`u`*N*) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*[:*N*] will convert *A* to `u`*N*. Truncation is done implicitly when an integer value is stored into a fixed-width reference.
 
-Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example `$84` is an `u8` with numeric value 132, but when converted to `s8` the value becomes -124. Explicit conversion can be performed using the `to_s` and `to_u` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the storage location or argument slot.
+Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example `$84` is a `u8` with numeric value 132, but when converted to `s8` the value becomes -124. Explicit conversion can be performed using the `to_s` and `to_u` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the reference type.
+
+When a reference is used where a value is expected, the value is loaded from the reference. If the reference points to a peripheral, the load operation can have side effects in the peripheral. For example, some hardware status flags are automatically reset when read.
+
+When a value is used where a reference is expected, a reference to a fixed value will be created. When a fixed value reference is loaded from, the result is the value itself. When a fixed value reference is stored to, nothing happens.
 
 Registers
 ---------
@@ -165,7 +170,7 @@ For example this block defines all registers of the 6502:
 
 The type declaration on aliases is redundant, but mandatory for consistency and as an extra validation.
 
-An integer literal in an alias expression means the corresponding bits are always read as that literal value, while writes to those bits are ignored.
+An integer literal in an alias expression is an example of a fixed value reference: the corresponding bits are always read as that literal value, while writes to those bits are ignored.
 
 If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `u1`.
 
@@ -204,13 +209,17 @@ Each line of a statement block contains a single statement. As usual, an empty l
 
 ### Assignment
 
-The most common statement is assignment, which uses the `<lhs> := <rhs>` syntax. An assignment will compute the value of the expression on its right-hand side and store it into the storage location on its left-hand side, for example:
+The most common statement is assignment, which uses the `<lhs> := <rhs>` syntax. An assignment will compute the value of the expression on its right-hand side and store it into the reference on its left-hand side, for example:
 
     a := a + 1
 
-Multiple storage locations can be stored into in a single assignment using concatenation. It is also possible to assign to a slice of a storage location, which will load its value, combine it with the assigned value and store the result:
+Multiple storage locations can be stored into in a single assignment using a concatenated reference. It is also possible to assign to a slice of a reference, which will load its value, combine it with the assigned value and store the result:
 
     a[0:4] ; mem[hl] := mem[hl] ; a[0:4]
+
+When storing to a sliced reference, all its subreferences will be loaded from and then stored into, even if they are outside the range of the slice. For example, in the following statement both memory locations are read and then written, regardless of which bit *B* is actually set:
+
+    (mem[A+1] ; mem[A])[B] := 1
 
 ### Variables
 
