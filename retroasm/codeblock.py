@@ -285,6 +285,9 @@ class ConcatenatedReference(Reference):
     def __str__(self):
         return '(%s)' % ' ; '.join(str(ref) for ref in reversed(self._refs))
 
+    def __iter__(self):
+        return iter(self._refs)
+
     def iterSIDs(self):
         for ref in self._refs:
             yield from ref.iterSIDs()
@@ -313,6 +316,9 @@ class ConcatenatedReference(Reference):
 
 class SlicedReference(Reference):
     __slots__ = ('_ref', '_offset')
+
+    ref = property(lambda self: self._ref)
+    offset = property(lambda self: self._offset)
 
     def __init__(self, ref, offset, width):
         '''Creates a bitwise slice of the given reference.

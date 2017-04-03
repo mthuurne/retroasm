@@ -1,4 +1,4 @@
-from retroasm.codeblock import BoundReference, ComputedConstant
+from retroasm.codeblock import ComputedConstant, SingleReference
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -31,23 +31,16 @@ class NodeChecker:
         return simplified.cid
 
     def getSid(self, ref):
-        self.assertIsInstance(ref, BoundReference)
-        decomposed = tuple(ref)
-        self.assertEqual(len(decomposed), 1)
-        (sid, index, width_), = decomposed
-        self.assertEqual(index, 0)
-        return sid
+        self.assertIsInstance(ref, SingleReference)
+        return ref.sid
 
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        self.assertIsInstance(retRef, BoundReference)
-        decomposed = tuple(retRef)
-        self.assertEqual(len(decomposed), 1)
-        (sid, index, width), = decomposed
-        self.assertEqual(index, 0)
-        storage = code.storages[sid]
+        self.assertIsInstance(retRef, SingleReference)
+        storage = code.storages[retRef.sid]
         self.assertIsInstance(storage, FixedValue)
+        self.assertEqual(storage.width, retRef.width)
         return storage.cid, width
 
     def assertRetVal(self, code, value):
@@ -66,11 +59,11 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         self.globalBuilder = globalBuilder
         LocalCodeBlockBuilder.__init__(self, globalBuilder)
 
-    def emitLoad(self, boundRef, location=None):
-        return super().emitLoad(boundRef, location)
+    def emitLoad(self, ref):
+        return ref.emitLoad(None)
 
-    def emitStore(self, boundRef, expr, location=None):
-        return super().emitStore(boundRef, expr, location)
+    def emitStore(self, ref, expr):
+        ref.emitStore(expr, None)
 
     def addRegister(self, name, typ=IntType.u(8)):
         try:
@@ -81,11 +74,9 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             ref = self.context[name]
 
         # Check that existing global context entry is this register.
-        assert isinstance(ref, BoundReference), ref
-        (sid, index, cmpWidth), = ref
-        assert index == 0, ref
-        assert typ.width == cmpWidth, ref
-        reg = self.globalBuilder.storages[sid]
+        assert isinstance(ref, SingleReference), ref
+        assert typ.width == ref.width, ref
+        reg = self.globalBuilder.storages[ref.sid]
         assert reg.name == name, reg
         assert reg.width == typ.width
 
