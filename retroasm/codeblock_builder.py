@@ -36,7 +36,7 @@ class CodeBlockBuilder:
                 assert False, const
         print('    storages:')
         for sid, storage in enumerate(self.storages):
-            print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
+            print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the
