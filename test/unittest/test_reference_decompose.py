@@ -11,29 +11,11 @@ from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
 
 import unittest
 
-class DecomposeTests(unittest.TestCase):
+class DecomposeTests:
+    '''Abstract base class for reference decompose tests.'''
 
     def setUp(self):
         self.builder = TestCodeBlockBuilder()
-
-    def decomposeRef(self, ref):
-        self.assertIsInstance(ref, Reference)
-        if isinstance(ref, SingleReference):
-            yield ref.sid, 0, ref.width
-        elif isinstance(ref, ConcatenatedReference):
-            for subRef in ref:
-                yield from self.decomposeRef(subRef)
-        elif isinstance(ref, SlicedReference):
-            offset = ref.offset
-            width = ref.width
-            for sid, subOffset, subWidth in self.decomposeRef(ref.ref):
-                start = subOffset + max(offset, 0)
-                end = subOffset + min(offset + width, subWidth)
-                if start < end:
-                    yield sid, start, end - start
-                offset -= subWidth
-        else:
-            self.fail('Unsupported Reference subtype: %s' % type(ref).__name__)
 
     def decomposeExpr(self, expr):
         self.assertIsInstance(expr, Expression)
@@ -73,67 +55,7 @@ class DecomposeTests(unittest.TestCase):
 
     def assertDecomposed(self, ref, expected):
         '''Perform all decomposition checks we have.'''
-
-        # Check that a reference decomposes as expected.
-        i = 0
-        width = 0
-        for actualItem in self.decomposeRef(ref):
-            try:
-                expectedItem = expected[i]
-            except IndexError:
-                self.fail(
-                    'Reference produced more than the %d expected items'
-                    % len(expected)
-                    )
-            else:
-                i += 1
-            self.assertEqual(actualItem, expectedItem)
-            width += actualItem[2]
-        if i < len(expected):
-            self.fail(
-                'Reference produced only %d of the %d expected items'
-                % (i, len(expected))
-                )
-        self.assertLessEqual(width, ref.width)
-
-        # Check that emitLoad only emits Load nodes.
-        value = self.builder.emitLoad(ref)
-        nodes = self.builder.nodes
-        for node in nodes:
-            self.assertIsInstance(node, Load)
-
-        # Check that all referenced storages are loaded from.
-        # Also check that the load order matches the depth-first ref tree walk.
-        # Even storages that are not part of the decomposition should still be
-        # loaded from since loading might trigger side effects.
-        refSIDs = tuple(ref.iterSIDs())
-        loadedSIDs = tuple(node.sid for node in nodes)
-        self.assertEqual(refSIDs, loadedSIDs)
-
-        # Check the loaded value expression's bit mask.
-        self.assertLessEqual(widthForMask(value.mask), ref.width,
-            'loaded value is wider than reference')
-
-        # Check that the loaded expression's terms don't overlap.
-        decomposedVal = tuple(self.decomposeExpr(value))
-        mask = 0
-        for cid, offset, width, shift in decomposedVal:
-            termMask = maskForWidth(width) << shift
-            self.assertEqual(mask & termMask, 0, 'loaded terms overlap')
-
-        # Check loaded value.
-        self.assertEqual(len(decomposedVal), len(expected))
-        offset = 0
-        constants = self.builder.constants
-        for actualItem, expectedItem in zip(decomposedVal, expected):
-            valCid, valOffset, valWidth, valShift = actualItem
-            expSid, expOffset, expWidth = expectedItem
-            const = constants[valCid]
-            self.assertEqual(valShift, offset)
-            self.assertEqual(const.sid, expSid)
-            self.assertEqual(valOffset, expOffset)
-            self.assertEqual(valWidth, expWidth)
-            offset += valWidth
+        raise NotImplementedError
 
     def test_single(self):
         '''Test construction of SingleReference.'''
@@ -220,6 +142,98 @@ class DecomposeTests(unittest.TestCase):
             (ref2.sid, 0, 5),
             )
         self.assertDecomposed(storage, expected)
+
+class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
+    '''Tests whether the data structure that contains the reference matches
+    our expected output. This is more likely to find errors in the test
+    cases rather than the code under test, but it is valuable anyway as
+    a sanity check separate from the more complex load and store testing.
+    '''
+
+    def flattenRef(self, ref):
+        self.assertIsInstance(ref, Reference)
+        if isinstance(ref, SingleReference):
+            yield ref.sid, 0, ref.width
+        elif isinstance(ref, ConcatenatedReference):
+            for subRef in ref:
+                yield from self.flattenRef(subRef)
+        elif isinstance(ref, SlicedReference):
+            offset = ref.offset
+            width = ref.width
+            for sid, subOffset, subWidth in self.flattenRef(ref.ref):
+                start = subOffset + max(offset, 0)
+                end = subOffset + min(offset + width, subWidth)
+                if start < end:
+                    yield sid, start, end - start
+                offset -= subWidth
+        else:
+            self.fail('Unsupported Reference subtype: %s' % type(ref).__name__)
+
+    def assertDecomposed(self, ref, expected):
+        # Check that a reference flattens as expected.
+        i = 0
+        width = 0
+        for actualItem in self.flattenRef(ref):
+            try:
+                expectedItem = expected[i]
+            except IndexError:
+                self.fail(
+                    'Reference produced more than the %d expected items'
+                    % len(expected)
+                    )
+            else:
+                i += 1
+            self.assertEqual(actualItem, expectedItem)
+            width += actualItem[2]
+        if i < len(expected):
+            self.fail(
+                'Reference produced only %d of the %d expected items'
+                % (i, len(expected))
+                )
+        self.assertLessEqual(width, ref.width)
+
+class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
+    '''Tests loading from references.'''
+
+    def assertDecomposed(self, ref, expected):
+        # Check that emitLoad only emits Load nodes.
+        value = self.builder.emitLoad(ref)
+        nodes = self.builder.nodes
+        for node in nodes:
+            self.assertIsInstance(node, Load)
+
+        # Check that all referenced storages are loaded from.
+        # Also check that the load order matches the depth-first ref tree walk.
+        # Even storages that are not part of the decomposition should still be
+        # loaded from since loading might trigger side effects.
+        refSIDs = tuple(ref.iterSIDs())
+        loadedSIDs = tuple(node.sid for node in nodes)
+        self.assertEqual(refSIDs, loadedSIDs)
+
+        # Check the loaded value expression's bit mask.
+        self.assertLessEqual(widthForMask(value.mask), ref.width,
+            'loaded value is wider than reference')
+
+        # Check that the loaded expression's terms don't overlap.
+        decomposedVal = tuple(self.decomposeExpr(value))
+        mask = 0
+        for cid, offset, width, shift in decomposedVal:
+            termMask = maskForWidth(width) << shift
+            self.assertEqual(mask & termMask, 0, 'loaded terms overlap')
+
+        # Check loaded value.
+        self.assertEqual(len(decomposedVal), len(expected))
+        offset = 0
+        constants = self.builder.constants
+        for actualItem, expectedItem in zip(decomposedVal, expected):
+            valCid, valOffset, valWidth, valShift = actualItem
+            expSid, expOffset, expWidth = expectedItem
+            const = constants[valCid]
+            self.assertEqual(valShift, offset)
+            self.assertEqual(const.sid, expSid)
+            self.assertEqual(valOffset, expOffset)
+            self.assertEqual(valWidth, expWidth)
+            offset += valWidth
 
 if __name__ == '__main__':
     unittest.main()
