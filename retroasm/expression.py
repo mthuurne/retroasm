@@ -243,7 +243,7 @@ class AndOperator(SimplifiableComposedExpression):
         if isinstance(last, IntLiteral):
             value = last.value
             width = widthForMask(value)
-            if maskForWidth(width) == value:
+            if width is not unlimited and maskForWidth(width) == value:
                 # Special formatting for truncation and slicing.
                 if len(exprs) == 2:
                     first = exprs[0]
