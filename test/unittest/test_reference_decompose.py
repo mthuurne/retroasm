@@ -2,7 +2,7 @@ from utils_codeblock import TestCodeBlockBuilder
 
 from retroasm.codeblock import (
     ConstantValue, ConcatenatedReference, Load, Reference, SingleReference,
-    SlicedReference
+    SlicedReference, Store
     )
 from retroasm.expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift
@@ -143,6 +143,20 @@ class DecomposeTests:
             )
         self.assertDecomposed(storage, expected)
 
+    def test_nested_slice(self):
+        '''Checks taking a slice from sliced references.'''
+        ref0 = self.builder.addReferenceArgument('R0')
+        ref1 = self.builder.addReferenceArgument('R1')
+        slice0 = SlicedReference(ref0, 2, 5)
+        slice1 = SlicedReference(ref1, 1, 4)
+        concat = ConcatenatedReference(slice0, slice1)
+        sliceC = SlicedReference(concat, 3, 3)
+        expected = (
+            (ref0.sid, 5, 2),
+            (ref1.sid, 1, 1),
+            )
+        self.assertDecomposed(sliceC, expected)
+
 class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
     '''Tests whether the data structure that contains the reference matches
     our expected output. This is more likely to find errors in the test
@@ -234,6 +248,67 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
             self.assertEqual(valOffset, expOffset)
             self.assertEqual(valWidth, expWidth)
             offset += valWidth
+
+class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
+    '''Tests storing to references.'''
+
+    def iterSlices(self, ref):
+        '''Iterates through the SlicedReferences contained in the given
+        reference.
+        '''
+        self.assertIsInstance(ref, Reference)
+        if isinstance(ref, SingleReference):
+            pass
+        elif isinstance(ref, ConcatenatedReference):
+            for subRef in ref:
+                yield from self.iterSlices(subRef)
+        elif isinstance(ref, SlicedReference):
+            yield ref
+        else:
+            self.fail('Unsupported Reference subtype: %s' % type(ref).__name__)
+
+    def iterSliceLoads(self, ref):
+        '''Iterates through the storage IDs of the storages that must be loaded
+        when storing into a reference that may contain slicing.
+        Sliced references must load their original version to combine it with
+        the written value before the store happens. If sliced references are
+        nested, the same storage might be referenced within multiple parts of
+        the tree. To avoid losing updates, each node must complete its
+        load-combine-store cycle before other nodes can be processed.
+        '''
+        for sliceRef in self.iterSlices(ref):
+            yield from sliceRef.iterSIDs()
+            yield from self.iterSliceLoads(sliceRef.ref)
+
+    def assertDecomposed(self, ref, expected):
+        # Check that emitStore only emits Load and Store nodes.
+        nodes = self.builder.nodes
+        valueRef = self.builder.addValueArgument('V', IntType.int)
+        value = self.builder.emitLoad(valueRef)
+        initIdx = len(nodes)
+        self.builder.emitStore(ref, value)
+        loadNodes = []
+        storeNodes = []
+        for node in nodes[initIdx:]:
+            self.assertIsInstance(node, (Load, Store), 'unexpected node type')
+            (loadNodes if isinstance(node, Load) else storeNodes).append(node)
+
+        # Check that all storages referenced through slicing are loaded from.
+        # Also check that the load order is as expected (see iterSliceLoads
+        # docstring).
+        slicedSIDs = tuple(self.iterSliceLoads(ref))
+        loadedSIDs = tuple(node.sid for node in loadNodes)
+        self.assertEqual(slicedSIDs, loadedSIDs)
+
+        # Check that all referenced storages are stored to.
+        # Also check that the store order matches the depth-first ref tree walk.
+        refSIDs = tuple(ref.iterSIDs())
+        storedSIDs = tuple(node.sid for node in storeNodes)
+        self.assertEqual(refSIDs, storedSIDs)
+
+        # Note: Verifying that the right values are being stored based on the
+        #       expectation list is quite complex.
+        #       We're better off writing a separate test for that.
 
 if __name__ == '__main__':
     unittest.main()
