@@ -1,6 +1,6 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import Store
+from retroasm.codeblock import ConcatenatedReference, SlicedReference, Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
 from retroasm.types import IntType
@@ -182,7 +182,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerL = outer.addRegister('l')
         regH = outer.context['h']
         regL = outer.context['l']
-        regHL = regL.concat(regH)
+        regHL = ConcatenatedReference(regL, regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
         initL = outer.emitCompute(IntLiteral(0xcd))
@@ -213,7 +213,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerH = outer.addRegister('h')
         outerL = outer.emitFixedValue(IntLiteral(0xcd), IntType.u(8))
         regH = outer.context['h']
-        regHL = outerL.concat(regH)
+        regHL = ConcatenatedReference(outerL, regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
         outer.emitStore(outerH, initH)
@@ -243,7 +243,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regR = outer.context['r']
         initR = outer.emitCompute(IntLiteral(0xcdef))
         outer.emitStore(outerR, initR)
-        sliceR = regR.slice(4, 8)
+        sliceR = SlicedReference(regR, 4, 8)
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})

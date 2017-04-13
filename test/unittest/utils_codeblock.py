@@ -41,7 +41,7 @@ class NodeChecker:
         storage = code.storages[retRef.sid]
         self.assertIsInstance(storage, FixedValue)
         self.assertEqual(storage.width, retRef.width)
-        return storage.cid, width
+        return storage.cid, storage.width
 
     def assertRetVal(self, code, value):
         cid, width = self.getRetVal(code)
