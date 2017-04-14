@@ -367,7 +367,6 @@ class SlicedReference(Reference):
         offset = self._offset
         width = self.width
         valueMask = maskForWidth(width) << offset
-        valueSlice = optSlice(value, offset, width)
 
         # Get mask and previous value of our reference.
         ref = self._ref
@@ -378,7 +377,7 @@ class SlicedReference(Reference):
         maskLit = IntLiteral(fullMask & ~valueMask)
         combined = OrOperator(
             AndOperator(prevValue, maskLit),
-            LShift(valueSlice, offset)
+            LShift(value, offset)
             )
 
         self._ref._emitStoreBits(combined, location)
