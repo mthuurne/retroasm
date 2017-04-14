@@ -257,15 +257,21 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidB = self.getSid(refB)
         sidC = self.getSid(refC)
         sidX = self.getSid(refX)
+
+        code = self.createSimplifiedCode()
+        constSimp, = (
+            const
+            for const in code.constants.values()
+            if isinstance(const, ComputedConstant)
+                and isinstance(const.expr, IntLiteral)
+            )
         correct = (
             Load(cidA1, sidA),
-            Store(const.cid, sidX),
+            Store(constSimp.cid, sidX),
             Load(cidA2, sidA),
             Store(cidA1, sidB),
             Store(cidA2, sidC),
             )
-
-        code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
     def test_same_value_redundant_load(self):
