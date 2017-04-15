@@ -1,6 +1,6 @@
 from .codeblock_builder import GlobalCodeBlockBuilder
 from .context import NameExistsError
-from .expression_builder import buildStorage
+from .expression_builder import buildReference
 from .expression_parser import (
     DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode, NumberNode,
     parseContext, parseExpr, parseExprList, parseStatement
@@ -64,7 +64,7 @@ def _parseRegs(reader, argStr, builder):
             rhsLoc = reader.getLocation((len(parts[0]) + 1, len(line)))
             try:
                 tree = parseExpr(parts[1], rhsLoc)
-                alias = buildStorage(tree, builder)
+                alias = buildReference(tree, builder)
             except BadInput as ex:
                 reader.error(str(ex), location=ex.location)
                 continue

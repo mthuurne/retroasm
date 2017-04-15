@@ -87,7 +87,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
         ref = builder.emitFixedValue(truncate(expr, declWidth), typ)
     elif kind is DeclarationKind.reference:
         try:
-            ref = buildStorage(value, builder)
+            ref = buildReference(value, builder)
         except BadExpression as ex:
             raise BadExpression(
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
@@ -160,7 +160,7 @@ def _convertFunctionCall(callNode, builder):
             value = buildExpression(argNode, builder)
         elif isinstance(decl, ReferenceType):
             try:
-                value = buildStorage(argNode, builder)
+                value = buildReference(argNode, builder)
             except BadExpression as ex:
                 raise BadExpression(
                     'bad value for reference argument "%s %s": %s'
@@ -169,7 +169,7 @@ def _convertFunctionCall(callNode, builder):
                     )
             if value.width != decl.type.width:
                 raise BadExpression.withText(
-                    'storage of %d bits wide passed for reference argument '
+                    'reference of %d bits wide passed for reference argument '
                     '"%s %s"' % (value.width, decl, name),
                     argNode.treeLocation
                     )
@@ -228,11 +228,11 @@ def _convertExpressionOperator(node, builder):
         else:
             return retRef.emitLoad(node.treeLocation)
     elif operator is Operator.lookup:
-        return _convertStorageLookup(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceLookup(node, builder).emitLoad(node.treeLocation)
     elif operator is Operator.slice:
-        return _convertStorageSlice(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceSlice(node, builder).emitLoad(node.treeLocation)
     elif operator is Operator.concatenation:
-        return _convertStorageConcat(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceConcat(node, builder).emitLoad(node.treeLocation)
     else:
         return _convertArithmetic(node, builder)
 
@@ -263,7 +263,7 @@ def buildExpression(node, builder):
     else:
         assert False, node
 
-def _convertStorageLookup(node, builder):
+def _convertReferenceLookup(node, builder):
     exprNode, indexNode = node.operands
     if isinstance(exprNode, IdentifierNode):
         ident = _convertIdentifier(exprNode, builder)
@@ -272,7 +272,7 @@ def _convertStorageLookup(node, builder):
             index = buildExpression(indexNode, builder)
             return builder.emitIOReference(channel, index)
 
-    storage = buildStorage(exprNode, builder)
+    ref = buildReference(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
         indexInt = simplifyExpression(index).value
@@ -282,13 +282,13 @@ def _convertStorageLookup(node, builder):
             indexNode.treeLocation
             )
     try:
-        return SlicedReference(storage, indexInt, 1)
+        return SlicedReference(ref, indexInt, 1)
     except ValueError as ex:
         raise BadExpression('invalid lookup: %s' % ex, node.location)
 
-def _convertStorageSlice(node, builder):
+def _convertReferenceSlice(node, builder):
     exprNode, startNode, endNode = node.operands
-    storage = buildStorage(exprNode, builder)
+    ref = buildReference(exprNode, builder)
 
     if startNode is None:
         index = 0
@@ -304,7 +304,7 @@ def _convertStorageSlice(node, builder):
                 )
 
     if endNode is None:
-        width = storage.width
+        width = ref.width
     else:
         end = buildExpression(endNode, builder)
         end = simplifyExpression(end)
@@ -317,15 +317,15 @@ def _convertStorageSlice(node, builder):
                 )
 
     try:
-        return SlicedReference(storage, index, width)
+        return SlicedReference(ref, index, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)
 
-def _convertStorageConcat(node, builder):
+def _convertReferenceConcat(node, builder):
     exprNode1, exprNode2 = node.operands
-    expr1 = buildStorage(exprNode1, builder)
-    expr2 = buildStorage(exprNode2, builder)
-    if expr2.width is unlimited:
+    ref1 = buildReference(exprNode1, builder)
+    ref2 = buildReference(exprNode2, builder)
+    if ref2.width is unlimited:
         node = exprNode2
         while isinstance(node, OperatorNode) and \
                 node.operator is Operator.concatenation:
@@ -335,7 +335,7 @@ def _convertStorageConcat(node, builder):
             'unlimited width',
             node.treeLocation
             )
-    return ConcatenatedReference(expr2, expr1)
+    return ConcatenatedReference(ref2, ref1)
 
 comparisonOperators = (
     Operator.negation, Operator.equal, Operator.unequal,
@@ -343,7 +343,7 @@ comparisonOperators = (
     Operator.greater, Operator.greater_equal,
     )
 
-def _convertStorageOperator(node, builder):
+def _convertReferenceOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
         retRef = _convertFunctionCall(node, builder)
@@ -355,17 +355,17 @@ def _convertStorageOperator(node, builder):
         else:
             return retRef
     elif operator is Operator.lookup:
-        return _convertStorageLookup(node, builder)
+        return _convertReferenceLookup(node, builder)
     elif operator is Operator.slice:
-        return _convertStorageSlice(node, builder)
+        return _convertReferenceSlice(node, builder)
     elif operator is Operator.concatenation:
-        return _convertStorageConcat(node, builder)
+        return _convertReferenceConcat(node, builder)
     else:
         expr = _convertArithmetic(node, builder)
         typ = IntType.u(1) if operator in comparisonOperators else IntType.int
         return builder.emitFixedValue(expr, typ)
 
-def buildStorage(node, builder):
+def buildReference(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
         typ = IntType(node.width, node.width is unlimited)
@@ -387,7 +387,7 @@ def buildStorage(node, builder):
         else:
             return ident
     elif isinstance(node, OperatorNode):
-        return _convertStorageOperator(node, builder)
+        return _convertReferenceOperator(node, builder)
     else:
         assert False, node
 
@@ -399,7 +399,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
 
         if isinstance(node, AssignmentNode):
             try:
-                lhs = buildStorage(node.lhs, builder)
+                lhs = buildReference(node.lhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on left hand side of assignment: %s', ex,
