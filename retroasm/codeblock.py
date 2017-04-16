@@ -2,7 +2,7 @@ from .expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, SignExtension,
     optSlice, truncate
     )
-from .storage import FixedValue, IOStorage, Storage
+from .storage import IOStorage, Storage
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
@@ -227,8 +227,45 @@ class Reference:
         '''
         raise NotImplementedError
 
+class FixedValue(Reference):
+    '''A reference that always reads as the same value and ignores writes.
+    '''
+    __slots__ = ('_block', '_cid', '_expr')
+
+    cid = property(lambda self: self._cid)
+
+    def __init__(self, block, cid, typ):
+        Reference.__init__(self, typ)
+        self._block = block
+        self._cid = checkType(cid, int, 'constant ID')
+        self._expr = None
+
+    def __repr__(self):
+        return 'FixedValue(%r, %d, %r)' % (
+            self._block, self._cid, self._type
+            )
+
+    def __str__(self):
+        return str(self._block.constants[self._cid])
+
+    def iterSIDs(self):
+        return iter(())
+
+    def clone(self, singleRefCloner):
+        return self
+
+    def _emitLoadBits(self, location):
+        expr = self._expr
+        if expr is None:
+            expr = ConstantValue(self._cid, maskForWidth(self.width))
+            self._expr = expr
+        return expr
+
+    def _emitStoreBits(self, value, location):
+        pass
+
 class SingleReference(Reference):
-    __slots__ = ('_block', '_sid',)
+    __slots__ = ('_block', '_sid')
 
     sid = property(lambda self: self._sid)
 
@@ -444,13 +481,13 @@ class CodeBlock:
 
         # Check that cids in storages are valid.
         for storage in self.storages.values():
-            if isinstance(storage, FixedValue):
-                assert storage.cid in cids, storage
-            elif isinstance(storage, IOStorage):
+            if isinstance(storage, IOStorage):
                 assert storage.index.cid in cids, storage
 
-        # Check that the return value sids are valid.
+        # Check that the return value cid/sids are valid.
         if self.retRef is not None:
+            if isinstance(self.retRef, FixedValue):
+                assert self.retRef.cid in cids, repr(self.retRef)
             for sid in self.retRef.iterSIDs():
                 assert sid in self.storages, sid
 

@@ -261,36 +261,3 @@ class IOStorage(Storage):
                 and self._channel.mightBeSame(self._index, other._index)
         else:
             return isinstance(other, RefArgStorage)
-
-class FixedValue(Storage):
-    '''A storage that always reads as the same value and ignores writes.
-    '''
-    __slots__ = ('_cid',)
-
-    cid = property(lambda self: self._cid)
-
-    def __init__(self, cid, width):
-        Storage.__init__(self, width)
-        self._cid = cid
-
-    def __repr__(self):
-        return 'FixedValue(%d, %d)' % (self._cid, self._width)
-
-    def __str__(self):
-        return 'C%d' % self._cid
-
-    def canLoadHaveSideEffect(self):
-        return False
-
-    def canStoreHaveSideEffect(self):
-        return False
-
-    def isLoadConsistent(self):
-        return True
-
-    def isSticky(self):
-        return False
-
-    def mightBeSame(self, other):
-        # Since we don't store any state, we can pretend to be unique.
-        return self is other

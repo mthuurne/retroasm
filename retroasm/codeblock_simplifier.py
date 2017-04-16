@@ -1,9 +1,9 @@
 from .codeblock import (
-    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, Load,
-    LoadedConstant, SingleReference, Store
+    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, FixedValue,
+    Load, LoadedConstant, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import FixedValue, IOStorage, Variable
+from .storage import IOStorage, Variable
 from .types import maskForWidth
 
 from collections import defaultdict
@@ -128,14 +128,16 @@ class CodeBlockSimplifier(CodeBlock):
                     storages[sid] = IOStorage(
                         storage.channel, ConstantValue(newCid, index.mask)
                         )
-            elif isinstance(storage, FixedValue):
-                storages[sid] = FixedValue(newCid, storage.width)
 
         # Replace constant in nodes.
         nodes = self.nodes
         for i, node in enumerate(nodes):
             if node.cid == oldCid:
                 nodes[i] = node.clone(cid=newCid)
+
+        # Replace constant in return value.
+        if isinstance(self.retRef, FixedValue) and self.retRef.cid == oldCid:
+            self.retRef = FixedValue(self, newCid, self.retRef.type)
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -164,10 +166,11 @@ class CodeBlockSimplifier(CodeBlock):
                     cidsInUse.add(node.cid)
         # Mark constants used in storages.
         for storage in storages.values():
-            if isinstance(storage, FixedValue):
-                cidsInUse.add(storage.cid)
-            elif isinstance(storage, IOStorage):
+            if isinstance(storage, IOStorage):
                 cidsInUse.add(storage.index.cid)
+        # Mark constants used in return value.
+        if isinstance(self.retRef, FixedValue):
+            cidsInUse.add(self.retRef.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -268,10 +271,7 @@ class CodeBlockSimplifier(CodeBlock):
             cid = node.cid
             sid = node.sid
             storage = storages[sid]
-            if isinstance(storage, FixedValue):
-                value = ConstantValue(storage.cid, maskForWidth(storage.width))
-            else:
-                value = currentValues.get(sid)
+            value = currentValues.get(sid)
             if isinstance(node, Load):
                 if value is not None:
                     # Re-use earlier loaded value.
@@ -328,14 +328,12 @@ class CodeBlockSimplifier(CodeBlock):
                         if sid not in willBeOverwritten:
                             width = storage.width
                             assert self.retRef is None, self.retRef
-                            self.retRef = SingleReference(
-                                self, sid, storage.type
+                            self.retRef = FixedValue(
+                                self, node.cid, storage.type
                                 )
-                            storages[sid] = FixedValue(node.cid, width)
-                    if sid in willBeOverwritten \
-                            or isinstance(storage, FixedValue) \
-                            or (isinstance(storage, Variable)
-                                and storage.scope == 1):
+                    if sid in willBeOverwritten or (
+                            isinstance(storage, Variable) and storage.scope == 1
+                            ):
                         changed = True
                         del nodes[i]
                     willBeOverwritten.add(sid)

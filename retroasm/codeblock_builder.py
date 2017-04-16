@@ -1,15 +1,13 @@
 from .codeblock import (
-    ArgumentConstant, ComputedConstant, ConstantValue, Load, LoadedConstant,
-    Reference, SingleReference, Store
+    ArgumentConstant, ComputedConstant, ConstantValue, FixedValue, Load,
+    LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .context import Context
 from .expression import optSlice
 from .function import Function
 from .linereader import BadInput
-from .storage import (
-    FixedValue, IOChannel, IOStorage, RefArgStorage, Storage, Variable
-    )
+from .storage import IOChannel, IOStorage, RefArgStorage, Storage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
 
@@ -81,11 +79,10 @@ class CodeBlockBuilder:
 
     def emitFixedValue(self, expr, typ):
         '''Emits a constant representing the result of the given expression.
-        Returns a reference bound to the newly created FixedValue.
+        Returns a FixedValue reference to the constant value.
         '''
         const = self.emitCompute(expr)
-        sid = self._addStorage(FixedValue(const.cid, typ.width))
-        return SingleReference(self, sid, typ)
+        return FixedValue(self, const.cid, typ)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -188,17 +185,8 @@ class _LocalContext(Context):
         try:
             return importMap[parentSid]
         except KeyError:
-            parentBuilder = self.parentBuilder
+            storage = self.parentBuilder.storages[parentSid]
             localBuilder = self.localBuilder
-            storage = parentBuilder.storages[parentSid]
-            if isinstance(storage, FixedValue):
-                # Import constant ID as well.
-                const = parentBuilder.constants[storage.cid]
-                assert isinstance(const, ComputedConstant), repr(const)
-                expr = const.expr
-                cid = len(localBuilder.constants)
-                localBuilder.constants.append(ComputedConstant(cid, expr))
-                storage = FixedValue(cid, storage.width)
             # pylint: disable=protected-access
             localSid = localBuilder._addStorage(storage)
             localRef = SingleReference(localBuilder, localSid, parentRef.type)
@@ -295,12 +283,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitLoadBits(self, sid, location):
         storage = self.storages[sid]
-        if isinstance(storage, FixedValue):
-            cid = storage.cid
-        else:
-            cid = len(self.constants)
-            self.nodes.append(Load(cid, sid, location))
-            self.constants.append(LoadedConstant(cid, sid))
+        cid = len(self.constants)
+        self.nodes.append(Load(cid, sid, location))
+        self.constants.append(LoadedConstant(cid, sid))
         return ConstantValue(cid, maskForWidth(storage.width))
 
     def emitStoreBits(self, sid, value, location):
@@ -371,9 +356,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 ref = context[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
-                if isinstance(storage, FixedValue):
-                    newStorage = FixedValue(cidMap[storage.cid], storage.width)
-                elif isinstance(storage, IOStorage):
+                if isinstance(storage, IOStorage):
                     index = storage.index
                     newStorage = IOStorage(
                         storage.channel,
@@ -407,6 +390,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Determine return value.
         retRef = code.retRef
-        return None if retRef is None else retRef.clone(
-            lambda ref: refMap[ref.sid]
-            )
+        if retRef is None:
+            return None
+        elif isinstance(retRef, FixedValue):
+            return FixedValue(self, cidMap[retRef.cid], retRef.type)
+        else:
+            return retRef.clone(lambda ref: refMap[ref.sid])
