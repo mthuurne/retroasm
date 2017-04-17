@@ -44,6 +44,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         sidA = self.getSid(outerA)
         correct = (
             Store(retCid, sidA),
+            Store(retCid, self.getSid(outerRet)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -68,8 +69,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        self.assertEqual(len(code.nodes), 0)
+        retCid, retWidth = self.getRetVal(code)
+        correct = (
+            Store(retCid, self.getSid(outerRet)),
+            )
+        self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
+        self.assertEqual(retWidth, 8)
 
     def test_multiret(self):
         '''Test whether inlining works when "ret" is written multiple times.'''
@@ -89,8 +95,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, inlinedVal)
 
         code = createSimplifiedCode(outer)
-        self.assertEqual(len(code.nodes), 0)
+        retCid, retWidth = self.getRetVal(code)
+        correct = (
+            Store(retCid, self.getSid(outerRet)),
+            )
+        self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 3000)
+        self.assertEqual(retWidth, 16)
 
     def test_ret_truncate(self):
         '''Test whether the value returned by a block is truncated.'''
@@ -107,8 +118,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, outerVal)
 
         code = createSimplifiedCode(outer)
-        self.assertEqual(len(code.nodes), 0)
+        retCid, retWidth = self.getRetVal(code)
+        correct = (
+            Store(retCid, self.getSid(outerRet)),
+            )
+        self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 0x72)
+        self.assertEqual(retWidth, 16)
 
     def test_arg_truncate(self):
         '''Test whether expressions passed via value arguments are truncated.'''
@@ -131,8 +147,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        self.assertEqual(len(code.nodes), 0)
+        retCid, retWidth = self.getRetVal(code)
+        correct = (
+            Store(retCid, self.getSid(outerRet)),
+            )
+        self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 1)
+        self.assertEqual(retWidth, 16)
 
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
@@ -161,6 +182,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         sidA = self.getSid(outerA)
         correct = (
             Store(retCid, sidA),
+            Store(retCid, self.getSid(outerRet)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -197,7 +219,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 2)
+        self.assertEqual(len(code.nodes), 3)
         self.assertRetVal(code, 0xabcd + 3 * 0x1234)
 
     def test_pass_concat_fixed_by_reference(self):
@@ -226,7 +248,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        self.assertEqual(len(code.nodes), 2)
         self.assertRetVal(code, 0xabcd + 3 * 0x1300)
 
     def test_pass_slice_by_reference(self):
@@ -253,7 +275,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        self.assertEqual(len(code.nodes), 2)
         self.assertRetVal(code, 0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4))
 
     def test_inline_unsigned_reg(self):
@@ -276,7 +298,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        self.assertEqual(len(code.nodes), 2)
         self.assertRetVal(code, 0x00b2)
 
     def test_inline_signed_reg(self):
@@ -299,7 +321,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        self.assertEqual(len(code.nodes), 2)
         self.assertRetVal(code, 0xffb2)
 
     def test_load_from_unsigned_reference_arg(self):
@@ -320,7 +342,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 0)
+        self.assertEqual(len(code.nodes), 1)
         self.assertRetVal(code, 0x00a4)
 
     def test_load_from_signed_reference_arg(self):
@@ -341,7 +363,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        self.assertEqual(len(code.nodes), 0)
+        self.assertEqual(len(code.nodes), 1)
         self.assertRetVal(code, 0xffa4)
 
 if __name__ == '__main__':

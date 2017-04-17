@@ -1,4 +1,4 @@
-from retroasm.codeblock import ComputedConstant, FixedValue, SingleReference
+from retroasm.codeblock import ComputedConstant, SingleReference, Store
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -37,8 +37,14 @@ class NodeChecker:
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        self.assertIsInstance(retRef, FixedValue)
-        return retRef.cid, retRef.width
+        retSid = self.getSid(retRef)
+        retCid = None
+        for node in code.nodes:
+            if node.sid == retSid:
+                self.assertIsInstance(node, Store)
+                self.assertIsNone(retCid)
+                retCid = node.cid
+        return retCid, retRef.width
 
     def assertRetVal(self, code, value):
         cid, width = self.getRetVal(code)

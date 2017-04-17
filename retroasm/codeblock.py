@@ -2,7 +2,7 @@ from .expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, SignExtension,
     optSlice, truncate
     )
-from .storage import IOStorage, Storage
+from .storage import IOStorage, Storage, Variable
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
@@ -486,8 +486,6 @@ class CodeBlock:
 
         # Check that the return value cid/sids are valid.
         if self.retRef is not None:
-            if isinstance(self.retRef, FixedValue):
-                assert self.retRef.cid in cids, repr(self.retRef)
             for sid in self.retRef.iterSIDs():
                 assert sid in self.storages, sid
 
@@ -508,7 +506,10 @@ class CodeBlock:
         for sid, storage in self.storages.items():
             print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
-            print('        ret = %s' % self.retRef)
+            assert isinstance(self.retRef, SingleReference), self.retRef
+            storage = self.storages[self.retRef.sid]
+            if not (isinstance(storage, Variable) and storage.name == 'ret'):
+                print('        ret = %s' % self.retRef)
         print('    nodes:')
         for node in self.nodes:
             print('        %s' % node)

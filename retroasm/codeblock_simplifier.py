@@ -135,10 +135,6 @@ class CodeBlockSimplifier(CodeBlock):
             if node.cid == oldCid:
                 nodes[i] = node.clone(cid=newCid)
 
-        # Replace constant in return value.
-        if isinstance(self.retRef, FixedValue) and self.retRef.cid == oldCid:
-            self.retRef = FixedValue(self, newCid, self.retRef.type)
-
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
         Returns True if any constants were removed, False otherwise.
@@ -168,9 +164,6 @@ class CodeBlockSimplifier(CodeBlock):
         for storage in storages.values():
             if isinstance(storage, IOStorage):
                 cidsInUse.add(storage.index.cid)
-        # Mark constants used in return value.
-        if isinstance(self.retRef, FixedValue):
-            cidsInUse.add(self.retRef.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -323,16 +316,10 @@ class CodeBlockSimplifier(CodeBlock):
                         ), storage
                     willBeOverwritten.discard(sid)
                 elif isinstance(node, Store):
-                    if isinstance(storage, Variable) and storage.scope == 1 \
-                            and storage.name == 'ret':
-                        if sid not in willBeOverwritten:
-                            width = storage.width
-                            assert self.retRef is None, self.retRef
-                            self.retRef = FixedValue(
-                                self, node.cid, storage.type
-                                )
                     if sid in willBeOverwritten or (
-                            isinstance(storage, Variable) and storage.scope == 1
+                            isinstance(storage, Variable) and
+                            storage.scope == 1 and
+                            storage.name != 'ret'
                             ):
                         changed = True
                         del nodes[i]

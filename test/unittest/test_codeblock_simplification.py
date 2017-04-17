@@ -339,13 +339,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
-        correct = (
-            Load(cidA, sidA),
-            )
+        retSid = self.getSid(refRet)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
         retCid, retWidth = self.getRetVal(code)
+        correct = (
+            Load(cidA, sidA),
+            Store(retCid, retSid),
+            )
+        self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
         self.assertIsInstance(code.constants[0], ArgumentConstant)
         self.assertOr(
@@ -366,7 +368,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidA = self.getSid(refA)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.nodes), 1)
+        self.assertEqual(len(code.nodes), 2)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
@@ -397,6 +399,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidA = self.getSid(refA)
         correct = (
             Store(retCid, sidA),
+            Store(retCid, self.getSid(ret)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)

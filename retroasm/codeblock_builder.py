@@ -35,6 +35,11 @@ class CodeBlockBuilder:
         print('    storages:')
         for sid, storage in enumerate(self.storages):
             print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
+        if 'ret' in self.context:
+            retRef = self.context['ret']
+            storage = self.storages[retRef.sid]
+            if not (isinstance(storage, Variable) and storage.name == 'ret'):
+                print('        ret = %s' % retRef)
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the
@@ -243,13 +248,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 )
 
         if 'ret' in self.context:
-            if not any(
-                    isinstance(storage, Variable) and storage.scope == 1
-                    and storage.name == 'ret'
-                    for storage in code.storages.values()
-                    ):
-                assert code.retRef is None, code.retRef
-                code.retRef = self.context['ret']
+            assert code.retRef is None, code.retRef
+            code.retRef = self.context['ret'].clone(
+                lambda ref, code=code: SingleReference(code, ref.sid, ref.type)
+                )
 
         # Finalize code block.
         code.simplify()
@@ -362,6 +364,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                         storage.channel,
                         ConstantValue(cidMap[index.cid], index.mask)
                         )
+                elif isinstance(storage, Variable) and storage.scope == 1 \
+                        and storage.name == 'ret':
+                    newStorage = Variable('inlined_ret', storage.type, 1)
                 else:
                     # Shallow copy because storages are immutable.
                     newStorage = storage
@@ -392,7 +397,5 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         retRef = code.retRef
         if retRef is None:
             return None
-        elif isinstance(retRef, FixedValue):
-            return FixedValue(self, cidMap[retRef.cid], retRef.type)
         else:
             return retRef.clone(lambda ref: refMap[ref.sid])
