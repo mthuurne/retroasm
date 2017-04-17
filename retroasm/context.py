@@ -12,6 +12,12 @@ class Context:
         self.elements = {}
         self.locations = {}
 
+    def __str__(self):
+        return '%s(%s)' % (
+            self.__class__.__name__,
+            ', '.join('%s=%s' % item for item in self.elements.items())
+            )
+
     def __contains__(self, key):
         return key in self.elements
 
