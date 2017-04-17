@@ -178,6 +178,11 @@ class Variable(NamedStorage):
         self._scope = checkType(scope, int, 'scope level')
         NamedStorage.__init__(self, name, typ)
 
+    def __repr__(self):
+        return '%s(%r, %r, %d)' % (
+            self.__class__.__name__, self._name, self._type, self._scope
+            )
+
     def canLoadHaveSideEffect(self):
         return False
 
