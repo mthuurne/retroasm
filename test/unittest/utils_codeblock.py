@@ -77,9 +77,10 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
             ref = self.context[name]
 
         # Check that existing global context entry is this register.
-        assert isinstance(ref, SingleReference), ref
-        assert typ.width == ref.width, ref
-        reg = self.globalBuilder.storages[ref.sid]
+        globalRef = self.globalBuilder.context[name]
+        assert isinstance(globalRef, SingleReference), globalRef
+        assert typ.width == globalRef.width, globalRef
+        reg = self.globalBuilder.storages[globalRef.sid]
         assert reg.name == name, reg
         assert reg.width == typ.width
 
@@ -112,3 +113,6 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
     def addVariable(self, name, typ=IntType.u(8)):
         return self.emitVariable(name, typ, None)
+
+    def addRetReference(self, value):
+        return self.defineReference('ret', value, None)

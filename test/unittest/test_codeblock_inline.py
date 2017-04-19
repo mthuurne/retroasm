@@ -1,6 +1,8 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import ConcatenatedReference, SlicedReference, Store
+from retroasm.codeblock import (
+    ConcatenatedReference, Load, SlicedReference, Store
+    )
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
 from retroasm.types import IntType
@@ -365,6 +367,57 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code.verify()
         self.assertEqual(len(code.nodes), 1)
         self.assertRetVal(code, 0xffa4)
+
+    def test_return_simple_reference(self):
+        '''Test returning a reference to a global.'''
+        inner = TestCodeBlockBuilder()
+        innerA = inner.addRegister('a')
+        inner.addRetReference(innerA)
+        innerCode = inner.createCodeBlock()
+        self.assertIsNotNone(innerCode.retRef)
+
+        outer = TestCodeBlockBuilder()
+        retRef = outer.inlineBlock(innerCode, {})
+        outerA = outer.addRegister('a')
+        fake = outer.emitCompute(IntLiteral(0xdc))
+        outer.emitStore(outerA, fake)
+        value = outer.emitCompute(IntLiteral(0xba))
+        outer.emitStore(retRef, value)
+        outerRet = outer.addVariable('ret')
+        retVal = outer.emitLoad(outerA)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        code.verify()
+        self.assertEqual(len(code.nodes), 2)
+        self.assertRetVal(code, 0xba)
+
+    def test_return_io_reference(self):
+        '''Test returning a reference to an index in an I/O channel.'''
+        inner = TestCodeBlockBuilder()
+        addrArg = inner.addValueArgument('A', IntType.u(16))
+        addrVal = inner.emitLoad(addrArg)
+        memByte = inner.addIOStorage('mem', addrVal)
+        inner.addRetReference(memByte)
+        innerCode = inner.createCodeBlock()
+        self.assertIsNotNone(innerCode.retRef)
+
+        outer = TestCodeBlockBuilder()
+        addr = outer.emitCompute(IntLiteral(0x4002))
+        retRef = outer.inlineBlock(innerCode, {'A': addr})
+        outerRet = outer.addVariable('ret')
+        retVal = outer.emitLoad(retRef)
+        outer.emitStore(outerRet, retVal)
+
+        code = createSimplifiedCode(outer)
+        retCid, retWidth = self.getRetVal(code)
+        sidIORef = self.getSid(retRef)
+        correct = (
+            Load(retCid, sidIORef),
+            Store(retCid, self.getSid(outerRet)),
+            )
+        self.assertNodes(code.nodes, correct)
+        self.assertEqual(retWidth, 8)
 
 if __name__ == '__main__':
     verbose = True
