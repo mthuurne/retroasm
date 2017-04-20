@@ -625,9 +625,10 @@ $CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u
 $CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N
 
 func resx(u3 B, u8& R, u16 A)
-    R := mem[A]
-    R[B] := 0
-    mem[A] := R
+    var u8 V := mem[A]
+    V[B] := 0
+    mem[A] := V
+    R := V
 
 instr res
 $CB, %10;B;R        . B,R           . R[B] := 0             . u3 B, reg8x R
@@ -635,9 +636,10 @@ $CB, N, %10;B;R     . B,(ix + N),R  . resx(B, R, ix + N)    . ?ix, u3 B, s8 N, r
 $CB, N, %10;B;R     . B,(iy + N),R  . resx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
 
 func setx(u3 B, u8& R, u16 A)
-    R := mem[A]
-    R[B] := 1
-    mem[A] := R
+    var u8 V := mem[A]
+    V[B] := 1
+    mem[A] := V
+    R := V
 
 instr set
 $CB, %11;B;R        . B,R           . R[B] := 1             . u3 B, reg8x R
