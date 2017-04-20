@@ -5,11 +5,14 @@ from retroasm.codeblock import (
     SlicedReference, Store
     )
 from retroasm.expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift
+    AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
     )
 from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
 
 import unittest
+
+def sliceRef(ref, offset, width):
+    return SlicedReference(ref, IntLiteral(offset), IntLiteral(width))
 
 class DecomposeTests:
     '''Abstract base class for reference decompose tests.'''
@@ -39,9 +42,11 @@ class DecomposeTests:
         elif isinstance(expr, LShift):
             for cid, offset, width, shift in self.decomposeExpr(expr.expr):
                 yield cid, offset, width, shift + expr.offset
-        elif isinstance(expr, RShift):
+        elif isinstance(expr, RVShift):
+            self.assertIsInstance(expr.offset, IntLiteral)
+            rvOffset = expr.offset.value
             for cid, offset, width, shift in self.decomposeExpr(expr.expr):
-                shift -= expr.offset
+                shift -= rvOffset
                 if shift < 0:
                     droppedBits = -shift
                     shift = 0
@@ -91,7 +96,7 @@ class DecomposeTests:
     def test_basic_slice(self):
         '''Checks construction of SlicedReference.'''
         ref0 = self.builder.addReferenceArgument('R0')
-        sliced = SlicedReference(ref0, 2, 3)
+        sliced = sliceRef(ref0, 2, 3)
         expected = (
             (ref0.sid, 2, 3),
             )
@@ -100,7 +105,7 @@ class DecomposeTests:
     def test_slice_past_end(self):
         '''Checks clipping of slice width against parent width.'''
         ref0 = self.builder.addReferenceArgument('R0')
-        sliced = SlicedReference(ref0, 2, 30)
+        sliced = sliceRef(ref0, 2, 30)
         expected = (
             (ref0.sid, 2, 6),
             )
@@ -109,7 +114,7 @@ class DecomposeTests:
     def test_slice_outside(self):
         '''Checks handling of slice index outside parent width.'''
         ref0 = self.builder.addReferenceArgument('R0')
-        sliced = SlicedReference(ref0, 12, 30)
+        sliced = sliceRef(ref0, 12, 30)
         expected = (
             )
         self.assertDecomposed(sliced, expected)
@@ -120,7 +125,7 @@ class DecomposeTests:
         ref1 = self.builder.addReferenceArgument('R1')
         ref2 = self.builder.addReferenceArgument('R2')
         concat = ConcatenatedReference(ref2, ref1, ref0)
-        sliced = SlicedReference(concat, 5, 13)
+        sliced = sliceRef(concat, 5, 13)
         expected = (
             (ref2.sid, 5, 3),
             (ref1.sid, 0, 8),
@@ -133,10 +138,10 @@ class DecomposeTests:
         ref0 = self.builder.addReferenceArgument('R0')
         ref1 = self.builder.addReferenceArgument('R1')
         concatA = ConcatenatedReference(ref0, ref1)
-        sliceA = SlicedReference(concatA, 5, 6)
+        sliceA = sliceRef(concatA, 5, 6)
         ref2 = self.builder.addReferenceArgument('R2')
         concatB = ConcatenatedReference(sliceA, ref2)
-        storage = SlicedReference(concatB, 4, 7)
+        storage = sliceRef(concatB, 4, 7)
         expected = (
             (ref1.sid, 1, 2),
             (ref2.sid, 0, 5),
@@ -147,10 +152,10 @@ class DecomposeTests:
         '''Checks taking a slice from sliced references.'''
         ref0 = self.builder.addReferenceArgument('R0')
         ref1 = self.builder.addReferenceArgument('R1')
-        slice0 = SlicedReference(ref0, 2, 5)
-        slice1 = SlicedReference(ref1, 1, 4)
+        slice0 = sliceRef(ref0, 2, 5)
+        slice1 = sliceRef(ref1, 1, 4)
         concat = ConcatenatedReference(slice0, slice1)
-        sliceC = SlicedReference(concat, 3, 3)
+        sliceC = sliceRef(concat, 3, 3)
         expected = (
             (ref0.sid, 5, 2),
             (ref1.sid, 1, 1),
@@ -172,7 +177,8 @@ class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
             for subRef in ref:
                 yield from self.flattenRef(subRef)
         elif isinstance(ref, SlicedReference):
-            offset = ref.offset
+            self.assertIsInstance(ref.offset, IntLiteral)
+            offset = ref.offset.value
             width = ref.width
             for sid, subOffset, subWidth in self.flattenRef(ref.ref):
                 start = subOffset + max(offset, 0)

@@ -267,7 +267,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regR = outer.context['r']
         initR = outer.emitCompute(IntLiteral(0xcdef))
         outer.emitStore(outerR, initR)
-        sliceR = SlicedReference(regR, 4, 8)
+        sliceR = SlicedReference(regR, IntLiteral(4), IntLiteral(8))
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})
         outer.inlineBlock(incCode, {'R': sliceR})

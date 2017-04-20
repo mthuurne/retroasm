@@ -467,6 +467,8 @@ class LShift(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = checkType(offset, int, 'shift offset')
+        if offset < 0:
+            raise ValueError('negative shift count')
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
@@ -493,6 +495,8 @@ class RShift(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = checkType(offset, int, 'shift offset')
+        if offset < 0:
+            raise ValueError('negative shift count')
 
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:

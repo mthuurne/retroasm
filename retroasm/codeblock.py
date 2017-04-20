@@ -1,7 +1,8 @@
 from .expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, SignExtension,
-    optSlice, truncate
+    AndOperator, Expression, IntLiteral, LShift, LVShift, OrOperator, RVShift,
+    SignExtension, XorOperator, optSlice, truncate
     )
+from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Storage, Variable
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
@@ -346,22 +347,27 @@ class SlicedReference(Reference):
     def __init__(self, ref, offset, width):
         '''Creates a bitwise slice of the given reference.
         '''
-        checkType(offset, int, 'slice offset')
-        if offset < 0:
-            raise ValueError('slice offset must not be negative: %d' % offset)
-
-        if width is not unlimited:
-            checkType(width, int, 'slice width')
-        if width < 0:
-            raise ValueError('slice width must not be negative: %d' % width)
-
         self._ref = checkType(ref, Reference, 'reference')
+
+        offset = simplifyExpression(Expression.checkScalar(offset))
+        # Some invalid offsets can only be detected upon use, but others we
+        # can detect on definition and rejecting them early is likely helpful
+        # towards the user.
+        if isinstance(offset, IntLiteral) and offset.value < 0:
+            raise ValueError('slice offset must not be negative')
         self._offset = offset
-        typ = IntType.int if width is unlimited else IntType.u(width)
+
+        width = simplifyExpression(Expression.checkScalar(width))
+        if isinstance(width, IntLiteral):
+            typ = IntType.u(width.value)
+        else:
+            raise ValueError('slice width cannot be determined')
+            # TODO: Treat width as infinite in this case?
+            typ = IntType.int
         Reference.__init__(self, typ)
 
     def __repr__(self):
-        return 'SlicedReference(%r, %d, %s)' % (
+        return 'SlicedReference(%r, %r, %s)' % (
             self._ref, self._offset, self.width
             )
 
@@ -383,26 +389,30 @@ class SlicedReference(Reference):
             )
 
     def _emitLoadBits(self, location):
+        # Load value from our reference.
         value = self._ref._emitLoadBits(location)
-        return optSlice(value, self._offset, self.width)
+
+        # Slice the loaded value.
+        return truncate(RVShift(value, self._offset), self.width)
 
     def _emitStoreBits(self, value, location):
         offset = self._offset
         width = self.width
-        valueMask = maskForWidth(width) << offset
+        valueMask = LVShift(IntLiteral(maskForWidth(width)), offset)
 
         # Get mask and previous value of our reference.
         ref = self._ref
-        fullMask = maskForWidth(ref.width)
+        fullMask = IntLiteral(maskForWidth(ref.width))
         prevValue = ref._emitLoadBits(location)
 
         # Combine previous value with new value.
-        maskLit = IntLiteral(fullMask & ~valueMask)
+        maskLit = AndOperator(fullMask, XorOperator(IntLiteral(-1), valueMask))
         combined = OrOperator(
             AndOperator(prevValue, maskLit),
-            LShift(value, offset)
+            LVShift(value, offset)
             )
 
+        combined = simplifyExpression(combined)
         self._ref._emitStoreBits(combined, location)
 
 class CodeBlock:

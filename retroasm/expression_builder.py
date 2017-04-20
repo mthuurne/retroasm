@@ -4,14 +4,13 @@ from .codeblock import (
 from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
-    OrOperator, SignTest, XorOperator, truncate
+    OrOperator, SignTest, XorOperator, optSlice, truncate
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
     DefinitionNode, EmptyNode, IdentifierNode, LabelNode, NumberNode, Operator,
     OperatorNode
     )
-from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .storage import IOChannel
@@ -275,49 +274,27 @@ def _convertReferenceLookup(node, builder):
     ref = buildReference(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
-        indexInt = simplifyExpression(index).value
-    except AttributeError:
-        raise BadExpression.withText(
-            'bit index is not constant',
-            indexNode.treeLocation
-            )
-    try:
-        return SlicedReference(ref, indexInt, 1)
+        return SlicedReference(ref, index, IntLiteral(1))
     except ValueError as ex:
-        raise BadExpression('invalid lookup: %s' % ex, node.location)
+        raise BadExpression('invalid bitwise lookup: %s' % ex, node.location)
 
 def _convertReferenceSlice(node, builder):
     exprNode, startNode, endNode = node.operands
     ref = buildReference(exprNode, builder)
-
     if startNode is None:
-        index = 0
+        offset = IntLiteral(0)
     else:
-        start = buildExpression(startNode, builder)
-        start = simplifyExpression(start)
-        try:
-            index = start.value
-        except AttributeError:
-            raise BadExpression.withText(
-                'start index is not constant',
-                startNode.treeLocation
-                )
-
+        offset = buildExpression(startNode, builder)
     if endNode is None:
-        width = ref.width
+        end = IntLiteral(ref.width)
     else:
         end = buildExpression(endNode, builder)
-        end = simplifyExpression(end)
-        try:
-            width = end.value - index
-        except AttributeError:
-            raise BadExpression.withText(
-                'end index is not constant',
-                endNode.treeLocation
-                )
-
+    if startNode is None:
+        width = end
+    else:
+        width = AddOperator(end, Complement(offset))
     try:
-        return SlicedReference(ref, index, width)
+        return SlicedReference(ref, offset, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)
 
