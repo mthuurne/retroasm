@@ -419,9 +419,8 @@ func neg()
     nf := 1
 
 func halt()
-    # TODO: Re-activate once branch support is in.
-    #@hang
-    #branch !iff1 @hang
+    @hang
+    branch !iff1 @hang
 
 func set_iff(u1 V)
     iff1 := V
@@ -645,3 +644,64 @@ instr set
 $CB, %11;B;R        . B,R           . R[B] := 1             . u3 B, reg8x R
 $CB, N, %11;B;R     . B,(ix + N),R  . setx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
 $CB, N, %11;B;R     . B,(iy + N),R  . setx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
+
+
+### Jump (8.9)
+
+func br_cond(u1 C, u16 A)
+    branch !C @skip
+    pc := A
+    @skip
+
+func djnz(u16 A)
+    b := b - 1
+    br_cond(b != 0, A)
+
+instr jp
+$C3, NN             . NN            . pc := NN              . imm16 NN
+$E9                 . (R)           . pc := R               . hlx R
+%11;C;%010, NN      . C,NN          . br_cond(C, NN)        . imm16 NN, cond3 C
+
+instr jr
+$18, N              . A             . pc := A               . s8 N, u16 A = pc + N
+%001;C;%000, N      . C,A           . br_cond(C, A)         . s8 N, u16 A = pc + N, cond2 C
+
+instr djnz
+$10, N              . A             . djnz(A)               . s8 N, u16 A = pc + N
+
+
+### Call and Return (8.10)
+
+func call(u16 A)
+    push(pc)
+    pc := A
+
+func call_cond(u1 C, u16 A)
+    branch !C @skip
+    call(A)
+    @skip
+
+func return()
+    pop(pc)
+
+func ret_cond(u1 C)
+    branch !C @skip
+    return()
+    @skip
+
+func ret_int()
+    return()
+    iff1 := iff2
+
+instr call
+$CD, NN             . NN            . call(NN)              . imm16 NN
+%11;C;%100, NN      . C,NN          . call_cond(C, NN)      . imm16 NN, cond3 C
+
+instr ret
+$C9                 .               . return()
+%11;C;%000          . C             . ret_cond(C)           . cond3 C
+
+instr
+$ED, $45            . retn          . ret_int()
+$ED, $4D            . reti          . ret_int()
+%00;N;%000          . rst A         . call(A)               . u3 N, u8 A = %00;N;%000
