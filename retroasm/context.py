@@ -35,6 +35,7 @@ class Context:
         If the name was already taken, NameExistsError is raised.
         '''
         checkType(name, str, 'context element name')
+        self._checkName(name, location)
         if name in self.elements:
             msg = 'name "%s" redefined' % name
             oldLocation = self.locations[name]
@@ -43,6 +44,12 @@ class Context:
             raise NameExistsError(msg, location)
         self.locations[name] = location
         self.elements[name] = value
+
+    def _checkName(self, name, location):
+        '''Checks whether the given name can be used in this context.
+        Raises NameExistsError if the name is rejected.
+        '''
+        pass
 
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a context under a name

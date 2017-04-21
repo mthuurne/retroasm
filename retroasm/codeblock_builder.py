@@ -3,7 +3,7 @@ from .codeblock import (
     LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
-from .context import Context
+from .context import Context, NameExistsError
 from .expression import optSlice
 from .function import Function
 from .linereader import BadInput
@@ -123,11 +123,20 @@ class BadGlobalOperation(BadInput):
     scope.
     '''
 
+class _GlobalContext(Context):
+
+    def _checkName(self, name, location):
+        if name == 'ret':
+            raise NameExistsError(
+                'the name "ret" is reserved for function return values',
+                location
+                )
+
 class GlobalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 0
 
     def __init__(self):
-        CodeBlockBuilder.__init__(self, Context())
+        CodeBlockBuilder.__init__(self, _GlobalContext())
 
     def emitLoadBits(self, sid, location):
         raise BadGlobalOperation(
