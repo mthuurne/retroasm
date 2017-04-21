@@ -705,3 +705,73 @@ instr
 $ED, $45            . retn          . ret_int()
 $ED, $4D            . reti          . ret_int()
 %00;N;%000          . rst A         . call(A)               . u3 N, u8 A = %00;N;%000
+
+
+### Input and Output (8.11)
+
+func in(u8& R)
+    def u8 V = port[c]
+    R := V
+    hf := 0
+    zf := V == 0
+    pf := V[7] ^ V[6] ^ V[5] ^ V[4] ^ V[3] ^ V[2] ^ V[1] ^ V[0] ^ 1
+    sf := V[7]
+    yf := V[5]
+    xf := V[3]
+    nf := 0
+
+func in_step(int D)
+    def u8 V = port[c]
+    mem[hl] := V
+    hl := hl + D
+    dec(b)
+    nf := V[7]
+    var u9 _k := V + (c + D)[0:8]
+    cf := _k[8]
+    hf := _k[8]
+    pf := _k[2] ^ _k[1] ^ _k[0] ^ b[7] ^ b[6] ^ b[5] ^ b[4] ^ b[3] ^ b[2] ^ b[1] ^ b[0] ^ 1
+
+func in_block(int D)
+    in_step(D)
+    branch b == 0 @done
+    pc := pc - 2
+    @done
+
+func out_step(int D)
+    def u8 V = mem[hl]
+    port[c] := V
+    hl := hl + D
+    dec(b)
+    nf := V[7]
+    var u9 _k := V + l
+    cf := _k[8]
+    hf := _k[8]
+    pf := _k[2] ^ _k[1] ^ _k[0] ^ b[7] ^ b[6] ^ b[5] ^ b[4] ^ b[3] ^ b[2] ^ b[1] ^ b[0] ^ 1
+
+func out_block(int D)
+    out_step(D)
+    branch b == 0 @done
+    pc := pc - 2
+    @done
+
+instr in
+$DB, N              . a,(N)         . a := port[N]          . u8 N
+$ED, %01;R;%000     . R,(c)         . in(R)                 . reg8 R
+$ED, %01;%110;%000  . f,(c)         . in(0)
+
+instr
+$ED, $A2            . ini           . in_step(1)
+$ED, $B2            . inir          . in_block(1)
+$ED, $AA            . ind           . in_step(-1)
+$ED, $BA            . indr          . in_block(-1)
+
+instr out
+$D3, N              . (N),a         . port[N] := a          . u8 N
+$ED, %01;R;%001     . (c),R         . port[c] := R          . reg8 R
+$ED, %01;%110;%001  . (c),0         . port[c] := 0
+
+instr
+$ED, $A3            . outi          . out_step(1)
+$ED, $B3            . otir          . out_block(1)
+$ED, $AB            . outd          . out_step(-1)
+$ED, $BB            . otdr          . out_block(-1)
