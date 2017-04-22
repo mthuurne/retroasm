@@ -118,9 +118,9 @@ class CodeBlockBuilder:
         '''
         raise NotImplementedError
 
-class BadGlobalOperation(BadInput):
-    '''Raised when an operation is attempted that is not allowed in the global
-    scope.
+class IllegalStateAccess(BadInput):
+    '''Raised when an operation is attempted that reads or writes state
+    in a situation where that is not allowed.
     '''
 
 class _GlobalContext(Context):
@@ -132,31 +132,36 @@ class _GlobalContext(Context):
                 location
                 )
 
-class GlobalCodeBlockBuilder(CodeBlockBuilder):
-    _scope = 0
-
-    def __init__(self):
-        CodeBlockBuilder.__init__(self, _GlobalContext())
+class StatelessCodeBlockBuilderMixin:
+    '''A CodeBlockBuilder can inherit this to raise IllegalStateAccess when its
+    users attempt touch any state, such as performing register access or I/O.
+    '''
 
     def emitLoadBits(self, sid, location):
-        raise BadGlobalOperation(
-            'attempt to read from storage in global scope: %s'
-            % self.storages[sid],
+        raise IllegalStateAccess(
+            'attempt to read state: %s' % self.storages[sid],
             location
             )
 
     def emitStoreBits(self, sid, value, location):
-        raise BadGlobalOperation(
-            'attempt to write to storage in global scope: %s'
-            % self.storages[sid],
+        raise IllegalStateAccess(
+            'attempt to write state: %s' % self.storages[sid],
             location
             )
 
     def inlineFunctionCall(self, func, argMap, location):
-        raise BadGlobalOperation(
-            'attempt to call function ("%s") in global scope' % func.name,
+        # TODO: This is probably overly strict: calling a function that does
+        #       not touch state should be fine.
+        raise IllegalStateAccess(
+            'attempt to call function ("%s")' % func.name,
             location
             )
+
+class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
+    _scope = 0
+
+    def __init__(self):
+        CodeBlockBuilder.__init__(self, _GlobalContext())
 
 class _LocalContext(Context):
     '''A context for local blocks, that can import entries from its parent
