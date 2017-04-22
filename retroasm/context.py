@@ -51,6 +51,17 @@ class Context:
         '''
         pass
 
+class GlobalContext(Context):
+    '''Context for the global scope.
+    '''
+
+    def _checkName(self, name, location):
+        if name == 'ret':
+            raise NameExistsError(
+                'the name "ret" is reserved for function return values',
+                location
+                )
+
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a context under a name
     which is already in use.

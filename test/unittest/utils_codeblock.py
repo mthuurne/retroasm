@@ -2,7 +2,7 @@ from retroasm.codeblock import ComputedConstant, SingleReference, Store
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
-from retroasm.context import Context
+from retroasm.context import Context, GlobalContext
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.storage import IOChannel, Variable
@@ -58,7 +58,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
     def __init__(self, globalBuilder=None):
         if globalBuilder is None:
-            globalBuilder = GlobalCodeBlockBuilder()
+            globalBuilder = GlobalCodeBlockBuilder(GlobalContext())
         self.globalBuilder = globalBuilder
         LocalCodeBlockBuilder.__init__(self, globalBuilder)
 

@@ -1,5 +1,5 @@
 from .codeblock_builder import GlobalCodeBlockBuilder
-from .context import NameExistsError
+from .context import GlobalContext, NameExistsError
 from .expression_builder import buildReference
 from .expression_parser import (
     DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode, NumberNode,
@@ -360,9 +360,11 @@ def _parseInstr(reader, argStr, globalBuilder, modes):
         ))
 
 def parseInstrSet(pathname):
+    globalContext = GlobalContext()
+    builder = GlobalCodeBlockBuilder(globalContext)
+    modes = {}
+
     with DefLineReader.open(pathname, logger) as reader:
-        builder = GlobalCodeBlockBuilder()
-        modes = {}
         for header in reader:
             if not header:
                 continue
@@ -372,7 +374,7 @@ def parseInstrSet(pathname):
             if defType == 'reg':
                 _parseRegs(reader, argStr, builder)
             elif defType == 'io':
-                _parseIO(reader, argStr, builder.context)
+                _parseIO(reader, argStr, globalContext)
             elif defType == 'func':
                 _parseFunc(reader, argStr, builder)
             elif defType == 'mode':
@@ -385,7 +387,7 @@ def parseInstrSet(pathname):
         reader.summarize()
 
     logger.debug('regs: %s', ', '.join(
-        '%s = %r' % item for item in sorted(builder.context.items())
+        '%s = %r' % item for item in sorted(globalContext.items())
         ))
 
     return None

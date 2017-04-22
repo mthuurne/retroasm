@@ -3,7 +3,7 @@ from .codeblock import (
     LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
-from .context import Context, NameExistsError
+from .context import Context
 from .expression import optSlice
 from .function import Function
 from .linereader import BadInput
@@ -123,15 +123,6 @@ class IllegalStateAccess(BadInput):
     in a situation where that is not allowed.
     '''
 
-class _GlobalContext(Context):
-
-    def _checkName(self, name, location):
-        if name == 'ret':
-            raise NameExistsError(
-                'the name "ret" is reserved for function return values',
-                location
-                )
-
 class StatelessCodeBlockBuilderMixin:
     '''A CodeBlockBuilder can inherit this to raise IllegalStateAccess when its
     users attempt touch any state, such as performing register access or I/O.
@@ -159,9 +150,6 @@ class StatelessCodeBlockBuilderMixin:
 
 class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
     _scope = 0
-
-    def __init__(self):
-        CodeBlockBuilder.__init__(self, _GlobalContext())
 
 class _LocalContext(Context):
     '''A context for local blocks, that can import entries from its parent
