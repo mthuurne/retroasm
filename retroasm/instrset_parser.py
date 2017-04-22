@@ -1,4 +1,4 @@
-from .codeblock_builder import GlobalCodeBlockBuilder
+from .codeblock_builder import GlobalCodeBlockBuilder, ModeCodeBlockBuilder
 from .context import GlobalContext, NameExistsError
 from .expression_builder import buildReference
 from .expression_parser import (
@@ -218,7 +218,7 @@ def _parseFunc(reader, argStr, builder):
 _reModeHeader = re.compile(_nameTok + r'$')
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
-def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
+def _parseModeEntries(reader, globalBuilder, modes, parseSem):
     def checkIdentifiers(exprTree, knownNames):
         for node in exprTree:
             if isinstance(node, IdentifierNode):
@@ -228,6 +228,8 @@ def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
                         'unknown identifier "%s"' % name,
                         location=node.location
                         )
+
+    globalIdentifiers = globalBuilder.context.keys()
 
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
@@ -245,11 +247,14 @@ def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
         try:
             with reader.checkErrors():
                 # Parse context.
+                # TODO: Replace knownNames with ctxBuilder's context.
+                #       Replace immediates as well?
                 knownNames = set()
                 immediates = {}
                 includedModes = {}
                 flagsRequired = set()
                 if ctxStr:
+                    ctxBuilder = ModeCodeBlockBuilder(globalBuilder)
                     for node in parseContext(ctxStr, ctxLoc):
                         if isinstance(node, (DeclarationNode, DefinitionNode)):
                             if isinstance(node, DeclarationNode):
@@ -266,7 +271,6 @@ def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
                             else:
                                 knownNames.add(name)
 
-                            # TODO: The value part of definitions is not used.
                             typeName = decl.type.name
                             includedMode = modes.get(typeName)
                             if includedMode is not None:
@@ -282,8 +286,29 @@ def _parseModeEntries(reader, globalIdentifiers, modes, parseSem):
                                         )
                                     continue
                                 else:
-                                    immediates[name] = Immediate(
+                                    # TODO: Should a context element that does
+                                    #       not occur in the encoding still be
+                                    #       considered an immediate?
+                                    immediate = Immediate(
                                         name, typ, decl.treeLocation
+                                        )
+                                    immediates[name] = immediate
+                                    value = ctxBuilder.emitFixedValue(
+                                        immediate, typ
+                                        )
+                                    ctxBuilder.defineReference(
+                                        name, value, decl.name.location
+                                        )
+
+                            if isinstance(node, DefinitionNode):
+                                try:
+                                    expr = buildReference(
+                                        node.value, ctxBuilder
+                                        )
+                                except BadInput as ex:
+                                    reader.error(
+                                        'error in context: %s' % ex,
+                                        location=ex.location
                                         )
                         elif isinstance(node, FlagTestNode):
                             flagsRequired.add(node.name)
@@ -348,16 +373,12 @@ def _parseMode(reader, argStr, globalBuilder, modes):
         mode = []
         modes[modeName] = mode
 
-    mode.extend(_parseModeEntries(
-        reader, globalBuilder.context.keys(), modes, parseExpr
-        ))
+    mode.extend(_parseModeEntries(reader, globalBuilder, modes, parseExpr))
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
 
-    mode = list(_parseModeEntries(
-        reader, globalBuilder.context.keys(), modes, parseStatement
-        ))
+    mode = list(_parseModeEntries(reader, globalBuilder, modes, parseStatement))
 
 def parseInstrSet(pathname):
     globalContext = GlobalContext()
