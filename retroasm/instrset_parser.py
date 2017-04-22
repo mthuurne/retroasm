@@ -218,6 +218,63 @@ def _parseFunc(reader, argStr, builder):
 _reModeHeader = re.compile(_nameTok + r'$')
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
+def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
+    # TODO: Replace knownNames with ctxBuilder's context.
+    #       Replace immediates as well?
+    knownNames = set()
+    immediates = {}
+    includedModes = {}
+    flagsRequired = set()
+    for node in parseContext(ctxStr, ctxLoc):
+        if isinstance(node, (DeclarationNode, DefinitionNode)):
+            decl = node if isinstance(node, DeclarationNode) else node.decl
+            name = decl.name.name
+            if name in knownNames:
+                reader.error(
+                    'duplicate placeholder ("%s")' % name,
+                    location=decl.name.location
+                    )
+                continue
+            else:
+                knownNames.add(name)
+
+            typeName = decl.type.name
+            includedMode = modes.get(typeName)
+            if includedMode is not None:
+                includedModes[name] = includedMode
+            else:
+                try:
+                    typ = parseType(typeName)
+                except ValueError:
+                    reader.error(
+                        'there is no type or mode named "%s"' % typeName,
+                        location=decl.type.location
+                        )
+                    continue
+                else:
+                    # TODO: Should a context element that does
+                    #       not occur in the encoding still be
+                    #       considered an immediate?
+                    immediate = Immediate(name, typ, decl.treeLocation)
+                    immediates[name] = immediate
+                    value = ctxBuilder.emitFixedValue(immediate, typ)
+                    ctxBuilder.defineReference(name, value, decl.name.location)
+
+            if isinstance(node, DefinitionNode):
+                try:
+                    expr = buildReference(node.value, ctxBuilder)
+                except BadInput as ex:
+                    reader.error(
+                        'error in context: %s' % ex,
+                        location=ex.location
+                        )
+        elif isinstance(node, FlagTestNode):
+            flagsRequired.add(node.name)
+        else:
+            assert False, node
+
+    return knownNames
+
 def _parseModeEntries(reader, globalBuilder, modes, parseSem):
     def checkIdentifiers(exprTree, knownNames):
         for node in exprTree:
@@ -247,74 +304,20 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
         try:
             with reader.checkErrors():
                 # Parse context.
-                # TODO: Replace knownNames with ctxBuilder's context.
-                #       Replace immediates as well?
-                knownNames = set()
-                immediates = {}
-                includedModes = {}
-                flagsRequired = set()
+                ctxBuilder = ModeCodeBlockBuilder(globalBuilder)
                 if ctxStr:
-                    ctxBuilder = ModeCodeBlockBuilder(globalBuilder)
-                    for node in parseContext(ctxStr, ctxLoc):
-                        if isinstance(node, (DeclarationNode, DefinitionNode)):
-                            if isinstance(node, DeclarationNode):
-                                decl = node
-                            else:
-                                decl = node.decl
-                            name = decl.name.name
-                            if name in knownNames:
-                                reader.error(
-                                    'duplicate placeholder ("%s")' % name,
-                                    location=decl.name.location
-                                    )
-                                continue
-                            else:
-                                knownNames.add(name)
-
-                            typeName = decl.type.name
-                            includedMode = modes.get(typeName)
-                            if includedMode is not None:
-                                includedModes[name] = includedMode
-                            else:
-                                try:
-                                    typ = parseType(typeName)
-                                except ValueError:
-                                    reader.error(
-                                        'there is no type or mode '
-                                        'named "%s"' % typeName,
-                                        location=decl.type.location
-                                        )
-                                    continue
-                                else:
-                                    # TODO: Should a context element that does
-                                    #       not occur in the encoding still be
-                                    #       considered an immediate?
-                                    immediate = Immediate(
-                                        name, typ, decl.treeLocation
-                                        )
-                                    immediates[name] = immediate
-                                    value = ctxBuilder.emitFixedValue(
-                                        immediate, typ
-                                        )
-                                    ctxBuilder.defineReference(
-                                        name, value, decl.name.location
-                                        )
-
-                            if isinstance(node, DefinitionNode):
-                                try:
-                                    expr = buildReference(
-                                        node.value, ctxBuilder
-                                        )
-                                except BadInput as ex:
-                                    reader.error(
-                                        'error in context: %s' % ex,
-                                        location=ex.location
-                                        )
-                        elif isinstance(node, FlagTestNode):
-                            flagsRequired.add(node.name)
-                        else:
-                            assert False, node
-
+                    try:
+                        knownNames = _parseModeContext(
+                            ctxStr, ctxLoc, ctxBuilder, modes, reader
+                            )
+                    except BadInput as ex:
+                        reader.error(
+                            'error in context: %s' % ex, location=ex.location
+                            )
+                        # To avoid error spam, skip this line.
+                        continue
+                else:
+                    knownNames = set()
                 knownNames |= globalIdentifiers
 
                 # Parse encoding.
@@ -351,7 +354,8 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
         else:
             yield (
                 encoding, mnemonic, semantics,
-                immediates, includedModes, flagsRequired
+                # TODO: The following are currently not preserved.
+                #immediates, includedModes, flagsRequired
                 )
 
 def _parseMode(reader, argStr, globalBuilder, modes):
