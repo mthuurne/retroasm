@@ -368,14 +368,16 @@ def _parseMode(reader, argStr, globalBuilder, modes):
     modeName, = match.groups()
     mode = modes.get(modeName)
     if mode is None:
+        mode = []
         try:
             parseType(modeName)
         except ValueError:
-            pass
+            modes[modeName] = mode
         else:
-            reader.warning('mode name "%s" is also valid as a type' % modeName)
-        mode = []
-        modes[modeName] = mode
+            reader.error(
+                'mode name "%s" conflicts with type' % modeName,
+                location=reader.getLocation(match.span(2))
+                )
 
     mode.extend(_parseModeEntries(reader, globalBuilder, modes, parseExpr))
 
