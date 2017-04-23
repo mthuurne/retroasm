@@ -259,8 +259,7 @@ func jmp_cond(u16 A, u1 F)
     @skip
 
 mode relative
-# TODO: We want to use the 16-bit address in mnemonics, not "pc + R".
-R                       . pc + R        . pc + R            . s8 R
+R                       . A             .                   . s8 R, u16 A = pc + R
 
 instr
 %000;%100;%00, A        . bpl A         . jmp_cond(A, !n)   . relative A
