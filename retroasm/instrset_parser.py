@@ -1,4 +1,4 @@
-from .codeblock_builder import GlobalCodeBlockBuilder, ModeCodeBlockBuilder
+from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
 from .context import GlobalContext, NameExistsError
 from .expression_builder import buildReference
 from .expression_parser import (
@@ -9,7 +9,7 @@ from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate, Mode
 from .storage import IOChannel, Variable, namePat
-from .types import parseType, parseTypeDecl
+from .types import ReferenceType, parseType, parseTypeDecl
 
 from collections import OrderedDict
 from logging import getLogger
@@ -217,29 +217,17 @@ def _parseFunc(reader, argStr, builder):
     print()
 
 def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
-    # TODO: Replace knownNames with ctxBuilder's context.
-    #       Replace immediates as well?
-    knownNames = set()
-    immediates = {}
-    includedModes = {}
     flagsRequired = set()
     for node in parseContext(ctxStr, ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
             decl = node if isinstance(node, DeclarationNode) else node.decl
             name = decl.name.name
-            if name in knownNames:
-                reader.error(
-                    'duplicate placeholder ("%s")' % name,
-                    location=decl.name.location
-                    )
-                continue
-            else:
-                knownNames.add(name)
-
+            nameLoc = decl.name.location
             typeName = decl.type.name
-            includedMode = modes.get(typeName)
-            if includedMode is not None:
-                includedModes[name] = includedMode
+
+            mode = modes.get(typeName)
+            if mode is not None:
+                typ = mode.type
             else:
                 try:
                     typ = parseType(typeName)
@@ -249,14 +237,15 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
                         location=decl.type.location
                         )
                     continue
-                else:
-                    # TODO: Should a context element that does
-                    #       not occur in the encoding still be
-                    #       considered an immediate?
-                    immediate = Immediate(name, typ, decl.treeLocation)
-                    immediates[name] = immediate
-                    value = ctxBuilder.emitFixedValue(immediate, typ)
-                    ctxBuilder.defineReference(name, value, decl.name.location)
+            if isinstance(typ, ReferenceType):
+                ctxBuilder.emitReferenceArgument(name, typ.type, nameLoc)
+            else:
+                # TODO: Should a context element that does
+                #       not occur in the encoding still be
+                #       considered an immediate?
+                immediate = Immediate(name, typ, decl.treeLocation)
+                value = ctxBuilder.emitFixedValue(immediate, typ)
+                ctxBuilder.defineReference(name, value, nameLoc)
 
             if isinstance(node, DefinitionNode):
                 try:
@@ -271,11 +260,11 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
         else:
             assert False, node
 
-    return knownNames, flagsRequired
+    return flagsRequired
 
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
-def _parseModeEntries(reader, globalBuilder, modes, parseSem):
+def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
     def checkIdentifiers(exprTree, knownNames):
         for node in exprTree:
             if isinstance(node, IdentifierNode):
@@ -303,11 +292,15 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
 
         try:
             with reader.checkErrors():
+                ctxBuilder = LocalCodeBlockBuilder(globalBuilder)
+                if modeType is not None:
+                    if not isinstance(modeType, ReferenceType):
+                        ctxBuilder.emitVariable('ret', modeType, semLoc)
+
                 # Parse context.
-                ctxBuilder = ModeCodeBlockBuilder(globalBuilder)
                 if ctxStr:
                     try:
-                        knownNames, flagsRequired = _parseModeContext(
+                        flagsRequired = _parseModeContext(
                             ctxStr, ctxLoc, ctxBuilder, modes, reader
                             )
                     except BadInput as ex:
@@ -317,9 +310,8 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    knownNames = set()
                     flagsRequired = set()
-                knownNames |= globalIdentifiers
+                knownNames = set(ctxBuilder.context.keys()) | globalIdentifiers
 
                 # Parse encoding.
                 if encStr:
@@ -389,14 +381,16 @@ def _parseMode(reader, globalBuilder, modes):
                 location=reader.getLocation(match.span(2))
                 )
 
-    for entry in _parseModeEntries(reader, globalBuilder, modes, parseExpr):
+    for entry in _parseModeEntries(
+            reader, globalBuilder, modes, modeType, parseExpr
+            ):
         mode.addEntry(*entry)
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
 
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, parseStatement
+            reader, globalBuilder, modes, None, parseStatement
             ):
         pass
 
