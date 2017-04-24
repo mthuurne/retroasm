@@ -2,6 +2,32 @@ from .expression import Expression
 
 from inspect import signature
 
+class Mode:
+    '''A pattern for operands, such as an addressing mode or a table defining
+    register encoding.
+    '''
+
+    name = property(lambda self: self._name)
+    type = property(lambda self: self._type)
+    location = property(lambda self: self._location)
+
+    def __init__(self, name, typ, location):
+        self._name = name
+        self._type = typ
+        self._location = location
+        self._entries = []
+
+    def __str__(self):
+        return 'mode %s %s' % (self._type, self._name)
+
+    def __iter__(self):
+        return iter(self._entries)
+
+    def addEntry(self, encoding, mnemonic, semantics, context, flagsRequired):
+        self._entries.append(
+            (encoding, mnemonic, semantics, context, frozenset(flagsRequired))
+            )
+
 class Immediate(Expression):
     '''A constant value defined as part of an instruction.
     Note that the name of an immediate is unique only within the mode entry

@@ -7,7 +7,7 @@ from .expression_parser import (
     )
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
-from .mode import Immediate
+from .mode import Immediate, Mode
 from .storage import IOChannel, Variable, namePat
 from .types import parseType, parseTypeDecl
 
@@ -271,7 +271,7 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
         else:
             assert False, node
 
-    return knownNames
+    return knownNames, flagsRequired
 
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
@@ -307,7 +307,7 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
                 ctxBuilder = ModeCodeBlockBuilder(globalBuilder)
                 if ctxStr:
                     try:
-                        knownNames = _parseModeContext(
+                        knownNames, flagsRequired = _parseModeContext(
                             ctxStr, ctxLoc, ctxBuilder, modes, reader
                             )
                     except BadInput as ex:
@@ -318,6 +318,7 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
                         continue
                 else:
                     knownNames = set()
+                    flagsRequired = set()
                 knownNames |= globalIdentifiers
 
                 # Parse encoding.
@@ -353,9 +354,7 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
             pass
         else:
             yield (
-                encoding, mnemonic, semantics,
-                # TODO: The following are currently not preserved.
-                #immediates, includedModes, flagsRequired
+                encoding, mnemonic, semantics, ctxBuilder.context, flagsRequired
                 )
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
@@ -379,7 +378,7 @@ def _parseMode(reader, globalBuilder, modes):
 
     mode = modes.get(modeName)
     if mode is None:
-        mode = []
+        mode = Mode(modeName, modeType, reader.getLocation())
         try:
             parseType(modeName)
         except ValueError:
@@ -390,12 +389,16 @@ def _parseMode(reader, globalBuilder, modes):
                 location=reader.getLocation(match.span(2))
                 )
 
-    mode.extend(_parseModeEntries(reader, globalBuilder, modes, parseExpr))
+    for entry in _parseModeEntries(reader, globalBuilder, modes, parseExpr):
+        mode.addEntry(*entry)
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
 
-    mode = list(_parseModeEntries(reader, globalBuilder, modes, parseStatement))
+    for entry in _parseModeEntries(
+            reader, globalBuilder, modes, parseStatement
+            ):
+        pass
 
 def parseInstrSet(pathname):
     globalContext = GlobalContext()
