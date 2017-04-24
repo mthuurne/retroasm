@@ -401,7 +401,7 @@ The mnemonic base is prepended to the mnemonic field of every entry. For example
 
 The mnemonic `ld b,h` is matched by the first entry (`D` matching `b` and `S` matching `h`), while `ld b,12` is matched by the second entry (`D` matching `b` and `N` matching `12`).
 
-The mnemonic base can be empty if you want to define separate instructions in a single instruciton block. For example, these are definitions for the 6502 instructions that set and clear flags:
+The mnemonic base can be empty if you want to define separate instructions in a single instruction block. For example, these are definitions for the 6502 instructions that set and clear flags:
 
     instr
     %000;%110;%00       . clc       . c := 0
