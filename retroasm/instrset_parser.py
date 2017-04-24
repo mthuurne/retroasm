@@ -17,6 +17,9 @@ import re
 
 logger = getLogger('parse-instr')
 
+_nameTok = r'\s*(' + namePat + r')\s*'
+_typeTok = r'\s*(' + namePat + r'&?)\s*'
+
 def _parseRegs(reader, argStr, builder):
     if argStr:
         reader.error('register definition must have no arguments')
@@ -87,7 +90,6 @@ def _parseRegs(reader, argStr, builder):
         else:
             reader.error('register definition line with multiple "="')
 
-_nameTok = r'\s*(' + namePat + r')\s*'
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
 def _parseIO(reader, argStr, context):
@@ -168,7 +170,6 @@ def _parseFuncArgs(log, argsStr):
                 args[argName] = arg
     return args
 
-_typeTok = r'\s*(' + namePat + r'&?)\s*'
 _reFuncHeader = re.compile(
     r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
@@ -214,9 +215,6 @@ def _parseFunc(reader, argStr, builder):
 
     func.dump()
     print()
-
-_reModeHeader = re.compile(_nameTok + r'$')
-_reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
     # TODO: Replace knownNames with ctxBuilder's context.
@@ -274,6 +272,8 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
             assert False, node
 
     return knownNames
+
+_reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(reader, globalBuilder, modes, parseSem):
     def checkIdentifiers(exprTree, knownNames):
@@ -358,14 +358,25 @@ def _parseModeEntries(reader, globalBuilder, modes, parseSem):
                 #immediates, includedModes, flagsRequired
                 )
 
-def _parseMode(reader, argStr, globalBuilder, modes):
+_reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
+
+def _parseMode(reader, globalBuilder, modes):
     # Parse header line.
-    match = _reModeHeader.match(argStr)
+    match = _reModeHeader.match(reader.lastline)
     if not match:
-        reader.error('invalid mode header')
+        reader.error('invalid mode header, expected "mode <type> <name>"')
         reader.skipBlock()
         return
-    modeName, = match.groups()
+    modeTypeStr, modeName = match.groups()
+    try:
+        modeType = parseTypeDecl(modeTypeStr)
+    except ValueError as ex:
+        reader.error(
+            'bad mode type: %s' % ex,
+            location=reader.getLocation(match.span(1))
+            )
+        modeType = None
+
     mode = modes.get(modeName)
     if mode is None:
         mode = []
@@ -405,7 +416,7 @@ def parseInstrSet(pathname):
             elif defType == 'func':
                 _parseFunc(reader, argStr, builder)
             elif defType == 'mode':
-                _parseMode(reader, argStr, builder, modes)
+                _parseMode(reader, builder, modes)
             elif defType == 'instr':
                 _parseInstr(reader, argStr, builder, modes)
             else:

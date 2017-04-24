@@ -38,25 +38,25 @@ func pull(u8& D)
 
 ### Addressing modes
 
-mode immediate
+mode u8 immediate
 N                       . \#N           . N                 . u8 N
 
-mode zeropage
+mode u8& zeropage
 A                       . A             . mem[A]            . u8 A
 
-mode zeropage_x
+mode u8& zeropage_x
 A                       . A,x           . mem[(A+x)[:8]]    . u8 A
 
-mode zeropage_y
+mode u8& zeropage_y
 A                       . A,y           . mem[(A+y)[:8]]    . u8 A
 
-mode absolute
+mode u8& absolute
 A[:8], A[8:]            . A             . mem[A]            . u16 A
 
-mode absolute_x
+mode u8& absolute_x
 A[:8], A[8:]            . A,x           . mem[A+x]          . u16 A
 
-mode absolute_y
+mode u8& absolute_y
 A[:8], A[8:]            . A,y           . mem[A+y]          . u16 A
 
 func u16 indx(u8 A)
@@ -64,7 +64,7 @@ func u16 indx(u8 A)
     def u8 H = mem[(A+x+1)[:8]]
     ret := H;L
 
-mode indexed_indirect
+mode u8& indexed_indirect
 A                       . (A,x)         . mem[indx(A)]      . u8 A
 
 func u16 indy(u8 A)
@@ -72,26 +72,26 @@ func u16 indy(u8 A)
     def u8 H = mem[(A+1)[:8]]
     ret := H;L + y
 
-mode indirect_indexed
+mode u8& indirect_indexed
 A                       . (A),y         . mem[indy(A)]      . u8 A
 
 
 ### Operand encodings
 
-mode ldstx
+mode u8& ldstx
 %001, A                 . A             .                   . zeropage A
 %011, A                 . A             .                   . absolute A
 %101, A                 . A             .                   . zeropage_y A
 
-mode ldsty
+mode u8& ldsty
 A                       . A             .                   . ldstx A
 %101, A                 . A             .                   . zeropage_x A
 
-mode incdec
+mode u8& incdec
 A                       . A             .                   . ldsty A
 %111, A                 . A             .                   . absolute_x A
 
-mode acc_modes
+mode u8& acc_modes
 A                       . A             .                   . incdec A
 %000, A                 . A             .                   . indexed_indirect A
 %100, A                 . A             .                   . indirect_indexed A
@@ -113,16 +113,16 @@ func load(u8& D, u8 S)
     n := S[7]
     z := S == 0
 
-mode lda
+mode u8& lda
 A                       . A             .                   . acc_modes A
 %010, N                 . N             .                   . immediate N
 
-mode ldx
+mode u8& ldx
 A                       . A             .                   . ldstx A
 %000, N                 . N             .                   . immediate N
 %111, A                 . A             .                   . absolute_y A
 
-mode ldy
+mode u8& ldy
 A                       . A             .                   . ldsty A
 %000, N                 . N             .                   . immediate N
 %111, A                 . A             .                   . absolute_x A
@@ -178,7 +178,7 @@ func compare(u8 A, u8 B)
     n := T[7]
     z := T == 0
 
-mode cpxy
+mode u8& cpxy
 %000, N                 . N             .                   . immediate N
 %001, A                 . A             .                   . zeropage A
 %011, A                 . A             .                   . absolute A
@@ -191,7 +191,7 @@ instr
 
 ### Increment/decrement
 
-mode incdec
+mode u8& incdec
 %001, A                 . A             .                   . zeropage A
 %011, A                 . A             .                   . absolute A
 %101, A                 . A             .                   . zeropage_x A
@@ -216,7 +216,7 @@ func rotate_r(u8& D, u1 B)
     var u8 T ; c := B ; D
     load(D, T)
 
-mode rotate
+mode u8& rotate
 A                       . A             .                   . incdec A
 %010                    . a
 
@@ -258,7 +258,7 @@ func jmp_cond(u16 A, u1 F)
     pc := A
     @skip
 
-mode relative
+mode u16 relative
 R                       . A             .                   . s8 R, u16 A = pc + R
 
 instr

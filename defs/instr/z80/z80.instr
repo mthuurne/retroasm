@@ -73,7 +73,7 @@ func pop(u16& R)
 
 # 8-bit registers
 
-mode reg8
+mode u8& reg8
 %000                . b
 %001                . c
 %010                . d
@@ -82,7 +82,7 @@ mode reg8
 %101                . l
 %111                . a
 
-mode reg8x
+mode u8& reg8x
 R                   . R                 . R                 . reg8 R
 %100                . ixh               .                   . ?ix
 %100                . iyh               .                   . ?iy
@@ -94,39 +94,39 @@ R                   . R                 . R                 . reg8 R
 
 # 16-bit registers
 
-mode reg16
+mode u16& reg16
 %00                 . bc
 %01                 . de
 %10                 . hl
 %11                 . sp
 
-mode hlx
+mode u16& hlx
                     . hl
                     . ix                .                   . ?ix
                     . iy                .                   . ?iy
 
-mode reg16x
+mode u16& reg16x
 R                   . R                 . R                 . reg16 R
 %10                 . R                 . R                 . hlx R
 
-mode reg16af
+mode u16& reg16af
 R                   . R                 . R                 . reg16x R
 %11                 . af
 
 # 16-bit immediate
 
-mode imm16
+mode u16 imm16
 N[:8], N[8:]        . N                 . N                 . u16 N
 
 # Condition codes
 
-mode cond2
+mode u1 cond2
 %00                 . nz                . !zf
 %01                 . z                 .  zf
 %10                 . nc                . !cf
 %11                 . c                 .  cf
 
-mode cond3
+mode u1 cond3
 %0;C                . C                 .                   . cond2 C
 %100                . po                . !pf
 %101                . pe                .  pf

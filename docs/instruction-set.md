@@ -310,8 +310,10 @@ Modes define patterns for specifying the operands of instructions. This includes
 
 A mode definition uses the syntax below:
 
-    mode <name>
+    mode <type> <name>
     <opcode> . <mnemonic> . <semantics> . <context>
+
+The type in the header is the type for expressions the semantics field. For modes defining register sets and addressing modes this will be a reference type, such as `u8&` for 8-bit registers and I/O, while for modes defining immediates or conditions this will be a value type, such as `u16` for 16-bit immediates and `u1` (Boolean) for conditions.
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table. If a mode with the given name already exists, the entries are added to that mode, otherwise a new mode is defined.
 
@@ -323,7 +325,7 @@ The semantics field contains a expression, either a value or a reference to a st
 
 The optional context field will be explained soon, but first an example using only the first three fields. In this example, a mode is defined that describes the way the Z80 accesses 8-bit operands: (index registers omitted for simplicity's sake)
 
-    mode reg8
+    mode u8& reg8
     %000    . b
     %001    . c
     %010    . d
@@ -335,13 +337,13 @@ The optional context field will be explained soon, but first an example using on
 
 The simplest use of the context field is to include a mode defined earlier as part of a new mode:
 
-    mode reg16
+    mode u16& reg16
     %00     . bc
     %01     . de
     %10     . hl
     %11     . sp
 
-    mode reg16af
+    mode u16& reg16af
     R       . R         . R         . reg16 R
     %11     . af
 
@@ -353,13 +355,13 @@ The `R` in the example above is a placeholder introduced by the context field. I
 
 Placeholders can be used in expressions, for example to define the Z80 flag tests:
 
-    mode cond2
+    mode u1 cond2
     %00     . nz        . !zf
     %01     . z         .  zf
     %10     . nc        . !cf
     %11     . c         .  cf
 
-    mode cond3
+    mode u1 cond3
     %0;C    . C         . C         . cond2 C
     %100    . po        . !pf
     %101    . pe        .  pf
