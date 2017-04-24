@@ -1,9 +1,10 @@
 from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
 from .context import GlobalContext, NameExistsError
-from .expression_builder import buildReference
+from .expression_builder import buildExpression, buildReference
 from .expression_parser import (
-    DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode, NumberNode,
-    parseContext, parseExpr, parseExprList, parseStatement
+    AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
+    FlagTestNode, IdentifierNode, LabelNode, NumberNode, parseContext,
+    parseExpr, parseExprList, parseStatement
     )
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
@@ -262,21 +263,51 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
 
     return flagsRequired
 
+def _parseModeSemantics(semStr, semLoc, ctxBuilder, modeType):
+    semantics = parseExpr(semStr, semLoc)
+    if isinstance(modeType, ReferenceType):
+        ref = buildReference(semantics, ctxBuilder)
+        if modeType is not None:
+            if ref.type != modeType.type:
+                raise BadInput(
+                    'semantics type %s does not match mode type %s'
+                    % (ref.type, modeType.type),
+                    location=semLoc
+                    )
+        ctxBuilder.defineReference('ret', ref, semLoc)
+    else:
+        expr = buildExpression(semantics, ctxBuilder)
+        # Note that modeType can be None because of earlier errors.
+        if modeType is not None:
+            retRef = ctxBuilder.emitVariable('ret', modeType, semLoc)
+            retRef.emitStore(expr, semLoc)
+
+def _rejectNodeClasses(node, badClasses):
+    if isinstance(node, badClasses):
+        raise BadInput(
+            '%s is not allowed here' % node.__class__.__name__[:-4].lower(),
+            location=node.treeLocation
+            )
+
+def _parseInstrSemantics(semStr, semLoc, builder, modeType):
+    assert modeType is None, modeType
+    node = parseStatement(semStr, semLoc)
+    if isinstance(node, AssignmentNode):
+        _rejectNodeClasses(node.lhs, (DefinitionNode, DeclarationNode))
+        lhs = buildReference(node.lhs, builder)
+        rhs = buildExpression(node.rhs, builder)
+        lhs.emitStore(builder.emitCompute(rhs), node.lhs.treeLocation)
+    elif isinstance(node, EmptyNode):
+        pass
+    else:
+        _rejectNodeClasses(node, (
+            DefinitionNode, DeclarationNode, BranchNode, LabelNode
+            ))
+        buildExpression(node, builder)
+
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
-    def checkIdentifiers(exprTree, knownNames):
-        for node in exprTree:
-            if isinstance(node, IdentifierNode):
-                name = node.name
-                if name not in knownNames:
-                    reader.error(
-                        'unknown identifier "%s"' % name,
-                        location=node.location
-                        )
-
-    globalIdentifiers = globalBuilder.context.keys()
-
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
         fields = list(reader.splitOn(_reDotSep.finditer(line)))
@@ -293,9 +324,6 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
         try:
             with reader.checkErrors():
                 ctxBuilder = LocalCodeBlockBuilder(globalBuilder)
-                if modeType is not None:
-                    if not isinstance(modeType, ReferenceType):
-                        ctxBuilder.emitVariable('ret', modeType, semLoc)
 
                 # Parse context.
                 if ctxStr:
@@ -311,14 +339,15 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                         continue
                 else:
                     flagsRequired = set()
-                knownNames = set(ctxBuilder.context.keys()) | globalIdentifiers
 
                 # Parse encoding.
                 if encStr:
                     try:
                         encoding = parseExprList(encStr, encLoc)
                         for encElem in encoding:
-                            checkIdentifiers(encElem, knownNames)
+                            # TODO: Encoding is not allowed to add anything.
+                            #       Function call inlining could alter state.
+                            buildExpression(encElem, ctxBuilder)
                     except BadInput as ex:
                         reader.error(
                             'error in encoding: %s' % ex, location=ex.location
@@ -336,8 +365,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                     semStr = mnemStr
                     semLoc = mnemLoc
                 try:
-                    semantics = parseSem(semStr, semLoc)
-                    checkIdentifiers(semantics, knownNames)
+                    parseSem(semStr, semLoc, ctxBuilder, modeType)
                 except BadInput as ex:
                     reader.error(
                         'error in semantics: %s' % ex, location=ex.location
@@ -345,9 +373,8 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
         except DelayedError:
             pass
         else:
-            yield (
-                encoding, mnemonic, semantics, ctxBuilder.context, flagsRequired
-                )
+            context = ctxBuilder.context
+            yield encoding, mnemonic, ctxBuilder, context, flagsRequired
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
@@ -382,7 +409,7 @@ def _parseMode(reader, globalBuilder, modes):
                 )
 
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, modeType, parseExpr
+            reader, globalBuilder, modes, modeType, _parseModeSemantics
             ):
         mode.addEntry(*entry)
 
@@ -390,7 +417,7 @@ def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
 
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, None, parseStatement
+            reader, globalBuilder, modes, None, _parseInstrSemantics
             ):
         pass
 
