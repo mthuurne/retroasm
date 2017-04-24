@@ -168,8 +168,8 @@ def _convertFunctionCall(callNode, builder):
                     )
             if value.width != decl.type.width:
                 raise BadExpression.withText(
-                    'reference of %d bits wide passed for reference argument '
-                    '"%s %s"' % (value.width, decl, name),
+                    '%s-bit reference passed for reference argument "%s %s"'
+                    % (value.width, decl, name),
                     argNode.treeLocation
                     )
         else:
