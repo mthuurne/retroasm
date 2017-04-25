@@ -709,9 +709,9 @@ $ED, $4D            . reti          . ret_int()
 
 ### Input and Output (8.11)
 
-func in(u8& R)
+func u8 in()
     def u8 V = port[c]
-    R := V
+    ret := V
     hf := 0
     zf := V == 0
     pf := V[7] ^ V[6] ^ V[5] ^ V[4] ^ V[3] ^ V[2] ^ V[1] ^ V[0] ^ 1
@@ -756,8 +756,8 @@ func out_block(int D)
 
 instr in
 $DB, N              . a,(N)         . a := port[N]          . u8 N
-$ED, %01;R;%000     . R,(c)         . in(R)                 . reg8 R
-$ED, %01;%110;%000  . f,(c)         . in(0)
+$ED, %01;R;%000     . R,(c)         . R := in()             . reg8 R
+$ED, %01;%110;%000  . f,(c)         . in()
 
 instr
 $ED, $A2            . ini           . in_step(1)
