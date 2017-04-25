@@ -286,10 +286,11 @@ def _convertReferenceSlice(node, builder):
     else:
         offset = buildExpression(startNode, builder)
     if endNode is None:
-        end = IntLiteral(ref.width)
+        refWidth = ref.width
+        end = unlimited if refWidth is unlimited else IntLiteral(refWidth)
     else:
         end = buildExpression(endNode, builder)
-    if startNode is None:
+    if startNode is None or end is unlimited:
         width = end
     else:
         width = AddOperator(end, Complement(offset))
