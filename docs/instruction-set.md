@@ -315,7 +315,7 @@ A mode definition uses the syntax below:
 
 The type in the header is the type for expressions the semantics field. For modes defining register sets and addressing modes this will be a reference type, such as `u8&` for 8-bit registers and I/O, while for modes defining immediates or conditions this will be a value type, such as `u16` for 16-bit immediates and `u1` (Boolean) for conditions.
 
-There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table. If a mode with the given name already exists, the entries are added to that mode, otherwise a new mode is defined.
+There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
 
 The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on. If the opcode field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
 

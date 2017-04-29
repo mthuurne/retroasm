@@ -191,12 +191,6 @@ instr
 
 ### Increment/decrement
 
-mode u8& incdec
-%001, A                 . A             .                   . zeropage A
-%011, A                 . A             .                   . absolute A
-%101, A                 . A             .                   . zeropage_x A
-%111, A                 . A             .                   . absolute_x A
-
 instr
 %110;D[0];%10, D        . dec D         . load(D, D - 1)    . incdec D
 %111;D[0];%10, D        . inc D         . load(D, D + 1)    . incdec D

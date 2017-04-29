@@ -395,9 +395,14 @@ def _parseMode(reader, globalBuilder, modes):
             )
         modeType = None
 
-    mode = modes.get(modeName)
-    if mode is None:
-        mode = Mode(modeName, modeType, reader.getLocation())
+    mode = Mode(modeName, modeType, reader.getLocation())
+    if modeName in modes:
+        reader.error(
+            'mode "%s" redefined; first definition was on line %d'
+            % (modeName, modes[modeName].location.lineno),
+            location=reader.getLocation(match.span(2))
+            )
+    else:
         try:
             parseType(modeName)
         except ValueError:
