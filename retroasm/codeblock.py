@@ -365,7 +365,6 @@ class SlicedReference(Reference):
                 typ = IntType.u(width.value)
             else:
                 raise ValueError('slice width cannot be determined')
-                # TODO: Treat width as unlimited in this case?
         Reference.__init__(self, typ)
 
     def __repr__(self):

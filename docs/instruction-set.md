@@ -133,6 +133,8 @@ Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from
 
 In terms of numeric values *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>. If the lower index is omitted, the 'div' part has no effect: it would divide by 2<sup>0</sup> = 1. If the upper index is omitted, the 'mod' part is dropped.
 
+The width of a slice must be known at the time of definition. This means it cannot depend on for example a function argument or a value from a register or immediate. Note that RetroAsm is able to determine that the width of *A*[*K*:*K*+*N*] is *N* bits if it knows the value of *N* but not the value of *K*.
+
 A bitwise lookup is equivalent to taking a single bit slice: *A*[*K*] = *A*[*K*:*K*+1].
 
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
