@@ -24,7 +24,7 @@ class ExpressionTokenizer:
             (Token.label,       r"@[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.flagtest,    r"\?[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.number,      r'[%$0-9]\w*'),
-            (Token.operator,    r'==|!=|<=|>=|[<>&|\^+\-~!;]'),
+            (Token.operator,    r'<<|>>|==|!=|<=|>=|[<>&|\^+\-~!;]'),
             (Token.bracket,     r'[\[\]()]'),
             (Token.assignment,  r':='),
             (Token.definition,  r'='),
@@ -151,8 +151,8 @@ class AssignmentNode(ParseNode):
 Operator = Enum('Operator', ( # pylint: disable=invalid-name
     'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
     'bitwise_complement', 'concatenation', 'lookup', 'negation', 'slice',
-    'equal', 'unequal', 'lesser', 'lesser_equal', 'greater', 'greater_equal',
-    'call'
+    'shift_left', 'shift_right', 'equal', 'unequal', 'lesser', 'lesser_equal',
+    'greater', 'greater_equal', 'call'
     ))
 
 class OperatorNode(ParseNode):
@@ -348,7 +348,7 @@ def _parse(exprStr, location, mode):
             return expr
 
     def parseCompare():
-        expr = parseAddSub()
+        expr = parseShift()
         location = token.location
         if token.eat(Token.operator, '<'):
             return OperatorNode(
@@ -365,6 +365,20 @@ def _parse(exprStr, location, mode):
         elif token.eat(Token.operator, '>'):
             return OperatorNode(
                 Operator.greater, (expr, parseCompare()), location
+                )
+        else:
+            return expr
+
+    def parseShift():
+        expr = parseAddSub()
+        location = token.location
+        if token.eat(Token.operator, '<<'):
+            return OperatorNode(
+                Operator.shift_left, (expr, parseShift()), location
+                )
+        elif token.eat(Token.operator, '>>'):
+            return OperatorNode(
+                Operator.shift_right, (expr, parseShift()), location
                 )
         else:
             return expr

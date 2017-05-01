@@ -3,8 +3,8 @@ from .codeblock import (
     )
 from .context import NameExistsError
 from .expression import (
-    AddOperator, AndOperator, Complement, Expression, IntLiteral, Negation,
-    OrOperator, SignTest, XorOperator, optSlice, truncate
+    AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
+    Negation, OrOperator, RVShift, SignTest, XorOperator, optSlice, truncate
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
@@ -188,6 +188,10 @@ def _convertArithmetic(node, builder):
         return OrOperator(*exprs)
     elif operator is Operator.bitwise_xor:
         return XorOperator(*exprs)
+    elif operator is Operator.shift_left:
+        return LVShift(*exprs)
+    elif operator is Operator.shift_right:
+        return RVShift(*exprs)
     elif operator is Operator.add:
         return AddOperator(*exprs)
     elif operator is Operator.sub:

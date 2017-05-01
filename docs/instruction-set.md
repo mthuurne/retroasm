@@ -99,6 +99,8 @@ Name                |Notation           |Types
 bitwise and         | *A* & *B*         | int &times; int &rarr; int
 bitwise or          | *A* &#124; *B*    | int &times; int &rarr; int
 bitwise xor         | *A* ^ *B*         | int &times; int &rarr; int
+shift left          | *A* << *B*        | int &times; int &rarr; int
+shift right         | *A* >> *B*        | int &times; int &rarr; int
 addition            | *A* + *B*         | int &times; int &rarr; int
 subtraction         | *A* - *B*         | int &times; int &rarr; int
 type conversion     | to_s(*A*)         | u*N* &rarr; s*N*
@@ -131,7 +133,7 @@ Concatenation puts one fixed width bit string after another. For example, the co
 
 Slicing extracts a region from a bit string: *A*[*K*:*L*] extracts the bits from and including bit *K* up to and excluding bit *L*, similar to sequence slicing in Python. For example: `$12CD[4:8]` = `$C`. If the lower index of a slice is omitted, the slice starts from bit 0: `$AB[:4]` = `$B`. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: `$AB[4:]` = `$A`.
 
-In terms of numeric values *A*[*K*:*L*] = (*A* div 2<sup>*K*</sup>) mod 2<sup>*L-K*</sup>. If the lower index is omitted, the 'div' part has no effect: it would divide by 2<sup>0</sup> = 1. If the upper index is omitted, the 'mod' part is dropped.
+The value of a slice can be expressed using other operators as follows: *A*[*K*:*L*] = (*A* >> *K*) & (2<sup>*L-K*</sup> - 1). If the lower index is omitted, no shift is performed (shift by 0 bits). If the upper index is omitted, the 'and' part is dropped.
 
 The width of a slice must be known at the time of definition. This means it cannot depend on for example a function argument or a value from a register or immediate. Note that RetroAsm is able to determine that the width of *A*[*K*:*K*+*N*] is *N* bits if it knows the value of *N* but not the value of *K*.
 
