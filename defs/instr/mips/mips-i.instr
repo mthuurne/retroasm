@@ -1,0 +1,326 @@
+# The MIPS I instruction set is used in the R2000 and R3000 CPUs.
+
+# Note: Currently little endian is assumed.
+#       Support for big endian or bi-endian could be added later.
+
+# TODO: Model branch delay.
+# TODO: Model load delay. Less urgent than branch delay, since we can disasm
+#       most code just fine without knowing about load delay.
+
+
+### Registers
+
+reg
+# main
+u32 zero = $00000000
+u32 at
+u32 v0 v1
+u32 a0 a1 a2 a3
+u32 t0 t1 t2 t3 t4 t5 t6 t7 t8 t9
+u32 s0 s1 s2 s3 s4 s5 s6 s7 s8
+u32 fp = s8
+u32 k0 k1
+u32 gp
+u32 sp
+u32 ra
+# multiplication result
+u32 hi lo
+# program counter
+u32 pc
+
+mode u32& reg
+%00000              . zero
+%00001              . at
+%00010              . v0
+%00011              . v1
+%00100              . a0
+%00101              . a1
+%00110              . a2
+%00111              . a3
+%01000              . t0
+%01001              . t1
+%01010              . t2
+%01011              . t3
+%01100              . t4
+%01101              . t5
+%01110              . t6
+%01111              . t7
+%10000              . s0
+%10001              . s1
+%10010              . s2
+%10011              . s3
+%10100              . s4
+%10101              . s5
+%10110              . s6
+%10111              . s7
+%11000              . t8
+%11001              . t9
+%11010              . k0
+%11011              . k1
+%11100              . gp
+%11101              . sp
+%11110              . s8
+%11111              . ra
+
+
+### Memory
+
+io
+u32 mem[u30]
+
+
+### Coprocessors
+
+io
+# Control registers.
+u32 ccr1[u5]
+u32 ccr2[u5]
+u32 ccr3[u5]
+# Data registers.
+u32 cpr0[u5]
+u32 cpr1[u5]
+u32 cpr2[u5]
+u32 cpr3[u5]
+# Operation triggers.
+u0 cop0[u25]
+u0 cop1[u25]
+u0 cop2[u25]
+u0 cop3[u25]
+
+
+### Utility functions
+
+# TODO: Make this a language feature?
+func s32& s32(u32& R)
+    ret = R
+
+
+### Arithmetic
+
+func add(u32& D, u32 V0, u32 V1)
+    D := V0 + V1
+    # TODO: Overflow exception is not modeled yet.
+
+func sub(u32& D, u32 V0, u32 V1)
+    D := V0 - V1
+    # TODO: Overflow exception is not modeled yet.
+
+instr
+%000000;RS;RT;RD;%00000;%100000     . add   RD,RS,RT    . add(RD, RS, RT)       . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100001     . addu  RD,RS,RT    . RD := RS + RT         . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100010     . sub   RD,RS,RT    . sub(RD, RS, RT)       . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100011     . subu  RD,RS,RT    . RD := RS - RT         . reg RS, reg RT, reg RD
+%001000;RS;RT;N                     . addi  RT,RS,N     . add(RT, RS, N)        . reg RS, reg RT, s16 N
+%001001;RS;RT;N                     . addiu RT,RS,N     . RT := RS + N          . reg RS, reg RT, s16 N
+
+func mult(s32 V0, s32 V1)
+    # TODO: Implement actual multiplication support.
+    lo := V0 # low word of V0*V1
+    hi := V1 # high word of V0*V1
+
+func multu(u32 V0, u32 V1)
+    # TODO: Implement actual multiplication support.
+    lo := V0 # low word of V0*V1
+    hi := V1 # high word of V0*V1
+
+func div(s32 N, s32 D)
+    # TODO: Implement actual div/mod support.
+    lo := D # N div D
+    hi := N # N mod D
+
+func divu(u32 N, u32 D)
+    # TODO: Implement actual div/mod support.
+    lo := D # N div D
+    hi := N # N mod D
+
+instr
+%000000;%00000;%00000;RD;%00000;%010000 . mfhi              . RD := hi          . reg RD
+%000000;RS;%00000;%00000;%00000;%010001 . mthi              . hi := RS          . reg RS
+%000000;%00000;%00000;RD;%00000;%010010 . mflo              . RD := lo          . reg RD
+%000000;RS;%00000;%00000;%00000;%010011 . mtlo              . lo := RS          . reg RS
+%000000;RS;RT;%00000;%00000;%011000     . mult  RS,RT       . mult(RS, RT)      . reg RS, reg RT
+%000000;RS;RT;%00000;%00000;%011001     . multu RS,RT       . multu(RS, RT)     . reg RS, reg RT
+%000000;RS;RT;%00000;%00000;%011010     . div   RS,RT       . div(RS, RT)       . reg RS, reg RT
+%000000;RS;RT;%00000;%00000;%011011     . divu  RS,RT       . divu(RS, RT)      . reg RS, reg RT
+
+
+### Logical operations
+
+instr
+%000000;RS;RT;RD;%00000;%100100     . and   RD,RS,RT    . RD := RS & RT         . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100101     . or    RD,RS,RT    . RD := RS | RT         . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100110     . xor   RD,RS,RT    . RD := RS ^ RT         . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%100111     . nor   RD,RS,RT    . RD := ~(RS | RT)      . reg RS, reg RT, reg RD
+%001100;RS;RT;N                     . andi  RT,RS,N     . RT := RS & N          . reg RS, reg RT, u16 N
+%001101;RS;RT;N                     . ori   RT,RS,N     . RT := RS | N          . reg RS, reg RT, u16 N
+%001110;RS;RT;N                     . xori  RT,RS,N     . RT := RS ^ N          . reg RS, reg RT, u16 N
+
+instr
+%000000;%00000;RT;RD;SA;%000000     . sll   RD,RT,SA    . RD := RT << SA        . u5  SA, reg RT, reg RD
+%000000;%00000;RT;RD;SA;%000010     . srl   RD,RT,SA    . RD := RT >> SA        . u5  SA, reg RT, reg RD
+%000000;%00000;RT;RD;SA;%000011     . sra   RD,RT,SA    . RD := s32(RT) >> SA   . u5  SA, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%000100     . sllv  RD,RT,RS    . RD := RT << SA        . reg RS, reg RT, reg RD, u5 SA = RS
+%000000;RS;RT;RD;%00000;%000110     . srlv  RD,RT,RS    . RD := RT >> SA        . reg RS, reg RT, reg RD, u5 SA = RS
+%000000;RS;RT;RD;%00000;%000111     . srav  RD,RT,RS    . RD := s32(RT) >> SA   . reg RS, reg RT, reg RD, u5 SA = RS
+# The all-zero opcode is really "sll zero,zero,0" but "nop" is more readable.
+$00000000                           . nop
+
+
+### Load/store
+
+func s8 lb(u32 A)
+    def u32 V = mem[A[2:]]
+    def int I = A[:2];%000
+    ret := V >> I
+
+func sb(u32 A, u8 V)
+    def int I = A[:2];%000
+    mem[A[2:]][I:I+8] := V
+
+func u8 lbu(u32 A)
+    def u32 V = mem[A[2:]]
+    def int I = A[:2];%000
+    ret := V >> I
+
+func s16 lh(u32 A)
+    # TODO: Address exception is not modeled yet.
+    def u32 V = mem[A[2:]]
+    def int I = A[1];%0000
+    ret := V >> I
+
+func sh(u32 A, u16 V)
+    def int I = A[1];%0000
+    mem[A[2:]][I:I+16] := V
+
+func u16 lhu(u32 A)
+    # TODO: Address exception is not modeled yet.
+    def u32 V = mem[A[2:]]
+    def int I = A[1];%0000
+    ret := V >> I
+
+func u32 lw(u32 A)
+    # TODO: Address exception is not modeled yet.
+    ret := mem[A[2:]]
+
+func sw(u32 A, u32 V)
+    # TODO: Address exception is not modeled yet.
+    mem[A[2:]] := V
+
+func lwl(u32& R, u32 A)
+    def u32 V = mem[A[2:]]
+    def int I = 24 - A[:2];%000
+    R := (R & ~(-1 << I)) | (V << I)
+
+func lwr(u32& R, u32 A)
+    def u32 V = mem[A[2:]]
+    def int I = 32 - A[:2];%000
+    R := (R & (-1 << I)) | (V >> (32 - I))
+
+func swl(u32 V, u32 A)
+    def int I = 8 + A[:2];%000
+    mem[A[2:]] := (mem[A[2:]] & (-1 << I)) | (V >> (32 - I))
+
+func swr(u32 V, u32 A)
+    def int I = A[:2];%000
+    mem[A[2:]] := (mem[A[2:]] & ~(-1 << I)) | (V << I)
+
+instr
+%001111;%00000;RT;N                 . lui   RT,N        . RT := N ; 0[:16]      . reg RT, u16 N
+%100000;RS;RT;N                     . lb    RT,N(RS)    . RT := lb(RS + N)      . reg RS, reg RT, s16 N
+%100001;RS;RT;N                     . lh    RT,N(RS)    . RT := lh(RS + N)      . reg RS, reg RT, s16 N
+%100010;RS;RT;N                     . lwl   RT,N(RS)    . lwl(RT, RS + N)       . reg RS, reg RT, s16 N
+%100011;RS;RT;N                     . lw    RT,N(RS)    . RT := lw(RS + N)      . reg RS, reg RT, s16 N
+%100100;RS;RT;N                     . lbu   RT,N(RS)    . RT := lbu(RS + N)     . reg RS, reg RT, s16 N
+%100101;RS;RT;N                     . lhu   RT,N(RS)    . RT := lhu(RS + N)     . reg RS, reg RT, s16 N
+%100110;RS;RT;N                     . lwr   RT,N(RS)    . lwr(RT, RS + N)       . reg RS, reg RT, s16 N
+%101000;RS;RT;N                     . sb    RT,N(RS)    . sb(RS + N, RT)        . reg RS, reg RT, s16 N
+%101001;RS;RT;N                     . sh    RT,N(RS)    . sh(RS + N, RT)        . reg RS, reg RT, s16 N
+%101011;RS;RT;N                     . sw    RT,N(RS)    . sw(RS + N, RT)        . reg RS, reg RT, s16 N
+%101010;RS;RT;N                     . swl   RT,N(RS)    . swl(RT, RS + N)       . reg RS, reg RT, s16 N
+%101110;RS;RT;N                     . swr   RT,N(RS)    . swr(RT, RS + N)       . reg RS, reg RT, s16 N
+
+
+### Comparison
+
+instr
+%000000;RS;RT;RD;%00000;%101010 . slt   RD,RS,RT    . RD := s32(RS) < s32(RT)   . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%101011 . sltu  RD,RS,RT    . RD := RS < RT             . reg RS, reg RT, reg RD
+%001010;RS;RT;N                 . slti  RT,RS,N     . RT := s32(RS) < N         . reg RS, reg RT, s16 N
+%001011;RS;RT;N                 . sltiu RT,RS,N     . RT := RS < N              . reg RS, reg RT, u16 N
+
+
+### Branching
+
+func br(int C, int N)
+    branch !C @skip
+    pc := pc + N
+    @skip
+
+func brl(int C, int N)
+    ra := pc + 4
+    br(C, N)
+
+instr
+%000001;RS;%00000;N     . bltz   RS,NW      . br(RS[31] == 1, NW)               . reg RS, s16 N, int NW = N;%00
+%000001;RS;%00001;N     . bgeq   RS,NW      . br(RS[31] == 0, NW)               . reg RS, s16 N, int NW = N;%00
+%000001;RS;%10000;N     . bltzal RS,NW      . brl(RS[31] == 1, NW)              . reg RS, s16 N, int NW = N;%00
+%000001;RS;%10001;N     . bgezal RS,NW      . brl(RS[31] == 0, NW)              . reg RS, s16 N, int NW = N;%00
+%000100;RS;RT;N         . beq    RS,RT,NW   . br(RS == RT, NW)                  . reg RS, reg RT, s16 N, int NW = N;%00
+%000101;RS;RT;N         . bne    RS,RT,NW   . br(RS != RT, NW)                  . reg RS, reg RT, s16 N, int NW = N;%00
+%000110;RS;%00000;N     . blez   RS,NW      . br(RS[31] == 1 | RS == 0, NW)     . reg RS, s16 N, int NW = N;%00
+%000111;RS;%00000;N     . bgtz   RS,NW      . br(RS[31] == 0 & RS != 0, NW)     . reg RS, s16 N, int NW = N;%00
+
+func jmp(u32 A)
+    pc := A
+
+func jmpl(u32 A, u32& L)
+    L := pc + 4
+    jmp(A)
+
+instr
+%000000;RS;%00000;%00000;%00000;%001000 . jr     RS     . jmp(RS)               . reg RS
+%000000;RS;%00000;RD;%00000;%001001     . jalr   RD,RS  . jmpl(RS, RD)          . reg RS, reg RD
+%000000;RS;%00000;RD;%00000;%001001     . jalr   RS     . jmpl(RS, RD)          . reg RS, reg RD = ra
+%000010;N                               . j      A      . jmp(pc[28:];A)        . u26 N, u28 A = N;%00
+%000011;N                               . jal    A      . jmpl(pc[28:];A, ra)   . u26 N, u28 A = N;%00
+
+func break()
+    # TODO: Trigger a breakpoint exception.
+    nop
+
+func syscall()
+    # TODO: Trigger a system call exception.
+    nop
+
+instr
+%000000;C;%001100       . syscall C         . syscall()                         . u20 C
+%000000;C;%001101       . break C           . break()                           . u20 C
+
+
+### Coprocessors
+
+instr
+%0100;%00;%00000;RT;RD;%00000;%000000   . mfc0 RT,RD    . RD := cpr0[RT]            . u5 RT, reg RD
+%0100;%01;%00000;RT;RD;%00000;%000000   . mfc1 RT,RD    . RD := cpr1[RT]            . u5 RT, reg RD
+%0100;%10;%00000;RT;RD;%00000;%000000   . mfc2 RT,RD    . RD := cpr2[RT]            . u5 RT, reg RD
+%0100;%11;%00000;RT;RD;%00000;%000000   . mfc3 RT,RD    . RD := cpr3[RT]            . u5 RT, reg RD
+%0100;%01;%00010;RT;RD;%00000;%000000   . cfc1 RT,RD    . RT := ccr1[RD]            . reg RT, u5 RD
+%0100;%10;%00010;RT;RD;%00000;%000000   . cfc2 RT,RD    . RT := ccr2[RD]            . reg RT, u5 RD
+%0100;%11;%00010;RT;RD;%00000;%000000   . cfc3 RT,RD    . RT := ccr3[RD]            . reg RT, u5 RD
+%0100;%00;%00100;RT;RD;%00000;%000000   . mtc0 RT,RD    . cpr0[RD] := RT            . reg RT, u5 RD
+%0100;%01;%00100;RT;RD;%00000;%000000   . mtc1 RT,RD    . cpr1[RD] := RT            . reg RT, u5 RD
+%0100;%10;%00100;RT;RD;%00000;%000000   . mtc2 RT,RD    . cpr2[RD] := RT            . reg RT, u5 RD
+%0100;%11;%00100;RT;RD;%00000;%000000   . mtc3 RT,RD    . cpr3[RD] := RT            . reg RT, u5 RD
+%0100;%01;%00110;RT;RD;%00000;%000000   . ctc1 RT,RD    . ccr1[RD] := RT            . reg RT, u5 RD
+%0100;%10;%00110;RT;RD;%00000;%000000   . ctc2 RT,RD    . ccr2[RD] := RT            . reg RT, u5 RD
+%0100;%11;%00110;RT;RD;%00000;%000000   . ctc3 RT,RD    . ccr3[RD] := RT            . reg RT, u5 RD
+%0100;%00;%1;FN                         . cop0 FN       . cop0[FN]                  . u25 FN
+%0100;%01;%1;FN                         . cop1 FN       . cop1[FN]                  . u25 FN
+%0100;%10;%1;FN                         . cop2 FN       . cop2[FN]                  . u25 FN
+%0100;%11;%1;FN                         . cop3 FN       . cop3[FN]                  . u25 FN
+%1100;%01;RS;RT;N                       . lwc1 RT,N(RS) . cpr1[RT] := lw(RS + N)    . u5 RT, reg RS, s16 N
+%1100;%10;RS;RT;N                       . lwc2 RT,N(RS) . cpr2[RT] := lw(RS + N)    . u5 RT, reg RS, s16 N
+%1100;%11;RS;RT;N                       . lwc3 RT,N(RS) . cpr3[RT] := lw(RS + N)    . u5 RT, reg RS, s16 N
+%1110;%01;RS;RT;N                       . swc1 RT,N(RS) . sw(RS + N, cpr1[RT])      . u5 RT, reg RS, s16 N
+%1110;%10;RS;RT;N                       . swc2 RT,N(RS) . sw(RS + N, cpr2[RT])      . u5 RT, reg RS, s16 N
+%1110;%11;RS;RT;N                       . swc3 RT,N(RS) . sw(RS + N, cpr3[RT])      . u5 RT, reg RS, s16 N
