@@ -339,7 +339,12 @@ The optional context field will be explained soon, but first an example using on
     %110    . (hl)    . mem[hl]
     %111    . a
 
-The simplest use of the context field is to include a mode defined earlier as part of a new mode:
+The simplest use of the context field is to define immediate values, using the syntax `<type> <name>`. For example, this mode defines a 16-bit immediate that is encoded in little endian byte order:
+
+    mode u16 imm16
+    N[:8], N[8:]    . N     . N     . u16 N
+
+It is possible to include a mode defined earlier as part of a new mode, using the syntax `<mode> <name>` in the context field:
 
     mode u16& reg16
     %00     . bc
@@ -351,11 +356,11 @@ The simplest use of the context field is to include a mode defined earlier as pa
     R       . R         . R         . reg16 R
     %11     . af
 
-In the first entry of `reg16af`, the context field is used here to match according to the `reg16` mode and use the match as-is. The second entry then replaces `sp` with `af`.
+In the first entry of `reg16af`, the context field is used to match according to the `reg16` mode and use the match as-is. The second entry then replaces `sp` with `af`.
 
-When an entry's encoding is the same as the encoding of an earlier entry, the later entry overrides the earlier entry. In `reg16af` in the example above, not only does the encoding `%11` map to the mnemonic `af`, but the mnemonic `sp` does not occur at all in mode `reg16af`.
+When multiple entries match the same encoding, the later entry fully replaces the earlier entry. In mode `reg16af` in the example above, not only does the encoding `%11` map to the mnemonic `af`, but the mnemonic `sp` does not occur at all in mode `reg16af`.
 
-The `R` in the example above is a placeholder introduced by the context field. In each other field, the placeholder represents the same field in the matched entry from the other mode. For example, the `R` in the encoding field represents the encoding of the matched entry, while the `R` in the mnemonic field represents the mnemonic of the matched entry.
+In the encoding, mnemonic and semantics field, the placeholder represents that same field in the matched entry from the included mode. For example, the `R` in the encoding field represents the encoding of the matched entry, while the `R` in the mnemonic field represents the mnemonic of the matched entry.
 
 Placeholders can be used in expressions, for example to define the Z80 flag tests:
 
@@ -374,16 +379,28 @@ Placeholders can be used in expressions, for example to define the Z80 flag test
 
 In the above example, the placeholder `C` represents the match made in the `cond2` mode table. Let's say that the third entry in `cond2` was the one matched. In the first entry of `cond3`, the `C` in the second column reproduces the matched mnemonic `nc` as-is, while the `C` in the third column reproduces the semantic expression `!cf` as-is. In the first column, `C` matches the encoding `%10` which is concatenated to a fixed bit of 0 to form the 3-bit encoding `%010`.
 
-The context field can also be used to filter on instruction decoding flags, using the syntax `?<name>`. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the `reg8` mode from the earlier example:
+The context field can contain multiple items, separated by commas. It is possible to define constants and references, similar to the `def` keyword in functions: constants are defined using `<type> <name> = <expr>` and references are defined using `<type>& <name> = <expr>`. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
+
+    N       . A         . A         . s8 N, u16 A = pc + N
+
+A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
+
+Finally, the context field can be used to filter on instruction decode flags, using the syntax `?<name>`. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the `reg8` mode from the earlier example:
 
     %100    . h
-    %100    . ixh       .          . ?ix
-    %100    . iyh       .          . ?iy
+    %100    . ixh       .               . ?ix
+    %100    . iyh       .               . ?iy
     %101    . l
-    %101    . ixl       .          . ?ix
-    %101    . iyl       .          . ?iy
+    %101    . ixl       .               . ?ix
+    %101    . iyl       .               . ?iy
 
-A mode entry will only be considered a match if all flags listed in the context are set.
+Here is an example that defines Z80 indexed addressing, using a combination of a decode flag filter and an immediate:
+
+    %110    . (hl)      . mem[hl]
+    %110, N . (ix + N)  . mem[ix + N]   . ?ix, s8 N
+    %110, N . (iy + N)  . mem[iy + N]   . ?iy, s8 N
+
+If there are multiple decode flags tested in the context of a single mode entry, that entry will only be considered a match if all of those flags are set.
 
 Instructions
 ------------
