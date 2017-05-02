@@ -514,7 +514,8 @@ def _parse(exprStr, location, mode):
                 'type name'
                 )
         ampLocation = token.location
-        if token.eat(Token.operator, '&'):
+        if ampLocation.span[0] == typeLocation.span[1] \
+                and token.eat(Token.operator, '&'):
             if keyword == 'var':
                 raise ParseError(
                     'references can only be defined using the "def" keyword',
