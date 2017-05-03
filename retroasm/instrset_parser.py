@@ -1,5 +1,4 @@
 from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
-from .context import GlobalContext, NameExistsError
 from .expression_builder import buildExpression, buildReference
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
@@ -9,6 +8,7 @@ from .expression_parser import (
 from .function_builder import createFunc
 from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate, Mode
+from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
 from .types import ReferenceType, parseType, parseTypeDecl
 
@@ -93,7 +93,7 @@ def _parseRegs(reader, argStr, builder):
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
-def _parseIO(reader, argStr, context):
+def _parseIO(reader, argStr, namespace):
     if argStr:
         reader.error('I/O definition must have no arguments')
 
@@ -125,7 +125,7 @@ def _parseIO(reader, argStr, context):
 
             channel = IOChannel(name, elemType, addrType)
             try:
-                context.define(name, channel, reader.getLocation())
+                namespace.define(name, channel, reader.getLocation())
             except NameExistsError as ex:
                 reader.error(
                     'error defining I/O channel: %s', ex, location=ex.location
@@ -166,7 +166,7 @@ def _parseFuncArgs(log, argsStr):
                         'bad function argument %d ("%s"): %s', i, argName, ex
                         )
                     # We still want to check for duplicates, so store
-                    # a dummy value in the local context.
+                    # a dummy value in the local namespace.
                     arg = None
                 args[argName] = arg
     return args
@@ -208,9 +208,9 @@ def _parseFunc(reader, argStr, builder):
     # Parse body lines.
     func = createFunc(reader, funcName, retType, args, builder)
 
-    # Store function in global context.
+    # Store function in global namespace.
     try:
-        builder.context.define(funcName, func, headerLocation)
+        builder.namespace.define(funcName, func, headerLocation)
     except NameExistsError as ex:
         reader.error('error declaring function: %s', ex, location=ex.location)
 
@@ -373,7 +373,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
         except DelayedError:
             pass
         else:
-            context = ctxBuilder.context
+            context = ctxBuilder.namespace
             yield encoding, mnemonic, ctxBuilder, context, flagsRequired
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
@@ -427,8 +427,8 @@ def _parseInstr(reader, argStr, globalBuilder, modes):
         pass
 
 def parseInstrSet(pathname):
-    globalContext = GlobalContext()
-    builder = GlobalCodeBlockBuilder(globalContext)
+    globalNamespace = GlobalNamespace()
+    builder = GlobalCodeBlockBuilder(globalNamespace)
     modes = {}
 
     with DefLineReader.open(pathname, logger) as reader:
@@ -441,7 +441,7 @@ def parseInstrSet(pathname):
             if defType == 'reg':
                 _parseRegs(reader, argStr, builder)
             elif defType == 'io':
-                _parseIO(reader, argStr, globalContext)
+                _parseIO(reader, argStr, globalNamespace)
             elif defType == 'func':
                 _parseFunc(reader, argStr, builder)
             elif defType == 'mode':
@@ -454,7 +454,7 @@ def parseInstrSet(pathname):
         reader.summarize()
 
     logger.debug('regs: %s', ', '.join(
-        '%s = %r' % item for item in sorted(globalContext.items())
+        '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
     return None

@@ -3,9 +3,9 @@ from .codeblock import (
     LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
-from .context import LocalContext
 from .expression import optSlice
 from .linereader import BadInput
+from .namespace import LocalNamespace
 from .storage import IOStorage, RefArgStorage, Storage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
@@ -13,10 +13,10 @@ from .utils import checkType
 class CodeBlockBuilder:
     _scope = property()
 
-    def __init__(self, context):
+    def __init__(self, namespace):
         self.constants = []
         self.storages = []
-        self.context = context
+        self.namespace = namespace
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
@@ -34,8 +34,8 @@ class CodeBlockBuilder:
         print('    storages:')
         for sid, storage in enumerate(self.storages):
             print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
-        if 'ret' in self.context:
-            retRef = self.context['ret']
+        if 'ret' in self.namespace:
+            retRef = self.namespace['ret']
             storage = self.storages[retRef.sid]
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
                 print('        ret = %s' % retRef)
@@ -68,7 +68,7 @@ class CodeBlockBuilder:
     def _addNamedStorage(self, storage, location):
         sid = self._addStorage(storage)
         ref = SingleReference(self, sid, storage.type)
-        self.context.define(storage.name, ref, location)
+        self.namespace.define(storage.name, ref, location)
         return ref
 
     def emitVariable(self, name, refType, location):
@@ -94,7 +94,7 @@ class CodeBlockBuilder:
         Raises NameExistsError if the name is already taken.
         '''
         checkType(value, Reference, 'value')
-        self.context.define(name, value, location)
+        self.namespace.define(name, value, location)
         return value
 
     def emitLoadBits(self, sid, location):
@@ -154,8 +154,8 @@ class ModeCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
     _scope = 0
 
     def __init__(self, parentBuilder):
-        context = LocalContext(self, parentBuilder)
-        CodeBlockBuilder.__init__(self, context)
+        namespace = LocalNamespace(self, parentBuilder)
+        CodeBlockBuilder.__init__(self, namespace)
 
     def emitLoadBits(self, sid, location):
         storage = self.storages[sid]
@@ -173,8 +173,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1
 
     def __init__(self, parentBuilder):
-        context = LocalContext(self, parentBuilder)
-        CodeBlockBuilder.__init__(self, context)
+        namespace = LocalNamespace(self, parentBuilder)
+        CodeBlockBuilder.__init__(self, namespace)
         self.nodes = []
 
     def dump(self):
@@ -218,9 +218,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     )
                 )
 
-        if 'ret' in self.context:
+        if 'ret' in self.namespace:
             assert code.retRef is None, code.retRef
-            code.retRef = self.context['ret'].clone(
+            code.retRef = self.namespace['ret'].clone(
                 lambda ref, code=code: SingleReference(code, ref.sid, ref.type)
                 )
 
@@ -284,7 +284,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         return self.inlineBlock(code, argMap)
 
-    def inlineBlock(self, code, context):
+    def inlineBlock(self, code, namespace):
         '''Inlines another code block into this one.
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
@@ -304,7 +304,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ArgumentConstant):
-                value = context[const.name]
+                value = namespace[const.name]
                 constants.append(ComputedConstant(cidMap[const.cid], value))
             elif isinstance(const, ComputedConstant):
                 def substCid(expr):
@@ -326,7 +326,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         refMap = {}
         for sid, storage in code.storages.items():
             if isinstance(storage, RefArgStorage):
-                ref = context[storage.name]
+                ref = namespace[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
                 if isinstance(storage, IOStorage):

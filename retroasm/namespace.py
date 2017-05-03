@@ -4,7 +4,7 @@ from .linereader import BadInput
 from .storage import IOChannel
 from .utils import checkType
 
-class Context:
+class Namespace:
     '''Container in which named elements such as variables, arguments,
     functions etc. are stored.
     Fetching elements is done through a dictionary-like interface.
@@ -34,10 +34,10 @@ class Context:
         return self.elements.items()
 
     def define(self, name, value, location):
-        '''Defines a named item in the this context.
+        '''Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
         '''
-        checkType(name, str, 'context element name')
+        checkType(name, str, 'name')
         self._checkName(name, location)
         if name in self.elements:
             msg = 'name "%s" redefined' % name
@@ -49,13 +49,13 @@ class Context:
         self.elements[name] = value
 
     def _checkName(self, name, location):
-        '''Checks whether the given name can be used in this context.
+        '''Checks whether the given name can be used in this namespace.
         Raises NameExistsError if the name is rejected.
         '''
         pass
 
-class GlobalContext(Context):
-    '''Context for the global scope.
+class GlobalNamespace(Namespace):
+    '''Namespace for the global scope.
     '''
 
     def _checkName(self, name, location):
@@ -65,28 +65,28 @@ class GlobalContext(Context):
                 location
                 )
 
-class LocalContext(Context):
-    '''A context for local blocks, that can import entries from its parent
-    context on demand.
+class LocalNamespace(Namespace):
+    '''A namespace for local blocks, that can import entries from its parent
+    namespace on demand.
     Its goal is to avoid a lot of redundant references when a block is first
     created: although the simplifier can remove those, that is a pretty
     inefficient operation which should be applied to non-trivial cases only.
     '''
 
     def __init__(self, localBuilder, parentBuilder):
-        Context.__init__(self)
+        Namespace.__init__(self)
         self.localBuilder = localBuilder
         self.parentBuilder = parentBuilder
         self.importMap = {}
 
     def __contains__(self, key):
-        return super().__contains__(key) or key in self.parentBuilder.context
+        return super().__contains__(key) or key in self.parentBuilder.namespace
 
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
         except KeyError:
-            value = self.parentBuilder.context[key]
+            value = self.parentBuilder.namespace[key]
             if isinstance(value, (Function, IOChannel)):
                 pass
             elif isinstance(value, Reference):
@@ -98,7 +98,7 @@ class LocalContext(Context):
             return value
 
     def _importSingleRef(self, parentRef):
-        '''Imports the given parent storage ID into the local context.
+        '''Imports the given parent storage ID into the local namespace.
         Returns a reference to the local storage.
         '''
         parentSid = parentRef.sid
@@ -115,6 +115,6 @@ class LocalContext(Context):
             return localRef
 
 class NameExistsError(BadInput):
-    '''Raised when attempting to add an element to a context under a name
+    '''Raised when attempting to add an element to a namespace under a name
     which is already in use.
     '''

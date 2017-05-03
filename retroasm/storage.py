@@ -131,7 +131,7 @@ class Storage:
         raise NotImplementedError
 
 class NamedStorage(Storage):
-    '''Base class for named storages that exist in a global or local context.
+    '''Base class for named storages that exist in a global or local namespace.
     '''
     __slots__ = ('_name', '_type')
 
@@ -168,7 +168,8 @@ class NamedStorage(Storage):
         raise NotImplementedError
 
 class Variable(NamedStorage):
-    '''A variable in the local context.
+    '''A simple piece of named storage.
+    Is used for registers as well as variables.
     '''
     __slots__ = ('_scope',)
 

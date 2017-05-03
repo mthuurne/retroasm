@@ -2,9 +2,9 @@ from retroasm.codeblock import ComputedConstant, SingleReference, Store
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
-from retroasm.context import Context, GlobalContext
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
+from retroasm.namespace import Namespace, GlobalNamespace
 from retroasm.storage import IOChannel, Variable
 from retroasm.types import IntType, unlimited
 
@@ -58,7 +58,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
     def __init__(self, globalBuilder=None):
         if globalBuilder is None:
-            globalBuilder = GlobalCodeBlockBuilder(GlobalContext())
+            globalBuilder = GlobalCodeBlockBuilder(GlobalNamespace())
         self.globalBuilder = globalBuilder
         LocalCodeBlockBuilder.__init__(self, globalBuilder)
 
@@ -70,14 +70,14 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 
     def addRegister(self, name, typ=IntType.u(8)):
         try:
-            ref = self.context[name]
+            ref = self.namespace[name]
         except KeyError:
-            # Insert register into global context.
+            # Insert register into global namespace.
             self.globalBuilder.emitVariable(name, typ, None)
-            ref = self.context[name]
+            ref = self.namespace[name]
 
-        # Check that existing global context entry is this register.
-        globalRef = self.globalBuilder.context[name]
+        # Check that existing global namespace entry is this register.
+        globalRef = self.globalBuilder.namespace[name]
         assert isinstance(globalRef, SingleReference), globalRef
         assert typ.width == globalRef.width, globalRef
         reg = self.globalBuilder.storages[globalRef.sid]
@@ -89,18 +89,18 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
     def addIOStorage(self, channelName, index,
             elemType=IntType.u(8), addrType=IntType.u(16)):
         try:
-            channel = self.globalBuilder.context[channelName]
+            channel = self.globalBuilder.namespace[channelName]
         except KeyError:
-            # Insert channel into global context.
+            # Insert channel into global namespace.
             channel = IOChannel(channelName, elemType, addrType)
-            self.globalBuilder.context.define(channelName, channel, None)
+            self.globalBuilder.namespace.define(channelName, channel, None)
         else:
-            # Check that existing global context entry is this channel.
+            # Check that existing global namespace entry is this channel.
             assert isinstance(channel, IOChannel), channel
             assert channel.elemType is elemType, channel
             assert channel.addrType is addrType, channel
-        # Import channel from global context into local context.
-        localChannel = self.context[channelName]
+        # Import channel from global namespace into local namespace.
+        localChannel = self.namespace[channelName]
         assert localChannel is channel
         # Create I/O storage.
         return self.emitIOReference(localChannel, index)

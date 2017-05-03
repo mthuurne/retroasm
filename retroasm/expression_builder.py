@@ -1,7 +1,6 @@
 from .codeblock import (
     ConcatenatedReference, Load, Reference, SlicedReference, Store
     )
-from .context import NameExistsError
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
     Negation, OrOperator, RVShift, SignTest, XorOperator, optSlice, truncate
@@ -13,6 +12,7 @@ from .expression_parser import (
     )
 from .function import Function
 from .linereader import BadInput
+from .namespace import NameExistsError
 from .storage import IOChannel
 from .types import IntType, ReferenceType, parseTypeDecl, unlimited
 from .utils import Singleton
@@ -60,7 +60,7 @@ def declareVariable(node, builder):
     nameNode = node.name
     name = nameNode.name
 
-    # Add declaration to context.
+    # Add declaration to namespace.
     try:
         return builder.emitVariable(name, typ, nameNode.location)
     except NameExistsError as ex:
@@ -101,7 +101,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
     else:
         assert False, kind
 
-    # Add definition to context.
+    # Add definition to namespace.
     try:
         return builder.defineReference(name, ref, nameNode.location)
     except NameExistsError as ex:
@@ -111,12 +111,12 @@ def convertDefinition(kind, nameNode, typ, value, builder):
             )
 
 def _convertIdentifier(node, builder):
-    '''Looks up an identifier in the builder's context.
+    '''Looks up an identifier in the builder's namespace.
     Returns either an IOChannel or a Reference.
     '''
     name = node.name
     try:
-        value = builder.context[name]
+        value = builder.namespace[name]
     except KeyError:
         raise BadExpression('unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
@@ -133,7 +133,7 @@ def _convertFunctionCall(callNode, builder):
     assert isinstance(nameNode, IdentifierNode), nameNode
     funcName = nameNode.name
     try:
-        func = builder.context[funcName]
+        func = builder.namespace[funcName]
     except KeyError:
         raise BadExpression(
             'no function named "%s"' % funcName,

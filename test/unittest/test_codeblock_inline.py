@@ -30,7 +30,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         const = inner.emitCompute(IntLiteral(12345))
         inner.emitStore(innerA, const)
 
-        # Share the global context to make sure that the outer and inner block
+        # Share the global namespace to make sure that the outer and inner block
         # are using the same registers.
         outer = TestCodeBlockBuilder(inner.globalBuilder)
         outerA = outer.addRegister('a', IntType.u(16))
@@ -168,7 +168,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerA = outer.addRegister('a')
-        regA = outer.context['a']
+        regA = outer.namespace['a']
         initA = outer.emitCompute(IntLiteral(100))
         outer.emitStore(outerA, initA)
         outer.inlineBlock(incCode, {'R': regA})
@@ -204,8 +204,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
         outerL = outer.addRegister('l')
-        regH = outer.context['h']
-        regL = outer.context['l']
+        regH = outer.namespace['h']
+        regL = outer.namespace['l']
         regHL = ConcatenatedReference(regL, regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
@@ -236,7 +236,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
         outerL = outer.emitFixedValue(IntLiteral(0xcd), IntType.u(8))
-        regH = outer.context['h']
+        regH = outer.namespace['h']
         regHL = ConcatenatedReference(outerL, regH)
 
         initH = outer.emitCompute(IntLiteral(0xab))
@@ -264,7 +264,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerR = outer.addRegister('r', IntType.u(16))
-        regR = outer.context['r']
+        regR = outer.namespace['r']
         initR = outer.emitCompute(IntLiteral(0xcdef))
         outer.emitStore(outerR, initR)
         sliceR = SlicedReference(regR, IntLiteral(4), IntLiteral(8))
