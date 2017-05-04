@@ -1,6 +1,6 @@
 from .expression import (
-    AndOperator, Expression, IntLiteral, LShift, LVShift, OrOperator, RVShift,
-    SignExtension, XorOperator, optSlice, truncate
+    AddOperator, AndOperator, Expression, IntLiteral, LShift, LVShift,
+    OrOperator, RVShift, SignExtension, XorOperator, optSlice, truncate
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Storage, Variable
@@ -376,11 +376,19 @@ class SlicedReference(Reference):
     def __str__(self):
         offset = self._offset
         width = self.width
-        return '%s[%s:%s]' % (
-            self._ref,
-            '' if offset == 0 else offset,
-            '' if width is unlimited else offset + width
-            )
+        if isinstance(offset, IntLiteral):
+            offsetVal = offset.value
+            return '%s[%s:%s]' % (
+                self._ref,
+                '' if offsetVal == 0 else offsetVal,
+                '' if width is unlimited else offsetVal + width
+                )
+        else:
+            if width is unlimited:
+                end = ''
+            else:
+                end = AddOperator(offset, IntLiteral(width))
+            return '%s[%s:%s]' % (self._ref, offset, end)
 
     def iterSIDs(self):
         return self._ref.iterSIDs()
