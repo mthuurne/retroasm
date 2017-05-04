@@ -12,9 +12,9 @@ from .linereader import BadInput, DefLineReader, DelayedError
 from .mode import Immediate, Mode
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
-from .types import ReferenceType, parseType, parseTypeDecl
+from .types import IntType, ReferenceType, parseType, parseTypeDecl
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from logging import getLogger
 import re
 
@@ -244,10 +244,9 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                     continue
 
             # Define name in encoding builder.
-            if encType is not None and not isinstance(encType, ReferenceType):
-                immediate = Immediate(name, encType, decl.treeLocation)
-                value = encBuilder.emitFixedValue(immediate, encType)
-                encBuilder.defineReference(name, value, nameLoc)
+            immediate = Immediate(name, encType, decl.treeLocation)
+            value = encBuilder.emitFixedValue(immediate, encType)
+            encBuilder.defineReference(name, value, nameLoc)
 
             # Define name in semantics builder.
             if isinstance(semType, ReferenceType):
@@ -357,15 +356,36 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                 # Parse encoding.
                 if encStr:
                     try:
-                        encoding = parseExprList(encStr, encLoc)
-                        for encElem in encoding:
-                            buildExpression(encElem, encBuilder)
+                        encNodes = parseExprList(encStr, encLoc)
                     except BadInput as ex:
                         reader.error(
                             'error in encoding: %s' % ex, location=ex.location
                             )
+                        encNodes = None
                 else:
-                    encoding = NumberNode(0, 0, encLoc)
+                    encNodes = (NumberNode(0, 0, encLoc), )
+                if encNodes is None:
+                    encoding = None
+                else:
+                    # Try to parse as much as possible in the case of errors.
+                    try:
+                        encoding = []
+                        with reader.checkErrors():
+                            for encNode in encNodes:
+                                try:
+                                    encRef = buildReference(encNode, encBuilder)
+                                except BadInput as ex:
+                                    reader.error(
+                                        'error in encoding: %s' % ex,
+                                        location=ex.location
+                                        )
+                                else:
+                                    encoding.append(
+                                        (encRef, encNode.treeLocation)
+                                        )
+                        encoding = tuple(encoding)
+                    except DelayedError:
+                        encoding = None
 
                 # Parse mnemonic.
                 # TODO: We have no infrastructure for mnemonics yet.
@@ -407,6 +427,7 @@ def _parseMode(reader, globalBuilder, modes):
             )
         modeType = None
 
+    # Add mode to builder's namespace.
     mode = Mode(modeName, modeType, reader.getLocation())
     if modeName in modes:
         reader.error(
@@ -425,13 +446,39 @@ def _parseMode(reader, globalBuilder, modes):
                 location=reader.getLocation(match.span(2))
                 )
 
+    # Parse entries.
     for entry in _parseModeEntries(
             reader, globalBuilder, modes, modeType, _parseModeSemantics
             ):
         mode.addEntry(*entry)
 
-    # TODO: Examine entries to determine encoding type.
-    mode.encodingType = parseType('u0')
+    # Determine encoding type.
+    encTypes = []
+    for entry in mode:
+        encoding = entry[0]
+        if encoding is not None:
+            firstEnc, firstLoc = encoding[0]
+            encTypes.append((firstEnc.type, firstLoc))
+    typeFreqs = defaultdict(int)
+    for typ, _ in encTypes:
+        typeFreqs[typ] += 1
+    if len(typeFreqs) == 0:
+        # Empty mode or only errors; use dummy type.
+        encType = IntType.u(0)
+    elif len(typeFreqs) == 1:
+        # Single type.
+        encType, = typeFreqs.keys()
+    else:
+        # Multiple types.
+        encType, _ = max(typeFreqs.items(), key=lambda item: item[1])
+        for typ, loc in encTypes:
+            if typ is not encType:
+                reader.error(
+                    'encoding field has type %s, while %s is dominant in '
+                    'mode "%s"' % (typ, encType, modeName),
+                    location=loc
+                    )
+    mode.encodingType = encType
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
