@@ -1,4 +1,7 @@
-from .codeblock import Reference, SingleReference
+from .codeblock import (
+    ComputedConstant, ConstantValue, FixedValue, LoadedConstant, Reference,
+    SingleReference
+    )
 from .function import Function
 from .linereader import BadInput
 from .storage import IOChannel
@@ -77,7 +80,8 @@ class LocalNamespace(Namespace):
         Namespace.__init__(self)
         self.localBuilder = localBuilder
         self.parentBuilder = parentBuilder
-        self.importMap = {}
+        self.cidImportMap = {}
+        self.sidImportMap = {}
 
     def __contains__(self, key):
         return super().__contains__(key) or key in self.parentBuilder.namespace
@@ -90,7 +94,9 @@ class LocalNamespace(Namespace):
             if isinstance(value, (Function, IOChannel)):
                 pass
             elif isinstance(value, Reference):
-                value = value.clone(self._importSingleRef)
+                value = value.clone(
+                    self._importSingleRef, self._importFixedValue
+                    )
             else:
                 assert False, (key, repr(value))
             self.elements[key] = value
@@ -98,11 +104,11 @@ class LocalNamespace(Namespace):
             return value
 
     def _importSingleRef(self, parentRef):
-        '''Imports the given parent storage ID into the local namespace.
-        Returns a reference to the local storage.
+        '''Imports the given SingleReference from the parent builder into the
+        local namespace. Returns the local reference.
         '''
         parentSid = parentRef.sid
-        importMap = self.importMap
+        importMap = self.sidImportMap
         try:
             return importMap[parentSid]
         except KeyError:
@@ -114,7 +120,47 @@ class LocalNamespace(Namespace):
             importMap[parentSid] = localRef
             return localRef
 
+    def _importFixedValue(self, parentRef):
+        '''Imports the given FixedValue from the parent builder into the
+        local namespace. Returns the local reference.
+        '''
+        cid = self._importCID(parentRef.cid)
+        return FixedValue(self.localBuilder, cid, parentRef.type)
+
+    def _importCID(self, parentCID):
+        '''Imports a constant identified by the given CID in the parent builder
+        into the local builder. Returns the local CID.
+        '''
+        importMap = self.cidImportMap
+        try:
+            return importMap[parentCID]
+        except KeyError:
+            parentConst = self.parentBuilder.constants[parentCID]
+            localBuilder = self.localBuilder
+            localCID = len(localBuilder.constants)
+            if isinstance(parentConst, ComputedConstant):
+                localConst = localBuilder.emitCompute(
+                    parentConst.expr.substitute(
+                        lambda expr, importCID=self._importCID:
+                            ConstantValue(importCID(expr.cid), expr.mask)
+                            if isinstance(expr, ConstantValue)
+                            else None
+                        )
+                    )
+                localCID = localConst.cid
+            elif isinstance(parentConst, LoadedConstant):
+                raise IllegalImportError('cannot import runtime value')
+            else:
+                assert False, parentConst
+            importMap[parentCID] = localCID
+            return localCID
+
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name
     which is already in use.
+    '''
+
+class IllegalImportError(BadInput):
+    '''Raised when attempting to import an element into a namespace that is
+    not suitable for importing.
     '''

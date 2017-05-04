@@ -173,10 +173,11 @@ class Reference:
         '''
         raise NotImplementedError
 
-    def clone(self, singleRefCloner):
+    def clone(self, singleRefCloner, fixedValueCloner):
         '''Returns a deep copy of this reference, in which each SingleReference
         is passed to the singleRefCloner function and replaced by the Reference
-        returned by that function.
+        returned by that function, as well as each FixedValue passed to the
+        fixedValueCloner function and replaced by its return value.
         '''
         raise NotImplementedError
 
@@ -238,8 +239,8 @@ class FixedValue(Reference):
     def iterSIDs(self):
         return iter(())
 
-    def clone(self, singleRefCloner):
-        return self
+    def clone(self, singleRefCloner, fixedValueCloner):
+        return fixedValueCloner(self)
 
     def _emitLoadBits(self, location):
         expr = self._expr
@@ -272,7 +273,7 @@ class SingleReference(Reference):
     def iterSIDs(self):
         yield self._sid
 
-    def clone(self, singleRefCloner):
+    def clone(self, singleRefCloner, fixedValueCloner):
         return singleRefCloner(self)
 
     def _emitLoadBits(self, location):
@@ -316,9 +317,9 @@ class ConcatenatedReference(Reference):
         for ref in self._refs:
             yield from ref.iterSIDs()
 
-    def clone(self, singleRefCloner):
+    def clone(self, singleRefCloner, fixedValueCloner):
         return ConcatenatedReference(*(
-            ref.clone(singleRefCloner) for ref in self._refs
+            ref.clone(singleRefCloner, fixedValueCloner) for ref in self._refs
             ))
 
     def _emitLoadBits(self, location):
@@ -384,9 +385,10 @@ class SlicedReference(Reference):
     def iterSIDs(self):
         return self._ref.iterSIDs()
 
-    def clone(self, singleRefCloner):
+    def clone(self, singleRefCloner, fixedValueCloner):
         return SlicedReference(
-            self._ref.clone(singleRefCloner), self._offset, self.width
+            self._ref.clone(singleRefCloner, fixedValueCloner),
+            self._offset, self.width
             )
 
     def _emitLoadBits(self, location):

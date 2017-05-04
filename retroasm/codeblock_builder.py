@@ -220,8 +220,12 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         if 'ret' in self.namespace:
             assert code.retRef is None, code.retRef
+            # Note that at this point, the code block still uses the exact same
+            # SIDs and CIDs as we do, so we only have to replace the block
+            # objects with in SingleReferences and FixedValues.
             code.retRef = self.namespace['ret'].clone(
-                lambda ref, code=code: SingleReference(code, ref.sid, ref.type)
+                lambda ref, code=code: SingleReference(code, ref.sid, ref.type),
+                lambda ref, code=code: FixedValue(code, ref.cid, ref.type)
                 )
 
         # Finalize code block.
@@ -369,4 +373,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         if retRef is None:
             return None
         else:
-            return retRef.clone(lambda ref: refMap[ref.sid])
+            return retRef.clone(
+                lambda ref: refMap[ref.sid],
+                lambda ref: FixedValue(self, cidMap[ref.cid], ref.type)
+                )
