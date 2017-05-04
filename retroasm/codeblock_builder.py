@@ -150,24 +150,14 @@ class StatelessCodeBlockBuilderMixin:
 class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
     _scope = 0
 
-class ModeCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
+class EncodingCodeBlockBuilder(
+        StatelessCodeBlockBuilderMixin, CodeBlockBuilder
+        ):
     _scope = 0
 
     def __init__(self, parentBuilder):
         namespace = LocalNamespace(self, parentBuilder)
         CodeBlockBuilder.__init__(self, namespace)
-
-    def emitLoadBits(self, sid, location):
-        storage = self.storages[sid]
-        if isinstance(storage, Variable) and storage.name == 'pc':
-            # To support PC-relative addressing, we must allow reading of
-            # the program counter.
-            cid = len(self.constants)
-            constant = LoadedConstant(cid, sid)
-            self.constants.append(constant)
-            return ConstantValue(cid, maskForWidth(storage.width))
-        else:
-            return super().emitLoadBits(sid, location)
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1

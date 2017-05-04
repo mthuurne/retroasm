@@ -8,20 +8,27 @@ class Mode:
     '''
 
     name = property(lambda self: self._name)
-    type = property(lambda self: self._type)
+    encodingType = property(lambda self: self._encType)
+    semanticsType = property(lambda self: self._semType)
     location = property(lambda self: self._location)
 
-    def __init__(self, name, typ, location):
+    def __init__(self, name, semType, location):
         self._name = name
-        self._type = typ
+        self._semType = semType
         self._location = location
+        self._encType = None
         self._entries = []
 
     def __str__(self):
-        return 'mode %s %s' % (self._type, self._name)
+        return 'mode %s %s' % (self._semType, self._name)
 
     def __iter__(self):
         return iter(self._entries)
+
+    @encodingType.setter
+    def encodingType(self, encType):
+        assert self._encType is None, self._encType
+        self._encType = encType
 
     def addEntry(self, encoding, mnemonic, semantics, context, flagsRequired):
         self._entries.append(

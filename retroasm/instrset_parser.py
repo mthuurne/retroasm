@@ -1,4 +1,6 @@
-from .codeblock_builder import GlobalCodeBlockBuilder, LocalCodeBlockBuilder
+from .codeblock_builder import (
+    EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
+    )
 from .expression_builder import buildExpression, buildReference
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
@@ -217,7 +219,7 @@ def _parseFunc(reader, argStr, builder):
     func.dump()
     print()
 
-def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
+def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
     flagsRequired = set()
     for node in parseContext(ctxStr, ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
@@ -226,31 +228,41 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
             nameLoc = decl.name.location
             typeName = decl.type.name
 
+            # Figure out whether the name is a mode or type.
             mode = modes.get(typeName)
             if mode is not None:
-                typ = mode.type
+                encType = mode.encodingType
+                semType = mode.semanticsType
             else:
                 try:
-                    typ = parseType(typeName)
+                    encType = semType = parseType(typeName)
                 except ValueError:
                     reader.error(
                         'there is no type or mode named "%s"' % typeName,
                         location=decl.type.location
                         )
                     continue
-            if isinstance(typ, ReferenceType):
-                ctxBuilder.emitReferenceArgument(name, typ.type, nameLoc)
+
+            # Define name in encoding builder.
+            if encType is not None and not isinstance(encType, ReferenceType):
+                immediate = Immediate(name, encType, decl.treeLocation)
+                value = encBuilder.emitFixedValue(immediate, encType)
+                encBuilder.defineReference(name, value, nameLoc)
+
+            # Define name in semantics builder.
+            if isinstance(semType, ReferenceType):
+                semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
             else:
                 # TODO: Should a context element that does
                 #       not occur in the encoding still be
                 #       considered an immediate?
-                immediate = Immediate(name, typ, decl.treeLocation)
-                value = ctxBuilder.emitFixedValue(immediate, typ)
-                ctxBuilder.defineReference(name, value, nameLoc)
+                immediate = Immediate(name, semType, decl.treeLocation)
+                value = semBuilder.emitFixedValue(immediate, semType)
+                semBuilder.defineReference(name, value, nameLoc)
 
             if isinstance(node, DefinitionNode):
                 try:
-                    expr = buildReference(node.value, ctxBuilder)
+                    expr = buildReference(node.value, semBuilder)
                 except BadInput as ex:
                     reader.error(
                         'error in context: %s' % ex,
@@ -263,10 +275,10 @@ def _parseModeContext(ctxStr, ctxLoc, ctxBuilder, modes, reader):
 
     return flagsRequired
 
-def _parseModeSemantics(semStr, semLoc, ctxBuilder, modeType):
+def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
     semantics = parseExpr(semStr, semLoc)
     if isinstance(modeType, ReferenceType):
-        ref = buildReference(semantics, ctxBuilder)
+        ref = buildReference(semantics, semBuilder)
         if modeType is not None:
             if ref.type != modeType.type:
                 raise BadInput(
@@ -274,12 +286,12 @@ def _parseModeSemantics(semStr, semLoc, ctxBuilder, modeType):
                     % (ref.type, modeType.type),
                     location=semLoc
                     )
-        ctxBuilder.defineReference('ret', ref, semLoc)
+        semBuilder.defineReference('ret', ref, semLoc)
     else:
-        expr = buildExpression(semantics, ctxBuilder)
+        expr = buildExpression(semantics, semBuilder)
         # Note that modeType can be None because of earlier errors.
         if modeType is not None:
-            retRef = ctxBuilder.emitVariable('ret', modeType, semLoc)
+            retRef = semBuilder.emitVariable('ret', modeType, semLoc)
             retRef.emitStore(expr, semLoc)
 
 def _rejectNodeClasses(node, badClasses):
@@ -323,13 +335,15 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
 
         try:
             with reader.checkErrors():
-                ctxBuilder = LocalCodeBlockBuilder(globalBuilder)
+                encBuilder = EncodingCodeBlockBuilder(globalBuilder)
+                semBuilder = LocalCodeBlockBuilder(globalBuilder)
 
                 # Parse context.
                 if ctxStr:
                     try:
                         flagsRequired = _parseModeContext(
-                            ctxStr, ctxLoc, ctxBuilder, modes, reader
+                            ctxStr, ctxLoc, encBuilder, semBuilder, modes,
+                            reader
                             )
                     except BadInput as ex:
                         reader.error(
@@ -345,9 +359,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                     try:
                         encoding = parseExprList(encStr, encLoc)
                         for encElem in encoding:
-                            # TODO: Encoding is not allowed to add anything.
-                            #       Function call inlining could alter state.
-                            buildExpression(encElem, ctxBuilder)
+                            buildExpression(encElem, encBuilder)
                     except BadInput as ex:
                         reader.error(
                             'error in encoding: %s' % ex, location=ex.location
@@ -365,7 +377,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                     semStr = mnemStr
                     semLoc = mnemLoc
                 try:
-                    parseSem(semStr, semLoc, ctxBuilder, modeType)
+                    parseSem(semStr, semLoc, semBuilder, modeType)
                 except BadInput as ex:
                     reader.error(
                         'error in semantics: %s' % ex, location=ex.location
@@ -373,8 +385,8 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
         except DelayedError:
             pass
         else:
-            context = ctxBuilder.namespace
-            yield encoding, mnemonic, ctxBuilder, context, flagsRequired
+            context = semBuilder.namespace
+            yield encoding, mnemonic, semBuilder, context, flagsRequired
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
@@ -417,6 +429,9 @@ def _parseMode(reader, globalBuilder, modes):
             reader, globalBuilder, modes, modeType, _parseModeSemantics
             ):
         mode.addEntry(*entry)
+
+    # TODO: Examine entries to determine encoding type.
+    mode.encodingType = parseType('u0')
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
     mnemBase = argStr
