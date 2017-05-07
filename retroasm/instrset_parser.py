@@ -8,7 +8,7 @@ from .expression_parser import (
     parseExpr, parseExprList, parseStatement
     )
 from .function_builder import createFunc
-from .linereader import BadInput, DefLineReader, DelayedError
+from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import Immediate, Mode
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
@@ -233,6 +233,14 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
             if mode is not None:
                 encType = mode.encodingType
                 semType = mode.semanticsType
+                if isinstance(node, DefinitionNode):
+                    reader.error(
+                        'filter values for mode placeholders are '
+                        'not supported yet',
+                        location=mergeSpan(
+                            node.location, node.value.treeLocation
+                            )
+                        )
             else:
                 try:
                     encType = semType = parseType(typeName)

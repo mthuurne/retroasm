@@ -280,7 +280,7 @@ func jmpl(u32 A, u32& L)
 instr
 %000000;RS;%00000;%00000;%00000;%001000 . jr     RS     . jmp(RS)               . reg RS
 %000000;RS;%00000;RD;%00000;%001001     . jalr   RD,RS  . jmpl(RS, RD)          . reg RS, reg RD
-%000000;RS;%00000;RD;%00000;%001001     . jalr   RS     . jmpl(RS, RD)          . reg RS, reg RD = ra
+%000000;RS;%00000;%11111;%00000;%001001 . jalr   RS     . jmpl(RS, ra)          . reg RS
 %000010;N                               . j      A      . jmp(pc[28:];A)        . u26 N, u28 A = N;%00
 %000011;N                               . jal    A      . jmpl(pc[28:];A, ra)   . u26 N, u28 A = N;%00
 
