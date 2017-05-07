@@ -183,6 +183,17 @@ class InputLocation:
         '''
         return InputLocation(**dict(self.extra, readerColSpan=span))
 
+def mergeSpan(fromLocation, toLocation):
+    '''Returns a new location of which the span starts at the start of the
+    given 'from' location and ends at the end of the given 'to' location.
+    Both given locations must be on the same line.
+    '''
+    mergedSpan = (fromLocation.span[0], toLocation.span[1])
+    mergedLocation = fromLocation.updateSpan(mergedSpan)
+    assert mergedLocation == toLocation.updateSpan(mergedSpan), \
+            (fromLocation, toLocation)
+    return mergedLocation
+
 class DelayedError(Exception):
     '''Raised when one or more errors were encountered when processing input.
     Since we want to report as many errors as possible in each processing,

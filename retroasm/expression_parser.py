@@ -1,4 +1,4 @@
-from .linereader import BadInput
+from .linereader import BadInput, mergeSpan
 from .types import unlimited
 
 from enum import Enum
@@ -79,13 +79,6 @@ class ExpressionTokenizer:
             next(self)
         return found
 
-def _mergeSpan(fromLocation, toLocation):
-    mergedSpan = (fromLocation.span[0], toLocation.span[1])
-    mergedLocation = fromLocation.updateSpan(mergedSpan)
-    assert mergedLocation == toLocation.updateSpan(mergedSpan), \
-            (fromLocation, toLocation)
-    return mergedLocation
-
 class ParseNode:
     __slots__ = ('location', 'treeLocation')
 
@@ -132,7 +125,7 @@ class BranchNode(ParseNode):
         ParseNode.__init__(self, location)
         self.cond = cond
         self.target = target
-        self.treeLocation = _mergeSpan(location, target.treeLocation)
+        self.treeLocation = mergeSpan(location, target.treeLocation)
 
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
@@ -141,7 +134,7 @@ class AssignmentNode(ParseNode):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
-        self.treeLocation = _mergeSpan(lhs.treeLocation, rhs.treeLocation)
+        self.treeLocation = mergeSpan(lhs.treeLocation, rhs.treeLocation)
 
     def __iter__(self):
         yield self
@@ -204,7 +197,7 @@ class DeclarationNode(ParseNode):
         self.type = typ
         self.name = name
         self.treeLocation = name.treeLocation if location is None else \
-                _mergeSpan(location, name.treeLocation)
+                mergeSpan(location, name.treeLocation)
 
 class DefinitionNode(ParseNode):
     __slots__ = ('decl', 'value')
@@ -213,7 +206,7 @@ class DefinitionNode(ParseNode):
         ParseNode.__init__(self, location)
         self.decl = decl
         self.value = value
-        self.treeLocation = _mergeSpan(decl.treeLocation, value.treeLocation)
+        self.treeLocation = mergeSpan(decl.treeLocation, value.treeLocation)
 
     def __iter__(self):
         yield self
@@ -431,7 +424,7 @@ def _parse(exprStr, location, mode):
             start = None if token.peek(Token.separator, ':') else parseExprTop()
             if token.eat(Token.separator, ':'):
                 end = None if token.peek(Token.bracket, ']') else parseExprTop()
-                location = _mergeSpan(openLocation, token.location)
+                location = mergeSpan(openLocation, token.location)
                 if token.eat(Token.bracket, ']'):
                     expr = OperatorNode(
                         Operator.slice, (expr, start, end), location
@@ -439,7 +432,7 @@ def _parse(exprStr, location, mode):
                 else:
                     raise badTokenKind('slice', '"]"')
             else:
-                location = _mergeSpan(openLocation, token.location)
+                location = mergeSpan(openLocation, token.location)
                 if token.eat(Token.bracket, ']'):
                     expr = OperatorNode(
                         Operator.lookup, (expr, start), location
@@ -454,7 +447,7 @@ def _parse(exprStr, location, mode):
             closeLocation = token.location
             if not token.eat(Token.bracket, ')'):
                 raise badTokenKind('parenthesized', ')')
-            expr.treeLocation = _mergeSpan(openLocation, closeLocation)
+            expr.treeLocation = mergeSpan(openLocation, closeLocation)
             return expr
         elif token.kind is Token.keyword and token.value in ('var', 'def'):
             return parseDefinition()
@@ -519,10 +512,10 @@ def _parse(exprStr, location, mode):
             if keyword == 'var':
                 raise ParseError(
                     'references can only be defined using the "def" keyword',
-                    _mergeSpan(startLocation, ampLocation)
+                    mergeSpan(startLocation, ampLocation)
                     )
             typeName += '&'
-            typeLocation = _mergeSpan(typeLocation, ampLocation)
+            typeLocation = mergeSpan(typeLocation, ampLocation)
             kind = DeclarationKind.reference
         else:
             kind = {
@@ -570,7 +563,7 @@ def _parse(exprStr, location, mode):
                     break
                 if not token.eat(Token.separator, ','):
                     raise badTokenKind('function call arguments', '"," or ")"')
-        location = _mergeSpan(openLocation, closeLocation)
+        location = mergeSpan(openLocation, closeLocation)
         return OperatorNode(Operator.call, exprs, location)
 
     def parseNumber():
