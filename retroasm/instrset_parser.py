@@ -1,7 +1,9 @@
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
-from .expression_builder import buildExpression, buildReference
+from .expression_builder import (
+    buildExpression, buildReference, convertDefinition
+    )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
     FlagTestNode, IdentifierNode, LabelNode, NumberNode, parseContext,
@@ -221,6 +223,7 @@ def _parseFunc(reader, argStr, builder):
 
 def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
     flagsRequired = set()
+    encErrors = {}
     for node in parseContext(ctxStr, ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
             decl = node if isinstance(node, DeclarationNode) else node.decl
@@ -251,36 +254,58 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                         )
                     continue
 
-            # Define name in encoding builder.
-            immediate = Immediate(name, encType, decl.treeLocation)
-            value = encBuilder.emitFixedValue(immediate, encType)
-            encBuilder.defineReference(name, value, nameLoc)
+            def emitImmediate(builder, typ):
+                immediate = Immediate(name, typ, decl.treeLocation)
+                ref = builder.emitFixedValue(immediate, typ)
+                builder.defineReference(name, ref, nameLoc)
 
             # Define name in semantics builder.
-            if isinstance(semType, ReferenceType):
-                semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
-            else:
-                # TODO: Should a context element that does
-                #       not occur in the encoding still be
-                #       considered an immediate?
-                immediate = Immediate(name, semType, decl.treeLocation)
-                value = semBuilder.emitFixedValue(immediate, semType)
-                semBuilder.defineReference(name, value, nameLoc)
-
+            badDef = False
             if isinstance(node, DefinitionNode):
                 try:
-                    expr = buildReference(node.value, semBuilder)
+                    convertDefinition(
+                        decl.kind, decl.name, semType, node.value, semBuilder
+                        )
                 except BadInput as ex:
                     reader.error(
-                        'error in context: %s' % ex,
+                        'error in context definition: %s' % ex,
                         location=ex.location
                         )
+                    badDef = True
+            elif isinstance(semType, ReferenceType):
+                semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
+            else:
+                emitImmediate(semBuilder, semType)
+
+            # Define name in encoding builder.
+            # Errors are stored rather than reported immediately, since it is
+            # possible to define expressions that are valid as semantics but
+            # not as encodings. For example relative addressing reads the
+            # base address from a register.
+            if isinstance(node, DefinitionNode):
+                if badDef:
+                    # There was an error building the semantic value, so most
+                    # likely the expression is broken. Mark this situation to
+                    # avoid reporting the same error twice.
+                    encErrors[name] = None
+                else:
+                    try:
+                        convertDefinition(
+                            decl.kind, decl.name, encType, node.value,
+                            encBuilder
+                            )
+                    except BadInput as ex:
+                        encErrors[name] = ex
+            elif isinstance(encType, ReferenceType):
+                assert False, encType
+            else:
+                emitImmediate(encBuilder, encType)
         elif isinstance(node, FlagTestNode):
             flagsRequired.add(node.name)
         else:
             assert False, node
 
-    return flagsRequired
+    return flagsRequired, encErrors
 
 def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
     semantics = parseExpr(semStr, semLoc)
@@ -348,7 +373,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                 # Parse context.
                 if ctxStr:
                     try:
-                        flagsRequired = _parseModeContext(
+                        flagsRequired, encErrors = _parseModeContext(
                             ctxStr, ctxLoc, encBuilder, semBuilder, modes,
                             reader
                             )
@@ -359,7 +384,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    flagsRequired = set()
+                    flagsRequired, encErrors = set(), {}
 
                 # Parse encoding.
                 if encStr:
