@@ -511,7 +511,7 @@ class CodeBlock:
                 assert False, const
         print('    storages:')
         for sid, storage in self.storages.items():
-            print('        S%-2d : %s  (%d-bit)' % (sid, storage, storage.width))
+            print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
             assert isinstance(self.retRef, SingleReference), self.retRef
             storage = self.storages[self.retRef.sid]
