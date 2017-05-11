@@ -183,7 +183,7 @@ The program counter register must always be named `pc`. If the instruction set u
 Input/Output
 ------------
 
-Input/output (I/O) is when a CPU reads or writes data from/to memory or peripherals. Some instruction sets perform all I/O through memory addresses (memory mapped I/O) while other instruction sets also have dedicated I/O ports for accessing peripherals (I/O mapped I/O).
+Input/output (I/O) is when a CPU reads or writes data from/to memory or peripherals. Some instruction sets perform all I/O through memory addresses (memory-mapped I/O) while other instruction sets also have dedicated I/O ports for accessing peripherals (port-mapped I/O).
 
 The syntax for defining I/O channels is as follows:
 
@@ -202,7 +202,7 @@ The width of the address type determines the number of significant bits in the i
 
 For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
 
-Currently the analyzer assumes that an index of one I/O channel can never alias an index of another I/O channel. In other words, the storages behind two I/O channels are assumed to be disjunct. That might not be true for all hardware however, for example a single register bank might be accessible through both I/O mapped I/O and memory mapped I/O.
+Currently the analyzer assumes that an index of one I/O channel can never alias an index of another I/O channel. In other words, the storages behind two I/O channels are assumed to be disjunct. That might not be true for all hardware however, for example a single register bank might be accessible through both port-mapped I/O and memory-mapped I/O.
 
 Statements
 ----------
