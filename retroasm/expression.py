@@ -454,6 +454,17 @@ class SignExtension(Expression):
     def _equals(self, other):
         return self._expr == other._expr and self._width == other._width
 
+_SHIFT_LIMIT_BITS = 256
+'''When shifting left, do not create masks longer than this number of bits.
+While Python integers can grow arbitrarily large, they will take up a lot of
+memory and take long to compute with. So we want to avoid creating masks
+that are overly large.
+Note that we can still produce a correct mask even when applying this limit,
+it just won't be as strict as possible. Since bits this far into the expression
+will most likely be truncated at a later stage, getting an exact mask is not
+important.
+'''
+
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
@@ -461,7 +472,6 @@ class LShift(Expression):
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
-    mask = property(lambda self: self._expr.mask << self._offset)
 
     def __init__(self, expr, offset):
         Expression.__init__(self)
@@ -481,6 +491,17 @@ class LShift(Expression):
 
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
+
+    @property
+    def mask(self):
+        exprMask = self._expr.mask
+        if exprMask == 0:
+            return 0
+        offset = self._offset
+        if offset < _SHIFT_LIMIT_BITS:
+            return exprMask << offset
+        else:
+            return -1 << _SHIFT_LIMIT_BITS
 
 class RShift(Expression):
     '''Drops the lower N bits from a bit string.
@@ -536,13 +557,7 @@ class LVShift(Expression):
         width = widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask)
         mask = exprMask
         for i in range(width):
-            if i == 8:
-                # Avoid creating a huge mask.
-                # Note that the mask we return, while not as strict as
-                # possible, is a correct mask for this expression.
-                # Bits this far into the expression will most likely be
-                # truncated at a later stage, so getting an exact mask
-                # is not important.
+            if 1 << i >= _SHIFT_LIMIT_BITS:
                 mask |= -1 << (1 << i)
                 break
             if (offsetMask >> i) & 1:
