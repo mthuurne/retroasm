@@ -536,6 +536,15 @@ class LVShift(Expression):
         width = widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask)
         mask = exprMask
         for i in range(width):
+            if i == 8:
+                # Avoid creating a huge mask.
+                # Note that the mask we return, while not as strict as
+                # possible, is a correct mask for this expression.
+                # Bits this far into the expression will most likely be
+                # truncated at a later stage, so getting an exact mask
+                # is not important.
+                mask |= -1 << (1 << i)
+                break
             if (offsetMask >> i) & 1:
                 mask |= mask << (1 << i)
         return mask if offsetMask >= 0 else \
