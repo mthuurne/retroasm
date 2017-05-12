@@ -249,7 +249,7 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                     encType = semType = parseType(typeName)
                 except ValueError:
                     reader.error(
-                        'there is no type or mode named "%s"' % typeName,
+                        'there is no type or mode named "%s"', typeName,
                         location=decl.type.location
                         )
                     continue
@@ -268,7 +268,7 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                         )
                 except BadInput as ex:
                     reader.error(
-                        'error in context definition: %s' % ex,
+                        'error in context definition: %s', ex,
                         location=ex.location
                         )
                     badDef = True
@@ -329,7 +329,7 @@ def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
 def _rejectNodeClasses(node, badClasses):
     if isinstance(node, badClasses):
         raise BadInput(
-            '%s is not allowed here' % node.__class__.__name__[:-4].lower(),
+            '%s is not allowed here', node.__class__.__name__[:-4].lower(),
             location=node.treeLocation
             )
 
@@ -359,7 +359,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
             reader.error('field separator "." missing in mode line')
             continue
         if len(fields) > 4:
-            reader.error('too many fields (%d) in mode line' % len(fields))
+            reader.error('too many fields (%d) in mode line', len(fields))
             continue
         fields += [('', None)] * (4 - len(fields))
         (encStr, encLoc), (mnemStr, mnemLoc), (semStr, semLoc), \
@@ -379,7 +379,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                             )
                     except BadInput as ex:
                         reader.error(
-                            'error in context: %s' % ex, location=ex.location
+                            'error in context: %s', ex, location=ex.location
                             )
                         # To avoid error spam, skip this line.
                         continue
@@ -392,7 +392,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                         encNodes = parseExprList(encStr, encLoc)
                     except BadInput as ex:
                         reader.error(
-                            'error in encoding: %s' % ex, location=ex.location
+                            'error in encoding: %s', ex, location=ex.location
                             )
                         encNodes = None
                 else:
@@ -409,7 +409,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                                     encRef = buildReference(encNode, encBuilder)
                                 except BadInput as ex:
                                     reader.error(
-                                        'error in encoding: %s' % ex,
+                                        'error in encoding: %s', ex,
                                         location=ex.location
                                         )
                                 else:
@@ -433,7 +433,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                     parseSem(semStr, semLoc, semBuilder, modeType)
                 except BadInput as ex:
                     reader.error(
-                        'error in semantics: %s' % ex, location=ex.location
+                        'error in semantics: %s', ex, location=ex.location
                         )
         except DelayedError:
             pass
@@ -455,7 +455,7 @@ def _parseMode(reader, globalBuilder, modes):
         modeType = parseTypeDecl(modeTypeStr)
     except ValueError as ex:
         reader.error(
-            'bad mode type: %s' % ex,
+            'bad mode type: %s', ex,
             location=reader.getLocation(match.span(1))
             )
         modeType = None
@@ -475,7 +475,7 @@ def _parseMode(reader, globalBuilder, modes):
             modes[modeName] = mode
         else:
             reader.error(
-                'mode name "%s" conflicts with type' % modeName,
+                'mode name "%s" conflicts with type', modeName,
                 location=reader.getLocation(match.span(2))
                 )
 
@@ -508,7 +508,7 @@ def _parseMode(reader, globalBuilder, modes):
             if typ is not encType:
                 reader.error(
                     'encoding field has type %s, while %s is dominant in '
-                    'mode "%s"' % (typ, encType, modeName),
+                    'mode "%s"', typ, encType, modeName,
                     location=loc
                     )
     mode.encodingType = encType
