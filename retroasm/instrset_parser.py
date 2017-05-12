@@ -2,7 +2,7 @@ from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
 from .expression_builder import (
-    buildExpression, buildReference, convertDefinition
+    UnknownNameError, buildExpression, buildReference, convertDefinition
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
@@ -408,6 +408,8 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                                 try:
                                     encRef = buildReference(encNode, encBuilder)
                                 except BadInput as ex:
+                                    if isinstance(ex, UnknownNameError):
+                                        ex = encErrors.get(ex.name, ex)
                                     reader.error(
                                         'error in encoding: %s', ex,
                                         location=ex.location

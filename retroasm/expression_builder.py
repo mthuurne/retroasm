@@ -23,6 +23,15 @@ class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
     '''
 
+class UnknownNameError(BadExpression):
+    '''Raised when an expression contains an identifier that does not occur
+    in any of its surrounding namespaces.
+    '''
+
+    def __init__(self, name, *args, **kvargs):
+        BadExpression.__init__(self, *args, **kvargs)
+        self.name = name
+
 class Unit(Expression, metaclass=Singleton):
     '''Expression that represents the absense of a value.
     '''
@@ -118,7 +127,7 @@ def _convertIdentifier(node, builder):
     try:
         value = builder.namespace[name]
     except KeyError:
-        raise BadExpression('unknown name "%s"' % name, node.location)
+        raise UnknownNameError(name, 'unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
         raise BadExpression('function "%s" is not called' % name, node.location)
     elif isinstance(value, (IOChannel, Reference)):
@@ -135,7 +144,8 @@ def _convertFunctionCall(callNode, builder):
     try:
         func = builder.namespace[funcName]
     except KeyError:
-        raise BadExpression(
+        raise UnknownNameError(
+            funcName,
             'no function named "%s"' % funcName,
             nameNode.location
             )
