@@ -105,7 +105,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
     try:
         return builder.defineReference(name, ref, nameNode.location)
     except NameExistsError as ex:
-        raise BadExpression(
+        raise NameExistsError(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
             ex.location
             )

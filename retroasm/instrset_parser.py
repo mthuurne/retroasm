@@ -254,52 +254,54 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                         )
                     continue
 
+            reportedNameExists = []
+            def reportNameExists(ex):
+                if not reportedNameExists:
+                    reader.error('%s', ex, location=ex.location)
+                    reportedNameExists.append(None)
+
             def emitImmediate(builder, typ):
                 immediate = Immediate(name, typ, decl.treeLocation)
                 ref = builder.emitFixedValue(immediate, typ)
-                builder.defineReference(name, ref, nameLoc)
+                try:
+                    builder.defineReference(name, ref, nameLoc)
+                except NameExistsError as ex:
+                    reportNameExists(ex)
+
+            # Define name in encoding builder.
+            # Errors are stored rather than reported immediately, since it is
+            # possible to define expressions that are valid as semantics but
+            # not as encodings. This is not a problem as long as the associated
+            # name is not used in the encoding field. For example relative
+            # addressing reads the base address from a register.
+            if isinstance(node, DefinitionNode):
+                try:
+                    convertDefinition(
+                        decl.kind, decl.name, encType, node.value, encBuilder
+                        )
+                except NameExistsError as ex:
+                    reportNameExists(ex)
+                except BadInput as ex:
+                    encErrors[name] = ex
+            elif isinstance(encType, ReferenceType):
+                assert False, encType
+            else:
+                emitImmediate(encBuilder, encType)
 
             # Define name in semantics builder.
-            badDef = False
             if isinstance(node, DefinitionNode):
                 try:
                     convertDefinition(
                         decl.kind, decl.name, semType, node.value, semBuilder
                         )
+                except NameExistsError as ex:
+                    reportNameExists(ex)
                 except BadInput as ex:
-                    reader.error(
-                        'error in context definition: %s', ex,
-                        location=ex.location
-                        )
-                    badDef = True
+                    reader.error('%s', ex, location=ex.location)
             elif isinstance(semType, ReferenceType):
                 semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
             else:
                 emitImmediate(semBuilder, semType)
-
-            # Define name in encoding builder.
-            # Errors are stored rather than reported immediately, since it is
-            # possible to define expressions that are valid as semantics but
-            # not as encodings. For example relative addressing reads the
-            # base address from a register.
-            if isinstance(node, DefinitionNode):
-                if badDef:
-                    # There was an error building the semantic value, so most
-                    # likely the expression is broken. Mark this situation to
-                    # avoid reporting the same error twice.
-                    encErrors[name] = None
-                else:
-                    try:
-                        convertDefinition(
-                            decl.kind, decl.name, encType, node.value,
-                            encBuilder
-                            )
-                    except BadInput as ex:
-                        encErrors[name] = ex
-            elif isinstance(encType, ReferenceType):
-                assert False, encType
-            else:
-                emitImmediate(encBuilder, encType)
         elif isinstance(node, FlagTestNode):
             flagsRequired.add(node.name)
         else:
@@ -373,14 +375,12 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                 # Parse context.
                 if ctxStr:
                     try:
-                        flagsRequired, encErrors = _parseModeContext(
-                            ctxStr, ctxLoc, encBuilder, semBuilder, modes,
-                            reader
-                            )
-                    except BadInput as ex:
-                        reader.error(
-                            'error in context: %s', ex, location=ex.location
-                            )
+                        with reader.checkErrors():
+                            flagsRequired, encErrors = _parseModeContext(
+                                ctxStr, ctxLoc, encBuilder, semBuilder, modes,
+                                reader
+                                )
+                    except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
