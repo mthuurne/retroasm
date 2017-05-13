@@ -309,6 +309,29 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
 
     return flagsRequired, encErrors
 
+def _parseModeEncoding(encNodes, encBuilder, encErrors, reader):
+    for encNode in encNodes:
+        encLoc = encNode.treeLocation
+        try:
+            encRef = buildReference(encNode, encBuilder)
+        except BadInput as ex:
+            if isinstance(ex, UnknownNameError):
+                ex = encErrors.get(ex.name, ex)
+            reader.error(
+                'error in encoding: %s', ex,
+                location=ex.location
+                )
+            continue
+        try:
+            encValue = encRef.emitLoad(encLoc)
+        except BadInput as ex:
+            reader.error(
+                'error evaluating encoding: %s', ex,
+                location=ex.location
+                )
+            continue
+        yield encRef, encValue, encLoc
+
 def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
     semantics = parseExpr(semStr, semLoc)
     if isinstance(modeType, ReferenceType):
@@ -400,25 +423,11 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                 if encNodes is None:
                     encoding = None
                 else:
-                    # Try to parse as much as possible in the case of errors.
                     try:
-                        encoding = []
                         with reader.checkErrors():
-                            for encNode in encNodes:
-                                try:
-                                    encRef = buildReference(encNode, encBuilder)
-                                except BadInput as ex:
-                                    if isinstance(ex, UnknownNameError):
-                                        ex = encErrors.get(ex.name, ex)
-                                    reader.error(
-                                        'error in encoding: %s', ex,
-                                        location=ex.location
-                                        )
-                                else:
-                                    encoding.append(
-                                        (encRef, encNode.treeLocation)
-                                        )
-                        encoding = tuple(encoding)
+                            encoding = tuple(_parseModeEncoding(
+                                encNodes, encBuilder, encErrors, reader
+                                ))
                     except DelayedError:
                         encoding = None
 
@@ -492,8 +501,8 @@ def _parseMode(reader, globalBuilder, modes):
     for entry in mode:
         encoding = entry[0]
         if encoding is not None:
-            firstEnc, firstLoc = encoding[0]
-            encTypes.append((firstEnc.type, firstLoc))
+            firstRef, firstVal, firstLoc = encoding[0]
+            encTypes.append((firstRef.type, firstLoc))
     typeFreqs = defaultdict(int)
     for typ, _ in encTypes:
         typeFreqs[typ] += 1
