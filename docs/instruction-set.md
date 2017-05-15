@@ -323,7 +323,7 @@ There can be as many dot-separated lines as necessary to define all entries of a
 
 The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on. If the opcode field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
 
-The mnemonic field contains the syntax used in assembly language.
+The mnemonic field contains the syntax used in assembly language. It is split into words and symbols. Whitespace can be used to separate words and is otherwise ignored. Words consist of one or more letters, numbers and underscores. All characters that are not whitespace and not allowed in words are considered symbols, which each such character being an individual symbol. For example `ld (hl),R` is split into the word `"ld"`, the symbol `'('`, the word `"hl"`, the symbol `')'`, the symbol `','` and the word `"R"`.
 
 The semantics field contains a expression, either a value or a reference to a storage location, that describes the operand in a way RetroAsm can analyze. The expression field can be omitted, in which case the mnemonic field is parsed as the expression; this is useful for registers where the mnemonic is usually just the register name. If the semantics cannot be expressed in a single expression, a function call can be used to include a longer definition.
 

@@ -507,9 +507,16 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
             ))
         buildExpression(node, builder)
 
+_reMnemonic = re.compile(r'\w+|[^\w\s]')
+
+def _parseMnemonic(mnemStr):
+    return tuple(_reMnemonic.findall(mnemStr))
+
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
-def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
+def _parseModeEntries(
+        reader, globalBuilder, modes, modeType, mnemBase, parseSem
+        ):
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
         fields = list(reader.splitOn(_reDotSep.finditer(line)))
@@ -569,8 +576,7 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                     decoding = _parseModeDecoding(encoding, encBuilder, reader)
 
                 # Parse mnemonic.
-                # TODO: We have no infrastructure for mnemonics yet.
-                mnemonic = (mnemStr, mnemLoc)
+                mnemonic = mnemBase + _parseMnemonic(mnemStr)
 
                 # Parse semantics.
                 if not semStr:
@@ -629,7 +635,7 @@ def _parseMode(reader, globalBuilder, modes):
 
     # Parse entries.
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, modeType, _parseModeSemantics
+            reader, globalBuilder, modes, modeType, (), _parseModeSemantics
             ):
         mode.addEntry(*entry)
 
@@ -662,10 +668,10 @@ def _parseMode(reader, globalBuilder, modes):
     mode.encodingType = encType
 
 def _parseInstr(reader, argStr, globalBuilder, modes):
-    mnemBase = argStr
+    mnemBase = _parseMnemonic(argStr)
 
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, None, _parseInstrSemantics
+            reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics
             ):
         pass
 
