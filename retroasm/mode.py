@@ -44,6 +44,7 @@ class Immediate(Expression):
 
     name = property(lambda self: self._name)
     type = property(lambda self: self._type)
+    width = property(lambda self: self._type.width)
     mask = property(lambda self: self._type.mask)
     location = property(lambda self: self._location)
 

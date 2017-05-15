@@ -1,6 +1,10 @@
+from .codeblock import (
+    ComputedConstant, ConcatenatedReference, FixedValue, SlicedReference
+    )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
+from .expression import IntLiteral
 from .expression_builder import (
     UnknownNameError, buildExpression, buildReference, convertDefinition
     )
@@ -332,6 +336,135 @@ def _parseModeEncoding(encNodes, encBuilder, encErrors, reader):
             continue
         yield encRef, encValue, encLoc
 
+def _decomposeEncoding(ref, location, reader):
+    if isinstance(ref, FixedValue):
+        const = ref.const
+        assert isinstance(const, ComputedConstant), const
+        expr = const.expr
+        if isinstance(expr, Immediate):
+            yield expr.name, 0, 0, ref.width
+        elif isinstance(expr, IntLiteral):
+            pass
+        else:
+            # TODO: This message is particularly unclear, because we do not
+            #       have the exact location nor can we print the expression.
+            reader.error('unsupported operation in encoding', location=location)
+    elif isinstance(ref, ConcatenatedReference):
+        offset = 0
+        for subRef in ref:
+            for name, immIdx, refIdx, width in _decomposeEncoding(
+                    subRef, location, reader
+                    ):
+                yield name, immIdx, offset + refIdx, width
+            offset += subRef.width
+    elif isinstance(ref, SlicedReference):
+        # Note that SlicedReference has already simplified the offset.
+        offset = ref.offset
+        if isinstance(offset, IntLiteral):
+            start = offset.value
+            end = start + ref.width
+            for name, immIdx, refIdx, width in _decomposeEncoding(
+                    ref.ref, location, reader
+                    ):
+                # Clip to slice boundaries.
+                refStart = max(refIdx, start)
+                refEnd = min(refIdx + width, end)
+                # Output if clipped slice is not empty.
+                width = refEnd - refStart
+                if width > 0:
+                    immShift = refStart - refIdx
+                    yield name, immIdx + immShift, refStart - start, width
+        else:
+            # TODO: This message is particularly unclear, because we do not
+            #       have the exact location nor can we print the offset.
+            reader.error(
+                'slices in encoding must have fixed offset',
+                location=location
+                )
+    else:
+        # Note: SingleReference cannot occur in encoding since the stateless
+        #       builder would trigger an error when loading from it.
+        assert False, ref
+
+def _parseModeDecoding(encoding, encBuilder, reader):
+    '''Construct a mapping that, given an encoded instruction, produces the
+    values for context placeholders.
+    '''
+
+    # Decompose the references.
+    decodeMap = defaultdict(list)
+    try:
+        with reader.checkErrors():
+            for encIdx, (encRef, _, encLoc) in enumerate(encoding):
+                for name, immIdx, refIdx, width in _decomposeEncoding(
+                        encRef, encLoc, reader
+                        ):
+                    decodeMap[name].append((immIdx, encIdx, refIdx, width))
+    except DelayedError:
+        return None
+
+    # Gather all Immediate objects from the constant pool.
+    immediates = {
+        value.name: value
+        for value in (
+            const.expr
+            for const in encBuilder.constants
+            if isinstance(const, ComputedConstant)
+            )
+        if isinstance(value, Immediate)
+        }
+
+    try:
+        with reader.checkErrors():
+            # Check whether all immediates can be decoded.
+            missingNames = set(immediates.keys()) - set(decodeMap.keys())
+            for name in missingNames:
+                # Zero-width immediates need not occur in the encoding, since
+                # they can have only one possible value. These immediates are
+                # used when an included mode has empty encoding fields, for
+                # example because it matches using only decode flags.
+                if immediates[name].width != 0:
+                    reader.error(
+                        'placeholder "%s" does not occur in encoding', name,
+                        location=immediates[name].location
+                        )
+
+            # Create a mapping from opcode to immediate values.
+            sequentialMap = {}
+            for name, slices in decodeMap.items():
+                immWidth = immediates[name].width
+                decoding = []
+                problems = []
+                prev = 0
+                for immIdx, encIdx, refIdx, width in sorted(slices):
+                    if prev < immIdx:
+                        problems.append(
+                            'gap at [%d:%d]' % (prev, immIdx)
+                            )
+                    elif prev > immIdx:
+                        problems.append(
+                            'overlap at [%d:%d]'
+                            % (immIdx, min(immIdx + width, prev))
+                            )
+                    prev = max(immIdx + width, prev)
+                    decoding.append((encIdx, refIdx, width))
+                if prev < immWidth:
+                    problems.append('gap at [%d:%d]' % (prev, immWidth))
+                elif prev > immWidth:
+                    assert False, (name, slices)
+                if problems:
+                    reader.error(
+                        'cannot decode value for "%s": %s',
+                        name, ', '.join(problems),
+                        location=immediates[name].location
+                        )
+                else:
+                    sequentialMap[name] = decoding
+    except DelayedError:
+        return None
+    else:
+        return sequentialMap
+
 def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
     semantics = parseExpr(semStr, semLoc)
     if isinstance(modeType, ReferenceType):
@@ -430,6 +563,10 @@ def _parseModeEntries(reader, globalBuilder, modes, modeType, parseSem):
                                 ))
                     except DelayedError:
                         encoding = None
+                if encoding is None:
+                    decoding = None
+                else:
+                    decoding = _parseModeDecoding(encoding, encBuilder, reader)
 
                 # Parse mnemonic.
                 # TODO: We have no infrastructure for mnemonics yet.

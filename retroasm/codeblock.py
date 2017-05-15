@@ -221,6 +221,7 @@ class FixedValue(Reference):
     __slots__ = ('_block', '_cid', '_expr')
 
     cid = property(lambda self: self._cid)
+    const = property(lambda self: self._block.constants[self._cid])
 
     def __init__(self, block, cid, typ):
         Reference.__init__(self, typ)
@@ -234,7 +235,7 @@ class FixedValue(Reference):
             )
 
     def __str__(self):
-        return str(self._block.constants[self._cid])
+        return str(self.const)
 
     def iterSIDs(self):
         return iter(())
