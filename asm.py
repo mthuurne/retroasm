@@ -15,25 +15,26 @@ def setupLogging():
     return logger
 
 def main():
-    from sys import argv, stderr
-    if len(argv) == 2:
-        path = argv[1]
+    from argparse import ArgumentParser
 
-        logger = setupLogging()
+    parser = ArgumentParser(description='Assembler using the RetroAsm toolkit.')
+    parser.add_argument(
+        'source',
+        help='file containing source code to assemble'
+        )
+    args = parser.parse_args()
 
-        try:
-            readSource(path)
-        except OSError as ex:
-            logger.error(
-                'Failed to read source "%s": %s', ex.filename, ex.strerror
-                )
-            exit(1)
-        except DelayedError as ex:
-            exit(1)
-    else:
-        print('usage: asm.py [source]\n', file=stderr)
-        print('Assemble a given source file.\n', file=stderr)
-        exit(2)
+    logger = setupLogging()
+
+    try:
+        readSource(args.source)
+    except OSError as ex:
+        logger.error(
+            'Failed to read source "%s": %s', ex.filename, ex.strerror
+            )
+        exit(1)
+    except DelayedError as ex:
+        exit(1)
 
 if __name__ == '__main__':
     main()
