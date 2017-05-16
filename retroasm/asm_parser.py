@@ -78,8 +78,8 @@ def parseAsm(reader, instrSet):
 
         reader.info('%s', instr, location=tokens[0].location)
 
-def readSource(path):
+def readSource(path, instrSet):
     with LineReader.open(path, logger) as reader:
         with reader.checkErrors():
-            parseAsm(reader)
+            parseAsm(reader, instrSet)
             reader.summarize()
