@@ -35,7 +35,7 @@ def tokenizeLine(line, location):
             span = match.span(group)
             yield Token(kind, value, location.updateSpan(span))
 
-def parseAsm(reader):
+def parseAsm(reader, instrSet):
     for line in reader:
         # Tokenize entire line.
         tokens = list(tokenizeLine(line, reader.getLocation()))
