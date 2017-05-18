@@ -16,7 +16,7 @@ from .expression_parser import (
 from .function_builder import createFunc
 from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
-from .mode import Immediate, Mode, ModeEntry
+from .mode import Immediate, MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
 from .types import IntType, ReferenceType, parseType, parseTypeDecl
@@ -228,21 +228,19 @@ def _parseFunc(reader, argStr, builder, wantSemantics):
     else:
         reader.skipBlock()
 
-def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
+def _parseModeContext(ctxStr, ctxLoc, modes, reader):
+    placeholders = OrderedDict()
     flagsRequired = set()
-    encErrors = {}
     for node in parseContext(ctxStr, ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
             decl = node if isinstance(node, DeclarationNode) else node.decl
             name = decl.name.name
-            nameLoc = decl.name.location
             typeName = decl.type.name
 
             # Figure out whether the name is a mode or type.
             mode = modes.get(typeName)
             if mode is not None:
-                encType = mode.encodingType
-                semType = mode.semanticsType
+                placeholder = MatchPlaceholder(decl, mode)
                 if isinstance(node, DefinitionNode):
                     reader.error(
                         'filter values for mode placeholders are '
@@ -253,68 +251,88 @@ def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
                         )
             else:
                 try:
-                    encType = semType = parseType(typeName)
+                    typ = parseType(typeName)
                 except ValueError:
                     reader.error(
                         'there is no type or mode named "%s"', typeName,
                         location=decl.type.location
                         )
                     continue
-
-            reportedNameExists = []
-            def reportNameExists(ex):
-                if not reportedNameExists:
-                    reader.error('%s', ex, location=ex.location)
-                    reportedNameExists.append(None)
-
-            def emitImmediate(builder, typ):
-                immediate = Immediate(name, typ, decl.treeLocation)
-                ref = builder.emitFixedValue(immediate, typ)
-                try:
-                    builder.defineReference(name, ref, nameLoc)
-                except NameExistsError as ex:
-                    reportNameExists(ex)
-
-            # Define name in encoding builder.
-            # Errors are stored rather than reported immediately, since it is
-            # possible to define expressions that are valid as semantics but
-            # not as encodings. This is not a problem as long as the associated
-            # name is not used in the encoding field. For example relative
-            # addressing reads the base address from a register.
-            if isinstance(node, DefinitionNode):
-                try:
-                    convertDefinition(
-                        decl.kind, decl.name, encType, node.value, encBuilder
-                        )
-                except NameExistsError as ex:
-                    reportNameExists(ex)
-                except BadInput as ex:
-                    encErrors[name] = ex
-            elif isinstance(encType, ReferenceType):
-                assert False, encType
+                value = node.value if isinstance(node, DefinitionNode) else None
+                placeholder = ValuePlaceholder(decl, typ, value)
+            if name in placeholders:
+                reader.error(
+                    'multiple placeholders named "%s"', name,
+                    location=decl.name.location
+                    )
             else:
-                emitImmediate(encBuilder, encType)
-
-            # Define name in semantics builder.
-            if isinstance(node, DefinitionNode):
-                try:
-                    convertDefinition(
-                        decl.kind, decl.name, semType, node.value, semBuilder
-                        )
-                except NameExistsError as ex:
-                    reportNameExists(ex)
-                except BadInput as ex:
-                    reader.error('%s', ex, location=ex.location)
-            elif isinstance(semType, ReferenceType):
-                semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
-            else:
-                emitImmediate(semBuilder, semType)
+                placeholders[name] = placeholder
         elif isinstance(node, FlagTestNode):
             flagsRequired.add(node.name)
         else:
             assert False, node
 
-    return flagsRequired, encErrors
+    return placeholders, flagsRequired
+
+def _buildModeContext(placeholders, encBuilder, semBuilder, reader):
+    encErrors = {}
+    for name, placeholder in placeholders.items():
+        decl = placeholder.decl
+        nameLoc = decl.name.location
+        value = placeholder.value
+
+        reportedNameExists = []
+        def reportNameExists(ex):
+            if not reportedNameExists:
+                reader.error('%s', ex, location=ex.location)
+                reportedNameExists.append(None)
+
+        def emitImmediate(builder, typ):
+            immediate = Immediate(name, typ, decl.treeLocation)
+            ref = builder.emitFixedValue(immediate, typ)
+            try:
+                builder.defineReference(name, ref, nameLoc)
+            except NameExistsError as ex:
+                reportNameExists(ex)
+
+        # Define name in encoding builder.
+        # Errors are stored rather than reported immediately, since it is
+        # possible to define expressions that are valid as semantics but
+        # not as encodings. This is not a problem as long as the associated
+        # name is not used in the encoding field. For example relative
+        # addressing reads the base address from a register.
+        encType = placeholder.encodingType
+        if value is not None:
+            try:
+                convertDefinition(
+                    decl.kind, decl.name, encType, value, encBuilder
+                    )
+            except NameExistsError as ex:
+                reportNameExists(ex)
+            except BadInput as ex:
+                encErrors[name] = ex
+        elif isinstance(encType, ReferenceType):
+            assert False, encType
+        else:
+            emitImmediate(encBuilder, encType)
+
+        # Define name in semantics builder.
+        semType = placeholder.semanticsType
+        if value is not None:
+            try:
+                convertDefinition(
+                    decl.kind, decl.name, semType, value, semBuilder
+                    )
+            except NameExistsError as ex:
+                reportNameExists(ex)
+            except BadInput as ex:
+                reader.error('%s', ex, location=ex.location)
+        elif isinstance(semType, ReferenceType):
+            semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
+        else:
+            emitImmediate(semBuilder, semType)
+
+    return encErrors
 
 def _parseModeEncoding(encNodes, encBuilder, encErrors, reader):
     for encNode in encNodes:
@@ -543,15 +561,17 @@ def _parseModeEntries(
                 if ctxStr:
                     try:
                         with reader.checkErrors():
-                            flagsRequired, encErrors = _parseModeContext(
-                                ctxStr, ctxLoc, encBuilder, semBuilder, modes,
-                                reader
+                            placeholders, flagsRequired = _parseModeContext(
+                                ctxStr, ctxLoc, modes, reader
+                                )
+                            encErrors = _buildModeContext(
+                                placeholders, encBuilder, semBuilder, reader
                                 )
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    flagsRequired, encErrors = set(), {}
+                    placeholders, flagsRequired, encErrors = {}, set(), {}
 
                 # Parse encoding.
                 if encStr:

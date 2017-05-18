@@ -1,4 +1,6 @@
 from .expression import Expression
+from .expression_parser import DeclarationNode, ParseNode
+from .utils import checkType
 
 class Mode:
     '''A pattern for operands, such as an addressing mode or a table defining
@@ -41,10 +43,54 @@ class ModeEntry:
         self.context = context
         self.flagsRequired = frozenset(flagsRequired)
 
+class Placeholder:
+    '''Abstract base class for a mode context element.
+    '''
+
+    decl = property(lambda self: self._decl)
+
+    encodingType = property()
+    semanticsType = property()
+    value = property()
+
+    def __init__(self, decl):
+        self._decl = checkType(decl, DeclarationNode, 'placeholder declaration')
+
+class ValuePlaceholder(Placeholder):
+    '''An element from a mode context that represents a numeric value.
+    The value will be a ParseNode, or None if no value was given in the context.
+    '''
+
+    encodingType = property(lambda self: self._type)
+    semanticsType = property(lambda self: self._type)
+    value = property(lambda self: self._value)
+
+    def __init__(self, decl, typ, value):
+        Placeholder.__init__(self, decl)
+        self._type = typ
+        self._value = checkType(
+            value, (type(None), ParseNode), 'placeholder value'
+            )
+
+class MatchPlaceholder(Placeholder):
+    '''An element from a mode context that will be filled in by a match made
+    in a different mode table.
+    '''
+
+    encodingType = property(lambda self: self._mode.encodingType)
+    semanticsType = property(lambda self: self._mode.semanticsType)
+    value = property(lambda self: None)
+
+    mode = property(lambda self: self._mode)
+
+    def __init__(self, decl, mode):
+        Placeholder.__init__(self, decl)
+        self._mode = mode
+
 class Immediate(Expression):
     '''A constant value defined as part of an instruction.
     Note that the name of an immediate is unique only within the mode entry
-    that declares, not in mode entries that include it.
+    that declares it, not in mode entries that include it.
     '''
     __slots__ = ('_name', '_type', '_location')
 
