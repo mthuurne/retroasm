@@ -140,14 +140,8 @@ class ConstantValue(Expression):
         self._cid = cid
         self._mask = mask
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if exprs:
-            raise ValueError(
-                '%s does not take expression args' % self.__class__.__name__
-                )
-        kwargs.setdefault('cid', self._cid)
-        kwargs.setdefault('mask', self._mask)
-        return self.__class__.ctorSignature.bind(**kwargs)
+    def _ctorargs(self):
+        return self._cid, self._mask
 
     def __str__(self):
         return 'C%d' % self._cid

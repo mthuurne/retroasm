@@ -52,15 +52,8 @@ class Immediate(Expression):
         self._type = typ
         self._location = location
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if exprs:
-            raise ValueError(
-                '%s does not take expression args' % self.__class__.__name__
-                )
-        kwargs.setdefault('name', self._name)
-        kwargs.setdefault('typ', self._type)
-        kwargs.setdefault('location', self._location)
-        return self.__class__.ctorSignature.bind(**kwargs)
+    def _ctorargs(self):
+        return self._name, self._type, self._location
 
     def __str__(self):
         return self._name

@@ -4,8 +4,6 @@ from retroasm.expression import (
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 
-from inspect import signature
-
 class TestValue(Expression):
     __slots__ = ('_name', '_type')
 
@@ -21,13 +19,8 @@ class TestValue(Expression):
         self._name = name
         self._type = typ
 
-    def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
-        if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
-        kwargs.setdefault('name', self._name)
-        kwargs.setdefault('typ', self._type)
-        return signature(cls).bind(**kwargs)
+    def _ctorargs(self):
+        return self._name, self._type
 
     def __str__(self):
         return self._name

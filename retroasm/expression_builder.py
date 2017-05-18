@@ -34,8 +34,8 @@ class Unit(Expression):
     '''
     __slots__ = ()
 
-    def _ctorargs(self, *exprs, **kwargs):
-        return self.__class__.ctorSignature.bind()
+    def _ctorargs(self):
+        return ()
 
     def __str__(self):
         return 'unit'

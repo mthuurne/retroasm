@@ -47,10 +47,9 @@ class Expression(metaclass=ConstructorSignatureCache):
         expr._checkScalar()
         return expr
 
-    def _ctorargs(self, *exprs, **kwargs):
-        '''Returns the constructor arguments that can be used to re-create
-        this expression. Any arguments passed to this method will acts as
-        overrides. The returned value must be a BoundArguments instance.
+    def _ctorargs(self):
+        '''Returns a tuple containing the constructor arguments that can be
+        used to re-create this expression.
         '''
         raise NotImplementedError
 
@@ -58,7 +57,7 @@ class Expression(metaclass=ConstructorSignatureCache):
         cls = self.__class__
         def formatArgs():
             ctorSignature = cls.ctorSignature
-            binding = self._ctorargs()
+            binding = self.__class__.ctorSignature.bind(*self._ctorargs())
             for arg in binding.args:
                 yield repr(arg)
             for name, value in binding.kwargs.items():
@@ -110,7 +109,7 @@ class Expression(metaclass=ConstructorSignatureCache):
         if subst is not None:
             return subst
 
-        binding = self._ctorargs()
+        binding = self.__class__.ctorSignature.bind(*self._ctorargs())
         changed = False
         for name, value in binding.arguments.items():
             if isinstance(value, tuple):
@@ -145,13 +144,8 @@ class IntLiteral(Expression):
         self._value = checkType(value, int, 'value')
         Expression.__init__(self)
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if exprs:
-            raise ValueError(
-                '%s does not take expression args' % self.__class__.__name__
-                )
-        kwargs.setdefault('value', self._value)
-        return self.__class__.ctorSignature.bind(**kwargs)
+    def _ctorargs(self):
+        return self._value,
 
     def __str__(self):
         value = self._value
@@ -181,10 +175,8 @@ class ComposedExpression(Expression):
         self._exprs = exprs
         self._mask = self.computeMask(exprs)
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = self._exprs
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._exprs
 
     @classmethod
     def computeMask(cls, exprs):
@@ -383,10 +375,8 @@ class Complement(Expression):
         exprMask = expr.mask
         self._mask = 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr,
 
     def __str__(self):
         return '-%s' % self._expr
@@ -404,10 +394,8 @@ class Negation(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr,
 
     def __str__(self):
         return '!%s' % self._expr
@@ -427,10 +415,8 @@ class SignTest(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr,
 
     def __str__(self):
         return 'sign(%s)' % self._expr
@@ -452,11 +438,8 @@ class SignExtension(Expression):
         self._expr = Expression.checkScalar(expr)
         self._width = checkType(width, int, 'width')
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('width', self._width)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr, self._width
 
     def __str__(self):
         return 's%d(%s)' % (self._width, self._expr)
@@ -490,11 +473,8 @@ class LShift(Expression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('offset', self._offset)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr, self._offset
 
     def __str__(self):
         return '(%s << %d)' % (self._expr, self._offset)
@@ -529,11 +509,8 @@ class RShift(Expression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('offset', self._offset)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr, self._offset
 
     def __str__(self):
         if self.mask == 1:
@@ -575,11 +552,8 @@ class LVShift(Expression):
         return mask if offsetMask >= 0 else \
                 mask | (-1 << ((1 << width) + trailingZeroes(exprMask)))
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('offset', self._offset)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr, self._offset
 
     def __str__(self):
         return '(%s << %s)' % (self._expr, self._offset)
@@ -623,11 +597,8 @@ class RVShift(Expression):
                 mask |= mask >> (1 << i)
         return mask
 
-    def _ctorargs(self, *exprs, **kwargs):
-        if not exprs:
-            exprs = (self._expr,)
-        kwargs.setdefault('offset', self._offset)
-        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
+    def _ctorargs(self):
+        return self._expr, self._offset
 
     def __str__(self):
         return '(%s >> %s)' % (self._expr, self._offset)
