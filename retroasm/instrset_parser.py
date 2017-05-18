@@ -274,54 +274,35 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
 
     return placeholders, flagsRequired
 
-def _buildModeContext(placeholders, encBuilder, semBuilder, reader):
+def _buildPlaceholder(placeholder, typ, builder):
+    decl = placeholder.decl
+    name = decl.name.name
+    value = placeholder.value
+    if value is not None:
+        convertDefinition(decl.kind, decl.name, typ, value, builder)
+    elif isinstance(typ, ReferenceType):
+        builder.emitReferenceArgument(name, typ.type, decl.name.location)
+    else:
+        immediate = Immediate(name, typ, decl.treeLocation)
+        ref = builder.emitFixedValue(immediate, typ)
+        builder.defineReference(name, ref, decl.name.location)
+
+def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
+    # Define placeholders in encoding builder.
+    # Errors are stored rather than reported immediately, since it is possible
+    # to define expressions that are valid as semantics but not as encodings.
+    # This is not a problem as long as the associated name is not used in the
+    # encoding field. For example relative addressing reads the base address
+    # from a register.
     encErrors = {}
     for name, placeholder in placeholders.items():
-        decl = placeholder.decl
-        nameLoc = decl.name.location
-        value = placeholder.value
+        try:
+            encType = placeholder.encodingType
+            _buildPlaceholder(placeholder, encType, encBuilder)
+        except BadInput as ex:
+            encErrors[name] = ex
 
-        def emitImmediate(builder, typ):
-            immediate = Immediate(name, typ, decl.treeLocation)
-            ref = builder.emitFixedValue(immediate, typ)
-            builder.defineReference(name, ref, nameLoc)
-
-        # Define name in encoding builder.
-        # Errors are stored rather than reported immediately, since it is
-        # possible to define expressions that are valid as semantics but
-        # not as encodings. This is not a problem as long as the associated
-        # name is not used in the encoding field. For example relative
-        # addressing reads the base address from a register.
-        encType = placeholder.encodingType
-        if value is not None:
-            try:
-                convertDefinition(
-                    decl.kind, decl.name, encType, value, encBuilder
-                    )
-            except BadInput as ex:
-                encErrors[name] = ex
-        elif isinstance(encType, ReferenceType):
-            assert False, encType
-        else:
-            emitImmediate(encBuilder, encType)
-
-        # Define name in semantics builder.
-        semType = placeholder.semanticsType
-        if value is not None:
-            try:
-                convertDefinition(
-                    decl.kind, decl.name, semType, value, semBuilder
-                    )
-            except BadInput as ex:
-                reader.error('%s', ex, location=ex.location)
-        elif isinstance(semType, ReferenceType):
-            semBuilder.emitReferenceArgument(name, semType.type, nameLoc)
-        else:
-            emitImmediate(semBuilder, semType)
-
-    return encErrors
-
-def _parseModeEncoding(encNodes, encBuilder, encErrors, reader):
+    # Evaluate encoding field.
     for encNode in encNodes:
         encLoc = encNode.treeLocation
         try:
@@ -551,18 +532,16 @@ def _parseModeEntries(
                             placeholders, flagsRequired = _parseModeContext(
                                 ctxStr, ctxLoc, modes, reader
                                 )
-                            encErrors = _buildModeContext(
-                                placeholders, encBuilder, semBuilder, reader
-                                )
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    placeholders, flagsRequired, encErrors = {}, set(), {}
+                    placeholders, flagsRequired = {}, set()
 
                 # Parse encoding.
                 if encStr:
                     try:
+                        # Parse encoding field.
                         encNodes = parseExprList(encStr, encLoc)
                     except BadInput as ex:
                         reader.error(
@@ -574,10 +553,11 @@ def _parseModeEntries(
                 if encNodes is None:
                     encoding = None
                 else:
+                    # Evaluate encoding field in encoding builder.
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
-                                encNodes, encBuilder, encErrors, reader
+                                encNodes, encBuilder, placeholders, reader
                                 ))
                     except DelayedError:
                         encoding = None
@@ -591,11 +571,17 @@ def _parseModeEntries(
 
                 # Parse semantics.
                 if wantSemantics:
-                    if not semStr:
-                        # Parse mnemonic as semantics.
-                        semStr = mnemStr
-                        semLoc = mnemLoc
                     try:
+                        # Define placeholders in semantics builder.
+                        for placeholder in placeholders.values():
+                            semType = placeholder.semanticsType
+                            _buildPlaceholder(placeholder, semType, semBuilder)
+
+                        # Parse semantics field.
+                        if not semStr:
+                            # Parse mnemonic as semantics.
+                            semStr = mnemStr
+                            semLoc = mnemLoc
                         parseSem(semStr, semLoc, semBuilder, modeType)
                     except BadInput as ex:
                         reader.error(
