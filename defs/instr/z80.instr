@@ -474,8 +474,8 @@ func sbc16(u16& D, u16 V)
     nf := 1
 
 instr
-%00;R;%0011         . inc reg16x R      . R := R + 1        . reg16x R
-%00;R;%1011         . dec reg16x R      . R := R - 1        . reg16x R
+%00;R;%0011         . inc R             . R := R + 1        . reg16x R
+%00;R;%1011         . dec R             . R := R - 1        . reg16x R
 %00;V;%1001         . add D,V           . add16(D, V)       . hlx D, reg16x V
 $ED, %01;V;%1010    . adc hl,V          . adc16(hl, V)      . reg16 V
 $ED, %01;V;%0010    . sbc hl,V          . sbc16(hl, V)      . reg16 V
