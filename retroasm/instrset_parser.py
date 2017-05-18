@@ -14,6 +14,7 @@ from .expression_parser import (
     parseExpr, parseExprList, parseStatement
     )
 from .function_builder import createFunc
+from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import Immediate, Mode
 from .namespace import GlobalNamespace, NameExistsError
@@ -673,12 +674,13 @@ def _parseInstr(reader, argStr, globalBuilder, modes):
     for entry in _parseModeEntries(
             reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics
             ):
-        pass
+        yield entry
 
 def parseInstrSet(pathname):
     globalNamespace = GlobalNamespace()
     builder = GlobalCodeBlockBuilder(globalNamespace)
     modes = {}
+    instr = []
 
     with DefLineReader.open(pathname, logger) as reader:
         for header in reader:
@@ -696,7 +698,7 @@ def parseInstrSet(pathname):
             elif defType == 'mode':
                 _parseMode(reader, builder, modes)
             elif defType == 'instr':
-                _parseInstr(reader, argStr, builder, modes)
+                instr += _parseInstr(reader, argStr, builder, modes)
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
@@ -706,7 +708,7 @@ def parseInstrSet(pathname):
         '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
-    return None
+    return InstructionSet(instr) if reader.errors == 0 else None
 
 def checkInstrSet(pathname):
     logger.info('checking: %s', pathname)
