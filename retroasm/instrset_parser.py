@@ -184,7 +184,7 @@ _reFuncHeader = re.compile(
     r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
 
-def _parseFunc(reader, argStr, builder):
+def _parseFunc(reader, argStr, builder, wantSemantics):
     headerLocation = reader.getLocation()
 
     # Parse header line.
@@ -214,17 +214,22 @@ def _parseFunc(reader, argStr, builder):
         reader.skipBlock()
         return
 
-    # Parse body lines.
-    func = createFunc(reader, funcName, retType, args, builder)
+    if wantSemantics:
+        # Parse body lines.
+        func = createFunc(reader, funcName, retType, args, builder)
 
-    # Store function in global namespace.
-    try:
-        builder.namespace.define(funcName, func, headerLocation)
-    except NameExistsError as ex:
-        reader.error('error declaring function: %s', ex, location=ex.location)
+        # Store function in global namespace.
+        try:
+            builder.namespace.define(funcName, func, headerLocation)
+        except NameExistsError as ex:
+            reader.error(
+                'error declaring function: %s', ex, location=ex.location
+                )
 
-    func.dump()
-    print()
+        func.dump()
+        print()
+    else:
+        reader.skipBlock()
 
 def _parseModeContext(ctxStr, ctxLoc, encBuilder, semBuilder, modes, reader):
     flagsRequired = set()
@@ -516,7 +521,8 @@ def _parseMnemonic(mnemStr):
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
-        reader, globalBuilder, modes, modeType, mnemBase, parseSem
+        reader, globalBuilder, modes, modeType, mnemBase, parseSem,
+        wantSemantics
         ):
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
@@ -580,16 +586,17 @@ def _parseModeEntries(
                 mnemonic = mnemBase + _parseMnemonic(mnemStr)
 
                 # Parse semantics.
-                if not semStr:
-                    # Parse mnemonic as semantics.
-                    semStr = mnemStr
-                    semLoc = mnemLoc
-                try:
-                    parseSem(semStr, semLoc, semBuilder, modeType)
-                except BadInput as ex:
-                    reader.error(
-                        'error in semantics: %s', ex, location=ex.location
-                        )
+                if wantSemantics:
+                    if not semStr:
+                        # Parse mnemonic as semantics.
+                        semStr = mnemStr
+                        semLoc = mnemLoc
+                    try:
+                        parseSem(semStr, semLoc, semBuilder, modeType)
+                    except BadInput as ex:
+                        reader.error(
+                            'error in semantics: %s', ex, location=ex.location
+                            )
         except DelayedError:
             pass
         else:
@@ -598,7 +605,7 @@ def _parseModeEntries(
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
-def _parseMode(reader, globalBuilder, modes):
+def _parseMode(reader, globalBuilder, modes, wantSemantics):
     # Parse header line.
     match = _reModeHeader.match(reader.lastline)
     if not match:
@@ -636,7 +643,8 @@ def _parseMode(reader, globalBuilder, modes):
 
     # Parse entries.
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, modeType, (), _parseModeSemantics
+            reader, globalBuilder, modes, modeType, (), _parseModeSemantics,
+            wantSemantics
             ):
         mode.addEntry(*entry)
 
@@ -668,15 +676,16 @@ def _parseMode(reader, globalBuilder, modes):
                     )
     mode.encodingType = encType
 
-def _parseInstr(reader, argStr, globalBuilder, modes):
+def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
     mnemBase = _parseMnemonic(argStr)
 
     for entry in _parseModeEntries(
-            reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics
+            reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics,
+            wantSemantics
             ):
         yield entry
 
-def parseInstrSet(pathname):
+def parseInstrSet(pathname, wantSemantics=True):
     globalNamespace = GlobalNamespace()
     builder = GlobalCodeBlockBuilder(globalNamespace)
     modes = {}
@@ -694,11 +703,13 @@ def parseInstrSet(pathname):
             elif defType == 'io':
                 _parseIO(reader, argStr, globalNamespace)
             elif defType == 'func':
-                _parseFunc(reader, argStr, builder)
+                _parseFunc(reader, argStr, builder, wantSemantics)
             elif defType == 'mode':
-                _parseMode(reader, builder, modes)
+                _parseMode(reader, builder, modes, wantSemantics)
             elif defType == 'instr':
-                instr += _parseInstr(reader, argStr, builder, modes)
+                instr += _parseInstr(
+                    reader, argStr, builder, modes, wantSemantics
+                    )
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()

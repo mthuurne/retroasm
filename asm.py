@@ -33,7 +33,7 @@ def main():
 
     instrPath = 'defs/instr/%s.instr' % args.instr
     try:
-        instrSet = parseInstrSet(instrPath)
+        instrSet = parseInstrSet(instrPath, wantSemantics=False)
     except OSError as ex:
         logger.error(
             'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
