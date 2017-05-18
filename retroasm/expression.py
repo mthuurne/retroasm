@@ -54,17 +54,10 @@ class Expression(metaclass=ConstructorSignatureCache):
         raise NotImplementedError
 
     def __repr__(self):
-        cls = self.__class__
-        def formatArgs():
-            ctorSignature = cls.ctorSignature
-            binding = self.__class__.ctorSignature.bind(*self._ctorargs())
-            for arg in binding.args:
-                yield repr(arg)
-            for name, value in binding.kwargs.items():
-                param = ctorSignature.parameters.get(name)
-                if param is None or param.default != value:
-                    yield '%s=%r' % (name, value)
-        return '%s(%s)' % (cls.__name__, ', '.join(formatArgs()))
+        return '%s(%s)' % (
+            self.__class__.__name__,
+            ', '.join(repr(arg) for arg in self._ctorargs())
+            )
 
     def __eq__(self, other):
         if isinstance(other, Expression):
@@ -109,26 +102,17 @@ class Expression(metaclass=ConstructorSignatureCache):
         if subst is not None:
             return subst
 
-        binding = self.__class__.ctorSignature.bind(*self._ctorargs())
         changed = False
-        for name, value in binding.arguments.items():
-            if isinstance(value, tuple):
-                substs = []
-                seqChanged = False
-                for expr in value:
-                    subst = expr.substitute(func)
-                    seqChanged |= subst is not expr
-                    substs.append(subst)
-                if seqChanged:
-                    binding.arguments[name] = tuple(substs)
-                    changed = True
-            elif isinstance(value, Expression):
+        args = []
+        for value in self._ctorargs():
+            if isinstance(value, Expression):
                 subst = value.substitute(func)
                 if subst is not value:
-                    binding.arguments[name] = subst
+                    value = subst
                     changed = True
+            args.append(value)
         if changed:
-            return self.__class__(*binding.args, **binding.kwargs)
+            return self.__class__(*args)
         else:
             return self
 
