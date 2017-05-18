@@ -15,9 +15,6 @@ from .linereader import BadInput
 from .namespace import NameExistsError
 from .storage import IOChannel
 from .types import IntType, ReferenceType, parseTypeDecl, unlimited
-from .utils import Singleton
-
-from inspect import signature
 
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
@@ -32,13 +29,13 @@ class UnknownNameError(BadExpression):
         BadExpression.__init__(self, *args, **kvargs)
         self.name = name
 
-class Unit(Expression, metaclass=Singleton):
+class Unit(Expression):
     '''Expression that represents the absense of a value.
     '''
     __slots__ = ()
 
     def _ctorargs(self, *exprs, **kwargs):
-        return signature(self.__class__).bind()
+        return self.__class__.ctorSignature.bind()
 
     def __str__(self):
         return 'unit'

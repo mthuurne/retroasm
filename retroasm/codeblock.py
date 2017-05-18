@@ -8,7 +8,6 @@ from .types import IntType, maskForWidth, unlimited
 from .utils import checkType
 
 from collections import OrderedDict
-from inspect import signature
 
 class Constant:
     '''Definition of a local constant value.
@@ -142,12 +141,13 @@ class ConstantValue(Expression):
         self._mask = mask
 
     def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
         if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
+            raise ValueError(
+                '%s does not take expression args' % self.__class__.__name__
+                )
         kwargs.setdefault('cid', self._cid)
         kwargs.setdefault('mask', self._mask)
-        return signature(cls).bind(**kwargs)
+        return self.__class__.ctorSignature.bind(**kwargs)
 
     def __str__(self):
         return 'C%d' % self._cid

@@ -9,13 +9,22 @@ from itertools import chain
 
 # pylint: disable=protected-access
 
-class Expression:
+class ConstructorSignatureCache(type):
+    def __init__(cls, name, bases, nmspc):
+        type.__init__(cls, name, bases, nmspc)
+        cls.__ctorSignature = signature(cls)
+    @property
+    def ctorSignature(cls):
+        return cls.__ctorSignature
+
+class Expression(metaclass=ConstructorSignatureCache):
     '''Abstract base class for integer expressions.
 
     Expressions are considered equal if they have the same tree form.
     This means that for example (A + (B + C)) and ((A + B) + C) are considered
     unequal: they represent the same computation, but not the same tree.
     '''
+
     __slots__ = ()
 
     mask = property()
@@ -48,7 +57,7 @@ class Expression:
     def __repr__(self):
         cls = self.__class__
         def formatArgs():
-            ctorSignature = signature(cls)
+            ctorSignature = cls.ctorSignature
             binding = self._ctorargs()
             for arg in binding.args:
                 yield repr(arg)
@@ -137,11 +146,12 @@ class IntLiteral(Expression):
         Expression.__init__(self)
 
     def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
         if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
+            raise ValueError(
+                '%s does not take expression args' % self.__class__.__name__
+                )
         kwargs.setdefault('value', self._value)
-        return signature(cls).bind(**kwargs)
+        return self.__class__.ctorSignature.bind(**kwargs)
 
     def __str__(self):
         value = self._value
@@ -174,7 +184,7 @@ class ComposedExpression(Expression):
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = self._exprs
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     @classmethod
     def computeMask(cls, exprs):
@@ -376,7 +386,7 @@ class Complement(Expression):
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = (self._expr,)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return '-%s' % self._expr
@@ -397,7 +407,7 @@ class Negation(Expression):
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = (self._expr,)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return '!%s' % self._expr
@@ -420,7 +430,7 @@ class SignTest(Expression):
     def _ctorargs(self, *exprs, **kwargs):
         if not exprs:
             exprs = (self._expr,)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return 'sign(%s)' % self._expr
@@ -446,7 +456,7 @@ class SignExtension(Expression):
         if not exprs:
             exprs = (self._expr,)
         kwargs.setdefault('width', self._width)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return 's%d(%s)' % (self._width, self._expr)
@@ -484,7 +494,7 @@ class LShift(Expression):
         if not exprs:
             exprs = (self._expr,)
         kwargs.setdefault('offset', self._offset)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return '(%s << %d)' % (self._expr, self._offset)
@@ -523,7 +533,7 @@ class RShift(Expression):
         if not exprs:
             exprs = (self._expr,)
         kwargs.setdefault('offset', self._offset)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         if self.mask == 1:
@@ -569,7 +579,7 @@ class LVShift(Expression):
         if not exprs:
             exprs = (self._expr,)
         kwargs.setdefault('offset', self._offset)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return '(%s << %s)' % (self._expr, self._offset)
@@ -617,7 +627,7 @@ class RVShift(Expression):
         if not exprs:
             exprs = (self._expr,)
         kwargs.setdefault('offset', self._offset)
-        return signature(self.__class__).bind(*exprs, **kwargs)
+        return self.__class__.ctorSignature.bind(*exprs, **kwargs)
 
     def __str__(self):
         return '(%s >> %s)' % (self._expr, self._offset)

@@ -1,7 +1,5 @@
 from .expression import Expression
 
-from inspect import signature
-
 class Mode:
     '''A pattern for operands, such as an addressing mode or a table defining
     register encoding.
@@ -55,13 +53,14 @@ class Immediate(Expression):
         self._location = location
 
     def _ctorargs(self, *exprs, **kwargs):
-        cls = self.__class__
         if exprs:
-            raise ValueError('%s does not take expression args' % cls.__name__)
+            raise ValueError(
+                '%s does not take expression args' % self.__class__.__name__
+                )
         kwargs.setdefault('name', self._name)
         kwargs.setdefault('typ', self._type)
         kwargs.setdefault('location', self._location)
-        return signature(cls).bind(**kwargs)
+        return self.__class__.ctorSignature.bind(**kwargs)
 
     def __str__(self):
         return self._name
