@@ -281,19 +281,10 @@ def _buildModeContext(placeholders, encBuilder, semBuilder, reader):
         nameLoc = decl.name.location
         value = placeholder.value
 
-        reportedNameExists = []
-        def reportNameExists(ex):
-            if not reportedNameExists:
-                reader.error('%s', ex, location=ex.location)
-                reportedNameExists.append(None)
-
         def emitImmediate(builder, typ):
             immediate = Immediate(name, typ, decl.treeLocation)
             ref = builder.emitFixedValue(immediate, typ)
-            try:
-                builder.defineReference(name, ref, nameLoc)
-            except NameExistsError as ex:
-                reportNameExists(ex)
+            builder.defineReference(name, ref, nameLoc)
 
         # Define name in encoding builder.
         # Errors are stored rather than reported immediately, since it is
@@ -307,8 +298,6 @@ def _buildModeContext(placeholders, encBuilder, semBuilder, reader):
                 convertDefinition(
                     decl.kind, decl.name, encType, value, encBuilder
                     )
-            except NameExistsError as ex:
-                reportNameExists(ex)
             except BadInput as ex:
                 encErrors[name] = ex
         elif isinstance(encType, ReferenceType):
@@ -323,8 +312,6 @@ def _buildModeContext(placeholders, encBuilder, semBuilder, reader):
                 convertDefinition(
                     decl.kind, decl.name, semType, value, semBuilder
                     )
-            except NameExistsError as ex:
-                reportNameExists(ex)
             except BadInput as ex:
                 reader.error('%s', ex, location=ex.location)
         elif isinstance(semType, ReferenceType):
