@@ -4,20 +4,11 @@ from .types import (
 from .utils import checkType
 
 from functools import reduce
-from inspect import signature
 from itertools import chain
 
 # pylint: disable=protected-access
 
-class ConstructorSignatureCache(type):
-    def __init__(cls, name, bases, nmspc):
-        type.__init__(cls, name, bases, nmspc)
-        cls.__ctorSignature = signature(cls)
-    @property
-    def ctorSignature(cls):
-        return cls.__ctorSignature
-
-class Expression(metaclass=ConstructorSignatureCache):
+class Expression:
     '''Abstract base class for integer expressions.
 
     Expressions are considered equal if they have the same tree form.
