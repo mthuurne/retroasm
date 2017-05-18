@@ -225,9 +225,6 @@ def _parseFunc(reader, argStr, builder, wantSemantics):
             reader.error(
                 'error declaring function: %s', ex, location=ex.location
                 )
-
-        func.dump()
-        print()
     else:
         reader.skipBlock()
 
