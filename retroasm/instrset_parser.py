@@ -16,7 +16,7 @@ from .expression_parser import (
 from .function_builder import createFunc
 from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
-from .mode import Immediate, Mode
+from .mode import Immediate, Mode, ModeEntry
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
 from .types import IntType, ReferenceType, parseType, parseTypeDecl
@@ -601,7 +601,9 @@ def _parseModeEntries(
             pass
         else:
             context = semBuilder.namespace
-            yield encoding, mnemonic, semBuilder, context, flagsRequired
+            yield ModeEntry(
+                encoding, mnemonic, semBuilder, context, flagsRequired
+                )
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
@@ -646,12 +648,12 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
             reader, globalBuilder, modes, modeType, (), _parseModeSemantics,
             wantSemantics
             ):
-        mode.addEntry(*entry)
+        mode.addEntry(entry)
 
     # Determine encoding type.
     encTypes = []
     for entry in mode:
-        encoding = entry[0]
+        encoding = entry.encoding
         if encoding is not None:
             firstRef, firstVal, firstLoc = encoding[0]
             encTypes.append((firstRef.type, firstLoc))

@@ -28,10 +28,18 @@ class Mode:
         assert self._encType is None, self._encType
         self._encType = encType
 
-    def addEntry(self, encoding, mnemonic, semantics, context, flagsRequired):
-        self._entries.append(
-            (encoding, mnemonic, semantics, context, frozenset(flagsRequired))
-            )
+    def addEntry(self, entry):
+        assert isinstance(entry, ModeEntry), entry
+        self._entries.append(entry)
+
+class ModeEntry:
+
+    def __init__(self, encoding, mnemonic, semantics, context, flagsRequired):
+        self.encoding = encoding
+        self.mnemonic = mnemonic
+        self.semantics = semantics
+        self.context = context
+        self.flagsRequired = frozenset(flagsRequired)
 
 class Immediate(Expression):
     '''A constant value defined as part of an instruction.
