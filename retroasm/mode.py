@@ -48,6 +48,7 @@ class Placeholder:
     '''
 
     decl = property(lambda self: self._decl)
+    name = property(lambda self: self._decl.name.name)
 
     encodingType = property()
     semanticsType = property()
@@ -72,6 +73,14 @@ class ValuePlaceholder(Placeholder):
             value, (type(None), ParseNode), 'placeholder value'
             )
 
+    def __repr__(self):
+        return 'ValuePlaceholder(%r, %r, %r)' % (
+            self._decl, self._type, self._value
+            )
+
+    def __str__(self):
+        return '{%s %s}' % (self._type, self.name)
+
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made
     in a different mode table.
@@ -86,6 +95,12 @@ class MatchPlaceholder(Placeholder):
     def __init__(self, decl, mode):
         Placeholder.__init__(self, decl)
         self._mode = mode
+
+    def __repr__(self):
+        return 'MatchPlaceholder(%r, %r)' % (self._decl, self._mode)
+
+    def __str__(self):
+        return '{%s %s}' % (self._mode.name, self.name)
 
 class Immediate(Expression):
     '''A constant value defined as part of an instruction.
