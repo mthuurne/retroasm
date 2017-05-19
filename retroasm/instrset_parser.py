@@ -496,7 +496,7 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
             ))
         buildExpression(node, builder)
 
-_reMnemonic = re.compile(r'\w+|[^\w\s]')
+_reMnemonic = re.compile(r"\w+'?|[^\w\s]")
 
 def _parseMnemonic(mnemStr):
     return tuple(_reMnemonic.findall(mnemStr))
