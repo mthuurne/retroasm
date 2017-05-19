@@ -498,8 +498,27 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
 
 _reMnemonic = re.compile(r"\w+'?|[^\w\s]")
 
-def _parseMnemonic(mnemStr):
-    return tuple(_reMnemonic.findall(mnemStr))
+def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
+    seenPlaceholders = set()
+    for match in _reMnemonic.finditer(mnemStr):
+        text = match.group()
+        placeholder = placeholders.get(text)
+        if placeholder is None:
+            yield text
+        elif text in seenPlaceholders:
+            # In theory we could support repeated placeholders, but the only
+            # meaning that would make sense is that they would all match the
+            # same mode entry or expression and I don't know of any situation
+            # in which that would be a useful feature.
+            span = match.span()
+            shift = mnemLoc.span[0]
+            reader.error(
+                'placeholder "%s" occurs multiple times in mnemonic', text,
+                location=mnemLoc.updateSpan((shift + span[0], shift + span[1]))
+                )
+        else:
+            yield placeholder
+            seenPlaceholders.add(text)
 
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
@@ -567,7 +586,9 @@ def _parseModeEntries(
                     decoding = _parseModeDecoding(encoding, encBuilder, reader)
 
                 # Parse mnemonic.
-                mnemonic = mnemBase + _parseMnemonic(mnemStr)
+                mnemonic = mnemBase + tuple(_parseMnemonic(
+                    mnemStr, mnemLoc, placeholders, reader
+                    ))
 
                 # Parse semantics.
                 if wantSemantics:
@@ -669,7 +690,7 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
     mode.encodingType = encType
 
 def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
-    mnemBase = _parseMnemonic(argStr)
+    mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
 
     for entry in _parseModeEntries(
             reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics,
