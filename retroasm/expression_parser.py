@@ -567,36 +567,16 @@ def _parse(exprStr, location, mode):
         return OperatorNode(Operator.call, exprs, location)
 
     def parseNumber():
-        value = token.value
+        valueStr = token.value
         location = token.location
         if not token.eat(Token.number):
             assert False, token
-
-        if value[0] == '$':
-            value = value[1:]
-            base = 16
-            width = len(value) * 4
-        elif value[0] == '%':
-            value = value[1:]
-            base = 2
-            width = len(value)
-        elif value[0] == '0' and len(value) != 1:
-            raise ParseError(
-                'leading zeroes not allowed on decimal number: %s' % value,
-                location
-                )
-        else:
-            base = 10
-            width = unlimited
-
         try:
-            return NumberNode(int(value, base), width, location)
-        except ValueError:
-            baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
-            raise ParseError(
-                'bad %s number: %s' % (baseDesc[base], value),
-                location
-                )
+            value, width = parseInt(valueStr)
+        except ValueError as ex:
+            raise ParseError('%s' % ex, location)
+        else:
+            return NumberNode(value, width, location)
 
     parseExprTop = parseOr
     topForMode = {
@@ -632,3 +612,32 @@ def parseContext(exprStr, location):
 
 def parseStatement(exprStr, location):
     return _parse(exprStr, location, _ParseMode.statement)
+
+def parseInt(valueStr):
+    '''Parse the given string as a binary, decimal or hexadecimal integer.
+    Returns a pair containing the value and the width of the literal in bits.
+    Raises ValueError if the given string does not represent an integer.
+    '''
+    if valueStr[0] == '$':
+        valueStr = valueStr[1:]
+        base = 16
+        width = len(valueStr) * 4
+    elif valueStr[0] == '%':
+        valueStr = valueStr[1:]
+        base = 2
+        width = len(valueStr)
+    elif valueStr[0] == '0' and len(valueStr) != 1:
+        raise ValueError(
+            'leading zeroes not allowed on decimal number: %s' % valueStr
+            )
+    else:
+        base = 10
+        width = unlimited
+
+    try:
+        return int(valueStr, base), width
+    except ValueError:
+        baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
+        raise ValueError(
+            'bad %s number: %s' % (baseDesc[base], valueStr)
+            )

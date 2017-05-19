@@ -11,7 +11,7 @@ from .expression_builder import (
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
     FlagTestNode, IdentifierNode, LabelNode, NumberNode, parseContext,
-    parseExpr, parseExprList, parseStatement
+    parseExpr, parseExprList, parseInt, parseStatement
     )
 from .function_builder import createFunc
 from .instrset import InstructionSet
@@ -496,15 +496,28 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
             ))
         buildExpression(node, builder)
 
-_reMnemonic = re.compile(r"\w+'?|[^\w\s]")
+_reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
 def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
     seenPlaceholders = set()
     for match in _reMnemonic.finditer(mnemStr):
+        def getMatchLocation():
+            span = match.span()
+            shift = mnemLoc.span[0]
+            return mnemLoc.updateSpan((shift + span[0], shift + span[1]))
+
         text = match.group()
         placeholder = placeholders.get(text)
         if placeholder is None:
-            yield text
+            if '0' <= text[0] <= '9' or text[0] in '$%':
+                try:
+                    value, width = parseInt(text)
+                except ValueError as ex:
+                    reader.error('%s', ex, location=getMatchLocation())
+                else:
+                    yield value
+            else:
+                yield text
         elif text in seenPlaceholders:
             # In theory we could support repeated placeholders, but the only
             # meaning that would make sense is that they would all match the
@@ -514,7 +527,7 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             shift = mnemLoc.span[0]
             reader.error(
                 'placeholder "%s" occurs multiple times in mnemonic', text,
-                location=mnemLoc.updateSpan((shift + span[0], shift + span[1]))
+                location=getMatchLocation()
                 )
         else:
             yield placeholder
