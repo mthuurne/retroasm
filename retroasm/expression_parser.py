@@ -619,25 +619,25 @@ def parseInt(valueStr):
     Raises ValueError if the given string does not represent an integer.
     '''
     if valueStr[0] == '$':
-        valueStr = valueStr[1:]
-        base = 16
-        width = len(valueStr) * 4
+        return parseDigits(valueStr[1:], 16), (len(valueStr) - 1) * 4
     elif valueStr[0] == '%':
-        valueStr = valueStr[1:]
-        base = 2
-        width = len(valueStr)
+        return parseDigits(valueStr[1:], 2), len(valueStr) - 1
     elif valueStr[0] == '0' and len(valueStr) != 1:
         raise ValueError(
             'leading zeroes not allowed on decimal number: %s' % valueStr
             )
     else:
-        base = 10
-        width = unlimited
+        return parseDigits(valueStr, 10), unlimited
 
+def parseDigits(digits, base):
+    '''Wrapper around the "int" constructor that generated a slightly more
+    detailed ValueError message if the given string contains characters that
+    are not valid as digits in the given base.
+    '''
     try:
-        return int(valueStr, base), width
+        return int(digits, base)
     except ValueError:
         baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
         raise ValueError(
-            'bad %s number: %s' % (baseDesc[base], valueStr)
+            'bad %s number: %s' % (baseDesc[base], digits)
             )

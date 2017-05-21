@@ -1,4 +1,5 @@
-from .linereader import LineReader
+from .expression_parser import parseDigits
+from .linereader import DelayedError, LineReader
 
 from collections import namedtuple
 from enum import Enum
@@ -10,12 +11,13 @@ logger = getLogger('parse-asm')
 Token = namedtuple('Token', ('kind', 'value', 'location'))
 
 TokenKind = Enum('TokenKind', ( # pylint: disable=invalid-name
-    'word', 'symbol', 'string', 'comment', 'whitespace', 'end'
+    'number', 'word', 'symbol', 'string', 'comment', 'whitespace', 'end'
     ))
 
 _tokenPattern = re.compile('|'.join(
     '(?P<%s>%s)' % (token.name, regex) for token, regex in (
         # pylint: disable=bad-whitespace
+        (TokenKind.number,      r'\$\w+|%\w+|\d\w*'),
         (TokenKind.word,        r'\w+'),
         (TokenKind.string,      r'"[^"]*"|\'[^\']*\''),
         (TokenKind.comment,     r';.*$'),
@@ -29,11 +31,28 @@ def tokenizeLine(line, location):
     '''
     for match in _tokenPattern.finditer(line):
         kind = getattr(TokenKind, match.lastgroup)
-        if kind is not TokenKind.whitespace:
-            group = kind.name
-            value = match.group(group)
-            span = match.span(group)
-            yield Token(kind, value, location.updateSpan(span))
+        group = kind.name
+        value = match.group(group)
+        span = match.span(group)
+        yield Token(kind, value, location.updateSpan(span))
+
+def parseNumber(value):
+    if value[0] == '$':
+        return parseDigits(value[1:], 16)
+    elif value[0] == '%':
+        return parseDigits(value[1:], 2)
+    elif value[0] == '0' and len(value) >= 2 and value[1] in 'xXbB':
+        return parseDigits(value[2:], 16 if value[1] in 'xX' else 2)
+    elif value[-1].isdigit():
+        return parseDigits(value, 10)
+    else:
+        try:
+            base = {'b': 2, 'h': 16}[value[-1].lower()]
+            value = value[:-1]
+        except KeyError:
+            raise ValueError('bad number suffix "%s"' % value[-1])
+        else:
+            return parseDigits(value, base)
 
 def parseAsm(reader, instrSet):
     instrSet.dumpMnemonicTree()
@@ -41,11 +60,29 @@ def parseAsm(reader, instrSet):
 
     for line in reader:
         # Tokenize entire line.
-        tokens = list(tokenizeLine(line, reader.getLocation()))
-
-        # Strip comment.
-        if tokens and tokens[-1].kind is TokenKind.comment:
-            del tokens[-1]
+        tokens = []
+        try:
+            with reader.checkErrors():
+                for token in tokenizeLine(line, reader.getLocation()):
+                    kind = token.kind
+                    if kind is TokenKind.whitespace:
+                        # Skip whitespace.
+                        continue
+                    elif kind is TokenKind.comment:
+                        # Strip comment.
+                        break
+                    elif kind is TokenKind.number:
+                        # Convert to int.
+                        try:
+                            value = parseNumber(token.value)
+                        except ValueError as ex:
+                            reader.error('%s', ex, location=token.location)
+                            continue
+                        else:
+                            token = Token(kind, value, token.location)
+                    tokens.append(token)
+        except DelayedError:
+            continue
 
         def check(idx, kind, value=None, tokens=tokens):
             if idx < len(tokens):
@@ -83,7 +120,7 @@ def parseAsm(reader, instrSet):
         else:
             category = 'directive'
         reader.info(
-            '%s: %s', category, ' '.join(token.value for token in tokens),
+            '%s: %s', category, ' '.join(str(token.value) for token in tokens),
             location=tokens[0].location
             )
 
