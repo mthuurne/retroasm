@@ -36,6 +36,9 @@ def tokenizeLine(line, location):
             yield Token(kind, value, location.updateSpan(span))
 
 def parseAsm(reader, instrSet):
+    instrSet.dumpMnemonicTree()
+    instructionNames = frozenset(instrSet.iterInstructionNames())
+
     for line in reader:
         # Tokenize entire line.
         tokens = list(tokenizeLine(line, reader.getLocation()))
@@ -74,9 +77,15 @@ def parseAsm(reader, instrSet):
                 location=tokens[0].location
                 )
             continue
-        instr = tokens[0].value
-
-        reader.info('%s', instr, location=tokens[0].location)
+        firstWord = tokens[0].value
+        if firstWord in instructionNames:
+            category = 'instruction'
+        else:
+            category = 'directive'
+        reader.info(
+            '%s: %s', category, ' '.join(token.value for token in tokens),
+            location=tokens[0].location
+            )
 
 def readSource(path, instrSet):
     with LineReader.open(path, logger) as reader:

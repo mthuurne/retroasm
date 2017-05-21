@@ -602,6 +602,8 @@ def _parseModeEntries(
                 mnemonic = mnemBase + tuple(_parseMnemonic(
                     mnemStr, mnemLoc, placeholders, reader
                     ))
+                if len(mnemonic) == 0:
+                    reader.error('missing mnemonic', location=mnemLoc)
 
                 # Parse semantics.
                 if wantSemantics:
@@ -714,8 +716,8 @@ def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
 def parseInstrSet(pathname, wantSemantics=True):
     globalNamespace = GlobalNamespace()
     builder = GlobalCodeBlockBuilder(globalNamespace)
+    instrSet = InstructionSet()
     modes = {}
-    instr = []
 
     with DefLineReader.open(pathname, logger) as reader:
         for header in reader:
@@ -733,9 +735,10 @@ def parseInstrSet(pathname, wantSemantics=True):
             elif defType == 'mode':
                 _parseMode(reader, builder, modes, wantSemantics)
             elif defType == 'instr':
-                instr += _parseInstr(
-                    reader, argStr, builder, modes, wantSemantics
-                    )
+                for entry in _parseInstr(
+                        reader, argStr, builder, modes, wantSemantics
+                        ):
+                    instrSet.addEntry(entry)
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
@@ -745,7 +748,7 @@ def parseInstrSet(pathname, wantSemantics=True):
         '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
-    return InstructionSet(instr) if reader.errors == 0 else None
+    return instrSet if reader.errors == 0 else None
 
 def checkInstrSet(pathname):
     logger.info('checking: %s', pathname)

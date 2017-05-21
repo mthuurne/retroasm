@@ -2,7 +2,74 @@ from .expression import Expression
 from .expression_parser import DeclarationNode, ParseNode
 from .utils import checkType
 
-class Mode:
+class ModeEntry:
+    '''One row in a mode table.
+    '''
+
+    def __init__(self, encoding, mnemonic, semantics, context, flagsRequired):
+        self.encoding = encoding
+        self.mnemonic = mnemonic
+        self.semantics = semantics
+        self.context = context
+        self.flagsRequired = frozenset(flagsRequired)
+
+class ModeTable:
+    '''Abstract base class for mode tables.
+    '''
+
+    def __init__(self):
+        self._entries = []
+        self._mnemTree = ({}, [])
+
+    def dumpMnemonicTree(self):
+        def matchKey(match):
+            if isinstance(match, str):
+                return 0, match
+            elif isinstance(match, Mode):
+                return 1, match.name
+            elif match is int:
+                return 2, None
+            else:
+                assert False, match
+        def dumpNode(node, indent):
+            for entry in node[1]:
+                tokens = ' '.join(str(token) for token in entry.mnemonic)
+                if entry.flagsRequired:
+                    flags = ' -- prefix ' + ' '.join(
+                        sorted(entry.flagsRequired)
+                        )
+                else:
+                    flags = ''
+                print('%s= %s%s' % (indent, tokens, flags))
+            for match in sorted(node[0].keys(), key=matchKey):
+                print('%s+ %s' % (indent, match))
+                dumpNode(node[0][match], ' ' * len(indent) + '`---')
+        dumpNode(self._mnemTree, '')
+
+    def addEntry(self, entry):
+        assert isinstance(entry, ModeEntry), entry
+        self._entries.append(entry)
+
+        # Update match tree for mnemonics.
+        mnemonic = entry.mnemonic
+        def addMnemonic(node, idx):
+            if idx == len(mnemonic):
+                node[1].append(entry)
+            else:
+                token = mnemonic[idx]
+                if isinstance(token, str):
+                    match = token
+                elif isinstance(token, (int, ValuePlaceholder)):
+                    match = int
+                elif isinstance(token, MatchPlaceholder):
+                    match = token.mode
+                else:
+                    assert False, token
+                child = node[0].setdefault(match, ({}, []))
+                addMnemonic(child, idx + 1)
+        addMnemonic(self._mnemTree, 0)
+
+class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining
     register encoding.
     '''
@@ -13,11 +80,11 @@ class Mode:
     location = property(lambda self: self._location)
 
     def __init__(self, name, semType, location):
+        ModeTable.__init__(self)
         self._name = name
         self._semType = semType
         self._location = location
         self._encType = None
-        self._entries = []
 
     def __str__(self):
         return 'mode %s %s' % (self._semType, self._name)
@@ -29,19 +96,6 @@ class Mode:
     def encodingType(self, encType):
         assert self._encType is None, self._encType
         self._encType = encType
-
-    def addEntry(self, entry):
-        assert isinstance(entry, ModeEntry), entry
-        self._entries.append(entry)
-
-class ModeEntry:
-
-    def __init__(self, encoding, mnemonic, semantics, context, flagsRequired):
-        self.encoding = encoding
-        self.mnemonic = mnemonic
-        self.semantics = semantics
-        self.context = context
-        self.flagsRequired = frozenset(flagsRequired)
 
 class Placeholder:
     '''Abstract base class for a mode context element.
