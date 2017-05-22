@@ -162,8 +162,6 @@ instr
 %000000;RS;RT;RD;%00000;%000100     . sllv  RD,RT,RS    . RD := RT << SA        . reg RS, reg RT, reg RD, u5 SA = RS
 %000000;RS;RT;RD;%00000;%000110     . srlv  RD,RT,RS    . RD := RT >> SA        . reg RS, reg RT, reg RD, u5 SA = RS
 %000000;RS;RT;RD;%00000;%000111     . srav  RD,RT,RS    . RD := s32(RT) >> SA   . reg RS, reg RT, reg RD, u5 SA = RS
-# The all-zero opcode is really "sll zero,zero,0" but "nop" is more readable.
-$00000000                           . nop
 
 
 ### Load/store
