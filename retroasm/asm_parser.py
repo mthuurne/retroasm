@@ -54,6 +54,59 @@ def parseNumber(value):
         else:
             return parseDigits(value, base)
 
+def createMatchSequence(tokens, reader):
+    '''Convert tokens to a match sequence.
+    '''
+    for token in tokens:
+        kind = token.kind
+        if kind is TokenKind.number:
+            yield int
+        elif kind is TokenKind.word or kind is TokenKind.symbol:
+            yield token.value
+        else:
+            assert False, token
+
+def parseInstruction(tokens, reader):
+    try:
+        with reader.checkErrors():
+            # Arbitrary strings are not allowed as instruction operands, but
+            # single characters should be replaced by their character numbers.
+            for idx in range(len(tokens)):
+                token = tokens[idx]
+                if token.kind is TokenKind.string:
+                    value = token.value
+                    assert len(value) >= 2, value
+                    assert value[0] == value[-1], value
+                    if len(value) == 2:
+                        reader.error(
+                            'empty string in instruction operand',
+                            location=token.location
+                            )
+                    elif len(value) == 3:
+                        tokens[idx] = Token(
+                            TokenKind.number, ord(value[1]), token.location
+                            )
+                    else:
+                        reader.error(
+                            'multi-character string in instruction operand',
+                            location=token.location
+                            )
+    except DelayedError:
+        return None
+
+    matchSeq = tuple(createMatchSequence(tokens, reader))
+
+    reader.info(
+        'instruction %s', ' '.join(str(elem) for elem in matchSeq),
+        location=tokens[0].location
+        )
+
+def parseDirective(tokens, reader):
+    reader.info(
+        'directive: %s', ' '.join(str(token.value) for token in tokens),
+        location=tokens[0].location
+        )
+
 def parseAsm(reader, instrSet):
     instrSet.dumpMnemonicTree()
     instructionNames = frozenset(instrSet.iterInstructionNames())
@@ -116,13 +169,9 @@ def parseAsm(reader, instrSet):
             continue
         firstWord = tokens[0].value
         if firstWord in instructionNames:
-            category = 'instruction'
+            parseInstruction(tokens, reader)
         else:
-            category = 'directive'
-        reader.info(
-            '%s: %s', category, ' '.join(str(token.value) for token in tokens),
-            location=tokens[0].location
-            )
+            parseDirective(tokens, reader)
 
 def readSource(path, instrSet):
     with LineReader.open(path, logger) as reader:
