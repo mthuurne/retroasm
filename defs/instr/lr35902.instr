@@ -1,0 +1,456 @@
+# The Sharp LR35902 is an 8-bit microprocessor similar to the Intel 8080 and
+# the Zilog Z80.
+# It was used as the main CPU for the Nintendo Game Boy.
+
+
+### Registers
+
+reg
+# flags:
+u1  zf hf nf cf
+u8  f  = zf ; nf ; hf ; cf ; %0000
+# main registers:
+u8  a  b  c  d  e  h  l
+u16 af = a ; f
+u16 bc = b ; c
+u16 de = d ; e
+u16 hl = h ; l
+# special registers:
+u16 sp pc
+# interrupt master enable:
+# TODO: We use negative logic right now, so IME can be 0 at boot, but it would
+#       be clearer to support initial values.
+u1  ime
+
+
+### I/O
+
+io
+u8 mem[u16]
+
+
+### Operand mappings
+
+# 16-bit memory access
+
+func u16 read16(u16 A)
+    var u8 L := mem[A]
+    var u8 H := mem[A + 1]
+    ret := H ; L
+
+func write16(u16 A, u16 V)
+    mem[A]     := V[:8]
+    mem[A + 1] := V[8:]
+
+func write16_rev(u16 A, u16 V)
+    mem[A + 1] := V[8:]
+    mem[A]     := V[:8]
+
+func push(u16 V)
+    sp := sp - 2
+    write16_rev(sp, V)
+
+func pop(u16& R)
+    R := read16(sp)
+    sp := sp + 2
+
+# 8-bit registers
+
+mode u8& reg8
+%000                . b
+%001                . c
+%010                . d
+%011                . e
+%100                . h
+%101                . l
+%110                . (hl)              . mem[hl]
+%111                . a
+
+# 16-bit registers
+
+mode u16& reg16
+%00                 . bc
+%01                 . de
+%10                 . hl
+%11                 . sp
+
+mode u16& reg16af
+R                   . R                 . R                 . reg16 R
+%11                 . af
+
+# 16-bit immediate
+
+mode u16 imm16
+N[:8], N[8:]        . N                 . N                 . u16 N
+
+# Condition codes
+
+mode u1 cond
+%00                 . nz                . !zf
+%01                 . z                 .  zf
+%10                 . nc                . !cf
+%11                 . c                 .  cf
+
+
+### 8-Bit Load
+
+instr ld
+%01;D;S             . D,S               . D := S            . reg8 D, reg8 S
+%00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
+$02                 . (bc),a            . mem[bc] := a
+$12                 . (de),a            . mem[de] := a
+$EA, NN             . (NN),a            . mem[NN] := a      . imm16 NN
+$E0, N              . ($FF00 + N),a     . mem[$FF;N] := a   . u8 N
+$E2                 . ($FF00 + c),a     . mem[$FF;c] := a
+$0A                 . a,(bc)            . a := mem[bc]
+$1A                 . a,(de)            . a := mem[de]
+$FA, NN             . a,(NN)            . a := mem[NN]      . imm16 NN
+$F0, N              . a,($FF00 + N)     . a := mem[$FF;N]   . u8 N
+$F2                 . a,($FF00 + c)     . a := mem[$FF;c]
+
+func u8& hl_off(int D)
+    ret = mem[hl]
+    hl := hl + D
+
+instr ldi
+$22                 . (hl),a            . hl_off(1) := a
+$2A                 . a,(hl)            . a := hl_off(1)
+
+instr ldd
+$32                 . (hl),a            . hl_off(-1) := a
+$3A                 . a,(hl)            . a := hl_off(-1)
+
+
+### 16-Bit Load
+
+instr ld
+%00;D;%0001, NN     . D,NN              . D := NN           . imm16 NN, reg16 D
+$08, NN             . (NN),sp           . write16(NN, sp)   . imm16 NN
+$F9                 . sp,hl             . sp := hl
+
+func u16 sp_off(s8 V)
+    zf := 0
+    nf := 0
+    hf := (sp[:4] + V[:4])[4]
+    cf := (sp[:8] + V[:8])[8]
+    ret := sp + V
+
+instr
+$E8, N              . add sp,N          . sp := sp_off(N)   . s8 N
+$F8, N              . ld hl,sp + N      . hl := sp_off(N)   . s8 N
+
+instr
+%11;R;%0101         . push R            . push(R)           . reg16af R
+%11;R;%0001         . pop R             . pop(R)            . reg16af R
+
+
+### 8-Bit Arithmetic and Logical
+
+# TODO: More code re-use should be possible.
+
+# Arithmetic
+
+func add_ac(u8 V, u1 C)
+    hf := (a[:4] + V[:4] + C)[4]
+    cf ; a := a + V + C
+    zf := a == 0
+    nf := 0
+
+instr
+%10000;R            . add a,R           . add_ac(R, 0)      . reg8 R
+%10001;R            . adc a,R           . add_ac(R, cf)     . reg8 R
+%11000;%110, N      . add a,N           . add_ac(N, 0)      . u8 N
+%11001;%110, N      . adc a,N           . add_ac(N, cf)     . u8 N
+
+func sub_ac(u8 V, u1 C)
+    hf := (a[:4] - V[:4] - C)[4]
+    cf ; a := a - V - C
+    zf := a == 0
+    nf := 1
+
+instr
+%10010;R            . sub R             . sub_ac(R, 0)      . reg8 R
+%10011;R            . sbc a,R           . sub_ac(R, cf)     . reg8 R
+%11010;%110, N      . sub N             . sub_ac(N, 0)      . u8 N
+$11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
+
+# Logical
+
+func cp_a(u8 V)
+    hf := (a[:4] - V[:4])[4]
+    cf ; var u8 comp := a - V
+    zf := comp == 0
+    nf := 1
+
+func logic(u8 V, u1 H)
+    a := V
+    hf := H
+    cf := 0
+    zf := V == 0
+    nf := 0
+
+instr
+%10100;R            . and R             . logic(a & R, 1)   . reg8 R
+%10110;R            . or R              . logic(a | R, 0)   . reg8 R
+%10101;R            . xor R             . logic(a ^ R, 0)   . reg8 R
+%10111;R            . cp R              . cp_a(R)           . reg8 R
+%11100;%110, N      . and N             . logic(a & N, 1)   . u8 N
+%11110;%110, N      . or N              . logic(a | N, 0)   . u8 N
+%11101;%110, N      . xor N             . logic(a ^ N, 0)   . u8 N
+%11111;%110, N      . cp N              . cp_a(N)           . u8 N
+
+# Increment/decrement
+
+func inc(u8& R)
+    def u8 V = R + 1
+    R  := V
+    hf := V[:4] == 0
+    zf := V == 0
+    nf := 0
+
+func dec(u8& R)
+    def u8 V = R - 1
+    R  := V
+    hf := V[:4] == 15
+    zf := V == 0
+    nf := 1
+
+instr
+%00;R;%100          . inc R             . inc(R)            . reg8 R
+%00;R;%101          . dec R             . dec(R)            . reg8 R
+
+
+### General-Purpose Arithmetic and CPU Control
+
+func daa()
+    # Check high/low not decimal.
+    def u1 hnd = a[7] & (a[6] | a[5])
+    def u1 lnd = a[3] & (a[2] | a[1])
+    cf := cf | hnd | (a[4:8] == 9 & lnd)
+    # Determine adjustment low nibble.
+    var u8 adj := 0
+    branch !(hf | lnd) @skip_low_adjust
+    adj[:4] := 6
+    @skip_low_adjust
+    # Determine adjustment high nibble.
+    branch !cf @skip_high_adjust
+    adj[4:] := 6
+    @skip_high_adjust
+    # Add/subtract adjustment.
+    branch nf @adjust_sub
+    hf := (a[:4] + adj[:4])[4]
+    a := a + adj
+    branch @adjust_done
+    @adjust_sub
+    hf := (a[:4] - adj[:4])[4]
+    a := a - adj
+    @adjust_done
+    # Update other flags.
+    zf := a == 0
+
+func cpl()
+    a := ~a
+    hf := 1
+    nf := 1
+
+func scf()
+    cf := 1
+    hf := 0
+    nf := 0
+
+func ccf()
+    hf := cf
+    cf := !cf
+    nf := 0
+
+# Note: Most Game Boy models seem to have an instruction fetch bug that is
+#       triggered when HALT is executed with interrupts disabled.
+#       That behavior is not modeled here.
+func halt()
+    nop
+
+func stop()
+    nop
+    
+instr
+$00                 . nop
+$10, $00            . stop              . stop()
+$27                 . daa               . daa()
+$2F                 . cpl               . cpl()
+$37                 . scf               . scf()
+$3F                 . ccf               . ccf()
+$76                 . halt              . halt()
+$F3                 . di                . ime := 1
+$FB                 . ei                . ime := 0
+
+
+### 16-Bit Arithmetic
+
+func add16(u16& D, u16 V)
+    def int R = D + V
+    hf := (R ^ D ^ V)[12]
+    cf ; D := R
+    nf := 0
+
+instr
+%00;R;%0011         . inc R             . R := R + 1        . reg16 R
+%00;R;%1011         . dec R             . R := R - 1        . reg16 R
+%00;V;%1001         . add hl,V          . add16(hl, V)      . reg16 V
+
+
+### Rotate, Shift and Swap
+
+func postrot_a()
+    hf := 0
+    nf := 0
+    zf := 0
+
+func rlca()
+    cf ; a := a ; a[7]
+    postrot_a()
+
+func rrca()
+    a ; cf := a[0] ; a
+    postrot_a()
+
+func rla()
+    cf ; a := a ; cf
+    postrot_a()
+
+func rra()
+    a ; cf := cf ; a
+    postrot_a()
+
+instr
+$07                 . rlca              . rlca()
+$0F                 . rrca              . rrca()
+$17                 . rla               . rla()
+$1F                 . rra               . rra()
+
+func postrot(u8 V)
+    postrot_a()
+    zf := V == 0
+
+func rlc(u8& R)
+    var u8 V := R
+    cf ; V := V ; V[7]
+    R := V
+    postrot(V)
+
+func rrc(u8& R)
+    var u8 V := R
+    V ; cf := V[0] ; V
+    R := V
+    postrot(V)
+
+func rl(u8& R)
+    var u8 V := R
+    cf ; V := V ; cf
+    R := V
+    postrot(V)
+
+func rr(u8& R)
+    var u8 V := R
+    V ; cf := cf ; V
+    R := V
+    postrot(V)
+
+func sla(u8& R)
+    var u8 V := R
+    cf ; V := V ; %0
+    R := V
+    postrot(V)
+
+func sra(u8& R)
+    var u8 V := R
+    V ; cf := R[7] ; V
+    R := V
+    postrot(V)
+
+func swap(u8& R)
+    var u8 V := R
+    V := V[:4] ; V[4:]
+    R := V
+    postrot(V)
+
+func srl(u8& R)
+    var u8 V := R
+    V ; cf := %0 ; V
+    R := V
+    postrot(V)
+
+instr
+$CB, %00000;R       . rlc R             . rlc(R)            . reg8 R
+$CB, %00001;R       . rrc R             . rrc(R)            . reg8 R
+$CB, %00010;R       . rl R              . rl(R)             . reg8 R
+$CB, %00011;R       . rr R              . rr(R)             . reg8 R
+$CB, %00100;R       . sla R             . sla(R)            . reg8 R
+$CB, %00101;R       . sra R             . sra(R)            . reg8 R
+$CB, %00110;R       . swap R            . swap(R)           . reg8 R
+$CB, %00111;R       . srl R             . srl(R)            . reg8 R
+
+
+### Bit Set, Reset and Test
+
+func bit(u3 B, u8 V)
+    hf := 1
+    zf := !V[B]
+    nf := 0
+
+instr
+$CB, %01;B;R        . bit B,R       . bit(B, R)             . u3 B, reg8 R
+$CB, %10;B;R        . res B,R       . R[B] := 0             . u3 B, reg8 R
+$CB, %11;B;R        . set B,R       . R[B] := 1             . u3 B, reg8 R
+
+
+### Jump
+
+func br_cond(u1 C, u16 A)
+    branch !C @skip
+    pc := A
+    @skip
+
+instr jp
+$C3, NN             . NN            . pc := NN              . imm16 NN
+$E9                 . (hl)          . pc := hl
+%110;C;%010, NN     . C,NN          . br_cond(C, NN)        . imm16 NN, cond C
+
+instr jr
+$18, N              . A             . pc := A               . s8 N, u16 A = pc + N
+%001;C;%000, N      . C,A           . br_cond(C, A)         . s8 N, u16 A = pc + N, cond C
+
+
+### Call and Return
+
+func call(u16 A)
+    push(pc)
+    pc := A
+
+func call_cond(u1 C, u16 A)
+    branch !C @skip
+    call(A)
+    @skip
+
+func return()
+    pop(pc)
+
+func ret_cond(u1 C)
+    branch !C @skip
+    return()
+    @skip
+
+func ret_int()
+    return()
+    ime := 0
+
+instr call
+$CD, NN             . NN            . call(NN)              . imm16 NN
+%110;C;%100, NN     . C,NN          . call_cond(C, NN)      . imm16 NN, cond C
+
+instr ret
+$C9                 .               . return()
+%110;C;%000         . C             . ret_cond(C)           . cond C
+
+instr
+$D9                 . reti          . ret_int()
+%00;N;%000          . rst A         . call(A)               . u3 N, u8 A = %00;N;%000
