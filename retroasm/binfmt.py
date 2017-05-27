@@ -1,9 +1,18 @@
+from collections import namedtuple
 from io import SEEK_END
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 
 logger = getLogger('binfmt')
+
+EntryPoint = namedtuple('EntryPoint', (
+    'label', 'instrSetName', 'offset', 'addr', 'size'
+    ))
+'''A point at which execution can start: label name (or None), name of the
+instruction set, offset into the file, address at which the processor will see
+the instruction, size of the code area in bytes (None if unknown).
+'''
 
 class BinaryFormat:
     '''Base class for binary formats.
@@ -30,6 +39,14 @@ class BinaryFormat:
         '''
         raise NotImplementedError
 
+    def __init__(self, file):
+        self.file = file
+
+    def iterEntryPoints(self):
+        '''Iterates through the EntryPoints in this binary.
+        '''
+        raise NotImplementedError
+
 class RawGameBoyROM(BinaryFormat):
 
     name = 'gbrom'
@@ -53,6 +70,19 @@ class RawGameBoyROM(BinaryFormat):
             return -1000
         else:
             return 1000 if header[1] == cls.logo else -1000
+
+    def iterEntryPoints(self):
+        header = _readStruct(self.file, 0x100, self.header)
+        if header is None:
+            raise ValueError('No header')
+        entry = header[0]
+        if entry[0] == 0x00 and entry[1] == 0xc3:
+            # TODO: Once we can properly trace, we don't need this workaround
+            #       anymore.
+            addr = entry[2] | (entry[3] << 8)
+            yield EntryPoint(None, 'lr35902', addr, addr, None)
+        else:
+            yield EntryPoint(None, 'lr35902', 0x100, 0x100, 4)
 
 class RawMSXROM(BinaryFormat):
 
@@ -103,6 +133,42 @@ class RawMSXROM(BinaryFormat):
                 score -= 500
 
         return score
+
+    def iterEntryPoints(self):
+        header = _readStruct(self.file, 0, self.header)
+        if header is None:
+            raise ValueError('No header')
+        cartID, init, statement, device, text, reserved = header
+
+        # Figure out address at which ROM is mapped into memory.
+        if cartID == b'AB':
+            fileSize = _getFileSize(self.file)
+            if fileSize <= 0x4000:
+                baseFreqs = [0] * 4
+                for addr in (init, statement, device, text):
+                    if addr != 0:
+                        baseFreqs[addr >> 14] += 1
+                if baseFreqs[1] == 0 and baseFreqs[2] != 0:
+                    base = 0x8000
+                else:
+                    base = 0x4000
+            else:
+                base = 0x4000
+        elif cartID == b'CD':
+            base = 0x0000
+        else:
+            raise ValueError('Unknown cartridge type')
+
+        def ep(name, addr):
+            return EntryPoint(name, 'z80', addr - base, addr, None)
+        if init != 0:
+            yield ep('init', init)
+        if statement != 0:
+            yield ep('statement', statement)
+        if device != 0:
+            yield ep('device', device)
+        # Note: TEXT points to tokenized MSX-BASIC and is therefore not an
+        #       entry point.
 
 # Build a dictionary of binary formats using introspection.
 def _discoverBinaryFormats(localObjects):
