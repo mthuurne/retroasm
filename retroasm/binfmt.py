@@ -1,5 +1,4 @@
 from collections import namedtuple
-from io import SEEK_END
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
@@ -10,7 +9,7 @@ EntryPoint = namedtuple('EntryPoint', (
     'label', 'instrSetName', 'offset', 'addr', 'size'
     ))
 '''A point at which execution can start: label name (or None), name of the
-instruction set, offset into the file, address at which the processor will see
+instruction set, offset into the image, address at which the processor will see
 the instruction, size of the code area in bytes (None if unknown).
 '''
 
@@ -26,11 +25,9 @@ class BinaryFormat:
     '''Sequence of file name extensions, lower case, excluding the dot.'''
 
     @classmethod
-    def checkFile(cls, file):
-        '''Checks whether the given open file object might be an instance of
-        this binary format.
-        The file object will stay open.
-        The seek position is undefined both before and after.
+    def checkImage(cls, image):
+        '''Checks whether the given image (read-only buffer) might be an
+        instance of this binary format.
         Returns a positive number for likely matches, zero for undecided and
         a negative number for unlikely matches. The more certain, the further
         the number should be from zero, where 1000 means "very likely" and
@@ -39,8 +36,8 @@ class BinaryFormat:
         '''
         raise NotImplementedError
 
-    def __init__(self, file):
-        self.file = file
+    def __init__(self, image):
+        self.image = image
 
     def iterEntryPoints(self):
         '''Iterates through the EntryPoints in this binary.
@@ -64,15 +61,15 @@ class RawGameBoyROM(BinaryFormat):
         ))
 
     @classmethod
-    def checkFile(cls, file):
-        header = _readStruct(file, 0x100, cls.header)
+    def checkImage(cls, image):
+        header = _unpackStruct(image, 0x100, cls.header)
         if header is None:
             return -1000
         else:
             return 1000 if header[1] == cls.logo else -1000
 
     def iterEntryPoints(self):
-        header = _readStruct(self.file, 0x100, self.header)
+        header = _unpackStruct(self.image, 0x100, self.header)
         if header is None:
             raise ValueError('No header')
         entry = header[0]
@@ -93,8 +90,8 @@ class RawMSXROM(BinaryFormat):
     header = Struct('<2sHHHH6s')
 
     @classmethod
-    def checkFile(cls, file):
-        header = _readStruct(file, 0, cls.header)
+    def checkImage(cls, image):
+        header = _unpackStruct(image, 0, cls.header)
         if header is None:
             return -1000
         cartID, init, statement, device, text, reserved = header
@@ -128,22 +125,20 @@ class RawMSXROM(BinaryFormat):
         else:
             score = -1000
 
-        if score > -1000:
-            if _getFileSize(file) % 8192 != 0:
-                score -= 500
+        if image.size() % 8192 != 0:
+            score -= 500
 
         return score
 
     def iterEntryPoints(self):
-        header = _readStruct(self.file, 0, self.header)
+        header = _unpackStruct(self.image, 0, self.header)
         if header is None:
             raise ValueError('No header')
         cartID, init, statement, device, text, reserved = header
 
         # Figure out address at which ROM is mapped into memory.
         if cartID == b'AB':
-            fileSize = _getFileSize(self.file)
-            if fileSize <= 0x4000:
+            if self.image.size() <= 0x4000:
                 baseFreqs = [0] * 4
                 for addr in (init, statement, device, text):
                     if addr != 0:
@@ -197,7 +192,7 @@ def _iterBinaryFormatsForExtension(ext):
         if ext in binfmt.extensions:
             yield binfmt
 
-def _detectBinaryFormats(file, names, extMatches):
+def _detectBinaryFormats(image, names, extMatches):
     logger.debug(
         'Binary format autodetection, extension %s:',
         'matches' if extMatches else 'does not match'
@@ -210,7 +205,7 @@ def _detectBinaryFormats(file, names, extMatches):
     checkResults = []
     for name in names:
         binfmt = _formatsByName[name]
-        likely = min(1000, max(-1000, binfmt.checkFile(file))) + boost
+        likely = min(1000, max(-1000, binfmt.checkImage(image))) + boost
         checkResults.append((likely, name))
         logger.debug('  format "%s": score %d', name, likely)
 
@@ -222,46 +217,36 @@ def _detectBinaryFormats(file, names, extMatches):
         logger.debug('No match')
         return None
 
-def detectBinaryFormat(file):
-    '''Attempts to autodetect the binary format of the given file object.
+def detectBinaryFormat(image, fileName=None):
+    '''Attempts to autodetect the binary format of the given image.
+    If a file name is given, its extension will be used to first test the
+    formats matching that extension, as well as considering those formats
+    to be more likely matches.
     Returns a BinaryFormat instance on success, None on failure.
-    The file object will stay open.
-    The seek position is undefined both before and after.
-    Raises OSError on I/O errors.
     '''
+    names = set(_formatsByName.keys())
 
-    # First try formats for which the file name extension matches.
-    binPath = PurePath(file.name)
-    ext = binPath.suffix.lstrip('.').lower()
-    namesForExt = set(
-        binfmt.name
-        for binfmt in _formatsByName.values()
-        if ext in binfmt.extensions
-        )
-    binfmt = _detectBinaryFormats(file, namesForExt, True)
-    if binfmt is not None:
-        return binfmt
+    if fileName is None:
+        # First try formats for which the file name extension matches.
+        binPath = PurePath(fileName)
+        ext = binPath.suffix.lstrip('.').lower()
+        namesForExt = set(
+            binfmt.name
+            for binfmt in _formatsByName.values()
+            if ext in binfmt.extensions
+            )
+        binfmt = _detectBinaryFormats(image, namesForExt, True)
+        if binfmt is not None:
+            return binfmt
+        names -= namesForExt
 
     # Try other formats.
-    otherNames = set(_formatsByName.keys()) - namesForExt
-    return _detectBinaryFormats(file, otherNames, False)
+    return _detectBinaryFormats(image, names, False)
 
-def _readStruct(file, offset, struct):
-    '''Reads the given struct from the given offset of the given open file.
-    Returns the unpacked data, or None if the file did not contain enough
+def _unpackStruct(image, offset, struct):
+    '''Unpacks the given struct from the given offset of the given image.
+    Returns the unpacked data, or None if the image did not contain enough
     data at the given offset.
     '''
-    file.seek(offset)
-    length = struct.size
-    data = file.read(length)
-    if len(data) == length:
-        return struct.unpack(data)
-    else:
-        return None
-
-def _getFileSize(file):
-    '''Returns the file size of the given open file.
-    Changes the seek position.
-    '''
-    file.seek(0, SEEK_END)
-    return file.tell()
+    end = offset + struct.size
+    return None if end > image.size() else struct.unpack(image[offset:end])
