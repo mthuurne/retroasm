@@ -633,7 +633,7 @@ def _parseModeEntries(
         else:
             context = semBuilder.namespace
             yield ModeEntry(
-                encoding, mnemonic, semBuilder, context, flagsRequired
+                encoding, decoding, mnemonic, semBuilder, context, flagsRequired
                 )
 
 def _checkEncodingWidth(encElems, encWidth, modeName, logger):

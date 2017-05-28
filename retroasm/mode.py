@@ -7,8 +7,12 @@ class ModeEntry:
     '''One row in a mode table.
     '''
 
-    def __init__(self, encoding, mnemonic, semantics, context, flagsRequired):
+    def __init__(
+            self, encoding, decoding, mnemonic, semantics, context,
+            flagsRequired
+            ):
         self.encoding = encoding
+        self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
         self.context = context
