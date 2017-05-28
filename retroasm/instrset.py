@@ -4,9 +4,12 @@ class InstructionSet(ModeTable):
     '''Contains all definitions for a processor's instruction set.
     '''
 
-    def __init__(self):
+    def __init__(self, instructions):
         ModeTable.__init__(self)
         self._instructionNames = []
+
+        for instr in instructions:
+            self.addEntry(instr)
 
     def addEntry(self, entry):
         super().addEntry(entry)

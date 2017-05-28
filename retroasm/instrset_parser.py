@@ -722,8 +722,8 @@ def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
 def parseInstrSet(pathname, wantSemantics=True):
     globalNamespace = GlobalNamespace()
     builder = GlobalCodeBlockBuilder(globalNamespace)
-    instrSet = InstructionSet()
     modes = {}
+    instructions = []
 
     with DefLineReader.open(pathname, logger) as reader:
         for header in reader:
@@ -741,10 +741,9 @@ def parseInstrSet(pathname, wantSemantics=True):
             elif defType == 'mode':
                 _parseMode(reader, builder, modes, wantSemantics)
             elif defType == 'instr':
-                for entry in _parseInstr(
-                        reader, argStr, builder, modes, wantSemantics
-                        ):
-                    instrSet.addEntry(entry)
+                instructions += _parseInstr(
+                    reader, argStr, builder, modes, wantSemantics
+                    )
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
@@ -754,7 +753,7 @@ def parseInstrSet(pathname, wantSemantics=True):
         '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
-    return instrSet if reader.errors == 0 else None
+    return InstructionSet(instructions) if reader.errors == 0 else None
 
 def checkInstrSet(pathname):
     logger.info('checking: %s', pathname)
