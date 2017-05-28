@@ -49,7 +49,9 @@ class ModeTable:
     def addEntry(self, entry):
         assert isinstance(entry, ModeEntry), entry
         self._entries.append(entry)
+        self._updateMnemTree(entry)
 
+    def _updateMnemTree(self, entry):
         # Update match tree for mnemonics.
         mnemonic = entry.mnemonic
         def addMnemonic(node, idx):
@@ -79,23 +81,22 @@ class Mode(ModeTable):
     semanticsType = property(lambda self: self._semType)
     location = property(lambda self: self._location)
 
-    def __init__(self, name, semType, location):
+    def __init__(self, name, encType, semType, location, entries):
         ModeTable.__init__(self)
         self._name = name
+        self._encType = encType
         self._semType = semType
         self._location = location
-        self._encType = None
+        self._entries = entries = tuple(entries)
+
+        for entry in entries:
+            self._updateMnemTree(entry)
 
     def __str__(self):
         return 'mode %s %s' % (self._semType, self._name)
 
     def __iter__(self):
         return iter(self._entries)
-
-    @encodingType.setter
-    def encodingType(self, encType):
-        assert self._encType is None, self._encType
-        self._encType = encType
 
 class Placeholder:
     '''Abstract base class for a mode context element.

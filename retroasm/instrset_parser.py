@@ -635,50 +635,50 @@ _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
 def _parseMode(reader, globalBuilder, modes, wantSemantics):
     # Parse header line.
-    match = _reModeHeader.match(reader.lastline)
+    modeLocation = reader.getLocation()
+    match = _reModeHeader.match(modeLocation.line)
     if not match:
         reader.error('invalid mode header, expected "mode <type> <name>"')
         reader.skipBlock()
         return
     modeTypeStr, modeName = match.groups()
     try:
-        modeType = parseTypeDecl(modeTypeStr)
+        semType = parseTypeDecl(modeTypeStr)
     except ValueError as ex:
         reader.error(
             'bad mode type: %s', ex,
-            location=reader.getLocation(match.span(1))
+            location=modeLocation.updateSpan(match.span(1))
             )
-        modeType = None
+        semType = None
 
-    # Add mode to builder's namespace.
-    mode = Mode(modeName, modeType, reader.getLocation())
+    # Check whether it's safe to add mode to builder's namespace.
+    addMode = False
     if modeName in modes:
         reader.error(
-            'mode "%s" redefined; first definition was on line %d'
-            % (modeName, modes[modeName].location.lineno),
-            location=reader.getLocation(match.span(2))
+            'mode "%s" redefined; first definition was on line %d',
+            modeName, modes[modeName].location.lineno,
+            location=modeLocation.updateSpan(match.span(2))
             )
     else:
         try:
             parseType(modeName)
         except ValueError:
-            modes[modeName] = mode
+            addMode = True
         else:
             reader.error(
                 'mode name "%s" conflicts with type', modeName,
-                location=reader.getLocation(match.span(2))
+                location=modeLocation.updateSpan(match.span(2))
                 )
 
     # Parse entries.
-    for entry in _parseModeEntries(
-            reader, globalBuilder, modes, modeType, (), _parseModeSemantics,
-            wantSemantics
-            ):
-        mode.addEntry(entry)
+    entries = tuple(_parseModeEntries(
+        reader, globalBuilder, modes, semType, (), _parseModeSemantics,
+        wantSemantics
+        ))
 
     # Determine encoding type.
     encTypes = []
-    for entry in mode:
+    for entry in entries:
         encoding = entry.encoding
         if encoding is not None:
             firstRef, firstVal, firstLoc = encoding[0]
@@ -702,7 +702,10 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
                     'mode "%s"', typ, encType, modeName,
                     location=loc
                     )
-    mode.encodingType = encType
+
+    mode = Mode(modeName, encType, semType, modeLocation, entries)
+    if addMode:
+        modes[modeName] = mode
 
 def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
     mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
