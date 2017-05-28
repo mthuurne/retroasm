@@ -172,7 +172,7 @@ instr
 %10010;R            . sub R             . sub_ac(R, 0)      . reg8 R
 %10011;R            . sbc a,R           . sub_ac(R, cf)     . reg8 R
 %11010;%110, N      . sub N             . sub_ac(N, 0)      . u8 N
-$11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
+%11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
 
 # Logical
 

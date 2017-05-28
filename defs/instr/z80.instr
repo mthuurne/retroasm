@@ -288,7 +288,7 @@ instr
 %10010;R            . sub R             . sub_ac(R, 0)      . reg8x R
 %10011;R            . sbc a,R           . sub_ac(R, cf)     . reg8x R
 %11010;%110, N      . sub N             . sub_ac(N, 0)      . u8 N
-$11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
+%11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
 
 # Logical
 
