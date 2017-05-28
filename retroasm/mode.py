@@ -13,6 +13,12 @@ class ModeEntry:
         self.context = context
         self.flagsRequired = frozenset(flagsRequired)
 
+    @property
+    def encodingType(self):
+        '''The type of the first encoding element in this mode entry.
+        '''
+        return self.encoding[0][0].type
+
 class ModeTable:
     '''Abstract base class for mode tables.
     '''
@@ -90,6 +96,11 @@ class Mode(ModeTable):
         self._entries = entries = tuple(entries)
 
         for entry in entries:
+            if entry.encodingType is not encType:
+                raise ValueError(
+                    'Mode with encoding type %s contains entry with encoding '
+                    'type %s' % (encType, entry.encodingType)
+                    )
             self._updateMnemTree(entry)
 
     def __str__(self):

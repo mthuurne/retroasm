@@ -671,18 +671,17 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
                 )
 
     # Parse entries.
-    entries = tuple(_parseModeEntries(
+    entries = list(_parseModeEntries(
         reader, globalBuilder, modes, semType, (), _parseModeSemantics,
         wantSemantics
         ))
 
     # Determine encoding type.
-    encTypes = []
-    for entry in entries:
-        encoding = entry.encoding
-        if encoding is not None:
-            firstRef, firstVal, firstLoc = encoding[0]
-            encTypes.append((firstRef.type, firstLoc))
+    encTypes = tuple(
+        (entry.encodingType, idx)
+        for idx, entry in enumerate(entries)
+        if entry.encoding is not None
+        )
     typeFreqs = defaultdict(int)
     for typ, _ in encTypes:
         typeFreqs[typ] += 1
@@ -695,13 +694,17 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
     else:
         # Multiple types.
         encType, _ = max(typeFreqs.items(), key=lambda item: item[1])
-        for typ, loc in encTypes:
+        badEntryIndices = []
+        for typ, idx in encTypes:
             if typ is not encType:
                 reader.error(
                     'encoding field has type %s, while %s is dominant in '
                     'mode "%s"', typ, encType, modeName,
-                    location=loc
+                    location=entries[idx].encoding[0][2]
                     )
+                badEntryIndices.append(idx)
+        for idx in reversed(badEntryIndices):
+            del entries[idx]
 
     mode = Mode(modeName, encType, semType, modeLocation, entries)
     if addMode:
