@@ -1,5 +1,6 @@
 from .expression import Expression
 from .expression_parser import DeclarationNode, ParseNode
+from .types import IntType, unlimited
 from .utils import checkType
 
 class ModeEntry:
@@ -87,19 +88,21 @@ class Mode(ModeTable):
     semanticsType = property(lambda self: self._semType)
     location = property(lambda self: self._location)
 
-    def __init__(self, name, encType, semType, location, entries):
+    def __init__(self, name, encWidth, semType, location, entries):
         ModeTable.__init__(self)
         self._name = name
-        self._encType = encType
+        self._encType = IntType.u(encWidth)
         self._semType = semType
         self._location = location
         self._entries = entries = tuple(entries)
 
+        if encWidth is unlimited:
+            raise ValueError('Unlimited width is not allowed for encoding')
         for entry in entries:
-            if entry.encodingType is not encType:
+            if entry.encodingType.width != encWidth:
                 raise ValueError(
-                    'Mode with encoding type %s contains entry with encoding '
-                    'type %s' % (encType, entry.encodingType)
+                    'Mode with encoding width %d contains entry with encoding '
+                    'width %d' % (encWidth, entry.encodingType.width)
                     )
             self._updateMnemTree(entry)
 

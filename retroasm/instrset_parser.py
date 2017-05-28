@@ -19,7 +19,7 @@ from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import Immediate, MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
-from .types import IntType, ReferenceType, parseType, parseTypeDecl
+from .types import IntType, ReferenceType, parseType, parseTypeDecl, unlimited
 
 from collections import OrderedDict, defaultdict
 from logging import getLogger
@@ -323,6 +323,11 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 location=ex.location
                 )
             continue
+        if encRef.width is unlimited:
+            reader.error(
+                'unlimited width integers are not allowed in encoding',
+                location=encLoc
+                )
         yield encRef, encValue, encLoc
 
 def _decomposeEncoding(ref, location, reader):
@@ -676,37 +681,37 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
         wantSemantics
         ))
 
-    # Determine encoding type.
-    encTypes = tuple(
-        (entry.encodingType, idx)
+    # Determine encoding width.
+    encWidths = tuple(
+        (entry.encodingType.width, idx)
         for idx, entry in enumerate(entries)
         if entry.encoding is not None
         )
-    typeFreqs = defaultdict(int)
-    for typ, _ in encTypes:
-        typeFreqs[typ] += 1
-    if len(typeFreqs) == 0:
+    widthFreqs = defaultdict(int)
+    for width, _ in encWidths:
+        widthFreqs[width] += 1
+    if len(widthFreqs) == 0:
         # Empty mode or only errors; use dummy type.
-        encType = IntType.u(0)
-    elif len(typeFreqs) == 1:
+        encWidth = 0
+    elif len(widthFreqs) == 1:
         # Single type.
-        encType, = typeFreqs.keys()
+        encWidth, = widthFreqs.keys()
     else:
         # Multiple types.
-        encType, _ = max(typeFreqs.items(), key=lambda item: item[1])
+        encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
         badEntryIndices = []
-        for typ, idx in encTypes:
-            if typ is not encType:
+        for width, idx in encWidths:
+            if width != encWidth:
                 reader.error(
-                    'encoding field has type %s, while %s is dominant in '
-                    'mode "%s"', typ, encType, modeName,
+                    'encoding field is %d bits wide, while %d bits is dominant '
+                    'in mode "%s"', width, encWidth, modeName,
                     location=entries[idx].encoding[0][2]
                     )
                 badEntryIndices.append(idx)
         for idx in reversed(badEntryIndices):
             del entries[idx]
 
-    mode = Mode(modeName, encType, semType, modeLocation, entries)
+    mode = Mode(modeName, encWidth, semType, modeLocation, entries)
     if addMode:
         modes[modeName] = mode
 
