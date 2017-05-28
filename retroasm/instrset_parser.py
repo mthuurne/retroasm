@@ -795,7 +795,10 @@ def parseInstrSet(pathname, wantSemantics=True):
         '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
-    return InstructionSet(instructions) if reader.errors == 0 else None
+    if reader.errors == 0:
+        return InstructionSet(encWidth, instructions)
+    else:
+        return None
 
 def checkInstrSet(pathname):
     logger.info('checking: %s', pathname)

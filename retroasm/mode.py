@@ -24,12 +24,24 @@ class ModeTable:
     '''Abstract base class for mode tables.
     '''
 
-    def __init__(self, entries):
-        self._entries = entries = tuple(entries)
-        self._mnemTree = ({}, [])
+    encodingType = property(lambda self: self._encType)
 
+    def __init__(self, encWidth, entries):
+        if encWidth is unlimited:
+            raise ValueError('Unlimited width is not allowed for encoding')
+        self._encType = IntType.u(encWidth)
+
+        self._entries = entries = tuple(entries)
         for entry in entries:
             assert isinstance(entry, ModeEntry), entry
+            if entry.encodingType.width != encWidth:
+                raise ValueError(
+                    'Mode with encoding width %d contains entry with encoding '
+                    'width %d' % (encWidth, entry.encodingType.width)
+                    )
+
+        self._mnemTree = ({}, [])
+        for entry in entries:
             self._updateMnemTree(entry)
 
     def dumpMnemonicTree(self):
@@ -83,25 +95,14 @@ class Mode(ModeTable):
     '''
 
     name = property(lambda self: self._name)
-    encodingType = property(lambda self: self._encType)
     semanticsType = property(lambda self: self._semType)
     location = property(lambda self: self._location)
 
     def __init__(self, name, encWidth, semType, location, entries):
-        ModeTable.__init__(self, entries)
+        ModeTable.__init__(self, encWidth, entries)
         self._name = name
-        self._encType = IntType.u(encWidth)
         self._semType = semType
         self._location = location
-
-        if encWidth is unlimited:
-            raise ValueError('Unlimited width is not allowed for encoding')
-        for entry in self._entries:
-            if entry.encodingType.width != encWidth:
-                raise ValueError(
-                    'Mode with encoding width %d contains entry with encoding '
-                    'width %d' % (encWidth, entry.encodingType.width)
-                    )
 
     def __str__(self):
         return 'mode %s %s' % (self._semType, self._name)
