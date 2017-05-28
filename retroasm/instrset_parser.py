@@ -636,6 +636,60 @@ def _parseModeEntries(
                 encoding, mnemonic, semBuilder, context, flagsRequired
                 )
 
+def _checkEncodingWidth(encElems, encWidth, modeName, logger):
+    allGood = True
+    where = (
+        'for instructions'
+        if modeName is None else
+        'in mode "%s"' % modeName
+        )
+    for encRef, encValue, encLoc in encElems:
+        if encRef.width != encWidth:
+            logger.error(
+                'encoding field is %d bits wide, while %d bits '
+                'is dominant %s', encRef.width, encWidth, where,
+                location=encLoc
+                )
+            allGood = False
+    return allGood
+
+def _determineEncodingWidth(entries, modeName, logger):
+    '''Returns the common encoding width for the given list of mode entries.
+    Entries with a deviating encoding width will be logged as errors on the
+    given logger and removed from the entries list.
+    If the entries represent instructions, pass None for the mode name.
+    '''
+
+    encWidths = tuple(
+        (entry.encodingType.width, idx)
+        for idx, entry in enumerate(entries)
+        if entry.encoding is not None
+        )
+
+    widthFreqs = defaultdict(int)
+    for width, _ in encWidths:
+        widthFreqs[width] += 1
+
+    if len(widthFreqs) == 0:
+        # Empty mode or only errors; use dummy type.
+        encWidth = 0
+    elif len(widthFreqs) == 1:
+        # Single type.
+        encWidth, = widthFreqs.keys()
+    else:
+        # Multiple widths; use one with the maximum frequency.
+        encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
+        badEntryIndices = []
+        for idx, entry in enumerate(entries):
+            if not _checkEncodingWidth(
+                    entry.encoding[:1], encWidth, modeName, logger
+                    ):
+                badEntryIndices.append(idx)
+        for idx in reversed(badEntryIndices):
+            del entries[idx]
+
+    return encWidth
+
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
 def _parseMode(reader, globalBuilder, modes, wantSemantics):
@@ -681,36 +735,8 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
         wantSemantics
         ))
 
-    # Determine encoding width.
-    encWidths = tuple(
-        (entry.encodingType.width, idx)
-        for idx, entry in enumerate(entries)
-        if entry.encoding is not None
-        )
-    widthFreqs = defaultdict(int)
-    for width, _ in encWidths:
-        widthFreqs[width] += 1
-    if len(widthFreqs) == 0:
-        # Empty mode or only errors; use dummy type.
-        encWidth = 0
-    elif len(widthFreqs) == 1:
-        # Single type.
-        encWidth, = widthFreqs.keys()
-    else:
-        # Multiple types.
-        encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
-        badEntryIndices = []
-        for width, idx in encWidths:
-            if width != encWidth:
-                reader.error(
-                    'encoding field is %d bits wide, while %d bits is dominant '
-                    'in mode "%s"', width, encWidth, modeName,
-                    location=entries[idx].encoding[0][2]
-                    )
-                badEntryIndices.append(idx)
-        for idx in reversed(badEntryIndices):
-            del entries[idx]
-
+    # Create and remember mode object.
+    encWidth = _determineEncodingWidth(entries, modeName, reader)
     mode = Mode(modeName, encWidth, semType, modeLocation, entries)
     if addMode:
         modes[modeName] = mode
@@ -752,6 +778,17 @@ def parseInstrSet(pathname, wantSemantics=True):
             else:
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
+
+        encWidth = _determineEncodingWidth(instructions, None, reader)
+        # Note: Additional encoding elements in modes will be auto-appended
+        #       whole to instructions that use those modes, so they should
+        #       have the same width.
+        for mode in sorted(modes.values(), key=lambda m: m.location.lineno):
+            for entry in mode:
+                _checkEncodingWidth(entry.encoding[1:], encWidth, None, reader)
+        for instr in instructions:
+            _checkEncodingWidth(instr.encoding, encWidth, None, reader)
+
         reader.summarize()
 
     logger.debug('regs: %s', ', '.join(
