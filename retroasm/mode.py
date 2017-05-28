@@ -24,9 +24,13 @@ class ModeTable:
     '''Abstract base class for mode tables.
     '''
 
-    def __init__(self):
-        self._entries = []
+    def __init__(self, entries):
+        self._entries = entries = tuple(entries)
         self._mnemTree = ({}, [])
+
+        for entry in entries:
+            assert isinstance(entry, ModeEntry), entry
+            self._updateMnemTree(entry)
 
     def dumpMnemonicTree(self):
         def matchKey(match):
@@ -52,11 +56,6 @@ class ModeTable:
                 print('%s+ %s' % (indent, match))
                 dumpNode(node[0][match], ' ' * len(indent) + '`---')
         dumpNode(self._mnemTree, '')
-
-    def addEntry(self, entry):
-        assert isinstance(entry, ModeEntry), entry
-        self._entries.append(entry)
-        self._updateMnemTree(entry)
 
     def _updateMnemTree(self, entry):
         # Update match tree for mnemonics.
@@ -89,22 +88,20 @@ class Mode(ModeTable):
     location = property(lambda self: self._location)
 
     def __init__(self, name, encWidth, semType, location, entries):
-        ModeTable.__init__(self)
+        ModeTable.__init__(self, entries)
         self._name = name
         self._encType = IntType.u(encWidth)
         self._semType = semType
         self._location = location
-        self._entries = entries = tuple(entries)
 
         if encWidth is unlimited:
             raise ValueError('Unlimited width is not allowed for encoding')
-        for entry in entries:
+        for entry in self._entries:
             if entry.encodingType.width != encWidth:
                 raise ValueError(
                     'Mode with encoding width %d contains entry with encoding '
                     'width %d' % (encWidth, entry.encodingType.width)
                     )
-            self._updateMnemTree(entry)
 
     def __str__(self):
         return 'mode %s %s' % (self._semType, self._name)

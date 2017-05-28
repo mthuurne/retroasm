@@ -5,18 +5,13 @@ class InstructionSet(ModeTable):
     '''
 
     def __init__(self, instructions):
-        ModeTable.__init__(self)
-        self._instructionNames = []
+        ModeTable.__init__(self, instructions)
+        self._instructionNames = instructionNames = []
 
-        for instr in instructions:
-            self.addEntry(instr)
-
-    def addEntry(self, entry):
-        super().addEntry(entry)
-
-        instrName = entry.mnemonic[0]
-        if isinstance(instrName, str):
-            self._instructionNames.append(instrName)
+        for instr in self._entries:
+            instrName = instr.mnemonic[0]
+            if isinstance(instrName, str):
+                instructionNames.append(instrName)
 
     def iterInstructionNames(self):
         return iter(self._instructionNames)
