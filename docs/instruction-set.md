@@ -1,21 +1,25 @@
 Instruction Set Definition
 ==========================
 
-An instruction set definition in RetroAsm describes the following aspects of a processor's instruction set:
+Instructions are the basic units that a processor can execute. An instruction consist of an operation, such as load or add, and zero or more operands that specify what data to operate on, such as registers or memory locations.
 
-mnemonics
-:	A textual representation of an instruction and its operands, as used in assembly language.
+An instruction set definition in RetroAsm describes the following aspects of each instruction:
 
-opcodes
-:	A binary representation of an instruction and its operands, used by the processor when executing instructions from memory.
+mnemonic
+:	A textual representation of the operation and its operands, as used in assembly language.
+
+encoding
+:	A binary representation of the operation and its operands, as used by the processor when executing instructions from memory.
 
 semantics
-:	A formal description of the operation that an instruction performs. This can be used for analyzing code and generating interpreters.
+:	A formal description of the operation that an instruction performs.
+
+Mnemonics and encoding are handled by many traditional tools that deal with machine language: an assembler translates a mnemonic version of a program to an encoded version, while a disassembler translates an encoded version to a mnemonic version. The addition of semantics allows other types of processing of machine language programs, such as static code analysis and the automatic generation of interpreters.
 
 Execution timing is currently not modeled. If this were added in the future, it would probably belong in a separate definition, since execution timing can vary a lot between different processors using the same instruction set. Also, for accurate timing we would have to model a system, not just a processor.
 
-Mnemonics
----------
+Mnemonic
+--------
 
 The mnemonic notation of an instruction consists of an operation and zero or more operands, which are separated by commas. For example `ADD A,5` consists of the operation `ADD` and two operands: `A` and `5`, while `NOP` is a dummy operation with zero operands.
 
@@ -29,14 +33,14 @@ An instruction can also have implicit operands, which are values it operates on 
 
 Implicit operands do not appear in the mnemonic notation of an instruction, but do appear in the semantical description. We mention their existence here to demonstrate that the operand list does not always contain all information about which state is inspected and/or modified by an instruction.
 
-Opcodes
--------
+Encoding
+--------
 
-The opcode notation of an instruction consists of a series of bits. For some instruction sets, all instructions will have the same width (number of bits), for others the number of bits per instruction is variable.
+The encoding of an instruction consists of the bits that identify the operation to perform (the opcode) and the encodings of the operands. Some instruction sets have a fixed instruction width, for example all MIPS instructions are encoded in 32 bits, while other instruction sets have variable instruction width, for example instructions for the 6502 are encoded in one to three bytes each.
 
-Currently RetroAsm represents opcodes as a sequence of one or more bytes. This could be expanded in the future to allow for example 32-bit opcodes to be expressed as a single value instead of 4 separate bytes.
+RetroAsm allows instruction encodings to include multiple items, but requires all items to have the same width. So for example an instruction set that has some instructions encoded in one 16-bit code and other instructions in two 16-bit codes is supported, while an instruction set that encodes an instruction as a 16-bit code followed by an 8-bit code is not supported.
 
-An opcode consists of literal bits and encodings of the operands. The operand encoding is usually the same for many instructions, so it has its own definition which is referenced from the instruction definition. For example most Z80 instructions with 8-bit operands use the same 3-bit encoding which can encode the 7 main 8-bit registers and the `(HL)` operand.
+Because operand encodings are usually the same for many instructions, they can be defined once and then referenced from the instruction definitions. For example most Z80 instructions with 8-bit operands use the same 3-bit encoding which can encode the 7 main 8-bit registers and the `(HL)` operand.
 
 Semantics
 ---------
@@ -315,13 +319,13 @@ Modes define patterns for specifying the operands of instructions. This includes
 A mode definition uses the syntax below:
 
     mode <type> <name>
-    <opcode> . <mnemonic> . <semantics> . <context>
+    <encoding> . <mnemonic> . <semantics> . <context>
 
 The type in the header is the type for expressions the semantics field. For modes defining register sets and addressing modes this will be a reference type, such as `u8&` for 8-bit registers and I/O, while for modes defining immediates or conditions this will be a value type, such as `u16` for 16-bit immediates and `u1` (Boolean) for conditions.
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
 
-The opcode field contains the literals used to encode the operand in instruction opcodes. This is typically not a full instruction opcode, but only the bits that encode for example the register to operate on. If the opcode field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
+The encoding field contains the literals used to encode the operand in instructions. This is typically not a full instruction, but only the bits that for example select the register to operate on. If the encoding field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
 
 The mnemonic field contains the syntax used in assembly language. It is split into words and symbols. Whitespace can be used to separate words and is otherwise ignored. Words consist of one or more letters, numbers and underscores. All characters that are not whitespace and not allowed in words are considered symbols, which each such character being an individual symbol. For example `ld (hl),R` is split into the word `"ld"`, the symbol `'('`, the word `"hl"`, the symbol `')'`, the symbol `','` and the word `"R"`.
 
@@ -408,7 +412,7 @@ Instructions
 An instruction definition uses the syntax below:
 
     instr <mnemonic base>
-    <opcode> . <mnemonic> . <semantics> . <context>
+    <encoding> . <mnemonic> . <semantics> . <context>
 
 There can be as many dot-separated lines as necessary, creating a 4-column table, just like mode definitions. Also like mode definitions, different forms of an instruction can be defined in separate `instr` blocks.
 
