@@ -704,7 +704,7 @@ $C9                 .               . return()
 instr
 $ED, $45            . retn          . ret_int()
 $ED, $4D            . reti          . ret_int()
-%00;N;%000          . rst A         . call(A)               . u3 N, u8 A = %00;N;%000
+%11;N;%111          . rst A         . call(A)               . u3 N, u8 A = %00;N;%000
 
 
 ### Input and Output (8.11)
