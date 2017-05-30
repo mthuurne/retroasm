@@ -325,6 +325,8 @@ The type in the header is the type for expressions the semantics field. For mode
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
 
+### Encoding, Mnemonic, Semantics
+
 The encoding field contains the literals used to encode the operand in instructions. This is typically not a full instruction, but only the bits that for example select the register to operate on. If the encoding field is empty, it is interpreted as the zero-width bit string (value of type `u0`).
 
 The mnemonic field contains the syntax used in assembly language. It is split into words and symbols. Whitespace can be used to separate words and is otherwise ignored. Words consist of one or more letters, numbers and underscores. All characters that are not whitespace and not allowed in words are considered symbols, which each such character being an individual symbol. For example `ld (hl),R` is split into the word `"ld"`, the symbol `'('`, the word `"hl"`, the symbol `')'`, the symbol `','` and the word `"R"`.
@@ -340,13 +342,20 @@ The optional context field will be explained soon, but first an example using on
     %011    . e
     %100    . h
     %101    . l
-    %110    . (hl)    . mem[hl]
+    %110    . (hl)      . mem[hl]
     %111    . a
 
-The simplest use of the context field is to define immediate values, using the syntax `<type> <name>`. For example, this mode defines a 16-bit immediate that is encoded in little endian byte order:
+### Context: Placeholders
 
-    mode u16 imm16
-    N[:8], N[8:]    . N     . N     . u16 N
+The simplest use of the context field is to define immediate values, using the syntax `<type> <name>`. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
+
+    mode u8 immediate
+    N       . \#N       . N         . u8 N
+
+    mode u8& zeropage
+    A       . A         . mem[A]    . u8 A
+
+The names `N` and `A` that are declared in the context are used in the other fields; these uses are called placeholders. A placeholder represents a value that will substituted at a later time. In the examples above, that value will be an 8-bit unsigned integer.
 
 It is possible to include a mode defined earlier as part of a new mode, using the syntax `<mode> <name>` in the context field:
 
@@ -389,7 +398,35 @@ The context field can contain multiple items, separated by commas. It is possibl
 
 A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
 
-Finally, the context field can be used to filter on instruction decode flags, using the syntax `?<name>`. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the `reg8` mode from the earlier example:
+In instruction sets with variable instruction lengths, some mode entries can have more than one encoding item. A placeholder in the encoding field represents the first encoding item of the matched mode entry. Any unclaimed additional encoding elements are included by adding `@` as a suffix to the placeholder. The following theoretical example shows various ways of including encoding elements from one mode into another:
+
+    mode u16 imm16
+    N[:8], N[8:]    . N         . N             . u16 N
+
+    mode u16 base
+    %00             . x
+    %01             . y
+    %10, A          . A         . A             . u8 A
+    %11, A@         . A         . A             . imm16 A
+
+    mode u8 offset
+    %00             . a
+    %01             . b
+    %10             . c
+    %11, N          . N         . N             . u8 N
+
+    mode u8& relative
+    B;D, B@, D@     . (B + D)   . mem[B + D]    . base B, offset D
+
+The mode `imm16` defines a 16-bit immediate that is encoded in little endian byte order (lower 8 bits first). It is used in the fourth entry of mode `base`, where the placeholder `A@` includes both bytes from the encoding field of `imm16`: both were unclaimed, since this entry only has `A@` in it, not `A` by itself.
+
+The mode `relative` defines relative addressing using a 16-bit base addresses defined in the `base` mode and an 8-bit offset defined in the `offset` mode. In the encoding field, `B` matches the first encoding element of `base`, which is a 2-bit pattern that selects which register or immediate to use. Since `B` claimed the first encoding element, `B@` here includes only elements after the first, which is none for the `x` and `y` register options, one byte for the 8-bit address (zero page) option and two bytes for the 16-bit address (absolute) option.
+
+Similarly, `D` in the encoding of mode `relative` matches the 2-bit pattern that selects the offset to use. `D@` is empty when the offset is one of the 8-bit registers `a`, `b` or `c`, while it contains the 8-bit immediate offset if the fourth entry in the `offset` mode is matched.
+
+### Context: Decode Flags
+
+A final use of the context field is to filter on instruction decode flags, using the syntax `?<name>`. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the `reg8` mode from the earlier example:
 
     %100    . h
     %100    . ixh       .               . ?ix
