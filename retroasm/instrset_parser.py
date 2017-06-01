@@ -16,7 +16,9 @@ from .expression_parser import (
 from .function_builder import createFunc
 from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
-from .mode import Immediate, MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
+from .mode import (
+    EncodingExpr, Immediate, MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
+    )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
 from .types import IntType, ReferenceType, parseType, parseTypeDecl, unlimited
@@ -328,7 +330,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 'unlimited width integers are not allowed in encoding',
                 location=encLoc
                 )
-        yield encRef, encValue, encLoc
+        yield EncodingExpr(encRef, encValue, encLoc)
 
 def _decomposeEncoding(ref, location, reader):
     if isinstance(ref, FixedValue):
@@ -389,9 +391,9 @@ def _parseModeDecoding(encoding, encBuilder, reader):
     decodeMap = defaultdict(list)
     try:
         with reader.checkErrors():
-            for encIdx, (encRef, _, encLoc) in enumerate(encoding):
+            for encIdx, encElem in enumerate(encoding):
                 for name, immIdx, refIdx, width in _decomposeEncoding(
-                        encRef, encLoc, reader
+                        encElem.ref, encElem.location, reader
                         ):
                     decodeMap[name].append((immIdx, encIdx, refIdx, width))
     except DelayedError:
@@ -643,12 +645,12 @@ def _checkEncodingWidth(encElems, encWidth, modeName, logger):
         if modeName is None else
         'in mode "%s"' % modeName
         )
-    for encRef, encValue, encLoc in encElems:
-        if encRef.width != encWidth:
+    for encElem in encElems:
+        if encElem.width != encWidth:
             logger.error(
                 'encoding field is %d bits wide, while %d bits '
-                'is dominant %s', encRef.width, encWidth, where,
-                location=encLoc
+                'is dominant %s', encElem.width, encWidth, where,
+                location=encElem.location
                 )
             allGood = False
     return allGood

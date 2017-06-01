@@ -3,6 +3,22 @@ from .expression_parser import DeclarationNode, ParseNode
 from .types import unlimited
 from .utils import checkType
 
+class EncodingExpr:
+    '''A single element in an encoding sequence that is specified using an
+    expression.
+    '''
+
+    ref = property(lambda self: self._ref)
+    value = property(lambda self: self._value)
+    location = property(lambda self: self._location)
+
+    width = property(lambda self: self._ref.width)
+
+    def __init__(self, ref, value, location):
+        self._ref = ref
+        self._value = value
+        self._location = location
+
 class ModeEntry:
     '''One row in a mode table.
     '''
@@ -11,18 +27,21 @@ class ModeEntry:
             self, encoding, decoding, mnemonic, semantics, context,
             flagsRequired
             ):
-        self.encoding = encoding
+        self.encoding = encoding = tuple(encoding)
         self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
         self.context = context
         self.flagsRequired = frozenset(flagsRequired)
 
+        for encElem in encoding:
+            checkType(encElem, EncodingExpr, 'encoding element')
+
     @property
     def encodingWidth(self):
         '''The width in bits of the first encoding element in this mode entry.
         '''
-        return self.encoding[0][0].width
+        return self.encoding[0].width
 
 class ModeTable:
     '''Abstract base class for mode tables.
