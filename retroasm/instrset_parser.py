@@ -297,7 +297,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
     encErrors = {}
     for name, placeholder in placeholders.items():
         try:
-            encType = placeholder.encodingType
+            encType = IntType.u(placeholder.encodingWidth)
             _buildPlaceholder(placeholder, encType, encBuilder)
         except BadInput as ex:
             encErrors[name] = ex
@@ -661,7 +661,7 @@ def _determineEncodingWidth(entries, modeName, logger):
     '''
 
     encWidths = tuple(
-        (entry.encodingType.width, idx)
+        (entry.encodingWidth, idx)
         for idx, entry in enumerate(entries)
         if entry.encoding is not None
         )

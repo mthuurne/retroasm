@@ -1,6 +1,6 @@
 from .expression import Expression
 from .expression_parser import DeclarationNode, ParseNode
-from .types import IntType, unlimited
+from .types import unlimited
 from .utils import checkType
 
 class ModeEntry:
@@ -19,29 +19,29 @@ class ModeEntry:
         self.flagsRequired = frozenset(flagsRequired)
 
     @property
-    def encodingType(self):
-        '''The type of the first encoding element in this mode entry.
+    def encodingWidth(self):
+        '''The width in bits of the first encoding element in this mode entry.
         '''
-        return self.encoding[0][0].type
+        return self.encoding[0][0].width
 
 class ModeTable:
     '''Abstract base class for mode tables.
     '''
 
-    encodingType = property(lambda self: self._encType)
+    encodingWidth = property(lambda self: self._encWidth)
 
     def __init__(self, encWidth, entries):
         if encWidth is unlimited:
             raise ValueError('Unlimited width is not allowed for encoding')
-        self._encType = IntType.u(encWidth)
+        self._encWidth = encWidth
 
         self._entries = entries = tuple(entries)
         for entry in entries:
             assert isinstance(entry, ModeEntry), entry
-            if entry.encodingType.width != encWidth:
+            if entry.encodingWidth != encWidth:
                 raise ValueError(
                     'Mode with encoding width %d contains entry with encoding '
-                    'width %d' % (encWidth, entry.encodingType.width)
+                    'width %d' % (encWidth, entry.encodingWidth)
                     )
 
         self._mnemTree = ({}, [])
@@ -121,7 +121,7 @@ class Placeholder:
     decl = property(lambda self: self._decl)
     name = property(lambda self: self._decl.name.name)
 
-    encodingType = property()
+    encodingWidth = property()
     semanticsType = property()
     value = property()
 
@@ -133,7 +133,7 @@ class ValuePlaceholder(Placeholder):
     The value will be a ParseNode, or None if no value was given in the context.
     '''
 
-    encodingType = property(lambda self: self._type)
+    encodingWidth = property(lambda self: self._type.width)
     semanticsType = property(lambda self: self._type)
     value = property(lambda self: self._value)
 
@@ -157,7 +157,7 @@ class MatchPlaceholder(Placeholder):
     in a different mode table.
     '''
 
-    encodingType = property(lambda self: self._mode.encodingType)
+    encodingWidth = property(lambda self: self._mode.encodingWidth)
     semanticsType = property(lambda self: self._mode.semanticsType)
     value = property(lambda self: None)
 
