@@ -588,7 +588,7 @@ def _parseModeEntries(
                             )
                         encNodes = None
                 else:
-                    encNodes = (NumberNode(0, 0, encLoc), )
+                    encNodes = ()
                 if encNodes is None:
                     encoding = None
                 else:

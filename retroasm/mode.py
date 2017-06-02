@@ -41,7 +41,8 @@ class ModeEntry:
     def encodingWidth(self):
         '''The width in bits of the first encoding element in this mode entry.
         '''
-        return self.encoding[0].width
+        encoding = self.encoding
+        return 0 if len(encoding) == 0 else encoding[0].width
 
 class ModeTable:
     '''Abstract base class for mode tables.
