@@ -36,6 +36,12 @@ class ModeEntry:
 
         for encElem in encoding:
             checkType(encElem, EncodingExpr, 'encoding element')
+        auxWidth = self.auxEncodingWidth
+        if auxWidth is not None:
+            if any(encElem.width != auxWidth for encElem in encoding[1:]):
+                raise ValueError(
+                    'Inconsistent widths among auxiliary encoding elements'
+                    )
 
     @property
     def encodingWidth(self):
@@ -44,6 +50,14 @@ class ModeEntry:
         '''
         encoding = self.encoding
         return None if len(encoding) == 0 else encoding[0].width
+
+    @property
+    def auxEncodingWidth(self):
+        '''The width in bits of the non-first encoding elements in this mode
+        entry, or None if there is no or one encoding element.
+        '''
+        encoding = self.encoding
+        return None if len(encoding) < 2 else encoding[1].width
 
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %d' % width

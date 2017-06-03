@@ -307,8 +307,10 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 encErrors[name] = ex
 
     # Evaluate encoding field.
-    for encNode in encNodes:
+    auxWidth = None
+    for encIdx, encNode in enumerate(encNodes):
         encLoc = encNode.treeLocation
+
         try:
             encRef = buildReference(encNode, encBuilder)
         except BadInput as ex:
@@ -329,6 +331,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 location=ex.location
                 )
             continue
+
         try:
             encValue = encRef.emitLoad(encLoc)
         except BadInput as ex:
@@ -337,11 +340,24 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 location=ex.location
                 )
             continue
-        if encRef.width is unlimited:
+
+        encWidth = encRef.width
+        if encWidth is unlimited:
             reader.error(
                 'unlimited width integers are not allowed in encoding',
                 location=encLoc
                 )
+        elif encIdx > 0:
+            if auxWidth is None:
+                auxWidth = encWidth
+            elif encWidth != auxWidth:
+                reader.error(
+                    'auxiliary encoding item has width %d, while first '
+                    'auxiliary item has width %d',
+                    encWidth, auxWidth,
+                    location=encLoc
+                    )
+
         yield EncodingExpr(encRef, encValue, encLoc)
 
 def _decomposeEncoding(ref, location, reader):
@@ -794,14 +810,15 @@ def parseInstrSet(pathname, wantSemantics=True):
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, None, reader)
-        # Note: Additional encoding elements in modes will be auto-appended
-        #       whole to instructions that use those modes, so they should
-        #       have the same width.
-        for mode in sorted(modes.values(), key=lambda m: m.location.lineno):
-            for entry in mode:
-                _checkEncodingWidth(entry.encoding[1:], encWidth, None, reader)
         for instr in instructions:
-            _checkEncodingWidth(instr.encoding, encWidth, None, reader)
+            auxWidth = instr.auxEncodingWidth
+            if auxWidth is not None and auxWidth != encWidth:
+                reader.error(
+                    'invalid instruction encoding: auxiliary encoding items '
+                    'are %d bits wide, while first item is %d bits wide',
+                    auxWidth, encWidth,
+                    location=instr.encoding[1].location
+                    )
 
         reader.summarize()
 
