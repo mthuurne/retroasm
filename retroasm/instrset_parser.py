@@ -662,15 +662,10 @@ def _determineEncodingWidth(entries, modeName, logger):
     If the entries represent instructions, pass None for the mode name.
     '''
 
-    encWidths = tuple(
-        (entry.encodingWidth, idx)
-        for idx, entry in enumerate(entries)
-        if entry.encoding is not None
-        )
-
     widthFreqs = defaultdict(int)
-    for width, _ in encWidths:
-        widthFreqs[width] += 1
+    for entry in entries:
+        if entry.encoding is not None:
+            widthFreqs[entry.encodingWidth] += 1
 
     if len(widthFreqs) == 0:
         # Empty mode or only errors; use dummy type.
