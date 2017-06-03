@@ -39,10 +39,14 @@ class ModeEntry:
 
     @property
     def encodingWidth(self):
-        '''The width in bits of the first encoding element in this mode entry.
+        '''The width in bits of the first encoding element in this mode entry,
+        or None if this entry contains an empty encoding sequence.
         '''
         encoding = self.encoding
-        return 0 if len(encoding) == 0 else encoding[0].width
+        return None if len(encoding) == 0 else encoding[0].width
+
+def _formatEncodingWidth(width):
+    return 'empty encoding' if width is None else 'encoding width %d' % width
 
 class ModeTable:
     '''Abstract base class for mode tables.
@@ -60,8 +64,10 @@ class ModeTable:
             assert isinstance(entry, ModeEntry), entry
             if entry.encodingWidth != encWidth:
                 raise ValueError(
-                    'Mode with encoding width %d contains entry with encoding '
-                    'width %d' % (encWidth, entry.encodingWidth)
+                    'Mode with %s contains entry with %s' % (
+                        _formatEncodingWidth(encWidth),
+                        _formatEncodingWidth(entry.encodingWidth)
+                        )
                     )
 
         self._mnemTree = ({}, [])

@@ -298,11 +298,13 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
     # from a register.
     encErrors = {}
     for name, placeholder in placeholders.items():
-        try:
-            encType = IntType.u(placeholder.encodingWidth)
-            _buildPlaceholder(placeholder, encType, encBuilder)
-        except BadInput as ex:
-            encErrors[name] = ex
+        encWidth = placeholder.encodingWidth
+        if encWidth is not None:
+            encType = IntType.u(encWidth)
+            try:
+                _buildPlaceholder(placeholder, encType, encBuilder)
+            except BadInput as ex:
+                encErrors[name] = ex
 
     # Evaluate encoding field.
     for encNode in encNodes:
@@ -311,6 +313,16 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
             encRef = buildReference(encNode, encBuilder)
         except BadInput as ex:
             if isinstance(ex, UnknownNameError):
+                placeholder = placeholders.get(ex.name)
+                if placeholder is not None \
+                        and placeholder.encodingWidth is None:
+                    reader.error(
+                        'cannot use placeholder "%s" in encoding field, '
+                        'since mode "%s" has an empty encoding sequence',
+                        ex.name, placeholder.mode.name,
+                        location=ex.location
+                        )
+                    continue
                 ex = encErrors.get(ex.name, ex)
             reader.error(
                 'error in encoding: %s', ex,
@@ -638,6 +650,9 @@ def _parseModeEntries(
                 encoding, decoding, mnemonic, semBuilder, context, flagsRequired
                 )
 
+def _formatEncodingWidth(width):
+    return 'empty' if width is None else '%d bits wide' % width
+
 def _checkEncodingWidth(encElems, encWidth, modeName, logger):
     allGood = True
     where = (
@@ -648,8 +663,10 @@ def _checkEncodingWidth(encElems, encWidth, modeName, logger):
     for encElem in encElems:
         if encElem.width != encWidth:
             logger.error(
-                'encoding field is %d bits wide, while %d bits '
-                'is dominant %s', encElem.width, encWidth, where,
+                'encoding field is %s, while %s is dominant %s',
+                _formatEncodingWidth(encElem.width),
+                _formatEncodingWidth(encWidth),
+                where,
                 location=encElem.location
                 )
             allGood = False
