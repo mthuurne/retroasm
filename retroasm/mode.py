@@ -25,7 +25,7 @@ class ModeEntry:
 
     def __init__(
             self, encoding, decoding, mnemonic, semantics, context,
-            flagsRequired
+            flagsRequired, location
             ):
         self.encoding = encoding = tuple(encoding)
         self.decoding = decoding
@@ -33,6 +33,7 @@ class ModeEntry:
         self.semantics = semantics
         self.context = context
         self.flagsRequired = frozenset(flagsRequired)
+        self.location = location
 
         for encElem in encoding:
             checkType(encElem, EncodingExpr, 'encoding element')
@@ -50,6 +51,16 @@ class ModeEntry:
         '''
         encoding = self.encoding
         return None if len(encoding) == 0 else encoding[0].width
+
+    @property
+    def encodingLocation(self):
+        '''The InputLocation of the first encoding element in this mode entry.
+        '''
+        encoding = self.encoding
+        if len(encoding) == 0:
+            return self.location.updateSpan((0, 1))
+        else:
+            return encoding[0].location
 
     @property
     def auxEncodingWidth(self):

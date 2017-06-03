@@ -663,30 +663,12 @@ def _parseModeEntries(
         else:
             context = semBuilder.namespace
             yield ModeEntry(
-                encoding, decoding, mnemonic, semBuilder, context, flagsRequired
+                encoding, decoding, mnemonic, semBuilder, context,
+                flagsRequired, reader.getLocation()
                 )
 
 def _formatEncodingWidth(width):
     return 'empty' if width is None else '%d bits wide' % width
-
-def _checkEncodingWidth(encElems, encWidth, modeName, logger):
-    allGood = True
-    where = (
-        'for instructions'
-        if modeName is None else
-        'in mode "%s"' % modeName
-        )
-    for encElem in encElems:
-        if encElem.width != encWidth:
-            logger.error(
-                'encoding field is %s, while %s is dominant %s',
-                _formatEncodingWidth(encElem.width),
-                _formatEncodingWidth(encWidth),
-                where,
-                location=encElem.location
-                )
-            allGood = False
-    return allGood
 
 def _determineEncodingWidth(entries, modeName, logger):
     '''Returns the common encoding width for the given list of mode entries.
@@ -711,9 +693,15 @@ def _determineEncodingWidth(entries, modeName, logger):
         encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
         badEntryIndices = []
         for idx, entry in enumerate(entries):
-            if not _checkEncodingWidth(
-                    entry.encoding[:1], encWidth, modeName, logger
-                    ):
+            if entry.encodingWidth != encWidth:
+                logger.error(
+                    'encoding field is %s, while %s is dominant %s',
+                    _formatEncodingWidth(entry.encodingWidth),
+                    _formatEncodingWidth(encWidth),
+                    ('for instructions' if modeName is None else
+                        'in mode "%s"' % modeName),
+                    location=entry.encodingLocation
+                    )
                 badEntryIndices.append(idx)
         for idx in reversed(badEntryIndices):
             del entries[idx]
