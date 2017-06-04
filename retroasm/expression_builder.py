@@ -7,8 +7,8 @@ from .expression import (
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
-    DefinitionNode, EmptyNode, IdentifierNode, LabelNode, NumberNode, Operator,
-    OperatorNode
+    DefinitionNode, EmptyNode, IdentifierNode, LabelNode, MultiMatchNode,
+    NumberNode, Operator, OperatorNode
     )
 from .function import Function
 from .linereader import BadInput
@@ -271,6 +271,11 @@ def buildExpression(node, builder):
             'definition must be only statement on a line',
             node.treeLocation
             )
+    elif isinstance(node, MultiMatchNode):
+        raise BadExpression(
+            'multi-match can only be used as a standalone encoding item',
+            node.treeLocation
+            )
     else:
         assert False, node
 
@@ -376,6 +381,11 @@ def buildReference(node, builder):
                 )
         else:
             return ident
+    elif isinstance(node, MultiMatchNode):
+        raise BadExpression(
+            'multi-match can only be used as a standalone encoding item',
+            node.treeLocation
+            )
     elif isinstance(node, OperatorNode):
         return _convertReferenceOperator(node, builder)
     else:

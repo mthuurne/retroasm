@@ -20,6 +20,22 @@ class EncodingExpr:
         self._value = value
         self._location = location
 
+class EncodingMultiMatch:
+    '''A segment in an encoding sequence of zero or more elements, that will
+    be filled in by a matched entry from an included mode.
+    '''
+
+    mode = property(lambda self: self._mode)
+    start = property(lambda self: self._start)
+    location = property(lambda self: self._location)
+
+    width = property(lambda self: self._mode.auxEncodingWidth)
+
+    def __init__(self, mode, start, location):
+        self._mode = mode
+        self._start = start
+        self._location = location
+
 class ModeEntry:
     '''One row in a mode table.
     '''

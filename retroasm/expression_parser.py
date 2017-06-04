@@ -10,8 +10,8 @@ class ParseError(BadInput):
 
 Token = Enum('Token', ( # pylint: disable=invalid-name
     'keyword', 'identifier', 'label', 'flagtest', 'number', 'operator',
-    'bracket', 'assignment', 'definition', 'separator', 'whitespace', 'other',
-    'end'
+    'bracket', 'assignment', 'definition', 'separator', 'whitespace',
+    'multimatch', 'other', 'end'
     ))
 
 class ExpressionTokenizer:
@@ -20,6 +20,7 @@ class ExpressionTokenizer:
         '(?P<%s>%s)' % (token.name, regex) for token, regex in (
             # pylint: disable=bad-whitespace
             (Token.keyword,     r'var|def|branch|nop'),
+            (Token.multimatch,  r"[A-Za-z_][A-Za-z0-9_]*@"),
             (Token.identifier,  r"[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.label,       r"@[A-Za-z_][A-Za-z0-9_]*'?"),
             (Token.flagtest,    r"\?[A-Za-z_][A-Za-z0-9_]*'?"),
@@ -178,6 +179,13 @@ class OperatorNode(ParseNode):
         return baseLocation.updateSpan((treeStart, treeEnd))
 
 class IdentifierNode(ParseNode):
+    __slots__ = ('name',)
+
+    def __init__(self, name, location):
+        ParseNode.__init__(self, location)
+        self.name = name
+
+class MultiMatchNode(ParseNode):
     __slots__ = ('name',)
 
     def __init__(self, name, location):
@@ -463,6 +471,13 @@ def _parse(exprStr, location, mode):
             return ident
         elif token.kind is Token.number:
             return parseNumber()
+        elif token.kind is Token.multimatch:
+            assert token.value[-1] == '@', token
+            name = token.value[:-1]
+            location = token.location
+            if not token.eat(Token.multimatch):
+                assert False, token
+            return MultiMatchNode(name, location)
         else:
             raise badTokenKind(
                 'innermost', 'identifier, number or function call'

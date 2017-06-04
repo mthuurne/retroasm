@@ -10,14 +10,15 @@ from .expression_builder import (
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
-    FlagTestNode, IdentifierNode, LabelNode, NumberNode, parseContext,
-    parseExpr, parseExprList, parseInt, parseStatement
+    FlagTestNode, IdentifierNode, LabelNode, MultiMatchNode, NumberNode,
+    parseContext, parseExpr, parseExprList, parseInt, parseStatement
     )
 from .function_builder import createFunc
 from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
-    EncodingExpr, Immediate, MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
+    EncodingExpr, EncodingMultiMatch, Immediate, MatchPlaceholder, Mode,
+    ModeEntry, ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
@@ -307,58 +308,94 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 encErrors[name] = ex
 
     # Evaluate encoding field.
+    multiMatches = set()
     auxWidth = None
     for encIdx, encNode in enumerate(encNodes):
         encLoc = encNode.treeLocation
-
-        try:
-            encRef = buildReference(encNode, encBuilder)
-        except BadInput as ex:
-            if isinstance(ex, UnknownNameError):
-                placeholder = placeholders.get(ex.name)
-                if placeholder is not None \
-                        and placeholder.encodingWidth is None:
-                    reader.error(
-                        'cannot use placeholder "%s" in encoding field, '
-                        'since mode "%s" has an empty encoding sequence',
-                        ex.name, placeholder.mode.name,
-                        location=ex.location
-                        )
-                    continue
-                ex = encErrors.get(ex.name, ex)
-            reader.error(
-                'error in encoding: %s', ex,
-                location=ex.location
-                )
-            continue
-
-        try:
-            encValue = encRef.emitLoad(encLoc)
-        except BadInput as ex:
-            reader.error(
-                'error evaluating encoding: %s', ex,
-                location=ex.location
-                )
-            continue
-
-        encWidth = encRef.width
-        if encWidth is unlimited:
-            reader.error(
-                'unlimited width integers are not allowed in encoding',
-                location=encLoc
-                )
-        elif encIdx > 0:
-            if auxWidth is None:
-                auxWidth = encWidth
-            elif encWidth != auxWidth:
+        if isinstance(encNode, MultiMatchNode):
+            # Match multiple encoding fields as-is.
+            name = encNode.name
+            try:
+                placeholder = placeholders[name]
+            except KeyError:
                 reader.error(
-                    'auxiliary encoding item has width %d, while first '
-                    'auxiliary item has width %d',
-                    encWidth, auxWidth,
+                    'placeholder "%s" does not exist in context', name,
                     location=encLoc
                     )
+                continue
+            if not isinstance(placeholder, MatchPlaceholder):
+                reader.error(
+                    'placeholder "%s" does not represent a mode match', name,
+                    location=encLoc
+                    )
+                continue
+            mode = placeholder.mode
+            if name in multiMatches:
+                reader.error(
+                    'duplicate multi-match placeholder "%s@"', name,
+                    location=encNode.treeLocation
+                    )
+            else:
+                multiMatches.add(name)
+            if mode.auxEncodingWidth is None:
+                # Technically there is nothing wrong with always matching zero
+                # elements, but it is probably not what the user intended.
+                reader.warning(
+                    'mode "%s" does not contain auxiliary encoding elements',
+                    mode.name, location=encLoc
+                    )
+                continue
+            yield EncodingMultiMatch(mode, 1, encLoc)
+        else:
+            # Expression possibly containing single encoding field matches.
+            try:
+                encRef = buildReference(encNode, encBuilder)
+            except BadInput as ex:
+                if isinstance(ex, UnknownNameError):
+                    placeholder = placeholders.get(ex.name)
+                    if placeholder is not None \
+                            and placeholder.encodingWidth is None:
+                        reader.error(
+                            'cannot use placeholder "%s" in encoding field, '
+                            'since mode "%s" has an empty encoding sequence',
+                            ex.name, placeholder.mode.name,
+                            location=ex.location
+                            )
+                        continue
+                    ex = encErrors.get(ex.name, ex)
+                reader.error(
+                    'error in encoding: %s', ex,
+                    location=ex.location
+                    )
+                continue
 
-        yield EncodingExpr(encRef, encValue, encLoc)
+            try:
+                encValue = encRef.emitLoad(encLoc)
+            except BadInput as ex:
+                reader.error(
+                    'error evaluating encoding: %s', ex,
+                    location=ex.location
+                    )
+                continue
+
+            encWidth = encRef.width
+            if encWidth is unlimited:
+                reader.error(
+                    'unlimited width integers are not allowed in encoding',
+                    location=encLoc
+                    )
+            elif encIdx > 0:
+                if auxWidth is None:
+                    auxWidth = encWidth
+                elif encWidth != auxWidth:
+                    reader.error(
+                        'auxiliary encoding item has width %d, while first '
+                        'auxiliary item has width %d',
+                        encWidth, auxWidth,
+                        location=encLoc
+                        )
+
+            yield EncodingExpr(encRef, encValue, encLoc)
 
 def _decomposeEncoding(ref, location, reader):
     if isinstance(ref, FixedValue):
@@ -420,10 +457,18 @@ def _parseModeDecoding(encoding, encBuilder, reader):
     try:
         with reader.checkErrors():
             for encIdx, encElem in enumerate(encoding):
-                for name, immIdx, refIdx, width in _decomposeEncoding(
-                        encElem.ref, encElem.location, reader
-                        ):
-                    decodeMap[name].append((immIdx, encIdx, refIdx, width))
+                if isinstance(encElem, EncodingExpr):
+                    for name, immIdx, refIdx, width in _decomposeEncoding(
+                            encElem.ref, encElem.location, reader
+                            ):
+                        decodeMap[name].append((immIdx, encIdx, refIdx, width))
+                elif isinstance(encElem, EncodingMultiMatch):
+                    # Actual decoding cannot be done until we've made a match
+                    # in the included mode table.
+                    # TODO: Store what we need to decode later.
+                    pass
+                else:
+                    assert False, encElem
     except DelayedError:
         return None
 
