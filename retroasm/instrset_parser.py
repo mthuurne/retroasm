@@ -670,37 +670,46 @@ def _parseModeEntries(
 def _formatEncodingWidth(width):
     return 'empty' if width is None else '%d bits wide' % width
 
-def _determineEncodingWidth(entries, modeName, logger):
+def _determineEncodingWidth(entries, aux, modeName, logger):
     '''Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
+    If the 'aux' argument is False, the first encoding element of each entry
+    is checked, otherwise the auxiliary encoding elements are checked.
     If the entries represent instructions, pass None for the mode name.
     '''
+
+    widthAttr = 'auxEncodingWidth' if aux else 'encodingWidth'
 
     widthFreqs = defaultdict(int)
     for entry in entries:
         if entry.encoding is not None:
-            widthFreqs[entry.encodingWidth] += 1
+            widthFreqs[getattr(entry, widthAttr)] += 1
+    if aux:
+        widthFreqs.pop(None, None)
 
     if len(widthFreqs) == 0:
-        # Empty mode or only errors; use dummy type.
-        encWidth = 0
+        # Empty mode, only errors or aux check with no aux items.
+        encWidth = None
     elif len(widthFreqs) == 1:
         # Single type.
         encWidth, = widthFreqs.keys()
     else:
         # Multiple widths; use one with the maximum frequency.
         encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
+        validWidths = (encWidth, None) if aux else (encWidth, )
         badEntryIndices = []
         for idx, entry in enumerate(entries):
-            if entry.encodingWidth != encWidth:
+            if getattr(entry, widthAttr) not in validWidths:
                 logger.error(
-                    'encoding field is %s, while %s is dominant %s',
-                    _formatEncodingWidth(entry.encodingWidth),
+                    '%sencoding field is %s, while %s is dominant %s',
+                    ('auxiliary ' if aux else ''),
+                    _formatEncodingWidth(getattr(entry, widthAttr)),
                     _formatEncodingWidth(encWidth),
                     ('for instructions' if modeName is None else
                         'in mode "%s"' % modeName),
-                    location=entry.encodingLocation
+                    location=(entry.auxEncodingLocation if aux
+                        else entry.encodingLocation)
                     )
                 badEntryIndices.append(idx)
         for idx in reversed(badEntryIndices):
@@ -754,8 +763,9 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
         ))
 
     # Create and remember mode object.
-    encWidth = _determineEncodingWidth(entries, modeName, reader)
-    mode = Mode(modeName, encWidth, semType, modeLocation, entries)
+    encWidth = _determineEncodingWidth(entries, False, modeName, reader)
+    auxEncWidth = _determineEncodingWidth(entries, True, modeName, reader)
+    mode = Mode(modeName, encWidth, auxEncWidth, semType, modeLocation, entries)
     if addMode:
         modes[modeName] = mode
 
@@ -797,7 +807,7 @@ def parseInstrSet(pathname, wantSemantics=True):
                 reader.error('unknown definition type "%s"', defType)
                 reader.skipBlock()
 
-        encWidth = _determineEncodingWidth(instructions, None, reader)
+        encWidth = _determineEncodingWidth(instructions, False, None, reader)
         for instr in instructions:
             auxWidth = instr.auxEncodingWidth
             if auxWidth is not None and auxWidth != encWidth:
@@ -805,7 +815,7 @@ def parseInstrSet(pathname, wantSemantics=True):
                     'invalid instruction encoding: auxiliary encoding items '
                     'are %d bits wide, while first item is %d bits wide',
                     auxWidth, encWidth,
-                    location=instr.encoding[1].location
+                    location=instr.auxEncodingLocation
                     )
 
         reader.summarize()

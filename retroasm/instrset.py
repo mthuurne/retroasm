@@ -5,7 +5,7 @@ class InstructionSet(ModeTable):
     '''
 
     def __init__(self, encWidth, instructions):
-        ModeTable.__init__(self, encWidth, instructions)
+        ModeTable.__init__(self, encWidth, encWidth, instructions)
         self._instructionNames = instructionNames = []
 
         for instr in self._entries:

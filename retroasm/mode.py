@@ -1,5 +1,6 @@
 from .expression import Expression
 from .expression_parser import DeclarationNode, ParseNode
+from .linereader import mergeSpan
 from .types import unlimited
 from .utils import checkType
 
@@ -70,19 +71,42 @@ class ModeEntry:
         encoding = self.encoding
         return None if len(encoding) < 2 else encoding[1].width
 
+    @property
+    def auxEncodingLocation(self):
+        '''The InputLocation of the auxiliary encoding elements in this mode
+        entry.
+        '''
+        encoding = self.encoding
+        if len(encoding) == 0:
+            return self.location.updateSpan((0, 1))
+        elif len(encoding) == 1:
+            firstEnd = encoding[0].location.span[1]
+            return self.location.updateSpan((firstEnd, firstEnd + 1))
+        else:
+            return mergeSpan(encoding[1].location, encoding[-1].location)
+
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %d' % width
+
+def _formatAuxEncodingWidth(width):
+    return (
+        'no auxiliary encoding items'
+        if width is None
+        else 'auxiliary encoding width %d' % width
+        )
 
 class ModeTable:
     '''Abstract base class for mode tables.
     '''
 
     encodingWidth = property(lambda self: self._encWidth)
+    auxEncodingWidth = property(lambda self: self._auxEncWidth)
 
-    def __init__(self, encWidth, entries):
-        if encWidth is unlimited:
+    def __init__(self, encWidth, auxEncWidth, entries):
+        if encWidth is unlimited or auxEncWidth is unlimited:
             raise ValueError('Unlimited width is not allowed for encoding')
         self._encWidth = encWidth
+        self._auxEncWidth = auxEncWidth
 
         self._entries = entries = tuple(entries)
         for entry in entries:
@@ -92,6 +116,13 @@ class ModeTable:
                     'Mode with %s contains entry with %s' % (
                         _formatEncodingWidth(encWidth),
                         _formatEncodingWidth(entry.encodingWidth)
+                        )
+                    )
+            if entry.auxEncodingWidth not in (None, auxEncWidth):
+                raise ValueError(
+                    'Mode with %s contains entry with %s' % (
+                        _formatAuxEncodingWidth(auxEncWidth),
+                        _formatAuxEncodingWidth(entry.auxEncodingWidth)
                         )
                     )
 
@@ -153,8 +184,8 @@ class Mode(ModeTable):
     semanticsType = property(lambda self: self._semType)
     location = property(lambda self: self._location)
 
-    def __init__(self, name, encWidth, semType, location, entries):
-        ModeTable.__init__(self, encWidth, entries)
+    def __init__(self, name, encWidth, auxEncWidth, semType, location, entries):
+        ModeTable.__init__(self, encWidth, auxEncWidth, entries)
         self._name = name
         self._semType = semType
         self._location = location
