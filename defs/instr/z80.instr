@@ -147,14 +147,14 @@ func load_ir(u8 S)
     pf := iff2
 
 instr ld
-%01;D;S             . D,S               . D := S            . reg8x D, reg8x S
-%00;D;%110, N       . D,N               . D := N            . reg8x D, u8 N
+%01;D;S, D@, S@     . D,S               . D := S            . reg8x D, reg8x S
+%00;D;%110, D@, N   . D,N               . D := N            . reg8x D, u8 N
 $02                 . (bc),a            . mem[bc] := a
 $12                 . (de),a            . mem[de] := a
-$32, NN             . (NN),a            . mem[NN] := a      . imm16 NN
+$32, NN@            . (NN),a            . mem[NN] := a      . imm16 NN
 $0A                 . a,(bc)            . a := mem[bc]
 $1A                 . a,(de)            . a := mem[de]
-$3A, NN             . a,(NN)            . a := mem[NN]      . imm16 NN
+$3A, NN@            . a,(NN)            . a := mem[NN]      . imm16 NN
 $ED, $47            . i,a               . i := a
 $ED, $4F            . r,a               . r := a
 $ED, $57            . a,i               . load_ir(i)
@@ -164,11 +164,11 @@ $ED, $5F            . a,r               . load_ir(r)
 ### 16-Bit Load (8.2)
 
 instr ld
-%00;D;%0001, N      . D,N               . D := N            . imm16 N, reg16 D
-$2A, A              . D,(A)             . D := read16(A)    . imm16 A, hlx D
-$ED, %01;D;%1011, A . D,(A)             . D := read16(A)    . imm16 A, reg16 D
-$22, A              . (A),S             . write16(A, S)     . imm16 A, hlx S
-$ED, %01;S;%0011, A . (A),S             . write16(A, S)     . imm16 A, reg16 S
+%00;D;%0001, NN@    . D,NN              . D := NN           . imm16 NN, reg16 D
+$2A, A@             . D,(A)             . D := read16(A)    . imm16 A, hlx D
+$ED, %01;D;%1011, A@. D,(A)             . D := read16(A)    . imm16 A, reg16 D
+$22, A@             . (A),S             . write16(A, S)     . imm16 A, hlx S
+$ED, %01;S;%0011, A@. (A),S             . write16(A, S)     . imm16 A, reg16 S
 $F9                 . sp,R              . sp := R           . hlx R
 
 instr
@@ -269,8 +269,8 @@ func add_ac(u8 V, u1 C)
     nf := 0
 
 instr
-%10000;R            . add a,R           . add_ac(R, 0)      . reg8x R
-%10001;R            . adc a,R           . add_ac(R, cf)     . reg8x R
+%10000;R, R@        . add a,R           . add_ac(R, 0)      . reg8x R
+%10001;R, R@        . adc a,R           . add_ac(R, cf)     . reg8x R
 %11000;%110, N      . add a,N           . add_ac(N, 0)      . u8 N
 %11001;%110, N      . adc a,N           . add_ac(N, cf)     . u8 N
 
@@ -285,8 +285,8 @@ func sub_ac(u8 V, u1 C)
     nf := 1
 
 instr
-%10010;R            . sub R             . sub_ac(R, 0)      . reg8x R
-%10011;R            . sbc a,R           . sub_ac(R, cf)     . reg8x R
+%10010;R, R@        . sub R             . sub_ac(R, 0)      . reg8x R
+%10011;R, R@        . sbc a,R           . sub_ac(R, cf)     . reg8x R
 %11010;%110, N      . sub N             . sub_ac(N, 0)      . u8 N
 %11011;%110, N      . sbc a,N           . sub_ac(N, cf)     . u8 N
 
@@ -315,10 +315,10 @@ func logic(u8 V, u1 H)
     nf := 0
 
 instr
-%10100;R            . and R             . logic(a & R, 1)   . reg8x R
-%10110;R            . or R              . logic(a | R, 0)   . reg8x R
-%10101;R            . xor R             . logic(a ^ R, 0)   . reg8x R
-%10111;R            . cp R              . cp_a(R)           . reg8x R
+%10100;R, R@        . and R             . logic(a & R, 1)   . reg8x R
+%10110;R, R@        . or R              . logic(a | R, 0)   . reg8x R
+%10101;R, R@        . xor R             . logic(a ^ R, 0)   . reg8x R
+%10111;R, R@        . cp R              . cp_a(R)           . reg8x R
 %11100;%110, N      . and N             . logic(a & N, 1)   . u8 N
 %11110;%110, N      . or N              . logic(a | N, 0)   . u8 N
 %11101;%110, N      . xor N             . logic(a ^ N, 0)   . u8 N
@@ -349,8 +349,8 @@ func dec(u8& R)
     nf := 1
 
 instr
-%00;R;%100          . inc R             . inc(R)            . reg8x R
-%00;R;%101          . dec R             . dec(R)            . reg8x R
+%00;R;%100, R@      . inc R             . inc(R)            . reg8x R
+%00;R;%101, R@      . dec R             . dec(R)            . reg8x R
 
 
 ### General-Purpose Arithmetic and CPU Control (8.5)
@@ -573,14 +573,14 @@ func srl(u8& R)
     postrot(V)
 
 instr
-$CB, %00000;R       . rlc R             . rlc(R)            . reg8x R
-$CB, %00001;R       . rrc R             . rrc(R)            . reg8x R
-$CB, %00010;R       . rl R              . rl(R)             . reg8x R
-$CB, %00011;R       . rr R              . rr(R)             . reg8x R
-$CB, %00100;R       . sla R             . sla(R)            . reg8x R
-$CB, %00101;R       . sra R             . sra(R)            . reg8x R
-$CB, %00110;R       . sll R             . sll(R)            . reg8x R
-$CB, %00111;R       . srl R             . srl(R)            . reg8x R
+$CB, R@, %00000;R   . rlc R             . rlc(R)            . reg8x R
+$CB, R@, %00001;R   . rrc R             . rrc(R)            . reg8x R
+$CB, R@, %00010;R   . rl R              . rl(R)             . reg8x R
+$CB, R@, %00011;R   . rr R              . rr(R)             . reg8x R
+$CB, R@, %00100;R   . sla R             . sla(R)            . reg8x R
+$CB, R@, %00101;R   . sra R             . sra(R)            . reg8x R
+$CB, R@, %00110;R   . sll R             . sll(R)            . reg8x R
+$CB, R@, %00111;R   . srl R             . srl(R)            . reg8x R
 $CB, N, %00000;R    . rlc (ix + N), R   . rlcx(R, ix + N)   . ?ix, reg8 R, s8 N
 $CB, N, %00000;R    . rlc (iy + N), R   . rlcx(R, iy + N)   . ?iy, reg8 R, s8 N
 
@@ -630,7 +630,7 @@ func resx(u3 B, u8& R, u16 A)
     R := V
 
 instr res
-$CB, %10;B;R        . B,R           . R[B] := 0             . u3 B, reg8x R
+$CB, R@, %10;B;R    . B,R           . R[B] := 0             . u3 B, reg8x R
 $CB, N, %10;B;R     . B,(ix + N),R  . resx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
 $CB, N, %10;B;R     . B,(iy + N),R  . resx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
 
@@ -641,7 +641,7 @@ func setx(u3 B, u8& R, u16 A)
     R := V
 
 instr set
-$CB, %11;B;R        . B,R           . R[B] := 1             . u3 B, reg8x R
+$CB, R@, %11;B;R    . B,R           . R[B] := 1             . u3 B, reg8x R
 $CB, N, %11;B;R     . B,(ix + N),R  . setx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
 $CB, N, %11;B;R     . B,(iy + N),R  . setx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
 
@@ -658,9 +658,9 @@ func djnz(u16 A)
     br_cond(b != 0, A)
 
 instr jp
-$C3, NN             . NN            . pc := NN              . imm16 NN
+$C3, NN@            . NN            . pc := NN              . imm16 NN
 $E9                 . (R)           . pc := R               . hlx R
-%11;C;%010, NN      . C,NN          . br_cond(C, NN)        . imm16 NN, cond3 C
+%11;C;%010, NN@     . C,NN          . br_cond(C, NN)        . imm16 NN, cond3 C
 
 instr jr
 $18, N              . A             . pc := A               . s8 N, u16 A = pc + N
@@ -694,8 +694,8 @@ func ret_int()
     iff1 := iff2
 
 instr call
-$CD, NN             . NN            . call(NN)              . imm16 NN
-%11;C;%100, NN      . C,NN          . call_cond(C, NN)      . imm16 NN, cond3 C
+$CD, NN@            . NN            . call(NN)              . imm16 NN
+%11;C;%100, NN@     . C,NN          . call_cond(C, NN)      . imm16 NN, cond3 C
 
 instr ret
 $C9                 .               . return()

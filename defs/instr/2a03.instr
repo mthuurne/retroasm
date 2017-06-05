@@ -79,31 +79,31 @@ A                       . (A),y         . mem[indy(A)]      . u8 A
 ### Operand encodings
 
 mode u8& ldstx
-%001, A                 . A             .                   . zeropage A
-%011, A                 . A             .                   . absolute A
-%101, A                 . A             .                   . zeropage_y A
+%001, A@                . A             .                   . zeropage A
+%011, A@                . A             .                   . absolute A
+%101, A@                . A             .                   . zeropage_y A
 
 mode u8& ldsty
-A                       . A             .                   . ldstx A
-%101, A                 . A             .                   . zeropage_x A
+A,    A@                . A             .                   . ldstx A
+%101, A@                . A             .                   . zeropage_x A
 
 mode u8& incdec
-A                       . A             .                   . ldsty A
-%111, A                 . A             .                   . absolute_x A
+A,    A@                . A             .                   . ldsty A
+%111, A@                . A             .                   . absolute_x A
 
 mode u8& acc_modes
-A                       . A             .                   . incdec A
-%000, A                 . A             .                   . indexed_indirect A
-%100, A                 . A             .                   . indirect_indexed A
-%110, A                 . A             .                   . absolute_y A
+A,    A@                . A             .                   . incdec A
+%000, A@                . A             .                   . indexed_indirect A
+%100, A@                . A             .                   . indirect_indexed A
+%110, A@                . A             .                   . absolute_y A
 
 
 ### Store
 
 instr
-%100;D;%01              . sta D         . D := a            . acc_modes D
-%100;D;%10              . stx D         . D := x            . ldstx D
-%100;D;%00              . sty D         . D := y            . ldsty D
+%100;D;%01, D@          . sta D         . D := a            . acc_modes D
+%100;D;%10, D@          . stx D         . D := x            . ldstx D
+%100;D;%00, D@          . sty D         . D := y            . ldsty D
 
 
 ### Load
@@ -114,23 +114,23 @@ func load(u8& D, u8 S)
     z := S == 0
 
 mode u8& lda
-A                       . A             .                   . acc_modes A
+A,    A@                . A             .                   . acc_modes A
 %010, N                 . N             .                   . immediate N
 
 mode u8& ldx
-A                       . A             .                   . ldstx A
+A,    A@                . A             .                   . ldstx A
 %000, N                 . N             .                   . immediate N
-%111, A                 . A             .                   . absolute_y A
+%111, A@                . A             .                   . absolute_y A
 
 mode u8& ldy
-A                       . A             .                   . ldsty A
+A,    A@                . A             .                   . ldsty A
 %000, N                 . N             .                   . immediate N
-%111, A                 . A             .                   . absolute_x A
+%111, A@                . A             .                   . absolute_x A
 
 instr
-%101;S;%01              . lda S         . load(a, S)        . lda S
-%101;S;%10              . ldx S         . load(x, S)        . ldx S
-%101;S;%00              . ldy S         . load(y, S)        . ldy S
+%101;S;%01, S@          . lda S         . load(a, S)        . lda S
+%101;S;%10, S@          . ldx S         . load(x, S)        . ldx S
+%101;S;%00, S@          . ldy S         . load(y, S)        . ldy S
 
 
 ### Transfer
@@ -164,11 +164,11 @@ func add_carry(u8 V)
     load(a, T)
 
 instr
-%000;S;%01              . ora S         . load(a, a | S)    . acc_modes S
-%001;S;%01              . and S         . load(a, a & S)    . acc_modes S
-%010;S;%01              . eor S         . load(a, a ^ S)    . acc_modes S
-%011;S;%01              . adc S         . add_carry(S)      . acc_modes S
-%111;S;%01              . sbc S         . add_carry(~S)     . acc_modes S
+%000;S;%01, S@          . ora S         . load(a, a | S)    . acc_modes S
+%001;S;%01, S@          . and S         . load(a, a & S)    . acc_modes S
+%010;S;%01, S@          . eor S         . load(a, a ^ S)    . acc_modes S
+%011;S;%01, S@          . adc S         . add_carry(S)      . acc_modes S
+%111;S;%01, S@          . sbc S         . add_carry(~S)     . acc_modes S
 
 
 ### Compare
@@ -181,19 +181,19 @@ func compare(u8 A, u8 B)
 mode u8& cpxy
 %000, N                 . N             .                   . immediate N
 %001, A                 . A             .                   . zeropage A
-%011, A                 . A             .                   . absolute A
+%011, A@                . A             .                   . absolute A
 
 instr
-%110;V;%01              . cmp V         . compare(a, V)     . acc_modes V
-%111;V;%00              . cpx V         . compare(x, V)     . cpxy V
-%110;V;%00              . cpy V         . compare(y, V)     . cpxy V
+%110;V;%01, V@          . cmp V         . compare(a, V)     . acc_modes V
+%111;V;%00, V@          . cpx V         . compare(x, V)     . cpxy V
+%110;V;%00, V@          . cpy V         . compare(y, V)     . cpxy V
 
 
 ### Increment/decrement
 
 instr
-%110;D;%10              . dec D         . load(D, D - 1)    . incdec D
-%111;D;%10              . inc D         . load(D, D + 1)    . incdec D
+%110;D;%10, D@          . dec D         . load(D, D - 1)    . incdec D
+%111;D;%10, D@          . inc D         . load(D, D + 1)    . incdec D
 %110;%010;%10           . dex           . load(x, x - 1)
 %100;%010;%00           . dey           . load(y, y - 1)
 %111;%010;%00           . inx           . load(x, x + 1)
@@ -211,14 +211,14 @@ func rotate_r(u8& D, u1 B)
     load(D, T)
 
 mode u8& rotate
-A                       . A             .                   . incdec A
+A, A@                   . A             .                   . incdec A
 %010                    . a
 
 instr
-%000;D;%10              . asl D         . rotate_l(D, 0)    . rotate D
-%010;D;%10              . lsr D         . rotate_r(D, 0)    . rotate D
-%001;D;%10              . rol D         . rotate_l(D, c)    . rotate D
-%011;D;%10              . ror D         . rotate_r(D, c)    . rotate D
+%000;D;%10, D@          . asl D         . rotate_l(D, 0)    . rotate D
+%010;D;%10, D@          . lsr D         . rotate_r(D, 0)    . rotate D
+%001;D;%10, D@          . rol D         . rotate_l(D, c)    . rotate D
+%011;D;%10, D@          . ror D         . rotate_r(D, c)    . rotate D
 
 
 ### Bit mask test
@@ -230,7 +230,7 @@ func bit(u8 V)
 
 instr
 %001;%001;%00, V        . bit V         . bit(V)            . zeropage V
-%001;%011;%00, V        . bit V         . bit(V)            . absolute V
+%001;%011;%00, V@       . bit V         . bit(V)            . absolute V
 
 
 ### Branch

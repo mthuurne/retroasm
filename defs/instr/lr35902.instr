@@ -99,12 +99,12 @@ instr ld
 %00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
 $02                 . (bc),a            . mem[bc] := a
 $12                 . (de),a            . mem[de] := a
-$EA, NN             . (NN),a            . mem[NN] := a      . imm16 NN
+$EA, NN@            . (NN),a            . mem[NN] := a      . imm16 NN
 $E0, N              . ($FF00 + N),a     . mem[$FF;N] := a   . u8 N
 $E2                 . ($FF00 + c),a     . mem[$FF;c] := a
 $0A                 . a,(bc)            . a := mem[bc]
 $1A                 . a,(de)            . a := mem[de]
-$FA, NN             . a,(NN)            . a := mem[NN]      . imm16 NN
+$FA, NN@            . a,(NN)            . a := mem[NN]      . imm16 NN
 $F0, N              . a,($FF00 + N)     . a := mem[$FF;N]   . u8 N
 $F2                 . a,($FF00 + c)     . a := mem[$FF;c]
 
@@ -124,8 +124,8 @@ $3A                 . a,(hl)            . a := hl_off(-1)
 ### 16-Bit Load
 
 instr ld
-%00;D;%0001, NN     . D,NN              . D := NN           . imm16 NN, reg16 D
-$08, NN             . (NN),sp           . write16(NN, sp)   . imm16 NN
+%00;D;%0001, NN@    . D,NN              . D := NN           . imm16 NN, reg16 D
+$08, NN@            . (NN),sp           . write16(NN, sp)   . imm16 NN
 $F9                 . sp,hl             . sp := hl
 
 func u16 sp_off(s8 V)
@@ -411,9 +411,9 @@ func br_cond(u1 C, u16 A)
     @skip
 
 instr jp
-$C3, NN             . NN            . pc := NN              . imm16 NN
+$C3, NN@            . NN            . pc := NN              . imm16 NN
 $E9                 . (hl)          . pc := hl
-%110;C;%010, NN     . C,NN          . br_cond(C, NN)        . imm16 NN, cond C
+%110;C;%010, NN@    . C,NN          . br_cond(C, NN)        . imm16 NN, cond C
 
 instr jr
 $18, N              . A             . pc := A               . s8 N, u16 A = pc + N
@@ -444,8 +444,8 @@ func ret_int()
     ime := 0
 
 instr call
-$CD, NN             . NN            . call(NN)              . imm16 NN
-%110;C;%100, NN     . C,NN          . call_cond(C, NN)      . imm16 NN, cond C
+$CD, NN@            . NN            . call(NN)              . imm16 NN
+%110;C;%100, NN@    . C,NN          . call_cond(C, NN)      . imm16 NN, cond C
 
 instr ret
 $C9                 .               . return()
