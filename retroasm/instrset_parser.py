@@ -307,6 +307,14 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
             except BadInput as ex:
                 encErrors[name] = ex
 
+    # Collect all identifiers used in the encoding.
+    identifiers = set(
+        subNode.name
+        for encNode in encNodes
+        for subNode in encNode
+        if isinstance(subNode, IdentifierNode)
+        )
+
     # Evaluate encoding field.
     multiMatches = set()
     auxWidth = None
@@ -337,15 +345,24 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                     )
             else:
                 multiMatches.add(name)
-            if mode.auxEncodingWidth is None:
-                # Technically there is nothing wrong with always matching zero
-                # elements, but it is probably not what the user intended.
+
+            start = 1 if name in identifiers else 0
+            # Technically there is nothing wrong with always matching zero
+            # elements, but it is probably not what the user intended.
+            if mode.encodingWidth is None:
+                reader.warning(
+                    'mode "%s" does not contain encoding elements',
+                    mode.name, location=encLoc
+                    )
+                continue
+            if start >= 1 and mode.auxEncodingWidth is None:
                 reader.warning(
                     'mode "%s" does not contain auxiliary encoding elements',
                     mode.name, location=encLoc
                     )
                 continue
-            yield EncodingMultiMatch(mode, 1, encLoc)
+
+            yield EncodingMultiMatch(mode, start, encLoc)
         else:
             # Expression possibly containing single encoding field matches.
             try:
