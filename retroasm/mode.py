@@ -25,13 +25,15 @@ class EncodingMultiMatch:
     be filled in by a matched entry from an included mode.
     '''
 
+    name = property(lambda self: self._name)
     mode = property(lambda self: self._mode)
     start = property(lambda self: self._start)
     location = property(lambda self: self._location)
 
     width = property(lambda self: self._mode.auxEncodingWidth)
 
-    def __init__(self, mode, start, location):
+    def __init__(self, name, mode, start, location):
+        self._name = name
         self._mode = mode
         self._start = start
         self._location = location
@@ -53,7 +55,9 @@ class ModeEntry:
         self.location = location
 
         for encElem in encoding:
-            checkType(encElem, EncodingExpr, 'encoding element')
+            checkType(
+                encElem, (EncodingExpr, EncodingMultiMatch), 'encoding element'
+                )
         auxWidth = self.auxEncodingWidth
         if auxWidth is not None:
             if any(encElem.width != auxWidth for encElem in encoding[1:]):

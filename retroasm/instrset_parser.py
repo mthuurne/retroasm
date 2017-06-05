@@ -362,7 +362,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                     )
                 continue
 
-            yield EncodingMultiMatch(mode, start, encLoc)
+            yield EncodingMultiMatch(name, mode, start, encLoc)
         else:
             # Expression possibly containing single encoding field matches.
             try:
@@ -471,6 +471,7 @@ def _parseModeDecoding(encoding, encBuilder, reader):
 
     # Decompose the references.
     decodeMap = defaultdict(list)
+    multiMatches = set()
     try:
         with reader.checkErrors():
             for encIdx, encElem in enumerate(encoding):
@@ -480,10 +481,10 @@ def _parseModeDecoding(encoding, encBuilder, reader):
                             ):
                         decodeMap[name].append((immIdx, encIdx, refIdx, width))
                 elif isinstance(encElem, EncodingMultiMatch):
-                    # Actual decoding cannot be done until we've made a match
-                    # in the included mode table.
-                    # TODO: Store what we need to decode later.
-                    pass
+                    # Actual decoding will be done using the matched mode entry
+                    # in the included mode table, so all we can do here is note
+                    # that decoding is possible.
+                    multiMatches.add(encElem.name)
                 else:
                     assert False, encElem
     except DelayedError:
@@ -503,7 +504,8 @@ def _parseModeDecoding(encoding, encBuilder, reader):
     try:
         with reader.checkErrors():
             # Check whether all immediates can be decoded.
-            missingNames = set(immediates.keys()) - set(decodeMap.keys())
+            missingNames = set(immediates.keys()) \
+                    - set(decodeMap.keys()) - multiMatches
             for name in missingNames:
                 reader.error(
                     'placeholder "%s" does not occur in encoding', name,
