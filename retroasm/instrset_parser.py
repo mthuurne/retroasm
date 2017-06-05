@@ -505,15 +505,10 @@ def _parseModeDecoding(encoding, encBuilder, reader):
             # Check whether all immediates can be decoded.
             missingNames = set(immediates.keys()) - set(decodeMap.keys())
             for name in missingNames:
-                # Zero-width immediates need not occur in the encoding, since
-                # they can have only one possible value. These immediates are
-                # used when an included mode has empty encoding fields, for
-                # example because it matches using only decode flags.
-                if immediates[name].width != 0:
-                    reader.error(
-                        'placeholder "%s" does not occur in encoding', name,
-                        location=immediates[name].location
-                        )
+                reader.error(
+                    'placeholder "%s" does not occur in encoding', name,
+                    location=immediates[name].location
+                    )
 
             # Create a mapping from opcode to immediate values.
             sequentialMap = {}
