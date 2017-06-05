@@ -414,6 +414,41 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
 
             yield EncodingExpr(encRef, encValue, encLoc)
 
+    # Check that our encoding field contains sufficient placeholders to be able
+    # to make matches in all included mode tables.
+    for name, placeholder in placeholders.items():
+        if isinstance(placeholder, ValuePlaceholder):
+            if placeholder.value is not None:
+                # The value is computed, so we don't need to encode it.
+                continue
+            if name not in identifiers:
+                reader.error(
+                    'value placeholder "%s" does not occur in encoding', name,
+                    location=placeholder.decl.treeLocation
+                    )
+        elif isinstance(placeholder, MatchPlaceholder):
+            if placeholder.mode.encodingWidth is None:
+                # Mode has empty encoding, no match needed.
+                continue
+            if name in multiMatches:
+                # Mode is matched using "X@" syntax.
+                continue
+            if name not in identifiers:
+                reader.error(
+                    'no placeholder "%s" for mode "%s" in encoding',
+                    name, placeholder.mode.name,
+                    location=placeholder.decl.treeLocation
+                    )
+            if placeholder.mode.auxEncodingWidth is not None:
+                reader.error(
+                    'mode "%s" contains auxiliary encoding items, but '
+                    'there is no "%s@" placeholder to match them',
+                    placeholder.mode.name, name,
+                    location=placeholder.decl.treeLocation
+                    )
+        else:
+            assert False, placeholder
+
 def _decomposeEncoding(ref, location, reader):
     if isinstance(ref, FixedValue):
         const = ref.const
@@ -503,15 +538,6 @@ def _parseModeDecoding(encoding, encBuilder, reader):
 
     try:
         with reader.checkErrors():
-            # Check whether all immediates can be decoded.
-            missingNames = set(immediates.keys()) \
-                    - set(decodeMap.keys()) - multiMatches
-            for name in missingNames:
-                reader.error(
-                    'placeholder "%s" does not occur in encoding', name,
-                    location=immediates[name].location
-                    )
-
             # Create a mapping from opcode to immediate values.
             sequentialMap = {}
             for name, slices in decodeMap.items():
