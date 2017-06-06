@@ -894,15 +894,18 @@ def parseInstrSet(pathname, wantSemantics=True):
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
+        auxEncWidth = None
         for instr in instructions:
             auxWidth = instr.auxEncodingWidth
-            if auxWidth is not None and auxWidth != encWidth:
-                reader.error(
-                    'invalid instruction encoding: auxiliary encoding items '
-                    'are %d bits wide, while first item is %d bits wide',
-                    auxWidth, encWidth,
-                    location=instr.auxEncodingLocation
-                    )
+            if auxWidth is not None:
+                auxEncWidth = auxWidth
+                if auxWidth != encWidth:
+                    reader.error(
+                        'invalid instruction encoding: auxiliary encoding items '
+                        'are %d bits wide, while first item is %d bits wide',
+                        auxWidth, encWidth,
+                        location=instr.auxEncodingLocation
+                        )
 
         reader.summarize()
 
@@ -911,7 +914,7 @@ def parseInstrSet(pathname, wantSemantics=True):
         ))
 
     if reader.errors == 0:
-        return InstructionSet(encWidth, instructions)
+        return InstructionSet(encWidth, auxEncWidth, instructions)
     else:
         return None
 
