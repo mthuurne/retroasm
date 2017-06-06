@@ -44,10 +44,10 @@ class BinaryFormat:
         '''
         raise NotImplementedError
 
-class RawGameBoyROM(BinaryFormat):
+class GameBoyROM(BinaryFormat):
 
     name = 'gbrom'
-    description = 'raw Game Boy ROM image'
+    description = 'Game Boy ROM image'
     extensions = ('gb', 'gbc')
 
     header = Struct('<4s48s16s2sBBBBBBBBH')
@@ -81,10 +81,10 @@ class RawGameBoyROM(BinaryFormat):
         else:
             yield EntryPoint(None, 'lr35902', 0x100, 0x100, 4)
 
-class RawMSXROM(BinaryFormat):
+class MSXROM(BinaryFormat):
 
     name = 'msxrom'
-    description = 'raw MSX ROM image'
+    description = 'MSX ROM image'
     extensions = ('rom',)
 
     header = Struct('<2sHHHH6s')
