@@ -1,12 +1,17 @@
 from collections import namedtuple
+from enum import Enum
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 
 logger = getLogger('binfmt')
 
+ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
+    'undefined', 'little', 'big'
+    ))
+
 EntryPoint = namedtuple('EntryPoint', (
-    'label', 'instrSetName', 'offset', 'addr', 'size'
+    'label', 'instrSetName', 'byteorder', 'offset', 'addr', 'size'
     ))
 '''A point at which execution can start: label name (or None), name of the
 instruction set, offset into the image, address at which the processor will see
@@ -77,9 +82,13 @@ class GameBoyROM(BinaryFormat):
             # TODO: Once we can properly trace, we don't need this workaround
             #       anymore.
             addr = entry[2] | (entry[3] << 8)
-            yield EntryPoint(None, 'lr35902', addr, addr, None)
+            yield EntryPoint(
+                None, 'lr35902', ByteOrder.little, addr, addr, None
+                )
         else:
-            yield EntryPoint(None, 'lr35902', 0x100, 0x100, 4)
+            yield EntryPoint(
+                None, 'lr35902', ByteOrder.little, 0x100, 0x100, 4
+                )
 
 class MSXROM(BinaryFormat):
 
@@ -155,7 +164,9 @@ class MSXROM(BinaryFormat):
             raise ValueError('Unknown cartridge type')
 
         def ep(name, addr):
-            return EntryPoint(name, 'z80', addr - base, addr, None)
+            return EntryPoint(
+                name, 'z80', ByteOrder.little, addr - base, addr, None
+                )
         if init != 0:
             yield ep('init', init)
         if statement != 0:
