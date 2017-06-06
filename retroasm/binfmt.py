@@ -226,7 +226,7 @@ def detectBinaryFormat(image, fileName=None):
     '''
     names = set(_formatsByName.keys())
 
-    if fileName is None:
+    if fileName is not None:
         # First try formats for which the file name extension matches.
         binPath = PurePath(fileName)
         ext = binPath.suffix.lstrip('.').lower()
