@@ -14,6 +14,7 @@ class EncodingExpr:
     location = property(lambda self: self._location)
 
     width = property(lambda self: self._ref.width)
+    encodedLength = property(lambda self: 1)
 
     def __init__(self, ref, value, location):
         self._ref = ref
@@ -37,6 +38,11 @@ class EncodingMultiMatch:
         self._mode = mode
         self._start = start
         self._location = location
+
+    @property
+    def encodedLength(self):
+        length = self._mode.encodedLength
+        return None if length is None else length - self._start
 
 class ModeEntry:
     '''One row in a mode table.
@@ -104,6 +110,20 @@ class ModeEntry:
             return self.location.updateSpan((firstEnd, firstEnd + 1))
         else:
             return mergeSpan(encoding[1].location, encoding[-1].location)
+
+    @property
+    def encodedLength(self):
+        '''The number of encoded data units (bytes, words etc.) that this mode
+        entry matches, or None if that number may vary depending on which match
+        is made in an included mode.
+        '''
+        total = 0
+        for encItem in self.encoding:
+            length = encItem.encodedLength
+            if length is None:
+                return None
+            total += length
+        return total
 
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %d' % width
@@ -194,6 +214,29 @@ class ModeTable:
                 child = node[0].setdefault(match, ({}, []))
                 addMnemonic(child, idx + 1)
         addMnemonic(self._mnemTree, 0)
+
+    @property
+    def encodedLength(self):
+        '''The number of encoded data units (bytes, words etc.) that all
+        entries in this mode use, or None if that number may vary depending
+        on which match is made.
+        '''
+        if self._encWidth is None:
+            return 0
+        if self._auxEncWidth is None:
+            return 1
+        commonLen = None
+        for entry in self._entries:
+            entryLen = entry.encodedLength
+            if entryLen is None:
+                return None
+            if entryLen != commonLen:
+                if commonLen is None:
+                    commonLen = entryLen
+                else:
+                    return None
+        assert commonLen is not None, self
+        return commonLen
 
 class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining
