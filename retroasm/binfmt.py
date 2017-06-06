@@ -186,12 +186,6 @@ def getBinaryFormat(name):
     '''
     return _formatsByName[name]
 
-def _iterBinaryFormatsForExtension(ext):
-    suffix = binPath.suffix.lstrip('.').lower()
-    for binfmt in _formatsByName.values():
-        if ext in binfmt.extensions:
-            yield binfmt
-
 def _detectBinaryFormats(image, names, extMatches):
     logger.debug(
         'Binary format autodetection, extension %s:',
