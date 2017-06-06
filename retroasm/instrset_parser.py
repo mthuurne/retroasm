@@ -858,11 +858,27 @@ def _parseMode(reader, globalBuilder, modes, wantSemantics):
 def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
     mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
 
-    for entry in _parseModeEntries(
+    for instr in _parseModeEntries(
             reader, globalBuilder, modes, None, mnemBase, _parseInstrSemantics,
             wantSemantics
             ):
-        yield entry
+        encWidth = instr.encodingWidth
+        if encWidth is None:
+            reader.error(
+                'instruction encoding must not be empty',
+                location=instr.encodingLocation
+                )
+            # Do not yield the instruction, to avoid this problem from being
+            # reporting again as a width inconsistency.
+            continue
+        auxEncodingWidth = instr.auxEncodingWidth
+        if auxEncodingWidth not in (encWidth, None):
+            reader.error(
+                'auxiliary instruction encoding elements are %d bits wide, '
+                'while first item is %d bits wide', auxEncodingWidth, encWidth,
+                location=instr.auxEncodingLocation
+                )
+        yield instr
 
 def parseInstrSet(pathname, wantSemantics=True):
     globalNamespace = GlobalNamespace()
@@ -894,18 +910,6 @@ def parseInstrSet(pathname, wantSemantics=True):
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
-        auxEncWidth = None
-        for instr in instructions:
-            auxWidth = instr.auxEncodingWidth
-            if auxWidth is not None:
-                auxEncWidth = auxWidth
-                if auxWidth != encWidth:
-                    reader.error(
-                        'invalid instruction encoding: auxiliary encoding items '
-                        'are %d bits wide, while first item is %d bits wide',
-                        auxWidth, encWidth,
-                        location=instr.auxEncodingLocation
-                        )
 
         reader.summarize()
 
@@ -914,6 +918,8 @@ def parseInstrSet(pathname, wantSemantics=True):
         ))
 
     if reader.errors == 0:
+        anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
+        auxEncWidth = encWidth if anyAux else None
         return InstructionSet(encWidth, auxEncWidth, instructions)
     else:
         return None
