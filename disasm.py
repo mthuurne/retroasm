@@ -76,7 +76,9 @@ def main():
     from argparse import ArgumentParser
 
     parser = ArgumentParser(
-        description='Disassembler using the RetroAsm toolkit.'
+        fromfile_prefix_chars='@',
+        description='Disassembler using the RetroAsm toolkit.',
+        epilog='Arguments can also be read from a text file using @<file>.'
         )
     parser.add_argument(
         '-b', '--binfmt',
