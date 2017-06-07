@@ -208,6 +208,22 @@ class MSXROM(BinaryFormat):
             if value != 0 and value >= base:
                 yield EntryPoint(value - base, name)
 
+class RawBinary(BinaryFormat):
+
+    name = 'raw'
+    description = 'raw binary image'
+    extensions = ('raw', 'bin')
+
+    @classmethod
+    def checkImage(cls, image):
+        return 0
+
+    def iterSections(self):
+        return iter(())
+
+    def iterEntryPoints(self):
+        return iter(())
+
 # Build a dictionary of binary formats using introspection.
 def _discoverBinaryFormats(localObjects):
     for obj in localObjects:
