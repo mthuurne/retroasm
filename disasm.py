@@ -6,7 +6,7 @@ from retroasm.binfmt import (
     )
 from retroasm.disasm import disassemble
 from retroasm.linereader import LineReaderFormatter
-from retroasm.section import SectionMap
+from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
 
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -73,8 +73,33 @@ def determineBinaryFormat(image, fileName, formatName, logger):
                 )
     return binfmt
 
-def disassembleBinary(binary, logger):
-    sectionMap = SectionMap(binary.iterSections())
+def disassembleBinary(binary, sectionDefs, logger):
+    image = binary.image
+
+    # Merge user-defined sections with sections from binary format.
+    sections = []
+    for sectionDef in sectionDefs:
+        start, end = sectionDef.get('range', (0, image.size()))
+        instrSetName = sectionDef.get('instr')
+        if instrSetName is None:
+            section = Section(start, end)
+        else:
+            base = sectionDef.get('addr', 0)
+            byteorder = sectionDef.get('byteorder', ByteOrder.undefined)
+            section = CodeSection(start, end, base, instrSetName, byteorder)
+        sections.append(section)
+    sections += binary.iterSections()
+    if len(sections) == 0:
+        logger.warning(
+            'No sections; you can manually define them using the --section '
+            'argument'
+            )
+        return
+    try:
+        sectionMap = SectionMap(sections)
+    except ValueError as ex:
+        logger.error('Invalid section map: %s', ex)
+        return
 
     # Load instruction set definitions.
     instrSets = {}
@@ -95,7 +120,6 @@ def disassembleBinary(binary, logger):
                 instrSets[instrSetName] = None
 
     # Disassemble.
-    image = binary.image
     for entryPoint in binary.iterEntryPoints():
         offset = entryPoint.offset
 
@@ -138,13 +162,54 @@ def disassembleBinary(binary, logger):
         size = end - offset
         disassemble(instrSet, image, offset, addr, size)
 
+def _parseNumber(number):
+    if number.startswith('0x'):
+        return int(number[2:], 16)
+    else:
+        return int(number)
+
+def _parseSectionDef(sectionArg):
+    sectionDef = {}
+    def addDef(name, value):
+        if name in sectionDef:
+            raise ValueError('multiple definitions of "%s"' % name)
+        else:
+            sectionDef[name] = value
+    for option in sectionArg.split(':'):
+        if not option:
+            pass
+        elif '..' in option:
+            start, end = option.split('..')
+            addDef('range', (_parseNumber(start), _parseNumber(end)))
+        elif option[0].isdigit():
+            addDef('addr', _parseNumber(option))
+        else:
+            if ',' in option:
+                option, byteorder = option.split(',')
+                addDef('instr', option)
+                if byteorder == 'be':
+                    addDef('byteorder', ByteOrder.big)
+                elif byteorder == 'le':
+                    addDef('byteorder', ByteOrder.little)
+                else:
+                    raise ValueError('unknown byte order: %s' % byteorder)
+            else:
+                addDef('instr', option)
+    return sectionDef
+
 def main():
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, RawTextHelpFormatter
+    from textwrap import dedent
 
     parser = ArgumentParser(
         fromfile_prefix_chars='@',
-        description='Disassembler using the RetroAsm toolkit.',
-        epilog='Arguments can also be read from a text file using @<file>.'
+        formatter_class=RawTextHelpFormatter,
+        description=dedent('''\
+            Disassembler using the RetroAsm toolkit.
+            '''),
+        epilog=dedent('''\
+            Arguments can also be read from a text file using @<file>.
+            ''')
         )
     parser.add_argument(
         '-b', '--binfmt',
@@ -153,6 +218,20 @@ def main():
     parser.add_argument(
         '-l', '--list', action='store_true',
         help='list available binary formats and instruction sets, then exit'
+        )
+    parser.add_argument(
+        '-s', '--section', action='append', metavar='OPT1:...:OPTn',
+        help=dedent('''\
+            defines a section, using options:
+              START..END   offsets within binary (default: entire file)
+                           start is inclusive, end is exclusive
+              ADDR         address of section start (default: 0)
+              INSTR[,ORD]  instruction set (required for code segment)
+                           ORD picks a byte order for instructions:
+                           'le' for little endian, 'be' for big endian
+            example: --section 0..0x1000:0x80000000:mips-i,le
+            use multiple --section arguments to define multiple sections
+            ''')
         )
     parser.add_argument(
         '-v', '--verbose', action='store_const',
@@ -173,6 +252,19 @@ def main():
         listSupported(logger)
         exit(0)
 
+    # Parse section definitions.
+    sectionDefs = []
+    sectionArgs = args.section
+    if sectionArgs is not None:
+        for sectionArg in sectionArgs:
+            try:
+                sectionDef = _parseSectionDef(sectionArg)
+            except ValueError as ex:
+                logger.error('Bad section definition "%s": %s', sectionArg, ex)
+                exit(2)
+            else:
+                sectionDefs.append(sectionDef)
+
     # Open binary file.
     if args.binary is None:
         logger.error('No input file (binary) specified')
@@ -188,7 +280,7 @@ def main():
                 if binfmt is None:
                     exit(1)
                 binary = binfmt(image)
-                disassembleBinary(binary, logger)
+                disassembleBinary(binary, sectionDefs, logger)
     except OSError as ex:
         logger.error(
             'Failed to read binary "%s": %s', ex.filename, ex.strerror
