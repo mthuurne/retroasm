@@ -51,3 +51,20 @@ def checkType(obj, typ, desc):
             good = ' or '.join(goodType.__name__ for goodType in typ)
         actual = type(obj).__name__
         raise TypeError('%s must be %s, got %s' % (desc, good, actual))
+
+def search(low, high, test):
+    '''Binary search: [low..high) is the range to search; function "test"
+    takes a single value from that interval and returns a truth value.
+    The function must be ascending: (test(x) and y >= x) => test(y).
+    Returns smallest argument in the interval for which the function is true,
+    or "high" if the function is false for the entire interval.
+    '''
+    while low < high:
+        mid = (low + high - 1) // 2
+        if test(mid):
+            if mid == low:
+                return low # found
+            high = mid + 1
+        else:
+            low = mid + 1
+    return high # not found
