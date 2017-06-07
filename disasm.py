@@ -2,7 +2,7 @@
 
 from retroasm.instrset_parser import parseInstrSet
 from retroasm.binfmt import (
-    detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
+    EntryPoint, detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
 from retroasm.disasm import disassemble
 from retroasm.linereader import LineReaderFormatter
@@ -73,7 +73,7 @@ def determineBinaryFormat(image, fileName, formatName, logger):
                 )
     return binfmt
 
-def disassembleBinary(binary, sectionDefs, logger):
+def disassembleBinary(binary, sectionDefs, entryDefs, logger):
     image = binary.image
 
     # Merge user-defined sections with sections from binary format.
@@ -119,8 +119,23 @@ def disassembleBinary(binary, sectionDefs, logger):
                     )
                 instrSets[instrSetName] = None
 
+    # Merge user-defined entry points with entry points from binary format.
+    entryPoints = []
+    for entryDef in entryDefs:
+        offset = entryDef['offset']
+        label = entryDef.get('label')
+        entryPoint = EntryPoint(offset, label)
+        entryPoints.append(entryPoint)
+    entryPoints += binary.iterEntryPoints()
+    if len(entryPoints) == 0:
+        logger.warning(
+            'No entry points; you can manually define them using the --entry '
+            'argument'
+            )
+        return
+
     # Disassemble.
-    for entryPoint in binary.iterEntryPoints():
+    for entryPoint in entryPoints:
         offset = entryPoint.offset
 
         # Find section.
@@ -197,6 +212,16 @@ def _parseSectionDef(sectionArg):
                 addDef('instr', option)
     return sectionDef
 
+def _parseEntryDef(entryArg):
+    entryDef = {}
+    if ',' in entryArg:
+        offset, label = entryArg.split(',')
+        entryDef['offset'] = _parseNumber(offset)
+        entryDef['label'] = label
+    else:
+        entryDef['offset'] = _parseNumber(entryArg)
+    return entryDef
+
 def main():
     from argparse import ArgumentParser, RawTextHelpFormatter
     from textwrap import dedent
@@ -214,6 +239,13 @@ def main():
     parser.add_argument(
         '-b', '--binfmt',
         help='binary format (default: autodetect)'
+        )
+    parser.add_argument(
+        '-e', '--entry', action='append', metavar='OFFSET[,LABEL]',
+        help=dedent('''\
+            defines a code entry point
+            use multiple --entry arguments to define multiple entry points
+            ''')
         )
     parser.add_argument(
         '-l', '--list', action='store_true',
@@ -265,6 +297,21 @@ def main():
             else:
                 sectionDefs.append(sectionDef)
 
+    # Parse entry point definitions.
+    entryDefs = []
+    entryArgs = args.entry
+    if entryArgs is not None:
+        for entryArg in entryArgs:
+            try:
+                entryDef = _parseEntryDef(entryArg)
+            except ValueError as ex:
+                logger.error(
+                    'Bad entry point definition "%s": %s', entryArg, ex
+                    )
+                exit(2)
+            else:
+                entryDefs.append(entryDef)
+
     # Open binary file.
     if args.binary is None:
         logger.error('No input file (binary) specified')
@@ -280,7 +327,7 @@ def main():
                 if binfmt is None:
                     exit(1)
                 binary = binfmt(image)
-                disassembleBinary(binary, sectionDefs, logger)
+                disassembleBinary(binary, sectionDefs, entryDefs, logger)
     except OSError as ex:
         logger.error(
             'Failed to read binary "%s": %s', ex.filename, ex.strerror
