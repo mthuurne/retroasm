@@ -72,6 +72,43 @@ def determineBinaryFormat(image, fileName, formatName, logger):
                 )
     return binfmt
 
+def disassembleBinary(binary, logger):
+    # Load instruction set definitions.
+    entryPoints = list(binary.iterEntryPoints())
+    instrSets = {}
+    for entryPoint in entryPoints:
+        name = entryPoint.instrSetName
+        if name not in instrSets:
+            logger.info('Loading instruction set: %s', name)
+            instrPath = 'defs/instr/%s.instr' % name
+            try:
+                instrSets[name] = parseInstrSet(
+                    instrPath, wantSemantics=False
+                    )
+            except OSError as ex:
+                logger.error(
+                    'Failed to read instruction set "%s": %s',
+                    ex.filename, ex.strerror
+                    )
+                instrSets[name] = None
+
+    # Disassemble.
+    image = binary.image
+    for entryPoint in entryPoints:
+        instrSet = instrSets[entryPoint.instrSetName]
+        if instrSet is None:
+            logger.warning(
+                'Skipping disassembly of offset $%x due to unknown '
+                'instruction set "%s"',
+                entryPoint.offset, entryPoint.instrSetName
+                )
+            continue
+        offset = entryPoint.offset
+        size = entryPoint.size
+        if size is None:
+            size = image.size() - offset
+        disassemble(instrSet, image, offset, entryPoint.addr, size)
+
 def main():
     from argparse import ArgumentParser
 
@@ -122,41 +159,7 @@ def main():
                 if binfmt is None:
                     exit(1)
                 binary = binfmt(image)
-
-                # Load instruction set definitions.
-                entryPoints = list(binary.iterEntryPoints())
-                instrSets = {}
-                for entryPoint in entryPoints:
-                    name = entryPoint.instrSetName
-                    if name not in instrSets:
-                        logger.info('Loading instruction set: %s', name)
-                        instrPath = 'defs/instr/%s.instr' % name
-                        try:
-                            instrSets[name] = parseInstrSet(
-                                instrPath, wantSemantics=False
-                                )
-                        except OSError as ex:
-                            logger.error(
-                                'Failed to read instruction set "%s": %s',
-                                ex.filename, ex.strerror
-                                )
-                            instrSets[name] = None
-
-                # Disassemble.
-                for entryPoint in entryPoints:
-                    instrSet = instrSets[entryPoint.instrSetName]
-                    if instrSet is None:
-                        logger.warning(
-                            'Skipping disassembly of offset $%x due to unknown '
-                            'instruction set "%s"',
-                            entryPoint.offset, entryPoint.instrSetName
-                            )
-                        continue
-                    offset = entryPoint.offset
-                    size = entryPoint.size
-                    if size is None:
-                        size = image.size() - offset
-                    disassemble(instrSet, image, offset, entryPoint.addr, size)
+                disassembleBinary(binary, logger)
     except OSError as ex:
         logger.error(
             'Failed to read binary "%s": %s', ex.filename, ex.strerror
