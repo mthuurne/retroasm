@@ -4,7 +4,9 @@ from retroasm.instrset_parser import parseInstrSet
 from retroasm.binfmt import (
     EntryPoint, detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
-from retroasm.disasm import disassemble
+from retroasm.disasm import (
+    BigEndianFetcher, ByteFetcher, LittleEndianFetcher, disassemble
+    )
 from retroasm.linereader import LineReaderFormatter
 from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
 
@@ -173,9 +175,27 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
                 )
             continue
 
+        # Create instruction fetcher.
+        byteOrder = section.byteOrder
+        instrWidth = instrSet.encodingWidth
+        if instrWidth == 8:
+            fetcher = ByteFetcher(image, offset, end)
+        else:
+            if byteOrder is ByteOrder.undefined:
+                logger.warning(
+                    'Skipping disassembly of offset 0x%x due to unknown '
+                    'instruction byte order', offset
+                    )
+                continue
+            elif byteOrder is ByteOrder.big:
+                fetcher = BigEndianFetcher(image, offset, end, instrWidth)
+            elif byteOrder is ByteOrder.little:
+                fetcher = LittleEndianFetcher(image, offset, end, instrWidth)
+            else:
+                assert False, byteOrder
+
         addr = section.base + offset - section.start
-        size = end - offset
-        disassemble(instrSet, image, offset, addr, size)
+        disassemble(instrSet, fetcher, addr)
 
 def _parseNumber(number):
     if number.startswith('0x'):
