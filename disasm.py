@@ -166,28 +166,5 @@ def main():
             )
         exit(1)
 
-    if False:
-        instrPath = 'defs/instr/%s.instr' % args.instr
-        try:
-            instrSet = parseInstrSet(instrPath, wantSemantics=False)
-        except OSError as ex:
-            logger.error(
-                'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
-                )
-            exit(1)
-        if instrSet is None:
-            exit(1)
-
-    if False:
-        try:
-            readSource(args.source, instrSet)
-        except OSError as ex:
-            logger.error(
-                'Failed to read source "%s": %s', ex.filename, ex.strerror
-                )
-            exit(1)
-        except DelayedError as ex:
-            exit(1)
-
 if __name__ == '__main__':
     main()
