@@ -1,25 +1,29 @@
+from .section import ByteOrder, CodeSection, Section
+from .utils import checkType
+
 from collections import namedtuple
-from enum import Enum
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 
 logger = getLogger('binfmt')
 
-ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
-    'undefined', 'little', 'big'
-    ))
+class EntryPoint:
+    '''A point at which execution can start.
+    '''
 
-EntryPoint = namedtuple('EntryPoint', (
-    'label', 'instrSetName', 'byteorder', 'offset', 'addr', 'size'
-    ))
-'''A point at which execution can start: label name (or None), name of the
-instruction set, offset into the image, address at which the processor will see
-the instruction, size of the code area in bytes (None if unknown).
-'''
+    offset = property(lambda self: self._offset)
+    label = property(lambda self: self._label)
+
+    def __init__(self, offset, label=None):
+        self._offset = checkType(offset, int, 'offset')
+        self._label = checkType(label, (str, type(None)), 'label')
+
+        if offset < 0:
+            raise ValueError('Negative offset: %d' % offset)
 
 class BinaryFormat:
-    '''Base class for binary formats.
+    '''Abstract base class for binary formats.
     '''
 
     name = None
@@ -28,6 +32,8 @@ class BinaryFormat:
     '''User-friendly name for this format.'''
     extensions = ()
     '''Sequence of file name extensions, lower case, excluding the dot.'''
+
+    image = property(lambda self: self._image)
 
     @classmethod
     def checkImage(cls, image):
@@ -42,7 +48,12 @@ class BinaryFormat:
         raise NotImplementedError
 
     def __init__(self, image):
-        self.image = image
+        self._image = image
+
+    def iterSections(self):
+        '''Iterates through the Sections in this binary.
+        '''
+        raise NotImplementedError
 
     def iterEntryPoints(self):
         '''Iterates through the EntryPoints in this binary.
@@ -73,22 +84,29 @@ class GameBoyROM(BinaryFormat):
         else:
             return 1000 if header[1] == cls.logo else -1000
 
+    def iterSections(self):
+        # Jump vectors.
+        yield CodeSection(0x0, 0x104, 0x0, 'lr35902', ByteOrder.little)
+        # Header.
+        yield Section(0x104, 0x150)
+        # ROM bank 0 (fixed).
+        yield CodeSection(0x150, 0x4000, 0x150, 'lr35902', ByteOrder.little)
+        # ROM bank 1+ (switchable).
+        for bank in range(1, self._image.size() // 0x4000):
+            offset = bank * 0x4000
+            yield CodeSection(
+                offset, offset + 0x4000, 0x4000, 'lr35902', ByteOrder.little
+                )
+
     def iterEntryPoints(self):
-        header = _unpackStruct(self.image, 0x100, self.header)
-        if header is None:
-            raise ValueError('No header')
-        entry = header[0]
-        if entry[0] == 0x00 and entry[1] == 0xc3:
-            # TODO: Once we can properly trace, we don't need this workaround
-            #       anymore.
-            addr = entry[2] | (entry[3] << 8)
-            yield EntryPoint(
-                None, 'lr35902', ByteOrder.little, addr, addr, None
-                )
-        else:
-            yield EntryPoint(
-                None, 'lr35902', ByteOrder.little, 0x100, 0x100, 4
-                )
+        # RST and interrupts.
+        for addr in range(0x0, 0x68, 0x8):
+            yield EntryPoint(addr)
+        # Main entry point.
+        yield EntryPoint(0x100)
+        # Typical code start.
+        # TODO: Once we can properly trace, we don't need this one anymore.
+        yield EntryPoint(0x150)
 
 class MSXROM(BinaryFormat):
 
@@ -96,11 +114,11 @@ class MSXROM(BinaryFormat):
     description = 'MSX ROM image'
     extensions = ('rom',)
 
-    header = Struct('<2sHHHH6s')
+    _headerStruct = Struct('<2sHHHH6s')
 
     @classmethod
     def checkImage(cls, image):
-        header = _unpackStruct(image, 0, cls.header)
+        header = _unpackStruct(image, 0, cls._headerStruct)
         if header is None:
             return -1000
         cartID, init, statement, device, text, reserved = header
@@ -139,17 +157,24 @@ class MSXROM(BinaryFormat):
 
         return score
 
-    def iterEntryPoints(self):
-        header = _unpackStruct(self.image, 0, self.header)
-        if header is None:
+    def __init__(self, image):
+        BinaryFormat.__init__(self, image)
+
+        headerItems = _unpackStruct(image, 0, self._headerStruct)
+        if headerItems is None:
             raise ValueError('No header')
-        cartID, init, statement, device, text, reserved = header
+        self._header = header = namedtuple('MSXROMHeader', (
+            'cartID', 'init', 'statement', 'device', 'text', 'reserved'
+            ))(*headerItems)
 
         # Figure out address at which ROM is mapped into memory.
+        cartID = header.cartID
         if cartID == b'AB':
-            if self.image.size() <= 0x4000:
+            if image.size() <= 0x4000:
                 baseFreqs = [0] * 4
-                for addr in (init, statement, device, text):
+                for addr in (
+                        header.init, header.statement, header.device,
+                        header.text):
                     if addr != 0:
                         baseFreqs[addr >> 14] += 1
                 if baseFreqs[1] == 0 and baseFreqs[2] != 0:
@@ -162,19 +187,26 @@ class MSXROM(BinaryFormat):
             base = 0x0000
         else:
             raise ValueError('Unknown cartridge type')
+        self._base = base
 
-        def ep(name, addr):
-            return EntryPoint(
-                name, 'z80', ByteOrder.little, addr - base, addr, None
-                )
-        if init != 0:
-            yield ep('init', init)
-        if statement != 0:
-            yield ep('statement', statement)
-        if device != 0:
-            yield ep('device', device)
+    def iterSections(self):
+        # Header.
+        yield Section(0x0, 0x10)
+        # Fixed mapping.
+        # Note: MegaROM mappers are not supported yet.
+        base = self._base
+        yield CodeSection(0x10, 0x8000, base + 0x10, 'z80', ByteOrder.little)
+
+    def iterEntryPoints(self):
+        header = self._header
+        base = self._base
+
         # Note: TEXT points to tokenized MSX-BASIC and is therefore not an
         #       entry point.
+        for name in ('init', 'statement', 'device'):
+            value = getattr(header, name)
+            if value != 0 and value >= base:
+                yield EntryPoint(value - base, name)
 
 # Build a dictionary of binary formats using introspection.
 def _discoverBinaryFormats(localObjects):

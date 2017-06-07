@@ -5,7 +5,8 @@ from retroasm.binfmt import (
     detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
 from retroasm.disasm import disassemble
-from retroasm.linereader import DelayedError, LineReaderFormatter
+from retroasm.linereader import LineReaderFormatter
+from retroasm.section import SectionMap
 
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -73,16 +74,17 @@ def determineBinaryFormat(image, fileName, formatName, logger):
     return binfmt
 
 def disassembleBinary(binary, logger):
+    sectionMap = SectionMap(binary.iterSections())
+
     # Load instruction set definitions.
-    entryPoints = list(binary.iterEntryPoints())
     instrSets = {}
-    for entryPoint in entryPoints:
-        name = entryPoint.instrSetName
-        if name not in instrSets:
-            logger.info('Loading instruction set: %s', name)
-            instrPath = 'defs/instr/%s.instr' % name
+    for section in sectionMap:
+        instrSetName = getattr(section, 'instrSetName', None)
+        if instrSetName is not None and instrSetName not in instrSets:
+            logger.info('Loading instruction set: %s', instrSetName)
+            instrPath = 'defs/instr/%s.instr' % instrSetName
             try:
-                instrSets[name] = parseInstrSet(
+                instrSets[instrSetName] = parseInstrSet(
                     instrPath, wantSemantics=False
                     )
             except OSError as ex:
@@ -90,24 +92,51 @@ def disassembleBinary(binary, logger):
                     'Failed to read instruction set "%s": %s',
                     ex.filename, ex.strerror
                     )
-                instrSets[name] = None
+                instrSets[instrSetName] = None
 
     # Disassemble.
     image = binary.image
-    for entryPoint in entryPoints:
-        instrSet = instrSets[entryPoint.instrSetName]
-        if instrSet is None:
+    for entryPoint in binary.iterEntryPoints():
+        offset = entryPoint.offset
+
+        # Find section.
+        section = sectionMap.sectionAt(offset)
+        if section is None:
             logger.warning(
-                'Skipping disassembly of offset $%x due to unknown '
-                'instruction set "%s"',
-                entryPoint.offset, entryPoint.instrSetName
+                'Skipping disassembly of offset 0x%x because it does not '
+                'belong to any section', offset
                 )
             continue
-        offset = entryPoint.offset
-        size = entryPoint.size
-        if size is None:
-            size = image.size() - offset
-        disassemble(instrSet, image, offset, entryPoint.addr, size)
+
+        # Find instruction set.
+        instrSetName = getattr(section, 'instrSetName', None)
+        if instrSetName is None:
+            logger.warning(
+                'Skipping disassembly of offset 0x%x because its section does '
+                'not specify an instruction set', offset,
+                )
+            continue
+        instrSet = instrSets[instrSetName]
+        if instrSet is None:
+            logger.warning(
+                'Skipping disassembly of offset 0x%x due to unknown '
+                'instruction set "%s"', offset, instrSetName
+                )
+            continue
+
+        # Find end point.
+        end = min(section.end, image.size())
+        if offset >= end:
+            logger.warning(
+                'Skipping disassembly of offset 0x%x because it is outside '
+                'of the image (size 0x%x)',
+                offset, image.size()
+                )
+            continue
+
+        addr = section.base + offset - section.start
+        size = end - offset
+        disassemble(instrSet, image, offset, addr, size)
 
 def main():
     from argparse import ArgumentParser
