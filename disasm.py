@@ -10,18 +10,17 @@ from retroasm.disasm import (
 from retroasm.linereader import LineReaderFormatter
 from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
 
+from logging import DEBUG, INFO, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-import logging
 
-def setupLogging(level):
-    handler = logging.StreamHandler()
+def setupLogging(rootLevel):
+    handler = StreamHandler()
     formatter = LineReaderFormatter()
     handler.setFormatter(formatter)
-    logger = logging.getLogger()
+    logger = getLogger()
     logger.addHandler(handler)
-    logger.setLevel(level)
-    return logger
+    logger.setLevel(rootLevel)
 
 def listSupported(logger):
     logger.info('')
@@ -292,9 +291,8 @@ def main():
             ''')
         )
     parser.add_argument(
-        '-v', '--verbose', action='store_const',
-        const=logging.DEBUG, default=logging.INFO,
-        help='list available binary formats and instruction sets, then exit'
+        '-v', '--verbose', action='count', default=0,
+        help='increase amount of logging, can be passed multiple times'
         )
     parser.add_argument(
         'binary', nargs='?',
@@ -302,7 +300,12 @@ def main():
         )
     args = parser.parse_args()
 
-    logger = setupLogging(args.verbose)
+    verbosity = args.verbose
+    setupLogging(INFO if verbosity < 2 else DEBUG)
+    logger = getLogger('disasm')
+    if verbosity > 0:
+        logger.setLevel(DEBUG)
+        getLogger('binfmt').setLevel(DEBUG)
 
     # Handle options that don't require a binary.
     if args.list:
