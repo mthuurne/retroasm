@@ -450,26 +450,16 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
         else:
             assert False, placeholder
 
-def _decomposeEncoding(ref, location, reader):
+def _decomposeReference(ref):
     if isinstance(ref, FixedValue):
         const = ref.const
         assert isinstance(const, ComputedConstant), const
-        expr = const.expr
-        if isinstance(expr, Immediate):
-            yield expr.name, 0, 0, ref.width
-        elif isinstance(expr, IntLiteral):
-            pass
-        else:
-            # TODO: This message is particularly unclear, because we do not
-            #       have the exact location nor can we print the expression.
-            reader.error('unsupported operation in encoding', location=location)
+        yield const.expr, 0, 0, ref.width
     elif isinstance(ref, ConcatenatedReference):
         offset = 0
         for subRef in ref:
-            for name, immIdx, refIdx, width in _decomposeEncoding(
-                    subRef, location, reader
-                    ):
-                yield name, immIdx, offset + refIdx, width
+            for expr, immIdx, refIdx, width in _decomposeReference(subRef):
+                yield expr, immIdx, offset + refIdx, width
             offset += subRef.width
     elif isinstance(ref, SlicedReference):
         # Note that SlicedReference has already simplified the offset.
@@ -477,9 +467,7 @@ def _decomposeEncoding(ref, location, reader):
         if isinstance(offset, IntLiteral):
             start = offset.value
             end = start + ref.width
-            for name, immIdx, refIdx, width in _decomposeEncoding(
-                    ref.ref, location, reader
-                    ):
+            for expr, immIdx, refIdx, width in _decomposeReference(ref.ref):
                 # Clip to slice boundaries.
                 refStart = max(refIdx, start)
                 refEnd = min(refIdx + width, end)
@@ -487,42 +475,47 @@ def _decomposeEncoding(ref, location, reader):
                 width = refEnd - refStart
                 if width > 0:
                     immShift = refStart - refIdx
-                    yield name, immIdx + immShift, refStart - start, width
+                    yield expr, immIdx + immShift, refStart - start, width
         else:
-            # TODO: This message is particularly unclear, because we do not
-            #       have the exact location nor can we print the offset.
-            reader.error(
-                'slices in encoding must have fixed offset',
-                location=location
-                )
+            raise ValueError('slices in encoding must have fixed offset')
     else:
         # Note: SingleReference cannot occur in encoding since the stateless
         #       builder would trigger an error when loading from it.
         assert False, ref
+
+def _decomposeEncodingExprs(encElems, reader):
+    decodeMap = defaultdict(list)
+    for encIdx, encElem in enumerate(encElems):
+        if not isinstance(encElem, EncodingExpr):
+            continue
+        try:
+            for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
+                if isinstance(expr, Immediate):
+                    decodeMap[expr.name].append(
+                        (immIdx, encIdx, refIdx, width)
+                        )
+                elif isinstance(expr, IntLiteral):
+                    pass
+                else:
+                    raise ValueError('unsupported operation in encoding')
+        except ValueError as ex:
+            # TODO: This message is particularly unclear, because we do not
+            #       have the exact location nor can we print the offending
+            #       expression.
+            #       We could store locations in non-simplified expressions
+            #       or decompose parse trees instead of references.
+            reader.error('%s', ex, location=encElem.location)
+    return decodeMap
 
 def _parseModeDecoding(encoding, encBuilder, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
 
-    # Decompose the references.
-    decodeMap = defaultdict(list)
-    multiMatches = set()
+    # Decompose the encoding expressions.
     try:
         with reader.checkErrors():
-            for encIdx, encElem in enumerate(encoding):
-                if isinstance(encElem, EncodingExpr):
-                    for name, immIdx, refIdx, width in _decomposeEncoding(
-                            encElem.ref, encElem.location, reader
-                            ):
-                        decodeMap[name].append((immIdx, encIdx, refIdx, width))
-                elif isinstance(encElem, EncodingMultiMatch):
-                    # Actual decoding will be done using the matched mode entry
-                    # in the included mode table, so all we can do here is note
-                    # that decoding is possible.
-                    multiMatches.add(encElem.name)
-                else:
-                    assert False, encElem
+            decodeMap = _decomposeEncodingExprs(encoding, reader)
     except DelayedError:
         return None
 
