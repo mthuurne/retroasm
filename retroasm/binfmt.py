@@ -231,6 +231,54 @@ class MSXROM(BinaryFormat):
             if addr != 0:
                 yield from _yieldEntryPoint(section, addr, name)
 
+class PSXExecutable(BinaryFormat):
+
+    name = 'psxexe'
+    description = 'PlayStation executable'
+    extensions = ('exe',)
+
+    _headerStruct = Struct('<8sIIIIIIIIIIII')
+
+    @classmethod
+    def checkImage(cls, image):
+        return 1000 if image[:8] == b'PS-X EXE' else -1000
+
+    def __init__(self, image):
+        BinaryFormat.__init__(self, image)
+
+        headerItems = _unpackStruct(image, 0, self._headerStruct)
+        if headerItems is None:
+            raise ValueError('Incomplete header')
+        self._header = header = namedtuple('PSXEXEHeader', (
+            'id', 'textOffset', 'dataOffset', 'pc0', 'gp0',
+            'textAddr', 'textSize', 'dataAddr', 'dataSize',
+            'bssAddr', 'bssSize', 'stackAddr', 'stackSize'
+            ))(*headerItems)
+
+        textStart = header.textOffset + 0x800
+        textEnd = textStart + header.textSize
+        textAddr= header.textAddr
+        self._text = CodeSection(
+            textStart, textEnd, textAddr, 'mips-i', ByteOrder.little
+            )
+
+        dataStart = header.dataOffset + 0x800
+        dataEnd = dataStart + header.dataSize
+        self._data = (
+            None
+            if dataEnd == dataStart
+            else Section(dataStart, dataEnd)
+            )
+
+    def iterSections(self):
+        yield self._text
+        data = self._data
+        if data is not None:
+            yield data
+
+    def iterEntryPoints(self):
+        return _yieldEntryPoint(self._text, self._header.pc0, 'start')
+
 class RawBinary(BinaryFormat):
 
     name = 'raw'
