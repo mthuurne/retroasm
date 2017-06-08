@@ -89,8 +89,11 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
             base = sectionDef.get('addr', 0)
             byteorder = sectionDef.get('byteorder', ByteOrder.undefined)
             section = CodeSection(start, end, base, instrSetName, byteorder)
+        logger.debug('user-defined section: %s', section)
         sections.append(section)
-    sections += binary.iterSections()
+    for section in binary.iterSections():
+        logger.debug('binfmt-defined section: %s', section)
+        sections.append(section)
     if len(sections) == 0:
         logger.warning(
             'No sections; you can manually define them using the --section '
@@ -127,8 +130,11 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
         offset = entryDef['offset']
         label = entryDef.get('label')
         entryPoint = EntryPoint(offset, label)
+        logger.debug('user-defined entry: %s', entryPoint)
         entryPoints.append(entryPoint)
-    entryPoints += binary.iterEntryPoints()
+    for entryPoint in binary.iterEntryPoints():
+        logger.debug('binfmt-defined entry: %s', entryPoint)
+        entryPoints.append(entryPoint)
     if len(entryPoints) == 0:
         logger.warning(
             'No entry points; you can manually define them using the --entry '

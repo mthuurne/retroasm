@@ -22,6 +22,16 @@ class EntryPoint:
         if offset < 0:
             raise ValueError('Negative offset: %d' % offset)
 
+    def __repr__(self):
+        return 'EntryPoint(0x%x, %r)' % (self._offset, self._label)
+
+    def __str__(self):
+        label = self._label
+        if label is None:
+            return '0x%x' % self._offset
+        else:
+            return '0x%x (%s)' % (self._offset, label)
+
 class BinaryFormat:
     '''Abstract base class for binary formats.
     '''
