@@ -342,25 +342,29 @@ def main():
                 entryDefs.append(entryDef)
 
     # Open binary file.
-    if args.binary is None:
+    binaryPath = args.binary
+    if binaryPath is None:
         logger.error('No input file (binary) specified')
         print()
         parser.print_help()
         exit(2)
     try:
-        with open(args.binary, 'rb') as binFile:
+        with open(binaryPath, 'rb') as binFile:
             with mmap(binFile.fileno(), 0, access=ACCESS_READ) as image:
                 binfmt = determineBinaryFormat(
-                    image, args.binary, args.binfmt, logger
+                    image, binaryPath, args.binfmt, logger
                     )
                 if binfmt is None:
                     exit(1)
                 binary = binfmt(image)
                 disassembleBinary(binary, sectionDefs, entryDefs, logger)
     except OSError as ex:
-        logger.error(
-            'Failed to read binary "%s": %s', ex.filename, ex.strerror
-            )
+        if ex.filename == binaryPath:
+            logger.error(
+                'Failed to read binary "%s": %s', binaryPath, ex.strerror
+                )
+        else:
+            logger.error('OS error: %s', ex.strerror)
         exit(1)
 
 if __name__ == '__main__':
