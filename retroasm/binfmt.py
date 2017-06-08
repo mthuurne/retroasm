@@ -32,6 +32,17 @@ class EntryPoint:
         else:
             return '0x%x (%s)' % (self._offset, label)
 
+def _yieldEntryPoint(section, addr, name=None):
+    try:
+        offset = section.offsetForAddr(addr)
+    except ValueError as ex:
+        logger.warning(
+            'Ignoring entry point%s: %s',
+            '' if name is None else ' "%s"' % name, ex
+            )
+    else:
+        yield EntryPoint(offset, name)
+
 class BinaryFormat:
     '''Abstract base class for binary formats.
     '''
@@ -197,26 +208,28 @@ class MSXROM(BinaryFormat):
             base = 0x0000
         else:
             raise ValueError('Unknown cartridge type')
-        self._base = base
+
+        self._section = CodeSection(
+            0x10, 0x8000, base + 0x10, 'z80', ByteOrder.little
+            )
 
     def iterSections(self):
         # Header.
         yield Section(0x0, 0x10)
         # Fixed mapping.
         # Note: MegaROM mappers are not supported yet.
-        base = self._base
-        yield CodeSection(0x10, 0x8000, base + 0x10, 'z80', ByteOrder.little)
+        yield self._section
 
     def iterEntryPoints(self):
         header = self._header
-        base = self._base
+        section = self._section
 
         # Note: TEXT points to tokenized MSX-BASIC and is therefore not an
         #       entry point.
         for name in ('init', 'statement', 'device'):
-            value = getattr(header, name)
-            if value != 0 and value >= base:
-                yield EntryPoint(value - base, name)
+            addr = getattr(header, name)
+            if addr != 0:
+                yield from _yieldEntryPoint(section, addr, name)
 
 class RawBinary(BinaryFormat):
 

@@ -58,6 +58,18 @@ class CodeSection(Section):
             self._byteOrder.name
             )
 
+    def offsetForAddr(self, addr):
+        '''Returns the offset in the image at which the given address can be
+        found.
+        Raises ValueError if the given address is outside this section.
+        '''
+        start = self._start
+        offset = start + addr - self._base
+        if start <= offset < self._end:
+            return offset
+        else:
+            raise ValueError('address outside section: 0x%x' % addr)
+
 class SectionMap:
     '''A collection of sections.
     '''
