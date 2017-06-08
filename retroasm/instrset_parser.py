@@ -22,8 +22,9 @@ from .mode import (
     )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
-from .types import IntType, ReferenceType, parseType, parseTypeDecl, unlimited
-
+from .types import (
+    IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
+    )
 from collections import OrderedDict, defaultdict
 from logging import getLogger
 import re
@@ -484,10 +485,13 @@ def _decomposeReference(ref):
         assert False, ref
 
 def _decomposeEncodingExprs(encElems, reader):
+    fixedMatcher = []
     decodeMap = defaultdict(list)
     for encIdx, encElem in enumerate(encElems):
         if not isinstance(encElem, EncodingExpr):
             continue
+        fixedMask = 0
+        fixedValue = 0
         try:
             for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
                 if isinstance(expr, Immediate):
@@ -495,7 +499,9 @@ def _decomposeEncodingExprs(encElems, reader):
                         (immIdx, encIdx, refIdx, width)
                         )
                 elif isinstance(expr, IntLiteral):
-                    pass
+                    mask = maskForWidth(width) << refIdx
+                    fixedMask |= mask
+                    fixedValue |= ((expr.value >> immIdx) << refIdx) & mask
                 else:
                     raise ValueError('unsupported operation in encoding')
         except ValueError as ex:
@@ -505,7 +511,10 @@ def _decomposeEncodingExprs(encElems, reader):
             #       We could store locations in non-simplified expressions
             #       or decompose parse trees instead of references.
             reader.error('%s', ex, location=encElem.location)
-    return decodeMap
+        else:
+            if fixedMask != 0:
+                fixedMatcher.append((encIdx, fixedMask, fixedValue))
+    return fixedMatcher, decodeMap
 
 def _parseModeDecoding(encoding, encBuilder, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
@@ -515,7 +524,7 @@ def _parseModeDecoding(encoding, encBuilder, reader):
     # Decompose the encoding expressions.
     try:
         with reader.checkErrors():
-            decodeMap = _decomposeEncodingExprs(encoding, reader)
+            fixedMatcher, decodeMap = _decomposeEncodingExprs(encoding, reader)
     except DelayedError:
         return None
 
@@ -566,6 +575,7 @@ def _parseModeDecoding(encoding, encBuilder, reader):
     except DelayedError:
         return None
     else:
+        sequentialMap[None] = fixedMatcher
         return sequentialMap
 
 def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
