@@ -98,7 +98,8 @@ class LineReader:
         if self.logger.isEnabledFor(level):
             if location is None:
                 location = self.getLocation()
-            self.logger.log(level, msg, *args, extra=location.extra, **kwargs)
+            extra = dict(location=location)
+            self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
     def getLocation(self, span=None):
         '''Returns an InputLocation object describing the current location in
@@ -106,12 +107,7 @@ class LineReader:
         of the start and end index of the area of interest within the current
         line.
         '''
-        return InputLocation(
-            readerPathname=self.pathname,
-            readerLineno=self.lineno,
-            readerLastline=self.lastline,
-            readerColSpan=span,
-            )
+        return InputLocation(self.pathname, self.lineno, self.lastline, span)
 
     def splitOn(self, matches):
         '''Iterates through the fields in the current line which are generated
@@ -138,32 +134,41 @@ class InputLocation:
     This can be used to provide context in error reporting, by passing it as
     the value of the 'location' argument to the log methods of LineReader.
     '''
-    __slots__ = ('extra',)
+    __slots__ = ('_pathname', '_lineno', '_line', '_span')
 
-    pathname = property(lambda self: self.extra['readerPathname'])
+    pathname = property(lambda self: self._pathname)
     '''The file system path to the input text file.'''
 
-    line = property(lambda self: self.extra['readerLastline'])
+    line = property(lambda self: self._line)
     '''The contents of the input line that this location describes.'''
 
-    lineno = property(lambda self: self.extra['readerLineno'])
+    lineno = property(lambda self: self._lineno)
     '''The number of this location's line in the input file, where line 1 is
     the first line.'''
 
-    span = property(lambda self: self.extra.get('readerColSpan'))
+    span = property(lambda self: self._span)
     '''The column span information of this location, or None if no column span
     information is available.'''
 
-    def __init__(self, **kwargs):
-        self.extra = kwargs
+    def __init__(self, pathname, lineno, line, span=None):
+        self._pathname = pathname
+        self._lineno = lineno
+        self._line = line
+        self._span = span
 
     def __repr__(self):
-        return 'InputLocation(%s)' % ', '.join(
-            '%s=%r' % item for item in self.extra.items()
+        return 'InputLocation(%r, %r, %r, %r)' % (
+            self._pathname, self._lineno, self._line, self._span
             )
 
     def __eq__(self, other):
-        return isinstance(other, InputLocation) and self.extra == other.extra
+        return (
+            isinstance(other, InputLocation)
+            and self._pathname == other._pathname
+            and self._lineno == other._lineno
+            and self._line == other._line
+            and self._span == other._span
+            )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -181,7 +186,7 @@ class InputLocation:
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
-        return InputLocation(**dict(self.extra, readerColSpan=span))
+        return InputLocation(self._pathname, self._lineno, self._line, span)
 
 def mergeSpan(fromLocation, toLocation):
     '''Returns a new location of which the span starts at the start of the
@@ -265,18 +270,22 @@ class DefLineReader(LineReader):
 class LineReaderFormatter(Formatter):
 
     def format(self, record):
-        readerPathname = getattr(record, 'readerPathname', '-')
-        readerLineno = getattr(record, 'readerLineno', None)
-        readerLastline = getattr(record, 'readerLastline', None)
-        readerColSpan = getattr(record, 'readerColSpan', None)
         msg = super().format(record)
-        if readerLineno is not None:
-            msg = '%s:%s: %s' % (readerPathname, readerLineno, msg)
-        if readerLastline is not None:
-            msg += '\n  ' + readerLastline
-        if readerColSpan is not None:
-            fromIdx, toIdx = readerColSpan
-            if fromIdx == toIdx:
-                toIdx += 1
-            msg += '\n  ' + ' ' * fromIdx + '^' * (toIdx - fromIdx)
-        return msg
+        location = getattr(record, 'location', None)
+        if location is None:
+            return msg
+
+        lines = ['%s:%s: %s' % (location.pathname, location.lineno, msg)]
+
+        line = location.line
+        if line is not None:
+            lines.append(line)
+
+            span = location.span
+            if span is not None:
+                fromIdx, toIdx = span
+                if fromIdx == toIdx:
+                    toIdx += 1
+                lines.append(' ' * fromIdx + '^' * (toIdx - fromIdx))
+
+        return '\n'.join(lines)
