@@ -633,7 +633,7 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
 def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
-    seenPlaceholders = set()
+    seenPlaceholders = {}
     for match in _reMnemonic.finditer(mnemStr):
         def getMatchLocation():
             span = match.span()
@@ -657,15 +657,13 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             # meaning that would make sense is that they would all match the
             # same mode entry or expression and I don't know of any situation
             # in which that would be a useful feature.
-            span = match.span()
-            shift = mnemLoc.span[0]
             reader.error(
                 'placeholder "%s" occurs multiple times in mnemonic', text,
-                location=getMatchLocation()
+                location=(getMatchLocation(), seenPlaceholders[text])
                 )
         else:
             yield placeholder
-            seenPlaceholders.add(text)
+            seenPlaceholders[text] = getMatchLocation()
 
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
