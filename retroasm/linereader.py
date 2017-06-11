@@ -287,41 +287,41 @@ class LineReaderFormatter(Formatter):
             if line is not None:
                 yield line
 
-                if spans:
-                    spanChars= []
-                    i = 0
-                    for start, end in sorted(spans):
-                        if i < start:
-                            spanChars.append(' ' * (start - i))
-                        i = max(i, start)
-                        if i < end:
-                            spanChars.append('^' * (end - i))
-                        i = max(i, end)
-                    yield ''.join(spanChars)
+                length = len(line) + 1
+                spanLine = ' ' * length
+                last = len(spans) - 1
+                for i, span in enumerate(reversed(spans)):
+                    if span is None:
+                        continue
+                    start, end = span
+                    start = min(start, length)
+                    end = min(end, length)
+                    if start >= end:
+                        continue
+                    highlight = ('^' if i == last else '~') * (end - start)
+                    spanLine = spanLine[:start] + highlight + spanLine[end:]
+                spanLine = spanLine.rstrip()
+                if spanLine:
+                    yield spanLine
 
     def _iterParts(self, msg, location):
         if location is None:
             yield msg, None, None, None, []
         elif not hasattr(location, '__len__'):
             loc = location
-            span = loc.span
-            spans = [] if span is None else [span]
-            yield msg, loc.pathname, loc.lineno, loc.line, spans
+            yield msg, loc.pathname, loc.lineno, loc.line, [loc.span]
         else:
             i = 0
             while i < len(location):
                 # Merge spans of following locations on the same line.
                 loc = location[i]
                 lineno = loc.lineno
-                span = loc.span
-                spans = [] if span is None else [span]
+                spans = [loc.span]
                 i += 1
                 while i < len(location) and \
                         location[i].lineno == lineno and \
                         location[i].pathname == loc.pathname:
-                    span = location[i].span
-                    if span is not None:
-                        spans.append(span)
+                    spans.append(location[i].span)
                     i += 1
                 yield msg, loc.pathname, lineno, loc.line, spans
                 msg = None
