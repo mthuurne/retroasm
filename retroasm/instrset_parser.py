@@ -1,9 +1,11 @@
 from .codeblock import (
-    ComputedConstant, ConcatenatedReference, FixedValue, SlicedReference
+    ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
+    SlicedReference
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
+from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .expression import IntLiteral
 from .expression_builder import (
     UnknownNameError, buildExpression, buildReference, convertDefinition
@@ -233,7 +235,7 @@ def _parseFunc(reader, argStr, builder, wantSemantics):
         reader.skipBlock()
 
 def _parseModeContext(ctxStr, ctxLoc, modes, reader):
-    placeholders = OrderedDict()
+    placeholderSpecs = OrderedDict()
     flagsRequired = set()
     for node in parseContext(ctxStr, ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
@@ -244,7 +246,7 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
             # Figure out whether the name is a mode or type.
             mode = modes.get(typeName)
             if mode is not None:
-                placeholder = MatchPlaceholder(decl, mode)
+                placeholder = MatchPlaceholderSpec(decl, mode)
                 if isinstance(node, DefinitionNode):
                     reader.error(
                         'filter values for mode placeholders are '
@@ -263,20 +265,20 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
                         )
                     continue
                 value = node.value if isinstance(node, DefinitionNode) else None
-                placeholder = ValuePlaceholder(decl, typ, value)
-            if name in placeholders:
+                placeholder = ValuePlaceholderSpec(decl, typ, value)
+            if name in placeholderSpecs:
                 reader.error(
                     'multiple placeholders named "%s"', name,
                     location=decl.name.location
                     )
             else:
-                placeholders[name] = placeholder
+                placeholderSpecs[name] = placeholder
         elif isinstance(node, FlagTestNode):
             flagsRequired.add(node.name)
         else:
             assert False, node
 
-    return placeholders, flagsRequired
+    return placeholderSpecs, flagsRequired
 
 def _buildPlaceholder(placeholder, typ, builder):
     decl = placeholder.decl
@@ -291,7 +293,7 @@ def _buildPlaceholder(placeholder, typ, builder):
         ref = builder.emitFixedValue(immediate, typ)
         builder.defineReference(name, ref, decl.name.location)
 
-def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
+def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
     # Errors are stored rather than reported immediately, since it is possible
     # to define expressions that are valid as semantics but not as encodings.
@@ -299,7 +301,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
     # encoding field. For example relative addressing reads the base address
     # from a register.
     encErrors = {}
-    for name, placeholder in placeholders.items():
+    for name, placeholder in placeholderSpecs.items():
         encWidth = placeholder.encodingWidth
         if encWidth is not None:
             encType = IntType.u(encWidth)
@@ -326,14 +328,14 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
             # Match multiple encoding fields as-is.
             name = encNode.name
             try:
-                placeholder = placeholders[name]
+                placeholder = placeholderSpecs[name]
             except KeyError:
                 reader.error(
                     'placeholder "%s" does not exist in context', name,
                     location=encLoc
                     )
                 continue
-            if not isinstance(placeholder, MatchPlaceholder):
+            if not isinstance(placeholder, MatchPlaceholderSpec):
                 reader.error(
                     'placeholder "%s" does not represent a mode match', name,
                     location=(encLoc, placeholder.decl.treeLocation)
@@ -371,7 +373,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 encRef = buildReference(encNode, encBuilder)
             except BadInput as ex:
                 if isinstance(ex, UnknownNameError):
-                    placeholder = placeholders.get(ex.name)
+                    placeholder = placeholderSpecs.get(ex.name)
                     if placeholder is not None \
                             and placeholder.encodingWidth is None:
                         reader.error(
@@ -379,7 +381,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                             'since mode "%s" has an empty encoding sequence',
                             ex.name, placeholder.mode.name, location=(
                                 ex.location,
-                                placeholders[ex.name].decl.treeLocation
+                                placeholder.decl.treeLocation
                                 )
                             )
                         continue
@@ -428,8 +430,8 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                 encNodes[0].treeLocation,
                 encNodes[-1].treeLocation
                 )
-    for name, placeholder in placeholders.items():
-        if isinstance(placeholder, ValuePlaceholder):
+    for name, placeholder in placeholderSpecs.items():
+        if isinstance(placeholder, ValuePlaceholderSpec):
             if placeholder.value is not None:
                 # The value is computed, so we don't need to encode it.
                 continue
@@ -438,8 +440,9 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
                     'value placeholder "%s" does not occur in encoding', name,
                     location=(encFullSpan(), placeholder.decl.treeLocation)
                     )
-        elif isinstance(placeholder, MatchPlaceholder):
-            if placeholder.mode.encodingWidth is None:
+        elif isinstance(placeholder, MatchPlaceholderSpec):
+            mode = placeholder.mode
+            if mode.encodingWidth is None:
                 # Mode has empty encoding, no match needed.
                 continue
             if name in multiMatches:
@@ -448,14 +451,14 @@ def _parseModeEncoding(encNodes, encBuilder, placeholders, reader):
             if name not in identifiers:
                 reader.error(
                     'no placeholder "%s" for mode "%s" in encoding',
-                    name, placeholder.mode.name,
+                    name, mode.name,
                     location=(encFullSpan(), placeholder.decl.treeLocation)
                     )
-            if placeholder.mode.auxEncodingWidth is not None:
+            if mode.auxEncodingWidth is not None:
                 reader.error(
                     'mode "%s" contains auxiliary encoding items, but '
                     'there is no "%s@" placeholder to match them',
-                    placeholder.mode.name, name,
+                    mode.name, name,
                     location=(encFullSpan(), placeholder.decl.treeLocation)
                     )
         else:
@@ -665,6 +668,18 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             yield placeholder
             seenPlaceholders[text] = getMatchLocation()
 
+def _inlineConstants(expr, constants):
+    '''Inline all ConstantValues in the given expression.
+    Constant IDs are looked up in the given constants collection.
+    '''
+    def subst(expr):
+        if isinstance(expr, ConstantValue):
+            const = constants[expr.cid]
+            if isinstance(const, ComputedConstant):
+                return const.expr.substitute(subst)
+        return None
+    return expr.substitute(subst)
+
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
@@ -693,14 +708,29 @@ def _parseModeEntries(
                 if ctxStr:
                     try:
                         with reader.checkErrors():
-                            placeholders, flagsRequired = _parseModeContext(
+                            placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxStr, ctxLoc, modes, reader
                                 )
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    placeholders, flagsRequired = {}, set()
+                    placeholderSpecs, flagsRequired = {}, set()
+
+                # Define placeholders in semantics builder.
+                # We have to do this even when wantSemantics is False, since
+                # mnemonic formatting needs the semantics for placeholders
+                # that have a computed value.
+                try:
+                    for spec in placeholderSpecs.values():
+                        semType = spec.semanticsType
+                        _buildPlaceholder(spec, semType, semBuilder)
+                except BadInput as ex:
+                    reader.error(
+                        'error in context: %s', ex, location=ex.location
+                        )
+                    # To avoid error spam, skip this line.
+                    continue
 
                 # Parse encoding.
                 if encStr:
@@ -721,7 +751,7 @@ def _parseModeEntries(
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
-                                encNodes, encBuilder, placeholders, reader
+                                encNodes, encBuilder, placeholderSpecs, reader
                                 ))
                     except DelayedError:
                         encoding = None
@@ -729,6 +759,29 @@ def _parseModeEntries(
                     decoding = None
                 else:
                     decoding = _parseModeDecoding(encoding, encBuilder, reader)
+
+                # Convert placeholders.
+                placeholders = {}
+                for name, spec in placeholderSpecs.items():
+                    if isinstance(spec, ValuePlaceholderSpec):
+                        if spec.value is None:
+                            value = None
+                        else:
+                            ref = semBuilder.namespace[name]
+                            # TODO: While the documentation says we do support
+                            #       defining references in the context, the
+                            #       parse code rejects "<type>&".
+                            assert isinstance(ref, FixedValue), ref
+                            expr = ref.const.expr
+                            value = _inlineConstants(expr, semBuilder.constants)
+                        placeholder = ValuePlaceholder(
+                            name, spec.semanticsType, value
+                            )
+                    elif isinstance(spec, MatchPlaceholderSpec):
+                        placeholder = MatchPlaceholder(name, spec.mode)
+                    else:
+                        assert False, spec
+                    placeholders[name] = placeholder
 
                 # Parse mnemonic.
                 mnemonic = mnemBase + tuple(_parseMnemonic(
@@ -740,14 +793,8 @@ def _parseModeEntries(
                 # Parse semantics.
                 if wantSemantics:
                     try:
-                        # Define placeholders in semantics builder.
-                        for placeholder in placeholders.values():
-                            semType = placeholder.semanticsType
-                            _buildPlaceholder(placeholder, semType, semBuilder)
-
-                        # Parse semantics field.
                         if not semStr:
-                            # Parse mnemonic as semantics.
+                            # Parse mnemonic field as semantics.
                             semStr = mnemStr
                             semLoc = mnemLoc
                         parseSem(semStr, semLoc, semBuilder, modeType)
@@ -758,9 +805,8 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
-            context = semBuilder.namespace
             yield ModeEntry(
-                encoding, decoding, mnemonic, semBuilder, context,
+                encoding, decoding, mnemonic, semBuilder, placeholders,
                 flagsRequired, reader.getLocation()
                 )
 

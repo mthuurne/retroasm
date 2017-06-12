@@ -1,5 +1,6 @@
 from .expression import Expression
 from .expression_parser import DeclarationNode, ParseNode
+from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
 from .types import unlimited
 from .utils import checkType
@@ -49,14 +50,14 @@ class ModeEntry:
     '''
 
     def __init__(
-            self, encoding, decoding, mnemonic, semantics, context,
+            self, encoding, decoding, mnemonic, semantics, placeholders,
             flagsRequired, location
             ):
         self.encoding = encoding = tuple(encoding)
         self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
-        self.context = context
+        self.placeholders = placeholders
         self.flagsRequired = frozenset(flagsRequired)
         self.location = location
 
@@ -263,60 +264,51 @@ class Placeholder:
     '''Abstract base class for a mode context element.
     '''
 
-    decl = property(lambda self: self._decl)
-    name = property(lambda self: self._decl.name.name)
+    name = property(lambda self: self._name)
 
-    encodingWidth = property()
-    semanticsType = property()
-    value = property()
-
-    def __init__(self, decl):
-        self._decl = checkType(decl, DeclarationNode, 'placeholder declaration')
+    def __init__(self, name):
+        self._name = name
 
 class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.
-    The value will be a ParseNode, or None if no value was given in the context.
     '''
 
-    encodingWidth = property(lambda self: self._type.width)
-    semanticsType = property(lambda self: self._type)
+    type = property(lambda self: self._type)
     value = property(lambda self: self._value)
 
-    def __init__(self, decl, typ, value):
-        Placeholder.__init__(self, decl)
+    def __init__(self, name, typ, value):
+        Placeholder.__init__(self, name)
         self._type = typ
-        self._value = checkType(
-            value, (type(None), ParseNode), 'placeholder value'
-            )
+        self._value = None if value is None else simplifyExpression(value)
 
     def __repr__(self):
         return 'ValuePlaceholder(%r, %r, %r)' % (
-            self._decl, self._type, self._value
+            self._name, self._type, self._value
             )
 
     def __str__(self):
-        return '{%s %s}' % (self._type, self.name)
+        value = self._value
+        if value is None:
+            return '{%s %s}' % (self._type, self._name)
+        else:
+            return '{%s %s = %s}' % (self._type, self._name, self._value)
 
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made
     in a different mode table.
     '''
 
-    encodingWidth = property(lambda self: self._mode.encodingWidth)
-    semanticsType = property(lambda self: self._mode.semanticsType)
-    value = property(lambda self: None)
-
     mode = property(lambda self: self._mode)
 
-    def __init__(self, decl, mode):
-        Placeholder.__init__(self, decl)
+    def __init__(self, name, mode):
+        Placeholder.__init__(self, name)
         self._mode = mode
 
     def __repr__(self):
-        return 'MatchPlaceholder(%r, %r)' % (self._decl, self._mode)
+        return 'MatchPlaceholder(%r, %r)' % (self._name, self._mode)
 
     def __str__(self):
-        return '{%s %s}' % (self._mode.name, self.name)
+        return '{%s %s}' % (self._mode.name, self._name)
 
 class Immediate(Expression):
     '''A constant value defined as part of an instruction.
