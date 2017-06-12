@@ -1,7 +1,9 @@
+from .codeblock import ConstantValue, LoadedConstant
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
+from .storage import Variable
 from .types import maskForWidth, unlimited
 from .utils import checkType
 
@@ -177,14 +179,24 @@ class EncodeMatch:
         self._entry = entry
         self._mapping = mapping
 
-    def _substMapping(self, expr):
+    def _substMapping(self, expr, pc):
         if isinstance(expr, Immediate):
             return IntLiteral(self._mapping[expr.name])
+        elif isinstance(expr, ConstantValue):
+            semBuilder = self._entry.semantics
+            const = semBuilder.constants[expr.cid]
+            assert isinstance(const, LoadedConstant), const
+            storage = semBuilder.storages[const.sid]
+            assert isinstance(storage, Variable), storage
+            assert storage.name == 'pc', storage
+            return IntLiteral(pc)
         else:
             return None
 
-    def iterMnemonic(self):
+    def iterMnemonic(self, pc):
         '''Yields a mnemonic representation of this match.
+        The given program counter is the value the 'pc' register reads as,
+        typically the address after the instruction.
         '''
         entry = self._entry
         mapping = self._mapping
@@ -196,15 +208,15 @@ class EncodeMatch:
                 yield '$%x' % mnemElem
             elif isinstance(mnemElem, MatchPlaceholder):
                 match = mapping[mnemElem.name]
-                yield from match.iterMnemonic()
+                yield from match.iterMnemonic(pc)
             elif isinstance(mnemElem, ValuePlaceholder):
                 name = mnemElem.name
                 typ = mnemElem.type
                 value = mapping.get(name)
                 if value is None:
-                    expr = simplifyExpression(
-                        mnemElem.value.substitute(self._substMapping)
-                        )
+                    expr = simplifyExpression(mnemElem.value.substitute(
+                        lambda expr, pc=pc: self._substMapping(expr, pc)
+                        ))
                     if isinstance(expr, IntLiteral):
                         yield expr.value, typ
                     else:

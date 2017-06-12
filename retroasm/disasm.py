@@ -106,13 +106,13 @@ def disassemble(instrSet, fetcher, addr):
         match = instrSet.tryDecode(encoded)
         if match is None:
             print('??? %08X at 0x%08X' % (encoded, addr))
-        else:
+        fetcher = fetcher.advance()
+        addr += numBytes
+        if match is not None:
             mnemonic = []
-            for mnemElem in match.iterMnemonic():
+            for mnemElem in match.iterMnemonic(addr):
                 if isinstance(mnemElem, str):
                     mnemonic.append(mnemElem)
                 else:
                     mnemonic.append(formatInt(*mnemElem))
             print(' '.join(mnemonic))
-        fetcher = fetcher.advance()
-        addr += numBytes
