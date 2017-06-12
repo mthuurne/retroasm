@@ -249,24 +249,24 @@ instr
 
 ### Branching
 
-func br(int C, int N)
+func br(int C, u32 A)
     branch !C @skip
-    pc := pc + N
+    pc := A
     @skip
 
-func brl(int C, int N)
+func brl(int C, u32 A)
     ra := pc + 4
-    br(C, N)
+    br(C, A)
 
 instr
-%000001;RS;%00000;N     . bltz   RS,NW      . br(RS[31] == 1, NW)               . reg RS, s16 N, int NW = N;%00
-%000001;RS;%00001;N     . bgeq   RS,NW      . br(RS[31] == 0, NW)               . reg RS, s16 N, int NW = N;%00
-%000001;RS;%10000;N     . bltzal RS,NW      . brl(RS[31] == 1, NW)              . reg RS, s16 N, int NW = N;%00
-%000001;RS;%10001;N     . bgezal RS,NW      . brl(RS[31] == 0, NW)              . reg RS, s16 N, int NW = N;%00
-%000100;RS;RT;N         . beq    RS,RT,NW   . br(RS == RT, NW)                  . reg RS, reg RT, s16 N, int NW = N;%00
-%000101;RS;RT;N         . bne    RS,RT,NW   . br(RS != RT, NW)                  . reg RS, reg RT, s16 N, int NW = N;%00
-%000110;RS;%00000;N     . blez   RS,NW      . br(RS[31] == 1 | RS == 0, NW)     . reg RS, s16 N, int NW = N;%00
-%000111;RS;%00000;N     . bgtz   RS,NW      . br(RS[31] == 0 & RS != 0, NW)     . reg RS, s16 N, int NW = N;%00
+%000001;RS;%00000;N     . bltz   RS,A       . br(RS[31] == 1, A)                . reg RS, s16 N, u32 A = pc + N;%00
+%000001;RS;%00001;N     . bgeq   RS,A       . br(RS[31] == 0, A)                . reg RS, s16 N, u32 A = pc + N;%00
+%000001;RS;%10000;N     . bltzal RS,A       . brl(RS[31] == 1, A)               . reg RS, s16 N, u32 A = pc + N;%00
+%000001;RS;%10001;N     . bgezal RS,A       . brl(RS[31] == 0, A)               . reg RS, s16 N, u32 A = pc + N;%00
+%000100;RS;RT;N         . beq    RS,RT,A    . br(RS == RT, A)                   . reg RS, reg RT, s16 N, u32 A = pc + N;%00
+%000101;RS;RT;N         . bne    RS,RT,A    . br(RS != RT, A)                   . reg RS, reg RT, s16 N, u32 A = pc + N;%00
+%000110;RS;%00000;N     . blez   RS,A       . br(RS[31] == 1 | RS == 0, A)      . reg RS, s16 N, u32 A = pc + N;%00
+%000111;RS;%00000;N     . bgtz   RS,A       . br(RS[31] == 0 & RS != 0, A)      . reg RS, s16 N, u32 A = pc + N;%00
 
 func jmp(u32 A)
     pc := A
@@ -279,8 +279,8 @@ instr
 %000000;RS;%00000;%00000;%00000;%001000 . jr     RS     . jmp(RS)               . reg RS
 %000000;RS;%00000;RD;%00000;%001001     . jalr   RD,RS  . jmpl(RS, RD)          . reg RS, reg RD
 %000000;RS;%00000;%11111;%00000;%001001 . jalr   RS     . jmpl(RS, ra)          . reg RS
-%000010;N                               . j      A      . jmp(pc[28:];A)        . u26 N, u28 A = N;%00
-%000011;N                               . jal    A      . jmpl(pc[28:];A, ra)   . u26 N, u28 A = N;%00
+%000010;N                               . j      A      . jmp(A)                . u26 N, u32 A = pc[28:];N;%00
+%000011;N                               . jal    A      . jmpl(A, ra)           . u26 N, u32 A = pc[28:];N;%00
 
 func break()
     # TODO: Trigger a breakpoint exception.
