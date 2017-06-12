@@ -86,6 +86,13 @@ class LittleEndianFetcher(Fetcher):
                 shift += 8
             return value
 
+def formatInt(value, typ):
+    return (
+        '{:d}'
+        if value < 16 or typ.signed else
+        '${:0%dx}' % ((typ.width + 3) // 4)
+        ).format(value)
+
 def disassemble(instrSet, fetcher, addr):
     '''Disassemble instructions from the given fetcher.
     The fetched data is assumed to be code for the given instruction set,
@@ -93,9 +100,19 @@ def disassemble(instrSet, fetcher, addr):
     '''
     numBytes = fetcher.numBytes
     while True:
-        instr = fetcher.fetch()
-        if instr is None:
+        encoded = fetcher.fetch()
+        if encoded is None:
             break
-        print('%08X at 0x%08X' % (instr, addr))
+        match = instrSet.tryDecode(encoded)
+        if match is None:
+            print('??? %08X at 0x%08X' % (encoded, addr))
+        else:
+            mnemonic = []
+            for mnemElem in match.iterMnemonic():
+                if isinstance(mnemElem, str):
+                    mnemonic.append(mnemElem)
+                else:
+                    mnemonic.append(formatInt(*mnemElem))
+            print(' '.join(mnemonic))
         fetcher = fetcher.advance()
         addr += numBytes

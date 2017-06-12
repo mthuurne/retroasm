@@ -1,8 +1,8 @@
-from .expression import Expression
+from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
-from .types import unlimited
+from .types import maskForWidth, unlimited
 from .utils import checkType
 
 class EncodingExpr:
@@ -126,6 +126,100 @@ class ModeEntry:
             total += length
         return total
 
+    def tryDecode(self, encoded):
+        '''Attempts to decode the given encoded value as an instance of this
+        mode entry.
+        Returns an EncodeMatch on success, or None on failure.
+        '''
+        assert len(self.encoding) == 1, 'not implemented yet'
+
+        # Check literal bits.
+        fixedMatcher = self.decoding[None]
+        if len(fixedMatcher) != 0:
+            encIdx, fixedMask, fixedValue = fixedMatcher[0]
+            assert encIdx == 0, fixedMatcher
+            if encoded & fixedMask != fixedValue:
+                return None
+
+        # Compose encoded immediates.
+        encodedImmediates = {}
+        for name, slices in self.decoding.items():
+            if name is None:
+                continue
+            value = 0
+            for encIdx, refIdx, width in slices:
+                assert encIdx == 0, slices
+                value <<= width
+                value |= (encoded >> refIdx) & maskForWidth(width)
+            encodedImmediates[name] = value
+
+        # Find values for placeholders.
+        placeholders = self.placeholders
+        mapping = {}
+        for name, immEnc in encodedImmediates.items():
+            placeholder = placeholders[name]
+            if isinstance(placeholder, MatchPlaceholder):
+                decoded = placeholder.mode.tryDecode(immEnc)
+                if decoded is None:
+                    return None
+            elif isinstance(placeholder, ValuePlaceholder):
+                decoded = immEnc
+            else:
+                assert False, placeholder
+            mapping[name] = decoded
+        return EncodeMatch(self, mapping)
+
+class EncodeMatch:
+    '''A match on the encoding field of a mode entry.
+    '''
+
+    def __init__(self, entry, mapping):
+        self._entry = entry
+        self._mapping = mapping
+
+    def _substMapping(self, expr):
+        if isinstance(expr, Immediate):
+            return IntLiteral(self._mapping[expr.name])
+        else:
+            return None
+
+    def iterMnemonic(self):
+        '''Yields a mnemonic representation of this match.
+        '''
+        entry = self._entry
+        mapping = self._mapping
+        placeholders = entry.placeholders
+        for mnemElem in entry.mnemonic:
+            if isinstance(mnemElem, str):
+                yield mnemElem
+            elif isinstance(mnemElem, int):
+                yield '$%x' % mnemElem
+            elif isinstance(mnemElem, MatchPlaceholder):
+                match = mapping[mnemElem.name]
+                yield from match.iterMnemonic()
+            elif isinstance(mnemElem, ValuePlaceholder):
+                name = mnemElem.name
+                typ = mnemElem.type
+                value = mapping.get(name)
+                if value is None:
+                    expr = simplifyExpression(
+                        mnemElem.value.substitute(self._substMapping)
+                        )
+                    if isinstance(expr, IntLiteral):
+                        yield expr.value, typ
+                    else:
+                        # TODO: Is this a bug? A definition error?
+                        #       Or can it happen normally?
+                        yield name
+                else:
+                    if typ.signed:
+                        width = typ.width
+                        if value >= 1 << (width - 1):
+                            value -= 1 << width
+                    yield value, typ
+            else:
+                assert False, mnemElem
+
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %d' % width
 
@@ -238,6 +332,16 @@ class ModeTable:
                     return None
         assert commonLen is not None, self
         return commonLen
+
+    def tryDecode(self, encoded):
+        '''Attempts to decode the given value as an entry in this table.
+        Returns an EncodeMatch, or None if no match could be made.
+        '''
+        for entry in reversed(self._entries):
+            match = entry.tryDecode(encoded)
+            if match is not None:
+                return match
+        return None
 
 class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining
