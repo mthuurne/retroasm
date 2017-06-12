@@ -1,4 +1,5 @@
 from .section import ByteOrder
+from .types import IntType
 
 class Fetcher:
     __slots__ = ('_image', '_offset', '_end', '_numBytes')
@@ -92,6 +93,7 @@ def disassemble(instrSet, fetcher, addr, formatter):
     to be executed at the given address.
     '''
     numBytes = fetcher.numBytes
+    encType = IntType.u(numBytes * 8)
     while True:
         encoded = fetcher.fetch()
         if encoded is None:
@@ -100,6 +102,6 @@ def disassemble(instrSet, fetcher, addr, formatter):
         fetcher = fetcher.advance()
         addr += numBytes
         if match is None:
-            print(formatter.formatUnknown(encoded))
+            print(formatter.formatData(encoded, encType))
         else:
             print(formatter.formatMnemonic(match.iterMnemonic(addr)))
