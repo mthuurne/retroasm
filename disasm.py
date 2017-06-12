@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-from retroasm.instrset_parser import parseInstrSet
+from retroasm.asm_formatter import Formatter
 from retroasm.binfmt import (
     EntryPoint, detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
 from retroasm.disasm import (
     BigEndianFetcher, ByteFetcher, LittleEndianFetcher, disassemble
     )
+from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import LineReaderFormatter
 from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
 
@@ -200,7 +201,8 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
                 assert False, byteOrder
 
         addr = section.base + offset - section.start
-        disassemble(instrSet, fetcher, addr)
+        formatter = Formatter()
+        disassemble(instrSet, fetcher, addr, formatter)
 
 def _parseNumber(number):
     if number.startswith('0x'):
