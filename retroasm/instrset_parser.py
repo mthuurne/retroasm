@@ -818,11 +818,17 @@ def _parseModeEntries(
                         reader.error(
                             'error in semantics: %s', ex, location=ex.location
                             )
+                    try:
+                        semantics = semBuilder.createCodeBlock(reader)
+                    except ValueError:
+                        pass # error was already logged
+                else:
+                    semantics = None
         except DelayedError:
             pass
         else:
             yield ModeEntry(
-                encoding, decoding, mnemonic, semBuilder, placeholders,
+                encoding, decoding, mnemonic, semantics, placeholders,
                 flagsRequired, reader.getLocation()
                 )
 
