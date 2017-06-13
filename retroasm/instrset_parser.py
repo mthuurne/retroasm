@@ -28,10 +28,8 @@ from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
     )
 from collections import OrderedDict, defaultdict
-from logging import getLogger
+from logging import WARNING, getLogger
 import re
-
-logger = getLogger('parse-instr')
 
 _nameTok = r'\s*(' + namePat + r')\s*'
 _typeTok = r'\s*(' + namePat + r'&?)\s*'
@@ -937,7 +935,11 @@ def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
                 )
         yield instr
 
-def parseInstrSet(pathname, wantSemantics=True):
+def parseInstrSet(pathname, logger=None, wantSemantics=True):
+    if logger is None:
+        logger = getLogger('parse-instr')
+        logger.setLevel(WARNING)
+
     globalNamespace = GlobalNamespace()
     builder = GlobalCodeBlockBuilder(globalNamespace)
     modes = {}
@@ -981,6 +983,6 @@ def parseInstrSet(pathname, wantSemantics=True):
     else:
         return None
 
-def checkInstrSet(pathname):
+def checkInstrSet(pathname, logger):
     logger.info('checking: %s', pathname)
-    instrSet = parseInstrSet(pathname)
+    instrSet = parseInstrSet(pathname, logger)

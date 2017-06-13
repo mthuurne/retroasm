@@ -13,6 +13,7 @@ def setupLogging():
     logger = logging.getLogger()
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+    return logger
 
 def main():
     from os import walk
@@ -42,10 +43,10 @@ def main():
             print('No definition files found (*.instr)', file=stderr)
             exit(1)
 
-        setupLogging()
+        logger = setupLogging()
 
         for path in files:
-            checkInstrSet(path)
+            checkInstrSet(path, logger)
     else:
         print('usage: checkdef.py [file|dir]+\n', file=stderr)
         print('Check instruction set definition files.\n', file=stderr)
