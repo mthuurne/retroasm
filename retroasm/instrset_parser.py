@@ -287,7 +287,7 @@ def _buildPlaceholder(placeholder, typ, builder):
     elif isinstance(typ, ReferenceType):
         builder.emitReferenceArgument(name, typ.type, decl.name.location)
     else:
-        immediate = Immediate(name, typ, decl.treeLocation)
+        immediate = Immediate(name, typ)
         ref = builder.emitFixedValue(immediate, typ)
         builder.defineReference(name, ref, decl.name.location)
 
@@ -527,7 +527,7 @@ def _decomposeEncodingExprs(encElems, reader):
                 fixedMatcher.append((encIdx, fixedMask, fixedValue))
     return fixedMatcher, decodeMap
 
-def _parseModeDecoding(encoding, encBuilder, reader):
+def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
@@ -579,7 +579,7 @@ def _parseModeDecoding(encoding, encBuilder, reader):
                     reader.error(
                         'cannot decode value for "%s": %s',
                         name, ', '.join(problems),
-                        location=immediates[name].location
+                        location=placeholderSpecs[name].decl.treeLocation
                         )
                 else:
                     sequentialMap[name] = decoding
@@ -756,7 +756,9 @@ def _parseModeEntries(
                 if encoding is None:
                     decoding = None
                 else:
-                    decoding = _parseModeDecoding(encoding, encBuilder, reader)
+                    decoding = _parseModeDecoding(
+                        encoding, encBuilder, placeholderSpecs, reader
+                        )
 
                 # Convert placeholders.
                 placeholders = {}

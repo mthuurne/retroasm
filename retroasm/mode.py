@@ -431,22 +431,20 @@ class Immediate(Expression):
     Note that the name of an immediate is unique only within the mode entry
     that declares it, not in mode entries that include it.
     '''
-    __slots__ = ('_name', '_type', '_location')
+    __slots__ = ('_name', '_type')
 
     name = property(lambda self: self._name)
     type = property(lambda self: self._type)
     width = property(lambda self: self._type.width)
     mask = property(lambda self: self._type.mask)
-    location = property(lambda self: self._location)
 
-    def __init__(self, name, typ, location):
+    def __init__(self, name, typ):
         Expression.__init__(self)
         self._name = name
         self._type = typ
-        self._location = location
 
     def _ctorargs(self):
-        return self._name, self._type, self._location
+        return self._name, self._type
 
     def __str__(self):
         return self._name
