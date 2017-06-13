@@ -1,9 +1,7 @@
-from .codeblock import ConstantValue, LoadedConstant
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
-from .storage import Variable
 from .types import maskForWidth, unlimited
 from .utils import checkType
 
@@ -181,17 +179,9 @@ class EncodeMatch:
 
     def _substMapping(self, expr, pc):
         if isinstance(expr, Immediate):
-            return IntLiteral(self._mapping[expr.name])
-        elif isinstance(expr, ConstantValue):
-            semBuilder = self._entry.semantics
-            const = semBuilder.constants[expr.cid]
-            assert isinstance(const, LoadedConstant), const
-            storage = semBuilder.storages[const.sid]
-            assert isinstance(storage, Variable), storage
-            assert storage.name == 'pc', storage
-            return IntLiteral(pc)
-        else:
-            return None
+            name = expr.name
+            return IntLiteral(pc if name == 'pc' else self._mapping[name])
+        return None
 
     def iterMnemonic(self, pc):
         '''Yields a mnemonic representation of this match.

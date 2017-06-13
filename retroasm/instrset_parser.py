@@ -1,6 +1,6 @@
 from .codeblock import (
     ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
-    SlicedReference
+    LoadedConstant, SlicedReference
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -678,6 +678,19 @@ def _inlineConstants(expr, constants):
         return None
     return expr.substitute(subst)
 
+def _replaceProgramCounter(expr, semBuilder):
+    '''Replaces values loaded from the program counter by an Immediate.
+    '''
+    def subst(expr):
+        if isinstance(expr, ConstantValue):
+            const = semBuilder.constants[expr.cid]
+            assert isinstance(const, LoadedConstant), const
+            storage = semBuilder.storages[const.sid]
+            if isinstance(storage, Variable) and storage.name == 'pc':
+                return Immediate('pc', semBuilder.namespace['pc'].type)
+        return None
+    return expr.substitute(subst)
+
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
@@ -773,7 +786,10 @@ def _parseModeEntries(
                             #       parse code rejects "<type>&".
                             assert isinstance(ref, FixedValue), ref
                             expr = ref.const.expr
-                            value = _inlineConstants(expr, semBuilder.constants)
+                            value = _replaceProgramCounter(
+                                _inlineConstants(expr, semBuilder.constants),
+                                semBuilder
+                                )
                         placeholder = ValuePlaceholder(
                             name, spec.semanticsType, value
                             )
