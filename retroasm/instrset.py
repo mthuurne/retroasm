@@ -11,12 +11,18 @@ class InstructionSet(ModeTable):
                 'encoding width %s, got %s instead' % (encWidth, auxEncWidth)
                 )
         ModeTable.__init__(self, encWidth, auxEncWidth, instructions)
-        self._instructionNames = instructionNames = []
+        self._instructionNames = None
 
-        for instr in self._entries:
-            instrName = instr.mnemonic[0]
-            if isinstance(instrName, str):
-                instructionNames.append(instrName)
-
-    def iterInstructionNames(self):
-        return iter(self._instructionNames)
+    @property
+    def instructionNames(self):
+        '''A set containing the instruction names (operations).
+        '''
+        names = self._instructionNames
+        if names is None:
+            names = set()
+            for instr in self._entries:
+                name = instr.mnemonic[0]
+                if isinstance(name, str):
+                    names.add(name)
+            self._instructionNames = frozenset(names)
+        return names

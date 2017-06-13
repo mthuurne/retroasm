@@ -109,7 +109,7 @@ def parseDirective(tokens, reader):
 
 def parseAsm(reader, instrSet):
     instrSet.dumpMnemonicTree()
-    instructionNames = frozenset(instrSet.iterInstructionNames())
+    instructionNames = instrSet.instructionNames
 
     for line in reader:
         # Tokenize entire line.
