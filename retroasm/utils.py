@@ -1,3 +1,4 @@
+from functools import update_wrapper
 from weakref import WeakValueDictionary
 
 class Unique(type):
@@ -36,6 +37,34 @@ class Singleton(type):
             instance = super().__call__()
             cls.__instance = instance
         return instance
+
+class const_property:
+    '''Decorator for properties that don't change in value.
+    The getter function is called at most once: the first time the property
+    is read.
+    '''
+
+    def __init__(self, getter):
+        self._getter = getter
+        self._name = getter.__name__
+        update_wrapper(self, getter)
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        else:
+            name = self._name
+            value = instance.__dict__.get(name)
+            if value is None:
+                value = self._getter(instance)
+                instance.__dict__[name] = value
+            return value
+
+    def __set__(self, instance, value):
+        raise AttributeError('const_property cannot be set')
+
+    def __delete__(self, instance):
+        raise AttributeError('const_property cannot be deleted')
 
 def checkType(obj, typ, desc):
     '''Checks whether the given object is of the given type(s).
