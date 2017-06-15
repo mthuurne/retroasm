@@ -14,6 +14,19 @@ class DataType:
         self.calls += 1
         return self.value
 
+class SlotsDataType:
+    __slots__ = ('value', 'calls', '_prop')
+
+    def __init__(self, value):
+        self.value = value
+        self.calls = 0
+
+    @const_property
+    def prop(self):
+        'This is the docstring for prop.'
+        self.calls += 1
+        return self.value
+
 class ConstPropertyTests(unittest.TestCase):
 
     def test_no_get(self):
@@ -57,6 +70,20 @@ class ConstPropertyTests(unittest.TestCase):
         self.assertEqual(obj2.prop, 456)
         self.assertEqual(obj1.calls, 1)
         self.assertEqual(obj2.calls, 1)
+
+    def test_get_slots(self):
+        '''Test getting a value from a class that defines __slots__.'''
+        obj = SlotsDataType(12345)
+        self.assertEqual(obj.calls, 0)
+
+        self.assertEqual(obj.prop, 12345)
+        self.assertEqual(obj.calls, 1)
+
+        self.assertEqual(obj.prop, 12345)
+        self.assertEqual(obj.calls, 1)
+
+        self.assertEqual(obj.prop, 12345)
+        self.assertEqual(obj.calls, 1)
 
     def test_readonly_list_value(self):
         '''Test that the returned value is converted to a read-only type.'''

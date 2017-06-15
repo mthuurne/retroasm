@@ -48,11 +48,14 @@ class const_property:
     is read.
     If the getter returns an iterator or a mutable sequence, set or mapping,
     the returned value is converted to a read-only value.
+    The value is stored in an attribute that is named equal to the wrapped
+    getter function, with an underscore prepended. In classes that define
+    __slots__, make sure that you include this attribute as well.
     '''
 
     def __init__(self, getter):
         self._getter = getter
-        self._name = getter.__name__
+        self._name = '_' + getter.__name__
         update_wrapper(self, getter)
 
     def __get__(self, instance, owner):
@@ -60,7 +63,7 @@ class const_property:
             return self
         else:
             name = self._name
-            value = instance.__dict__.get(name)
+            value = getattr(instance, name, None)
             if value is None:
                 value = self._getter(instance)
 
@@ -72,7 +75,7 @@ class const_property:
                 elif isinstance(value, MutableMapping):
                     value = MappingProxyType(value)
 
-                instance.__dict__[name] = value
+                setattr(instance, name, value)
             return value
 
     def __set__(self, instance, value):
