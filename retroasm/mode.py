@@ -5,6 +5,8 @@ from .linereader import mergeSpan
 from .types import maskForWidth, unlimited
 from .utils import checkType
 
+from enum import Enum
+
 class EncodingExpr:
     '''A single element in an encoding sequence that is specified using an
     expression.
@@ -366,14 +368,23 @@ class Mode(ModeTable):
     def __iter__(self):
         return iter(self._entries)
 
+PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
+    'code_addr', 'data_addr'
+    ))
+
 class Placeholder:
     '''Abstract base class for a mode context element.
     '''
 
     name = property(lambda self: self._name)
+    roles = property(lambda self: frozenset(self._roles))
 
     def __init__(self, name):
         self._name = name
+        self._roles = set()
+
+    def addRole(self, role):
+        self._roles.add(checkType(role, PlaceholderRole, 'role'))
 
 class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.

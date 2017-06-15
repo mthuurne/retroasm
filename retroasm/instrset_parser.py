@@ -1,6 +1,6 @@
 from .codeblock import (
-    ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
-    LoadedConstant, SlicedReference
+    ArgumentConstant, ComputedConstant, ConcatenatedReference, ConstantValue,
+    FixedValue, LoadedConstant, SlicedReference, Store
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -20,7 +20,7 @@ from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     EncodingExpr, EncodingMultiMatch, Immediate, MatchPlaceholder, Mode,
-    ModeEntry, ValuePlaceholder
+    ModeEntry, PlaceholderRole, ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
@@ -691,6 +691,28 @@ def _replaceProgramCounter(expr, semBuilder):
         return None
     return expr.substitute(subst)
 
+def _determinePlaceholderRoles(semantics, placeholders):
+    '''Analyze semantics to figure out the roles of placeholders.
+    While this won't be sufficient to determine the role of all literal values,
+    it can handle a few common cases reliably and efficiently.
+    '''
+
+    # Find storage ID for program counter, if any.
+    pcSids = tuple(
+        sid
+        for sid, storage in semantics.storages.items()
+        if isinstance(storage, Variable) and storage.name == 'pc'
+        )
+    if len(pcSids) != 0:
+        pcSid, = pcSids
+        # Mark placeholders written to the program counter as code addresses.
+        for node in semantics.nodes:
+            if isinstance(node, Store) and node.sid == pcSid:
+                const = semantics.constants[node.cid]
+                if isinstance(const, ArgumentConstant):
+                    placeholder = placeholders[const.name]
+                    placeholder.addRole(PlaceholderRole.code_addr)
+
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
@@ -712,9 +734,6 @@ def _parseModeEntries(
 
         try:
             with reader.checkErrors():
-                encBuilder = EncodingCodeBlockBuilder(globalBuilder)
-                semBuilder = LocalCodeBlockBuilder(globalBuilder)
-
                 # Parse context.
                 if ctxStr:
                     try:
@@ -728,14 +747,12 @@ def _parseModeEntries(
                 else:
                     placeholderSpecs, flagsRequired = {}, set()
 
-                # Define placeholders in semantics builder.
-                # We have to do this even when wantSemantics is False, since
-                # mnemonic formatting needs the semantics for placeholders
-                # that have a computed value.
+                # Define placeholders in context builder.
+                ctxBuilder = LocalCodeBlockBuilder(globalBuilder)
                 try:
                     for spec in placeholderSpecs.values():
                         semType = spec.semanticsType
-                        _buildPlaceholder(spec, semType, semBuilder)
+                        _buildPlaceholder(spec, semType, ctxBuilder)
                 except BadInput as ex:
                     reader.error(
                         'error in context: %s', ex, location=ex.location
@@ -744,6 +761,7 @@ def _parseModeEntries(
                     continue
 
                 # Parse encoding.
+                encBuilder = EncodingCodeBlockBuilder(globalBuilder)
                 if encStr:
                     try:
                         # Parse encoding field.
@@ -780,15 +798,15 @@ def _parseModeEntries(
                         if spec.value is None:
                             value = None
                         else:
-                            ref = semBuilder.namespace[name]
+                            ref = ctxBuilder.namespace[name]
                             # TODO: While the documentation says we do support
                             #       defining references in the context, the
                             #       parse code rejects "<type>&".
                             assert isinstance(ref, FixedValue), ref
                             expr = ref.const.expr
                             value = _replaceProgramCounter(
-                                _inlineConstants(expr, semBuilder.constants),
-                                semBuilder
+                                _inlineConstants(expr, ctxBuilder.constants),
+                                ctxBuilder
                                 )
                         placeholder = ValuePlaceholder(
                             name, spec.semanticsType, value
@@ -808,20 +826,44 @@ def _parseModeEntries(
 
                 # Parse semantics.
                 if wantSemantics:
+                    semBuilder = LocalCodeBlockBuilder(globalBuilder)
                     try:
+                        # Define placeholders in semantics builder.
+                        for name, spec in placeholderSpecs.items():
+                            location = spec.decl.name.location
+                            semType = spec.semanticsType
+                            if isinstance(semType, ReferenceType):
+                                semBuilder.emitReferenceArgument(
+                                    name, semType.type, location
+                                    )
+                            else:
+                                semBuilder.emitValueArgument(
+                                    name, semType, location
+                                    )
+
                         if not semStr:
                             # Parse mnemonic field as semantics.
                             semStr = mnemStr
                             semLoc = mnemLoc
+
                         parseSem(semStr, semLoc, semBuilder, modeType)
                     except BadInput as ex:
                         reader.error(
                             'error in semantics: %s', ex, location=ex.location
                             )
+                        # This is the last field.
+                        continue
                     try:
+                        semCode = semBuilder.createCodeBlock(reader)
+
+                        _determinePlaceholderRoles(semCode, placeholders)
+
+                        # TODO: Inline semCode into ctxBuilder as a function
+                        #       call, where all placeholders are arguments.
                         semantics = semBuilder.createCodeBlock(reader)
                     except ValueError:
-                        pass # error was already logged
+                        # Error was already logged inside createCodeBlock().
+                        pass
                 else:
                     semantics = None
         except DelayedError:
