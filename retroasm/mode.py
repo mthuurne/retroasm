@@ -154,7 +154,34 @@ class ModeEntry:
     def decoder(self):
         '''A Decoder instance that decodes this entry.
         '''
-        return ModeEntryDecoder(self)
+        assert len(self.encoding) == 1, 'not implemented yet'
+
+        decoder = ModeEntryDecoder(self)
+
+        # Check literal bits.
+        fixedMatcher = self.decoding[None]
+        if len(fixedMatcher) != 0:
+            encIdx, fixedMask, fixedValue = fixedMatcher[0]
+            assert encIdx == 0, fixedMatcher
+            decoder = FixedPatternDecoder(fixedMask, fixedValue, decoder)
+
+        return decoder
+
+class FixedPatternDecoder(Decoder):
+    '''Decoder that matches encoded bit strings by looking for a fixed pattern
+    using a mask and value.
+    '''
+
+    def __init__(self, mask, value, nxt):
+        self._mask = mask
+        self._value = value
+        self._next = nxt
+
+    def tryDecode(self, encoded):
+        if encoded & self._mask == self._value:
+            return self._next.tryDecode(encoded)
+        else:
+            return None
 
 class ModeEntryDecoder(Decoder):
 
@@ -163,15 +190,6 @@ class ModeEntryDecoder(Decoder):
 
     def tryDecode(self, encoded):
         entry = self._entry
-        assert len(entry.encoding) == 1, 'not implemented yet'
-
-        # Check literal bits.
-        fixedMatcher = entry.decoding[None]
-        if len(fixedMatcher) != 0:
-            encIdx, fixedMask, fixedValue = fixedMatcher[0]
-            assert encIdx == 0, fixedMatcher
-            if encoded & fixedMask != fixedValue:
-                return None
 
         # Compose encoded immediates.
         encodedImmediates = {}
