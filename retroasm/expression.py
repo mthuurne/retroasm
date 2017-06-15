@@ -367,7 +367,7 @@ class Negation(Expression):
     __slots__ = ('_expr',)
 
     expr = property(lambda self: self._expr)
-    mask = 1
+    mask = property(lambda self: 1)
 
     def __init__(self, expr):
         Expression.__init__(self)
@@ -388,7 +388,7 @@ class SignTest(Expression):
     __slots__ = ('_expr')
 
     expr = property(lambda self: self._expr)
-    mask = 1
+    mask = property(lambda self: 1)
 
     def __init__(self, expr):
         Expression.__init__(self)
