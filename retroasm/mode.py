@@ -3,7 +3,7 @@ from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
 from .types import maskForWidth, unlimited
-from .utils import checkType
+from .utils import checkType, const_property
 
 from enum import Enum
 
@@ -42,7 +42,7 @@ class EncodingMultiMatch:
         self._start = start
         self._location = location
 
-    @property
+    @const_property
     def encodedLength(self):
         length = self._mode.encodedLength
         return None if length is None else length - self._start
@@ -114,7 +114,7 @@ class ModeEntry:
         else:
             return mergeSpan(encoding[1].location, encoding[-1].location)
 
-    @property
+    @const_property
     def encodedLength(self):
         '''The number of encoded data units (bytes, words etc.) that this mode
         entry matches, or None if that number may vary depending on which match
@@ -314,7 +314,7 @@ class ModeTable:
                 addMnemonic(child, idx + 1)
         addMnemonic(self._mnemTree, 0)
 
-    @property
+    @const_property
     def encodedLength(self):
         '''The number of encoded data units (bytes, words etc.) that all
         entries in this mode use, or None if that number may vary depending
