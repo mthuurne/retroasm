@@ -1,7 +1,7 @@
 from .types import (
     maskForWidth, maskToSegments, trailingZeroes, unlimited, widthForMask
     )
-from .utils import checkType
+from .utils import checkType, const_property
 
 from functools import reduce
 from itertools import chain
@@ -139,7 +139,6 @@ class ComposedExpression(Expression):
     operator = property()
 
     exprs = property(lambda self: self._exprs)
-    mask = property(lambda self: self._mask)
 
     def __init__(self, *exprs):
         if not exprs:
@@ -148,10 +147,13 @@ class ComposedExpression(Expression):
             Expression.checkScalar(expr)
         Expression.__init__(self)
         self._exprs = exprs
-        self._mask = self.computeMask(exprs)
 
     def _ctorargs(self):
         return self._exprs
+
+    @const_property
+    def mask(self):
+        return self.computeMask(self._exprs)
 
     @classmethod
     def computeMask(cls, exprs):
@@ -342,13 +344,10 @@ class Complement(Expression):
     __slots__ = ('_expr', '_mask')
 
     expr = property(lambda self: self._expr)
-    mask = property(lambda self: self._mask)
 
     def __init__(self, expr):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
-        exprMask = expr.mask
-        self._mask = 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
 
     def _ctorargs(self):
         return self._expr,
@@ -358,6 +357,11 @@ class Complement(Expression):
 
     def _equals(self, other):
         return self._expr == other._expr
+
+    @const_property
+    def mask(self):
+        exprMask = self._expr.mask
+        return 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
 
 class Negation(Expression):
     __slots__ = ('_expr',)
@@ -436,7 +440,7 @@ important.
 class LShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
-    __slots__ = ('_expr', '_offset')
+    __slots__ = ('_expr', '_offset', '_mask')
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
@@ -457,7 +461,7 @@ class LShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
-    @property
+    @const_property
     def mask(self):
         exprMask = self._expr.mask
         if exprMask == 0:
@@ -471,11 +475,10 @@ class LShift(Expression):
 class RShift(Expression):
     '''Drops the lower N bits from a bit string.
     '''
-    __slots__ = ('_expr', '_offset')
+    __slots__ = ('_expr', '_offset', '_mask')
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
-    mask = property(lambda self: self._expr.mask >> self._offset)
 
     def __init__(self, expr, offset):
         Expression.__init__(self)
@@ -496,11 +499,15 @@ class RShift(Expression):
     def _equals(self, other):
         return self._offset == other._offset and self._expr == other._expr
 
+    @const_property
+    def mask(self):
+        return self._expr.mask >> self._offset
+
 class LVShift(Expression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     Unlike LShift, our offset is an expression.
     '''
-    __slots__ = ('_expr', '_offset')
+    __slots__ = ('_expr', '_offset', '_mask')
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
@@ -510,7 +517,7 @@ class LVShift(Expression):
         self._expr = Expression.checkScalar(expr)
         self._offset = Expression.checkScalar(offset)
 
-    @property
+    @const_property
     def mask(self):
         exprMask = self._expr.mask
         if exprMask == 0:
@@ -540,7 +547,7 @@ class RVShift(Expression):
     '''Drops the lower N bits from a bit string.
     Unlike RShift, our offset (N) is an expression.
     '''
-    __slots__ = ('_expr', '_offset')
+    __slots__ = ('_expr', '_offset', '_mask')
 
     expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
@@ -550,7 +557,7 @@ class RVShift(Expression):
         self._expr = Expression.checkScalar(expr)
         self._offset = Expression.checkScalar(offset)
 
-    @property
+    @const_property
     def mask(self):
         exprMask = self._expr.mask
         offsetMask = self._offset.mask
