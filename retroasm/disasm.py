@@ -92,13 +92,14 @@ def disassemble(instrSet, fetcher, addr, formatter):
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     '''
+    decoder = instrSet.decoder
     numBytes = fetcher.numBytes
     encType = IntType.u(numBytes * 8)
     while True:
         encoded = fetcher.fetch()
         if encoded is None:
             break
-        match = instrSet.tryDecode(encoded)
+        match = decoder.tryDecode(encoded)
         fetcher = fetcher.advance()
         addr += numBytes
         if match is None:

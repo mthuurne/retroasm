@@ -47,6 +47,28 @@ class EncodingMultiMatch:
         length = self._mode.encodedLength
         return None if length is None else length - self._start
 
+class Decoder:
+
+    def tryDecode(self, encoded):
+        '''Attempts to decode the given encoded value.
+        Returns an EncodeMatch, or None if no match could be made.
+        '''
+        raise NotImplementedError
+
+class SequentialDecoder(Decoder):
+    '''Decoder that tries other decoders in order, until the first match.
+    '''
+
+    def __init__(self, decoders):
+        self._decoders = tuple(decoders)
+
+    def tryDecode(self, encoded):
+        for decoder in self._decoders:
+            match = decoder.tryDecode(encoded)
+            if match is not None:
+                return match
+        return None
+
 class ModeEntry:
     '''One row in a mode table.
     '''
@@ -128,15 +150,23 @@ class ModeEntry:
             total += length
         return total
 
-    def tryDecode(self, encoded):
-        '''Attempts to decode the given encoded value as an instance of this
-        mode entry.
-        Returns an EncodeMatch on success, or None on failure.
+    @const_property
+    def decoder(self):
+        '''A Decoder instance that decodes this entry.
         '''
-        assert len(self.encoding) == 1, 'not implemented yet'
+        return ModeEntryDecoder(self)
+
+class ModeEntryDecoder(Decoder):
+
+    def __init__(self, entry):
+        self._entry = entry
+
+    def tryDecode(self, encoded):
+        entry = self._entry
+        assert len(entry.encoding) == 1, 'not implemented yet'
 
         # Check literal bits.
-        fixedMatcher = self.decoding[None]
+        fixedMatcher = entry.decoding[None]
         if len(fixedMatcher) != 0:
             encIdx, fixedMask, fixedValue = fixedMatcher[0]
             assert encIdx == 0, fixedMatcher
@@ -145,7 +175,7 @@ class ModeEntry:
 
         # Compose encoded immediates.
         encodedImmediates = {}
-        for name, slices in self.decoding.items():
+        for name, slices in entry.decoding.items():
             if name is None:
                 continue
             value = 0
@@ -156,12 +186,12 @@ class ModeEntry:
             encodedImmediates[name] = value
 
         # Find values for placeholders.
-        placeholders = self.placeholders
+        placeholders = entry.placeholders
         mapping = {}
         for name, immEnc in encodedImmediates.items():
             placeholder = placeholders[name]
             if isinstance(placeholder, MatchPlaceholder):
-                decoded = placeholder.mode.tryDecode(immEnc)
+                decoded = placeholder.mode.decoder.tryDecode(immEnc)
                 if decoded is None:
                     return None
             elif isinstance(placeholder, ValuePlaceholder):
@@ -169,7 +199,7 @@ class ModeEntry:
             else:
                 assert False, placeholder
             mapping[name] = decoded
-        return EncodeMatch(self, mapping)
+        return EncodeMatch(entry, mapping)
 
 class EncodeMatch:
     '''A match on the encoding field of a mode entry.
@@ -337,15 +367,13 @@ class ModeTable:
         assert commonLen is not None, self
         return commonLen
 
-    def tryDecode(self, encoded):
-        '''Attempts to decode the given value as an entry in this table.
-        Returns an EncodeMatch, or None if no match could be made.
+    @const_property
+    def decoder(self):
+        '''A Decoder instance that decodes the entries in this table.
         '''
-        for entry in reversed(self._entries):
-            match = entry.tryDecode(encoded)
-            if match is not None:
-                return match
-        return None
+        return SequentialDecoder(
+            entry.decoder for entry in reversed(self._entries)
+            )
 
 class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining
