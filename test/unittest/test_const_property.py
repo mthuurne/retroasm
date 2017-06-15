@@ -58,6 +58,42 @@ class ConstPropertyTests(unittest.TestCase):
         self.assertEqual(obj1.calls, 1)
         self.assertEqual(obj2.calls, 1)
 
+    def test_readonly_list_value(self):
+        '''Test that the returned value is converted to a read-only type.'''
+        data = (1, 2, 3)
+        obj = DataType(list(data))
+        self.assertSequenceEqual(obj.prop, data)
+        with self.assertRaises(AttributeError):
+            obj.prop.append(4)
+        self.assertSequenceEqual(obj.prop, data)
+
+    def test_readonly_set_value(self):
+        '''Test that the returned value is converted to a read-only type.'''
+        data = frozenset((1, 2, 3))
+        obj = DataType(set(data))
+        self.assertSetEqual(obj.prop, data)
+        with self.assertRaises(AttributeError):
+            obj.prop.add(4)
+        self.assertSetEqual(obj.prop, data)
+
+    def test_readonly_map_value(self):
+        '''Test that the returned value is converted to a read-only type.'''
+        data = {1: 'a', 2: 'b', 3: 'c'}
+        obj = DataType(dict(data))
+        self.assertDictEqual(dict(obj.prop), data)
+        with self.assertRaises(TypeError):
+            obj.prop[4] = 'd'
+        self.assertDictEqual(dict(obj.prop), data)
+
+    def test_readonly_iter_value(self):
+        '''Test that the returned value is converted to a read-only type.'''
+        data = range(10)
+        obj = DataType(iter(data))
+        self.assertSequenceEqual(obj.prop, data)
+        with self.assertRaises(AttributeError):
+            obj.prop.append(10)
+        self.assertSequenceEqual(obj.prop, data)
+
     def test_readonly_property(self):
         '''Test setting and deleting of the property.'''
         obj = DataType(12345)

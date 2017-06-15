@@ -1,4 +1,8 @@
+from collections.abc import (
+    Iterator, MutableMapping, MutableSequence, MutableSet
+    )
 from functools import update_wrapper
+from types import MappingProxyType
 from weakref import WeakValueDictionary
 
 class Unique(type):
@@ -42,6 +46,8 @@ class const_property:
     '''Decorator for properties that don't change in value.
     The getter function is called at most once: the first time the property
     is read.
+    If the getter returns an iterator or a mutable sequence, set or mapping,
+    the returned value is converted to a read-only value.
     '''
 
     def __init__(self, getter):
@@ -57,6 +63,15 @@ class const_property:
             value = instance.__dict__.get(name)
             if value is None:
                 value = self._getter(instance)
+
+                # Convert to read-only type.
+                if isinstance(value, (Iterator, MutableSequence)):
+                    value = tuple(value)
+                elif isinstance(value, MutableSet):
+                    value = frozenset(value)
+                elif isinstance(value, MutableMapping):
+                    value = MappingProxyType(value)
+
                 instance.__dict__[name] = value
             return value
 
