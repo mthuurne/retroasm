@@ -2,9 +2,10 @@ from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
-from .types import maskForWidth, unlimited
+from .types import maskForWidth, maskToSegments, unlimited
 from .utils import checkType, const_property
 
+from collections import defaultdict
 from enum import Enum
 
 class EncodingExpr:
@@ -68,6 +69,20 @@ class SequentialDecoder(Decoder):
             if match is not None:
                 return match
         return None
+
+class TableDecoder(Decoder):
+    '''Decoder that performs a table lookup to find the next decoder to try.
+    '''
+
+    def __init__(self, table, mask, offset):
+        self._table = tuple(table)
+        self._mask = mask
+        self._offset = offset
+        assert (mask >> offset) == len(self._table) - 1
+
+    def tryDecode(self, encoded):
+        decoder = self._table[(encoded & self._mask) >> self._offset]
+        return None if decoder is None else decoder.tryDecode(encoded)
 
 class ModeEntry:
     '''One row in a mode table.
@@ -189,6 +204,10 @@ class FixedPatternDecoder(Decoder):
     '''Decoder that matches encoded bit strings by looking for a fixed pattern
     using a mask and value.
     '''
+
+    mask = property(lambda self: self._mask)
+    value = property(lambda self: self._value)
+    next = property(lambda self: self._next)
 
     def __init__(self, mask, value, nxt):
         self._mask = mask
@@ -419,9 +438,44 @@ class ModeTable:
     def decoder(self):
         '''A Decoder instance that decodes the entries in this table.
         '''
-        return SequentialDecoder(
-            entry.decoder for entry in reversed(self._entries)
-            )
+        decoders = [entry.decoder for entry in self._entries]
+
+        # Gather stats about fixed patterns of our entries.
+        maskFreqs = defaultdict(int)
+        for decoder in decoders:
+            if isinstance(decoder, FixedPatternDecoder):
+                mask = decoder.mask
+            else:
+                mask = 0
+            maskFreqs[mask] += 1
+
+        if len(maskFreqs) == 1:
+            # All entries use the same mask.
+            mask, = maskFreqs.keys()
+            segments = list(maskToSegments(mask))
+            if len(segments) == 1:
+                # Mask consists of consecutive bits.
+                (start, end), = segments
+                width = end - start
+                if width <= 8:
+                    # Mask size is small enough to allow lookup table.
+                    table = [None] * (1 << width)
+                    for decoder in decoders:
+                        value = decoder.value
+                        assert value & mask == value, (value, mask)
+                        index = value >> start
+                        if table[index] is None:
+                            table[index] = decoder.next
+                        else:
+                            # TODO: We could create a sequential decoder for
+                            #       this table entry rather than giving up
+                            #       on the table altogether.
+                            break
+                    else:
+                        return TableDecoder(table, mask, start)
+
+        decoders.reverse()
+        return SequentialDecoder(decoders)
 
 class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining
