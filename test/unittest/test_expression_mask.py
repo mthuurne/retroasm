@@ -8,7 +8,7 @@ from retroasm.types import IntType
 
 import unittest
 
-class MaskTests(unittest.TestCase):
+class ExpressionMaskTests(unittest.TestCase):
 
     def test_int(self):
         '''Checks mask for integer literals.'''

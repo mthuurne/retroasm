@@ -87,6 +87,9 @@ def trailingZeroes(n):
 def maskToSegments(mask):
     '''Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
+    The segments are returned in increasing order.
+    Negative masks are supported, the last segment will have 'unlimited' as
+    its end in that case.
     '''
     i = 0
     while True:
@@ -103,6 +106,17 @@ def maskToSegments(mask):
             i += 1
             mask >>= 1
         yield start, i
+
+def segmentsToMask(segments):
+    '''Computes a mask that corresponds to the given sequence of pairs of
+    start and end indices.
+    Overlapping or empty segments are allowed, start larger than end is not.
+    End indices may be 'unlimited', start indices may not.
+    '''
+    mask = 0
+    for start, end in segments:
+        mask |= (-1 if end is unlimited else (1 << (end - start)) - 1) << start
+    return mask
 
 class IntType(metaclass=Unique):
     '''An integer value type of "width" bits, signed or unsigned.
