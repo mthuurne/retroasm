@@ -5,13 +5,20 @@ class InstructionSet(ModeTable):
     '''Contains all definitions for a processor's instruction set.
     '''
 
-    def __init__(self, encWidth, auxEncWidth, instructions):
+    def __init__(self, encWidth, auxEncWidth, globalNamespace, instructions):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
                 'Auxiliary encoding width must be None or equal to base '
                 'encoding width %s, got %s instead' % (encWidth, auxEncWidth)
                 )
         ModeTable.__init__(self, encWidth, auxEncWidth, instructions)
+        self._globalNamespace = globalNamespace
+
+    @property
+    def addrWidth(self):
+        '''The width of the program counter, in bits.
+        '''
+        return self._globalNamespace['pc'].width
 
     @const_property
     def instructionNames(self):

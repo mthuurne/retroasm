@@ -1045,7 +1045,9 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
     if reader.errors == 0:
         anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
         auxEncWidth = encWidth if anyAux else None
-        return InstructionSet(encWidth, auxEncWidth, instructions)
+        return InstructionSet(
+            encWidth, auxEncWidth, globalNamespace, instructions
+            )
     else:
         return None
 
