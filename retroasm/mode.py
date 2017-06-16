@@ -155,11 +155,29 @@ class ModeEntry:
         '''A Decoder instance that decodes this entry.
         '''
         assert len(self.encoding) == 1, 'not implemented yet'
+        decoding = self.decoding
 
-        decoder = ModeEntryDecoder(self)
+        # Create leaf node.
+        decoder = MatchFoundDecoder(self)
 
-        # Check literal bits.
-        fixedMatcher = self.decoding[None]
+        placeholders = self.placeholders
+        for name, slices in decoding.items():
+            if name is None:
+                # Fixed value.
+                continue
+
+            # Create decoder for placeholder.
+            placeholder = placeholders[name]
+            if isinstance(placeholder, MatchPlaceholder):
+                sub = placeholder.mode.decoder
+            elif isinstance(placeholder, ValuePlaceholder):
+                sub = None
+            else:
+                assert False, placeholder
+            decoder = PlaceholderDecoder(name, slices, decoder, sub)
+
+        # Create checker for literal bits.
+        fixedMatcher = decoding[None]
         if len(fixedMatcher) != 0:
             encIdx, fixedMask, fixedValue = fixedMatcher[0]
             assert encIdx == 0, fixedMatcher
@@ -183,49 +201,61 @@ class FixedPatternDecoder(Decoder):
         else:
             return None
 
-class ModeEntryDecoder(Decoder):
+class PlaceholderDecoder(Decoder):
+    '''Decodes the value for one placeholder.
+    '''
+
+    def __init__(self, name, slices, nxt, sub):
+        self._name = name
+        self._slices = slices
+        self._next = nxt
+        self._sub = sub
+
+    def tryDecode(self, encoded):
+        # Compose encoded value.
+        value = 0
+        for encIdx, refIdx, width in self._slices:
+            assert encIdx == 0, slices
+            value <<= width
+            value |= (encoded >> refIdx) & maskForWidth(width)
+
+        # Decode placeholder.
+        sub = self._sub
+        if sub is None:
+            decoded = value
+        else:
+            decoded = sub.tryDecode(value)
+            if decoded is None:
+                return None
+
+        # Decode remainder.
+        match = self._next.tryDecode(encoded)
+        if match is not None:
+            match[self._name] = decoded
+        return match
+
+class MatchFoundDecoder(Decoder):
+    '''Decoder that is placed at the end of a decode tree.
+    It always finds a match.
+    '''
 
     def __init__(self, entry):
         self._entry = entry
 
     def tryDecode(self, encoded):
-        entry = self._entry
-
-        # Compose encoded immediates.
-        encodedImmediates = {}
-        for name, slices in entry.decoding.items():
-            if name is None:
-                continue
-            value = 0
-            for encIdx, refIdx, width in slices:
-                assert encIdx == 0, slices
-                value <<= width
-                value |= (encoded >> refIdx) & maskForWidth(width)
-            encodedImmediates[name] = value
-
-        # Find values for placeholders.
-        placeholders = entry.placeholders
-        mapping = {}
-        for name, immEnc in encodedImmediates.items():
-            placeholder = placeholders[name]
-            if isinstance(placeholder, MatchPlaceholder):
-                decoded = placeholder.mode.decoder.tryDecode(immEnc)
-                if decoded is None:
-                    return None
-            elif isinstance(placeholder, ValuePlaceholder):
-                decoded = immEnc
-            else:
-                assert False, placeholder
-            mapping[name] = decoded
-        return EncodeMatch(entry, mapping)
+        return EncodeMatch(self._entry)
 
 class EncodeMatch:
     '''A match on the encoding field of a mode entry.
     '''
 
-    def __init__(self, entry, mapping):
+    def __init__(self, entry):
         self._entry = entry
-        self._mapping = mapping
+        self._mapping = {}
+
+    def __setitem__(self, key, value):
+        assert key not in self._mapping, key
+        self._mapping[key] = value
 
     def _substMapping(self, expr, pc):
         if isinstance(expr, Immediate):
