@@ -114,9 +114,7 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
             logger.info('Loading instruction set: %s', instrSetName)
             instrPath = 'defs/instr/%s.instr' % instrSetName
             try:
-                instrSets[instrSetName] = parseInstrSet(
-                    instrPath, wantSemantics=False
-                    )
+                instrSets[instrSetName] = parseInstrSet(instrPath)
             except OSError as ex:
                 logger.error(
                     'Failed to read instruction set "%s": %s',

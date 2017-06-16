@@ -30,7 +30,12 @@ class Formatter:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
             else:
-                parts.append(self.formatInt(*mnemElem))
+                encoded, typ, roles = mnemElem
+                parts.append(self.formatInt(encoded, typ))
+                if roles:
+                    parts.append(
+                        ' ; %s' % ', '.join(role.name for role in roles)
+                        )
 
         label = ''
 
@@ -40,5 +45,5 @@ class Formatter:
 
     def formatData(self, encoded, typ):
         directive = {8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'}[typ.width]
-        mnemonic = [directive, (encoded, typ)]
+        mnemonic = [directive, (encoded, typ, frozenset())]
         return self.formatMnemonic(mnemonic)

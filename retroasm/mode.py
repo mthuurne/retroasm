@@ -378,7 +378,7 @@ class EncodeMatch:
                         lambda expr, pc=pc: self._substMapping(expr, pc)
                         ))
                     if isinstance(expr, IntLiteral):
-                        yield expr.value, typ
+                        yield expr.value, typ, mnemElem.roles
                     else:
                         # TODO: Is this a bug? A definition error?
                         #       Or can it happen normally?
@@ -388,7 +388,7 @@ class EncodeMatch:
                         width = typ.width
                         if value >= 1 << (width - 1):
                             value -= 1 << width
-                    yield value, typ
+                    yield value, typ, mnemElem.roles
             else:
                 assert False, mnemElem
 
