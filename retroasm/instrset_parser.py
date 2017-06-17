@@ -35,6 +35,7 @@ _nameTok = r'\s*(' + namePat + r')\s*'
 _typeTok = r'\s*(' + namePat + r'&?)\s*'
 
 def _parseRegs(reader, argStr, builder):
+    headerLocation = reader.getLocation()
     if argStr:
         reader.error('register definition must have no arguments')
 
@@ -103,6 +104,13 @@ def _parseRegs(reader, argStr, builder):
                     )
         else:
             reader.error('register definition line with multiple "="')
+
+    if 'pc' not in builder.namespace:
+        reader.error(
+            'no program counter defined: '
+            'a register or alias named "pc" is required',
+            location=headerLocation
+            )
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
