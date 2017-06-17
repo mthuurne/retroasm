@@ -1,3 +1,5 @@
+from .mode import PlaceholderRole
+
 class Formatter:
 
     margin = 20
@@ -24,26 +26,33 @@ class Formatter:
             prevWord = isWord
         return ''.join(parts)
 
-    def formatMnemonic(self, mnemonic):
+    def formatLabel(self, label):
+        return label + ':'
+
+    def formatMnemonic(self, mnemonic, labels):
         parts = []
         for mnemElem in mnemonic:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
             else:
-                encoded, typ, roles = mnemElem
-                parts.append(self.formatInt(encoded, typ))
-                if roles:
-                    parts.append(
-                        ' ; %s' % ', '.join(role.name for role in roles)
-                        )
+                value, typ, roles = mnemElem
+                label = (
+                    labels.get(value)
+                    if PlaceholderRole.code_addr in roles or
+                        PlaceholderRole.data_addr in roles else
+                    None
+                    )
+                if label is None:
+                    parts.append(self.formatInt(value, typ))
+                else:
+                    parts.append(label)
 
-        label = ''
-
+        localLabel = ''
         return self._lineFormat.format(
-            label, parts[0], self._formatOperands(parts[1:])
+            localLabel, parts[0], self._formatOperands(parts[1:])
             ).rstrip()
 
     def formatData(self, encoded, typ):
         directive = {8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'}[typ.width]
         mnemonic = [directive, (encoded, typ, frozenset())]
-        return self.formatMnemonic(mnemonic)
+        return self.formatMnemonic(mnemonic, {})

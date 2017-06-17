@@ -1,3 +1,4 @@
+from .mode import EncodeMatch, PlaceholderRole
 from .section import ByteOrder
 from .types import IntType
 
@@ -87,7 +88,7 @@ class LittleEndianFetcher(Fetcher):
                 shift += 8
             return value
 
-def disassemble(instrSet, fetcher, addr, formatter):
+def disassemble(instrSet, fetcher, startAddr, formatter):
     '''Disassemble instructions from the given fetcher.
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
@@ -95,14 +96,46 @@ def disassemble(instrSet, fetcher, addr, formatter):
     decoder = instrSet.decoder
     numBytes = fetcher.numBytes
     encType = IntType.u(numBytes * 8)
+
+    decoded = {}
+    codeAddrs = set()
+    dataAddrs = set()
+    addr = startAddr
     while True:
         encoded = fetcher.fetch()
         if encoded is None:
             break
         match = decoder.tryDecode(encoded)
+        decoded[addr] = encoded if match is None else match
         fetcher = fetcher.advance()
         addr += numBytes
-        if match is None:
-            print(formatter.formatData(encoded, encType))
+        if match is not None:
+            for mnemElem in match.iterMnemonic(addr):
+                if not isinstance(mnemElem, str):
+                    value, typ, roles = mnemElem
+                    if PlaceholderRole.code_addr in roles:
+                        codeAddrs.add(value)
+                    if PlaceholderRole.data_addr in roles:
+                        dataAddrs.add(value)
+
+    addrWidth = instrSet.addrWidth
+    labels = {}
+    dataLabelFormat = 'data_{:0%dx}' % ((addrWidth + 3) // 4)
+    for addr in dataAddrs:
+        labels[addr] = dataLabelFormat.format(addr)
+    codeLabelFormat = 'code_{:0%dx}' % ((addrWidth + 3) // 4)
+    for addr in codeAddrs:
+        labels[addr] = codeLabelFormat.format(addr)
+
+    for addr in sorted(decoded.keys()):
+        label = labels.get(addr)
+        if label is not None:
+            print(formatter.formatLabel(label))
+        match = decoded[addr]
+        if isinstance(match, EncodeMatch):
+            print(formatter.formatMnemonic(
+                match.iterMnemonic(addr + numBytes),
+                labels
+                ))
         else:
-            print(formatter.formatMnemonic(match.iterMnemonic(addr)))
+            print(formatter.formatData(match, encType))
