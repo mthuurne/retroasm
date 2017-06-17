@@ -155,6 +155,13 @@ class LocalNamespace(Namespace):
             importMap[parentCID] = localCID
             return localCID
 
+    def _checkName(self, name, location):
+        if name == 'pc':
+            raise NameExistsError(
+                'the name "pc" is reserved for the program counter register',
+                location
+                )
+
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name
     which is already in use.
