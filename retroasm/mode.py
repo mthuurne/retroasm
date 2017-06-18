@@ -49,7 +49,38 @@ class EncodingMultiMatch:
         length = self._mode.encodedLength
         return None if length is None else length - self._start
 
+def _formatMask(name, mask, value=None):
+    segments = list(maskToSegments(mask))
+    if len(segments) == 1:
+        (start, end), = segments
+        segStr = '%s[%d-%d)' % (name, start, end)
+        if value is None:
+            return segStr
+        else:
+            return '%s=$%x' % (segStr, (value & mask) >> start)
+    else:
+        digits = []
+        while mask:
+            if mask & 1 == 0:
+                digits.append('x')
+            elif value is None:
+                digits.append('?')
+            else:
+                digits.append(str(value & 1))
+            mask >>= 1
+            if value is not None:
+                value >>= 1
+        while not digits or len(digits) % 4 != 0:
+            digits.append('x')
+        digits.reverse()
+        return name + ':' + '_'.join(
+            ''.join(digits[i:i+4]) for i in range(0, len(digits), 4)
+            )
+
 class Decoder:
+
+    def dump(self, indent='', submodes=True):
+        raise NotImplementedError
 
     def tryDecode(self, encoded):
         '''Attempts to decode the given encoded value.
@@ -63,6 +94,11 @@ class SequentialDecoder(Decoder):
 
     def __init__(self, decoders):
         self._decoders = tuple(decoders)
+
+    def dump(self, indent='', submodes=True):
+        for decoder in self._decoders:
+            decoder.dump(indent + '+ ', submodes)
+            indent = ' ' * len(indent)
 
     def tryDecode(self, encoded):
         for decoder in self._decoders:
@@ -80,6 +116,11 @@ class TableDecoder(Decoder):
         self._mask = mask
         self._offset = offset
         assert (mask >> offset) == len(self._table) - 1
+
+    def dump(self, indent='', submodes=True):
+        print(indent + _formatMask('enc0', self._mask & (-1 << self._offset)))
+        for idx, decoder in enumerate(self._table):
+            decoder.dump(' ' * len(indent) + '$%02x: ' % idx, submodes)
 
     def tryDecode(self, encoded):
         decoder = self._table[(encoded & self._mask) >> self._offset]
@@ -215,6 +256,10 @@ class FixedPatternDecoder(Decoder):
         self._value = value
         self._next = nxt
 
+    def dump(self, indent='', submodes=True):
+        maskStr = _formatMask('enc0', self._mask, self._value)
+        self._next.dump(indent + maskStr + ' -> ', submodes)
+
     def tryDecode(self, encoded):
         if encoded & self._mask == self._value:
             return self._next.tryDecode(encoded)
@@ -230,6 +275,15 @@ class PlaceholderDecoder(Decoder):
         self._slices = slices
         self._next = nxt
         self._sub = sub
+
+    def dump(self, indent='', submodes=True):
+        sliceStr = ';'.join(
+            'enc%d[%d-%d)' % (encIdx, refIdx, refIdx + width)
+            for encIdx, refIdx, width in self._slices
+            )
+        self._next.dump(indent + '%s=%s, ' % (self._name, sliceStr), submodes)
+        if submodes and self._sub is not None:
+            self._sub.dump(indent + ' `-> ')
 
     def tryDecode(self, encoded):
         # Compose encoded value.
@@ -262,6 +316,9 @@ class MatchFoundDecoder(Decoder):
     def __init__(self, entry):
         self._entry = entry
 
+    def dump(self, indent='', submodes=True):
+        print(indent + ' '.join(str(m) for m in self._entry.mnemonic))
+
     def tryDecode(self, encoded):
         return EncodeMatch(self._entry)
 
@@ -269,6 +326,9 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
     '''Decoder that is placed at the end of a decode tree.
     It never finds a match.
     '''
+
+    def dump(self, indent='', submodes=True):
+        print(indent + '(none)')
 
     def tryDecode(self, encoded):
         return None
