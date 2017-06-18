@@ -238,7 +238,7 @@ class ModeEntry:
         if len(fixedMatcher) != 0:
             encIdx, fixedMask, fixedValue = fixedMatcher[0]
             assert encIdx == 0, fixedMatcher
-            decoder = FixedPatternDecoder(fixedMask, fixedValue, decoder)
+            decoder = FixedPatternDecoder.create(fixedMask, fixedValue, decoder)
 
         return decoder
 
@@ -250,6 +250,17 @@ class FixedPatternDecoder(Decoder):
     mask = property(lambda self: self._mask)
     value = property(lambda self: self._value)
     next = property(lambda self: self._next)
+
+    @classmethod
+    def create(cls, mask, value, nxt):
+        if isinstance(nxt, FixedPatternDecoder):
+            # Combine two masks checks into one decoder.
+            assert mask & nxt.mask == 0
+            mask |= nxt.mask
+            value |= nxt.value
+            return cls(mask, value, nxt.next)
+        else:
+            return cls(mask, value, nxt)
 
     def __init__(self, mask, value, nxt):
         self._mask = mask
@@ -383,7 +394,7 @@ def createDecoder(decoders):
                 nxt = decoder.next
             else:
                 # Table takes care of partial fixed pattern check.
-                nxt = FixedPatternDecoder(
+                nxt = FixedPatternDecoder.create(
                     mask & ~tableMask, value & ~tableMask, decoder.next
                     )
             table[index].append(nxt)
@@ -391,7 +402,7 @@ def createDecoder(decoders):
         # If all decoders were assigned to the same bucket, we don't need
         # a table.
         if sum(len(decs) != 0 for decs in table) == 1:
-            return FixedPatternDecoder(
+            return FixedPatternDecoder.create(
                 tableMask, index << start, createDecoder(table[index])
                 )
 
