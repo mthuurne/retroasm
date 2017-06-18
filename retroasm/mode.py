@@ -388,6 +388,13 @@ def createDecoder(decoders):
                     )
             table[index].append(nxt)
 
+        # If all decoders were assigned to the same bucket, we don't need
+        # a table.
+        if sum(len(decs) != 0 for decs in table) == 1:
+            return FixedPatternDecoder(
+                tableMask, index << start, createDecoder(table[index])
+                )
+
         # Create lookup table.
         return TableDecoder((createDecoder(d) for d in table), tableMask, start)
 
