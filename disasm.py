@@ -4,9 +4,8 @@ from retroasm.asm_formatter import Formatter
 from retroasm.binfmt import (
     EntryPoint, detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
-from retroasm.disasm import (
-    BigEndianFetcher, ByteFetcher, LittleEndianFetcher, disassemble
-    )
+from retroasm.disasm import disassemble
+from retroasm.fetch import BigEndianFetcher, ByteFetcher, LittleEndianFetcher
 from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import LineReaderFormatter
 from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
