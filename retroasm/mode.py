@@ -1,6 +1,7 @@
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
+from .fetch import ModeFetcher
 from .linereader import mergeSpan
 from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
 from .utils import Singleton, checkType, const_property
@@ -82,8 +83,8 @@ class Decoder:
     def dump(self, indent='', submodes=True):
         raise NotImplementedError
 
-    def tryDecode(self, encoded):
-        '''Attempts to decode the given encoded value.
+    def tryDecode(self, fetcher):
+        '''Attempts to decode an instruction from the given fetcher.
         Returns an EncodeMatch, or None if no match could be made.
         '''
         raise NotImplementedError
@@ -100,9 +101,9 @@ class SequentialDecoder(Decoder):
             decoder.dump(indent + '+ ', submodes)
             indent = ' ' * len(indent)
 
-    def tryDecode(self, encoded):
+    def tryDecode(self, fetcher):
         for decoder in self._decoders:
-            match = decoder.tryDecode(encoded)
+            match = decoder.tryDecode(fetcher)
             if match is not None:
                 return match
         return None
@@ -122,9 +123,9 @@ class TableDecoder(Decoder):
         for idx, decoder in enumerate(self._table):
             decoder.dump(' ' * len(indent) + '$%02x: ' % idx, submodes)
 
-    def tryDecode(self, encoded):
-        decoder = self._table[(encoded & self._mask) >> self._offset]
-        return decoder.tryDecode(encoded)
+    def tryDecode(self, fetcher):
+        decoder = self._table[(fetcher[0] & self._mask) >> self._offset]
+        return decoder.tryDecode(fetcher)
 
 class ModeEntry:
     '''One row in a mode table.
@@ -271,9 +272,9 @@ class FixedPatternDecoder(Decoder):
         maskStr = _formatMask('enc0', self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
-    def tryDecode(self, encoded):
-        if encoded & self._mask == self._value:
-            return self._next.tryDecode(encoded)
+    def tryDecode(self, fetcher):
+        if fetcher[0] & self._mask == self._value:
+            return self._next.tryDecode(fetcher)
         else:
             return None
 
@@ -296,25 +297,25 @@ class PlaceholderDecoder(Decoder):
         if submodes and self._sub is not None:
             self._sub.dump(indent + ' `-> ')
 
-    def tryDecode(self, encoded):
+    def tryDecode(self, fetcher):
         # Compose encoded value.
         value = 0
         for encIdx, refIdx, width in self._slices:
             assert encIdx == 0, slices
             value <<= width
-            value |= (encoded >> refIdx) & maskForWidth(width)
+            value |= (fetcher[0] >> refIdx) & maskForWidth(width)
 
         # Decode placeholder.
         sub = self._sub
         if sub is None:
             decoded = value
         else:
-            decoded = sub.tryDecode(value)
+            decoded = sub.tryDecode(ModeFetcher(value))
             if decoded is None:
                 return None
 
         # Decode remainder.
-        match = self._next.tryDecode(encoded)
+        match = self._next.tryDecode(fetcher)
         if match is not None:
             match[self._name] = decoded
         return match
@@ -330,7 +331,7 @@ class MatchFoundDecoder(Decoder):
     def dump(self, indent='', submodes=True):
         print(indent + ' '.join(str(m) for m in self._entry.mnemonic))
 
-    def tryDecode(self, encoded):
+    def tryDecode(self, fetcher):
         return EncodeMatch(self._entry)
 
 class NoMatchDecoder(Decoder, metaclass=Singleton):
@@ -341,7 +342,7 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
     def dump(self, indent='', submodes=True):
         print(indent + '(none)')
 
-    def tryDecode(self, encoded):
+    def tryDecode(self, fetcher):
         return None
 
 def createDecoder(decoders):

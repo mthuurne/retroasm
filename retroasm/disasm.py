@@ -14,12 +14,9 @@ def disassemble(instrSet, fetcher, startAddr, formatter):
     codeAddrs = set()
     dataAddrs = set()
     addr = startAddr
-    while True:
-        encoded = fetcher[0]
-        if encoded is None:
-            break
-        match = decoder.tryDecode(encoded)
-        decoded[addr] = encoded if match is None else match
+    while fetcher[0] is not None:
+        match = decoder.tryDecode(fetcher)
+        decoded[addr] = fetcher[0] if match is None else match
         fetcher = fetcher.advance()
         addr += numBytes
         if match is not None:
