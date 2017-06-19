@@ -182,7 +182,14 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
         # Create instruction fetcher.
         byteOrder = section.byteOrder
         instrWidth = instrSet.encodingWidth
-        if instrWidth == 8:
+        if instrWidth % 8 != 0:
+            logger.error(
+                'Instruction units must be a multiple of 8 bits wide, got %d',
+                instrWidth
+                )
+            return
+        numBytes = instrWidth // 8
+        if numBytes == 1:
             fetcher = ByteFetcher(image, offset, end)
         else:
             if byteOrder is ByteOrder.undefined:
@@ -192,9 +199,9 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
                     )
                 continue
             elif byteOrder is ByteOrder.big:
-                fetcher = BigEndianFetcher(image, offset, end, instrWidth)
+                fetcher = BigEndianFetcher(image, offset, end, numBytes)
             elif byteOrder is ByteOrder.little:
-                fetcher = LittleEndianFetcher(image, offset, end, instrWidth)
+                fetcher = LittleEndianFetcher(image, offset, end, numBytes)
             else:
                 assert False, byteOrder
 

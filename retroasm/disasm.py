@@ -3,7 +3,7 @@ from .section import ByteOrder
 from .types import IntType
 
 class Fetcher:
-    __slots__ = ('_image', '_offset', '_end', '_numBytes')
+    __slots__ = ('_image', '_offset', '_end', '_numBytes', '_cached')
 
     image = property(lambda self: self._image)
     offset = property(lambda self: self._offset)
@@ -15,46 +15,52 @@ class Fetcher:
         self._offset = start
         self._end = end
         self._numBytes = numBytes
+        self._cached = self._fetch(start)
 
-    def fetch(self):
-        '''Returns the data unit at the offset, or None if the offset is out
-        of range.
+    def __getitem__(self, key):
+        if key is 0:
+            # Fast path for most frequently used index.
+            return self._cached
+        elif isinstance(key, int):
+            if key < 0:
+                raise IndexError('fetcher index must not be negative: %d' % key)
+            else:
+                return self._fetch(self._offset + key * self._numBytes)
+        else:
+            raise TypeError(
+                'fetcher index must be integer, not %s' % type(key).__name__
+                )
+
+    def _fetch(self, offset):
+        '''Returns the data unit at the given byte offset, or None if the
+        offset is out of range.
         '''
         raise NotImplementedError
 
-    def advance(self):
+    def advance(self, steps=1):
         '''Returns a new fetcher of the same type, with an offset that is one
         one data unit advanced beyond our offset.
         '''
-        ret = Fetcher(
+        return self.__class__(
             self._image,
-            self._offset + self._numBytes,
+            self._offset + steps * self._numBytes,
             self._end,
             self._numBytes
             )
-        ret.__class__ = self.__class__
-        return ret
 
 class ByteFetcher(Fetcher):
     __slots__ = ()
 
-    def __init__(self, image, start, end):
-        Fetcher.__init__(self, image, start, end, 1)
+    def __init__(self, image, start, end, numBytes=1):
+        Fetcher.__init__(self, image, start, end, numBytes)
 
-    def fetch(self):
-        offset = self._offset
+    def _fetch(self, offset):
         return self._image[offset] if offset < self._end else None
 
 class BigEndianFetcher(Fetcher):
     __slots__ = ()
 
-    def __init__(self, image, start, end, width):
-        if width % 8 != 0:
-            raise ValueError('width must be a multiple of 8: %d', width)
-        Fetcher.__init__(self, image, start, end, width // 8)
-
-    def fetch(self):
-        offset = self._offset
+    def _fetch(self, offset):
         after = offset + self._numBytes
         if after > self._end:
             return None
@@ -69,13 +75,7 @@ class BigEndianFetcher(Fetcher):
 class LittleEndianFetcher(Fetcher):
     __slots__ = ()
 
-    def __init__(self, image, start, end, width):
-        if width % 8 != 0:
-            raise ValueError('width must be a multiple of 8: %d', width)
-        Fetcher.__init__(self, image, start, end, width // 8)
-
-    def fetch(self):
-        offset = self._offset
+    def _fetch(self, offset):
         after = offset + self._numBytes
         if after > self._end:
             return None
@@ -102,7 +102,7 @@ def disassemble(instrSet, fetcher, startAddr, formatter):
     dataAddrs = set()
     addr = startAddr
     while True:
-        encoded = fetcher.fetch()
+        encoded = fetcher[0]
         if encoded is None:
             break
         match = decoder.tryDecode(encoded)
