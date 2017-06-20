@@ -427,9 +427,10 @@ class PlaceholderDecoder(Decoder):
                 items.append('enc%d+' % auxIdx)
             valStr = 'sub(%s)' % ', '.join(items)
 
-        self._next.dump(indent + '%s=%s, ' % (self._name, valStr), submodes)
+        name = self._name
+        self._next.dump(indent + '%s=%s, ' % (name, valStr), submodes)
         if submodes and sub is not None:
-            sub.dump(indent + ' `-> ')
+            sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 
     def tryDecode(self, fetcher):
         slices = self._slices
