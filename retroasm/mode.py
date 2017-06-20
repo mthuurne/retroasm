@@ -256,7 +256,7 @@ class ModeEntry:
             }
 
         # Insert matchers at the last index they need.
-        # Gather value placeholders without ordering them.
+        # Gather value placeholders them.
         matchersByIndex = [[] for _ in range(len(encoding))]
         valuePlaceholders = []
         for name, slices in decoding.items():
@@ -287,6 +287,24 @@ class ModeEntry:
             matcher = encoding[encIdx]
             if matcher.start == 0:
                 matchersByIndex[encIdx].append(matcher)
+
+        # Sort matchers and value placeholders.
+        # The sorting is just to make dumps more readable and consistent between
+        # runs, it doesn't impact correctness.
+        def slicesKey(placeholder):
+            return tuple(
+                (encIdx, -refIdx)
+                for encIdx, refIdx, width in decoding[placeholder.name]
+                )
+        def matcherKey(matcher):
+            return (
+                slicesKey(matcher)
+                if isinstance(matcher, MatchPlaceholder) else
+                matcher
+                )
+        for matchers in matchersByIndex:
+            matchers.sort(key=matcherKey, reverse=True)
+        valuePlaceholders.sort(key=slicesKey, reverse=True)
 
         # Insert fixed pattern matchers as early as possible.
         for encIdx, fixedMask, fixedValue in sorted(
