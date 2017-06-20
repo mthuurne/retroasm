@@ -50,11 +50,19 @@ class EncodingMultiMatch:
         length = self._mode.encodedLength
         return None if length is None else length - self._start
 
+def _formatSlice(start, end):
+    if end == start + 1:
+        return '[%d]' % start
+    elif start == 0:
+        return '[:%d]' % end
+    else:
+        return '[%d:%d]' % (start, end)
+
 def _formatMask(name, mask, value=None):
     segments = list(maskToSegments(mask))
     if len(segments) == 1:
         (start, end), = segments
-        segStr = '%s[%d-%d)' % (name, start, end)
+        segStr = name + _formatSlice(start, end)
         if value is None:
             return segStr
         else:
@@ -375,7 +383,7 @@ class PlaceholderDecoder(Decoder):
             sliceStr = ''
         else:
             sliceStr = ';'.join(
-                'enc%d[%d-%d)' % (encIdx, refIdx, refIdx + width)
+                'enc%d%s' % (encIdx, _formatSlice(refIdx, refIdx + width))
                 for encIdx, refIdx, width in slices
                 )
 
