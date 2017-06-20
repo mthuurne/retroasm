@@ -1,7 +1,7 @@
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
-from .fetch import ModeFetcher
+from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
 from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
 from .utils import Singleton, checkType, const_property
@@ -112,19 +112,24 @@ class TableDecoder(Decoder):
     '''Decoder that performs a table lookup to find the next decoder to try.
     '''
 
-    def __init__(self, table, mask, offset):
+    def __init__(self, table, index, mask, offset):
         self._table = tuple(table)
+        self._index = index
         self._mask = mask
         self._offset = offset
         assert (mask >> offset) == len(self._table) - 1
 
     def dump(self, indent='', submodes=True):
-        print(indent + _formatMask('enc0', self._mask & (-1 << self._offset)))
+        name = 'enc%d' % self._index
+        print(indent + _formatMask(name, self._mask & (-1 << self._offset)))
         for idx, decoder in enumerate(self._table):
             decoder.dump(' ' * len(indent) + '$%02x: ' % idx, submodes)
 
     def tryDecode(self, fetcher):
-        decoder = self._table[(fetcher[0] & self._mask) >> self._offset]
+        encoded = fetcher[self._index]
+        if encoded is None:
+            return None
+        decoder = self._table[(encoded & self._mask) >> self._offset]
         return decoder.tryDecode(fetcher)
 
 class ModeEntry:
@@ -212,34 +217,106 @@ class ModeEntry:
     def decoder(self):
         '''A Decoder instance that decodes this entry.
         '''
-        assert len(self.encoding) == 1, 'not implemented yet'
         decoding = self.decoding
+        encoding = self.encoding
+        placeholders = self.placeholders
 
-        # Create leaf node.
+        def earlyFetch(encIdx):
+            '''Returns a pair containing the earliest index at which the given
+            encoding index can be fetched and the index that should be
+            requested from the fetcher.
+            '''
+            whenIdx = fetchIdx = encIdx
+            while whenIdx != 0:
+                encItem = encoding[whenIdx - 1]
+                if isinstance(encItem, EncodingMultiMatch):
+                    encodedLength = encItem.encodedLength
+                    if encodedLength is None:
+                        # Can't move past variable-length matcher.
+                        break
+                    else:
+                        # Adjust index.
+                        fetchIdx += encodedLength - 1
+                whenIdx -= 1
+            return whenIdx, fetchIdx
+
+        # Find all indices that contain multi-matches.
+        multiMatches = {
+            encItem.name: encIdx
+            for encIdx, encItem in enumerate(encoding)
+            if isinstance(encItem, EncodingMultiMatch)
+            }
+
+        # Insert matchers at the last index they need.
+        # Gather value placeholders without ordering them.
+        matchersByIndex = [[] for _ in range(len(encoding))]
+        valuePlaceholders = []
+        for name, slices in decoding.items():
+            if name is not None:
+                placeholder = placeholders[name]
+                if isinstance(placeholder, ValuePlaceholder):
+                    valuePlaceholders.append(placeholder)
+                elif isinstance(placeholder, MatchPlaceholder):
+                    lastIdx = max(encIdx for encIdx, refIdx, width in slices)
+                    multiMatchIdx = multiMatches.get(placeholder.name)
+                    if multiMatchIdx is None:
+                        matcher = placeholder
+                    else:
+                        lastIdx = max(lastIdx, multiMatchIdx)
+                        matcher = encoding[multiMatchIdx]
+                        if matcher.encodedLength is None and \
+                                lastIdx > multiMatchIdx:
+                            raise ValueError(
+                                'Variable-length matcher at index %d depends '
+                                'on index %d'
+                                % (multiMatchIdx, lastIdx)
+                                )
+                    matchersByIndex[lastIdx].append(matcher)
+                else:
+                    assert False, placeholder
+        # Insert multi-matchers without slices.
+        for encIdx in multiMatches.values():
+            matcher = encoding[encIdx]
+            if matcher.start == 0:
+                matchersByIndex[encIdx].append(matcher)
+
+        # Insert fixed pattern matchers as early as possible.
+        for encIdx, fixedMask, fixedValue in sorted(
+                decoding[None], reverse=True
+                ):
+            whenIdx, fetchIdx = earlyFetch(encIdx)
+            matchersByIndex[whenIdx].append((fetchIdx, fixedMask, fixedValue))
+
+        # Start with the leaf node and work towards the root.
         decoder = MatchFoundDecoder(self)
 
-        placeholders = self.placeholders
-        for name, slices in decoding.items():
-            if name is None:
-                # Fixed value.
-                continue
+        # Add value placeholders.
+        # Since these do not cause rejections, it is most efficient to do them
+        # last, when we are certain that this entry matches.
+        for placeholder in valuePlaceholders:
+            name = placeholder.name
+            slices = decoding[name]
+            decoder = PlaceholderDecoder(name, slices, decoder, None, None)
 
-            # Create decoder for placeholder.
-            placeholder = placeholders[name]
-            if isinstance(placeholder, MatchPlaceholder):
-                sub = placeholder.mode.decoder
-            elif isinstance(placeholder, ValuePlaceholder):
-                sub = None
-            else:
-                assert False, placeholder
-            decoder = PlaceholderDecoder(name, slices, decoder, sub)
-
-        # Create checker for literal bits.
-        fixedMatcher = decoding[None]
-        if len(fixedMatcher) != 0:
-            encIdx, fixedMask, fixedValue = fixedMatcher[0]
-            assert encIdx == 0, fixedMatcher
-            decoder = FixedPatternDecoder.create(fixedMask, fixedValue, decoder)
+        # Add match placeholders, from high index to low.
+        for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
+            for matcher in matchers:
+                if isinstance(matcher, MatchPlaceholder):
+                    auxIdx = None
+                elif isinstance(matcher, EncodingMultiMatch):
+                    auxIdx = encIdx
+                else:
+                    # Add fixed pattern matcher.
+                    encIdx, fixedMask, fixedValue = matcher
+                    decoder = FixedPatternDecoder.create(
+                        encIdx, fixedMask, fixedValue, decoder
+                        )
+                    continue
+                # Add submode matcher.
+                name = matcher.name
+                slices = decoding.get(name)
+                sub = matcher.mode.decoder
+                decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
         return decoder
 
@@ -248,71 +325,101 @@ class FixedPatternDecoder(Decoder):
     using a mask and value.
     '''
 
+    index = property(lambda self: self._index)
     mask = property(lambda self: self._mask)
     value = property(lambda self: self._value)
     next = property(lambda self: self._next)
 
     @classmethod
-    def create(cls, mask, value, nxt):
-        if isinstance(nxt, FixedPatternDecoder):
+    def create(cls, index, mask, value, nxt):
+        if isinstance(nxt, FixedPatternDecoder) and nxt.index == index:
             # Combine two masks checks into one decoder.
             assert mask & nxt.mask == 0
             mask |= nxt.mask
             value |= nxt.value
-            return cls(mask, value, nxt.next)
+            return cls(index, mask, value, nxt.next)
         else:
-            return cls(mask, value, nxt)
+            return cls(index, mask, value, nxt)
 
-    def __init__(self, mask, value, nxt):
+    def __init__(self, index, mask, value, nxt):
+        self._index = index
         self._mask = mask
         self._value = value
         self._next = nxt
 
     def dump(self, indent='', submodes=True):
-        maskStr = _formatMask('enc0', self._mask, self._value)
+        maskStr = _formatMask('enc%d' % self._index, self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
     def tryDecode(self, fetcher):
-        if fetcher[0] & self._mask == self._value:
-            return self._next.tryDecode(fetcher)
-        else:
+        encoded = fetcher[self._index]
+        if encoded is None or encoded & self._mask != self._value:
             return None
+        else:
+            return self._next.tryDecode(fetcher)
 
 class PlaceholderDecoder(Decoder):
     '''Decodes the value for one placeholder.
     '''
 
-    def __init__(self, name, slices, nxt, sub):
+    def __init__(self, name, slices, nxt, sub, auxIdx):
         self._name = name
         self._slices = slices
         self._next = nxt
         self._sub = sub
+        self._auxIdx = auxIdx
 
     def dump(self, indent='', submodes=True):
-        sliceStr = ';'.join(
-            'enc%d[%d-%d)' % (encIdx, refIdx, refIdx + width)
-            for encIdx, refIdx, width in self._slices
-            )
-        self._next.dump(indent + '%s=%s, ' % (self._name, sliceStr), submodes)
-        if submodes and self._sub is not None:
-            self._sub.dump(indent + ' `-> ')
+        slices = self._slices
+        if slices is None:
+            sliceStr = ''
+        else:
+            sliceStr = ';'.join(
+                'enc%d[%d-%d)' % (encIdx, refIdx, refIdx + width)
+                for encIdx, refIdx, width in slices
+                )
+
+        sub = self._sub
+        if sub is None:
+            valStr = sliceStr
+        else:
+            items = [sliceStr] if sliceStr else []
+            auxIdx = self._auxIdx
+            if auxIdx is not None:
+                items.append('enc%d+' % auxIdx)
+            valStr = 'sub(%s)' % ', '.join(items)
+
+        self._next.dump(indent + '%s=%s, ' % (self._name, valStr), submodes)
+        if submodes and sub is not None:
+            sub.dump(indent + ' `-> ')
 
     def tryDecode(self, fetcher):
-        # Compose encoded value.
-        value = 0
-        for encIdx, refIdx, width in self._slices:
-            assert encIdx == 0, slices
-            value <<= width
-            value |= (fetcher[0] >> refIdx) & maskForWidth(width)
+        slices = self._slices
+        if slices is None:
+            value = None
+        else:
+            # Compose encoded first value.
+            value = 0
+            for encIdx, refIdx, width in slices:
+                encoded = fetcher[encIdx]
+                if encoded is None:
+                    return None
+                value <<= width
+                value |= (encoded >> refIdx) & maskForWidth(width)
 
         # Decode placeholder.
         sub = self._sub
         if sub is None:
             decoded = value
         else:
-            decoded = sub.tryDecode(ModeFetcher(value))
+            auxIdx = self._auxIdx
+            decoded = sub.tryDecode(ModeFetcher(value, fetcher, auxIdx))
             if decoded is None:
                 return None
+            if auxIdx is not None:
+                delta = decoded.encodedLength - 1
+                if delta != 0:
+                    fetcher = AfterModeFetcher(fetcher, auxIdx, delta)
 
         # Decode remainder.
         match = self._next.tryDecode(fetcher)
@@ -357,10 +464,17 @@ def createDecoder(decoders):
     if len(decoders) == 1:
         return decoders[0]
 
+    # Figure out the lowest fetch index.
+    encIdx = min((
+        decoder.index
+        for decoder in decoders
+        if isinstance(decoder, FixedPatternDecoder)
+        ), default=-1)
+
     # Gather stats about fixed patterns of our entries.
     maskFreqs = defaultdict(int)
     for decoder in decoders:
-        if isinstance(decoder, FixedPatternDecoder):
+        if isinstance(decoder, FixedPatternDecoder) and decoder.index == encIdx:
             mask = decoder.mask
         else:
             mask = 0
@@ -396,7 +510,7 @@ def createDecoder(decoders):
             else:
                 # Table takes care of partial fixed pattern check.
                 nxt = FixedPatternDecoder.create(
-                    mask & ~tableMask, value & ~tableMask, decoder.next
+                    encIdx, mask & ~tableMask, value & ~tableMask, decoder.next
                     )
             table[index].append(nxt)
 
@@ -404,11 +518,13 @@ def createDecoder(decoders):
         # a table.
         if sum(len(decs) != 0 for decs in table) == 1:
             return FixedPatternDecoder.create(
-                tableMask, index << start, createDecoder(table[index])
+                encIdx, tableMask, index << start, createDecoder(table[index])
                 )
 
         # Create lookup table.
-        return TableDecoder((createDecoder(d) for d in table), tableMask, start)
+        return TableDecoder(
+            (createDecoder(d) for d in table), encIdx, tableMask, start
+            )
 
     # SequentialDecoder picks the first match, so reverse the order.
     decoders.reverse()
@@ -425,6 +541,26 @@ class EncodeMatch:
     def __setitem__(self, key, value):
         assert key not in self._mapping, key
         self._mapping[key] = value
+
+    @const_property
+    def encodedLength(self):
+        entry = self._entry
+        length = entry.encodedLength
+        if length is not None:
+            # Mode entry has fixed encoded length.
+            return length
+
+        # Mode entry has variable encoded length.
+        mapping = self._mapping
+        length = 0
+        for encItem in entry.encoded:
+            if isinstance(encItem, EncodingExpr):
+                length += 1
+            elif isinstance(encItem, EncodingMultiMatch):
+                length += mapping[encItem.name].encodedLength
+            else:
+                assert False, encItem
+        return length
 
     def _substMapping(self, expr, pc):
         if isinstance(expr, Immediate):

@@ -127,11 +127,41 @@ class LittleEndianFetcher(MultiByteFetcher):
 class ModeFetcher(Fetcher):
     '''Instruction fetcher for looking up an entry in a mode table.
     '''
-    __slots__ = ('_first',)
+    __slots__ = ('_first', '_auxFetcher', '_auxIndex')
 
-    def __init__(self, first):
+    def __init__(self, first, auxFetcher, auxIndex):
         self._first = first
+        self._auxFetcher = auxFetcher
+        self._auxIndex = auxIndex
         Fetcher.__init__(self)
 
     def _fetch(self, index):
-        return self._first if index == 0 else None
+        first = self._first
+        if first is not None:
+            if index == 0:
+                return first
+            else:
+                index -= 1
+
+        auxIndex = self._auxIndex
+        if auxIndex is None:
+            return None
+        else:
+            return self._auxFetcher._fetch(auxIndex + index)
+
+class AfterModeFetcher(Fetcher):
+    '''Instruction fetcher that adjusts indexing after a multi-match.
+    '''
+    __slots__ = ('_fetcher', '_auxIndex', '_delta')
+
+    def __init__(self, fetcher, auxIndex, delta):
+        self._fetcher = fetcher
+        self._auxIndex = auxIndex
+        self._delta = delta
+        Fetcher.__init__(self)
+
+    def _fetch(self, index):
+        if index >= self._auxIndex:
+            assert index > self._auxIndex
+            index += self._delta
+        return self._fetcher._fetch(index)

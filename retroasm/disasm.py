@@ -17,8 +17,9 @@ def disassemble(instrSet, fetcher, startAddr, formatter):
     while fetcher[0] is not None:
         match = decoder.tryDecode(fetcher)
         decoded[addr] = fetcher[0] if match is None else match
-        fetcher = fetcher.advance()
-        addr += numBytes
+        encodedLength = 1 if match is None else match.encodedLength
+        fetcher = fetcher.advance(encodedLength)
+        addr += encodedLength * numBytes
         if match is not None:
             for mnemElem in match.iterMnemonic(addr):
                 if not isinstance(mnemElem, str):
