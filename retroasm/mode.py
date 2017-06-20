@@ -328,9 +328,9 @@ class ModeEntry:
         for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
             for matcher in matchers:
                 if isinstance(matcher, MatchPlaceholder):
-                    auxIdx = None
+                    multiMatch = False
                 elif isinstance(matcher, EncodingMultiMatch):
-                    auxIdx = encIdx
+                    multiMatch = True
                 else:
                     # Add fixed pattern matcher.
                     encIdx, fixedMask, fixedValue = matcher
@@ -340,7 +340,19 @@ class ModeEntry:
                     continue
                 # Add submode matcher.
                 name = matcher.name
+                auxIdx = multiMatches[name] if multiMatch else None
                 slices = decoding.get(name)
+                if multiMatch and auxIdx != encIdx:
+                    # Some of the slices are located behind the multi-match;
+                    # we should adjust their fetch indices accordingly.
+                    assert auxIdx < encIdx, matcher
+                    adjust = encoding[auxIdx].encodedLength - 1
+                    if adjust != 0:
+                        slices = tuple(
+                            (idx if idx < auxIdx else idx + adjust,
+                                refIdx, width)
+                            for idx, refIdx, width in slices
+                            )
                 sub = matcher.mode.decoder
                 decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
