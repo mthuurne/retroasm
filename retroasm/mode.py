@@ -488,14 +488,12 @@ def createDecoder(decoders):
             mask = 0
         maskFreqs[mask] += 1
 
-    # Find suitable segments that are present in all masks.
+    # Find segments that are present in all masks.
     commonMask = reduce(int.__and__, maskFreqs.keys(), -1)
     segments = []
     if commonMask > 0:
         for start, end in maskToSegments(commonMask):
-            if 2 <= end - start <= 16:
-                # Segment size is suitable for using lookup table.
-                segments.append((start, end))
+            segments.append((start, end))
 
     if len(segments) != 0:
         # Pick the upper segment: for correctness any segment will do,
@@ -504,6 +502,9 @@ def createDecoder(decoders):
         segment = segments[-1]
         tableMask = segmentsToMask((segment,))
         start, end = segment
+
+        # Limit size of table.
+        end = min(end, start + 8)
 
         # Group decoders in buckets determined by the selected segment.
         table = [[] for index in range(1 << (end - start))]
