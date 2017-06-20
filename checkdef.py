@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from retroasm.instrset_parser import checkInstrSet
+from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import LineReaderFormatter
 
 import logging
@@ -14,6 +14,18 @@ def setupLogging():
     logger.setLevel(logging.INFO)
     return logger
 
+def checkInstrSet(pathname, dumpNoSubs, dumpSubs, logger):
+    logger.info('checking: %s', pathname)
+    instrSet = parseInstrSet(pathname, logger)
+
+    if instrSet is not None:
+        if dumpNoSubs:
+            print()
+            instrSet.decoder.dump(submodes=False)
+        if dumpSubs:
+            print()
+            instrSet.decoder.dump(submodes=True)
+
 def main():
     from argparse import ArgumentParser
     from os import walk
@@ -22,6 +34,14 @@ def main():
 
     parser = ArgumentParser(
         description='Check instruction set definition files.'
+        )
+    parser.add_argument(
+        '--dump-decoders', action='store_true',
+        help='dump the instruction decoder tree, excluding submodes'
+        )
+    parser.add_argument(
+        '--dump-decoders-subs', action='store_true',
+        help='dump the instruction decoder tree, including submodes'
         )
     parser.add_argument(
         'instr', nargs='+',
@@ -55,7 +75,7 @@ def main():
     logger = setupLogging()
 
     for path in files:
-        checkInstrSet(path, logger)
+        checkInstrSet(path, args.dump_decoders, args.dump_decoders_subs, logger)
 
 if __name__ == '__main__':
     main()

@@ -1058,7 +1058,3 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             )
     else:
         return None
-
-def checkInstrSet(pathname, logger):
-    logger.info('checking: %s', pathname)
-    instrSet = parseInstrSet(pathname, logger)
