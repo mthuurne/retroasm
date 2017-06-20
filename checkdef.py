@@ -4,7 +4,6 @@ from retroasm.instrset_parser import checkInstrSet
 from retroasm.linereader import LineReaderFormatter
 
 import logging
-from sys import stderr
 
 def setupLogging():
     handler = logging.StreamHandler()
@@ -16,41 +15,47 @@ def setupLogging():
     return logger
 
 def main():
+    from argparse import ArgumentParser
     from os import walk
     from os.path import exists, isdir, isfile
-    from sys import argv
-    if len(argv) > 1:
-        files = []
-        dirs = []
-        for arg in argv[1:]:
-            if not exists(arg):
-                print('No such file or directory:', arg, file=stderr)
-                exit(1)
-            elif isdir(arg):
-                dirs.append(arg)
-            elif isfile(arg):
-                files.append(arg)
-            else:
-                print('Not a regular file or directory:', arg, file=stderr)
-                exit(1)
-        if dirs:
-            for dirName in dirs:
-                for dirPath, subdirList, fileList in walk(dirName):
-                    for fileName in fileList:
-                        if fileName.endswith('.instr'):
-                            files.append(dirPath + '/' + fileName)
-        if not files:
-            print('No definition files found (*.instr)', file=stderr)
+    from sys import stderr
+
+    parser = ArgumentParser(
+        description='Check instruction set definition files.'
+        )
+    parser.add_argument(
+        'instr', nargs='+',
+        help='file or directory containing instruction set definitions'
+        )
+    args = parser.parse_args()
+
+    files = []
+    dirs = []
+    for path in args.instr:
+        if not exists(path):
+            print('No such file or directory:', path, file=stderr)
             exit(1)
+        elif isdir(path):
+            dirs.append(path)
+        elif isfile(path):
+            files.append(path)
+        else:
+            print('Not a regular file or directory:', path, file=stderr)
+            exit(1)
+    if dirs:
+        for dirName in dirs:
+            for dirPath, subdirList, fileList in walk(dirName):
+                for fileName in fileList:
+                    if fileName.endswith('.instr'):
+                        files.append(dirPath + '/' + fileName)
+    if not files:
+        print('No definition files found (*.instr)', file=stderr)
+        exit(1)
 
-        logger = setupLogging()
+    logger = setupLogging()
 
-        for path in files:
-            checkInstrSet(path, logger)
-    else:
-        print('usage: checkdef.py [file|dir]+\n', file=stderr)
-        print('Check instruction set definition files.\n', file=stderr)
-        exit(2)
+    for path in files:
+        checkInstrSet(path, logger)
 
 if __name__ == '__main__':
     main()
