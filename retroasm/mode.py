@@ -623,7 +623,12 @@ class EncodeMatch:
                 yield '$%x' % mnemElem
             elif isinstance(mnemElem, MatchPlaceholder):
                 match = mapping[mnemElem.name]
-                yield from match.iterMnemonic(pc)
+                for subElem in match.iterMnemonic(pc):
+                    if isinstance(subElem, str):
+                        yield subElem
+                    else:
+                        value, typ, roles = subElem
+                        yield value, typ, roles | mnemElem.roles
             elif isinstance(mnemElem, ValuePlaceholder):
                 name = mnemElem.name
                 typ = mnemElem.type
