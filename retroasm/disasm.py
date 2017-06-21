@@ -45,7 +45,7 @@ def disassemble(instrSet, fetcher, startAddr, formatter):
         match = decoded[addr]
         if isinstance(match, EncodeMatch):
             print(formatter.formatMnemonic(
-                match.iterMnemonic(addr + numBytes),
+                match.iterMnemonic(addr + match.encodedLength * numBytes),
                 labels
                 ))
         else:
