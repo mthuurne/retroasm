@@ -100,12 +100,12 @@ instr ld
 $02                 . (bc),a            . mem[bc] := a
 $12                 . (de),a            . mem[de] := a
 $EA, NN@            . (NN),a            . mem[NN] := a      . imm16 NN
-$E0, N              . ($FF00 + N),a     . mem[$FF;N] := a   . u8 N
+$E0, N              . (A),a             . mem[A] := a       . u8 N, u16 A = $FF;N
 $E2                 . ($FF00 + c),a     . mem[$FF;c] := a
 $0A                 . a,(bc)            . a := mem[bc]
 $1A                 . a,(de)            . a := mem[de]
 $FA, NN@            . a,(NN)            . a := mem[NN]      . imm16 NN
-$F0, N              . a,($FF00 + N)     . a := mem[$FF;N]   . u8 N
+$F0, N              . a,(A)             . a := mem[A]       . u8 N, u16 A = $FF;N
 $F2                 . a,($FF00 + c)     . a := mem[$FF;c]
 
 func u8& hl_off(int D)
