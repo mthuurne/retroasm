@@ -414,7 +414,7 @@ class PlaceholderDecoder(Decoder):
         else:
             sliceStr = ';'.join(
                 'enc%d%s' % (encIdx, _formatSlice(refIdx, refIdx + width))
-                for encIdx, refIdx, width in slices
+                for encIdx, refIdx, width in reversed(slices)
                 )
 
         sub = self._sub
@@ -439,12 +439,13 @@ class PlaceholderDecoder(Decoder):
         else:
             # Compose encoded first value.
             value = 0
+            offset = 0
             for encIdx, refIdx, width in slices:
                 encoded = fetcher[encIdx]
                 if encoded is None:
                     return None
-                value <<= width
-                value |= (encoded >> refIdx) & maskForWidth(width)
+                value |= ((encoded >> refIdx) & maskForWidth(width)) << offset
+                offset += width
 
         # Decode placeholder.
         sub = self._sub
