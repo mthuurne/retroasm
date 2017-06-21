@@ -4,7 +4,7 @@ from retroasm.asm_formatter import Formatter
 from retroasm.binfmt import (
     EntryPoint, detectBinaryFormat, getBinaryFormat, iterBinaryFormatNames
     )
-from retroasm.disasm import disassemble
+from retroasm.disasm import Disassembler
 from retroasm.fetch import BigEndianFetcher, ByteFetcher, LittleEndianFetcher
 from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import LineReaderFormatter
@@ -140,6 +140,11 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
         return
 
     # Disassemble.
+    disassemblers = {
+        name: Disassembler(instrSet)
+        for name, instrSet in instrSets.items()
+        if instrSet is not None
+        }
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -205,8 +210,12 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
                 assert False, byteOrder
 
         addr = section.base + offset - section.start
-        formatter = Formatter()
-        disassemble(instrSet, fetcher, addr, formatter)
+        disassemblers[instrSetName].disassemble(fetcher, addr)
+
+    # Output assembly.
+    formatter = Formatter()
+    for instrSetName, disassembler in sorted(disassemblers.items()):
+        disassembler.formatAsm(formatter)
 
 def _parseNumber(number):
     if number.startswith('0x'):
