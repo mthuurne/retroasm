@@ -569,6 +569,46 @@ def _combinePlaceholderEncodings(
         else:
             yield name, tuple(decoding)
 
+def _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader):
+    '''Verifies that there is an order in which placeholder can be decoded.
+    Such an order might not exist because of circular dependencies.
+    '''
+    # Find indices of multi-matches.
+    multiMatchIndices = {
+        encElem.name: encIdx
+        for encIdx, encElem in enumerate(encoding)
+        if isinstance(encElem, EncodingMultiMatch)
+        }
+
+    for name, decoding in sequentialMap.items():
+        # Are we dealing with a multi-match of unknown length?
+        placeholderSpec = placeholderSpecs[name]
+        if not isinstance(placeholderSpec, MatchPlaceholderSpec):
+            continue
+        multiIdx = multiMatchIndices.get(name)
+        if multiIdx is None:
+            continue
+        matcher = encoding[multiIdx]
+        if matcher.encodedLength is not None:
+            continue
+
+        # Are any parts of the placeholder are located after the multi-match?
+        badIdx = [
+            encIdx
+            for encIdx, refIdx, width in decoding
+            if encIdx > multiIdx
+            ]
+        if badIdx:
+            mode = placeholderSpec.mode
+            reader.error(
+                'cannot match "%s": mode "%s" has a variable encoding length '
+                'and (parts of) the placeholder "%s" are placed after the '
+                'multi-match placeholder "%s@"',
+                name, mode.name, name, name,
+                location=[placeholderSpec.decl.treeLocation, matcher.location]
+                    + [encoding[idx].location for idx in badIdx]
+                )
+
 def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
@@ -594,6 +634,11 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
             sequentialMap = dict(_combinePlaceholderEncodings(
                 decodeMap, immediates, placeholderSpecs, reader
                 ))
+        with reader.checkErrors():
+            # Check whether unknown-length multi-matches are blocking decoding.
+            _checkDecodingOrder(
+                encoding, sequentialMap, placeholderSpecs, reader
+                )
     except DelayedError:
         return None
     else:
