@@ -3,7 +3,9 @@ from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
-from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
+from .types import (
+    IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
+    )
 from .utils import Singleton, checkType, const_property
 
 from collections import defaultdict
@@ -621,7 +623,7 @@ class EncodeMatch:
             if isinstance(mnemElem, str):
                 yield mnemElem
             elif isinstance(mnemElem, int):
-                yield '$%x' % mnemElem
+                yield mnemElem, IntType.int, frozenset()
             elif isinstance(mnemElem, MatchPlaceholder):
                 match = mapping[mnemElem.name]
                 for subElem in match.iterMnemonic(pc):
