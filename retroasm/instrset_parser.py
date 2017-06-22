@@ -535,17 +535,44 @@ def _decomposeEncodingExprs(encElems, reader):
                 fixedMatcher.append((encIdx, fixedMask, fixedValue))
     return fixedMatcher, decodeMap
 
+def _combinePlaceholderEncodings(
+        decodeMap, immediates, placeholderSpecs, reader
+        ):
+    '''Yield pairs of immediate name and the locations where the immediate
+    resides in the encoded items.
+    Each such location is a triple of index in the encoded items, bit offset
+    within that item and width in bits.
+    '''
+    for name, slices in decodeMap.items():
+        immWidth = immediates[name].width
+        decoding = []
+        problems = []
+        prev = 0
+        for immIdx, encIdx, refIdx, width in sorted(slices):
+            if prev < immIdx:
+                problems.append('gap at [%d:%d]' % (prev, immIdx))
+            elif prev > immIdx:
+                problems.append(
+                    'overlap at [%d:%d]' % (immIdx, min(immIdx + width, prev))
+                    )
+            prev = max(immIdx + width, prev)
+            decoding.append((encIdx, refIdx, width))
+        if prev < immWidth:
+            problems.append('gap at [%d:%d]' % (prev, immWidth))
+        elif prev > immWidth:
+            assert False, (name, slices)
+        if problems:
+            reader.error(
+                'cannot decode value for "%s": %s', name, ', '.join(problems),
+                location=placeholderSpecs[name].decl.treeLocation
+                )
+        else:
+            yield name, tuple(decoding)
+
 def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
-
-    # Decompose the encoding expressions.
-    try:
-        with reader.checkErrors():
-            fixedMatcher, decodeMap = _decomposeEncodingExprs(encoding, reader)
-    except DelayedError:
-        return None
 
     # Gather all Immediate objects from the constant pool.
     immediates = {
@@ -560,37 +587,13 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
 
     try:
         with reader.checkErrors():
-            # Create a mapping from opcode to immediate values.
-            sequentialMap = {}
-            for name, slices in decodeMap.items():
-                immWidth = immediates[name].width
-                decoding = []
-                problems = []
-                prev = 0
-                for immIdx, encIdx, refIdx, width in sorted(slices):
-                    if prev < immIdx:
-                        problems.append(
-                            'gap at [%d:%d]' % (prev, immIdx)
-                            )
-                    elif prev > immIdx:
-                        problems.append(
-                            'overlap at [%d:%d]'
-                            % (immIdx, min(immIdx + width, prev))
-                            )
-                    prev = max(immIdx + width, prev)
-                    decoding.append((encIdx, refIdx, width))
-                if prev < immWidth:
-                    problems.append('gap at [%d:%d]' % (prev, immWidth))
-                elif prev > immWidth:
-                    assert False, (name, slices)
-                if problems:
-                    reader.error(
-                        'cannot decode value for "%s": %s',
-                        name, ', '.join(problems),
-                        location=placeholderSpecs[name].decl.treeLocation
-                        )
-                else:
-                    sequentialMap[name] = decoding
+            # Decompose the encoding expressions.
+            fixedMatcher, decodeMap = _decomposeEncodingExprs(encoding, reader)
+        with reader.checkErrors():
+            # Create a mapping to extract immediate values from encoded items.
+            sequentialMap = dict(_combinePlaceholderEncodings(
+                decodeMap, immediates, placeholderSpecs, reader
+                ))
     except DelayedError:
         return None
     else:
