@@ -82,6 +82,10 @@ mode u8& reg8
 %101                . l
 %111                . a
 
+mode u8& memx
+N                   . (ix + N)          . mem[ix + N]       . ?ix, s8 N
+N                   . (iy + N)          . mem[iy + N]       . ?iy, s8 N
+
 mode u8& reg8x
 R                   . R                 . R                 . reg8 R
 %100                . ixh               .                   . ?ix
@@ -89,8 +93,7 @@ R                   . R                 . R                 . reg8 R
 %101                . ixl               .                   . ?ix
 %101                . iyl               .                   . ?iy
 %110                . (hl)              . mem[hl]
-%110, N             . (ix + N)          . mem[ix + N]       . ?ix, s8 N
-%110, N             . (iy + N)          . mem[iy + N]       . ?iy, s8 N
+%110, R             . R                 . R                 . memx R
 
 # 16-bit registers
 
@@ -517,72 +520,87 @@ func postrot(u8 V)
     sf := V[7]
     zf := V == 0
 
-func rlc(u8& R)
+func u8 rlc(u8& R)
     var u8 V := R
     cf ; V := V ; V[7]
     R := V
+    ret := V
     postrot(V)
 
-func rlcx(u8& R, u16 A)
-    var u8 V := mem[A]
-    cf ; V := V ; V[7]
-    mem[A] := V
-    R := V
-    postrot(V)
-
-func rrc(u8& R)
+func u8 rrc(u8& R)
     var u8 V := R
     V ; cf := V[0] ; V
     R := V
+    ret := V
     postrot(V)
 
-func rl(u8& R)
+func u8 rl(u8& R)
     var u8 V := R
     cf ; V := V ; cf
     R := V
+    ret := V
     postrot(V)
 
-func rr(u8& R)
+func u8 rr(u8& R)
     var u8 V := R
     V ; cf := cf ; V
     R := V
+    ret := V
     postrot(V)
 
-func sla(u8& R)
+func u8 sla(u8& R)
     var u8 V := R
     cf ; V := V ; %0
     R := V
+    ret := V
     postrot(V)
 
-func sra(u8& R)
+func u8 sra(u8& R)
     var u8 V := R
     V ; cf := R[7] ; V
     R := V
+    ret := V
     postrot(V)
 
-func sll(u8& R)
+func u8 sll(u8& R)
     var u8 V := R
     cf ; V := V ; %1
     R := V
+    ret := V
     postrot(V)
 
-func srl(u8& R)
+func u8 srl(u8& R)
     var u8 V := R
     V ; cf := %0 ; V
     R := V
+    ret := V
     postrot(V)
 
 instr
-$CB, R@, %00000;R   . rlc R             . rlc(R)            . reg8x R
-$CB, R@, %00001;R   . rrc R             . rrc(R)            . reg8x R
-$CB, R@, %00010;R   . rl R              . rl(R)             . reg8x R
-$CB, R@, %00011;R   . rr R              . rr(R)             . reg8x R
-$CB, R@, %00100;R   . sla R             . sla(R)            . reg8x R
-$CB, R@, %00101;R   . sra R             . sra(R)            . reg8x R
-$CB, R@, %00110;R   . sll R             . sll(R)            . reg8x R
-$CB, R@, %00111;R   . srl R             . srl(R)            . reg8x R
-$CB, N, %00000;R    . rlc (ix + N), R   . rlcx(R, ix + N)   . ?ix, reg8 R, s8 N
-$CB, N, %00000;R    . rlc (iy + N), R   . rlcx(R, iy + N)   . ?iy, reg8 R, s8 N
+$CB, %00000;R       . rlc R             . rlc(R)            . reg8 R
+$CB, R@, %00000110  . rlc R             . rlc(R)            . memx R
+$CB, R@, %00000;C   . rlc R,C           . C := rlc(R)       . memx R, reg8 C
+$CB, %00001;R       . rrc R             . rrc(R)            . reg8 R
+$CB, R@, %00001110  . rrc R             . rrc(R)            . memx R
+$CB, R@, %00001;C   . rrc R,C           . C := rrc(R)       . memx R, reg8 C
+$CB, %00010;R       . rl R              . rl(R)             . reg8 R
+$CB, R@, %00010110  . rl R              . rl(R)             . memx R
+$CB, R@, %00010;C   . rl R,C            . C := rl(R)        . memx R, reg8 C
+$CB, %00011;R       . rr R              . rr(R)             . reg8 R
+$CB, R@, %00011110  . rr R              . rr(R)             . memx R
+$CB, R@, %00011;C   . rr R,C            . C := rr(R)        . memx R, reg8 C
+$CB, %00100;R       . sla R             . sla(R)            . reg8 R
+$CB, R@, %00100110  . sla R             . sla(R)            . memx R
+$CB, R@, %00100;C   . sla R,C           . C := sla(R)       . memx R, reg8 C
+$CB, %00101;R       . sra R             . sra(R)            . reg8 R
+$CB, R@, %00101110  . sra R             . sra(R)            . memx R
+$CB, R@, %00101;C   . sra R,C           . C := sra(R)       . memx R, reg8 C
+$CB, %00110;R       . sll R             . sll(R)            . reg8 R
+$CB, R@, %00110110  . sll R             . sll(R)            . memx R
+$CB, R@, %00110;C   . sll R,C           . C := sll(R)       . memx R, reg8 C
+$CB, %00111;R       . srl R             . srl(R)            . reg8 R
+$CB, R@, %00111110  . srl R             . srl(R)            . memx R
+$CB, R@, %00111;C   . srl R,C           . C := srl(R)       . memx R, reg8 C
 
 func rld()
     a[0:4] ; mem[hl] := mem[hl] ; a[0:4]
@@ -623,27 +641,27 @@ $CB, N, %01;B;R     . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u
 $CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u3 B, s8 N
 $CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N
 
-func resx(u3 B, u8& R, u16 A)
-    var u8 V := mem[A]
+func u8 res(u3 B, u8& R)
+    var u8 V := R
     V[B] := 0
-    mem[A] := V
     R := V
+    ret := V
 
 instr res
-$CB, R@, %10;B;R    . B,R           . R[B] := 0             . u3 B, reg8x R
-$CB, N, %10;B;R     . B,(ix + N),R  . resx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
-$CB, N, %10;B;R     . B,(iy + N),R  . resx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
+$CB, %10;B;R        . B,R           . res(B, R)             . u3 B, reg8 R
+$CB, R@, %10;B;%110 . B,R           . res(B, R)             . u3 B, memx R
+$CB, R@, %10;B;C    . B,R,C         . C := res(B, R)        . u3 B, memx R, reg8 C
 
-func setx(u3 B, u8& R, u16 A)
-    var u8 V := mem[A]
+func u8 set(u3 B, u8& R)
+    var u8 V := R
     V[B] := 1
-    mem[A] := V
     R := V
+    ret := V
 
 instr set
-$CB, R@, %11;B;R    . B,R           . R[B] := 1             . u3 B, reg8x R
-$CB, N, %11;B;R     . B,(ix + N),R  . setx(B, R, ix + N)    . ?ix, u3 B, s8 N, reg8 R
-$CB, N, %11;B;R     . B,(iy + N),R  . setx(B, R, iy + N)    . ?iy, u3 B, s8 N, reg8 R
+$CB, %11;B;R        . B,R           . set(B, R)             . u3 B, reg8 R
+$CB, R@, %11;B;%110 . B,R           . set(B, R)             . u3 B, memx R
+$CB, R@, %11;B;C    . B,R,C         . C := set(B, R)        . u3 B, memx R, reg8 C
 
 
 ### Jump (8.9)
