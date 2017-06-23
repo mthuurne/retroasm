@@ -29,6 +29,11 @@ class EncodingExpr:
         self._value = value
         self._location = location
 
+    def __repr__(self):
+        return 'EncodingExpr(%r, %r, %r)' % (
+            self._ref, self._value, self._location
+            )
+
 class EncodingMultiMatch:
     '''A segment in an encoding sequence of zero or more elements, that will
     be filled in by a matched entry from an included mode.
@@ -46,6 +51,11 @@ class EncodingMultiMatch:
         self._mode = mode
         self._start = start
         self._location = location
+
+    def __repr__(self):
+        return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
+            self._name, self._mode, self._start, self._location
+            )
 
     @const_property
     def encodedLength(self):
@@ -168,6 +178,12 @@ class ModeEntry:
                 raise ValueError(
                     'Inconsistent widths among auxiliary encoding elements'
                     )
+
+    def __repr__(self):
+        return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r)' % (
+            self.encoding, self.decoding, self.mnemonic, self.semantics,
+            self.placeholders, self.flagsRequired, self.location
+            )
 
     @property
     def encodingWidth(self):
@@ -580,6 +596,9 @@ class EncodeMatch:
     def __init__(self, entry):
         self._entry = entry
         self._mapping = {}
+
+    def __repr__(self):
+        return 'EncodeMatch(%r, %r)' % (self._entry, self._mapping)
 
     def __setitem__(self, key, value):
         assert key not in self._mapping, key
