@@ -167,7 +167,7 @@ $ED, $5F            . a,r               . load_ir(r)
 ### 16-Bit Load (8.2)
 
 instr ld
-%00;D;%0001, NN@    . D,NN              . D := NN           . imm16 NN, reg16 D
+%00;D;%0001, NN@    . D,NN              . D := NN           . imm16 NN, reg16x D
 $2A, A@             . D,(A)             . D := read16(A)    . imm16 A, hlx D
 $ED, %01;D;%1011, A@. D,(A)             . D := read16(A)    . imm16 A, reg16 D
 $22, A@             . (A),S             . write16(A, S)     . imm16 A, hlx S
