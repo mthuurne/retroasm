@@ -619,7 +619,7 @@ class EncodeMatch:
             if isinstance(encItem, EncodingExpr):
                 length += 1
             elif isinstance(encItem, EncodingMultiMatch):
-                length += mapping[encItem.name].encodedLength
+                length += mapping[encItem.name].encodedLength - encItem.start
             else:
                 assert False, encItem
         return length
