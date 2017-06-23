@@ -342,6 +342,13 @@ class ModeEntry:
             slices = decoding[name]
             decoder = PlaceholderDecoder(name, slices, decoder, None, None)
 
+        # Add match placeholders that are not represented in the encoding.
+        for name, placeholder in placeholders.items():
+            if isinstance(placeholder, MatchPlaceholder):
+                if name not in decoding and name not in multiMatches:
+                    sub = placeholder.mode.decoder
+                    decoder = PlaceholderDecoder(name, None, decoder, sub, None)
+
         # Add match placeholders, from high index to low.
         for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
             for matcher in matchers:
