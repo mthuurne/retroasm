@@ -22,7 +22,9 @@ class Disassembler:
         dataAddrs = self._dataAddrs
         addr = startAddr
         while fetcher[0] is not None:
-            match = decoder.tryDecode(fetcher)
+            # TODO: Implement prefix support.
+            flags = frozenset()
+            match = decoder.tryDecode(fetcher, flags)
             decoded[addr] = fetcher[0] if match is None else match
             encodedLength = 1 if match is None else match.encodedLength
             fetcher = fetcher.advance(encodedLength)
