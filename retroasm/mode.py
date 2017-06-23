@@ -596,7 +596,7 @@ class EncodeMatch:
         # Mode entry has variable encoded length.
         mapping = self._mapping
         length = 0
-        for encItem in entry.encoded:
+        for encItem in entry.encoding:
             if isinstance(encItem, EncodingExpr):
                 length += 1
             elif isinstance(encItem, EncodingMultiMatch):
