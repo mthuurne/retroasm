@@ -154,6 +154,28 @@ class TableDecoder(Decoder):
         decoder = self._table[(encoded & self._mask) >> self._offset]
         return decoder.tryDecode(fetcher, flags)
 
+def _findFirstAuxIndex(encoding):
+    '''Returns the index of the first encoding item that can match auxiliary
+    encoding units, or None if no auxiliary encoding units can be matched.
+    The given encoding sequence must not contain matchers that never match
+    any encoding units.
+    '''
+    if len(encoding) == 0:
+        # No units matched because there are no matchers.
+        return None
+    firstLen = encoding[0].encodedLength
+    if firstLen >= 2:
+        # First element can match multiple encoding units.
+        return 0
+    assert firstLen != 0, encoding
+    if len(encoding) == 1:
+        # First element matches 1 encoding unit, no second element.
+        return None
+    else:
+        # The second element will match the second unit.
+        assert encoding[1].encodedLength != 0, encoding
+        return 1
+
 class ModeEntry:
     '''One row in a mode table.
     '''
@@ -162,7 +184,18 @@ class ModeEntry:
             self, encoding, decoding, mnemonic, semantics, placeholders,
             flagsRequired, location
             ):
-        self.encoding = encoding = tuple(encoding)
+        # Filter out zero-length encoding items.
+        # There is no good reason to ban them, but keeping them around would
+        # unnecessarily complicate the code.
+        self.encoding = encoding = tuple(
+            encItem
+            for encItem in encoding
+            if checkType(
+                encItem, (EncodingExpr, EncodingMultiMatch), 'encoding element'
+                ).encodedLength != 0
+            )
+        self._firstAuxIndex = firstAuxIndex = _findFirstAuxIndex(encoding)
+
         self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
@@ -170,13 +203,11 @@ class ModeEntry:
         self.flagsRequired = frozenset(flagsRequired)
         self.location = location
 
-        for encElem in encoding:
-            checkType(
-                encElem, (EncodingExpr, EncodingMultiMatch), 'encoding element'
-                )
         auxWidth = self.auxEncodingWidth
         if auxWidth is not None:
-            if any(encElem.width != auxWidth for encElem in encoding[1:]):
+            if any(encItem.width != auxWidth
+                    for encItem in encoding[firstAuxIndex:]
+                    ):
                 raise ValueError(
                     'Inconsistent widths among auxiliary encoding elements'
                     )
@@ -189,8 +220,8 @@ class ModeEntry:
 
     @property
     def encodingWidth(self):
-        '''The width in bits of the first encoding element in this mode entry,
-        or None if this entry contains an empty encoding sequence.
+        '''The width in bits a first encoding unit matched by this mode entry
+        would have, or None if this entry always matches zero encoding units.
         '''
         encoding = self.encoding
         return None if len(encoding) == 0 else encoding[0].width
@@ -207,25 +238,32 @@ class ModeEntry:
 
     @property
     def auxEncodingWidth(self):
-        '''The width in bits of the non-first encoding elements in this mode
-        entry, or None if there is no or one encoding element.
+        '''The width in bits that all non-first encoding units matched by this
+        mode entry would have, or None if a match cannot contain more than one
+        encoding unit.
         '''
-        encoding = self.encoding
-        return None if len(encoding) < 2 else encoding[1].width
+        firstAuxIndex = self._firstAuxIndex
+        if firstAuxIndex is None:
+            return None
+        else:
+            return self.encoding[firstAuxIndex].width
 
     @property
     def auxEncodingLocation(self):
         '''The InputLocation of the auxiliary encoding elements in this mode
-        entry.
+        entry. If there are no auxiliary encoding elements, the end of the
+        encoding field is returned.
         '''
         encoding = self.encoding
-        if len(encoding) == 0:
-            return self.location.updateSpan((0, 1))
-        elif len(encoding) == 1:
-            firstEnd = encoding[0].location.span[1]
-            return self.location.updateSpan((firstEnd, firstEnd + 1))
+        firstAuxIndex = self._firstAuxIndex
+        if firstAuxIndex is None:
+            end = 0 if len(encoding) == 0 else encoding[0].location.span[1]
+            return self.location.updateSpan((end, end + 1))
         else:
-            return mergeSpan(encoding[1].location, encoding[-1].location)
+            return mergeSpan(
+                encoding[firstAuxIndex].location,
+                encoding[-1].location
+                )
 
     @const_property
     def encodedLength(self):
