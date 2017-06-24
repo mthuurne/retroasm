@@ -44,7 +44,11 @@ class EncodingMultiMatch:
     start = property(lambda self: self._start)
     location = property(lambda self: self._location)
 
-    width = property(lambda self: self._mode.auxEncodingWidth)
+    width = property(lambda self:
+        self._mode.encodingWidth
+        if self._start == 0 else
+        self._mode.auxEncodingWidth
+        )
 
     def __init__(self, name, mode, start, location):
         self._name = name
