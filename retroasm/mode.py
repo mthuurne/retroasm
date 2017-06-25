@@ -1,4 +1,6 @@
-from .analysis import PlaceholderRole, determinePlaceholderRoles
+from .analysis import (
+    PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
+    )
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
@@ -443,6 +445,10 @@ class ModeEntry:
                 decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
         return decoder
+
+    @const_property
+    def branchAddrs(self):
+        return tuple(iterBranchAddrs(self.semantics))
 
 class FixedPatternDecoder(Decoder):
     '''Decoder that matches encoded bit strings by looking for a fixed pattern
