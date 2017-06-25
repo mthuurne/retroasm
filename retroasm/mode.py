@@ -1,3 +1,4 @@
+from .analysis import PlaceholderRole, determinePlaceholderRoles
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
@@ -9,7 +10,6 @@ from .types import (
 from .utils import Singleton, checkType, const_property
 
 from collections import defaultdict
-from enum import Enum
 from functools import reduce
 
 class EncodingExpr:
@@ -221,6 +221,9 @@ class ModeEntry:
                 raise ValueError(
                     'Inconsistent widths among auxiliary encoding units'
                     )
+
+        # Perform some basic analysis.
+        determinePlaceholderRoles(semantics, placeholders)
 
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r)' % (
@@ -901,10 +904,6 @@ class Mode(ModeTable):
 
     def __iter__(self):
         return iter(self._entries)
-
-PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
-    'code_addr', 'data_addr'
-    ))
 
 class Placeholder:
     '''Abstract base class for a mode context element.

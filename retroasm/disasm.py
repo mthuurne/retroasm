@@ -1,4 +1,5 @@
-from .mode import EncodeMatch, PlaceholderRole
+from .analysis import PlaceholderRole
+from .mode import EncodeMatch
 from .types import IntType
 
 class Disassembler:

@@ -1,4 +1,4 @@
-from .mode import PlaceholderRole
+from .analysis import PlaceholderRole
 
 class Formatter:
 

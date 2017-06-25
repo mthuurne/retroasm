@@ -1,6 +1,6 @@
 from .codeblock import (
-    ArgumentConstant, ComputedConstant, ConcatenatedReference, ConstantValue,
-    FixedValue, LoadedConstant, SlicedReference, Store
+    ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
+    LoadedConstant, SlicedReference
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -20,7 +20,7 @@ from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     EncodingExpr, EncodingMultiMatch, Immediate, MatchPlaceholder, Mode,
-    ModeEntry, PlaceholderRole, ValuePlaceholder
+    ModeEntry, ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, Variable, namePat
@@ -765,28 +765,6 @@ def _replaceProgramCounter(expr, semBuilder):
         return None
     return expr.substitute(subst)
 
-def _determinePlaceholderRoles(semantics, placeholders):
-    '''Analyze semantics to figure out the roles of placeholders.
-    While this won't be sufficient to determine the role of all literal values,
-    it can handle a few common cases reliably and efficiently.
-    '''
-
-    # Find storage ID for program counter, if any.
-    pcSids = tuple(
-        sid
-        for sid, storage in semantics.storages.items()
-        if isinstance(storage, Variable) and storage.name == 'pc'
-        )
-    if len(pcSids) != 0:
-        pcSid, = pcSids
-        # Mark placeholders written to the program counter as code addresses.
-        for node in semantics.nodes:
-            if isinstance(node, Store) and node.sid == pcSid:
-                const = semantics.constants[node.cid]
-                if isinstance(const, ArgumentConstant):
-                    placeholder = placeholders[const.name]
-                    placeholder.addRole(PlaceholderRole.code_addr)
-
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
@@ -928,13 +906,11 @@ def _parseModeEntries(
                         # This is the last field.
                         continue
                     try:
-                        semCode = semBuilder.createCodeBlock(reader)
-
-                        _determinePlaceholderRoles(semCode, placeholders)
-
-                        # TODO: Inline semCode into ctxBuilder as a function
-                        #       call, where all placeholders are arguments.
                         semantics = semBuilder.createCodeBlock(reader)
+                        # TODO: Inline code block into ctxBuilder as a function
+                        #       call, where all placeholders are arguments.
+                        #       Store the result in the ModeEntry, in addition
+                        #       to the semantics-field-only code block.
                     except ValueError:
                         # Error was already logged inside createCodeBlock().
                         pass
