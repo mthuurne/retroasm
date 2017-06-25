@@ -381,7 +381,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
             modeAuxWidth = mode.auxEncodingWidth
             if start >= 1 and modeAuxWidth is None:
                 reader.warning(
-                    'mode "%s" does not contain auxiliary encoding elements',
+                    'mode "%s" does not match auxiliary encoding units',
                     mode.name, location=(encLoc, placeholder.decl.treeLocation)
                     )
                 continue
@@ -480,8 +480,8 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                     )
             if mode.auxEncodingWidth is not None:
                 reader.error(
-                    'mode "%s" contains auxiliary encoding items, but '
-                    'there is no "%s@" placeholder to match them',
+                    'mode "%s" matches auxiliary encoding units, but there '
+                    'is no "%s@" placeholder for them',
                     mode.name, name,
                     location=(encFullSpan(), placeholder.decl.treeLocation)
                     )
@@ -955,8 +955,8 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
     '''Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
-    If the 'aux' argument is False, the first encoding element of each entry
-    is checked, otherwise the auxiliary encoding elements are checked.
+    If the 'aux' argument is False, the first matched unit width of each entry
+    is checked, otherwise the width of auxiliary encoding units is checked.
     If the entries represent instructions, pass None for the mode name.
     '''
 
@@ -983,7 +983,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
         for idx, entry in enumerate(entries):
             if getattr(entry, widthAttr) not in validWidths:
                 logger.error(
-                    '%sencoding field is %s, while %s is dominant %s',
+                    '%sencoding match is %s, while %s is dominant %s',
                     ('auxiliary ' if aux else ''),
                     _formatEncodingWidth(getattr(entry, widthAttr)),
                     _formatEncodingWidth(encWidth),
@@ -1069,8 +1069,8 @@ def _parseInstr(reader, argStr, globalBuilder, modes, wantSemantics):
         auxEncodingWidth = instr.auxEncodingWidth
         if auxEncodingWidth not in (encWidth, None):
             reader.error(
-                'auxiliary instruction encoding elements are %d bits wide, '
-                'while first item is %d bits wide', auxEncodingWidth, encWidth,
+                'auxiliary instruction encoding units are %d bits wide, '
+                'while first unit is %d bits wide', auxEncodingWidth, encWidth,
                 location=instr.auxEncodingLocation
                 )
         yield instr
