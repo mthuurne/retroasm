@@ -21,7 +21,7 @@ class EncodingExpr:
     value = property(lambda self: self._value)
     location = property(lambda self: self._location)
 
-    width = property(lambda self: self._ref.width)
+    encodingWidth = property(lambda self: self._ref.width)
     encodedLength = property(lambda self: 1)
 
     def __init__(self, ref, value, location):
@@ -44,11 +44,12 @@ class EncodingMultiMatch:
     start = property(lambda self: self._start)
     location = property(lambda self: self._location)
 
-    width = property(lambda self:
+    encodingWidth = property(lambda self:
         self._mode.encodingWidth
         if self._start == 0 else
         self._mode.auxEncodingWidth
         )
+    auxEncodingWidth = property(lambda self: self._mode.auxEncodingWidth)
 
     def __init__(self, name, mode, start, location):
         self._name = name
@@ -207,13 +208,18 @@ class ModeEntry:
         self.flagsRequired = frozenset(flagsRequired)
         self.location = location
 
+        # Verify that all auxiliary units have the same width.
         auxWidth = self.auxEncodingWidth
         if auxWidth is not None:
-            if any(encItem.width != auxWidth
-                    for encItem in encoding[firstAuxIndex:]
-                    ):
+            consistent = True
+            for encIdx, encItem in enumerate(encoding):
+                if encIdx != 0:
+                    consistent &= encItem.encodingWidth == auxWidth
+                if isinstance(encItem, EncodingMultiMatch):
+                    consistent &= encItem.auxEncodingWidth in (None, auxWidth)
+            if not consistent:
                 raise ValueError(
-                    'Inconsistent widths among auxiliary encoding elements'
+                    'Inconsistent widths among auxiliary encoding units'
                     )
 
     def __repr__(self):
@@ -228,7 +234,7 @@ class ModeEntry:
         would have, or None if this entry always matches zero encoding units.
         '''
         encoding = self.encoding
-        return None if len(encoding) == 0 else encoding[0].width
+        return None if len(encoding) == 0 else encoding[0].encodingWidth
 
     @property
     def encodingLocation(self):
@@ -249,8 +255,11 @@ class ModeEntry:
         firstAuxIndex = self._firstAuxIndex
         if firstAuxIndex is None:
             return None
+        elif firstAuxIndex == 0:
+            return self.encoding[0].auxEncodingWidth
         else:
-            return self.encoding[firstAuxIndex].width
+            assert firstAuxIndex == 1, firstAuxIndex
+            return self.encoding[1].encodingWidth
 
     @property
     def auxEncodingLocation(self):
