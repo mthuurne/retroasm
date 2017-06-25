@@ -31,7 +31,8 @@ class Disassembler:
             fetcher = fetcher.advance(encodedLength)
             addr += encodedLength * numBytes
             if match is not None:
-                for mnemElem in match.iterMnemonic(addr):
+                match.setPC(addr)
+                for mnemElem in match.iterMnemonic():
                     if not isinstance(mnemElem, str):
                         value, typ, roles = mnemElem
                         if PlaceholderRole.code_addr in roles:
@@ -46,8 +47,7 @@ class Disassembler:
         instrSet = self._instrSet
 
         addrWidth = instrSet.addrWidth
-        numBytes = instrSet.encodingWidth // 8
-        encType = IntType.u(numBytes * 8)
+        encType = IntType.u(instrSet.encodingWidth)
 
         labels = {}
         dataLabelFormat = 'data_{:0%dx}' % ((addrWidth + 3) // 4)
@@ -63,9 +63,6 @@ class Disassembler:
                 print(formatter.formatLabel(label))
             match = decoded[addr]
             if isinstance(match, EncodeMatch):
-                print(formatter.formatMnemonic(
-                    match.iterMnemonic(addr + match.encodedLength * numBytes),
-                    labels
-                    ))
+                print(formatter.formatMnemonic(match.iterMnemonic(), labels))
             else:
                 print(formatter.formatData(match, encType))
