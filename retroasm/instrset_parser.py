@@ -326,9 +326,21 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     multiMatches = set(collectNames(MultiMatchNode))
 
     # Evaluate encoding field.
+    firstAux = [None, None]
+    def checkAux(width, location):
+        auxWidth, auxLoc = firstAux
+        if auxWidth is None:
+            firstAux[0] = width
+            firstAux[1] = location
+        elif width != auxWidth:
+            reader.error(
+                'encoding item matches width %d, while first auxiliary '
+                'encoding match has width %d', width, auxWidth,
+                location=(location, auxLoc)
+                )
     claimedMultiMatches = {}
-    auxWidth = None
-    for encIdx, encNode in enumerate(encNodes):
+    firstUnitMatched = False
+    for encNode in encNodes:
         encLoc = encNode.treeLocation
         if isinstance(encNode, MultiMatchNode):
             # Match multiple encoding fields as-is.
@@ -359,18 +371,31 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
             start = 1 if name in identifiers else 0
             # Technically there is nothing wrong with always matching zero
             # elements, but it is probably not what the user intended.
-            if mode.encodingWidth is None:
+            modeWidth = mode.encodingWidth
+            if modeWidth is None:
                 reader.warning(
                     'mode "%s" does not contain encoding elements',
                     mode.name, location=(encLoc, placeholder.decl.treeLocation)
                     )
                 continue
-            if start >= 1 and mode.auxEncodingWidth is None:
+            modeAuxWidth = mode.auxEncodingWidth
+            if start >= 1 and modeAuxWidth is None:
                 reader.warning(
                     'mode "%s" does not contain auxiliary encoding elements',
                     mode.name, location=(encLoc, placeholder.decl.treeLocation)
                     )
                 continue
+
+            if firstUnitMatched:
+                if start == 0:
+                    checkAux(modeWidth, encLoc)
+                if modeAuxWidth is not None:
+                    checkAux(modeAuxWidth, encLoc)
+            else:
+                if modeAuxWidth is not None:
+                    if mode.encodedLength != start + 1:
+                        checkAux(modeAuxWidth, encLoc)
+                firstUnitMatched = True
 
             yield EncodingMultiMatch(name, mode, start, encLoc)
         else:
@@ -413,16 +438,9 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                     'unlimited width integers are not allowed in encoding',
                     location=encLoc
                     )
-            elif encIdx > 0:
-                if auxWidth is None:
-                    auxWidth = encWidth
-                elif encWidth != auxWidth:
-                    reader.error(
-                        'auxiliary encoding item has width %d, while first '
-                        'auxiliary item has width %d',
-                        encWidth, auxWidth,
-                        location=(encLoc, encNodes[1].treeLocation)
-                        )
+            elif firstUnitMatched:
+                checkAux(encWidth, encLoc)
+            firstUnitMatched = True
 
             yield EncodingExpr(encRef, encValue, encLoc)
 
