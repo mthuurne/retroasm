@@ -560,7 +560,10 @@ class PlaceholderDecoder(Decoder):
             if decoded is None:
                 return None
             if auxIdx is not None:
-                delta = decoded.encodedLength - 1
+                # Note: When there are slices, the multi-matcher won't match
+                #       the first unit, since they have been matched by single
+                #       matcher(s) already.
+                delta = decoded.encodedLength - (1 if slices is None else 2)
                 if delta != 0:
                     fetcher = AfterModeFetcher(fetcher, auxIdx, delta)
 
