@@ -1,3 +1,4 @@
+from .analysis import inlineConstants
 from .codeblock import (
     ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
     LoadedConstant, SlicedReference
@@ -740,18 +741,6 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             yield placeholder
             seenPlaceholders[text] = getMatchLocation()
 
-def _inlineConstants(expr, constants):
-    '''Inline all ConstantValues in the given expression.
-    Constant IDs are looked up in the given constants collection.
-    '''
-    def subst(expr):
-        if isinstance(expr, ConstantValue):
-            const = constants[expr.cid]
-            if isinstance(const, ComputedConstant):
-                return const.expr.substitute(subst)
-        return None
-    return expr.substitute(subst)
-
 def _replaceProgramCounter(expr, semBuilder):
     '''Replaces values loaded from the program counter by an Immediate.
     '''
@@ -857,7 +846,7 @@ def _parseModeEntries(
                             assert isinstance(ref, FixedValue), ref
                             expr = ref.const.expr
                             value = _replaceProgramCounter(
-                                _inlineConstants(expr, ctxBuilder.constants),
+                                inlineConstants(expr, ctxBuilder.constants),
                                 ctxBuilder
                                 )
                         placeholder = ValuePlaceholder(

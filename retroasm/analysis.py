@@ -1,4 +1,4 @@
-from .codeblock import ArgumentValue, ComputedConstant, Store
+from .codeblock import ArgumentValue, ComputedConstant, ConstantValue, Store
 from .storage import IOStorage, Variable
 
 from enum import Enum
@@ -7,8 +7,21 @@ PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
     'code_addr', 'data_addr'
     ))
 
+def inlineConstants(expr, constants):
+    '''Inline all ConstantValues in the given expression.
+    Constant IDs are looked up in the given constants collection.
+    '''
+    def subst(expr):
+        if isinstance(expr, ConstantValue):
+            const = constants[expr.cid]
+            if isinstance(const, ComputedConstant):
+                return const.expr.substitute(subst)
+        return None
+    return expr.substitute(subst)
+
 def iterBranchAddrs(code):
-    '''Yields the constants written to the PC register by the given code block.
+    '''Yields the expressions written to the PC register by the given code
+    block.
     '''
     pcSids = tuple(
         sid
@@ -19,7 +32,7 @@ def iterBranchAddrs(code):
         pcSid, = pcSids
         for node in code.nodes:
             if isinstance(node, Store) and node.sid == pcSid:
-                yield code.constants[node.cid]
+                yield inlineConstants(node.expr, code.constants)
 
 def determinePlaceholderRoles(semantics, placeholders):
     '''Analyze semantics to figure out the roles of placeholders.
@@ -28,12 +41,10 @@ def determinePlaceholderRoles(semantics, placeholders):
     '''
 
     # Mark placeholders written to the program counter as code addresses.
-    for const in iterBranchAddrs(semantics):
-        if isinstance(const, ComputedConstant):
-            expr = const.expr
-            if isinstance(expr, ArgumentValue):
-                placeholder = placeholders[expr.name]
-                placeholder.addRole(PlaceholderRole.code_addr)
+    for expr in iterBranchAddrs(semantics):
+        if isinstance(expr, ArgumentValue):
+            placeholder = placeholders[expr.name]
+            placeholder.addRole(PlaceholderRole.code_addr)
 
     # Mark placeholders used as memory indices as data addresses.
     for sid, storage in semantics.storages.items():
