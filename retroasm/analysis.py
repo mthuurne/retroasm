@@ -1,4 +1,4 @@
-from .codeblock import ArgumentConstant, Store
+from .codeblock import ArgumentValue, ComputedConstant, Store
 from .storage import IOStorage, Variable
 
 from enum import Enum
@@ -29,14 +29,18 @@ def determinePlaceholderRoles(semantics, placeholders):
 
     # Mark placeholders written to the program counter as code addresses.
     for const in iterBranchAddrs(semantics):
-        if isinstance(const, ArgumentConstant):
-            placeholder = placeholders[const.name]
-            placeholder.addRole(PlaceholderRole.code_addr)
+        if isinstance(const, ComputedConstant):
+            expr = const.expr
+            if isinstance(expr, ArgumentValue):
+                placeholder = placeholders[expr.name]
+                placeholder.addRole(PlaceholderRole.code_addr)
 
     # Mark placeholders used as memory indices as data addresses.
     for sid, storage in semantics.storages.items():
         if isinstance(storage, IOStorage) and storage.channel.name == 'mem':
             const = semantics.constants[storage.index.cid]
-            if isinstance(const, ArgumentConstant):
-                placeholder = placeholders[const.name]
-                placeholder.addRole(PlaceholderRole.data_addr)
+            if isinstance(const, ComputedConstant):
+                expr = const.expr
+                if isinstance(expr, ArgumentValue):
+                    placeholder = placeholders[expr.name]
+                    placeholder.addRole(PlaceholderRole.data_addr)

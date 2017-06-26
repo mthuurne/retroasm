@@ -42,23 +42,6 @@ class ComputedConstant(Constant):
     def __str__(self):
         return '%s = %s' % (super().__str__(), self._expr)
 
-class ArgumentConstant(Constant):
-    '''A constant passed into a code block as an argument.
-    '''
-    __slots__ = ('_name',)
-
-    name = property(lambda self: self._name)
-
-    def __init__(self, name, cid):
-        self._name = checkType(name, str, 'name')
-        Constant.__init__(self, cid)
-
-    def __repr__(self):
-        return 'ArgumentConstant(%r, %d)' % (self._name, self._cid)
-
-    def __str__(self):
-        return '%s :  %s' % (super().__str__(), self._name)
-
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
     '''
@@ -149,6 +132,32 @@ class ConstantValue(Expression):
     def _equals(self, other):
         # pylint: disable=protected-access
         return self._cid is other._cid
+
+class ArgumentValue(Expression):
+    '''A value passed into a code block as an argument.
+    '''
+    __slots__ = ('_name', '_mask')
+
+    name = property(lambda self: self._name)
+    mask = property(lambda self: self._mask)
+
+    def __init__(self, name, mask):
+        Expression.__init__(self)
+        self._name = checkType(name, str, 'name')
+        self._mask = checkType(mask, int, 'mask')
+
+    def _ctorargs(self):
+        return self._name, self._mask
+
+    def __repr__(self):
+        return 'ArgumentValue(%r, %d)' % (self._name, self._mask)
+
+    def __str__(self):
+        return self._name
+
+    def _equals(self, other):
+        # pylint: disable=protected-access
+        return self._name == other._name
 
 class Reference:
     '''Abstract base class for references.
@@ -500,8 +509,6 @@ class CodeBlock:
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
                 print('        C%-2d <- S%d' % (const.cid, const.sid))
-            elif isinstance(const, ArgumentConstant):
-                print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
         print('    storages:')

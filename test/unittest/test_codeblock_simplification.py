@@ -2,7 +2,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin
 
 from retroasm.codeblock import (
-    ArgumentConstant, ComputedConstant, ConstantValue, Load, Store
+    ArgumentValue, ComputedConstant, ConstantValue, Load, Store
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator
@@ -337,6 +337,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         combined = self.builder.emitCompute(OrOperator(loadA, loadV))
         self.builder.emitStore(refRet, combined)
 
+        self.assertIsInstance(self.builder.constants[0], ComputedConstant)
+        valueV = self.builder.constants[0].expr
+        self.assertIsInstance(valueV, ArgumentValue)
+        self.assertEqual(valueV.name, 'V')
+
         cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
         retSid = self.getSid(refRet)
@@ -349,11 +354,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
-        self.assertIsInstance(code.constants[0], ArgumentConstant)
         self.assertOr(
             code.constants[retCid].expr,
             simplifyExpression(loadA),
-            ConstantValue(code.constants[0].cid, 255)
+            valueV
             )
 
     def test_return_value_renumber(self):

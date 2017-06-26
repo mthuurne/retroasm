@@ -1,4 +1,4 @@
-from .codeblock import ArgumentConstant
+from .codeblock import ArgumentValue, ComputedConstant
 from .storage import RefArgStorage
 from .types import IntType, ReferenceType
 
@@ -56,7 +56,7 @@ class Function:
     def findArg(self, argName):
         '''Searches the representation of the argument with the given name in
         this function's code block.
-        For pass-by-value arguments, an ArgumentConstant is returned.
+        For pass-by-value arguments, an ArgumentValue is returned.
         For pass-by-reference arguments, a RefArgStorage is returned.
         If the argument does not occur in the code block, None is returned.
         If no argument with the given name existed when the function was
@@ -67,11 +67,15 @@ class Function:
             raise ValueError('Function does not have a code block')
         arg = self.args[argName]
         if isinstance(arg, IntType):
-            # Look for an ArgumentConstant with the same name.
+            # Look for an ArgumentValue with the same name.
+            found = [None]
+            def checkArg(expr):
+                if isinstance(expr, ArgumentValue) and expr.name == argName:
+                    found[0] = expr
             for const in self.code.constants.values():
-                if isinstance(const, ArgumentConstant):
-                    if const.name == argName:
-                        return const
+                if isinstance(const, ComputedConstant):
+                    const.expr.substitute(checkArg)
+            return found[0]
         elif isinstance(arg, ReferenceType):
             # Look for a RefArgStorage with the same name.
             for storage in self.code.storages.values():

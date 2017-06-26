@@ -1,5 +1,5 @@
 from .codeblock import (
-    ArgumentConstant, ComputedConstant, ConstantValue, FixedValue, Load,
+    ArgumentValue, ComputedConstant, ConstantValue, FixedValue, Load,
     LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
@@ -27,8 +27,6 @@ class CodeBlockBuilder:
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
                 print('        C%-2d <- S%d' % (const.cid, const.sid))
-            elif isinstance(const, ArgumentConstant):
-                print('        C%-2d :  %s' % (const.cid, const.name))
             else:
                 assert False, const
         print('    storages:')
@@ -225,22 +223,22 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
     def emitValueArgument(self, name, decl, location):
         '''Adds a passed-by-value argument to this code block.
-        The initial value is represented by an ArgumentConstant and is loaded
+        The initial value is represented by an ArgumentValue and is stored
         into the corresponding Variable.
         Returns the Reference to the corresponding Variable.
         '''
         assert isinstance(decl, IntType), decl
+        value = ArgumentValue(name, maskForWidth(decl.width))
 
-        # Add ArgumentConstant.
+        # Add constant.
         cid = len(self.constants)
-        constant = ArgumentConstant(name, cid)
+        constant = ComputedConstant(cid, value)
         self.constants.append(constant)
 
         # Add Variable.
         ref = self.emitVariable(name, decl, location)
 
         # Store initial value.
-        value = ConstantValue(cid, maskForWidth(decl.width))
         ref.emitStore(value, location)
 
         return ref
@@ -297,12 +295,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Copy constants.
         for cid, const in code.constants.items():
             assert cid == const.cid, const
-            if isinstance(const, ArgumentConstant):
-                value = namespace[const.name]
-                constants.append(ComputedConstant(cidMap[const.cid], value))
-            elif isinstance(const, ComputedConstant):
+            if isinstance(const, ComputedConstant):
                 def substCid(expr):
-                    if isinstance(expr, ConstantValue):
+                    if isinstance(expr, ArgumentValue):
+                        return namespace[expr.name]
+                    elif isinstance(expr, ConstantValue):
                         return ConstantValue(cidMap[expr.cid], expr.mask)
                     else:
                         return None

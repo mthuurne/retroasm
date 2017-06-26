@@ -1,6 +1,6 @@
 from .codeblock import (
-    ArgumentConstant, CodeBlock, ComputedConstant, ConstantValue, FixedValue,
-    Load, LoadedConstant, SingleReference, Store
+    CodeBlock, ComputedConstant, ConstantValue, FixedValue, Load,
+    LoadedConstant, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Variable
@@ -170,7 +170,7 @@ class CodeBlockSimplifier(CodeBlock):
             assert cidsInUse.issubset(cids), cidsInUse
             for cid in cids - cidsInUse:
                 const = constants[cid]
-                if isinstance(const, (ComputedConstant, ArgumentConstant)):
+                if isinstance(const, ComputedConstant):
                     del constants[cid]
                 elif isinstance(const, LoadedConstant):
                     # Remove both constant and its Load node.
