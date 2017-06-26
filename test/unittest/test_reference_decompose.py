@@ -1,8 +1,8 @@
 from utils_codeblock import TestCodeBlockBuilder
 
 from retroasm.codeblock import (
-    ConstantValue, ConcatenatedReference, Load, Reference, SingleReference,
-    SlicedReference, Store
+    ConstantValue, ConcatenatedReference, Load, LoadedConstant, Reference,
+    SingleReference, SlicedReference, Store
     )
 from retroasm.expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
@@ -22,30 +22,27 @@ class DecomposeTests:
 
     def decomposeExpr(self, expr):
         self.assertIsInstance(expr, Expression)
-        if isinstance(expr, ConstantValue):
-            maskWidth = widthForMask(expr.mask)
-            yield expr.cid, 0, maskWidth, 0
-        elif isinstance(expr, AndOperator):
+        if isinstance(expr, AndOperator):
             self.assertEqual(len(expr.exprs), 2)
             subExpr, maskExpr = expr.exprs
             self.assertIsInstance(maskExpr, IntLiteral)
             mask = maskExpr.value
             maskWidth = widthForMask(mask)
             self.assertEqual(maskForWidth(maskWidth), mask)
-            for cid, offset, width, shift in self.decomposeExpr(subExpr):
+            for dex, offset, width, shift in self.decomposeExpr(subExpr):
                 width = min(width, maskWidth - shift)
                 if width > 0:
-                    yield cid, offset, width, shift
+                    yield dex, offset, width, shift
         elif isinstance(expr, OrOperator):
             for subExpr in expr.exprs:
                 yield from self.decomposeExpr(subExpr)
         elif isinstance(expr, LShift):
-            for cid, offset, width, shift in self.decomposeExpr(expr.expr):
-                yield cid, offset, width, shift + expr.offset
+            for dex, offset, width, shift in self.decomposeExpr(expr.expr):
+                yield dex, offset, width, shift + expr.offset
         elif isinstance(expr, RVShift):
             self.assertIsInstance(expr.offset, IntLiteral)
             rvOffset = expr.offset.value
-            for cid, offset, width, shift in self.decomposeExpr(expr.expr):
+            for dex, offset, width, shift in self.decomposeExpr(expr.expr):
                 shift -= rvOffset
                 if shift < 0:
                     droppedBits = -shift
@@ -54,9 +51,9 @@ class DecomposeTests:
                     width -= droppedBits
                     if width <= 0:
                         continue
-                yield cid, offset, width, shift
+                yield dex, offset, width, shift
         else:
-            self.fail('Unsupported Expression subtype: %s' % type(expr).__name__)
+            yield expr, 0, widthForMask(expr.mask), 0
 
     def assertDecomposed(self, ref, expected):
         '''Perform all decomposition checks we have.'''
@@ -237,7 +234,7 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
         # Check that the loaded expression's terms don't overlap.
         decomposedVal = tuple(self.decomposeExpr(value))
         mask = 0
-        for cid, offset, width, shift in decomposedVal:
+        for dex, offset, width, shift in decomposedVal:
             termMask = maskForWidth(width) << shift
             self.assertEqual(mask & termMask, 0, 'loaded terms overlap')
 
@@ -246,9 +243,11 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
         offset = 0
         constants = self.builder.constants
         for actualItem, expectedItem in zip(decomposedVal, expected):
-            valCid, valOffset, valWidth, valShift = actualItem
+            valExpr, valOffset, valWidth, valShift = actualItem
             expSid, expOffset, expWidth = expectedItem
-            const = constants[valCid]
+            self.assertIsInstance(valExpr, ConstantValue)
+            const = constants[valExpr.cid]
+            self.assertIsInstance(const, LoadedConstant)
             self.assertEqual(valShift, offset)
             self.assertEqual(const.sid, expSid)
             self.assertEqual(valOffset, expOffset)
