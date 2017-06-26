@@ -130,7 +130,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
-        self.assertIntLiteral(code.constants[node.cid], 0)
+        self.assertIntConstant(code.constants[node.cid], 0)
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
@@ -367,7 +367,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
-        self.assertIntLiteral(code.constants[node.cid], 23)
+        self.assertIntConstant(code.constants[node.cid], 23)
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retVal, node.expr)
         self.assertEqual(retWidth, 8)

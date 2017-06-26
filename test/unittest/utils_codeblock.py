@@ -22,10 +22,13 @@ class NodeChecker:
         for a, c in zip(actual, correct):
             self.assertNode(a, c)
 
-    def assertIntLiteral(self, constant, value):
+    def assertIntLiteral(self, expr, value):
+        self.assertIsInstance(expr, IntLiteral)
+        self.assertEqual(expr.value, value)
+
+    def assertIntConstant(self, constant, value):
         self.assertIsInstance(constant, ComputedConstant)
-        self.assertIsInstance(constant.expr, IntLiteral)
-        self.assertEqual(constant.expr.value, value)
+        self.assertIntLiteral(constant.expr, value)
 
     def getCid(self, expr):
         self.assertIsInstance(expr, Expression)
