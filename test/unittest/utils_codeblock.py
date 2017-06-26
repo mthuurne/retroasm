@@ -14,7 +14,7 @@ class NodeChecker:
 
     def assertNode(self, actual, correct):
         self.assertIsInstance(actual, type(correct))
-        self.assertEqual(actual.cid, correct.cid)
+        self.assertEqual(actual.expr, correct.expr)
         self.assertEqual(actual.sid, correct.sid)
 
     def assertNodes(self, actual, correct):
@@ -25,10 +25,6 @@ class NodeChecker:
     def assertIntLiteral(self, expr, value):
         self.assertIsInstance(expr, IntLiteral)
         self.assertEqual(expr.value, value)
-
-    def assertIntConstant(self, constant, value):
-        self.assertIsInstance(constant, ComputedConstant)
-        self.assertIntLiteral(constant.expr, value)
 
     def getCid(self, expr):
         self.assertIsInstance(expr, Expression)

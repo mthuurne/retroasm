@@ -1,6 +1,7 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin
 
+from retroasm.analysis import inlineConstants
 from retroasm.codeblock import (
     ArgumentValue, ComputedConstant, ConstantValue, Load, Store
     )
@@ -31,23 +32,21 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_no_change(self):
         '''Test whether a basic sequence survives a simplification attempt.'''
         refA = self.builder.addRegister('a')
+        refB = self.builder.addRegister('b')
         loadA = self.builder.emitLoad(refA)
-        incA = self.builder.emitCompute(
-            AddOperator(loadA, IntLiteral(1))
-            )
-        self.builder.emitStore(refA, incA)
+        self.builder.emitStore(refB, loadA)
 
-        cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
+        sidB = self.getSid(refB)
         def checkNodes(code):
             self.assertEqual(len(code.nodes), 2)
             load, store = code.nodes
             self.assertIsInstance(load, Load)
             self.assertIsInstance(store, Store)
             self.assertEqual(load.sid, sidA)
-            self.assertEqual(store.sid, sidA)
-            self.assertEqual(load.cid, cidA)
-            self.assertIsInstance(code.constants[store.cid], ComputedConstant)
+            self.assertEqual(store.sid, sidB)
+            self.assertEqual(load.expr, loadA)
+            self.assertEqual(store.expr, loadA)
 
         code = self.builder.createCodeBlock()
         checkNodes(code)
@@ -130,7 +129,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
-        self.assertIntConstant(code.constants[node.cid], 0)
+        self.assertIntLiteral(inlineConstants(node.expr, code.constants), 0)
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
@@ -178,7 +177,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
 
-        cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
 
@@ -191,9 +189,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(load.sid, sidA)
         self.assertEqual(store1.sid, sidA)
         self.assertEqual(store2.sid, sidB)
-        self.assertEqual(load.cid, cidA1)
-        self.assertEqual(store1.cid, store2.cid)
-        self.assertIsInstance(code.constants[store1.cid], ComputedConstant)
+        self.assertEqual(load.expr, loadA1)
+        self.assertEqual(store1.expr, store2.expr)
+        self.assertTrunc(
+            simplifyExpression(inlineConstants(store1.expr, code.constants)),
+            simplifyExpression(inlineConstants(incA, self.builder.constants)),
+            incA.mask.bit_length(),
+            refA.width
+            )
 
     def test_redundant_same_value_store(self):
         '''Test removal of storing the same value in the same storage twice.'''
@@ -305,7 +308,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
-        self.assertIsInstance(code.constants[node.cid], ComputedConstant)
+        self.assertTrunc(
+            inlineConstants(node.expr, code.constants),
+            AddOperator(ArgumentValue('V', 255), IntLiteral(1)),
+            incV.mask.bit_length(),
+            refA.width
+            )
 
     def test_unused_storage_removal(self):
         '''Test whether unused storages are removed.'''
@@ -346,7 +354,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
         self.assertOr(
-            code.constants[retVal.cid].expr,
+            inlineConstants(retVal, code.constants),
             simplifyExpression(loadA),
             valueV
             )
@@ -367,7 +375,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
-        self.assertIntConstant(code.constants[node.cid], 23)
+        self.assertIntLiteral(inlineConstants(node.expr, code.constants), 23)
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retVal, node.expr)
         self.assertEqual(retWidth, 8)

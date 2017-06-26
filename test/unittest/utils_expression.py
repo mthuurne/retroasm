@@ -106,3 +106,6 @@ class TestExprMixin:
             self.assertEqual(shiftExpr.expr, subExpr)
         else:
             self.assertEqual(shiftExpr, subExpr)
+
+    def assertTrunc(self, expr, subExpr, subWidth, width):
+        self.assertSlice(expr, subExpr, subWidth, 0, width)
