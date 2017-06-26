@@ -1,7 +1,7 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
 from retroasm.codeblock import (
-    ConcatenatedReference, ConstantValue, Load, SlicedReference, Store
+    ConcatenatedReference, Load, SlicedReference, Store
     )
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
@@ -42,8 +42,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, loadA)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         sidA = self.getSid(outerA)
         correct = (
             Store(retVal, sidA),
@@ -72,8 +71,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, self.getSid(outerRet)),
             )
@@ -99,8 +97,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, inlinedVal)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, self.getSid(outerRet)),
             )
@@ -123,8 +120,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, outerVal)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, self.getSid(outerRet)),
             )
@@ -153,8 +149,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, self.getSid(outerRet)),
             )
@@ -185,8 +180,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         code.verify()
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         sidA = self.getSid(outerA)
         correct = (
             Store(retVal, sidA),
@@ -416,8 +410,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, retVal)
 
         code = createSimplifiedCode(outer)
-        retCid, retWidth = self.getRetVal(code)
-        retVal = ConstantValue(retCid, (1 << retWidth) - 1)
+        retVal, retWidth = self.getRetVal(code)
         sidIORef = self.getSid(retRef)
         correct = (
             Load(retVal, sidIORef),

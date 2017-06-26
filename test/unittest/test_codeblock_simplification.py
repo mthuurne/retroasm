@@ -338,15 +338,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         retSid = self.getSid(refRet)
 
         code = self.createSimplifiedCode()
-        retCid, retWidth = self.getRetVal(code)
+        retVal, retWidth = self.getRetVal(code)
         correct = (
             Load(loadA, sidA),
-            Store(ConstantValue(retCid, 255), retSid),
+            Store(retVal, retSid),
             )
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
         self.assertOr(
-            code.constants[retCid].expr,
+            code.constants[retVal.cid].expr,
             simplifyExpression(loadA),
             valueV
             )
@@ -368,8 +368,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(node, Store)
         self.assertEqual(node.sid, sidA)
         self.assertIntLiteral(code.constants[node.cid], 23)
-        retCid, retWidth = self.getRetVal(code)
-        self.assertEqual(retCid, node.cid)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertEqual(retVal, node.expr)
         self.assertEqual(retWidth, 8)
 
     def test_repeated_increase(self):
@@ -390,11 +390,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(ret, finalA)
 
         code = self.createSimplifiedCode()
-        retCid, retWidth = self.getRetVal(code)
+        retVal, retWidth = self.getRetVal(code)
         sidA = self.getSid(refA)
         correct = (
-            Store(ConstantValue(retCid, (1 << 26) - 1), sidA),
-            Store(ConstantValue(retCid, (1 << 26) - 1), self.getSid(ret)),
+            Store(retVal, sidA),
+            Store(retVal, self.getSid(ret)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)

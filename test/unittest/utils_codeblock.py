@@ -1,4 +1,6 @@
-from retroasm.codeblock import ComputedConstant, SingleReference, Store
+from retroasm.codeblock import (
+    ComputedConstant, ConstantValue, SingleReference, Store
+    )
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -38,17 +40,18 @@ class NodeChecker:
         retRef = code.retRef
         self.assertIsNotNone(retRef)
         retSid = self.getSid(retRef)
-        retCid = None
+        retVal = None
         for node in code.nodes:
             if node.sid == retSid:
                 self.assertIsInstance(node, Store)
-                self.assertIsNone(retCid)
-                retCid = node.cid
-        return retCid, retRef.width
+                self.assertIsNone(retVal)
+                retVal = node.expr
+        return retVal, retRef.width
 
     def assertRetVal(self, code, value):
-        cid, width = self.getRetVal(code)
-        constant = code.constants[cid]
+        expr, width = self.getRetVal(code)
+        self.assertIsInstance(expr, ConstantValue)
+        constant = code.constants[expr.cid]
         self.assertIsInstance(constant, ComputedConstant)
         self.assertIsInstance(constant.expr, IntLiteral)
         mask = -1 if width is unlimited else ((1 << width) - 1)
