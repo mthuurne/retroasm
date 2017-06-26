@@ -67,32 +67,33 @@ class Node:
 class AccessNode(Node):
     '''Base class for Load and Store.
     '''
-    __slots__ = ('_cid', '_sid', '_location')
+    __slots__ = ('_expr', '_sid', '_location')
 
-    cid = property(lambda self: self._cid)
+    expr = property(lambda self: self._expr)
+    cid = property(lambda self: self._expr.cid)
     sid = property(lambda self: self._sid)
     location = property(lambda self: self._location)
 
-    def __init__(self, cid, sid, location=None):
-        self._cid = checkType(cid, int, 'constant ID')
+    def __init__(self, expr, sid, location=None):
+        self._expr = checkType(expr, ConstantValue, 'expression')
         self._sid = checkType(sid, int, 'storage ID')
         self._location = location
 
     def __repr__(self):
-        return '%s(%d, %d, %r)' % (
-            self.__class__.__name__, self._cid, self._sid, self._location
+        return '%s(%r, %d, %r)' % (
+            self.__class__.__name__, self._expr, self._sid, self._location
             )
 
-    def clone(self, cid=None, sid=None):
-        '''Create a clone of this node, with optionally a different CID or SID.
-        Since nodes are immutable, there is really no point in cloning unless
-        the CID or SID is overridden, but it is allowed.
+    def clone(self, expr=None, sid=None):
+        '''Create a clone of this node, with optionally a different expression
+        or SID. Since nodes are immutable, there is really no point in cloning
+        unless the expression or SID is overridden, but it is allowed.
         '''
-        if cid is None:
-            cid = self._cid
+        if expr is None:
+            expr = self._expr
         if sid is None:
             sid = self._sid
-        return self.__class__(cid, sid, self._location)
+        return self.__class__(expr, sid, self._location)
 
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
@@ -100,7 +101,7 @@ class Load(AccessNode):
     __slots__ = ()
 
     def __str__(self):
-        return 'load C%d from S%d' % (self._cid, self._sid)
+        return 'load %s from S%d' % (self._expr, self._sid)
 
 class Store(AccessNode):
     '''A node that stores a value into a storage location.
@@ -108,7 +109,7 @@ class Store(AccessNode):
     __slots__ = ()
 
     def __str__(self):
-        return 'store C%d in S%d' % (self._cid, self._sid)
+        return 'store %s in S%d' % (self._expr, self._sid)
 
 class ConstantValue(Expression):
     '''A synthetic constant containing an intermediate value.

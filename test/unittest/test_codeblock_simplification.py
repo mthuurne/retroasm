@@ -68,8 +68,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         correct = (
-            Store(const1.cid, sidA),
-            Store(const1.cid, sidB),
+            Store(const1, sidA),
+            Store(const1, sidB),
             )
 
         code = CodeBlockSimplifier(
@@ -92,17 +92,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refM3, loadM2)
         self.builder.emitStore(refM4, loadM1)
 
-        cidM1 = self.getCid(loadM1)
-        cidM2 = self.getCid(loadM2)
         sidM1 = self.getSid(refM1)
         sidM3 = self.getSid(refM3)
         sidM4 = self.getSid(refM4)
         correct = (
-            Load(cidM1, sidM1),
-            Load(cidM2, sidM1),
-            Store(cidM1, sidM1),
-            Store(cidM2, sidM3),
-            Store(cidM1, sidM4),
+            Load(loadM1, sidM1),
+            Load(loadM2, sidM1),
+            Store(loadM1, sidM1),
+            Store(loadM2, sidM3),
+            Store(loadM1, sidM4),
             )
 
         code = CodeBlockSimplifier(
@@ -142,7 +140,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         sidM = self.getSid(refM)
         correct = (
-            Load(self.getCid(loadM), sidM),
+            Load(loadM, sidM),
             )
 
         code = self.createSimplifiedCode()
@@ -158,14 +156,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         sidC = self.getSid(refC)
         correct = (
-            Load(cidA1, sidA),
-            Store(cidA1, sidB),
-            Store(cidA1, sidC),
+            Load(loadA1, sidA),
+            Store(loadA1, sidB),
+            Store(loadA1, sidC),
             )
 
         code = self.createSimplifiedCode()
@@ -206,12 +203,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA)
         self.builder.emitStore(refB, loadA)
 
-        cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         correct = (
-            Load(cidA, sidA),
-            Store(cidA, sidB),
+            Load(loadA, sidA),
+            Store(loadA, sidB),
             )
 
         code = self.createSimplifiedCode()
@@ -227,12 +223,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadA)
         self.builder.emitStore(refC, loadB)
 
-        cidB = self.getCid(loadB)
         sidB = self.getSid(refB)
         sidC = self.getSid(refC)
         correct = (
-            Load(cidB, sidB),
-            Store(cidB, sidC),
+            Load(loadB, sidB),
+            Store(loadB, sidC),
             )
 
         code = self.createSimplifiedCode()
@@ -251,8 +246,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        cidA1 = self.getCid(loadA1)
-        cidA2 = self.getCid(loadA2)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         sidC = self.getSid(refC)
@@ -266,11 +259,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
                 and isinstance(const.expr, IntLiteral)
             )
         correct = (
-            Load(cidA1, sidA),
-            Store(constSimp.cid, sidX),
-            Load(cidA2, sidA),
-            Store(cidA1, sidB),
-            Store(cidA2, sidC),
+            Load(loadA1, sidA),
+            Store(ConstantValue(constSimp.cid, const.mask), sidX),
+            Load(loadA2, sidA),
+            Store(loadA1, sidB),
+            Store(loadA2, sidC),
             )
         self.assertNodes(code.nodes, correct)
 
@@ -284,14 +277,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
 
-        cidA1 = self.getCid(loadA1)
         sidA = self.getSid(refA)
         sidB = self.getSid(refB)
         sidX = self.getSid(refX)
         correct = (
-            Load(cidA1, sidA),
-            Store(cidA1, sidX),
-            Store(cidA1, sidB),
+            Load(loadA1, sidA),
+            Store(loadA1, sidX),
+            Store(loadA1, sidB),
             )
 
         code = self.createSimplifiedCode()
@@ -342,15 +334,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(valueV, ArgumentValue)
         self.assertEqual(valueV.name, 'V')
 
-        cidA = self.getCid(loadA)
         sidA = self.getSid(refA)
         retSid = self.getSid(refRet)
 
         code = self.createSimplifiedCode()
         retCid, retWidth = self.getRetVal(code)
         correct = (
-            Load(cidA, sidA),
-            Store(retCid, retSid),
+            Load(loadA, sidA),
+            Store(ConstantValue(retCid, 255), retSid),
             )
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
@@ -402,8 +393,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         retCid, retWidth = self.getRetVal(code)
         sidA = self.getSid(refA)
         correct = (
-            Store(retCid, sidA),
-            Store(retCid, self.getSid(ret)),
+            Store(ConstantValue(retCid, (1 << 26) - 1), sidA),
+            Store(ConstantValue(retCid, (1 << 26) - 1), self.getSid(ret)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)

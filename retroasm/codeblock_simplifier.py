@@ -133,7 +133,9 @@ class CodeBlockSimplifier(CodeBlock):
         nodes = self.nodes
         for i, node in enumerate(nodes):
             if node.cid == oldCid:
-                nodes[i] = node.clone(cid=newCid)
+                nodes[i] = node.clone(
+                    expr=ConstantValue(newCid, node.expr.mask)
+                    )
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.

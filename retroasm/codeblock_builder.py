@@ -249,13 +249,14 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     def emitLoadBits(self, sid, location):
         storage = self.storages[sid]
         cid = len(self.constants)
-        self.nodes.append(Load(cid, sid, location))
         self.constants.append(LoadedConstant(cid, sid))
-        return ConstantValue(cid, maskForWidth(storage.width))
+        expr = ConstantValue(cid, maskForWidth(storage.width))
+        self.nodes.append(Load(expr, sid, location))
+        return expr
 
     def emitStoreBits(self, sid, value, location):
-        constant = self.emitCompute(value)
-        self.nodes.append(Store(constant.cid, sid, location))
+        expr = self.emitCompute(value)
+        self.nodes.append(Store(expr, sid, location))
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
