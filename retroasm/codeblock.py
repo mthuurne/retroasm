@@ -70,7 +70,6 @@ class AccessNode(Node):
     __slots__ = ('_expr', '_sid', '_location')
 
     expr = property(lambda self: self._expr)
-    cid = property(lambda self: self._expr.cid)
     sid = property(lambda self: self._sid)
     location = property(lambda self: self._location)
 
@@ -458,7 +457,8 @@ class CodeBlock:
 
         # Check that cids and sids in nodes are valid.
         for node in self.nodes:
-            assert node.cid in cids, node
+            for value in node.expr.iterInstances(ConstantValue):
+                assert value.cid in cids, node
             assert node.sid in self.storages, node
 
         # Check that each loaded constant belongs to exactly one Load node.
@@ -470,9 +470,10 @@ class CodeBlock:
         cidsFromLoadNodes = set()
         for node in self.nodes:
             if isinstance(node, Load):
-                cid = node.cid
-                assert cid not in cidsFromLoadNodes, node
-                cidsFromLoadNodes.add(cid)
+                for value in node.expr.iterInstances(ConstantValue):
+                    cid = value.cid
+                    assert cid not in cidsFromLoadNodes, node
+                    cidsFromLoadNodes.add(cid)
         assert cidsFromLoadNodes == cidsFromLoadedConstants, (
             cidsFromLoadedConstants, cidsFromLoadNodes
             )

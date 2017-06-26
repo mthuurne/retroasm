@@ -105,12 +105,13 @@ class CodeBlockSimplifier(CodeBlock):
         constants = self.constants
         del constants[oldCid]
 
-        # Replace constant in other constants' expressions.
         def substCid(sexpr):
             if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
                 return ConstantValue(newCid, sexpr.mask)
             else:
                 return None
+
+        # Replace constant in other constants' expressions.
         for cid in list(constants.keys()):
             const = constants[cid]
             if isinstance(const, ComputedConstant):
@@ -132,10 +133,10 @@ class CodeBlockSimplifier(CodeBlock):
         # Replace constant in nodes.
         nodes = self.nodes
         for i, node in enumerate(nodes):
-            if node.cid == oldCid:
-                nodes[i] = node.clone(
-                    expr=ConstantValue(newCid, node.expr.mask)
-                    )
+            expr = node.expr
+            newExpr = expr.substitute(substCid)
+            if newExpr is not expr:
+                nodes[i] = node.clone(expr=newExpr)
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -153,13 +154,15 @@ class CodeBlockSimplifier(CodeBlock):
         # Mark constants used in stores and in loads with side effects.
         for node in self.nodes:
             if isinstance(node, Store):
-                cidsInUse.add(node.cid)
+                for value in node.expr.iterInstances(ConstantValue):
+                    cidsInUse.add(value.cid)
             elif isinstance(node, Load):
                 if storages[node.sid].canLoadHaveSideEffect():
                     # We can't eliminate this load because it may have a useful
                     # side effect and we can't eliminate the constant because
                     # every load needs one, so pretend the constant is in use.
-                    cidsInUse.add(node.cid)
+                    for value in node.expr.iterInstances(ConstantValue):
+                        cidsInUse.add(value.cid)
         # Mark constants used in storages.
         for storage in storages.values():
             if isinstance(storage, IOStorage):
@@ -176,7 +179,7 @@ class CodeBlockSimplifier(CodeBlock):
                     # Remove both constant and its Load node.
                     del constants[cid]
                     for i, node in enumerate(self.nodes):
-                        if node.cid == cid:
+                        if node.expr.cid == cid:
                             assert isinstance(node, Load), node
                             del self.nodes[i]
                             break
@@ -261,13 +264,13 @@ class CodeBlockSimplifier(CodeBlock):
         i = 0
         while i < len(nodes):
             node = nodes[i]
-            cid = node.cid
             sid = node.sid
             storage = storages[sid]
             value = currentValues.get(sid)
             if isinstance(node, Load):
                 if value is not None:
                     # Re-use earlier loaded value.
+                    cid = node.expr.cid
                     constants[cid] = ComputedConstant(cid, value)
                     changed = True
                     if not storage.canLoadHaveSideEffect():
@@ -275,11 +278,9 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValues[sid] = ConstantValue(
-                        cid, maskForWidth(storage.width)
-                        )
+                    currentValues[sid] = node.expr
             elif isinstance(node, Store):
-                if value is not None and value.cid == cid:
+                if value is not None and value == node.expr:
                     # Value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
@@ -287,15 +288,13 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[sid] = ConstantValue(
-                        cid, maskForWidth(storage.width)
-                        )
+                    currentValues[sid] = node.expr
                 # Remove values for storages that might be aliases.
                 for sid2 in list(currentValues.keys()):
                     if sid != sid2 and storage.mightBeSame(storages[sid2]):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValues[sid2].cid != cid:
+                        if currentValues[sid2] != node.expr:
                             del currentValues[sid2]
             i += 1
 

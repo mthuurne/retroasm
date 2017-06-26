@@ -293,17 +293,18 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 )
             )
 
+        def substCid(expr):
+            if isinstance(expr, ArgumentValue):
+                return namespace[expr.name]
+            elif isinstance(expr, ConstantValue):
+                return ConstantValue(cidMap[expr.cid], expr.mask)
+            else:
+                return None
+
         # Copy constants.
         for cid, const in code.constants.items():
             assert cid == const.cid, const
             if isinstance(const, ComputedConstant):
-                def substCid(expr):
-                    if isinstance(expr, ArgumentValue):
-                        return namespace[expr.name]
-                    elif isinstance(expr, ConstantValue):
-                        return ConstantValue(cidMap[expr.cid], expr.mask)
-                    else:
-                        return None
                 constants.append(ComputedConstant(
                     cidMap[const.cid],
                     const.expr.substitute(substCid)
@@ -346,12 +347,12 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         # Copy nodes.
         for node in code.nodes:
             ref = refMap[node.sid]
-            newCid = cidMap[node.cid]
             if isinstance(node, Load):
                 value = ref.emitLoad(node.location)
+                newCid = cidMap[node.expr.cid]
                 constants[newCid] = ComputedConstant(newCid, value)
             elif isinstance(node, Store):
-                value = ConstantValue(newCid, -1)
+                value = node.expr.substitute(substCid)
                 ref.emitStore(value, node.location)
             else:
                 assert False, node
