@@ -144,12 +144,10 @@ class CodeBlockSimplifier(CodeBlock):
         cidsInUse = set()
 
         # Mark constants used in computations.
-        def checkUsage(expr):
-            if isinstance(expr, ConstantValue):
-                cidsInUse.add(expr.cid)
         for const in constants.values():
             if isinstance(const, ComputedConstant):
-                const.expr.substitute(checkUsage)
+                for value in const.expr.iterInstances(ConstantValue):
+                    cidsInUse.add(value.cid)
         # Mark constants used in stores and in loads with side effects.
         for node in self.nodes:
             if isinstance(node, Store):

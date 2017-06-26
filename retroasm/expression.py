@@ -81,6 +81,16 @@ class Expression:
         '''
         pass
 
+    def iterInstances(self, cls):
+        '''Yields the subexpressions of this expression that are instances of
+        the given Python type.
+        '''
+        if isinstance(self, cls):
+            yield self
+        for value in self._ctorargs():
+            if isinstance(value, Expression):
+                yield from value.iterInstances(cls)
+
     def substitute(self, func):
         '''Applies the given substitution function to this expression and
         returns the resulting expression.

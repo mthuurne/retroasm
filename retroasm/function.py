@@ -68,14 +68,11 @@ class Function:
         arg = self.args[argName]
         if isinstance(arg, IntType):
             # Look for an ArgumentValue with the same name.
-            found = [None]
-            def checkArg(expr):
-                if isinstance(expr, ArgumentValue) and expr.name == argName:
-                    found[0] = expr
             for const in self.code.constants.values():
                 if isinstance(const, ComputedConstant):
-                    const.expr.substitute(checkArg)
-            return found[0]
+                    for value in const.expr.iterInstances(ArgumentValue):
+                        if value.name == argName:
+                            return value
         elif isinstance(arg, ReferenceType):
             # Look for a RefArgStorage with the same name.
             for storage in self.code.storages.values():

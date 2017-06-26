@@ -482,13 +482,10 @@ class CodeBlock:
                 assert const.sid in self.storages, const
 
         # Check that computed constants use valid subexpressions.
-        def checkUsage(expr):
-            assert not isinstance(expr, Storage), expr
-            if isinstance(expr, ConstantValue):
-                assert expr.cid in cids, expr
         for const in self.constants.values():
             if isinstance(const, ComputedConstant):
-                const.expr.substitute(checkUsage)
+                for value in const.expr.iterInstances(ConstantValue):
+                    assert value.cid in cids, value
 
         # Check that cids in storages are valid.
         for storage in self.storages.values():
