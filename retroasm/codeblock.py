@@ -492,7 +492,8 @@ class CodeBlock:
         # Check that cids in storages are valid.
         for storage in self.storages.values():
             if isinstance(storage, IOStorage):
-                assert storage.index.cid in cids, storage
+                for value in storage.index.iterInstances(ConstantValue):
+                    assert value.cid in cids, storage
 
         # Check that the return value cid/sids are valid.
         if self.retRef is not None:

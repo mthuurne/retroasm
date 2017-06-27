@@ -54,11 +54,7 @@ class CodeBlockBuilder:
         '''Adds the given storage to this code block.
         Returns the storage ID.
         '''
-        if not isinstance(storage, Storage):
-            raise TypeError('expected Storage, got %s' % type(storage).__name__)
-        if isinstance(storage, IOStorage):
-            if not isinstance(storage.index, ConstantValue):
-                raise TypeError('I/O index must be ConstantValue')
+        checkType(storage, Storage, 'storage')
         sid = len(self.storages)
         self.storages.append(storage)
         return sid
@@ -75,8 +71,8 @@ class CodeBlockBuilder:
 
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
-        indexConst = self.emitCompute(optSlice(index, 0, addrWidth))
-        sid = self._addStorage(IOStorage(channel, indexConst))
+        truncatedIndex = optSlice(index, 0, addrWidth)
+        sid = self._addStorage(IOStorage(channel, truncatedIndex))
         return SingleReference(self, sid, channel.elemType)
 
     def emitFixedValue(self, expr, typ):
@@ -323,10 +319,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
                 if isinstance(storage, IOStorage):
-                    index = storage.index
                     newStorage = IOStorage(
                         storage.channel,
-                        ConstantValue(cidMap[index.cid], index.mask)
+                        storage.index.substitute(substCid)
                         )
                 elif isinstance(storage, Variable) and storage.scope == 1 \
                         and storage.name == 'ret':

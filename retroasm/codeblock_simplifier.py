@@ -125,10 +125,9 @@ class CodeBlockSimplifier(CodeBlock):
             storage = storages[sid]
             if isinstance(storage, IOStorage):
                 index = storage.index
-                if index.cid == oldCid:
-                    storages[sid] = IOStorage(
-                        storage.channel, ConstantValue(newCid, index.mask)
-                        )
+                newIndex = index.substitute(substCid)
+                if newIndex is not index:
+                    storages[sid] = IOStorage(storage.channel, newIndex)
 
         # Replace constant in nodes.
         nodes = self.nodes
@@ -166,7 +165,8 @@ class CodeBlockSimplifier(CodeBlock):
         # Mark constants used in storages.
         for storage in storages.values():
             if isinstance(storage, IOStorage):
-                cidsInUse.add(storage.index.cid)
+                for value in storage.index.iterInstances(ConstantValue):
+                    cidsInUse.add(value.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -224,10 +224,9 @@ class CodeBlockSimplifier(CodeBlock):
                 else:
                     duplicates[sid] = replacement
             elif isinstance(storage, IOStorage):
-                cid = storage.index.cid
                 indices = channelNameToIndices[storage.channel.name]
                 for sid2, index2 in indices:
-                    if index2.cid == cid:
+                    if index2 == storage.index:
                         duplicates[sid] = sid2
                         break
                 else:
