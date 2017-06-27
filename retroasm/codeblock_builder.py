@@ -179,14 +179,13 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         ununitializedLoads = []
         initializedVariables = set()
         for node in code.nodes:
-            sid = node.sid
-            storage = code.storages[sid]
+            storage = code.storages[node.sid]
             if isinstance(storage, Variable) and storage.scope == 1:
                 if isinstance(node, Load):
-                    if sid not in initializedVariables:
+                    if storage not in initializedVariables:
                         ununitializedLoads.append(node)
                 elif isinstance(node, Store):
-                    initializedVariables.add(sid)
+                    initializedVariables.add(storage)
         if ununitializedLoads:
             if log is not None:
                 for load in ununitializedLoads:
