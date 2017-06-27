@@ -248,6 +248,16 @@ class IOStorage(Storage):
     def __str__(self):
         return '%s[%s]' % (self._channel.name, self._index)
 
+    def __eq__(self, other):
+        return ( # pylint: disable=protected-access
+            isinstance(other, IOStorage) and
+            self._channel is other._channel and
+            self._index == other._index
+            )
+
+    def __hash__(self):
+        return hash((self._channel, self._index))
+
     def canLoadHaveSideEffect(self):
         return self._channel.canLoadHaveSideEffect(self._index)
 

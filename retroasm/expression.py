@@ -68,6 +68,9 @@ class Expression:
         else:
             return NotImplemented
 
+    def __hash__(self):
+        return hash(tuple(self._ctorargs()) + (self.__class__,))
+
     def _equals(self, other):
         '''Returns True if this expression is equal to the other expression,
         False otherwise.
