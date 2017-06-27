@@ -176,6 +176,11 @@ class Reference:
         '''
         raise NotImplementedError
 
+    def iterStorages(self):
+        '''Iterates through the storages accessed through this reference.
+        '''
+        raise NotImplementedError
+
     def clone(self, singleRefCloner, fixedValueCloner):
         '''Returns a deep copy of this reference, in which each SingleReference
         is passed to the singleRefCloner function and replaced by the Reference
@@ -243,6 +248,9 @@ class FixedValue(Reference):
     def iterSIDs(self):
         return iter(())
 
+    def iterStorages(self):
+        return iter(())
+
     def clone(self, singleRefCloner, fixedValueCloner):
         return fixedValueCloner(self)
 
@@ -260,6 +268,7 @@ class SingleReference(Reference):
     __slots__ = ('_block', '_sid')
 
     sid = property(lambda self: self._sid)
+    storage = property(lambda self: self._block.storages[self._sid])
 
     def __init__(self, block, sid, typ):
         Reference.__init__(self, typ)
@@ -272,10 +281,13 @@ class SingleReference(Reference):
             )
 
     def __str__(self):
-        return str(self._block.storages[self._sid])
+        return str(self.storage)
 
     def iterSIDs(self):
         yield self._sid
+
+    def iterStorages(self):
+        yield self.storage
 
     def clone(self, singleRefCloner, fixedValueCloner):
         return singleRefCloner(self)
@@ -320,6 +332,10 @@ class ConcatenatedReference(Reference):
     def iterSIDs(self):
         for ref in self._refs:
             yield from ref.iterSIDs()
+
+    def iterStorages(self):
+        for ref in self._refs:
+            yield from ref.iterStorages()
 
     def clone(self, singleRefCloner, fixedValueCloner):
         return ConcatenatedReference(*(
@@ -396,6 +412,9 @@ class SlicedReference(Reference):
 
     def iterSIDs(self):
         return self._ref.iterSIDs()
+
+    def iterStorages(self):
+        return self._ref.iterStorages()
 
     def clone(self, singleRefCloner, fixedValueCloner):
         return SlicedReference(
