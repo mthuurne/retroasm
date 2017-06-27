@@ -311,9 +311,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             else:
                 assert False, const
 
-        # For each old SID, create a corresponding storage in this block.
+        # For each old storage, create a corresponding storage in this block.
         refMap = {}
-        for sid, storage in code.storages.items():
+        for storage in code.storages.values():
             if isinstance(storage, RefArgStorage):
                 ref = namespace[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
@@ -337,11 +337,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 #       We are copying the _emitLoadBits() output here,
                 #       not the emitLoad() output.
                 ref = SingleReference(self, newSid, IntType.u(newStorage.width))
-            refMap[sid] = ref
+            refMap[storage] = ref
 
         # Copy nodes.
         for node in code.nodes:
-            ref = refMap[node.sid]
+            ref = refMap[code.storages[node.sid]]
             if isinstance(node, Load):
                 value = ref.emitLoad(node.location)
                 newCid = cidMap[node.expr.cid]
@@ -358,6 +358,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             return None
         else:
             return retRef.clone(
-                lambda ref: refMap[ref.sid],
+                lambda ref: refMap[ref.storage],
                 lambda ref: FixedValue(self, cidMap[ref.cid], ref.type)
                 )
