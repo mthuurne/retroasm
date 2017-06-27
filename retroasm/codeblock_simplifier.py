@@ -195,15 +195,17 @@ class CodeBlockSimplifier(CodeBlock):
     def removeUnusedStorages(self):
         '''Removes storages that are not used by any load/store node.
         '''
-        unusedSids = set(self.storages.keys())
+        storages = self.storages
+        unusedStorages = set(storages.values())
         for node in self.nodes:
-            unusedSids.discard(node.sid)
+            unusedStorages.discard(storages[node.sid])
         retRef = self.retRef
         if retRef is not None:
-            unusedSids.difference_update(retRef.iterSIDs())
-        for sid in unusedSids:
-            del self.storages[sid]
-        return bool(unusedSids)
+            unusedStorages.difference_update(retRef.iterStorages())
+        for sid, storage in list(storages.items()):
+            if storage in unusedStorages:
+                del storages[sid]
+        return bool(unusedStorages)
 
     def removeDuplicateStorages(self):
         '''Removes storages that are obvious duplicates of other storages.
