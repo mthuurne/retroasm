@@ -289,7 +289,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner.emitStore(innerRet, innerLoad)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestCodeBlockBuilder(inner.globalBuilder)
         outerA = outer.addRegister('a')
         initA = outer.emitCompute(IntLiteral(0xb2))
         outer.emitStore(outerA, initA)
@@ -312,8 +312,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner.emitStore(innerRet, innerLoad)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
-        outerA = outer.addRegister('a')
+        outer = TestCodeBlockBuilder(inner.globalBuilder)
+        outerA = outer.addRegister('a', IntType.s(8))
         initA = outer.emitCompute(IntLiteral(0xb2))
         outer.emitStore(outerA, initA)
         retRef = outer.inlineBlock(innerCode, {})
@@ -376,7 +376,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
         self.assertIsNotNone(innerCode.retRef)
 
-        outer = TestCodeBlockBuilder()
+        outer = TestCodeBlockBuilder(inner.globalBuilder)
         retRef = outer.inlineBlock(innerCode, {})
         outerA = outer.addRegister('a')
         fake = outer.emitCompute(IntLiteral(0xdc))

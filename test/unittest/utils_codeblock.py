@@ -81,7 +81,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         # Check that existing global namespace entry is this register.
         globalRef = self.globalBuilder.namespace[name]
         assert isinstance(globalRef, SingleReference), globalRef
-        assert typ.width == globalRef.width, globalRef
+        assert typ is globalRef.type, globalRef
         reg = self.globalBuilder.storages[globalRef.sid]
         assert reg.name == name, reg
         assert reg.width == typ.width
