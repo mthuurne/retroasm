@@ -265,7 +265,7 @@ class CodeBlockSimplifier(CodeBlock):
             node = nodes[i]
             sid = node.sid
             storage = storages[sid]
-            value = currentValues.get(sid)
+            value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
                     # Re-use earlier loaded value.
@@ -277,7 +277,7 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValues[sid] = node.expr
+                    currentValues[storage] = node.expr
             elif isinstance(node, Store):
                 if value is not None and value == node.expr:
                     # Value is rewritten.
@@ -287,14 +287,14 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[sid] = node.expr
+                    currentValues[storage] = node.expr
                 # Remove values for storages that might be aliases.
-                for sid2 in list(currentValues.keys()):
-                    if sid != sid2 and storage.mightBeSame(storages[sid2]):
+                for storage2 in list(currentValues.keys()):
+                    if storage != storage2 and storage.mightBeSame(storage2):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValues[sid2] != node.expr:
-                            del currentValues[sid2]
+                        if currentValues[storage2] != node.expr:
+                            del currentValues[storage2]
             i += 1
 
         # Remove stores for which the value is overwritten before it is loaded.
@@ -305,23 +305,22 @@ class CodeBlockSimplifier(CodeBlock):
         i = len(nodes) - 1
         while i >= 0:
             node = nodes[i]
-            sid = node.sid
-            storage = storages[sid]
+            storage = storages[node.sid]
             if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
                     assert not (
                         isinstance(storage, Variable) and storage.scope == 1
                         ), storage
-                    willBeOverwritten.discard(sid)
+                    willBeOverwritten.discard(storage)
                 elif isinstance(node, Store):
-                    if sid in willBeOverwritten or (
+                    if storage in willBeOverwritten or (
                             isinstance(storage, Variable) and
                             storage.scope == 1 and
                             storage.name != 'ret'
                             ):
                         changed = True
                         del nodes[i]
-                    willBeOverwritten.add(sid)
+                    willBeOverwritten.add(storage)
             i -= 1
 
         return changed
