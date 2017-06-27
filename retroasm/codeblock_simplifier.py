@@ -214,44 +214,28 @@ class CodeBlockSimplifier(CodeBlock):
         storages = self.storages
 
         # Figure out which storages are duplicates.
-        duplicates = {}
-        globalNameToSid = {}
-        channelNameToIndices = defaultdict(list)
+        storagesToSIDs = defaultdict(set)
         for sid, storage in storages.items():
-            if isinstance(storage, Variable) and storage.scope == 0:
-                name = storage.name
-                replacement = globalNameToSid.get(name)
-                if replacement is None:
-                    globalNameToSid[name] = sid
-                else:
-                    duplicates[sid] = replacement
-            elif isinstance(storage, IOStorage):
-                indices = channelNameToIndices[storage.channel.name]
-                for sid2, index2 in indices:
-                    if index2 == storage.index:
-                        duplicates[sid] = sid2
-                        break
-                else:
-                    indices.append((sid, storage.index))
+            storagesToSIDs[storage].add(sid)
 
         # Remove the duplicates.
-        if duplicates:
-            nodes = self.nodes
-            for i, node in enumerate(nodes):
-                replacement = duplicates.get(node.sid)
-                if replacement is not None:
-                    nodes[i] = node.clone(sid=replacement)
-            for cid, const in self.constants.items():
-                if isinstance(const, LoadedConstant):
-                    sid = const.sid
-                    replacement = duplicates.get(sid)
-                    if replacement is not None:
-                        self.constants[cid] = LoadedConstant(cid, replacement)
-            for sid, replacement in duplicates.items():
-                del storages[sid]
-            return True
-        else:
-            return False
+        changed = False
+        for storage, sids in storagesToSIDs.items():
+            if len(sids) > 1:
+                remainingSID = sids.pop()
+                nodes = self.nodes
+                for i, node in enumerate(nodes):
+                    if node.sid in sids:
+                        nodes[i] = node.clone(sid=remainingSID)
+                for cid, const in self.constants.items():
+                    if isinstance(const, LoadedConstant):
+                        if const.sid in sids:
+                            self.constants[cid] = \
+                                LoadedConstant(cid, remainingSID)
+                for sid in sids:
+                    del storages[sid]
+                changed = True
+        return changed
 
     def removeRedundantNodes(self):
         changed = False
