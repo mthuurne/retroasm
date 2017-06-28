@@ -534,9 +534,10 @@ class CodeBlock:
         for sid, storage in self.storages.items():
             print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
-            assert isinstance(self.retRef, SingleReference), self.retRef
-            storage = self.storages[self.retRef.sid]
-            if not (isinstance(storage, Variable) and storage.name == 'ret'):
+            if not (isinstance(self.retRef, SingleReference) and
+                    isinstance(self.storages[self.retRef.sid], Variable) and
+                    self.storages[self.retRef.sid].name == 'ret'
+                    ):
                 print('        ret = %s' % self.retRef)
         print('    nodes:')
         for node in self.nodes:
