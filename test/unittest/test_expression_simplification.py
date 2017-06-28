@@ -1,4 +1,4 @@
-from utils_expression import TestExprMixin, TestValue
+from utils_expression import TestExprMixin, TestValue, makeConcat, makeSlice
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift, Negation,
@@ -8,12 +8,6 @@ from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 
 import unittest
-
-def makeSlice(expr, index, width):
-    return truncate(RShift(expr, index), width)
-
-def makeConcat(exprH, exprL, widthL):
-    return OrOperator(exprL, LShift(exprH, widthL))
 
 class ZeroMaskTests(TestExprMixin, unittest.TestCase):
 

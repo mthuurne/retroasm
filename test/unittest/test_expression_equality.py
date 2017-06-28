@@ -1,12 +1,9 @@
-from utils_expression import TestValue
+from utils_expression import TestValue, makeConcat
 
-from retroasm.expression import IntLiteral, LShift, OrOperator, truncate
+from retroasm.expression import IntLiteral, truncate
 from retroasm.types import IntType
 
 import unittest
-
-def makeConcat(exprH, exprL, widthL):
-    return OrOperator(exprL, LShift(exprH, widthL))
 
 class EqualsTests(unittest.TestCase):
 

@@ -4,6 +4,12 @@ from retroasm.expression import (
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 
+def makeConcat(exprH, exprL, widthL):
+    return OrOperator(exprL, LShift(exprH, widthL))
+
+def makeSlice(expr, index, width):
+    return truncate(RShift(expr, index), width)
+
 class TestValue(Expression):
     __slots__ = ('_name', '_type')
 
