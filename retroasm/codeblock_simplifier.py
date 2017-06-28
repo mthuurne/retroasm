@@ -23,8 +23,6 @@ class CodeBlockSimplifier(CodeBlock):
             changed = False
             changed |= self.inlineConstants()
             changed |= self.simplifyConstants()
-            changed |= self.removeUnusedStorages()
-            changed |= self.removeDuplicateStorages()
             changed |= self.removeRedundantNodes()
             if not changed:
                 break
@@ -131,11 +129,6 @@ class CodeBlockSimplifier(CodeBlock):
                 if newStorage is not storage:
                     constants[cid] = LoadedConstant(cid, newStorage)
 
-        # Replace constant in storages.
-        storages = self.storages
-        for sid, storage in list(storages.items()):
-            storages[sid] = substStorage(storage)
-
         # Replace constant in nodes.
         nodes = self.nodes
         for i, node in enumerate(nodes):
@@ -151,7 +144,6 @@ class CodeBlockSimplifier(CodeBlock):
         Returns True if any constants were removed, False otherwise.
         '''
         constants = self.constants
-        storages = self.storages
         cidsInUse = set()
 
         # Mark constants used in computations.
@@ -171,11 +163,19 @@ class CodeBlockSimplifier(CodeBlock):
                     # every load needs one, so pretend the constant is in use.
                     for value in node.expr.iterInstances(ConstantValue):
                         cidsInUse.add(value.cid)
-        # Mark constants used in storages.
-        for storage in storages.values():
+            # Mark constants used in storages.
+            storage = node.storage
             if isinstance(storage, IOStorage):
                 for value in storage.index.iterInstances(ConstantValue):
                     cidsInUse.add(value.cid)
+
+        # Mark constants used in returned reference.
+        retRef = self.retRef
+        if retRef is not None:
+            for storage in retRef.iterStorages():
+                if isinstance(storage, IOStorage):
+                    for value in storage.index.iterInstances(ConstantValue):
+                        cidsInUse.add(value.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
@@ -201,45 +201,9 @@ class CodeBlockSimplifier(CodeBlock):
             assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
 
-    def removeUnusedStorages(self):
-        '''Removes storages that are not used by any load/store node.
-        '''
-        storages = self.storages
-        unusedStorages = set(storages.values())
-        for node in self.nodes:
-            unusedStorages.discard(node.storage)
-        retRef = self.retRef
-        if retRef is not None:
-            unusedStorages.difference_update(retRef.iterStorages())
-        for sid, storage in list(storages.items()):
-            if storage in unusedStorages:
-                del storages[sid]
-        return bool(unusedStorages)
-
-    def removeDuplicateStorages(self):
-        '''Removes storages that are obvious duplicates of other storages.
-        Note that non-obvious duplicates (aliases) can remain.
-        '''
-        storages = self.storages
-
-        # Figure out which storages are duplicates.
-        storagesToSIDs = defaultdict(set)
-        for sid, storage in storages.items():
-            storagesToSIDs[storage].add(sid)
-
-        # Remove the duplicates.
-        changed = False
-        for storage, sids in storagesToSIDs.items():
-            if len(sids) > 1:
-                for sid in sorted(sids)[1:]:
-                    del storages[sid]
-                changed = True
-        return changed
-
     def removeRedundantNodes(self):
         changed = False
         constants = self.constants
-        storages = self.storages
         nodes = self.nodes
 
         # Remove redundant loads and stores by keeping track of the current

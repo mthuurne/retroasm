@@ -15,7 +15,6 @@ class CodeBlockBuilder:
 
     def __init__(self, namespace):
         self.constants = []
-        self.storages = []
         self.namespace = namespace
 
     def dump(self):
@@ -29,14 +28,11 @@ class CodeBlockBuilder:
                 print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const
-        print('    storages:')
-        for sid, storage in enumerate(self.storages):
-            print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if 'ret' in self.namespace:
             retRef = self.namespace['ret']
             storage = retRef.storage
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
-                print('        ret = %s' % retRef)
+                print('    ret = %s' % retRef)
 
     def emitCompute(self, expr):
         '''Returns a ConstantValue that represents the value computed by the
@@ -50,17 +46,7 @@ class CodeBlockBuilder:
             self.constants.append(constant)
             return ConstantValue(cid, expr.mask)
 
-    def _addStorage(self, storage):
-        '''Adds the given storage to this code block.
-        Returns the storage ID.
-        '''
-        checkType(storage, Storage, 'storage')
-        sid = len(self.storages)
-        self.storages.append(storage)
-        return sid
-
     def _addNamedStorage(self, storage, location):
-        self._addStorage(storage)
         ref = SingleReference(self, storage, storage.type)
         self.namespace.define(storage.name, ref, location)
         return ref
@@ -73,7 +59,6 @@ class CodeBlockBuilder:
         addrWidth = channel.addrType.width
         truncatedIndex = optSlice(index, 0, addrWidth)
         storage = IOStorage(channel, truncatedIndex)
-        self._addStorage(storage)
         return SingleReference(self, storage, channel.elemType)
 
     def emitFixedValue(self, expr, typ):
@@ -166,7 +151,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         super().dump()
         print('    nodes:')
         for node in self.nodes:
-            print('        %s' % node)
+            print('        %s (%s-bit)' % (node, node.storage.width))
 
     def createCodeBlock(self, log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -174,7 +159,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(self.constants, self.storages, self.nodes)
+        code = CodeBlockSimplifier(self.constants, self.nodes)
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
@@ -280,7 +265,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         block, or None if the inlined block does not return anything.
         '''
         constants = self.constants
-        storages = self.storages
 
         # Map old constant IDs to new IDs; don't copy yet.
         cidMap = dict(
@@ -314,7 +298,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # For each old storage, create a corresponding storage in this block.
         refMap = {}
-        for storage in code.storages.values():
+        def inlineStorage(storage):
+            ref = refMap.get(storage)
+            if ref is not None:
+                return ref
             if isinstance(storage, RefArgStorage):
                 ref = namespace[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
@@ -330,7 +317,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 else:
                     # Shallow copy because storages are immutable.
                     newStorage = storage
-                storages.append(newStorage)
                 # Note: It doesn't matter if the original reference for this
                 #       storage was signed, since the sign extension will
                 #       have been copied as part of a ComputedConstant.
@@ -340,10 +326,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     self, newStorage, IntType.u(newStorage.width)
                     )
             refMap[storage] = ref
+            return ref
 
         # Copy nodes.
         for node in code.nodes:
-            ref = refMap[node.storage]
+            ref = inlineStorage(node.storage)
             if isinstance(node, Load):
                 value = ref.emitLoad(node.location)
                 newCid = cidMap[node.expr.cid]
@@ -360,6 +347,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             return None
         else:
             return retRef.clone(
-                lambda ref: refMap[ref.storage],
+                lambda ref: inlineStorage(ref.storage),
                 lambda ref: FixedValue(self, cidMap[ref.cid], ref.type)
                 )

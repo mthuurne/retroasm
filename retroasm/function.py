@@ -75,10 +75,17 @@ class Function:
                             return value
         elif isinstance(arg, ReferenceType):
             # Look for a RefArgStorage with the same name.
-            for storage in self.code.storages.values():
+            for node in self.code.nodes:
+                storage = node.storage
                 if isinstance(storage, RefArgStorage):
                     if storage.name == argName:
                         return storage
+            retRef = self.code.retRef
+            if retRef is not None:
+                for storage in retRef.iterStorages():
+                    if isinstance(storage, RefArgStorage):
+                        if storage.name == argName:
+                            return storage
         else:
             assert False, arg
         return None

@@ -113,8 +113,6 @@ class LocalNamespace(Namespace):
             return importMap[storage]
         except KeyError:
             localBuilder = self.localBuilder
-            # pylint: disable=protected-access
-            localBuilder._addStorage(storage)
             localRef = SingleReference(localBuilder, storage, parentRef.type)
             importMap[storage] = localRef
             return localRef

@@ -431,7 +431,7 @@ class SlicedReference(Reference):
 
 class CodeBlock:
 
-    def __init__(self, constants, storages, nodes):
+    def __init__(self, constants, nodes):
         constantsDict = OrderedDict()
         for const in constants:
             cid = const.cid
@@ -439,7 +439,6 @@ class CodeBlock:
                 raise ValueError('duplicate constant ID: %d' % cid)
             constantsDict[cid] = const
         self.constants = constantsDict
-        self.storages = OrderedDict(enumerate(storages))
         self.nodes = list(nodes)
         self.retRef = None
         assert self.verify() is None
@@ -454,11 +453,10 @@ class CodeBlock:
             assert const.cid == cid, const
         cids = self.constants.keys()
 
-        # Check that cids and sids in nodes are valid.
+        # Check that cids in nodes are valid.
         for node in self.nodes:
             for value in node.expr.iterInstances(ConstantValue):
                 assert value.cid in cids, node
-            assert node.storage in self.storages.values(), node
 
         # Check that each loaded constant belongs to exactly one Load node.
         cidsFromLoadedConstants = set(
@@ -477,27 +475,19 @@ class CodeBlock:
             cidsFromLoadedConstants, cidsFromLoadNodes
             )
 
-        # Check that loaded constants use valid sids.
-        for const in self.constants.values():
-            if isinstance(const, LoadedConstant):
-                assert const.storage in self.storages.values(), const
-
         # Check that computed constants use valid subexpressions.
         for const in self.constants.values():
             if isinstance(const, ComputedConstant):
                 for value in const.expr.iterInstances(ConstantValue):
                     assert value.cid in cids, value
 
-        # Check that cids in storages are valid.
-        for storage in self.storages.values():
-            if isinstance(storage, IOStorage):
-                for value in storage.index.iterInstances(ConstantValue):
-                    assert value.cid in cids, storage
-
-        # Check that the return value cid/sids are valid.
-        if self.retRef is not None:
-            for storage in self.retRef.iterStorages():
-                assert storage in self.storages.values(), storage
+        # Check that the return value cids are valid.
+        retRef = self.retRef
+        if retRef is not None:
+            for storage in retRef.iterStorages():
+                if isinstance(storage, IOStorage):
+                    for value in storage.index.iterInstances(ConstantValue):
+                        assert value.cid in cids, storage
 
     def dump(self):
         '''Prints this code block on stdout.
@@ -510,15 +500,12 @@ class CodeBlock:
                 print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const
-        print('    storages:')
-        for sid, storage in self.storages.items():
-            print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
             if not (isinstance(self.retRef, SingleReference) and
                     isinstance(self.retRef.storage, Variable) and
                     self.retRef.storage.name == 'ret'
                     ):
-                print('        ret = %s' % self.retRef)
+                print('    ret = %s' % self.retRef)
         print('    nodes:')
         for node in self.nodes:
-            print('        %s' % node)
+            print('        %s (%s-bit)' % (node, node.storage.width))

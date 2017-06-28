@@ -68,9 +68,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             Store(const1, refB.storage),
             )
 
-        code = CodeBlockSimplifier(
-            self.builder.constants, self.builder.storages, self.builder.nodes
-            )
+        code = CodeBlockSimplifier(self.builder.constants, self.builder.nodes)
         code.verify()
         code.simplifyConstants()
         code.verify()
@@ -96,15 +94,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             Store(loadM1, refM4.storage),
             )
 
-        code = CodeBlockSimplifier(
-            self.builder.constants, self.builder.storages, self.builder.nodes
-            )
+        code = CodeBlockSimplifier(self.builder.constants, self.builder.nodes)
         code.verify()
         # Constants must be deduplicated to detect duplicate I/O indices.
         while code.simplifyConstants():
             pass
-        code.verify()
-        code.removeDuplicateStorages()
         code.verify()
         self.assertNodes(code.nodes, correct)
 
