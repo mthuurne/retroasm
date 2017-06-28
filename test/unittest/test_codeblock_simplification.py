@@ -8,6 +8,7 @@ from retroasm.codeblock import (
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator
 from retroasm.expression_simplifier import simplifyExpression
+from retroasm.storage import IOStorage
 from retroasm.types import IntType
 
 import unittest
@@ -116,12 +117,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
         self.builder.emitStore(refA, andA)
 
-        sidA = self.getSid(refA)
         code = self.createSimplifiedCode()
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, code.storages[sidA])
+        self.assertIs(node.storage, refA.storage)
         self.assertIntLiteral(inlineConstants(node.expr, code.constants), 0)
 
     def test_unused_load_nonremoval(self):
@@ -275,13 +275,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refV, incV)
         self.builder.emitStore(refA, incV)
 
-        sidA = self.getSid(refA)
-
         code = self.createSimplifiedCode()
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, code.storages[sidA])
+        self.assertIs(node.storage, refA.storage)
         self.assertTrunc(
             inlineConstants(node.expr, code.constants),
             AddOperator(ArgumentValue('V', 255), IntLiteral(1)),
@@ -293,7 +291,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test whether unused storages are removed.'''
         refA = self.builder.addRegister('a')
         loadA = self.builder.emitLoad(refA)
-        sidM = self.builder.addIOStorage('mem', loadA)
+        refM = self.builder.addIOStorage('mem', loadA)
 
         correct = (
             )
@@ -339,13 +337,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         outerRet = self.builder.addVariable('ret')
         self.builder.emitStore(outerRet, loadA)
 
-        sidA = self.getSid(refA)
-
         code = self.createSimplifiedCode()
         self.assertEqual(len(code.nodes), 2)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, code.storages[sidA])
+        self.assertIs(node.storage, refA.storage)
         self.assertIntLiteral(inlineConstants(node.expr, code.constants), 23)
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retVal, node.expr)
@@ -431,8 +427,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadM = self.builder.emitLoad(refM)
         self.builder.emitStore(refD, loadM)
 
-        sidM = self.getSid(refM)
-
         code = self.createSimplifiedCode()
         constSimp, = (
             const
@@ -440,10 +434,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             if isinstance(const, ComputedConstant)
                 and isinstance(const.expr, AndOperator)
             )
+        ioStorage, = (
+            node.storage
+            for node in code.nodes
+            if isinstance(node.storage, IOStorage)
+            )
         correct = (
             Load(loadS1, refS.storage),
             Store(ConstantValue(constSimp.cid, 0xFF), refS.storage),
-            Load(loadM, code.storages[sidM]),
+            Load(loadM, ioStorage),
             Store(loadM, refD.storage),
             )
         self.assertNodes(code.nodes, correct)

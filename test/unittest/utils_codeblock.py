@@ -31,14 +31,10 @@ class NodeChecker:
         simplified = simplifyExpression(expr)
         return simplified.cid
 
-    def getSid(self, ref):
-        self.assertIsInstance(ref, SingleReference)
-        return ref.sid
-
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        retStorage = code.storages[self.getSid(retRef)]
+        retStorage = retRef.storage
         retVal = None
         for node in code.nodes:
             if node.storage is retStorage:
@@ -82,7 +78,7 @@ class TestCodeBlockBuilder(LocalCodeBlockBuilder):
         globalRef = self.globalBuilder.namespace[name]
         assert isinstance(globalRef, SingleReference), globalRef
         assert typ is globalRef.type, globalRef
-        reg = self.globalBuilder.storages[globalRef.sid]
+        reg = globalRef.storage
         assert reg.name == name, reg
         assert reg.width == typ.width
 
