@@ -170,12 +170,6 @@ class Reference:
     def __init__(self, typ):
         self._type = checkType(typ, IntType, 'value type')
 
-    def iterSIDs(self):
-        '''Iterates through the IDs of the storages accessed through this
-        reference.
-        '''
-        raise NotImplementedError
-
     def iterStorages(self):
         '''Iterates through the storages accessed through this reference.
         '''
@@ -245,9 +239,6 @@ class FixedValue(Reference):
     def __str__(self):
         return str(self.const)
 
-    def iterSIDs(self):
-        return iter(())
-
     def iterStorages(self):
         return iter(())
 
@@ -282,9 +273,6 @@ class SingleReference(Reference):
 
     def __str__(self):
         return str(self.storage)
-
-    def iterSIDs(self):
-        yield self._sid
 
     def iterStorages(self):
         yield self.storage
@@ -328,10 +316,6 @@ class ConcatenatedReference(Reference):
 
     def __iter__(self):
         return iter(self._refs)
-
-    def iterSIDs(self):
-        for ref in self._refs:
-            yield from ref.iterSIDs()
 
     def iterStorages(self):
         for ref in self._refs:
@@ -409,9 +393,6 @@ class SlicedReference(Reference):
             else:
                 end = AddOperator(offset, IntLiteral(width))
             return '%s[%s:%s]' % (self._ref, offset, end)
-
-    def iterSIDs(self):
-        return self._ref.iterSIDs()
 
     def iterStorages(self):
         return self._ref.iterStorages()
@@ -516,8 +497,8 @@ class CodeBlock:
 
         # Check that the return value cid/sids are valid.
         if self.retRef is not None:
-            for sid in self.retRef.iterSIDs():
-                assert sid in self.storages, sid
+            for storage in self.retRef.iterStorages():
+                assert storage in self.storages.values(), storage
 
     def dump(self):
         '''Prints this code block on stdout.
