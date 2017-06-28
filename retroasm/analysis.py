@@ -23,15 +23,10 @@ def iterBranchAddrs(code):
     '''Yields the expressions written to the PC register by the given code
     block.
     '''
-    pcVars = tuple(
-        storage
-        for storage in code.storages.values()
-        if isinstance(storage, Variable) and storage.name == 'pc'
-        )
-    if len(pcVars) != 0:
-        pcVar, = pcVars
-        for node in code.nodes:
-            if isinstance(node, Store) and node.storage == pcVar:
+    for node in code.nodes:
+        if isinstance(node, Store):
+            storage = node.storage
+            if isinstance(storage, Variable) and storage.name == 'pc':
                 yield inlineConstants(node.expr, code.constants)
 
 def determinePlaceholderRoles(semantics, placeholders):
@@ -47,7 +42,8 @@ def determinePlaceholderRoles(semantics, placeholders):
             placeholder.addRole(PlaceholderRole.code_addr)
 
     # Mark placeholders used as memory indices as data addresses.
-    for sid, storage in semantics.storages.items():
+    for node in semantics.nodes:
+        storage = node.storage
         if isinstance(storage, IOStorage) and storage.channel.name == 'mem':
             index = inlineConstants(storage.index, semantics.constants)
             if isinstance(index, ArgumentValue):
