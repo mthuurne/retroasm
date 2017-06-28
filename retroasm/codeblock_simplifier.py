@@ -125,6 +125,11 @@ class CodeBlockSimplifier(CodeBlock):
                 newExpr = const.expr.substitute(substCid)
                 if newExpr is not const.expr:
                     constants[cid] = ComputedConstant(cid, newExpr)
+            elif isinstance(const, LoadedConstant):
+                storage = const.storage
+                newStorage = substStorage(storage)
+                if newStorage is not storage:
+                    constants[cid] = LoadedConstant(cid, newStorage)
 
         # Replace constant in storages.
         storages = self.storages
@@ -226,13 +231,7 @@ class CodeBlockSimplifier(CodeBlock):
         changed = False
         for storage, sids in storagesToSIDs.items():
             if len(sids) > 1:
-                remainingSID = sids.pop()
-                for cid, const in self.constants.items():
-                    if isinstance(const, LoadedConstant):
-                        if const.sid in sids:
-                            self.constants[cid] = \
-                                LoadedConstant(cid, remainingSID)
-                for sid in sids:
+                for sid in sorted(sids)[1:]:
                     del storages[sid]
                 changed = True
         return changed

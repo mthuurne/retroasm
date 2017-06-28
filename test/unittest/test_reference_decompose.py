@@ -249,7 +249,7 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
             const = constants[valExpr.cid]
             self.assertIsInstance(const, LoadedConstant)
             self.assertEqual(valShift, offset)
-            self.assertEqual(const.sid, expSid)
+            self.assertEqual(const.storage, self.builder.storages[expSid])
             self.assertEqual(valOffset, expOffset)
             self.assertEqual(valWidth, expWidth)
             offset += valWidth

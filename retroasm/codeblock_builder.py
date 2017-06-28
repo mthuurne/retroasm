@@ -26,7 +26,7 @@ class CodeBlockBuilder:
             if isinstance(const, ComputedConstant):
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        C%-2d <- S%d' % (const.cid, const.sid))
+                print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const
         print('    storages:')
@@ -244,7 +244,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     def emitLoadBits(self, sid, location):
         storage = self.storages[sid]
         cid = len(self.constants)
-        self.constants.append(LoadedConstant(cid, sid))
+        self.constants.append(LoadedConstant(cid, storage))
         expr = ConstantValue(cid, maskForWidth(storage.width))
         self.nodes.append(Load(expr, storage, location))
         return expr

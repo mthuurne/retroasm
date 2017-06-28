@@ -748,7 +748,7 @@ def _replaceProgramCounter(expr, semBuilder):
         if isinstance(expr, ConstantValue):
             const = semBuilder.constants[expr.cid]
             assert isinstance(const, LoadedConstant), const
-            storage = semBuilder.storages[const.sid]
+            storage = const.storage
             if isinstance(storage, Variable) and storage.name == 'pc':
                 return Immediate('pc', semBuilder.namespace['pc'].type)
         return None

@@ -45,19 +45,19 @@ class ComputedConstant(Constant):
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
     '''
-    __slots__ = ('_sid',)
+    __slots__ = ('_storage',)
 
-    sid = property(lambda self: self._sid)
+    storage = property(lambda self: self._storage)
 
-    def __init__(self, cid, sid):
-        self._sid = checkType(sid, int, 'storage ID')
+    def __init__(self, cid, storage):
+        self._storage = checkType(storage, Storage, 'storage')
         Constant.__init__(self, cid)
 
     def __repr__(self):
-        return 'LoadedConstant(%d, %d)' % (self._cid, self._sid)
+        return 'LoadedConstant(%d, %r)' % (self._cid, self._storage)
 
     def __str__(self):
-        return '%s <- S%s' % (super().__str__(), self._sid)
+        return '%s <- %s' % (super().__str__(), self._storage)
 
 class Node:
     '''Base class for nodes.
@@ -481,7 +481,7 @@ class CodeBlock:
         # Check that loaded constants use valid sids.
         for const in self.constants.values():
             if isinstance(const, LoadedConstant):
-                assert const.sid in self.storages, const
+                assert const.storage in self.storages.values(), const
 
         # Check that computed constants use valid subexpressions.
         for const in self.constants.values():
@@ -508,7 +508,7 @@ class CodeBlock:
             if isinstance(const, ComputedConstant):
                 print('        C%-2d =  %s' % (const.cid, const.expr))
             elif isinstance(const, LoadedConstant):
-                print('        C%-2d <- S%d' % (const.cid, const.sid))
+                print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const
         print('    storages:')
