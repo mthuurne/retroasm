@@ -256,35 +256,34 @@ class FixedValue(Reference):
         pass
 
 class SingleReference(Reference):
-    __slots__ = ('_block', '_sid')
+    __slots__ = ('_block', '_storage')
 
-    sid = property(lambda self: self._sid)
-    storage = property(lambda self: self._block.storages[self._sid])
+    storage = property(lambda self: self._storage)
 
-    def __init__(self, block, sid, typ):
+    def __init__(self, block, storage, typ):
         Reference.__init__(self, typ)
         self._block = block
-        self._sid = checkType(sid, int, 'storage ID')
+        self._storage = checkType(storage, Storage, 'storage')
 
     def __repr__(self):
-        return 'SingleReference(%r, %d, %r)' % (
-            self._block, self._sid, self._type
+        return 'SingleReference(%r, %r, %r)' % (
+            self._block, self._storage, self._type
             )
 
     def __str__(self):
-        return str(self.storage)
+        return str(self._storage)
 
     def iterStorages(self):
-        yield self.storage
+        yield self._storage
 
     def clone(self, singleRefCloner, fixedValueCloner):
         return singleRefCloner(self)
 
     def _emitLoadBits(self, location):
-        return self._block.emitLoadBits(self.storage, location)
+        return self._block.emitLoadBits(self._storage, location)
 
     def _emitStoreBits(self, value, location):
-        self._block.emitStoreBits(self.storage, value, location)
+        self._block.emitStoreBits(self._storage, value, location)
 
 class ConcatenatedReference(Reference):
     __slots__ = ('_refs',)
@@ -516,8 +515,8 @@ class CodeBlock:
             print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if self.retRef is not None:
             if not (isinstance(self.retRef, SingleReference) and
-                    isinstance(self.storages[self.retRef.sid], Variable) and
-                    self.storages[self.retRef.sid].name == 'ret'
+                    isinstance(self.retRef.storage, Variable) and
+                    self.retRef.storage.name == 'ret'
                     ):
                 print('        ret = %s' % self.retRef)
         print('    nodes:')

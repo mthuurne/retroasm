@@ -81,7 +81,7 @@ class LocalNamespace(Namespace):
         self.localBuilder = localBuilder
         self.parentBuilder = parentBuilder
         self.cidImportMap = {}
-        self.sidImportMap = {}
+        self.storageImportMap = {}
 
     def __contains__(self, key):
         return super().__contains__(key) or key in self.parentBuilder.namespace
@@ -107,17 +107,16 @@ class LocalNamespace(Namespace):
         '''Imports the given SingleReference from the parent builder into the
         local namespace. Returns the local reference.
         '''
-        parentSid = parentRef.sid
-        importMap = self.sidImportMap
+        storage = parentRef.storage
+        importMap = self.storageImportMap
         try:
-            return importMap[parentSid]
+            return importMap[storage]
         except KeyError:
-            storage = self.parentBuilder.storages[parentSid]
             localBuilder = self.localBuilder
             # pylint: disable=protected-access
-            localSid = localBuilder._addStorage(storage)
-            localRef = SingleReference(localBuilder, localSid, parentRef.type)
-            importMap[parentSid] = localRef
+            localBuilder._addStorage(storage)
+            localRef = SingleReference(localBuilder, storage, parentRef.type)
+            importMap[storage] = localRef
             return localRef
 
     def _importFixedValue(self, parentRef):

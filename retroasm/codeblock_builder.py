@@ -34,7 +34,7 @@ class CodeBlockBuilder:
             print('        S%-2d : %s  (%s-bit)' % (sid, storage, storage.width))
         if 'ret' in self.namespace:
             retRef = self.namespace['ret']
-            storage = self.storages[retRef.sid]
+            storage = retRef.storage
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
                 print('        ret = %s' % retRef)
 
@@ -60,8 +60,8 @@ class CodeBlockBuilder:
         return sid
 
     def _addNamedStorage(self, storage, location):
-        sid = self._addStorage(storage)
-        ref = SingleReference(self, sid, storage.type)
+        self._addStorage(storage)
+        ref = SingleReference(self, storage, storage.type)
         self.namespace.define(storage.name, ref, location)
         return ref
 
@@ -72,8 +72,9 @@ class CodeBlockBuilder:
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
         truncatedIndex = optSlice(index, 0, addrWidth)
-        sid = self._addStorage(IOStorage(channel, truncatedIndex))
-        return SingleReference(self, sid, channel.elemType)
+        storage = IOStorage(channel, truncatedIndex)
+        self._addStorage(storage)
+        return SingleReference(self, storage, channel.elemType)
 
     def emitFixedValue(self, expr, typ):
         '''Emits a constant representing the result of the given expression.
@@ -207,8 +208,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             # SIDs and CIDs as we do, so we only have to replace the block
             # objects with in SingleReferences and FixedValues.
             code.retRef = self.namespace['ret'].clone(
-                lambda ref, code=code: SingleReference(code, ref.sid, ref.type),
-                lambda ref, code=code: FixedValue(code, ref.cid, ref.type)
+                lambda ref, code=code:
+                    SingleReference(code, ref.storage, ref.type),
+                lambda ref, code=code:
+                    FixedValue(code, ref.cid, ref.type)
                 )
 
         # Finalize code block.
@@ -327,14 +330,15 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 else:
                     # Shallow copy because storages are immutable.
                     newStorage = storage
-                newSid = len(storages)
                 storages.append(newStorage)
                 # Note: It doesn't matter if the original reference for this
                 #       storage was signed, since the sign extension will
                 #       have been copied as part of a ComputedConstant.
                 #       We are copying the _emitLoadBits() output here,
                 #       not the emitLoad() output.
-                ref = SingleReference(self, newSid, IntType.u(newStorage.width))
+                ref = SingleReference(
+                    self, newStorage, IntType.u(newStorage.width)
+                    )
             refMap[storage] = ref
 
         # Copy nodes.
