@@ -63,7 +63,7 @@ class DecomposeTests:
         '''Test construction of SingleReference.'''
         ref0 = self.builder.addReferenceArgument('R0')
         expected = (
-            (ref0.sid, 0, 8),
+            (ref0.storage, 0, 8),
             )
         self.assertDecomposed(ref0, expected)
 
@@ -74,9 +74,9 @@ class DecomposeTests:
         ref2 = self.builder.addReferenceArgument('R2', IntType.u(13))
         concat = ConcatenatedReference(ref2, ref1, ref0)
         expected = (
-            (ref2.sid, 0, 13),
-            (ref1.sid, 0, 3),
-            (ref0.sid, 0, 7),
+            (ref2.storage, 0, 13),
+            (ref1.storage, 0, 3),
+            (ref0.storage, 0, 7),
             )
         self.assertDecomposed(concat, expected)
 
@@ -85,8 +85,8 @@ class DecomposeTests:
         ref0 = self.builder.addReferenceArgument('R0')
         concat = ConcatenatedReference(ref0, ref0)
         expected = (
-            (ref0.sid, 0, 8),
-            (ref0.sid, 0, 8),
+            (ref0.storage, 0, 8),
+            (ref0.storage, 0, 8),
             )
         self.assertDecomposed(concat, expected)
 
@@ -95,7 +95,7 @@ class DecomposeTests:
         ref0 = self.builder.addReferenceArgument('R0')
         sliced = sliceRef(ref0, 2, 3)
         expected = (
-            (ref0.sid, 2, 3),
+            (ref0.storage, 2, 3),
             )
         self.assertDecomposed(sliced, expected)
 
@@ -104,7 +104,7 @@ class DecomposeTests:
         ref0 = self.builder.addReferenceArgument('R0')
         sliced = sliceRef(ref0, 2, 30)
         expected = (
-            (ref0.sid, 2, 6),
+            (ref0.storage, 2, 6),
             )
         self.assertDecomposed(sliced, expected)
 
@@ -124,9 +124,9 @@ class DecomposeTests:
         concat = ConcatenatedReference(ref2, ref1, ref0)
         sliced = sliceRef(concat, 5, 13)
         expected = (
-            (ref2.sid, 5, 3),
-            (ref1.sid, 0, 8),
-            (ref0.sid, 0, 2),
+            (ref2.storage, 5, 3),
+            (ref1.storage, 0, 8),
+            (ref0.storage, 0, 2),
             )
         self.assertDecomposed(sliced, expected)
 
@@ -140,8 +140,8 @@ class DecomposeTests:
         concatB = ConcatenatedReference(sliceA, ref2)
         storage = sliceRef(concatB, 4, 7)
         expected = (
-            (ref1.sid, 1, 2),
-            (ref2.sid, 0, 5),
+            (ref1.storage, 1, 2),
+            (ref2.storage, 0, 5),
             )
         self.assertDecomposed(storage, expected)
 
@@ -154,8 +154,8 @@ class DecomposeTests:
         concat = ConcatenatedReference(slice0, slice1)
         sliceC = sliceRef(concat, 3, 3)
         expected = (
-            (ref0.sid, 5, 2),
-            (ref1.sid, 1, 1),
+            (ref0.storage, 5, 2),
+            (ref1.storage, 1, 1),
             )
         self.assertDecomposed(sliceC, expected)
 
@@ -169,7 +169,7 @@ class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
     def flattenRef(self, ref):
         self.assertIsInstance(ref, Reference)
         if isinstance(ref, SingleReference):
-            yield ref.sid, 0, ref.width
+            yield ref.storage, 0, ref.width
         elif isinstance(ref, ConcatenatedReference):
             for subRef in ref:
                 yield from self.flattenRef(subRef)
@@ -177,11 +177,11 @@ class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
             self.assertIsInstance(ref.offset, IntLiteral)
             offset = ref.offset.value
             width = ref.width
-            for sid, subOffset, subWidth in self.flattenRef(ref.ref):
+            for storage, subOffset, subWidth in self.flattenRef(ref.ref):
                 start = subOffset + max(offset, 0)
                 end = subOffset + min(offset + width, subWidth)
                 if start < end:
-                    yield sid, start, end - start
+                    yield storage, start, end - start
                 offset -= subWidth
         else:
             self.fail('Unsupported Reference subtype: %s' % type(ref).__name__)
@@ -244,12 +244,12 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
         constants = self.builder.constants
         for actualItem, expectedItem in zip(decomposedVal, expected):
             valExpr, valOffset, valWidth, valShift = actualItem
-            expSid, expOffset, expWidth = expectedItem
+            expStorage, expOffset, expWidth = expectedItem
             self.assertIsInstance(valExpr, ConstantValue)
             const = constants[valExpr.cid]
             self.assertIsInstance(const, LoadedConstant)
             self.assertEqual(valShift, offset)
-            self.assertEqual(const.storage, self.builder.storages[expSid])
+            self.assertEqual(const.storage, expStorage)
             self.assertEqual(valOffset, expOffset)
             self.assertEqual(valWidth, expWidth)
             offset += valWidth
