@@ -1,5 +1,5 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
-from utils_expression import TestExprMixin
+from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.analysis import inlineConstants
 from retroasm.codeblock import (
@@ -446,6 +446,39 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         self.assertRetVal(code, 987654321)
+
+    def test_6502_pull(self):
+        '''Test simplification of the 6502 PULL instructions.'''
+
+        refD = self.builder.addReferenceArgument('D')
+        refS = self.builder.addRegister('s')
+        loadS1 = self.builder.emitLoad(refS)
+        incS = self.builder.emitCompute(AddOperator(loadS1, IntLiteral(1)))
+        self.builder.emitStore(refS, incS)
+        const1 = self.builder.emitCompute(IntLiteral(1))
+        loadS2 = self.builder.emitLoad(refS)
+        refM = self.builder.addIOStorage('mem', makeConcat(const1, loadS2, 8))
+        loadM = self.builder.emitLoad(refM)
+        self.builder.emitStore(refD, loadM)
+
+        sidD = self.getSid(refD)
+        sidS = self.getSid(refS)
+        sidM = self.getSid(refM)
+
+        code = self.createSimplifiedCode()
+        constSimp, = (
+            const
+            for const in code.constants.values()
+            if isinstance(const, ComputedConstant)
+                and isinstance(const.expr, AndOperator)
+            )
+        correct = (
+            Load(loadS1, sidS),
+            Store(ConstantValue(constSimp.cid, 0xFF), sidS),
+            Load(loadM, sidM),
+            Store(loadM, sidD),
+            )
+        self.assertNodes(code.nodes, correct)
 
 if __name__ == '__main__':
     verbose = True
