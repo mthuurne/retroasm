@@ -110,6 +110,13 @@ class CodeBlockSimplifier(CodeBlock):
                 return ConstantValue(newCid, sexpr.mask)
             else:
                 return None
+        def substStorage(storage):
+            if isinstance(storage, IOStorage):
+                index = storage.index
+                newIndex = index.substitute(substCid)
+                if newIndex is not index:
+                    return IOStorage(storage.channel, newIndex)
+            return storage
 
         # Replace constant in other constants' expressions.
         for cid in list(constants.keys()):
@@ -121,21 +128,18 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Replace constant in storages.
         storages = self.storages
-        for sid in list(storages.keys()):
-            storage = storages[sid]
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = index.substitute(substCid)
-                if newIndex is not index:
-                    storages[sid] = IOStorage(storage.channel, newIndex)
+        for sid, storage in list(storages.items()):
+            storages[sid] = substStorage(storage)
 
         # Replace constant in nodes.
         nodes = self.nodes
         for i, node in enumerate(nodes):
             expr = node.expr
             newExpr = expr.substitute(substCid)
-            if newExpr is not expr:
-                nodes[i] = node.clone(expr=newExpr)
+            storage = node.storage
+            newStorage = substStorage(storage)
+            if newExpr is not expr or newStorage is not storage:
+                nodes[i] = node.clone(expr=newExpr, storage=newStorage)
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -156,7 +160,7 @@ class CodeBlockSimplifier(CodeBlock):
                 for value in node.expr.iterInstances(ConstantValue):
                     cidsInUse.add(value.cid)
             elif isinstance(node, Load):
-                if storages[node.sid].canLoadHaveSideEffect():
+                if node.storage.canLoadHaveSideEffect():
                     # We can't eliminate this load because it may have a useful
                     # side effect and we can't eliminate the constant because
                     # every load needs one, so pretend the constant is in use.
@@ -198,7 +202,7 @@ class CodeBlockSimplifier(CodeBlock):
         storages = self.storages
         unusedStorages = set(storages.values())
         for node in self.nodes:
-            unusedStorages.discard(storages[node.sid])
+            unusedStorages.discard(node.storage)
         retRef = self.retRef
         if retRef is not None:
             unusedStorages.difference_update(retRef.iterStorages())
@@ -223,10 +227,6 @@ class CodeBlockSimplifier(CodeBlock):
         for storage, sids in storagesToSIDs.items():
             if len(sids) > 1:
                 remainingSID = sids.pop()
-                nodes = self.nodes
-                for i, node in enumerate(nodes):
-                    if node.sid in sids:
-                        nodes[i] = node.clone(sid=remainingSID)
                 for cid, const in self.constants.items():
                     if isinstance(const, LoadedConstant):
                         if const.sid in sids:
@@ -249,8 +249,7 @@ class CodeBlockSimplifier(CodeBlock):
         i = 0
         while i < len(nodes):
             node = nodes[i]
-            sid = node.sid
-            storage = storages[sid]
+            storage = node.storage
             value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
@@ -291,7 +290,7 @@ class CodeBlockSimplifier(CodeBlock):
         i = len(nodes) - 1
         while i >= 0:
             node = nodes[i]
-            storage = storages[node.sid]
+            storage = node.storage
             if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
                     assert not (

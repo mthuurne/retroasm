@@ -179,7 +179,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         ununitializedLoads = []
         initializedVariables = set()
         for node in code.nodes:
-            storage = code.storages[node.sid]
+            storage = node.storage
             if isinstance(storage, Variable) and storage.scope == 1:
                 if isinstance(node, Load):
                     if storage not in initializedVariables:
@@ -191,12 +191,12 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 for load in ununitializedLoads:
                     log.error(
                         'variable "%s" is read before it is initialized'
-                        % code.storages[load.sid].decl,
+                        % load.storage.decl,
                         location=load.location
                         )
             raise ValueError(
                 'Code block reads uninitialized variable(s): %s' % ', '.join(
-                    code.storages[load.sid].decl
+                    load.storage.decl
                     for load in ununitializedLoads
                     )
                 )
@@ -246,12 +246,13 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         cid = len(self.constants)
         self.constants.append(LoadedConstant(cid, sid))
         expr = ConstantValue(cid, maskForWidth(storage.width))
-        self.nodes.append(Load(expr, sid, location))
+        self.nodes.append(Load(expr, storage, location))
         return expr
 
     def emitStoreBits(self, sid, value, location):
+        storage = self.storages[sid]
         expr = self.emitCompute(value)
-        self.nodes.append(Store(expr, sid, location))
+        self.nodes.append(Store(expr, storage, location))
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code
@@ -340,7 +341,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
 
         # Copy nodes.
         for node in code.nodes:
-            ref = refMap[code.storages[node.sid]]
+            ref = refMap[node.storage]
             if isinstance(node, Load):
                 value = ref.emitLoad(node.location)
                 newCid = cidMap[node.expr.cid]

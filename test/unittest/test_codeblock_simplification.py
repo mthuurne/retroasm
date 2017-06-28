@@ -29,6 +29,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             code.dump()
         return code
 
+    def getStorage(self, ref):
+        return self.builder.storages[self.getSid(ref)]
+
     def test_no_change(self):
         '''Test whether a basic sequence survives a simplification attempt.'''
         refA = self.builder.addRegister('a')
@@ -36,15 +39,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
         def checkNodes(code):
             self.assertEqual(len(code.nodes), 2)
             load, store = code.nodes
             self.assertIsInstance(load, Load)
             self.assertIsInstance(store, Store)
-            self.assertEqual(load.sid, sidA)
-            self.assertEqual(store.sid, sidB)
+            self.assertEqual(load.storage, storageA)
+            self.assertEqual(store.storage, storageB)
             self.assertEqual(load.expr, loadA)
             self.assertEqual(store.expr, loadA)
 
@@ -64,11 +67,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refA, const1)
         self.builder.emitStore(refB, const2)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
         correct = (
-            Store(const1, sidA),
-            Store(const1, sidB),
+            Store(const1, storageA),
+            Store(const1, storageB),
             )
 
         code = CodeBlockSimplifier(
@@ -91,15 +94,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refM3, loadM2)
         self.builder.emitStore(refM4, loadM1)
 
-        sidM1 = self.getSid(refM1)
-        sidM3 = self.getSid(refM3)
-        sidM4 = self.getSid(refM4)
+        storageM1 = self.getStorage(refM1)
+        storageM3 = self.getStorage(refM3)
+        storageM4 = self.getStorage(refM4)
         correct = (
-            Load(loadM1, sidM1),
-            Load(loadM2, sidM1),
-            Store(loadM1, sidM1),
-            Store(loadM2, sidM3),
-            Store(loadM1, sidM4),
+            Load(loadM1, storageM1),
+            Load(loadM2, storageM1),
+            Store(loadM1, storageM1),
+            Store(loadM2, storageM3),
+            Store(loadM1, storageM4),
             )
 
         code = CodeBlockSimplifier(
@@ -128,7 +131,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertEqual(node.sid, sidA)
+        self.assertIs(node.storage, code.storages[sidA])
         self.assertIntLiteral(inlineConstants(node.expr, code.constants), 0)
 
     def test_unused_load_nonremoval(self):
@@ -137,9 +140,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refM = self.builder.addIOStorage('mem', addr)
         loadM = self.builder.emitLoad(refM)
 
-        sidM = self.getSid(refM)
+        storageM = self.getStorage(refM)
         correct = (
-            Load(loadM, sidM),
+            Load(loadM, storageM),
             )
 
         code = self.createSimplifiedCode()
@@ -155,13 +158,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
-        sidC = self.getSid(refC)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
+        storageC = self.getStorage(refC)
         correct = (
-            Load(loadA1, sidA),
-            Store(loadA1, sidB),
-            Store(loadA1, sidC),
+            Load(loadA1, storageA),
+            Store(loadA1, storageB),
+            Store(loadA1, storageC),
             )
 
         code = self.createSimplifiedCode()
@@ -177,8 +180,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
 
         code = self.createSimplifiedCode()
         self.assertEqual(len(code.nodes), 3)
@@ -186,9 +189,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(load, Load)
         self.assertIsInstance(store1, Store)
         self.assertIsInstance(store2, Store)
-        self.assertEqual(load.sid, sidA)
-        self.assertEqual(store1.sid, sidA)
-        self.assertEqual(store2.sid, sidB)
+        self.assertEqual(load.storage, storageA)
+        self.assertEqual(store1.storage, storageA)
+        self.assertEqual(store2.storage, storageB)
         self.assertEqual(load.expr, loadA1)
         self.assertEqual(store1.expr, store2.expr)
         self.assertTrunc(
@@ -206,11 +209,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA)
         self.builder.emitStore(refB, loadA)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
         correct = (
-            Load(loadA, sidA),
-            Store(loadA, sidB),
+            Load(loadA, storageA),
+            Store(loadA, storageB),
             )
 
         code = self.createSimplifiedCode()
@@ -226,11 +229,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadA)
         self.builder.emitStore(refC, loadB)
 
-        sidB = self.getSid(refB)
-        sidC = self.getSid(refC)
+        storageB = self.getStorage(refB)
+        storageC = self.getStorage(refC)
         correct = (
-            Load(loadB, sidB),
-            Store(loadB, sidC),
+            Load(loadB, storageB),
+            Store(loadB, storageC),
             )
 
         code = self.createSimplifiedCode()
@@ -249,10 +252,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
-        sidC = self.getSid(refC)
-        sidX = self.getSid(refX)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
+        storageC = self.getStorage(refC)
+        storageX = self.getStorage(refX)
 
         code = self.createSimplifiedCode()
         constSimp, = (
@@ -262,11 +265,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
                 and isinstance(const.expr, IntLiteral)
             )
         correct = (
-            Load(loadA1, sidA),
-            Store(ConstantValue(constSimp.cid, const.mask), sidX),
-            Load(loadA2, sidA),
-            Store(loadA1, sidB),
-            Store(loadA2, sidC),
+            Load(loadA1, storageA),
+            Store(ConstantValue(constSimp.cid, const.mask), storageX),
+            Load(loadA2, storageA),
+            Store(loadA1, storageB),
+            Store(loadA2, storageC),
             )
         self.assertNodes(code.nodes, correct)
 
@@ -280,13 +283,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
 
-        sidA = self.getSid(refA)
-        sidB = self.getSid(refB)
-        sidX = self.getSid(refX)
+        storageA = self.getStorage(refA)
+        storageB = self.getStorage(refB)
+        storageX = self.getStorage(refX)
         correct = (
-            Load(loadA1, sidA),
-            Store(loadA1, sidX),
-            Store(loadA1, sidB),
+            Load(loadA1, storageA),
+            Store(loadA1, storageX),
+            Store(loadA1, storageB),
             )
 
         code = self.createSimplifiedCode()
@@ -307,7 +310,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertEqual(node.sid, sidA)
+        self.assertIs(node.storage, code.storages[sidA])
         self.assertTrunc(
             inlineConstants(node.expr, code.constants),
             AddOperator(ArgumentValue('V', 255), IntLiteral(1)),
@@ -342,14 +345,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(valueV, ArgumentValue)
         self.assertEqual(valueV.name, 'V')
 
-        sidA = self.getSid(refA)
-        retSid = self.getSid(refRet)
+        storageA = self.getStorage(refA)
+        retStorage = self.getStorage(refRet)
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Load(loadA, sidA),
-            Store(retVal, retSid),
+            Load(loadA, storageA),
+            Store(retVal, retStorage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
@@ -374,7 +377,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(len(code.nodes), 2)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertEqual(node.sid, sidA)
+        self.assertIs(node.storage, code.storages[sidA])
         self.assertIntLiteral(inlineConstants(node.expr, code.constants), 23)
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retVal, node.expr)
@@ -399,10 +402,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        sidA = self.getSid(refA)
+        storageA = self.getStorage(refA)
         correct = (
-            Store(retVal, sidA),
-            Store(retVal, self.getSid(ret)),
+            Store(retVal, storageA),
+            Store(retVal, self.getStorage(ret)),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)
@@ -461,8 +464,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadM = self.builder.emitLoad(refM)
         self.builder.emitStore(refD, loadM)
 
-        sidD = self.getSid(refD)
-        sidS = self.getSid(refS)
+        storageD = self.getStorage(refD)
+        storageS = self.getStorage(refS)
         sidM = self.getSid(refM)
 
         code = self.createSimplifiedCode()
@@ -473,10 +476,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
                 and isinstance(const.expr, AndOperator)
             )
         correct = (
-            Load(loadS1, sidS),
-            Store(ConstantValue(constSimp.cid, 0xFF), sidS),
-            Load(loadM, sidM),
-            Store(loadM, sidD),
+            Load(loadS1, storageS),
+            Store(ConstantValue(constSimp.cid, 0xFF), storageS),
+            Load(loadM, code.storages[sidM]),
+            Store(loadM, storageD),
             )
         self.assertNodes(code.nodes, correct)
 

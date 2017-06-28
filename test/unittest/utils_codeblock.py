@@ -15,7 +15,7 @@ class NodeChecker:
     def assertNode(self, actual, correct):
         self.assertIsInstance(actual, type(correct))
         self.assertEqual(actual.expr, correct.expr)
-        self.assertEqual(actual.sid, correct.sid)
+        self.assertEqual(actual.storage, correct.storage)
 
     def assertNodes(self, actual, correct):
         self.assertEqual(len(actual), len(correct))
@@ -38,10 +38,10 @@ class NodeChecker:
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        retSid = self.getSid(retRef)
+        retStorage = code.storages[self.getSid(retRef)]
         retVal = None
         for node in code.nodes:
-            if node.sid == retSid:
+            if node.storage is retStorage:
                 self.assertIsInstance(node, Store)
                 self.assertIsNone(retVal)
                 retVal = node.expr

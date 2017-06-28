@@ -223,9 +223,9 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
         # Also check that the load order matches the depth-first ref tree walk.
         # Even storages that are not part of the decomposition should still be
         # loaded from since loading might trigger side effects.
-        refSIDs = tuple(ref.iterSIDs())
-        loadedSIDs = tuple(node.sid for node in nodes)
-        self.assertEqual(refSIDs, loadedSIDs)
+        refStorages = tuple(ref.iterStorages())
+        loadedStorages = tuple(node.storage for node in nodes)
+        self.assertEqual(refStorages, loadedStorages)
 
         # Check the loaded value expression's bit mask.
         self.assertLessEqual(widthForMask(value.mask), ref.width,
@@ -273,8 +273,8 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
             self.fail('Unsupported Reference subtype: %s' % type(ref).__name__)
 
     def iterSliceLoads(self, ref):
-        '''Iterates through the storage IDs of the storages that must be loaded
-        when storing into a reference that may contain slicing.
+        '''Iterates through the storages that must be loaded when storing into
+        a reference that may contain slicing.
         Sliced references must load their original version to combine it with
         the written value before the store happens. If sliced references are
         nested, the same storage might be referenced within multiple parts of
@@ -282,7 +282,7 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
         load-combine-store cycle before other nodes can be processed.
         '''
         for sliceRef in self.iterSlices(ref):
-            yield from sliceRef.iterSIDs()
+            yield from sliceRef.iterStorages()
             yield from self.iterSliceLoads(sliceRef.ref)
 
     def assertDecomposed(self, ref, expected):
@@ -301,15 +301,15 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
         # Check that all storages referenced through slicing are loaded from.
         # Also check that the load order is as expected (see iterSliceLoads
         # docstring).
-        slicedSIDs = tuple(self.iterSliceLoads(ref))
-        loadedSIDs = tuple(node.sid for node in loadNodes)
-        self.assertEqual(slicedSIDs, loadedSIDs)
+        slicedStorages = tuple(self.iterSliceLoads(ref))
+        loadedStorages = tuple(node.storage for node in loadNodes)
+        self.assertEqual(slicedStorages, loadedStorages)
 
         # Check that all referenced storages are stored to.
         # Also check that the store order matches the depth-first ref tree walk.
-        refSIDs = tuple(ref.iterSIDs())
-        storedSIDs = tuple(node.sid for node in storeNodes)
-        self.assertEqual(refSIDs, storedSIDs)
+        refStorages = tuple(ref.iterStorages())
+        storedStorages = tuple(node.storage for node in storeNodes)
+        self.assertEqual(refStorages, storedStorages)
 
         # Note: Verifying that the right values are being stored based on the
         #       expectation list is quite complex.

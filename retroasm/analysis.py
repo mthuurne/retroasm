@@ -23,15 +23,15 @@ def iterBranchAddrs(code):
     '''Yields the expressions written to the PC register by the given code
     block.
     '''
-    pcSids = tuple(
-        sid
-        for sid, storage in code.storages.items()
+    pcVars = tuple(
+        storage
+        for storage in code.storages.values()
         if isinstance(storage, Variable) and storage.name == 'pc'
         )
-    if len(pcSids) != 0:
-        pcSid, = pcSids
+    if len(pcVars) != 0:
+        pcVar, = pcVars
         for node in code.nodes:
-            if isinstance(node, Store) and node.sid == pcSid:
+            if isinstance(node, Store) and node.storage == pcVar:
                 yield inlineConstants(node.expr, code.constants)
 
 def determinePlaceholderRoles(semantics, placeholders):

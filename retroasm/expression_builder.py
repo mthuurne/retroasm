@@ -488,8 +488,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
         stateChanged = False
         for execNode in builder.nodes[numNodesBefore:]:
             if isinstance(execNode, Load):
-                storage = builder.storages[execNode.sid]
-                stateChanged |= storage.canLoadHaveSideEffect()
+                stateChanged |= execNode.storage.canLoadHaveSideEffect()
             elif isinstance(execNode, Store):
                 stateChanged = True
         if not stateChanged:

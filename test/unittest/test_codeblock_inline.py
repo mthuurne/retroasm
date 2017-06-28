@@ -45,8 +45,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         sidA = self.getSid(outerA)
         correct = (
-            Store(retVal, sidA),
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[sidA]),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -73,7 +73,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -99,7 +99,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 3000)
@@ -122,7 +122,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 0x72)
@@ -151,7 +151,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 1)
@@ -183,8 +183,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         sidA = self.getSid(outerA)
         correct = (
-            Store(retVal, sidA),
-            Store(retVal, self.getSid(outerRet)),
+            Store(retVal, outer.storages[sidA]),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -413,8 +413,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         sidIORef = self.getSid(retRef)
         correct = (
-            Load(retVal, sidIORef),
-            Store(retVal, self.getSid(outerRet)),
+            Load(retVal, code.storages[sidIORef]),
+            Store(retVal, outer.storages[self.getSid(outerRet)]),
             )
         self.assertNodes(code.nodes, correct)
         self.assertEqual(retWidth, 8)
