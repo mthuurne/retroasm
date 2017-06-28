@@ -281,10 +281,10 @@ class SingleReference(Reference):
         return singleRefCloner(self)
 
     def _emitLoadBits(self, location):
-        return self._block.emitLoadBits(self._sid, location)
+        return self._block.emitLoadBits(self.storage, location)
 
     def _emitStoreBits(self, value, location):
-        self._block.emitStoreBits(self._sid, value, location)
+        self._block.emitStoreBits(self.storage, value, location)
 
 class ConcatenatedReference(Reference):
     __slots__ = ('_refs',)

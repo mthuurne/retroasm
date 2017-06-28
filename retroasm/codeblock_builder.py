@@ -91,16 +91,16 @@ class CodeBlockBuilder:
         self.namespace.define(name, value, location)
         return value
 
-    def emitLoadBits(self, sid, location):
-        '''Loads the value from the storage with the given ID by emitting
-        a Load node on this builder.
+    def emitLoadBits(self, storage, location):
+        '''Loads the value from the given storage by emitting a Load node on
+        this builder.
         Returns an expression that represents the loaded value.
         '''
         raise NotImplementedError
 
-    def emitStoreBits(self, sid, value, location):
-        '''Stores the value of the given expression in the storage with the
-        given ID by emitting a Store node on this builder.
+    def emitStoreBits(self, storage, value, location):
+        '''Stores the value of the given expression in the given storage by
+        emitting a Store node on this builder.
         '''
         raise NotImplementedError
 
@@ -121,15 +121,15 @@ class StatelessCodeBlockBuilderMixin:
     users attempt touch any state, such as performing register access or I/O.
     '''
 
-    def emitLoadBits(self, sid, location):
+    def emitLoadBits(self, storage, location):
         raise IllegalStateAccess(
-            'attempt to read state: %s' % self.storages[sid],
+            'attempt to read state: %s' % storage,
             location
             )
 
-    def emitStoreBits(self, sid, value, location):
+    def emitStoreBits(self, storage, value, location):
         raise IllegalStateAccess(
-            'attempt to write state: %s' % self.storages[sid],
+            'attempt to write state: %s' % storage,
             location
             )
 
@@ -241,16 +241,14 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     def emitReferenceArgument(self, name, refType, location):
         return self._addNamedStorage(RefArgStorage(name, refType), location)
 
-    def emitLoadBits(self, sid, location):
-        storage = self.storages[sid]
+    def emitLoadBits(self, storage, location):
         cid = len(self.constants)
         self.constants.append(LoadedConstant(cid, storage))
         expr = ConstantValue(cid, maskForWidth(storage.width))
         self.nodes.append(Load(expr, storage, location))
         return expr
 
-    def emitStoreBits(self, sid, value, location):
-        storage = self.storages[sid]
+    def emitStoreBits(self, storage, value, location):
         expr = self.emitCompute(value)
         self.nodes.append(Store(expr, storage, location))
 
