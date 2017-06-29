@@ -12,15 +12,15 @@ from retroasm.types import IntType, unlimited
 
 class NodeChecker:
 
-    def assertNode(self, actual, correct):
-        self.assertIsInstance(actual, type(correct))
-        self.assertEqual(actual.expr, correct.expr)
-        self.assertEqual(actual.storage, correct.storage)
+    def assertNode(self, actual, correct, msg=None):
+        self.assertIsInstance(actual, type(correct), msg)
+        self.assertEqual(actual.expr, correct.expr, msg)
+        self.assertEqual(actual.storage, correct.storage, msg)
 
     def assertNodes(self, actual, correct):
         self.assertEqual(len(actual), len(correct))
-        for a, c in zip(actual, correct):
-            self.assertNode(a, c)
+        for i, (a, c) in enumerate(zip(actual, correct)):
+            self.assertNode(a, c, 'node %d of %d' % (i + 1, len(actual)))
 
     def assertIntLiteral(self, expr, value):
         self.assertIsInstance(expr, IntLiteral)
