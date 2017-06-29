@@ -264,80 +264,71 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
         '''
-        constants = self.constants
 
-        # Map old constant IDs to new IDs; don't copy yet.
-        cidMap = dict(
-            (oldCid, newCid)
-            for newCid, oldCid in enumerate(
-                code.constants.keys(), len(constants)
-                )
-            )
-
-        def substCid(expr):
+        loadResults = {}
+        def substExpr(expr):
             if isinstance(expr, ArgumentValue):
                 return namespace[expr.name]
             elif isinstance(expr, ConstantValue):
-                return ConstantValue(cidMap[expr.cid], expr.mask)
+                const = code.constants[expr.cid]
+                if isinstance(const, ComputedConstant):
+                    return self.emitCompute(importExpr(const.expr))
+                elif isinstance(const, LoadedConstant):
+                    return loadResults[const.cid]
+                else:
+                    assert False, const
             else:
                 return None
+        def importExpr(expr):
+            return expr.substitute(substExpr)
 
-        # Copy constants.
-        for cid, const in code.constants.items():
-            assert cid == const.cid, const
-            if isinstance(const, ComputedConstant):
-                constants.append(ComputedConstant(
-                    cidMap[const.cid],
-                    const.expr.substitute(substCid)
-                    ))
-            elif isinstance(const, LoadedConstant):
-                # Will be filled in when Load node is copied.
-                constants.append(None)
-            else:
-                assert False, const
-
-        # For each old storage, create a corresponding storage in this block.
-        refMap = {}
-        def inlineStorage(storage):
-            ref = refMap.get(storage)
+        storageCache = {}
+        def importStorage(storage):
+            '''Returns a reference to an imported version of the given storage.
+            '''
+            ref = storageCache.get(storage)
             if ref is not None:
                 return ref
+
             if isinstance(storage, RefArgStorage):
                 ref = namespace[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
                 if isinstance(storage, IOStorage):
-                    newStorage = IOStorage(
-                        storage.channel,
-                        storage.index.substitute(substCid)
-                        )
+                    newIndex = importExpr(storage.index)
+                    newStorage = IOStorage(storage.channel, newIndex)
                 elif isinstance(storage, Variable) and storage.scope == 1 \
                         and storage.name == 'ret':
                     newStorage = Variable('inlined_ret', storage.type, 1)
                 else:
                     # Shallow copy because storages are immutable.
                     newStorage = storage
-                # Note: It doesn't matter if the original reference for this
-                #       storage was signed, since the sign extension will
+                # Note: It doesn't matter whether the original reference for
+                #       this storage was signed, since the sign extension will
                 #       have been copied as part of a ComputedConstant.
-                #       We are copying the _emitLoadBits() output here,
-                #       not the emitLoad() output.
-                ref = SingleReference(
-                    self, newStorage, IntType.u(newStorage.width)
-                    )
-            refMap[storage] = ref
+                #       We are copying the _emitLoadBits() output here, not the
+                #       emitLoad() output.
+                typ = IntType.u(newStorage.width)
+                ref = SingleReference(self, newStorage, typ)
+
+            storageCache[storage] = ref
             return ref
 
         # Copy nodes.
         for node in code.nodes:
-            ref = inlineStorage(node.storage)
+            expr = node.expr
+            ref = importStorage(node.storage)
             if isinstance(node, Load):
+                assert isinstance(expr, ConstantValue), expr
+                cid = expr.cid
+                const = code.constants[cid]
+                assert isinstance(const, LoadedConstant), const
+                assert const.storage == node.storage, (node, const)
                 value = ref.emitLoad(node.location)
-                newCid = cidMap[node.expr.cid]
-                constants[newCid] = ComputedConstant(newCid, value)
+                loadResults[cid] = value
             elif isinstance(node, Store):
-                value = node.expr.substitute(substCid)
-                ref.emitStore(value, node.location)
+                newExpr = importExpr(expr)
+                ref.emitStore(newExpr, node.location)
             else:
                 assert False, node
 
@@ -347,6 +338,12 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             return None
         else:
             return retRef.clone(
-                lambda ref: inlineStorage(ref.storage),
-                lambda ref: FixedValue(self, cidMap[ref.cid], ref.type)
+                lambda ref: importStorage(ref.storage),
+                lambda ref: FixedValue(
+                    self,
+                    self.emitCompute(
+                        ConstantValue(ref.cid, maskForWidth(ref.width))
+                        ),
+                    ref.type
+                    )
                 )
