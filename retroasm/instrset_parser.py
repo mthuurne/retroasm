@@ -490,9 +490,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
 
 def _decomposeReference(ref):
     if isinstance(ref, FixedValue):
-        const = ref.const
-        assert isinstance(const, ComputedConstant), const
-        yield const.expr, 0, 0, ref.width
+        yield ref.expr, 0, 0, ref.width
     elif isinstance(ref, ConcatenatedReference):
         offset = 0
         for subRef in ref:
@@ -521,7 +519,7 @@ def _decomposeReference(ref):
         #       builder would trigger an error when loading from it.
         assert False, ref
 
-def _decomposeEncodingExprs(encElems, reader):
+def _decomposeEncodingExprs(encElems, encBuilder, reader):
     fixedMatcher = []
     decodeMap = defaultdict(list)
     for encIdx, encElem in enumerate(encElems):
@@ -531,6 +529,7 @@ def _decomposeEncodingExprs(encElems, reader):
         fixedValue = 0
         try:
             for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
+                expr = inlineConstants(expr, encBuilder.constants)
                 if isinstance(expr, Immediate):
                     decodeMap[expr.name].append(
                         (immIdx, encIdx, refIdx, width)
@@ -646,7 +645,9 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     try:
         with reader.checkErrors():
             # Decompose the encoding expressions.
-            fixedMatcher, decodeMap = _decomposeEncodingExprs(encoding, reader)
+            fixedMatcher, decodeMap = _decomposeEncodingExprs(
+                encoding, encBuilder, reader
+                )
         with reader.checkErrors():
             # Create a mapping to extract immediate values from encoded items.
             sequentialMap = dict(_combinePlaceholderEncodings(
@@ -843,7 +844,7 @@ def _parseModeEntries(
                             #       defining references in the context, the
                             #       parse code rejects "<type>&".
                             assert isinstance(ref, FixedValue), ref
-                            expr = ref.const.expr
+                            expr = ref.expr
                             value = _replaceProgramCounter(
                                 inlineConstants(expr, ctxBuilder.constants),
                                 ctxBuilder

@@ -66,7 +66,7 @@ class CodeBlockBuilder:
         Returns a FixedValue reference to the constant value.
         '''
         const = self.emitCompute(expr)
-        return FixedValue(self, const.cid, typ)
+        return FixedValue(const, typ)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -191,12 +191,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             assert code.retRef is None, code.retRef
             # Note that at this point, the code block still uses the exact same
             # SIDs and CIDs as we do, so we only have to replace the block
-            # objects with in SingleReferences and FixedValues.
+            # objects within SingleReferences.
             code.retRef = self.namespace['ret'].clone(
                 lambda ref, code=code:
                     SingleReference(code, ref.storage, ref.type),
-                lambda ref, code=code:
-                    FixedValue(code, ref.cid, ref.type)
+                lambda ref: ref
                 )
 
         # Finalize code block.
@@ -339,11 +338,5 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         else:
             return retRef.clone(
                 lambda ref: importStorage(ref.storage),
-                lambda ref: FixedValue(
-                    self,
-                    self.emitCompute(
-                        ConstantValue(ref.cid, maskForWidth(ref.width))
-                        ),
-                    ref.type
-                    )
+                lambda ref: FixedValue(importExpr(ref.expr), ref.type)
                 )

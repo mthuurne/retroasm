@@ -232,24 +232,19 @@ class Reference:
 class FixedValue(Reference):
     '''A reference that always reads as the same value and ignores writes.
     '''
-    __slots__ = ('_block', '_cid', '_expr')
+    __slots__ = ('_expr',)
 
-    cid = property(lambda self: self._cid)
-    const = property(lambda self: self._block.constants[self._cid])
+    expr = property(lambda self: self._expr)
 
-    def __init__(self, block, cid, typ):
+    def __init__(self, expr, typ):
         Reference.__init__(self, typ)
-        self._block = block
-        self._cid = checkType(cid, int, 'constant ID')
-        self._expr = None
+        self._expr = Expression.checkScalar(expr)
 
     def __repr__(self):
-        return 'FixedValue(%r, %d, %r)' % (
-            self._block, self._cid, self._type
-            )
+        return 'FixedValue(%r, %r)' % (self._expr, self._type)
 
     def __str__(self):
-        return str(self.const)
+        return str(self._expr)
 
     def iterStorages(self):
         return iter(())
@@ -258,11 +253,7 @@ class FixedValue(Reference):
         return fixedValueCloner(self)
 
     def _emitLoadBits(self, location):
-        expr = self._expr
-        if expr is None:
-            expr = ConstantValue(self._cid, maskForWidth(self.width))
-            self._expr = expr
-        return expr
+        return self._expr
 
     def _emitStoreBits(self, value, location):
         pass
