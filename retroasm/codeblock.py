@@ -5,7 +5,7 @@ from .expression import (
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Storage, Variable
 from .types import IntType, maskForWidth, unlimited
-from .utils import checkType
+from .utils import checkType, const_property
 
 from collections import OrderedDict
 
@@ -484,13 +484,11 @@ class CodeBlock:
                 for value in const.expr.iterInstances(ConstantValue):
                     assert value.cid in cids, value
 
-        # Check that the return value cids are valid.
-        retRef = self.retRef
-        if retRef is not None:
-            for storage in retRef.iterStorages():
-                if isinstance(storage, IOStorage):
-                    for value in storage.index.iterInstances(ConstantValue):
-                        assert value.cid in cids, storage
+        # Check that the CIDs in I/O storage indices are valid.
+        for storage in self.storages:
+            if isinstance(storage, IOStorage):
+                for value in storage.index.iterInstances(ConstantValue):
+                    assert value.cid in cids, storage
 
     def dump(self):
         '''Prints this code block on stdout.
@@ -512,3 +510,16 @@ class CodeBlock:
         print('    nodes:')
         for node in self.nodes:
             print('        %s (%s-bit)' % (node, node.storage.width))
+
+    def _gatherStorages(self):
+        '''A set of all storages that are accessed or referenced by this block.
+        '''
+        storages = set()
+        for node in self.nodes:
+            storages.add(node.storage)
+        retRef = self.retRef
+        if retRef is not None:
+            storages.update(retRef.iterStorages())
+        return storages
+
+    storages = const_property(_gatherStorages)

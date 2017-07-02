@@ -10,6 +10,8 @@ from collections import defaultdict
 
 class CodeBlockSimplifier(CodeBlock):
 
+    storages = property(CodeBlock._gatherStorages)
+
     def freeze(self):
         '''Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
@@ -163,19 +165,12 @@ class CodeBlockSimplifier(CodeBlock):
                     # every load needs one, so pretend the constant is in use.
                     for value in node.expr.iterInstances(ConstantValue):
                         cidsInUse.add(value.cid)
-            # Mark constants used in storages.
-            storage = node.storage
+
+        # Mark constants used in storages.
+        for storage in self.storages:
             if isinstance(storage, IOStorage):
                 for value in storage.index.iterInstances(ConstantValue):
                     cidsInUse.add(value.cid)
-
-        # Mark constants used in returned reference.
-        retRef = self.retRef
-        if retRef is not None:
-            for storage in retRef.iterStorages():
-                if isinstance(storage, IOStorage):
-                    for value in storage.index.iterInstances(ConstantValue):
-                        cidsInUse.add(value.cid)
 
         if len(cidsInUse) < len(constants):
             cids = constants.keys()
