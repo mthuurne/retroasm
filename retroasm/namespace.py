@@ -33,6 +33,9 @@ class Namespace:
     def keys(self):
         return self.elements.keys()
 
+    def values(self):
+        return self.elements.values()
+
     def items(self):
         return self.elements.items()
 

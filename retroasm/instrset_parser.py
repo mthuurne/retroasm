@@ -1,6 +1,6 @@
 from .codeblock import (
-    ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
-    LoadedConstant, SlicedReference, inlineConstants
+    ConcatenatedReference, ConstantValue, FixedValue, LoadedConstant,
+    SlicedReference, inlineConstants
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -635,9 +635,9 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     immediates = {
         value.name: value
         for value in (
-            const.expr
-            for const in encBuilder.constants
-            if isinstance(const, ComputedConstant)
+            inlineConstants(ref.expr, encBuilder.constants)
+            for ref in encBuilder.namespace.values()
+            if isinstance(ref, FixedValue)
             )
         if isinstance(value, Immediate)
         }
