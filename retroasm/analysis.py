@@ -1,4 +1,4 @@
-from .codeblock import ArgumentValue, ComputedConstant, ConstantValue, Store
+from .codeblock import ArgumentValue, Store, inlineConstants
 from .storage import IOStorage, Variable
 
 from enum import Enum
@@ -6,18 +6,6 @@ from enum import Enum
 PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
     'code_addr', 'data_addr'
     ))
-
-def inlineConstants(expr, constants):
-    '''Inline all ConstantValues in the given expression.
-    Constant IDs are looked up in the given constants collection.
-    '''
-    def subst(expr):
-        if isinstance(expr, ConstantValue):
-            const = constants[expr.cid]
-            if isinstance(const, ComputedConstant):
-                return const.expr.substitute(subst)
-        return None
-    return expr.substitute(subst)
 
 def iterBranchAddrs(code):
     '''Yields the expressions written to the PC register by the given code

@@ -1,7 +1,6 @@
-from .analysis import inlineConstants
 from .codeblock import (
     ComputedConstant, ConcatenatedReference, ConstantValue, FixedValue,
-    LoadedConstant, SlicedReference
+    LoadedConstant, SlicedReference, inlineConstants
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder

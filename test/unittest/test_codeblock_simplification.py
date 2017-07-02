@@ -1,9 +1,8 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
-from retroasm.analysis import inlineConstants
 from retroasm.codeblock import (
-    ArgumentValue, ComputedConstant, ConstantValue, Load, Store
+    ArgumentValue, ComputedConstant, ConstantValue, Load, Store, inlineConstants
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator

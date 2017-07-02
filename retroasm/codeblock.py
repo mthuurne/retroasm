@@ -9,6 +9,18 @@ from .utils import checkType
 
 from collections import OrderedDict
 
+def inlineConstants(expr, constants):
+    '''Inline all ConstantValues in the given expression.
+    Constant IDs are looked up in the given constants collection.
+    '''
+    def subst(expr):
+        if isinstance(expr, ConstantValue):
+            const = constants[expr.cid]
+            if isinstance(const, ComputedConstant):
+                return const.expr.substitute(subst)
+        return None
+    return expr.substitute(subst)
+
 class Constant:
     '''Definition of a local constant value.
     '''
