@@ -1,5 +1,5 @@
 from .codeblock import (
-    ConcatenatedReference, Load, Reference, SlicedReference, Store
+    ConcatenatedReference, FixedValue, Load, Reference, SlicedReference, Store
     )
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
@@ -90,7 +90,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
                 ex.location
                 )
         declWidth = typ.width
-        ref = builder.emitFixedValue(truncate(expr, declWidth), typ)
+        ref = FixedValue(truncate(expr, declWidth), typ)
     elif kind is DeclarationKind.reference:
         try:
             ref = buildReference(value, builder)
@@ -358,13 +358,13 @@ def _convertReferenceOperator(node, builder):
     else:
         expr = _convertArithmetic(node, builder)
         typ = IntType.u(1) if operator in comparisonOperators else IntType.int
-        return builder.emitFixedValue(expr, typ)
+        return FixedValue(expr, typ)
 
 def buildReference(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
         typ = IntType(node.width, node.width is unlimited)
-        return builder.emitFixedValue(literal, typ)
+        return FixedValue(literal, typ)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):

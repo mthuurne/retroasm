@@ -1,7 +1,7 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
 from retroasm.codeblock import (
-    ConcatenatedReference, Load, SlicedReference, Store
+    ConcatenatedReference, FixedValue, Load, SlicedReference, Store
     )
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
@@ -233,7 +233,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
-        outerL = outer.emitFixedValue(IntLiteral(0xcd), IntType.u(8))
+        outerL = FixedValue(IntLiteral(0xcd), IntType.u(8))
         regH = outer.namespace['h']
         regHL = ConcatenatedReference(outerL, regH)
 
@@ -334,7 +334,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        fixedVal = outer.emitFixedValue(IntLiteral(0xa4), IntType.u(8))
+        fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
         retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
@@ -355,7 +355,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        fixedVal = outer.emitFixedValue(IntLiteral(0xa4), IntType.u(8))
+        fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
         retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)

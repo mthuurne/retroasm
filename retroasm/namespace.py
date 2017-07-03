@@ -124,9 +124,8 @@ class LocalNamespace(Namespace):
         '''Imports the given FixedValue from the parent builder into the
         local namespace. Returns the local reference.
         '''
-        parentBuilder = self.parentBuilder
-        return parentBuilder.emitFixedValue(
-            inlineConstants(parentRef.expr, parentBuilder.constants),
+        return FixedValue(
+            inlineConstants(parentRef.expr, self.parentBuilder.constants),
             parentRef.type
             )
 

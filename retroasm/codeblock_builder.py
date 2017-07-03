@@ -61,11 +61,6 @@ class CodeBlockBuilder:
         storage = IOStorage(channel, truncatedIndex)
         return SingleReference(self, storage, channel.elemType)
 
-    def emitFixedValue(self, expr, typ):
-        '''Returns a FixedValue reference to the given expression.
-        '''
-        return FixedValue(expr, typ)
-
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
         Returns the given value.
