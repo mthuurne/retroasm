@@ -62,11 +62,9 @@ class CodeBlockBuilder:
         return SingleReference(self, storage, channel.elemType)
 
     def emitFixedValue(self, expr, typ):
-        '''Emits a constant representing the result of the given expression.
-        Returns a FixedValue reference to the constant value.
+        '''Returns a FixedValue reference to the given expression.
         '''
-        const = self.emitCompute(expr)
-        return FixedValue(const, typ)
+        return FixedValue(expr, typ)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -271,7 +269,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             elif isinstance(expr, ConstantValue):
                 const = code.constants[expr.cid]
                 if isinstance(const, ComputedConstant):
-                    return self.emitCompute(importExpr(const.expr))
+                    return importExpr(const.expr)
                 elif isinstance(const, LoadedConstant):
                     return loadResults[const.cid]
                 else:

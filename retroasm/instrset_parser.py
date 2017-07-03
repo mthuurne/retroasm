@@ -697,7 +697,7 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
         _rejectNodeClasses(node.lhs, (DefinitionNode, DeclarationNode))
         lhs = buildReference(node.lhs, builder)
         rhs = buildExpression(node.rhs, builder)
-        lhs.emitStore(builder.emitCompute(rhs), node.lhs.treeLocation)
+        lhs.emitStore(rhs, node.lhs.treeLocation)
     elif isinstance(node, EmptyNode):
         pass
     else:
