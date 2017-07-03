@@ -1,5 +1,5 @@
-from .codeblock import ArgumentValue, ComputedConstant
-from .storage import RefArgStorage
+from .codeblock import ArgumentValue, ComputedConstant, Store
+from .storage import IOStorage, RefArgStorage
 from .types import IntType, ReferenceType
 
 class Function:
@@ -68,11 +68,20 @@ class Function:
         arg = self.args[argName]
         if isinstance(arg, IntType):
             # Look for an ArgumentValue with the same name.
-            for const in self.code.constants.values():
-                if isinstance(const, ComputedConstant):
-                    for value in const.expr.iterInstances(ArgumentValue):
-                        if value.name == argName:
-                            return value
+            def iterExprs():
+                for const in self.code.constants.values():
+                    if isinstance(const, ComputedConstant):
+                        yield const.expr
+                for node in self.code.nodes:
+                    if isinstance(node, Store):
+                        yield node.expr
+                for storage in self.code.storages:
+                    if isinstance(storage, IOStorage):
+                        yield storage.index
+            for expr in iterExprs():
+                for value in expr.iterInstances(ArgumentValue):
+                    if value.name == argName:
+                        return value
         elif isinstance(arg, ReferenceType):
             # Look for a RefArgStorage with the same name.
             for storage in self.code.storages:
