@@ -478,6 +478,14 @@ class CodeBlock:
             cidsFromLoadedConstants, cidsFromLoadNodes
             )
 
+        # Check that each loaded constant uses the same storage as the node
+        # that loads it.
+        for node in self.nodes:
+            if isinstance(node, Load):
+                assert isinstance(node.expr, ConstantValue), node.expr
+                cid = node.expr.cid
+                assert self.constants[cid].storage == node.storage
+
         # Check that computed constants use valid subexpressions.
         for const in self.constants.values():
             if isinstance(const, ComputedConstant):
