@@ -286,6 +286,11 @@ def _convertReferenceLookup(node, builder):
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, builder)
+            try:
+                Expression.checkScalar(index)
+            except BadExpression as ex:
+                ex.location = indexNode.treeLocation
+                raise ex
             return builder.emitIOReference(channel, index)
 
     ref = buildReference(exprNode, builder)
