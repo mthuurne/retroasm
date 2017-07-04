@@ -2,7 +2,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.codeblock import (
-    ArgumentValue, ConstantValue, Load, Store, inlineConstants
+    ArgumentValue, ConstantValue, Load, SingleReference, Store, inlineConstants
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
@@ -323,6 +323,19 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retVal, node.expr)
         self.assertEqual(retWidth, 8)
+
+    def test_return_io_index(self):
+        '''Test returning an I/O reference with a simplifiable index.'''
+        addr = AddOperator(IntLiteral(1), IntLiteral(1))
+        memByte = self.builder.addIOStorage('mem', addr)
+        self.builder.addRetReference(memByte)
+
+        code = self.createSimplifiedCode()
+        self.assertIsInstance(code.retRef, SingleReference)
+        self.assertIs(code.retRef.type, IntType.u(8))
+        storage = code.retRef.storage
+        self.assertIsInstance(storage, IOStorage)
+        self.assertIntLiteral(storage.index, 2)
 
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''
