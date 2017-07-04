@@ -2,7 +2,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.codeblock import (
-    ArgumentValue, ComputedConstant, ConstantValue, Load, Store, inlineConstants
+    ArgumentValue, ConstantValue, Load, Store, inlineConstants
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
@@ -279,18 +279,17 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
     def test_return_value(self):
         '''Test whether a return value constant is created correctly.'''
-        refA = self.builder.addRegister('a')
         refV = self.builder.addValueArgument('V')
+        self.assertEqual(len(self.builder.nodes), 1)
+        self.assertIsInstance(self.builder.nodes[0], Store)
+        valueV = simplifyExpression(self.builder.nodes[0].expr)
+
+        refA = self.builder.addRegister('a')
         refRet = self.builder.addVariable('ret')
         loadA = self.builder.emitLoad(refA)
         loadV = self.builder.emitLoad(refV)
         combined = OrOperator(loadA, loadV)
         self.builder.emitStore(refRet, combined)
-
-        self.assertIsInstance(self.builder.constants[0], ComputedConstant)
-        valueV = self.builder.constants[0].expr
-        self.assertIsInstance(valueV, ArgumentValue)
-        self.assertEqual(valueV.name, 'V')
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)

@@ -193,11 +193,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         assert isinstance(decl, IntType), decl
         value = ArgumentValue(name, maskForWidth(decl.width))
 
-        # Add constant.
-        cid = len(self.constants)
-        constant = ComputedConstant(cid, value)
-        self.constants.append(constant)
-
         # Add Variable.
         ref = self.emitVariable(name, decl, location)
 
