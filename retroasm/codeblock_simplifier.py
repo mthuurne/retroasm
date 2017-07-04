@@ -240,40 +240,60 @@ class CodeBlockSimplifier(CodeBlock):
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
         currentValues = {}
+        loadReplacements = {}
+        def substStorage(storage):
+            if isinstance(storage, IOStorage):
+                index = storage.index
+                newIndex = index.substitute(loadReplacements.get)
+                if newIndex is not index:
+                    return IOStorage(storage.channel, newIndex)
+            return storage
         i = 0
         while i < len(nodes):
             node = nodes[i]
-            storage = node.storage
+            expr = node.expr
+            storage = substStorage(node.storage)
             value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
-                    # Re-use earlier loaded value.
-                    cid = node.expr.cid
+                    # Use known value instead of loading it.
+                    cid = expr.cid
                     constants[cid] = ComputedConstant(cid, value)
                     changed = True
+                    loadReplacements[expr] = value
                     if not storage.canLoadHaveSideEffect():
                         del nodes[i]
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValues[storage] = node.expr
+                    currentValues[storage] = expr
             elif isinstance(node, Store):
-                if value is not None and value == node.expr:
-                    # Value is rewritten.
+                expr = expr.substitute(loadReplacements.get)
+                if value == expr:
+                    # Current value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
                         del nodes[i]
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[storage] = node.expr
+                    currentValues[storage] = expr
                 # Remove values for storages that might be aliases.
                 for storage2 in list(currentValues.keys()):
                     if storage != storage2 and storage.mightBeSame(storage2):
                         # However, if the store wouldn't alter the value,
                         # there is no need to remove it.
-                        if currentValues[storage2] != node.expr:
+                        if currentValues[storage2] != expr:
                             del currentValues[storage2]
+            # Replace node if storage or expression got updated.
+            if node.storage is not storage or node.expr is not expr:
+                changed = True
+                nodes[i] = node.clone(storage=storage, expr=expr)
+                if isinstance(node, Load):
+                    # Update storage in LoadedConstant as well.
+                    cid = expr.cid
+                    if isinstance(constants[cid], LoadedConstant):
+                        constants[cid] = LoadedConstant(cid, storage)
             i += 1
 
         # Remove stores for which the value is overwritten before it is loaded.
