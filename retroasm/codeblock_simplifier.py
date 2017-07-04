@@ -1,6 +1,6 @@
 from .codeblock import (
     CodeBlock, ComputedConstant, ConstantValue, Load, LoadedConstant,
-    SingleReference, Store
+    SingleReference, Store, inlineConstants
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Variable
@@ -25,6 +25,7 @@ class CodeBlockSimplifier(CodeBlock):
             changed = False
             changed |= self.inlineConstants()
             changed |= self.simplifyConstants()
+            changed |= self.simplifyExpressions()
             changed |= self.removeRedundantNodes()
             if not changed:
                 break
@@ -183,8 +184,7 @@ class CodeBlockSimplifier(CodeBlock):
                     # Remove both constant and its Load node.
                     del constants[cid]
                     for i, node in enumerate(self.nodes):
-                        if node.expr.cid == cid:
-                            assert isinstance(node, Load), node
+                        if isinstance(node, Load) and node.expr.cid == cid:
                             del self.nodes[i]
                             break
                     else:
@@ -195,6 +195,42 @@ class CodeBlockSimplifier(CodeBlock):
         else:
             assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
+
+    def simplifyExpressions(self):
+        changed = False
+        nodes = self.nodes
+
+        for i, node in enumerate(nodes):
+            # Simplify stored expressions.
+            if isinstance(node, Store):
+                expr = node.expr
+                newExpr = simplifyExpression(
+                    inlineConstants(expr, self.constants)
+                    )
+                if newExpr is not expr:
+                    changed = True
+                    nodes[i] = node.clone(expr=newExpr)
+
+            # Simplify I/O indices.
+            storage = node.storage
+            if isinstance(storage, IOStorage):
+                index = storage.index
+                newIndex = simplifyExpression(
+                    inlineConstants(index, self.constants)
+                    )
+                if newIndex is not index:
+                    changed = True
+                    newStorage = IOStorage(storage.channel, newIndex)
+                    nodes[i] = node.clone(storage=newStorage)
+                    if isinstance(node, Load):
+                        assert isinstance(node.expr, ConstantValue), node.expr
+                        cid = node.expr.cid
+                        const = self.constants[cid]
+                        assert isinstance(const, LoadedConstant), const
+                        assert const.storage == storage
+                        self.constants[cid] = LoadedConstant(cid, newStorage)
+
+        return changed
 
     def removeRedundantNodes(self):
         changed = False

@@ -413,7 +413,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                 continue
 
             try:
-                rhs = builder.emitCompute(buildExpression(node.rhs, builder))
+                rhs = buildExpression(node.rhs, builder)
             except BadExpression as ex:
                 reader.error(
                     'bad expression on right hand side of assignment: %s', ex,

@@ -86,7 +86,7 @@ class AccessNode(Node):
     location = property(lambda self: self._location)
 
     def __init__(self, expr, storage, location=None):
-        self._expr = checkType(expr, ConstantValue, 'expression')
+        self._expr = Expression.checkScalar(expr)
         self._storage = checkType(storage, Storage, 'storage')
         self._location = location
 

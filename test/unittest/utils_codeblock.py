@@ -45,12 +45,13 @@ class NodeChecker:
 
     def assertRetVal(self, code, value):
         expr, width = self.getRetVal(code)
-        self.assertIsInstance(expr, ConstantValue)
-        constant = code.constants[expr.cid]
-        self.assertIsInstance(constant, ComputedConstant)
-        self.assertIsInstance(constant.expr, IntLiteral)
+        if isinstance(expr, ConstantValue):
+            constant = code.constants[expr.cid]
+            self.assertIsInstance(constant, ComputedConstant)
+            expr = constant.expr
+        self.assertIsInstance(expr, IntLiteral)
         mask = -1 if width is unlimited else ((1 << width) - 1)
-        self.assertEqual(constant.expr.value & mask, value)
+        self.assertEqual(expr.value & mask, value)
 
 class TestCodeBlockBuilder(LocalCodeBlockBuilder):
 

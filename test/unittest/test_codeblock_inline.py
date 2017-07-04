@@ -401,7 +401,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertIsNotNone(innerCode.retRef)
 
         outer = TestCodeBlockBuilder()
-        addr = outer.emitCompute(IntLiteral(0x4002))
+        addr = IntLiteral(0x4002)
         retRef = outer.inlineBlock(innerCode, {'A': addr})
         outerRet = outer.addVariable('ret')
         retVal = outer.emitLoad(retRef)

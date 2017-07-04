@@ -229,8 +229,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return expr
 
     def emitStoreBits(self, storage, value, location):
-        expr = self.emitCompute(value)
-        self.nodes.append(Store(expr, storage, location))
+        self.nodes.append(Store(value, storage, location))
 
     def inlineFunctionCall(self, func, argMap, location):
         code = func.code

@@ -5,7 +5,9 @@ from retroasm.codeblock import (
     ArgumentValue, ComputedConstant, ConstantValue, Load, Store, inlineConstants
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
-from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator
+from retroasm.expression import (
+    AddOperator, AndOperator, IntLiteral, OrOperator, truncate
+    )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.storage import IOStorage
 from retroasm.types import IntType
@@ -51,12 +53,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         code = self.createSimplifiedCode()
         checkNodes(code)
 
-    def test_duplicate_const(self):
-        '''Test whether duplicate constants are removed.'''
-        const1 = self.builder.emitCompute(IntLiteral(2))
-        const2 = self.builder.emitCompute(
-            AddOperator(IntLiteral(1), IntLiteral(1))
-            )
+    def test_stored_expression(self):
+        '''Test whether stored expressions are simplified.'''
+        const1 = IntLiteral(2)
+        const2 = AddOperator(IntLiteral(1), IntLiteral(1))
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         self.builder.emitStore(refA, const1)
@@ -67,10 +67,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             Store(const1, refB.storage),
             )
 
-        code = CodeBlockSimplifier(self.builder.constants, self.builder.nodes)
-        code.verify()
-        code.simplifyConstants()
-        code.verify()
+        code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
     def test_duplicate_iostorage(self):
@@ -93,12 +90,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             Store(loadM1, refM4.storage),
             )
 
-        code = CodeBlockSimplifier(self.builder.constants, self.builder.nodes)
-        code.verify()
-        # Constants must be deduplicated to detect duplicate I/O indices.
-        while code.simplifyConstants():
-            pass
-        code.verify()
+        code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
     def test_unused_load(self):
@@ -119,7 +111,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
-        addr = self.builder.emitCompute(IntLiteral(0xD0D0))
+        addr = IntLiteral(0xD0D0)
         refM = self.builder.addIOStorage('mem', addr)
         loadM = self.builder.emitLoad(refM)
 
@@ -213,7 +205,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
-        const = self.builder.emitCompute(IntLiteral(23))
+        const = IntLiteral(23)
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         refC = self.builder.addRegister('c')
@@ -224,20 +216,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        code = self.createSimplifiedCode()
-        constSimp, = (
-            const
-            for const in code.constants.values()
-            if isinstance(const, ComputedConstant)
-                and isinstance(const.expr, IntLiteral)
-            )
         correct = (
             Load(loadA1, refA.storage),
-            Store(ConstantValue(constSimp.cid, const.mask), refX.storage),
+            Store(const, refX.storage),
             Load(loadA2, refA.storage),
             Store(loadA1, refB.storage),
             Store(loadA2, refC.storage),
             )
+
+        code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
     def test_same_value_redundant_load(self):
@@ -412,7 +399,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refD = self.builder.addReferenceArgument('D')
         refS = self.builder.addRegister('s')
         loadS1 = self.builder.emitLoad(refS)
-        incS = self.builder.emitCompute(AddOperator(loadS1, IntLiteral(1)))
+        incS = AddOperator(loadS1, IntLiteral(1))
         self.builder.emitStore(refS, incS)
         const1 = self.builder.emitCompute(IntLiteral(1))
         loadS2 = self.builder.emitLoad(refS)
@@ -421,12 +408,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refD, loadM)
 
         code = self.createSimplifiedCode()
-        constSimp, = (
-            const
-            for const in code.constants.values()
-            if isinstance(const, ComputedConstant)
-                and isinstance(const.expr, AndOperator)
-            )
         ioStorage, = (
             node.storage
             for node in code.nodes
@@ -434,7 +415,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
         correct = (
             Load(loadS1, refS.storage),
-            Store(ConstantValue(constSimp.cid, 0xFF), refS.storage),
+            Store(truncate(incS, 8), refS.storage),
             Load(loadM, ioStorage),
             Store(loadM, refD.storage),
             )
