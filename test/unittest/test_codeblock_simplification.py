@@ -97,9 +97,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test whether unused loads are removed.'''
         refA = self.builder.addRegister('a')
         loadA = self.builder.emitLoad(refA)
-        andA = self.builder.emitCompute(
-            AndOperator(loadA, IntLiteral(0))
-            )
+        andA = AndOperator(loadA, IntLiteral(0))
         self.builder.emitStore(refA, andA)
 
         code = self.createSimplifiedCode()
@@ -146,7 +144,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refB = self.builder.addRegister('b')
         loadA1 = self.builder.emitLoad(refA)
-        incA = self.builder.emitCompute(AddOperator(loadA1, IntLiteral(1)))
+        incA = AddOperator(loadA1, IntLiteral(1))
         self.builder.emitStore(refA, incA)
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
@@ -251,7 +249,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         refV = self.builder.addValueArgument('V')
         loadV = self.builder.emitLoad(refV)
-        incV = self.builder.emitCompute(AddOperator(loadV, IntLiteral(1)))
+        incV = AddOperator(loadV, IntLiteral(1))
         self.builder.emitStore(refV, incV)
         self.builder.emitStore(refA, incV)
 
@@ -286,7 +284,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refRet = self.builder.addVariable('ret')
         loadA = self.builder.emitLoad(refA)
         loadV = self.builder.emitLoad(refV)
-        combined = self.builder.emitCompute(OrOperator(loadA, loadV))
+        combined = OrOperator(loadA, loadV)
         self.builder.emitStore(refRet, combined)
 
         self.assertIsInstance(self.builder.constants[0], ComputedConstant)
@@ -311,7 +309,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_return_value_renumber(self):
         '''Test a simplification that must replace the return value cid.'''
         refA = self.builder.addRegister('a')
-        const = self.builder.emitCompute(IntLiteral(23))
+        const = IntLiteral(23)
         self.builder.emitStore(refA, const)
         loadA = self.builder.emitLoad(refA)
         outerRet = self.builder.addVariable('ret')
@@ -332,10 +330,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.builder.addRegister('a')
         def emitInc():
             loadA = self.builder.emitLoad(refA)
-            incA = self.builder.emitCompute(AddOperator(loadA, IntLiteral(1)))
+            incA = AddOperator(loadA, IntLiteral(1))
             self.builder.emitStore(refA, incA)
 
-        initA = self.builder.emitCompute(IntLiteral(23))
+        initA = IntLiteral(23)
         self.builder.emitStore(refA, initA)
         emitInc()
         emitInc()
@@ -401,7 +399,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadS1 = self.builder.emitLoad(refS)
         incS = AddOperator(loadS1, IntLiteral(1))
         self.builder.emitStore(refS, incS)
-        const1 = self.builder.emitCompute(IntLiteral(1))
+        const1 = IntLiteral(1)
         loadS2 = self.builder.emitLoad(refS)
         refM = self.builder.addIOStorage('mem', makeConcat(const1, loadS2, 8))
         loadM = self.builder.emitLoad(refM)

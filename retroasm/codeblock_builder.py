@@ -34,18 +34,6 @@ class CodeBlockBuilder:
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
                 print('    ret = %s' % retRef)
 
-    def emitCompute(self, expr):
-        '''Returns a ConstantValue that represents the value computed by the
-        given expression.
-        '''
-        if isinstance(expr, ConstantValue):
-            return expr
-        else:
-            cid = len(self.constants)
-            constant = ComputedConstant(cid, expr)
-            self.constants.append(constant)
-            return ConstantValue(cid, expr.mask)
-
     def _addNamedStorage(self, storage, location):
         ref = SingleReference(self, storage, storage.type)
         self.namespace.define(storage.name, ref, location)
