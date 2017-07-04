@@ -200,6 +200,16 @@ class CodeBlockSimplifier(CodeBlock):
         changed = False
         nodes = self.nodes
 
+        def simplifyStorage(storage):
+            if isinstance(storage, IOStorage):
+                index = storage.index
+                newIndex = simplifyExpression(
+                    inlineConstants(index, self.constants)
+                    )
+                if newIndex is not index:
+                    return IOStorage(storage.channel, newIndex)
+            return storage
+
         for i, node in enumerate(nodes):
             # Simplify stored expressions.
             if isinstance(node, Store):
@@ -213,22 +223,39 @@ class CodeBlockSimplifier(CodeBlock):
 
             # Simplify I/O indices.
             storage = node.storage
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = simplifyExpression(
-                    inlineConstants(index, self.constants)
-                    )
-                if newIndex is not index:
-                    changed = True
-                    newStorage = IOStorage(storage.channel, newIndex)
-                    nodes[i] = node.clone(storage=newStorage)
-                    if isinstance(node, Load):
-                        assert isinstance(node.expr, ConstantValue), node.expr
-                        cid = node.expr.cid
-                        const = self.constants[cid]
-                        assert isinstance(const, LoadedConstant), const
-                        assert const.storage == storage
-                        self.constants[cid] = LoadedConstant(cid, newStorage)
+            newStorage = simplifyStorage(storage)
+            if newStorage is not storage:
+                changed = True
+                nodes[i] = node.clone(storage=newStorage)
+                if isinstance(node, Load):
+                    assert isinstance(node.expr, ConstantValue), node.expr
+                    cid = node.expr.cid
+                    const = self.constants[cid]
+                    assert isinstance(const, LoadedConstant), const
+                    assert const.storage == storage
+                    self.constants[cid] = LoadedConstant(cid, newStorage)
+
+        retRef = self.retRef
+        if retRef is not None:
+            changedList = [False]
+            def simplifySingleRef(ref):
+                storage = simplifyStorage(ref.storage)
+                if storage is ref.storage:
+                    return ref
+                else:
+                    changedList[0] = True
+                    return SingleReference(self, storage, ref.type)
+            def simplifyFixedValue(ref):
+                expr = simplifyExpression(ref.expr)
+                if expr is ref.expr:
+                    return ref
+                else:
+                    changedList[0] = True
+                    return FixedValue(expr, ref.type)
+            retRef = retRef.clone(simplifySingleRef, simplifyFixedValue)
+            if changedList[0]:
+                changed = True
+                self.retRef = retRef
 
         return changed
 
