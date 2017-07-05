@@ -337,6 +337,21 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 2)
 
+    def test_return_redundant_load_index(self):
+        '''Test returning a redundant loaded value.'''
+        refA = self.builder.addRegister('a', IntType.u(16))
+        self.builder.emitStore(refA, IntLiteral(0x4120))
+        loadA = self.builder.emitLoad(refA)
+        memByte = self.builder.addIOStorage('mem', loadA)
+        self.builder.addRetReference(memByte)
+
+        code = self.createSimplifiedCode()
+        self.assertIsInstance(code.retRef, SingleReference)
+        self.assertIs(code.retRef.type, IntType.u(8))
+        storage = code.retRef.storage
+        self.assertIsInstance(storage, IOStorage)
+        self.assertIntLiteral(storage.index, 0x4120)
+
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''
         refA = self.builder.addRegister('a')
