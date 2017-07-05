@@ -1,5 +1,5 @@
 from .codeblock import (
-    ArgumentValue, ComputedConstant, ConstantValue, FixedValue, Load,
+    ArgumentValue, ConstantValue, FixedValue, Load,
     LoadedConstant, Reference, SingleReference, Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
@@ -22,9 +22,7 @@ class CodeBlockBuilder:
         '''
         print('    constants:')
         for const in self.constants:
-            if isinstance(const, ComputedConstant):
-                print('        C%-2d =  %s' % (const.cid, const.expr))
-            elif isinstance(const, LoadedConstant):
+            if isinstance(const, LoadedConstant):
                 print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const
@@ -245,9 +243,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 return namespace[expr.name]
             elif isinstance(expr, ConstantValue):
                 const = code.constants[expr.cid]
-                if isinstance(const, ComputedConstant):
-                    return importExpr(const.expr)
-                elif isinstance(const, LoadedConstant):
+                if isinstance(const, LoadedConstant):
                     return loadResults[const.cid]
                 else:
                     assert False, const
@@ -279,7 +275,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     newStorage = storage
                 # Note: It doesn't matter whether the original reference for
                 #       this storage was signed, since the sign extension will
-                #       have been copied as part of a ComputedConstant.
+                #       be imported as part of an expression.
                 #       We are copying the _emitLoadBits() output here, not the
                 #       emitLoad() output.
                 typ = IntType.u(newStorage.width)

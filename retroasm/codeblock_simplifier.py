@@ -1,6 +1,5 @@
 from .codeblock import (
-    CodeBlock, ComputedConstant, ConstantValue, Load, LoadedConstant,
-    SingleReference, Store, inlineConstants
+    CodeBlock, ConstantValue, Load, LoadedConstant, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Variable
@@ -23,124 +22,12 @@ class CodeBlockSimplifier(CodeBlock):
         '''
         while True:
             changed = False
-            changed |= self.inlineConstants()
-            changed |= self.simplifyConstants()
             changed |= self.simplifyExpressions()
             changed |= self.removeRedundantNodes()
+            changed |= self.removeUnusedConstants()
             if not changed:
                 break
         assert self.verify() is None
-
-    def inlineConstants(self):
-        '''Replace each ConstantValue that contains the constant ID of
-        a ComputedConstant by the expression of that constant.
-        '''
-        changed = False
-        constants = self.constants
-
-        def substConstExpr(expr):
-            if isinstance(expr, ConstantValue):
-                const = constants[expr.cid]
-                if isinstance(const, ComputedConstant):
-                    return const.expr
-            return None
-        for cid in list(constants.keys()):
-            const = constants[cid]
-            if isinstance(const, ComputedConstant):
-                newExpr = const.expr.substitute(substConstExpr)
-                if newExpr is not const.expr:
-                    constants[cid] = ComputedConstant(cid, newExpr)
-
-        while self.removeUnusedConstants():
-            changed = True
-        return changed
-
-    def simplifyConstants(self):
-        changed = False
-        constants = self.constants
-
-        for cid in list(constants.keys()):
-            const = constants[cid]
-            if isinstance(const, ComputedConstant):
-                expr = simplifyExpression(const.expr)
-                if isinstance(expr, ConstantValue):
-                    # This constant is equal to another constant.
-                    self.replaceConstant(cid, expr.cid)
-                    changed = True
-                elif expr is not const.expr:
-                    # Wrap the simplified expression into a new constant
-                    # with the same cid.
-                    constants[cid] = ComputedConstant(cid, expr)
-                    changed = True
-
-        constsGrouped = defaultdict(list)
-        for const in constants.values():
-            if isinstance(const, ComputedConstant):
-                constsGrouped[repr(const.expr)].append(const.cid)
-        for similar in constsGrouped.values():
-            # We call them "similar" and check equality to be on the safe side,
-            # but in practice they're identical.
-            i = len(similar) - 1
-            while i > 0:
-                # The first equal constant is the replacement for the others.
-                icid = similar[i]
-                iexpr = constants[icid].expr
-                j = 0
-                while True:
-                    jcid = similar[j]
-                    if constants[jcid].expr == iexpr:
-                        self.replaceConstant(icid, jcid)
-                        changed = True
-                        break
-                    j += 1
-                    if j >= i:
-                        break
-                i -= 1
-
-        while self.removeUnusedConstants():
-            changed = True
-        return changed
-
-    def replaceConstant(self, oldCid, newCid):
-        assert oldCid != newCid, newCid
-        constants = self.constants
-        del constants[oldCid]
-
-        def substCid(sexpr):
-            if isinstance(sexpr, ConstantValue) and sexpr.cid == oldCid:
-                return ConstantValue(newCid, sexpr.mask)
-            else:
-                return None
-        def substStorage(storage):
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = index.substitute(substCid)
-                if newIndex is not index:
-                    return IOStorage(storage.channel, newIndex)
-            return storage
-
-        # Replace constant in other constants' expressions.
-        for cid in list(constants.keys()):
-            const = constants[cid]
-            if isinstance(const, ComputedConstant):
-                newExpr = const.expr.substitute(substCid)
-                if newExpr is not const.expr:
-                    constants[cid] = ComputedConstant(cid, newExpr)
-            elif isinstance(const, LoadedConstant):
-                storage = const.storage
-                newStorage = substStorage(storage)
-                if newStorage is not storage:
-                    constants[cid] = LoadedConstant(cid, newStorage)
-
-        # Replace constant in nodes.
-        nodes = self.nodes
-        for i, node in enumerate(nodes):
-            expr = node.expr
-            newExpr = expr.substitute(substCid)
-            storage = node.storage
-            newStorage = substStorage(storage)
-            if newExpr is not expr or newStorage is not storage:
-                nodes[i] = node.clone(expr=newExpr, storage=newStorage)
 
     def removeUnusedConstants(self):
         '''Finds constants that are not used and removes them.
@@ -149,11 +36,6 @@ class CodeBlockSimplifier(CodeBlock):
         constants = self.constants
         cidsInUse = set()
 
-        # Mark constants used in computations.
-        for const in constants.values():
-            if isinstance(const, ComputedConstant):
-                for value in const.expr.iterInstances(ConstantValue):
-                    cidsInUse.add(value.cid)
         # Mark constants used in stores and in loads with side effects.
         for node in self.nodes:
             if isinstance(node, Store):
@@ -178,9 +60,7 @@ class CodeBlockSimplifier(CodeBlock):
             assert cidsInUse.issubset(cids), cidsInUse
             for cid in cids - cidsInUse:
                 const = constants[cid]
-                if isinstance(const, ComputedConstant):
-                    del constants[cid]
-                elif isinstance(const, LoadedConstant):
+                if isinstance(const, LoadedConstant):
                     # Remove both constant and its Load node.
                     del constants[cid]
                     for i, node in enumerate(self.nodes):
@@ -229,9 +109,7 @@ class CodeBlockSimplifier(CodeBlock):
         def simplifyStorage(storage):
             if isinstance(storage, IOStorage):
                 index = storage.index
-                newIndex = simplifyExpression(
-                    inlineConstants(index, self.constants)
-                    )
+                newIndex = simplifyExpression(index)
                 if newIndex is not index:
                     return IOStorage(storage.channel, newIndex)
             return storage
@@ -240,9 +118,7 @@ class CodeBlockSimplifier(CodeBlock):
             # Simplify stored expressions.
             if isinstance(node, Store):
                 expr = node.expr
-                newExpr = simplifyExpression(
-                    inlineConstants(expr, self.constants)
-                    )
+                newExpr = simplifyExpression(expr)
                 if newExpr is not expr:
                     changed = True
                     nodes[i] = node.clone(expr=newExpr)
@@ -299,12 +175,11 @@ class CodeBlockSimplifier(CodeBlock):
             if isinstance(node, Load):
                 if value is not None:
                     # Use known value instead of loading it.
-                    cid = expr.cid
-                    constants[cid] = ComputedConstant(cid, value)
-                    changed = True
                     loadReplacements[expr] = value
                     if not storage.canLoadHaveSideEffect():
+                        changed = True
                         del nodes[i]
+                        del constants[expr.cid]
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.

@@ -1,6 +1,6 @@
 from .codeblock import (
     ConcatenatedReference, ConstantValue, FixedValue, LoadedConstant,
-    SlicedReference, inlineConstants
+    SlicedReference
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -519,7 +519,7 @@ def _decomposeReference(ref):
         #       builder would trigger an error when loading from it.
         assert False, ref
 
-def _decomposeEncodingExprs(encElems, encBuilder, reader):
+def _decomposeEncodingExprs(encElems, reader):
     fixedMatcher = []
     decodeMap = defaultdict(list)
     for encIdx, encElem in enumerate(encElems):
@@ -529,7 +529,6 @@ def _decomposeEncodingExprs(encElems, encBuilder, reader):
         fixedValue = 0
         try:
             for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
-                expr = inlineConstants(expr, encBuilder.constants)
                 if isinstance(expr, Immediate):
                     decodeMap[expr.name].append(
                         (immIdx, encIdx, refIdx, width)
@@ -635,7 +634,7 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     immediates = {
         value.name: value
         for value in (
-            inlineConstants(ref.expr, encBuilder.constants)
+            ref.expr
             for ref in encBuilder.namespace.values()
             if isinstance(ref, FixedValue)
             )
@@ -645,9 +644,7 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     try:
         with reader.checkErrors():
             # Decompose the encoding expressions.
-            fixedMatcher, decodeMap = _decomposeEncodingExprs(
-                encoding, encBuilder, reader
-                )
+            fixedMatcher, decodeMap = _decomposeEncodingExprs(encoding, reader)
         with reader.checkErrors():
             # Create a mapping to extract immediate values from encoded items.
             sequentialMap = dict(_combinePlaceholderEncodings(
@@ -845,10 +842,7 @@ def _parseModeEntries(
                             #       parse code rejects "<type>&".
                             assert isinstance(ref, FixedValue), ref
                             expr = ref.expr
-                            value = _replaceProgramCounter(
-                                inlineConstants(expr, ctxBuilder.constants),
-                                ctxBuilder
-                                )
+                            value = _replaceProgramCounter(expr, ctxBuilder)
                         placeholder = ValuePlaceholder(
                             name, spec.semanticsType, value
                             )

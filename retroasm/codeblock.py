@@ -9,18 +9,6 @@ from .utils import checkType, const_property
 
 from collections import OrderedDict
 
-def inlineConstants(expr, constants):
-    '''Inline all ConstantValues in the given expression.
-    Constant IDs are looked up in the given constants collection.
-    '''
-    def subst(expr):
-        if isinstance(expr, ConstantValue):
-            const = constants[expr.cid]
-            if isinstance(const, ComputedConstant):
-                return const.expr.substitute(subst)
-        return None
-    return expr.substitute(subst)
-
 class Constant:
     '''Definition of a local constant value.
     '''
@@ -36,23 +24,6 @@ class Constant:
 
     def __str__(self):
         return 'int C%d' % self._cid
-
-class ComputedConstant(Constant):
-    '''A constant defined by evaluating an expression.
-    '''
-    __slots__ = ('_expr',)
-
-    expr = property(lambda self: self._expr)
-
-    def __init__(self, cid, expr):
-        self._expr = Expression.checkScalar(expr)
-        Constant.__init__(self, cid)
-
-    def __repr__(self):
-        return 'ComputedConstant(%d, %r)' % (self._cid, self._expr)
-
-    def __str__(self):
-        return '%s = %s' % (super().__str__(), self._expr)
 
 class LoadedConstant(Constant):
     '''A constant defined by loading a value from a storage location.
@@ -486,12 +457,6 @@ class CodeBlock:
                 cid = node.expr.cid
                 assert self.constants[cid].storage == node.storage
 
-        # Check that computed constants use valid subexpressions.
-        for const in self.constants.values():
-            if isinstance(const, ComputedConstant):
-                for value in const.expr.iterInstances(ConstantValue):
-                    assert value.cid in cids, value
-
         # Check that the CIDs in I/O storage indices are valid.
         for storage in self.storages:
             if isinstance(storage, IOStorage):
@@ -503,9 +468,7 @@ class CodeBlock:
         '''
         print('    constants:')
         for const in self.constants.values():
-            if isinstance(const, ComputedConstant):
-                print('        C%-2d =  %s' % (const.cid, const.expr))
-            elif isinstance(const, LoadedConstant):
+            if isinstance(const, LoadedConstant):
                 print('        C%-2d <- %s' % (const.cid, const.storage))
             else:
                 assert False, const

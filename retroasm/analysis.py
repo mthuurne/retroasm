@@ -1,4 +1,4 @@
-from .codeblock import ArgumentValue, Store, inlineConstants
+from .codeblock import ArgumentValue, Store
 from .storage import IOStorage, Variable
 
 from enum import Enum
@@ -15,7 +15,7 @@ def iterBranchAddrs(code):
         if isinstance(node, Store):
             storage = node.storage
             if isinstance(storage, Variable) and storage.name == 'pc':
-                yield inlineConstants(node.expr, code.constants)
+                yield node.expr
 
 def determinePlaceholderRoles(semantics, placeholders):
     '''Analyze semantics to figure out the roles of placeholders.
@@ -33,7 +33,7 @@ def determinePlaceholderRoles(semantics, placeholders):
     for node in semantics.nodes:
         storage = node.storage
         if isinstance(storage, IOStorage) and storage.channel.name == 'mem':
-            index = inlineConstants(storage.index, semantics.constants)
+            index = storage.index
             if isinstance(index, ArgumentValue):
                 placeholder = placeholders[index.name]
                 placeholder.addRole(PlaceholderRole.data_addr)

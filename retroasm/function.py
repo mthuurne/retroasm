@@ -1,4 +1,4 @@
-from .codeblock import ArgumentValue, ComputedConstant, Store
+from .codeblock import ArgumentValue, Store
 from .storage import IOStorage, RefArgStorage
 from .types import IntType, ReferenceType
 
@@ -69,9 +69,6 @@ class Function:
         if isinstance(arg, IntType):
             # Look for an ArgumentValue with the same name.
             def iterExprs():
-                for const in self.code.constants.values():
-                    if isinstance(const, ComputedConstant):
-                        yield const.expr
                 for node in self.code.nodes:
                     if isinstance(node, Store):
                         yield node.expr

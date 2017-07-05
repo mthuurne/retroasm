@@ -1,7 +1,4 @@
-from .codeblock import (
-    ComputedConstant, ConstantValue, FixedValue, LoadedConstant, Reference,
-    SingleReference, inlineConstants
-    )
+from .codeblock import FixedValue, LoadedConstant, Reference, SingleReference
 from .function import Function
 from .linereader import BadInput
 from .storage import IOChannel
@@ -124,10 +121,7 @@ class LocalNamespace(Namespace):
         '''Imports the given FixedValue from the parent builder into the
         local namespace. Returns the local reference.
         '''
-        return FixedValue(
-            inlineConstants(parentRef.expr, self.parentBuilder.constants),
-            parentRef.type
-            )
+        return FixedValue(parentRef.expr, parentRef.type)
 
     def _checkName(self, name, location):
         if name == 'pc':
