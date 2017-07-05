@@ -196,6 +196,32 @@ class CodeBlockSimplifier(CodeBlock):
             assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
 
+    def updateRetRef(self, singleRefUpdater, fixedValueUpdater):
+        '''Updates the returned reference, if any.
+        The updater arguments should be functions that, given a reference of
+        the respective type, return a simplified version, or the same reference
+        if no simplification was possible.
+        Returns True iff the returned reference was updated.
+        '''
+        retRef = self.retRef
+        if retRef is None:
+            return False
+
+        def checkChange(ref, func):
+            newRef = func(ref)
+            if newRef is not ref:
+                changed[0] = True
+            return newRef
+
+        changed = [False]
+        retRef = retRef.clone(
+            lambda ref, func=singleRefUpdater: checkChange(ref, func),
+            lambda ref, func=fixedValueUpdater: checkChange(ref, func)
+            )
+        if changed[0]:
+            self.retRef = retRef
+        return changed[0]
+
     def simplifyExpressions(self):
         changed = False
         nodes = self.nodes
@@ -235,27 +261,16 @@ class CodeBlockSimplifier(CodeBlock):
                     assert const.storage == storage
                     self.constants[cid] = LoadedConstant(cid, newStorage)
 
-        retRef = self.retRef
-        if retRef is not None:
-            changedList = [False]
-            def simplifySingleRef(ref):
-                storage = simplifyStorage(ref.storage)
-                if storage is ref.storage:
-                    return ref
-                else:
-                    changedList[0] = True
-                    return SingleReference(self, storage, ref.type)
-            def simplifyFixedValue(ref):
-                expr = simplifyExpression(ref.expr)
-                if expr is ref.expr:
-                    return ref
-                else:
-                    changedList[0] = True
-                    return FixedValue(expr, ref.type)
-            retRef = retRef.clone(simplifySingleRef, simplifyFixedValue)
-            if changedList[0]:
-                changed = True
-                self.retRef = retRef
+        # Update returned reference.
+        def simplifySingleRef(ref):
+            storage = simplifyStorage(ref.storage)
+            return ref if storage is ref.storage else SingleReference(
+                self, storage, ref.type
+                )
+        def simplifyFixedValue(ref):
+            expr = simplifyExpression(ref.expr)
+            return ref if expr is ref.expr else FixedValue(expr, ref.type)
+        changed |= self.updateRetRef(simplifySingleRef, simplifyFixedValue)
 
         return changed
 
