@@ -338,6 +338,17 @@ class CodeBlockSimplifier(CodeBlock):
                         constants[cid] = LoadedConstant(cid, storage)
             i += 1
 
+        # Update returned reference.
+        def replaceSingleRef(ref):
+            storage = substStorage(ref.storage)
+            return ref if storage is ref.storage else SingleReference(
+                self, storage, ref.type
+                )
+        def replaceFixedValue(ref):
+            expr = ref.expr.substitute(loadReplacements.get)
+            return ref if expr is ref.expr else FixedValue(expr, ref.type)
+        changed |= self.updateRetRef(replaceSingleRef, replaceFixedValue)
+
         # Remove stores for which the value is overwritten before it is loaded.
         # Variable loads were already eliminated by the code above and since
         # variables cease to exist at the end of a block, all variable stores
