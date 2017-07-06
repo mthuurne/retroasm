@@ -114,21 +114,21 @@ class CodeBlockSimplifier(CodeBlock):
                     return IOStorage(storage.channel, newIndex)
             return storage
 
-        for i, node in enumerate(nodes):
+        for node in nodes:
             # Simplify stored expressions.
             if isinstance(node, Store):
                 expr = node.expr
                 newExpr = simplifyExpression(expr)
                 if newExpr is not expr:
                     changed = True
-                    nodes[i] = node.clone(expr=newExpr)
+                    node.expr = newExpr
 
             # Simplify I/O indices.
             storage = node.storage
             newStorage = simplifyStorage(storage)
             if newStorage is not storage:
                 changed = True
-                nodes[i] = node.clone(storage=newStorage)
+                node.storage = newStorage
                 if isinstance(node, Load):
                     assert isinstance(node.expr, ConstantValue), node.expr
                     cid = node.expr.cid
@@ -205,7 +205,8 @@ class CodeBlockSimplifier(CodeBlock):
             # Replace node if storage or expression got updated.
             if node.storage is not storage or node.expr is not expr:
                 changed = True
-                nodes[i] = node.clone(storage=storage, expr=expr)
+                node.storage = storage
+                node.expr = expr
                 if isinstance(node, Load):
                     # Update storage in LoadedConstant as well.
                     cid = expr.cid

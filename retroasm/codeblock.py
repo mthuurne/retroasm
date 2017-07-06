@@ -66,16 +66,18 @@ class AccessNode(Node):
             self.__class__.__name__, self._expr, self._storage, self._location
             )
 
-    def clone(self, expr=None, storage=None):
-        '''Create a clone of this node, with optionally a different expression
-        or SID. Since nodes are immutable, there is really no point in cloning
-        unless the expression or SID is overridden, but it is allowed.
+    @expr.setter
+    def expr(self, expr):
+        self._expr = Expression.checkScalar(expr)
+
+    @storage.setter
+    def storage(self, storage):
+        self._storage = checkType(storage, Storage, 'storage')
+
+    def clone(self):
+        '''Create a clone of this node.
         '''
-        if expr is None:
-            expr = self._expr
-        if storage is None:
-            storage = self._storage
-        return self.__class__(expr, storage, self._location)
+        return self.__class__(self._expr, self._storage, self._location)
 
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
@@ -413,7 +415,7 @@ class CodeBlock:
                 raise ValueError('duplicate constant ID: %d' % cid)
             constantsDict[cid] = const
         self.constants = constantsDict
-        self.nodes = list(nodes)
+        self.nodes = [node.clone() for node in nodes]
         self.retRef = None
         assert self.verify() is None
 
