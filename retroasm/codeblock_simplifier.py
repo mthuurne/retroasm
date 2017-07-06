@@ -9,6 +9,7 @@ from collections import defaultdict
 
 class CodeBlockSimplifier(CodeBlock):
 
+    expressions = property(CodeBlock._gatherExpressions)
     storages = property(CodeBlock._gatherStorages)
 
     def freeze(self):

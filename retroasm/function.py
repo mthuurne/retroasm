@@ -68,14 +68,7 @@ class Function:
         arg = self.args[argName]
         if isinstance(arg, IntType):
             # Look for an ArgumentValue with the same name.
-            def iterExprs():
-                for node in self.code.nodes:
-                    if isinstance(node, Store):
-                        yield node.expr
-                for storage in self.code.storages:
-                    if isinstance(storage, IOStorage):
-                        yield storage.index
-            for expr in iterExprs():
+            for expr in self.code.expressions:
                 for value in expr.iterInstances(ArgumentValue):
                     if value.name == argName:
                         return value

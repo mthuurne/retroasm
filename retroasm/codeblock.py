@@ -155,6 +155,11 @@ class Reference:
     def __init__(self, typ):
         self._type = checkType(typ, IntType, 'value type')
 
+    def iterExpressions(self):
+        '''Iterates through the expressions contained in this reference.
+        '''
+        raise NotImplementedError
+
     def iterStorages(self):
         '''Iterates through the storages accessed through this reference.
         '''
@@ -219,6 +224,9 @@ class FixedValue(Reference):
     def __str__(self):
         return str(self._expr)
 
+    def iterExpressions(self):
+        yield self._expr
+
     def iterStorages(self):
         return iter(())
 
@@ -248,6 +256,11 @@ class SingleReference(Reference):
 
     def __str__(self):
         return str(self._storage)
+
+    def iterExpressions(self):
+        storage = self._storage
+        if isinstance(storage, IOStorage):
+            yield storage.index
 
     def iterStorages(self):
         yield self._storage
@@ -291,6 +304,10 @@ class ConcatenatedReference(Reference):
 
     def __iter__(self):
         return iter(self._refs)
+
+    def iterExpressions(self):
+        for ref in self._refs:
+            yield from ref.iterExpressions()
 
     def iterStorages(self):
         for ref in self._refs:
@@ -368,6 +385,9 @@ class SlicedReference(Reference):
             else:
                 end = AddOperator(offset, IntLiteral(width))
             return '%s[%s:%s]' % (self._ref, offset, end)
+
+    def iterExpressions(self):
+        return self._ref.iterExpressions()
 
     def iterStorages(self):
         return self._ref.iterStorages()
@@ -483,6 +503,25 @@ class CodeBlock:
         print('    nodes:')
         for node in self.nodes:
             print('        %s (%s-bit)' % (node, node.storage.width))
+
+    def _gatherExpressions(self):
+        '''A set of all expressions that are contained in this block.
+        Only top-level expressions are included, not all subexpressions of
+        those top-level expressions.
+        '''
+        expressions = set()
+        for node in self.nodes:
+            if isinstance(node, Store):
+                expressions.add(node.expr)
+            storage = node.storage
+            if isinstance(storage, IOStorage):
+                expressions.add(storage.index)
+        retRef = self.retRef
+        if retRef is not None:
+            expressions.update(retRef.iterExpressions())
+        return expressions
+
+    expressions = const_property(_gatherExpressions)
 
     def _gatherStorages(self):
         '''A set of all storages that are accessed or referenced by this block.
