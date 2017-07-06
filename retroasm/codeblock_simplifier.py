@@ -155,9 +155,9 @@ class CodeBlockSimplifier(CodeBlock):
         constants = self.constants
         nodes = self.nodes
 
-        # Remove redundant loads and stores by keeping track of the current
-        # value of storages.
-        currentValues = {}
+        # Substitution filter that replaces loaded values: the wrapped
+        # LoadedConstant is replaced by an expression that represents the
+        # value that we know the storage contained at the time of the load.
         loadReplacements = {}
         def substStorage(storage):
             if isinstance(storage, IOStorage):
@@ -166,27 +166,43 @@ class CodeBlockSimplifier(CodeBlock):
                 if newIndex is not index:
                     return IOStorage(storage.channel, newIndex)
             return storage
+
+        # Remove redundant loads and stores by keeping track of the current
+        # value of storages.
+        currentValues = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
-            expr = node.expr
-            storage = substStorage(node.storage)
+
+            # Update indices for I/O storages.
+            storage = node.storage
+            newStorage = substStorage(storage)
+            if newStorage is not storage:
+                changed = True
+                node.storage = storage = newStorage
+                if isinstance(node, Load):
+                    # Update storage in LoadedConstant as well.
+                    cid = node.expr.cid
+                    if isinstance(constants[cid], LoadedConstant):
+                        constants[cid] = LoadedConstant(cid, storage)
+
             value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
                     # Use known value instead of loading it.
-                    loadReplacements[expr] = value
+                    loadReplacements[node.expr] = value
                     if not storage.canLoadHaveSideEffect():
                         changed = True
                         del nodes[i]
-                        del constants[expr.cid]
+                        del constants[node.expr.cid]
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
-                    currentValues[storage] = expr
+                    currentValues[storage] = node.expr
             elif isinstance(node, Store):
-                expr = expr.substitute(loadReplacements.get)
-                if value == expr:
+                expr = node.expr
+                newExpr = expr.substitute(loadReplacements.get)
+                if value == newExpr:
                     # Current value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
@@ -194,7 +210,11 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[storage] = expr
+                    currentValues[storage] = newExpr
+                # Update node with new expression.
+                if newExpr is not expr:
+                    changed = True
+                    node.expr = expr = newExpr
                 # Remove values for storages that might be aliases.
                 for storage2 in list(currentValues.keys()):
                     if storage != storage2 and storage.mightBeSame(storage2):
@@ -202,16 +222,6 @@ class CodeBlockSimplifier(CodeBlock):
                         # there is no need to remove it.
                         if currentValues[storage2] != expr:
                             del currentValues[storage2]
-            # Replace node if storage or expression got updated.
-            if node.storage is not storage or node.expr is not expr:
-                changed = True
-                node.storage = storage
-                node.expr = expr
-                if isinstance(node, Load):
-                    # Update storage in LoadedConstant as well.
-                    cid = expr.cid
-                    if isinstance(constants[cid], LoadedConstant):
-                        constants[cid] = LoadedConstant(cid, storage)
             i += 1
 
         # Update returned reference.
