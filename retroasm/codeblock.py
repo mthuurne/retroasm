@@ -139,6 +139,12 @@ class LoadedValue(Expression):
         # pylint: disable=protected-access
         return self._load is other._load
 
+def identical(ref):
+    '''Clone function that returns the passed reference as-is.
+    This is used as the default clone function in Reference.clone().
+    '''
+    return ref
+
 class Reference:
     '''Abstract base class for references.
     '''
@@ -160,7 +166,7 @@ class Reference:
         '''
         raise NotImplementedError
 
-    def clone(self, singleRefCloner, fixedValueCloner):
+    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         '''Returns a deep copy of this reference, in which each SingleReference
         is passed to the singleRefCloner function and replaced by the Reference
         returned by that function, as well as each FixedValue passed to the
@@ -224,7 +230,7 @@ class FixedValue(Reference):
     def iterStorages(self):
         return iter(())
 
-    def clone(self, singleRefCloner, fixedValueCloner):
+    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         return fixedValueCloner(self)
 
     def _emitLoadBits(self, location):
@@ -259,7 +265,7 @@ class SingleReference(Reference):
     def iterStorages(self):
         yield self._storage
 
-    def clone(self, singleRefCloner, fixedValueCloner):
+    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         return singleRefCloner(self)
 
     def _emitLoadBits(self, location):
@@ -307,7 +313,7 @@ class ConcatenatedReference(Reference):
         for ref in self._refs:
             yield from ref.iterStorages()
 
-    def clone(self, singleRefCloner, fixedValueCloner):
+    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         return ConcatenatedReference(*(
             ref.clone(singleRefCloner, fixedValueCloner) for ref in self._refs
             ))
@@ -386,7 +392,7 @@ class SlicedReference(Reference):
     def iterStorages(self):
         return self._ref.iterStorages()
 
-    def clone(self, singleRefCloner, fixedValueCloner):
+    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         width = self.width
         if width is not unlimited:
             width = IntLiteral(width)
@@ -434,8 +440,7 @@ class CodeBlock:
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
         self.retRef = None if retRef is None else retRef.clone(
-            lambda ref, code=self: SingleReference(code, ref.storage, ref.type),
-            lambda ref: ref
+            lambda ref, code=self: SingleReference(code, ref.storage, ref.type)
             )
         self.updateExpressions(valueMapping.get)
         assert self.verify() is None

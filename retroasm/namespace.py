@@ -96,9 +96,7 @@ class LocalNamespace(Namespace):
             if isinstance(value, (Function, IOChannel)):
                 pass
             elif isinstance(value, Reference):
-                value = value.clone(
-                    self._importSingleRef, lambda ref: ref
-                    )
+                value = value.clone(self._importSingleRef)
             else:
                 assert False, (key, repr(value))
             self.elements[key] = value
