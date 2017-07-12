@@ -407,11 +407,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
-        correct = (
-            Load(retVal, retRef.storage),
-            Store(retVal, outerRet.storage),
-            )
-        self.assertNodes(code.nodes, correct)
+        def correct():
+            load = Load(retRef.storage)
+            yield load
+            addrVal = code.nodes[0].expr
+            expr = retVal.substitute(
+                lambda expr: load.expr if expr is addrVal else None
+                )
+            yield Store(expr, outerRet.storage)
+        self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
 
 if __name__ == '__main__':

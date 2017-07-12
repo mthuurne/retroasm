@@ -1,8 +1,8 @@
 from utils_codeblock import TestCodeBlockBuilder
 
 from retroasm.codeblock import (
-    ConstantValue, ConcatenatedReference, Load, LoadedConstant, Reference,
-    SingleReference, SlicedReference, Store
+    ConcatenatedReference, Load, LoadedValue, Reference, SingleReference,
+    SlicedReference, Store
     )
 from retroasm.expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
@@ -241,15 +241,12 @@ class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
         # Check loaded value.
         self.assertEqual(len(decomposedVal), len(expected))
         offset = 0
-        constants = self.builder.constants
         for actualItem, expectedItem in zip(decomposedVal, expected):
             valExpr, valOffset, valWidth, valShift = actualItem
             expStorage, expOffset, expWidth = expectedItem
-            self.assertIsInstance(valExpr, ConstantValue)
-            const = constants[valExpr.cid]
-            self.assertIsInstance(const, LoadedConstant)
+            self.assertIsInstance(valExpr, LoadedValue)
+            self.assertEqual(valExpr.load.storage, expStorage)
             self.assertEqual(valShift, offset)
-            self.assertEqual(const.storage, expStorage)
             self.assertEqual(valOffset, expOffset)
             self.assertEqual(valWidth, expWidth)
             offset += valWidth

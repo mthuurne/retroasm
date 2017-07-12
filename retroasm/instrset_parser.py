@@ -1,6 +1,5 @@
 from .codeblock import (
-    ConcatenatedReference, ConstantValue, FixedValue, LoadedConstant,
-    SlicedReference
+    ConcatenatedReference, FixedValue, LoadedValue, SlicedReference
     )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
@@ -630,7 +629,7 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     values for context placeholders.
     '''
 
-    # Gather all Immediate objects from the constant pool.
+    # Gather all Immediate objects from the namespace.
     immediates = {
         value.name: value
         for value in (
@@ -742,12 +741,10 @@ def _replaceProgramCounter(expr, semBuilder):
     '''Replaces values loaded from the program counter by an Immediate.
     '''
     def subst(expr):
-        if isinstance(expr, ConstantValue):
-            const = semBuilder.constants[expr.cid]
-            assert isinstance(const, LoadedConstant), const
-            storage = const.storage
+        if isinstance(expr, LoadedValue):
+            storage = expr.load.storage
             if isinstance(storage, Variable) and storage.name == 'pc':
-                return Immediate('pc', semBuilder.namespace['pc'].type)
+                return Immediate('pc', storage.type)
         return None
     return expr.substitute(subst)
 

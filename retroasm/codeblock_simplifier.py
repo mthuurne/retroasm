@@ -1,12 +1,8 @@
 from .codeblock import (
-    CodeBlock, ConstantValue, FixedValue, Load, LoadedConstant, SingleReference,
-    Store
+    CodeBlock, FixedValue, Load, LoadedValue, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Variable
-from .types import maskForWidth
-
-from collections import defaultdict
 
 class CodeBlockSimplifier(CodeBlock):
 
@@ -26,57 +22,10 @@ class CodeBlockSimplifier(CodeBlock):
             changed = False
             changed |= self.simplifyExpressions()
             changed |= self.removeRedundantNodes()
-            changed |= self.removeUnusedConstants()
+            changed |= self.removeUnusedLoads()
             if not changed:
                 break
         assert self.verify() is None
-
-    def removeUnusedConstants(self):
-        '''Finds constants that are not used and removes them.
-        Returns True if any constants were removed, False otherwise.
-        '''
-        constants = self.constants
-        cidsInUse = set()
-
-        # Mark constants used in stores and in loads with side effects.
-        for node in self.nodes:
-            if isinstance(node, Store):
-                for value in node.expr.iterInstances(ConstantValue):
-                    cidsInUse.add(value.cid)
-            elif isinstance(node, Load):
-                if node.storage.canLoadHaveSideEffect():
-                    # We can't eliminate this load because it may have a useful
-                    # side effect and we can't eliminate the constant because
-                    # every load needs one, so pretend the constant is in use.
-                    for value in node.expr.iterInstances(ConstantValue):
-                        cidsInUse.add(value.cid)
-
-        # Mark constants used in storages.
-        for storage in self.storages:
-            if isinstance(storage, IOStorage):
-                for value in storage.index.iterInstances(ConstantValue):
-                    cidsInUse.add(value.cid)
-
-        if len(cidsInUse) < len(constants):
-            cids = constants.keys()
-            assert cidsInUse.issubset(cids), cidsInUse
-            for cid in cids - cidsInUse:
-                const = constants[cid]
-                if isinstance(const, LoadedConstant):
-                    # Remove both constant and its Load node.
-                    del constants[cid]
-                    for i, node in enumerate(self.nodes):
-                        if isinstance(node, Load) and node.expr.cid == cid:
-                            del self.nodes[i]
-                            break
-                    else:
-                        assert False, const
-                else:
-                    assert False, const
-            return True
-        else:
-            assert len(cidsInUse) == len(constants), (cidsInUse, constants)
-            return False
 
     def simplifyExpressions(self):
         changed = False
@@ -105,13 +54,6 @@ class CodeBlockSimplifier(CodeBlock):
             if newStorage is not storage:
                 changed = True
                 node.storage = newStorage
-                if isinstance(node, Load):
-                    assert isinstance(node.expr, ConstantValue), node.expr
-                    cid = node.expr.cid
-                    const = self.constants[cid]
-                    assert isinstance(const, LoadedConstant), const
-                    assert const.storage == storage
-                    self.constants[cid] = LoadedConstant(cid, newStorage)
 
         # Update returned reference.
         def simplifySingleRef(ref):
@@ -128,7 +70,6 @@ class CodeBlockSimplifier(CodeBlock):
 
     def removeRedundantNodes(self):
         changed = False
-        constants = self.constants
         nodes = self.nodes
 
         # Remove redundant loads and stores by keeping track of the current
@@ -147,7 +88,6 @@ class CodeBlockSimplifier(CodeBlock):
                     if not storage.canLoadHaveSideEffect():
                         changed = True
                         del nodes[i]
-                        del constants[node.expr.cid]
                         continue
                 elif storage.isLoadConsistent():
                     # Remember loaded value.
@@ -211,4 +151,30 @@ class CodeBlockSimplifier(CodeBlock):
                     willBeOverwritten.add(storage)
             i -= 1
 
+        return changed
+
+    def removeUnusedLoads(self):
+        '''Remove side-effect-free loads of which the LoadedValue is unused.
+        Returns True iff any loads were removed.
+        '''
+        # Find all LoadedValues that are used.
+        valuesInUse = {
+            loaded
+            for expr in self.expressions
+            for loaded in expr.iterInstances(LoadedValue)
+            }
+
+        # Remove unused Loads.
+        nodes = self.nodes
+        changed = False
+        i = 0
+        while i < len(nodes):
+            node = nodes[i]
+            if isinstance(node, Load):
+                if node.expr not in valuesInUse:
+                    if not node.storage.canLoadHaveSideEffect():
+                        changed = True
+                        del nodes[i]
+                        continue
+            i += 1
         return changed

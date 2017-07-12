@@ -1,12 +1,12 @@
 from .codeblock import (
-    ArgumentValue, ConstantValue, FixedValue, Load,
-    LoadedConstant, Reference, SingleReference, Store
+    ArgumentValue, FixedValue, Load, LoadedValue, Reference, SingleReference,
+    Store
     )
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import optSlice
 from .linereader import BadInput
 from .namespace import LocalNamespace
-from .storage import IOStorage, RefArgStorage, Storage, Variable
+from .storage import IOStorage, RefArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
 
@@ -14,18 +14,11 @@ class CodeBlockBuilder:
     _scope = property()
 
     def __init__(self, namespace):
-        self.constants = []
         self.namespace = namespace
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
         '''
-        print('    constants:')
-        for const in self.constants:
-            if isinstance(const, LoadedConstant):
-                print('        C%-2d <- %s' % (const.cid, const.storage))
-            else:
-                assert False, const
         if 'ret' in self.namespace:
             retRef = self.namespace['ret']
             storage = retRef.storage
@@ -127,10 +120,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         self.nodes = []
 
     def dump(self):
-        super().dump()
         print('    nodes:')
         for node in self.nodes:
             print('        %s (%s-bit)' % (node, node.storage.width))
+        super().dump()
 
     def createCodeBlock(self, log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -138,9 +131,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(
-            self.constants, self.nodes, self.namespace.get('ret')
-            )
+        code = CodeBlockSimplifier(self.nodes, self.namespace.get('ret'))
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
@@ -194,11 +185,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         return self._addNamedStorage(RefArgStorage(name, refType), location)
 
     def emitLoadBits(self, storage, location):
-        cid = len(self.constants)
-        self.constants.append(LoadedConstant(cid, storage))
-        expr = ConstantValue(cid, maskForWidth(storage.width))
-        self.nodes.append(Load(expr, storage, location))
-        return expr
+        load = Load(storage, location)
+        self.nodes.append(load)
+        return load.expr
 
     def emitStoreBits(self, storage, value, location):
         self.nodes.append(Store(value, storage, location))
@@ -232,12 +221,8 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         def substExpr(expr):
             if isinstance(expr, ArgumentValue):
                 return namespace[expr.name]
-            elif isinstance(expr, ConstantValue):
-                const = code.constants[expr.cid]
-                if isinstance(const, LoadedConstant):
-                    return loadResults[const.cid]
-                else:
-                    assert False, const
+            elif isinstance(expr, LoadedValue):
+                return loadResults.get(expr)
             else:
                 return None
         def importExpr(expr):
@@ -280,13 +265,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
             expr = node.expr
             ref = importStorage(node.storage)
             if isinstance(node, Load):
-                assert isinstance(expr, ConstantValue), expr
-                cid = expr.cid
-                const = code.constants[cid]
-                assert isinstance(const, LoadedConstant), const
-                assert const.storage == node.storage, (node, const)
+                assert isinstance(expr, LoadedValue), expr
                 value = ref.emitLoad(node.location)
-                loadResults[cid] = value
+                loadResults[expr] = value
             elif isinstance(node, Store):
                 newExpr = importExpr(expr)
                 ref.emitStore(newExpr, node.location)

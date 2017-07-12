@@ -3,44 +3,10 @@ from .expression import (
     OrOperator, RVShift, SignExtension, XorOperator, optSlice, truncate
     )
 from .expression_simplifier import simplifyExpression
+from .linereader import InputLocation
 from .storage import IOStorage, Storage, Variable
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType, const_property
-
-from collections import OrderedDict
-
-class Constant:
-    '''Definition of a local constant value.
-    '''
-    __slots__ = ('_cid',)
-
-    cid = property(lambda self: self._cid)
-
-    def __init__(self, cid):
-        self._cid = checkType(cid, int, 'constant ID')
-
-    def __repr__(self):
-        return 'Constant(%d)' % self._cid
-
-    def __str__(self):
-        return 'int C%d' % self._cid
-
-class LoadedConstant(Constant):
-    '''A constant defined by loading a value from a storage location.
-    '''
-    __slots__ = ('_storage',)
-
-    storage = property(lambda self: self._storage)
-
-    def __init__(self, cid, storage):
-        self._storage = checkType(storage, Storage, 'storage')
-        Constant.__init__(self, cid)
-
-    def __repr__(self):
-        return 'LoadedConstant(%d, %r)' % (self._cid, self._storage)
-
-    def __str__(self):
-        return '%s <- %s' % (super().__str__(), self._storage)
 
 class Node:
     '''Base class for nodes.
@@ -56,14 +22,11 @@ class AccessNode(Node):
     storage = property(lambda self: self._storage)
     location = property(lambda self: self._location)
 
-    def __init__(self, expr, storage, location=None):
-        self._expr = Expression.checkScalar(expr)
-        self._storage = checkType(storage, Storage, 'storage')
-        self._location = location
-
-    def __repr__(self):
-        return '%s(%r, %r, %r)' % (
-            self.__class__.__name__, self._expr, self._storage, self._location
+    def __init__(self, expr, storage, location):
+        self._expr = expr
+        self._storage = storage
+        self._location = None if location is None else checkType(
+            location, InputLocation, 'location'
             )
 
     @expr.setter
@@ -77,46 +40,52 @@ class AccessNode(Node):
     def clone(self):
         '''Create a clone of this node.
         '''
-        return self.__class__(self._expr, self._storage, self._location)
+        raise NotImplementedError
 
 class Load(AccessNode):
     '''A node that loads a value from a storage location.
     '''
     __slots__ = ()
 
+    def __init__(self, storage, location=None):
+        checkType(storage, Storage, 'storage')
+        expr = LoadedValue(self, maskForWidth(storage.width))
+        AccessNode.__init__(self, expr, storage, location)
+
+    def __repr__(self):
+        return 'Load(%r, %r)' % (self._storage, self._location)
+
     def __str__(self):
-        return 'load %s from %s' % (self._expr, self._storage)
+        return 'load from %s' % self._storage
+
+    @AccessNode.expr.setter
+    def expr(self, expr):
+        raise AttributeError('Cannot change expression for Load nodes')
+
+    def clone(self):
+        return Load(self._storage, self._location)
 
 class Store(AccessNode):
     '''A node that stores a value into a storage location.
     '''
     __slots__ = ()
 
+    def __init__(self, expr, storage, location=None):
+        AccessNode.__init__(
+            self,
+            Expression.checkScalar(expr),
+            checkType(storage, Storage, 'storage'),
+            location
+            )
+
+    def __repr__(self):
+        return 'Store(%r, %r, %r)' % (self._expr, self._storage, self._location)
+
     def __str__(self):
         return 'store %s in %s' % (self._expr, self._storage)
 
-class ConstantValue(Expression):
-    '''A synthetic constant containing an intermediate value.
-    '''
-    __slots__ = ('_cid', '_mask')
-
-    cid = property(lambda self: self._cid)
-    mask = property(lambda self: self._mask)
-
-    def __init__(self, cid, mask):
-        Expression.__init__(self)
-        self._cid = cid
-        self._mask = mask
-
-    def _ctorargs(self):
-        return self._cid, self._mask
-
-    def __str__(self):
-        return 'C%d' % self._cid
-
-    def _equals(self, other):
-        # pylint: disable=protected-access
-        return self._cid is other._cid
+    def clone(self):
+        return Store(self._expr, self._storage, self._location)
 
 class ArgumentValue(Expression):
     '''A value passed into a code block as an argument.
@@ -143,6 +112,32 @@ class ArgumentValue(Expression):
     def _equals(self, other):
         # pylint: disable=protected-access
         return self._name == other._name
+
+class LoadedValue(Expression):
+    '''A value loaded from a storage location.
+    '''
+    __slots__ = ('_load', '_mask')
+
+    load = property(lambda self: self._load)
+    mask = property(lambda self: self._mask)
+
+    def __init__(self, load, mask):
+        Expression.__init__(self)
+        self._load = checkType(load, Load, 'load node')
+        self._mask = checkType(mask, int, 'mask')
+
+    def _ctorargs(self):
+        return self._load, self._mask
+
+    def __repr__(self):
+        return 'LoadedValue(%r, %d)' % (self._load, self._mask)
+
+    def __str__(self):
+        return 'load(%s)' % self._load.storage
+
+    def _equals(self, other):
+        # pylint: disable=protected-access
+        return self._load is other._load
 
 class Reference:
     '''Abstract base class for references.
@@ -174,9 +169,9 @@ class Reference:
         raise NotImplementedError
 
     def emitLoad(self, location):
-        '''Emits constants and load operations for loading a typed value from
-        the referenced storage(s).
-        Returns the value as an Expression.
+        '''Emits load nodes for loading a typed value from the referenced
+        storage(s).
+        Returns the loaded value as an Expression.
         '''
         value = self._emitLoadBits(location)
 
@@ -189,21 +184,20 @@ class Reference:
         return value
 
     def _emitLoadBits(self, location):
-        '''Emits constants and load operations for loading a bit string from
-        the referenced storage(s).
+        '''Emits load nodes for loading a bit string from the referenced
+        storage(s).
         Returns the value of the bit string as an Expression.
         '''
         raise NotImplementedError
 
     def emitStore(self, value, location):
-        '''Emits constants and store operations for storing a value into the
-        referenced storage(s).
+        '''Emits store nodes for storing a value into the referenced storage(s).
         '''
         self._emitStoreBits(truncate(value, self.width), location)
 
     def _emitStoreBits(self, value, location):
-        '''Emits constants and store operations for storing a bit string into
-        the referenced storage(s).
+        '''Emits store nodes for storing a bit string into the referenced
+        storage(s).
         '''
         raise NotImplementedError
 
@@ -430,85 +424,61 @@ class SlicedReference(Reference):
 
 class CodeBlock:
 
-    def __init__(self, constants, nodes, retRef):
-        constantsDict = OrderedDict()
-        for const in constants:
-            cid = const.cid
-            if cid in constantsDict:
-                raise ValueError('duplicate constant ID: %d' % cid)
-            constantsDict[cid] = const
-        self.constants = constantsDict
-        self.nodes = [node.clone() for node in nodes]
+    def __init__(self, nodes, retRef):
+        clonedNodes = []
+        valueMapping = {}
+        for node in nodes:
+            clone = node.clone()
+            clonedNodes.append(clone)
+            if isinstance(node, Load):
+                valueMapping[node.expr] = clone.expr
+        self.nodes = clonedNodes
         self.retRef = None if retRef is None else retRef.clone(
             lambda ref, code=self: SingleReference(code, ref.storage, ref.type),
             lambda ref: ref
             )
+        self.updateExpressions(valueMapping.get)
         assert self.verify() is None
 
     def verify(self):
-        '''Performs consistency checks on the data in this code block.
+        '''Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         '''
-        # Check that cid keys match the value's cid.
-        for cid, const in self.constants.items():
-            assert isinstance(const, Constant), const
-            assert const.cid == cid, const
-        cids = self.constants.keys()
-
-        # Check that cids in nodes are valid.
+        # Check that every LoadedValue has an associated Load node, which must
+        # execute before the LoadedValue is used.
+        loads = set()
         for node in self.nodes:
-            for value in node.expr.iterInstances(ConstantValue):
-                assert value.cid in cids, node
-
-        # Check that each loaded constant belongs to exactly one Load node.
-        cidsFromLoadedConstants = set(
-            cid
-            for cid, const in self.constants.items()
-            if isinstance(const, LoadedConstant)
-            )
-        cidsFromLoadNodes = set()
-        for node in self.nodes:
-            if isinstance(node, Load):
-                for value in node.expr.iterInstances(ConstantValue):
-                    cid = value.cid
-                    assert cid not in cidsFromLoadNodes, node
-                    cidsFromLoadNodes.add(cid)
-        assert cidsFromLoadNodes == cidsFromLoadedConstants, (
-            cidsFromLoadedConstants, cidsFromLoadNodes
-            )
-
-        # Check that each loaded constant uses the same storage as the node
-        # that loads it.
-        for node in self.nodes:
-            if isinstance(node, Load):
-                assert isinstance(node.expr, ConstantValue), node.expr
-                cid = node.expr.cid
-                assert self.constants[cid].storage == node.storage
-
-        # Check that the CIDs in I/O storage indices are valid.
-        for storage in self.storages:
+            # Check that all expected loads have occurred.
+            if isinstance(node, Store):
+                for value in node.expr.iterInstances(LoadedValue):
+                    assert value.load in loads, value
+            storage = node.storage
             if isinstance(storage, IOStorage):
-                for value in storage.index.iterInstances(ConstantValue):
-                    assert value.cid in cids, storage
+                for value in storage.index.iterInstances(LoadedValue):
+                    assert value.load in loads, value
+            # Remember this load.
+            if isinstance(node, Load):
+                loads.add(node)
+        # Check I/O indices in the returned reference.
+        retRef = self.retRef
+        if retRef is not None:
+            for storage in retRef.iterStorages():
+                if isinstance(storage, IOStorage):
+                    for value in storage.index.iterInstances(LoadedValue):
+                        assert value.load in loads, value
 
     def dump(self):
         '''Prints this code block on stdout.
         '''
-        print('    constants:')
-        for const in self.constants.values():
-            if isinstance(const, LoadedConstant):
-                print('        C%-2d <- %s' % (const.cid, const.storage))
-            else:
-                assert False, const
+        print('    nodes:')
+        for node in self.nodes:
+            print('        %s (%s-bit)' % (node, node.storage.width))
         if self.retRef is not None:
             if not (isinstance(self.retRef, SingleReference) and
                     isinstance(self.retRef.storage, Variable) and
                     self.retRef.storage.name == 'ret'
                     ):
                 print('    ret = %s' % self.retRef)
-        print('    nodes:')
-        for node in self.nodes:
-            print('        %s (%s-bit)' % (node, node.storage.width))
 
     def _gatherExpressions(self):
         '''A set of all expressions that are contained in this block.
@@ -566,11 +536,6 @@ class CodeBlock:
             if newStorage is not storage:
                 changed = True
                 node.storage = newStorage
-                if isinstance(node, Load):
-                    # Update storage in LoadedConstant as well.
-                    cid = node.expr.cid
-                    assert isinstance(self.constants[cid], LoadedConstant)
-                    self.constants[cid] = LoadedConstant(cid, newStorage)
 
             # Update node with new expression.
             if isinstance(node, Store):

@@ -1,4 +1,4 @@
-from .codeblock import FixedValue, LoadedConstant, Reference, SingleReference
+from .codeblock import FixedValue, Reference, SingleReference
 from .function import Function
 from .linereader import BadInput
 from .storage import IOChannel
@@ -83,7 +83,6 @@ class LocalNamespace(Namespace):
         Namespace.__init__(self)
         self.localBuilder = localBuilder
         self.parentBuilder = parentBuilder
-        self.cidImportMap = {}
         self.storageImportMap = {}
 
     def __contains__(self, key):

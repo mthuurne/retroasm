@@ -1,4 +1,4 @@
-from retroasm.codeblock import SingleReference, Store
+from retroasm.codeblock import Load, SingleReference, Store
 from retroasm.codeblock_builder import (
     GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -10,24 +10,25 @@ from retroasm.types import IntType, unlimited
 
 class NodeChecker:
 
-    def assertNode(self, actual, correct, msg=None):
-        self.assertIsInstance(actual, type(correct), msg)
-        self.assertEqual(actual.expr, correct.expr, msg)
-        self.assertEqual(actual.storage, correct.storage, msg)
-
-    def assertNodes(self, actual, correct):
-        self.assertEqual(len(actual), len(correct))
-        for i, (a, c) in enumerate(zip(actual, correct)):
-            self.assertNode(a, c, 'node %d of %d' % (i + 1, len(actual)))
+    def assertNodes(self, actualNodes, correctNodes):
+        correctNodes = tuple(correctNodes)
+        loadMap = {}
+        self.assertEqual(len(actualNodes), len(correctNodes))
+        for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
+            msg = 'node %d of %d' % (i + 1, len(actualNodes))
+            self.assertIsInstance(actual, type(correct), msg)
+            self.assertEqual(actual.storage, correct.storage, msg)
+            if isinstance(correct, Load):
+                loadMap[actual.expr] = correct.expr
+            elif isinstance(correct, Store):
+                expr = actual.expr.substitute(loadMap.get)
+                self.assertEqual(expr, correct.expr, msg)
+            else:
+                self.fail('unknown node type: %s' % correct.__class__.__name__)
 
     def assertIntLiteral(self, expr, value):
         self.assertIsInstance(expr, IntLiteral)
         self.assertEqual(expr.value, value)
-
-    def getCid(self, expr):
-        self.assertIsInstance(expr, Expression)
-        simplified = simplifyExpression(expr)
-        return simplified.cid
 
     def getRetVal(self, code):
         retRef = code.retRef

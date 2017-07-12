@@ -2,8 +2,8 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.codeblock import (
-    ArgumentValue, ConcatenatedReference, ConstantValue, FixedValue, Load,
-    SingleReference, SlicedReference, Store
+    ArgumentValue, ConcatenatedReference, FixedValue, Load, SingleReference,
+    SlicedReference, Store
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
@@ -46,8 +46,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             self.assertIsInstance(store, Store)
             self.assertEqual(load.storage, refA.storage)
             self.assertEqual(store.storage, refB.storage)
-            self.assertEqual(load.expr, loadA)
-            self.assertEqual(store.expr, loadA)
+            self.assertIs(store.expr, load.expr)
 
         code = self.builder.createCodeBlock()
         checkNodes(code)
@@ -92,7 +91,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadM = self.builder.emitLoad(refM)
 
         correct = (
-            Load(loadM, refM.storage),
+            Load(refM.storage),
             )
 
         code = self.createSimplifiedCode()
@@ -108,14 +107,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        correct = (
-            Load(loadA1, refA.storage),
-            Store(loadA1, refB.storage),
-            Store(loadA1, refC.storage),
-            )
+        def correct():
+            loadA = Load(refA.storage)
+            yield loadA
+            yield Store(loadA.expr, refB.storage)
+            yield Store(loadA.expr, refC.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertNodes(code.nodes, correct())
 
     def test_redundant_load_after_store(self):
         '''Test whether a redundant load after a store is removed.'''
@@ -136,11 +135,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(load.storage, refA.storage)
         self.assertEqual(store1.storage, refA.storage)
         self.assertEqual(store2.storage, refB.storage)
-        self.assertEqual(load.expr, loadA1)
         self.assertEqual(store1.expr, store2.expr)
         self.assertTrunc(
             simplifyExpression(store1.expr),
-            simplifyExpression(incA),
+            simplifyExpression(incA).substitute(
+                lambda expr: load.expr if expr is loadA1 else None
+                ),
             incA.mask.bit_length(),
             refA.width
             )
@@ -153,13 +153,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA)
         self.builder.emitStore(refB, loadA)
 
-        correct = (
-            Load(loadA, refA.storage),
-            Store(loadA, refB.storage),
-            )
+        def correct():
+            loadA = Load(refA.storage)
+            yield loadA
+            yield Store(loadA.expr, refB.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertNodes(code.nodes, correct())
 
     def test_redundant_other_value_store(self):
         '''Test removal of storing a different value in the same storage.'''
@@ -171,13 +171,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadA)
         self.builder.emitStore(refC, loadB)
 
-        correct = (
-            Load(loadB, refB.storage),
-            Store(loadB, refC.storage),
-            )
+        def correct():
+            loadB = Load(refB.storage)
+            yield loadB
+            yield Store(loadB.expr, refC.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertNodes(code.nodes, correct())
 
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
@@ -192,16 +192,17 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA1)
         self.builder.emitStore(refC, loadA2)
 
-        correct = (
-            Load(loadA1, refA.storage),
-            Store(const, refX.storage),
-            Load(loadA2, refA.storage),
-            Store(loadA1, refB.storage),
-            Store(loadA2, refC.storage),
-            )
+        def correct():
+            loadA1 = Load(refA.storage)
+            yield loadA1
+            yield Store(const, refX.storage)
+            loadA2 = Load(refA.storage)
+            yield loadA2
+            yield Store(loadA1.expr, refB.storage)
+            yield Store(loadA2.expr, refC.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertNodes(code.nodes, correct())
 
     def test_same_value_redundant_load(self):
         '''Test handling of writing the same value to a potential alias.'''
@@ -213,14 +214,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadA2 = self.builder.emitLoad(refA)
         self.builder.emitStore(refB, loadA2)
 
-        correct = (
-            Load(loadA1, refA.storage),
-            Store(loadA1, refX.storage),
-            Store(loadA1, refB.storage),
-            )
+        def correct():
+            loadA = Load(refA.storage)
+            yield loadA
+            yield Store(loadA.expr, refX.storage)
+            yield Store(loadA.expr, refB.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        self.assertNodes(code.nodes, correct())
 
     def test_local_value(self):
         '''Test whether load and stores of variables are removed.'''
@@ -271,15 +272,19 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        correct = (
-            Load(loadA, refA.storage),
-            Store(retVal, refRet.storage),
-            )
-        self.assertNodes(code.nodes, correct)
+        aVal = code.nodes[0].expr
+        def correct():
+            load = Load(refA.storage)
+            yield load
+            expr = retVal.substitute(
+                lambda expr: load.expr if expr is aVal else None
+                )
+            yield Store(expr, refRet.storage)
+        self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
         self.assertOr(
             retVal,
-            simplifyExpression(loadA),
+            simplifyExpression(aVal),
             valueV
             )
 
@@ -445,13 +450,17 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             for node in code.nodes
             if isinstance(node.storage, IOStorage)
             )
-        correct = (
-            Load(loadS1, refS.storage),
-            Store(truncate(incS, 8), refS.storage),
-            Load(loadM, ioStorage),
-            Store(loadM, refD.storage),
-            )
-        self.assertNodes(code.nodes, correct)
+        def correct():
+            loadS = Load(refS.storage)
+            yield loadS
+            expr = truncate(incS, 8).substitute(
+                lambda expr: loadS.expr if expr is loadS1 else None
+                )
+            yield Store(expr, refS.storage)
+            loadM = Load(ioStorage)
+            yield loadM
+            yield Store(loadM.expr, refD.storage)
+        self.assertNodes(code.nodes, correct())
 
 if __name__ == '__main__':
     verbose = True
