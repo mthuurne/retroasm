@@ -171,6 +171,9 @@ class Reference:
         is passed to the singleRefCloner function and replaced by the Reference
         returned by that function, as well as each FixedValue passed to the
         fixedValueCloner function and replaced by its return value.
+        If the copy would be identical to the cloned reference, the original
+        object is returned instead of a copy. Since References are immutable,
+        this optimization is safe.
         '''
         raise NotImplementedError
 
@@ -314,9 +317,13 @@ class ConcatenatedReference(Reference):
             yield from ref.iterStorages()
 
     def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
-        return ConcatenatedReference(*(
-            ref.clone(singleRefCloner, fixedValueCloner) for ref in self._refs
-            ))
+        changed = False
+        refs = []
+        for ref in self._refs:
+            clone = ref.clone(singleRefCloner, fixedValueCloner)
+            refs.append(clone)
+            changed |= clone is not ref
+        return ConcatenatedReference(*refs) if changed else self
 
     def _emitLoadBits(self, location):
         terms = []
@@ -393,13 +400,15 @@ class SlicedReference(Reference):
         return self._ref.iterStorages()
 
     def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
-        width = self.width
-        if width is not unlimited:
-            width = IntLiteral(width)
-        return SlicedReference(
-            self._ref.clone(singleRefCloner, fixedValueCloner),
-            self._offset, width
-            )
+        ref = self._ref
+        clone = ref.clone(singleRefCloner, fixedValueCloner)
+        if clone is ref:
+            return self
+        else:
+            width = self.width
+            if width is not unlimited:
+                width = IntLiteral(width)
+            return SlicedReference(clone, self._offset, width)
 
     def _emitLoadBits(self, location):
         # Load value from our reference.
@@ -574,17 +583,8 @@ class CodeBlock:
         if retRef is None:
             return False
 
-        def checkChange(ref, func):
-            newRef = func(ref)
-            if newRef is not ref:
-                changed[0] = True
-            return newRef
-
-        changed = [False]
-        retRef = retRef.clone(
-            lambda ref, func=singleRefUpdater: checkChange(ref, func),
-            lambda ref, func=fixedValueUpdater: checkChange(ref, func)
-            )
-        if changed[0]:
-            self.retRef = retRef
-        return changed[0]
+        newRef = retRef.clone(singleRefUpdater, fixedValueUpdater)
+        changed = newRef is not retRef
+        if changed:
+            self.retRef = newRef
+        return changed

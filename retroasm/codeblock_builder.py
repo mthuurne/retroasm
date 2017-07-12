@@ -279,7 +279,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         if retRef is None:
             return None
         else:
-            return retRef.clone(
-                lambda ref: importStorage(ref.storage),
-                lambda ref: FixedValue(importExpr(ref.expr), ref.type)
-                )
+            def importSingleRef(ref):
+                return importStorage(ref.storage)
+            def importFixedValue(ref):
+                expr = ref.expr
+                imp = importExpr(expr)
+                return ref if imp is expr else FixedValue(imp, ref.type)
+            return retRef.clone(importSingleRef, importFixedValue)
