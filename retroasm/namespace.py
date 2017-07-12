@@ -97,7 +97,7 @@ class LocalNamespace(Namespace):
                 pass
             elif isinstance(value, Reference):
                 value = value.clone(
-                    self._importSingleRef, self._importFixedValue
+                    self._importSingleRef, lambda ref: ref
                     )
             else:
                 assert False, (key, repr(value))
@@ -118,12 +118,6 @@ class LocalNamespace(Namespace):
             localRef = SingleReference(localBuilder, storage, parentRef.type)
             importMap[storage] = localRef
             return localRef
-
-    def _importFixedValue(self, parentRef):
-        '''Imports the given FixedValue from the parent builder into the
-        local namespace. Returns the local reference.
-        '''
-        return FixedValue(parentRef.expr, parentRef.type)
 
     def _checkName(self, name, location):
         if name == 'pc':
