@@ -138,7 +138,9 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(self.constants, self.nodes)
+        code = CodeBlockSimplifier(
+            self.constants, self.nodes, self.namespace.get('ret')
+            )
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
@@ -164,17 +166,6 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                     load.storage.decl
                     for load in ununitializedLoads
                     )
-                )
-
-        if 'ret' in self.namespace:
-            assert code.retRef is None, code.retRef
-            # Note that at this point, the code block still uses the exact same
-            # SIDs and CIDs as we do, so we only have to replace the block
-            # objects within SingleReferences.
-            code.retRef = self.namespace['ret'].clone(
-                lambda ref, code=code:
-                    SingleReference(code, ref.storage, ref.type),
-                lambda ref: ref
                 )
 
         # Finalize code block.

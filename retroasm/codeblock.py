@@ -430,7 +430,7 @@ class SlicedReference(Reference):
 
 class CodeBlock:
 
-    def __init__(self, constants, nodes):
+    def __init__(self, constants, nodes, retRef):
         constantsDict = OrderedDict()
         for const in constants:
             cid = const.cid
@@ -439,7 +439,10 @@ class CodeBlock:
             constantsDict[cid] = const
         self.constants = constantsDict
         self.nodes = [node.clone() for node in nodes]
-        self.retRef = None
+        self.retRef = None if retRef is None else retRef.clone(
+            lambda ref, code=self: SingleReference(code, ref.storage, ref.type),
+            lambda ref: ref
+            )
         assert self.verify() is None
 
     def verify(self):
