@@ -71,29 +71,6 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
 
-    def test_duplicate_iostorage(self):
-        '''Test whether duplicate I/O storages are removed.'''
-        refM1 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
-        refM2 = self.builder.addIOStorage('mem', IntLiteral(0x8765))
-        refM3 = self.builder.addIOStorage('mem', IntLiteral(0xABCD))
-        refM4 = self.builder.addIOStorage('io', IntLiteral(0x8765))
-        loadM1 = self.builder.emitLoad(refM2)
-        loadM2 = self.builder.emitLoad(refM2)
-        self.builder.emitStore(refM2, loadM1)
-        self.builder.emitStore(refM3, loadM2)
-        self.builder.emitStore(refM4, loadM1)
-
-        correct = (
-            Load(loadM1, refM1.storage),
-            Load(loadM2, refM1.storage),
-            Store(loadM1, refM1.storage),
-            Store(loadM2, refM3.storage),
-            Store(loadM1, refM4.storage),
-            )
-
-        code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
-
     def test_unused_load(self):
         '''Test whether unused loads are removed.'''
         refA = self.builder.addRegister('a')
