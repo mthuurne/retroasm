@@ -77,32 +77,6 @@ class CodeBlockSimplifier(CodeBlock):
             assert len(cidsInUse) == len(constants), (cidsInUse, constants)
             return False
 
-    def updateRetRef(self, singleRefUpdater, fixedValueUpdater):
-        '''Updates the returned reference, if any.
-        The updater arguments should be functions that, given a reference of
-        the respective type, return a simplified version, or the same reference
-        if no simplification was possible.
-        Returns True iff the returned reference was updated.
-        '''
-        retRef = self.retRef
-        if retRef is None:
-            return False
-
-        def checkChange(ref, func):
-            newRef = func(ref)
-            if newRef is not ref:
-                changed[0] = True
-            return newRef
-
-        changed = [False]
-        retRef = retRef.clone(
-            lambda ref, func=singleRefUpdater: checkChange(ref, func),
-            lambda ref, func=fixedValueUpdater: checkChange(ref, func)
-            )
-        if changed[0]:
-            self.retRef = retRef
-        return changed[0]
-
     def simplifyExpressions(self):
         changed = False
         nodes = self.nodes
@@ -156,37 +130,14 @@ class CodeBlockSimplifier(CodeBlock):
         constants = self.constants
         nodes = self.nodes
 
-        # Substitution filter that replaces loaded values: the wrapped
-        # LoadedConstant is replaced by an expression that represents the
-        # value that we know the storage contained at the time of the load.
-        loadReplacements = {}
-        def substStorage(storage):
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = index.substitute(loadReplacements.get)
-                if newIndex is not index:
-                    return IOStorage(storage.channel, newIndex)
-            return storage
-
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
         currentValues = {}
+        loadReplacements = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
-
-            # Update indices for I/O storages.
             storage = node.storage
-            newStorage = substStorage(storage)
-            if newStorage is not storage:
-                changed = True
-                node.storage = storage = newStorage
-                if isinstance(node, Load):
-                    # Update storage in LoadedConstant as well.
-                    cid = node.expr.cid
-                    if isinstance(constants[cid], LoadedConstant):
-                        constants[cid] = LoadedConstant(cid, storage)
-
             value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
@@ -202,8 +153,7 @@ class CodeBlockSimplifier(CodeBlock):
                     currentValues[storage] = node.expr
             elif isinstance(node, Store):
                 expr = node.expr
-                newExpr = expr.substitute(loadReplacements.get)
-                if value == newExpr:
+                if value == expr:
                     # Current value is rewritten.
                     if not storage.canStoreHaveSideEffect():
                         changed = True
@@ -211,11 +161,7 @@ class CodeBlockSimplifier(CodeBlock):
                         continue
                 elif storage.isSticky():
                     # Remember stored value.
-                    currentValues[storage] = newExpr
-                # Update node with new expression.
-                if newExpr is not expr:
-                    changed = True
-                    node.expr = expr = newExpr
+                    currentValues[storage] = expr
                 # Remove values for storages that might be aliases.
                 for storage2 in list(currentValues.keys()):
                     if storage != storage2 and storage.mightBeSame(storage2):
@@ -224,17 +170,19 @@ class CodeBlockSimplifier(CodeBlock):
                         if currentValues[storage2] != expr:
                             del currentValues[storage2]
             i += 1
-
-        # Update returned reference.
-        def replaceSingleRef(ref):
-            storage = substStorage(ref.storage)
-            return ref if storage is ref.storage else SingleReference(
-                self, storage, ref.type
-                )
-        def replaceFixedValue(ref):
-            expr = ref.expr.substitute(loadReplacements.get)
-            return ref if expr is ref.expr else FixedValue(expr, ref.type)
-        changed |= self.updateRetRef(replaceSingleRef, replaceFixedValue)
+        if loadReplacements:
+            # Compute the transitive closure of the replacements, to avoid
+            # inserting a replacement expression that itself contains
+            # expressions that should be replaced.
+            for key, expr in loadReplacements.items():
+                while True:
+                    newExpr = expr.substitute(loadReplacements.get)
+                    if newExpr is expr:
+                        break
+                    expr = newExpr
+                loadReplacements[key] = expr
+            # Apply load replacement.
+            changed |= self.updateExpressions(loadReplacements.get)
 
         # Remove stores for which the value is overwritten before it is loaded.
         # Variable loads were already eliminated by the code above and since

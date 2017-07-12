@@ -535,3 +535,80 @@ class CodeBlock:
         return storages
 
     storages = const_property(_gatherStorages)
+
+    def updateExpressions(self, substFunc):
+        '''Calls the given substitution function with each expression in this
+        code block. If the substitution function returns an expression, that
+        expression replaces the original expression. If the substitution
+        function returns None, the original expression is kept.
+        Returns True iff any substitutions were made.
+        '''
+        def substStorage(storage):
+            if isinstance(storage, IOStorage):
+                index = storage.index
+                newIndex = index.substitute(substFunc)
+                if newIndex is not index:
+                    return IOStorage(storage.channel, newIndex)
+            return storage
+
+        changed = False
+
+        for node in self.nodes:
+            # Update indices for I/O storages.
+            storage = node.storage
+            newStorage = substStorage(storage)
+            if newStorage is not storage:
+                changed = True
+                node.storage = newStorage
+                if isinstance(node, Load):
+                    # Update storage in LoadedConstant as well.
+                    cid = node.expr.cid
+                    assert isinstance(self.constants[cid], LoadedConstant)
+                    self.constants[cid] = LoadedConstant(cid, newStorage)
+
+            # Update node with new expression.
+            if isinstance(node, Store):
+                expr = node.expr
+                newExpr = expr.substitute(substFunc)
+                if newExpr is not expr:
+                    changed = True
+                    node.expr = newExpr
+
+        # Update returned reference.
+        def replaceSingleRef(ref):
+            storage = substStorage(ref.storage)
+            return ref if storage is ref.storage else SingleReference(
+                self, storage, ref.type
+                )
+        def replaceFixedValue(ref):
+            expr = ref.expr.substitute(substFunc)
+            return ref if expr is ref.expr else FixedValue(expr, ref.type)
+        changed |= self.updateRetRef(replaceSingleRef, replaceFixedValue)
+
+        return changed
+
+    def updateRetRef(self, singleRefUpdater, fixedValueUpdater):
+        '''Updates the returned reference, if any.
+        The updater arguments should be functions that, given a reference of
+        the respective type, return a simplified version, or the same reference
+        if no simplification was possible.
+        Returns True iff the returned reference was updated.
+        '''
+        retRef = self.retRef
+        if retRef is None:
+            return False
+
+        def checkChange(ref, func):
+            newRef = func(ref)
+            if newRef is not ref:
+                changed[0] = True
+            return newRef
+
+        changed = [False]
+        retRef = retRef.clone(
+            lambda ref, func=singleRefUpdater: checkChange(ref, func),
+            lambda ref, func=fixedValueUpdater: checkChange(ref, func)
+            )
+        if changed[0]:
+            self.retRef = retRef
+        return changed[0]
