@@ -2,7 +2,7 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.codeblock import (
-    ArgumentValue, ConstantValue, Load, SingleReference, Store
+    ArgumentValue, ConstantValue, FixedValue, Load, SingleReference, Store
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
@@ -351,6 +351,18 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         storage = code.retRef.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 0x4120)
+
+    def test_return_fixed_value_ref(self):
+        '''Test returning a reference to a fixed value.'''
+        add = AddOperator(IntLiteral(1), IntLiteral(2))
+        value = FixedValue(add, IntType.u(8))
+        self.builder.addRetReference(value)
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, ())
+        self.assertIsNotNone(code.retRef)
+        self.assertEqual(code.retRef.width, 8)
+        self.assertIsInstance(code.retRef, FixedValue)
+        self.assertIntLiteral(code.retRef.expr, 3)
 
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''

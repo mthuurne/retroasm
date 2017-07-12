@@ -1,5 +1,6 @@
 from .codeblock import (
-    CodeBlock, ConstantValue, Load, LoadedConstant, SingleReference, Store
+    CodeBlock, ConstantValue, FixedValue, Load, LoadedConstant, SingleReference,
+    Store
     )
 from .expression_simplifier import simplifyExpression
 from .storage import IOStorage, Variable
