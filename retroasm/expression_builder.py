@@ -101,7 +101,7 @@ def convertDefinition(kind, nameNode, typ, value, builder):
                 )
         if typ.type.width != ref.width:
             raise BadExpression.withText(
-                '%d-bit value does not match declared type "%s"'
+                '%s-bit value does not match declared type "%s"'
                 % (ref.width, typ.type),
                 value.treeLocation
                 )
