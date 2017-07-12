@@ -393,9 +393,12 @@ class SlicedReference(Reference):
         return self._ref.iterStorages()
 
     def clone(self, singleRefCloner, fixedValueCloner):
+        width = self.width
+        if width is not unlimited:
+            width = IntLiteral(width)
         return SlicedReference(
             self._ref.clone(singleRefCloner, fixedValueCloner),
-            self._offset, self.width
+            self._offset, width
             )
 
     def _emitLoadBits(self, location):

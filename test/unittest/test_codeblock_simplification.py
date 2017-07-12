@@ -2,7 +2,8 @@ from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
 from retroasm.codeblock import (
-    ArgumentValue, ConstantValue, FixedValue, Load, SingleReference, Store
+    ArgumentValue, ConcatenatedReference, ConstantValue, FixedValue, Load,
+    SingleReference, SlicedReference, Store
     )
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
@@ -363,6 +364,23 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(code.retRef.width, 8)
         self.assertIsInstance(code.retRef, FixedValue)
         self.assertIntLiteral(code.retRef.expr, 3)
+
+    def test_return_complex_ref(self):
+        '''Test returning a non-trivial reference.'''
+        refH = self.builder.addRegister('h')
+        refL = self.builder.addRegister('l')
+        refHL = ConcatenatedReference(refL, refH)
+        self.builder.addRetReference(
+            SlicedReference(refHL, IntLiteral(0), IntLiteral(8))
+            )
+        code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, ())
+        self.assertIsNotNone(code.retRef)
+        self.assertEqual(code.retRef.width, 8)
+        # Note that we only simplify expressions, not references, so the
+        # reference itself is still complex. All we really check here is
+        # that code block creation doesn't break, but that is worthwhile
+        # in itself.
 
     def test_repeated_increase(self):
         '''Test simplification of constants in constant expressions.'''
