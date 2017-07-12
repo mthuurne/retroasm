@@ -257,11 +257,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertNodes(code.nodes, correct)
 
     def test_return_value(self):
-        '''Test whether a return value constant is created correctly.'''
+        '''Test whether a return value is stored correctly.'''
         refV = self.builder.addValueArgument('V')
         self.assertEqual(len(self.builder.nodes), 1)
         self.assertIsInstance(self.builder.nodes[0], Store)
-        valueV = simplifyExpression(self.builder.nodes[0].expr)
+        valueV = self.builder.nodes[0].expr
 
         refA = self.builder.addRegister('a')
         refRet = self.builder.addVariable('ret')
@@ -272,40 +272,21 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        aVal = code.nodes[0].expr
+        valueA = code.nodes[0].expr
         def correct():
             load = Load(refA.storage)
             yield load
             expr = retVal.substitute(
-                lambda expr: load.expr if expr is aVal else None
+                lambda expr: load.expr if expr is valueA else None
                 )
             yield Store(expr, refRet.storage)
         self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
         self.assertOr(
             retVal,
-            simplifyExpression(aVal),
-            valueV
+            simplifyExpression(valueA),
+            simplifyExpression(valueV)
             )
-
-    def test_return_value_renumber(self):
-        '''Test a simplification that must replace the return value cid.'''
-        refA = self.builder.addRegister('a')
-        const = IntLiteral(23)
-        self.builder.emitStore(refA, const)
-        loadA = self.builder.emitLoad(refA)
-        outerRet = self.builder.addVariable('ret')
-        self.builder.emitStore(outerRet, loadA)
-
-        code = self.createSimplifiedCode()
-        self.assertEqual(len(code.nodes), 2)
-        node = code.nodes[0]
-        self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, refA.storage)
-        self.assertIntLiteral(node.expr, 23)
-        retVal, retWidth = self.getRetVal(code)
-        self.assertEqual(retVal, node.expr)
-        self.assertEqual(retWidth, 8)
 
     def test_return_io_index(self):
         '''Test returning an I/O reference with a simplifiable index.'''
@@ -364,32 +345,40 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         # that code block creation doesn't break, but that is worthwhile
         # in itself.
 
-    def test_repeated_increase(self):
-        '''Test simplification of constants in constant expressions.'''
-        refA = self.builder.addRegister('a')
+    def run_repeated_increase(self, counterRef, counterRemains):
+        '''Helper method for repeated increase tests.'''
         def emitInc():
-            loadA = self.builder.emitLoad(refA)
-            incA = AddOperator(loadA, IntLiteral(1))
-            self.builder.emitStore(refA, incA)
+            loadCounter= self.builder.emitLoad(counterRef)
+            incA = AddOperator(loadCounter, IntLiteral(1))
+            self.builder.emitStore(counterRef, incA)
 
-        initA = IntLiteral(23)
-        self.builder.emitStore(refA, initA)
+        initCounter = IntLiteral(23)
+        self.builder.emitStore(counterRef, initCounter)
         emitInc()
         emitInc()
         emitInc()
-        finalA = self.builder.emitLoad(refA)
+        finalCounter = self.builder.emitLoad(counterRef)
         ret = self.builder.addVariable('ret')
-        self.builder.emitStore(ret, finalA)
+        self.builder.emitStore(ret, finalCounter)
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        correct = (
-            Store(retVal, refA.storage),
-            Store(retVal, ret.storage),
-            )
+        correct = [Store(retVal, ret.storage)]
+        if counterRemains:
+            correct.insert(0, Store(retVal, counterRef.storage))
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)
         self.assertEqual(retWidth, 8)
+
+    def test_repeated_increase_reg(self):
+        '''Test removal of redundant loads and stores to a register.'''
+        refA = self.builder.addRegister('a')
+        self.run_repeated_increase(refA, True)
+
+    def test_repeated_increase_var(self):
+        '''Test removal of redundant loads and stores to a local variable.'''
+        refA = self.builder.addVariable('A')
+        self.run_repeated_increase(refA, False)
 
     def run_signed_load(self, write, compare):
         '''Helper method for signed load tests.'''
