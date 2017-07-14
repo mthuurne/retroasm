@@ -20,37 +20,12 @@ class CodeBlockSimplifier(CodeBlock):
         '''
         while True:
             changed = False
-            changed |= self.simplifyExpressions()
+            changed |= self.updateExpressions(simplifyExpression)
             changed |= self.removeRedundantNodes()
             changed |= self.removeUnusedLoads()
             if not changed:
                 break
         assert self.verify() is None
-
-    def simplifyExpressions(self):
-        changed = False
-        nodes = self.nodes
-
-        for node in nodes:
-            # Simplify stored expressions.
-            if isinstance(node, Store):
-                expr = node.expr
-                newExpr = simplifyExpression(expr)
-                if newExpr is not expr:
-                    changed = True
-                    node.expr = newExpr
-
-            # Simplify I/O indices.
-            storage = node.storage
-            newStorage = storage.substituteExpressions(simplifyExpression)
-            if newStorage is not storage:
-                changed = True
-                node.storage = newStorage
-
-        # Simplify returned reference.
-        changed |= self.updateRetRefExpressions(simplifyExpression)
-
-        return changed
 
     def removeRedundantNodes(self):
         changed = False
