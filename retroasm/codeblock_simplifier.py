@@ -47,16 +47,8 @@ class CodeBlockSimplifier(CodeBlock):
                 changed = True
                 node.storage = newStorage
 
-        # Update returned reference.
-        def simplifySingleRef(ref):
-            storage = ref.storage.substituteExpressions(simplifyExpression)
-            return ref if storage is ref.storage else SingleReference(
-                self, storage, ref.type
-                )
-        def simplifyFixedValue(ref):
-            expr = simplifyExpression(ref.expr)
-            return ref if expr is ref.expr else FixedValue(expr, ref.type)
-        changed |= self.updateRetRef(simplifySingleRef, simplifyFixedValue)
+        # Simplify returned reference.
+        changed |= self.updateRetRefExpressions(simplifyExpression)
 
         return changed
 

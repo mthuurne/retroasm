@@ -177,6 +177,32 @@ class Reference:
         '''
         raise NotImplementedError
 
+    def updateStorageExpressions(self, substFunc):
+        '''Returns a deep copy of this reference, in which each IOStorage index
+        and FixedValue expression is passed to the given substitution function.
+        See Expression.substitute() for details about the substitution function.
+        If the copy would be identical to the cloned reference, the original
+        object is returned instead of a copy. Since References are immutable,
+        this optimization is safe.
+        '''
+        def updateSingleRef(ref):
+            storage = ref.storage
+            newStorage = storage.substituteExpressions(substFunc)
+            if newStorage is storage:
+                return ref
+            else:
+                return SingleReference(ref.block, newStorage, ref.type)
+
+        def updateFixedValue(ref):
+            expr = ref.expr
+            newExpr = expr.substitute(substFunc)
+            if newExpr is expr:
+                return ref
+            else:
+                return FixedValue(newExpr, ref.type)
+
+        return self.clone(updateSingleRef, updateFixedValue)
+
     def emitLoad(self, location):
         '''Emits load nodes for loading a typed value from the referenced
         storage(s).
@@ -245,6 +271,7 @@ class FixedValue(Reference):
 class SingleReference(Reference):
     __slots__ = ('_block', '_storage')
 
+    block = property(lambda self: self._block)
     storage = property(lambda self: self._storage)
 
     def __init__(self, block, storage, typ):
@@ -552,30 +579,20 @@ class CodeBlock:
                     node.expr = newExpr
 
         # Update returned reference.
-        def replaceSingleRef(ref):
-            storage = ref.storage.substituteExpressions(substFunc)
-            return ref if storage is ref.storage else SingleReference(
-                self, storage, ref.type
-                )
-        def replaceFixedValue(ref):
-            expr = ref.expr.substitute(substFunc)
-            return ref if expr is ref.expr else FixedValue(expr, ref.type)
-        changed |= self.updateRetRef(replaceSingleRef, replaceFixedValue)
+        changed |= self.updateRetRefExpressions(substFunc)
 
         return changed
 
-    def updateRetRef(self, singleRefUpdater, fixedValueUpdater):
-        '''Updates the returned reference, if any.
-        The updater arguments should be functions that, given a reference of
-        the respective type, return a simplified version, or the same reference
-        if no simplification was possible.
+    def updateRetRefExpressions(self, substFunc):
+        '''Updates expressions in the returned reference, if any.
+        See Expression.substitute() for details about the substitution function.
         Returns True iff the returned reference was updated.
         '''
         retRef = self.retRef
         if retRef is None:
             return False
 
-        newRef = retRef.clone(singleRefUpdater, fixedValueUpdater)
+        newRef = retRef.updateStorageExpressions(substFunc)
         changed = newRef is not retRef
         if changed:
             self.retRef = newRef
