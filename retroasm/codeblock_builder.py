@@ -240,15 +240,11 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
                 ref = namespace[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
-                if isinstance(storage, IOStorage):
-                    newIndex = importExpr(storage.index)
-                    newStorage = IOStorage(storage.channel, newIndex)
-                elif isinstance(storage, Variable) and storage.scope == 1 \
+                if isinstance(storage, Variable) and storage.scope == 1 \
                         and storage.name == 'ret':
                     newStorage = Variable('inlined_ret', storage.type, 1)
                 else:
-                    # Shallow copy because storages are immutable.
-                    newStorage = storage
+                    newStorage = storage.substituteExpressions(importExpr)
                 # Note: It doesn't matter whether the original reference for
                 #       this storage was signed, since the sign extension will
                 #       be imported as part of an expression.

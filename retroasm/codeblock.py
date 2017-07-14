@@ -533,20 +533,12 @@ class CodeBlock:
         function returns None, the original expression is kept.
         Returns True iff any substitutions were made.
         '''
-        def substStorage(storage):
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = index.substitute(substFunc)
-                if newIndex is not index:
-                    return IOStorage(storage.channel, newIndex)
-            return storage
-
         changed = False
 
         for node in self.nodes:
             # Update indices for I/O storages.
             storage = node.storage
-            newStorage = substStorage(storage)
+            newStorage = storage.substituteExpressions(substFunc)
             if newStorage is not storage:
                 changed = True
                 node.storage = newStorage
@@ -561,7 +553,7 @@ class CodeBlock:
 
         # Update returned reference.
         def replaceSingleRef(ref):
-            storage = substStorage(ref.storage)
+            storage = ref.storage.substituteExpressions(substFunc)
             return ref if storage is ref.storage else SingleReference(
                 self, storage, ref.type
                 )

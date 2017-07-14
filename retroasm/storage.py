@@ -130,6 +130,15 @@ class Storage:
         '''
         raise NotImplementedError
 
+    def substituteExpressions(self, func):
+        '''Applies the given substitution function to the expressions in this
+        storage, if any.
+        See Expression.substitute() for details about the substitution function.
+        Returns a new version of storage with its expressions replaced if any
+        substitution occurred, or this storage otherwise.
+        '''
+        return self
+
 class NamedStorage(Storage):
     '''Base class for named storages that exist in a global or local namespace.
     '''
@@ -277,3 +286,11 @@ class IOStorage(Storage):
                 and self._channel.mightBeSame(self._index, other._index)
         else:
             return isinstance(other, RefArgStorage)
+
+    def substituteExpressions(self, func):
+        index = self._index
+        newIndex = index.substitute(func)
+        if newIndex is index:
+            return self
+        else:
+            return IOStorage(self._channel, newIndex)

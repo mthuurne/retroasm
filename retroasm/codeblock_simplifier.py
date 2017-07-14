@@ -2,7 +2,7 @@ from .codeblock import (
     CodeBlock, FixedValue, Load, LoadedValue, SingleReference, Store
     )
 from .expression_simplifier import simplifyExpression
-from .storage import IOStorage, Variable
+from .storage import Variable
 
 class CodeBlockSimplifier(CodeBlock):
 
@@ -31,14 +31,6 @@ class CodeBlockSimplifier(CodeBlock):
         changed = False
         nodes = self.nodes
 
-        def simplifyStorage(storage):
-            if isinstance(storage, IOStorage):
-                index = storage.index
-                newIndex = simplifyExpression(index)
-                if newIndex is not index:
-                    return IOStorage(storage.channel, newIndex)
-            return storage
-
         for node in nodes:
             # Simplify stored expressions.
             if isinstance(node, Store):
@@ -50,14 +42,14 @@ class CodeBlockSimplifier(CodeBlock):
 
             # Simplify I/O indices.
             storage = node.storage
-            newStorage = simplifyStorage(storage)
+            newStorage = storage.substituteExpressions(simplifyExpression)
             if newStorage is not storage:
                 changed = True
                 node.storage = newStorage
 
         # Update returned reference.
         def simplifySingleRef(ref):
-            storage = simplifyStorage(ref.storage)
+            storage = ref.storage.substituteExpressions(simplifyExpression)
             return ref if storage is ref.storage else SingleReference(
                 self, storage, ref.type
                 )
