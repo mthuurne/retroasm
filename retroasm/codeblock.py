@@ -4,7 +4,7 @@ from .expression import (
     )
 from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation
-from .storage import IOStorage, Storage, Variable
+from .storage import Storage, Variable
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType, const_property
 
@@ -288,9 +288,7 @@ class SingleReference(Reference):
         return str(self._storage)
 
     def iterExpressions(self):
-        storage = self._storage
-        if isinstance(storage, IOStorage):
-            yield storage.index
+        return self._storage.iterExpressions()
 
     def iterStorages(self):
         yield self._storage
@@ -493,9 +491,8 @@ class CodeBlock:
             if isinstance(node, Store):
                 for value in node.expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
-            storage = node.storage
-            if isinstance(storage, IOStorage):
-                for value in storage.index.iterInstances(LoadedValue):
+            for expr in node.storage.iterExpressions():
+                for value in expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
             # Remember this load.
             if isinstance(node, Load):
@@ -504,8 +501,8 @@ class CodeBlock:
         retRef = self.retRef
         if retRef is not None:
             for storage in retRef.iterStorages():
-                if isinstance(storage, IOStorage):
-                    for value in storage.index.iterInstances(LoadedValue):
+                for expr in storage.iterExpressions():
+                    for value in expr.iterInstances(LoadedValue):
                         assert value.load in loads, value
 
     def dump(self):
@@ -530,9 +527,7 @@ class CodeBlock:
         for node in self.nodes:
             if isinstance(node, Store):
                 expressions.add(node.expr)
-            storage = node.storage
-            if isinstance(storage, IOStorage):
-                expressions.add(storage.index)
+            expressions.update(node.storage.iterExpressions())
         retRef = self.retRef
         if retRef is not None:
             expressions.update(retRef.iterExpressions())

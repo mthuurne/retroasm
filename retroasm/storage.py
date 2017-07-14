@@ -130,6 +130,11 @@ class Storage:
         '''
         raise NotImplementedError
 
+    def iterExpressions(self):
+        '''Iterates through the expressions in this storage, if any.
+        '''
+        return iter(())
+
     def substituteExpressions(self, func):
         '''Applies the given substitution function to the expressions in this
         storage, if any.
@@ -286,6 +291,9 @@ class IOStorage(Storage):
                 and self._channel.mightBeSame(self._index, other._index)
         else:
             return isinstance(other, RefArgStorage)
+
+    def iterExpressions(self):
+        yield self._index
 
     def substituteExpressions(self, func):
         index = self._index
