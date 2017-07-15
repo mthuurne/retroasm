@@ -1,6 +1,4 @@
-from .codeblock import (
-    ConcatenatedReference, FixedValue, LoadedValue, SlicedReference
-    )
+from .codeblock import ConcatenatedReference, FixedValue, SlicedReference
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -22,7 +20,7 @@ from .mode import (
     ModeEntry, ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
-from .storage import IOChannel, Variable, namePat
+from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
     )
@@ -737,17 +735,6 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             yield placeholder
             seenPlaceholders[text] = getMatchLocation()
 
-def _replaceProgramCounter(expr, semBuilder):
-    '''Replaces values loaded from the program counter by an Immediate.
-    '''
-    def subst(expr):
-        if isinstance(expr, LoadedValue):
-            storage = expr.load.storage
-            if isinstance(storage, Variable) and storage.name == 'pc':
-                return Immediate('pc', storage.type)
-        return None
-    return expr.substitute(subst)
-
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
@@ -838,8 +825,7 @@ def _parseModeEntries(
                             #       defining references in the context, the
                             #       parse code rejects "<type>&".
                             assert isinstance(ref, FixedValue), ref
-                            expr = ref.expr
-                            value = _replaceProgramCounter(expr, ctxBuilder)
+                            value = ref.expr
                         placeholder = ValuePlaceholder(
                             name, spec.semanticsType, value
                             )

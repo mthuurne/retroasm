@@ -1,11 +1,13 @@
 from .analysis import (
     PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
     )
+from .codeblock import LoadedValue
 from .expression import Expression, IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
+from .storage import Variable
 from .types import (
     IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
     )
@@ -733,6 +735,10 @@ class EncodeMatch:
     def _substMapping(self, expr):
         if isinstance(expr, Immediate):
             return IntLiteral(self._mapping[expr.name])
+        if isinstance(expr, LoadedValue):
+            storage = expr.load.storage
+            if isinstance(storage, Variable) and storage.name == 'pc':
+                return IntLiteral(self._mapping['pc'])
         return None
 
     def iterMnemonic(self):
