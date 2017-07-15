@@ -1,4 +1,6 @@
-from .codeblock import ConcatenatedReference, FixedValue, SlicedReference
+from .codeblock import (
+    ArgumentValue, ConcatenatedReference, FixedValue, SlicedReference
+    )
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
     )
@@ -16,8 +18,8 @@ from .function_builder import createFunc
 from .instrset import InstructionSet
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
-    EncodingExpr, EncodingMultiMatch, Immediate, MatchPlaceholder, Mode,
-    ModeEntry, ValuePlaceholder
+    EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode, ModeEntry,
+    ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
 from .storage import IOChannel, namePat
@@ -292,7 +294,7 @@ def _buildPlaceholder(placeholder, typ, builder):
     elif isinstance(typ, ReferenceType):
         builder.emitReferenceArgument(name, typ.type, decl.name.location)
     else:
-        immediate = Immediate(name, typ)
+        immediate = ArgumentValue(name, typ.mask)
         ref = FixedValue(immediate, typ)
         builder.defineReference(name, ref, decl.name.location)
 
@@ -526,7 +528,7 @@ def _decomposeEncodingExprs(encElems, reader):
         fixedValue = 0
         try:
             for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
-                if isinstance(expr, Immediate):
+                if isinstance(expr, ArgumentValue):
                     decodeMap[expr.name].append(
                         (immIdx, encIdx, refIdx, width)
                         )

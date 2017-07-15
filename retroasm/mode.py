@@ -1,8 +1,8 @@
 from .analysis import (
     PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
     )
-from .codeblock import LoadedValue
-from .expression import Expression, IntLiteral
+from .codeblock import ArgumentValue, LoadedValue
+from .expression import IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
@@ -733,7 +733,7 @@ class EncodeMatch:
         return length
 
     def _substMapping(self, expr):
-        if isinstance(expr, Immediate):
+        if isinstance(expr, ArgumentValue):
             return IntLiteral(self._mapping[expr.name])
         if isinstance(expr, LoadedValue):
             storage = expr.load.storage
@@ -977,28 +977,3 @@ class MatchPlaceholder(Placeholder):
 
     def __str__(self):
         return '{%s %s}' % (self._mode.name, self._name)
-
-class Immediate(Expression):
-    '''A constant value defined as part of an instruction.
-    Note that the name of an immediate is unique only within the mode entry
-    that declares it, not in mode entries that include it.
-    '''
-    __slots__ = ('_name', '_type')
-
-    name = property(lambda self: self._name)
-    mask = property(lambda self: self._type.mask)
-
-    def __init__(self, name, typ):
-        Expression.__init__(self)
-        self._name = name
-        self._type = typ
-
-    def _ctorargs(self):
-        return self._name, self._type
-
-    def __str__(self):
-        return self._name
-
-    def _equals(self, other):
-        # pylint: disable=protected-access
-        return self._name == other._name
