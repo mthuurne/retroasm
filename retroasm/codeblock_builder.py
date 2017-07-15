@@ -102,21 +102,22 @@ class StatelessCodeBlockBuilderMixin:
 class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
     _scope = 0
 
-class EncodingCodeBlockBuilder(
-        StatelessCodeBlockBuilderMixin, CodeBlockBuilder
-        ):
-    _scope = 0
-
-    def __init__(self, parentBuilder):
-        namespace = LocalNamespace(self, parentBuilder)
-        CodeBlockBuilder.__init__(self, namespace)
-
 class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1
 
     def __init__(self, parentBuilder):
         namespace = LocalNamespace(self, parentBuilder)
         CodeBlockBuilder.__init__(self, namespace)
+
+class EncodingCodeBlockBuilder(
+        StatelessCodeBlockBuilderMixin, LocalCodeBlockBuilder
+        ):
+    pass
+
+class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
+
+    def __init__(self, parentBuilder):
+        LocalCodeBlockBuilder.__init__(self, parentBuilder)
         self.nodes = []
 
     def dump(self):

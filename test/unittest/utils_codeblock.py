@@ -1,6 +1,6 @@
 from retroasm.codeblock import Load, SingleReference, Store
 from retroasm.codeblock_builder import (
-    GlobalCodeBlockBuilder, LocalCodeBlockBuilder
+    GlobalCodeBlockBuilder, SemanticsCodeBlockBuilder
     )
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
@@ -48,13 +48,13 @@ class NodeChecker:
         mask = -1 if width is unlimited else ((1 << width) - 1)
         self.assertEqual(expr.value & mask, value)
 
-class TestCodeBlockBuilder(LocalCodeBlockBuilder):
+class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
 
     def __init__(self, globalBuilder=None):
         if globalBuilder is None:
             globalBuilder = GlobalCodeBlockBuilder(GlobalNamespace())
         self.globalBuilder = globalBuilder
-        LocalCodeBlockBuilder.__init__(self, globalBuilder)
+        SemanticsCodeBlockBuilder.__init__(self, globalBuilder)
 
     def emitLoad(self, ref):
         return ref.emitLoad(None)

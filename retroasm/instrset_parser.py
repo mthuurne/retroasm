@@ -2,7 +2,7 @@ from .codeblock import (
     ArgumentValue, ConcatenatedReference, FixedValue, SlicedReference
     )
 from .codeblock_builder import (
-    EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, LocalCodeBlockBuilder
+    EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, SemanticsCodeBlockBuilder
     )
 from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .expression import IntLiteral
@@ -759,7 +759,7 @@ def _parseModeEntries(
                     placeholderSpecs, flagsRequired = {}, set()
 
                 # Define placeholders in context builder.
-                ctxBuilder = LocalCodeBlockBuilder(globalBuilder)
+                ctxBuilder = SemanticsCodeBlockBuilder(globalBuilder)
                 try:
                     for spec in placeholderSpecs.values():
                         semType = spec.semanticsType
@@ -833,7 +833,7 @@ def _parseModeEntries(
 
                 # Parse semantics.
                 if wantSemantics:
-                    semBuilder = LocalCodeBlockBuilder(globalBuilder)
+                    semBuilder = SemanticsCodeBlockBuilder(globalBuilder)
                     try:
                         # Define placeholders in semantics builder.
                         for name, spec in placeholderSpecs.items():

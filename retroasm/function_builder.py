@@ -1,4 +1,4 @@
-from .codeblock_builder import LocalCodeBlockBuilder
+from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, parseStatement
 from .function import Function
@@ -21,7 +21,7 @@ def _parseBody(reader):
 def createFunc(reader, funcName, retType, args, globalBuilder):
     headerLocation = reader.getLocation()
 
-    builder = LocalCodeBlockBuilder(globalBuilder)
+    builder = SemanticsCodeBlockBuilder(globalBuilder)
     for argName, argDecl in args.items():
         if isinstance(argDecl, ReferenceType):
             builder.emitReferenceArgument(argName, argDecl.type, headerLocation)
