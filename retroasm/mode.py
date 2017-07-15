@@ -986,8 +986,6 @@ class Immediate(Expression):
     __slots__ = ('_name', '_type')
 
     name = property(lambda self: self._name)
-    type = property(lambda self: self._type)
-    width = property(lambda self: self._type.width)
     mask = property(lambda self: self._type.mask)
 
     def __init__(self, name, typ):

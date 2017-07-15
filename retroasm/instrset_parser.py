@@ -548,16 +548,15 @@ def _decomposeEncodingExprs(encElems, reader):
                 fixedMatcher.append((encIdx, fixedMask, fixedValue))
     return fixedMatcher, decodeMap
 
-def _combinePlaceholderEncodings(
-        decodeMap, immediates, placeholderSpecs, reader
-        ):
-    '''Yield pairs of immediate name and the locations where the immediate
+def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
+    '''Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
     '''
     for name, slices in decodeMap.items():
-        immWidth = immediates[name].width
+        placeholderSpec = placeholderSpecs[name]
+        immWidth = placeholderSpec.encodingWidth
         decoding = []
         problems = []
         prev = 0
@@ -577,7 +576,7 @@ def _combinePlaceholderEncodings(
         if problems:
             reader.error(
                 'cannot decode value for "%s": %s', name, ', '.join(problems),
-                location=placeholderSpecs[name].decl.treeLocation
+                location=placeholderSpec.decl.treeLocation
                 )
         else:
             yield name, tuple(decoding)
@@ -626,18 +625,6 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
-
-    # Gather all Immediate objects from the namespace.
-    immediates = {
-        value.name: value
-        for value in (
-            ref.expr
-            for ref in encBuilder.namespace.values()
-            if isinstance(ref, FixedValue)
-            )
-        if isinstance(value, Immediate)
-        }
-
     try:
         with reader.checkErrors():
             # Decompose the encoding expressions.
@@ -645,7 +632,7 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
         with reader.checkErrors():
             # Create a mapping to extract immediate values from encoded items.
             sequentialMap = dict(_combinePlaceholderEncodings(
-                decodeMap, immediates, placeholderSpecs, reader
+                decodeMap, placeholderSpecs, reader
                 ))
         with reader.checkErrors():
             # Check whether unknown-length multi-matches are blocking decoding.
