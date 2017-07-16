@@ -105,8 +105,8 @@ class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
 class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1
 
-    def __init__(self, parentBuilder):
-        namespace = LocalNamespace(self, parentBuilder.namespace)
+    def __init__(self, parentNamespace):
+        namespace = LocalNamespace(self, parentNamespace)
         CodeBlockBuilder.__init__(self, namespace)
 
     def emitValueArgument(self, name, typ, location):
@@ -128,8 +128,8 @@ class EncodingCodeBlockBuilder(
 
 class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
-    def __init__(self, parentBuilder):
-        LocalCodeBlockBuilder.__init__(self, parentBuilder)
+    def __init__(self, parentNamespace):
+        LocalCodeBlockBuilder.__init__(self, parentNamespace)
         self.nodes = []
 
     def dump(self):

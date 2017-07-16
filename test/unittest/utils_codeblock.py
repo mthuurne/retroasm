@@ -54,7 +54,7 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
         if globalBuilder is None:
             globalBuilder = GlobalCodeBlockBuilder(GlobalNamespace())
         self.globalBuilder = globalBuilder
-        SemanticsCodeBlockBuilder.__init__(self, globalBuilder)
+        SemanticsCodeBlockBuilder.__init__(self, globalBuilder.namespace)
 
     def emitLoad(self, ref):
         return ref.emitLoad(None)

@@ -18,10 +18,10 @@ def _parseBody(reader):
                 'failed to parse statement: %s', ex, location=ex.location
                 )
 
-def createFunc(reader, funcName, retType, args, globalBuilder):
+def createFunc(reader, funcName, retType, args, namespace):
     headerLocation = reader.getLocation()
 
-    builder = SemanticsCodeBlockBuilder(globalBuilder)
+    builder = SemanticsCodeBlockBuilder(namespace)
     for argName, argDecl in args.items():
         if isinstance(argDecl, ReferenceType):
             builder.emitReferenceArgument(argName, argDecl.type, headerLocation)
