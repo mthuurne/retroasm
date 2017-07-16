@@ -294,9 +294,7 @@ def _buildPlaceholder(placeholder, typ, builder):
     elif isinstance(typ, ReferenceType):
         builder.emitReferenceArgument(name, typ.type, decl.name.location)
     else:
-        immediate = ArgumentValue(name, typ.mask)
-        ref = FixedValue(immediate, typ)
-        builder.defineReference(name, ref, decl.name.location)
+        builder.emitValueArgument(name, typ, decl.name.location)
 
 def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
