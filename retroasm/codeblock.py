@@ -476,7 +476,7 @@ class CodeBlock:
         self.retRef = None if retRef is None else retRef.clone(
             lambda ref, code=self: SingleReference(code, ref.storage, ref.type)
             )
-        self.updateExpressions(valueMapping.get)
+        self._updateExpressions(valueMapping.get)
         assert self.verify() is None
 
     def verify(self):
@@ -547,7 +547,7 @@ class CodeBlock:
 
     storages = const_property(_gatherStorages)
 
-    def updateExpressions(self, substFunc):
+    def _updateExpressions(self, substFunc):
         '''Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution
@@ -573,11 +573,11 @@ class CodeBlock:
                     node.expr = newExpr
 
         # Update returned reference.
-        changed |= self.updateRetRefExpressions(substFunc)
+        changed |= self._updateRetRefExpressions(substFunc)
 
         return changed
 
-    def updateRetRefExpressions(self, substFunc):
+    def _updateRetRefExpressions(self, substFunc):
         '''Updates expressions in the returned reference, if any.
         See Expression.substitute() for details about the substitution function.
         Returns True iff the returned reference was updated.

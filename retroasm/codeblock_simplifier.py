@@ -20,7 +20,7 @@ class CodeBlockSimplifier(CodeBlock):
         '''
         while True:
             changed = False
-            changed |= self.updateExpressions(simplifyExpression)
+            changed |= self._updateExpressions(simplifyExpression)
             changed |= self.removeRedundantNodes()
             changed |= self.removeUnusedLoads()
             if not changed:
@@ -82,7 +82,7 @@ class CodeBlockSimplifier(CodeBlock):
                     expr = newExpr
                 loadReplacements[key] = expr
             # Apply load replacement.
-            changed |= self.updateExpressions(loadReplacements.get)
+            changed |= self._updateExpressions(loadReplacements.get)
 
         # Remove stores for which the value is overwritten before it is loaded.
         # Variable loads were already eliminated by the code above and since
