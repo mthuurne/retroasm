@@ -508,15 +508,14 @@ class CodeBlock:
     def dump(self):
         '''Prints this code block on stdout.
         '''
-        print('    nodes:')
         for node in self.nodes:
-            print('        %s (%s-bit)' % (node, node.storage.width))
+            print('    %s (%s-bit)' % (node, node.storage.width))
         if self.retRef is not None:
             if not (isinstance(self.retRef, SingleReference) and
                     isinstance(self.retRef.storage, Variable) and
                     self.retRef.storage.name == 'ret'
                     ):
-                print('    ret = %s' % self.retRef)
+                print('    return ref %s' % self.retRef)
 
     def _gatherExpressions(self):
         '''A set of all expressions that are contained in this block.

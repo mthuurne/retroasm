@@ -23,7 +23,7 @@ class CodeBlockBuilder:
             retRef = self.namespace['ret']
             storage = retRef.storage
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
-                print('    ret = %s' % retRef)
+                print('    return ref %s' % retRef)
 
     def _addNamedStorage(self, storage, location):
         ref = SingleReference(self, storage, storage.type)
@@ -133,9 +133,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         self.nodes = []
 
     def dump(self):
-        print('    nodes:')
         for node in self.nodes:
-            print('        %s (%s-bit)' % (node, node.storage.width))
+            print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
     def createCodeBlock(self, log=None):
