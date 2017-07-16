@@ -79,20 +79,20 @@ class LocalNamespace(Namespace):
     inefficient operation which should be applied to non-trivial cases only.
     '''
 
-    def __init__(self, localBuilder, parentBuilder):
+    def __init__(self, block, parent):
         Namespace.__init__(self)
-        self.localBuilder = localBuilder
-        self.parentBuilder = parentBuilder
+        self.block = block
+        self.parent = checkType(parent, Namespace, 'parent namespace')
         self.storageImportMap = {}
 
     def __contains__(self, key):
-        return super().__contains__(key) or key in self.parentBuilder.namespace
+        return super().__contains__(key) or key in self.parent
 
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
         except KeyError:
-            value = self.parentBuilder.namespace[key]
+            value = self.parent[key]
             if isinstance(value, (Function, IOChannel)):
                 pass
             elif isinstance(value, Reference):
@@ -112,8 +112,7 @@ class LocalNamespace(Namespace):
         try:
             return importMap[storage]
         except KeyError:
-            localBuilder = self.localBuilder
-            localRef = SingleReference(localBuilder, storage, parentRef.type)
+            localRef = SingleReference(self.block, storage, parentRef.type)
             importMap[storage] = localRef
             return localRef
 
