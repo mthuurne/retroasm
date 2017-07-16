@@ -573,21 +573,11 @@ class CodeBlock:
                     node.expr = newExpr
 
         # Update returned reference.
-        changed |= self._updateRetRefExpressions(substFunc)
-
-        return changed
-
-    def _updateRetRefExpressions(self, substFunc):
-        '''Updates expressions in the returned reference, if any.
-        See Expression.substitute() for details about the substitution function.
-        Returns True iff the returned reference was updated.
-        '''
         retRef = self.retRef
-        if retRef is None:
-            return False
+        if retRef is not None:
+            newRef = retRef.updateStorageExpressions(substFunc)
+            if newRef is not retRef:
+                changed = True
+                self.retRef = newRef
 
-        newRef = retRef.updateStorageExpressions(substFunc)
-        changed = newRef is not retRef
-        if changed:
-            self.retRef = newRef
         return changed
