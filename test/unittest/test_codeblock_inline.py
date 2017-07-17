@@ -21,6 +21,11 @@ def createSimplifiedCode(builder):
         code.dump()
     return code
 
+def args(**kvargs):
+    '''Argument fetcher helper function for inlineBlock().
+    '''
+    return kvargs.__getitem__
+
 class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_easy(self):
@@ -36,7 +41,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerA = outer.addRegister('a', IntType.u(16))
         zero = IntLiteral(0)
         outer.emitStore(outerA, zero)
-        outer.inlineBlock(inner.createCodeBlock(), {})
+        outer.inlineBlock(inner.createCodeBlock(), args())
         loadA = outer.emitLoad(outerA)
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, loadA)
@@ -63,9 +68,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         step0 = IntLiteral(100)
-        step1 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step0}))
-        step2 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step1}))
-        step3 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step2}))
+        step1 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step0)))
+        step2 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step1)))
+        step3 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step2)))
         outerRet = outer.addVariable('ret')
         outer.emitStore(outerRet, step3)
 
@@ -91,7 +96,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        inlinedVal = outer.emitLoad(outer.inlineBlock(innerCode, {}))
+        inlinedVal = outer.emitLoad(outer.inlineBlock(innerCode, args()))
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, inlinedVal)
 
@@ -141,9 +146,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         step0 = IntLiteral(0x89FE)
-        step1 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step0}))
-        step2 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step1}))
-        step3 = outer.emitLoad(outer.inlineBlock(incCode, {'V': step2}))
+        step1 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step0)))
+        step2 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step1)))
+        step3 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step2)))
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, step3)
 
@@ -170,9 +175,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regA = outer.namespace['a']
         initA = IntLiteral(100)
         outer.emitStore(outerA, initA)
-        outer.inlineBlock(incCode, {'R': regA})
-        outer.inlineBlock(incCode, {'R': regA})
-        outer.inlineBlock(incCode, {'R': regA})
+        outer.inlineBlock(incCode, args(R=regA))
+        outer.inlineBlock(incCode, args(R=regA))
+        outer.inlineBlock(incCode, args(R=regA))
         outerRet = outer.addVariable('ret')
         finalA = outer.emitLoad(outerA)
         outer.emitStore(outerRet, finalA)
@@ -208,9 +213,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         initL = IntLiteral(0xcd)
         outer.emitStore(outerH, initH)
         outer.emitStore(outerL, initL)
-        outer.inlineBlock(incCode, {'R': regHL})
-        outer.inlineBlock(incCode, {'R': regHL})
-        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=regHL))
         outerRet = outer.addVariable('ret', IntType.u(16))
         finalHL = outer.emitLoad(regHL)
         outer.emitStore(outerRet, finalHL)
@@ -237,9 +242,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         initH = IntLiteral(0xab)
         outer.emitStore(outerH, initH)
-        outer.inlineBlock(incCode, {'R': regHL})
-        outer.inlineBlock(incCode, {'R': regHL})
-        outer.inlineBlock(incCode, {'R': regHL})
+        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=regHL))
         outerRet = outer.addVariable('ret', IntType.u(16))
         finalHL = outer.emitLoad(regHL)
         outer.emitStore(outerRet, finalHL)
@@ -264,9 +269,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         initR = IntLiteral(0xcdef)
         outer.emitStore(outerR, initR)
         sliceR = SlicedReference(regR, IntLiteral(4), IntLiteral(8))
-        outer.inlineBlock(incCode, {'R': sliceR})
-        outer.inlineBlock(incCode, {'R': sliceR})
-        outer.inlineBlock(incCode, {'R': sliceR})
+        outer.inlineBlock(incCode, args(R=sliceR))
+        outer.inlineBlock(incCode, args(R=sliceR))
+        outer.inlineBlock(incCode, args(R=sliceR))
         outerRet = outer.addVariable('ret', IntType.u(16))
         finalR = outer.emitLoad(outerR)
         outer.emitStore(outerRet, finalR)
@@ -289,7 +294,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerA = outer.addRegister('a')
         initA = IntLiteral(0xb2)
         outer.emitStore(outerA, initA)
-        retRef = outer.inlineBlock(innerCode, {})
+        retRef = outer.inlineBlock(innerCode, args())
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
         outer.emitStore(outerRet, retVal)
@@ -312,7 +317,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerA = outer.addRegister('a', IntType.s(8))
         initA = IntLiteral(0xb2)
         outer.emitStore(outerA, initA)
-        retRef = outer.inlineBlock(innerCode, {})
+        retRef = outer.inlineBlock(innerCode, args())
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
         outer.emitStore(outerRet, retVal)
@@ -333,7 +338,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
-        retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
+        retRef = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
         outer.emitStore(outerRet, retVal)
@@ -354,7 +359,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
-        retRef = outer.inlineBlock(innerCode, {'R': fixedVal})
+        retRef = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
         outer.emitStore(outerRet, retVal)
@@ -373,7 +378,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertIsNotNone(innerCode.retRef)
 
         outer = TestCodeBlockBuilder(inner.globalBuilder)
-        retRef = outer.inlineBlock(innerCode, {})
+        retRef = outer.inlineBlock(innerCode, args())
         outerA = outer.addRegister('a')
         fake = IntLiteral(0xdc)
         outer.emitStore(outerA, fake)
@@ -400,7 +405,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         addr = IntLiteral(0x4002)
-        retRef = outer.inlineBlock(innerCode, {'A': addr})
+        retRef = outer.inlineBlock(innerCode, args(A=addr))
         outerRet = outer.addVariable('ret')
         retVal = outer.emitLoad(retRef)
         outer.emitStore(outerRet, retVal)

@@ -221,10 +221,14 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
                 'Missing values for arguments: %s' % ', '.join(missingArgs)
                 )
 
-        return self.inlineBlock(code, argMap)
+        return self.inlineBlock(code, argMap.__getitem__)
 
-    def inlineBlock(self, code, argMap):
+    def inlineBlock(self, code, argFetcher):
         '''Inlines another code block into this one.
+        The given argument fetcher function, when called with an argument name,
+        should return the expression (for value arguments) or reference (for
+        reference arguments) for that argument, or None if the argument should
+        remain an argument in the inlined block.
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
         '''
@@ -232,7 +236,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         loadResults = {}
         def substExpr(expr):
             if isinstance(expr, ArgumentValue):
-                return argMap[expr.name]
+                return argFetcher(expr.name)
             elif isinstance(expr, LoadedValue):
                 return loadResults.get(expr)
             else:
@@ -240,32 +244,35 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         def importExpr(expr):
             return expr.substitute(substExpr)
 
+        def importStorageUncached(storage):
+            if isinstance(storage, RefArgStorage):
+                ref = argFetcher(storage.name)
+                if ref is not None:
+                    assert storage.width == ref.width, \
+                        (storage.width, ref.width)
+                    return ref
+                newStorage = storage
+            elif isinstance(storage, Variable) and storage.scope == 1 \
+                    and storage.name == 'ret':
+                newStorage = Variable('inlined_ret', storage.type, 1)
+            else:
+                newStorage = storage.substituteExpressions(importExpr)
+
+            # Note: It doesn't matter whether the original reference for
+            #       this storage was signed, since the sign extension will
+            #       be imported as part of an expression.
+            #       We are copying the _emitLoadBits() output here, not the
+            #       emitLoad() output.
+            typ = IntType.u(newStorage.width)
+            return SingleReference(self, newStorage, typ)
         storageCache = {}
         def importStorage(storage):
             '''Returns a reference to an imported version of the given storage.
             '''
             ref = storageCache.get(storage)
-            if ref is not None:
-                return ref
-
-            if isinstance(storage, RefArgStorage):
-                ref = argMap[storage.name]
-                assert storage.width == ref.width, (storage.width, ref.width)
-            else:
-                if isinstance(storage, Variable) and storage.scope == 1 \
-                        and storage.name == 'ret':
-                    newStorage = Variable('inlined_ret', storage.type, 1)
-                else:
-                    newStorage = storage.substituteExpressions(importExpr)
-                # Note: It doesn't matter whether the original reference for
-                #       this storage was signed, since the sign extension will
-                #       be imported as part of an expression.
-                #       We are copying the _emitLoadBits() output here, not the
-                #       emitLoad() output.
-                typ = IntType.u(newStorage.width)
-                ref = SingleReference(self, newStorage, typ)
-
-            storageCache[storage] = ref
+            if ref is None:
+                ref = importStorageUncached(storage)
+                storageCache[storage] = ref
             return ref
 
         # Copy nodes.
