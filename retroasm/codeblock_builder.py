@@ -223,7 +223,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
         return self.inlineBlock(code, argMap)
 
-    def inlineBlock(self, code, namespace):
+    def inlineBlock(self, code, argMap):
         '''Inlines another code block into this one.
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
@@ -232,7 +232,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         loadResults = {}
         def substExpr(expr):
             if isinstance(expr, ArgumentValue):
-                return namespace[expr.name]
+                return argMap[expr.name]
             elif isinstance(expr, LoadedValue):
                 return loadResults.get(expr)
             else:
@@ -249,7 +249,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
                 return ref
 
             if isinstance(storage, RefArgStorage):
-                ref = namespace[storage.name]
+                ref = argMap[storage.name]
                 assert storage.width == ref.width, (storage.width, ref.width)
             else:
                 if isinstance(storage, Variable) and storage.scope == 1 \
