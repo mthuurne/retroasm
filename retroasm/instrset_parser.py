@@ -285,10 +285,10 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
 
     return placeholderSpecs, flagsRequired
 
-def _buildPlaceholder(placeholder, typ, builder):
-    decl = placeholder.decl
+def _buildPlaceholder(spec, typ, builder):
+    decl = spec.decl
     name = decl.name.name
-    value = placeholder.value
+    value = spec.value
     if value is not None:
         convertDefinition(decl.kind, decl.name, typ, value, builder)
     elif isinstance(typ, ReferenceType):
@@ -304,12 +304,12 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     # encoding field. For example relative addressing reads the base address
     # from a register.
     encErrors = {}
-    for name, placeholder in placeholderSpecs.items():
-        encWidth = placeholder.encodingWidth
+    for name, spec in placeholderSpecs.items():
+        encWidth = spec.encodingWidth
         if encWidth is not None:
             encType = IntType.u(encWidth)
             try:
-                _buildPlaceholder(placeholder, encType, encBuilder)
+                _buildPlaceholder(spec, encType, encBuilder)
             except BadInput as ex:
                 encErrors[name] = ex
 
@@ -451,18 +451,18 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                 encNodes[0].treeLocation,
                 encNodes[-1].treeLocation
                 )
-    for name, placeholder in placeholderSpecs.items():
-        if isinstance(placeholder, ValuePlaceholderSpec):
-            if placeholder.value is not None:
+    for name, spec in placeholderSpecs.items():
+        if isinstance(spec, ValuePlaceholderSpec):
+            if spec.value is not None:
                 # The value is computed, so we don't need to encode it.
                 continue
             if name not in identifiers:
                 reader.error(
                     'value placeholder "%s" does not occur in encoding', name,
-                    location=(encFullSpan(), placeholder.decl.treeLocation)
+                    location=(encFullSpan(), spec.decl.treeLocation)
                     )
-        elif isinstance(placeholder, MatchPlaceholderSpec):
-            mode = placeholder.mode
+        elif isinstance(spec, MatchPlaceholderSpec):
+            mode = spec.mode
             if mode.encodingWidth is None:
                 # Mode has empty encoding, no match needed.
                 continue
@@ -473,17 +473,17 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                 reader.error(
                     'no placeholder "%s" for mode "%s" in encoding',
                     name, mode.name,
-                    location=(encFullSpan(), placeholder.decl.treeLocation)
+                    location=(encFullSpan(), spec.decl.treeLocation)
                     )
             if mode.auxEncodingWidth is not None:
                 reader.error(
                     'mode "%s" matches auxiliary encoding units, but there '
                     'is no "%s@" placeholder for them',
                     mode.name, name,
-                    location=(encFullSpan(), placeholder.decl.treeLocation)
+                    location=(encFullSpan(), spec.decl.treeLocation)
                     )
         else:
-            assert False, placeholder
+            assert False, spec
 
 def _decomposeReference(ref):
     if isinstance(ref, FixedValue):
