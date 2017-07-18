@@ -1,16 +1,10 @@
 from .analysis import (
     PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
     )
-from .codeblock import ArgumentValue, CodeBlock, FixedValue, LoadedValue
-from .expression import IntLiteral
-from .expression_parser import DeclarationNode, ParseNode
-from .expression_simplifier import simplifyExpression
+from .codeblock import CodeBlock
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
-from .storage import Variable
-from .types import (
-    IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
-    )
+from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
 from .utils import Singleton, checkType, const_property
 
 from collections import defaultdict
@@ -692,6 +686,8 @@ class EncodeMatch:
     '''A match on the encoding field of a mode entry.
     '''
 
+    entry = property(lambda self: self._entry)
+
     def __init__(self, entry):
         self._entry = entry
         self._mapping = {}
@@ -699,18 +695,12 @@ class EncodeMatch:
     def __repr__(self):
         return 'EncodeMatch(%r, %r)' % (self._entry, self._mapping)
 
+    def __getitem__(self, key):
+        return self._mapping[key]
+
     def __setitem__(self, key, value):
         assert key not in self._mapping, key
         self._mapping[key] = value
-
-    def setPC(self, addr):
-        '''Sets the value the 'pc' register will be reads as, typically the
-        address after the current instruction.
-        '''
-        self['pc'] = checkType(addr, int, 'PC address')
-        for value in self._mapping.values():
-            if isinstance(value, EncodeMatch):
-                value.setPC(addr)
 
     @const_property
     def encodedLength(self):
@@ -731,62 +721,6 @@ class EncodeMatch:
             else:
                 assert False, encItem
         return length
-
-    def _substMapping(self, expr):
-        if isinstance(expr, ArgumentValue):
-            return IntLiteral(self._mapping[expr.name])
-        if isinstance(expr, LoadedValue):
-            storage = expr.load.storage
-            if isinstance(storage, Variable) and storage.name == 'pc':
-                return IntLiteral(self._mapping['pc'])
-        return None
-
-    def iterMnemonic(self):
-        '''Yields a mnemonic representation of this match.
-        '''
-        entry = self._entry
-        mapping = self._mapping
-        placeholders = entry.placeholders
-        for mnemElem in entry.mnemonic:
-            if isinstance(mnemElem, str):
-                yield mnemElem
-            elif isinstance(mnemElem, int):
-                yield mnemElem, IntType.int, frozenset()
-            elif isinstance(mnemElem, MatchPlaceholder):
-                match = mapping[mnemElem.name]
-                for subElem in match.iterMnemonic():
-                    if isinstance(subElem, str):
-                        yield subElem
-                    else:
-                        value, typ, roles = subElem
-                        yield value, typ, roles | mnemElem.roles
-            elif isinstance(mnemElem, ValuePlaceholder):
-                name = mnemElem.name
-                typ = mnemElem.type
-                value = mapping.get(name)
-                if value is None:
-                    ref = mnemElem.code.retRef
-                    # TODO: While the documentation says we do support
-                    #       defining references in the context, the
-                    #       parse code rejects "<type>&".
-                    assert isinstance(ref, FixedValue), ref
-                    expr = simplifyExpression(
-                        ref.expr.substitute(self._substMapping)
-                        )
-                    if isinstance(expr, IntLiteral):
-                        yield expr.value, typ, mnemElem.roles
-                    else:
-                        # TODO: Is this a bug? A definition error?
-                        #       Or can it happen normally?
-                        yield name
-                else:
-                    if typ.signed:
-                        width = typ.width
-                        if value >= 1 << (width - 1):
-                            value -= 1 << width
-                    yield value, typ, mnemElem.roles
-            else:
-                assert False, mnemElem
 
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %d' % width
