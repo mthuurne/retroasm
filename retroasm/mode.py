@@ -1,7 +1,7 @@
 from .analysis import (
     PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
     )
-from .codeblock import ArgumentValue, LoadedValue
+from .codeblock import ArgumentValue, CodeBlock, FixedValue, LoadedValue
 from .expression import IntLiteral
 from .expression_parser import DeclarationNode, ParseNode
 from .expression_simplifier import simplifyExpression
@@ -765,8 +765,13 @@ class EncodeMatch:
                 typ = mnemElem.type
                 value = mapping.get(name)
                 if value is None:
+                    ref = mnemElem.code.retRef
+                    # TODO: While the documentation says we do support
+                    #       defining references in the context, the
+                    #       parse code rejects "<type>&".
+                    assert isinstance(ref, FixedValue), ref
                     expr = simplifyExpression(
-                        mnemElem.value.substitute(self._substMapping)
+                        ref.expr.substitute(self._substMapping)
                         )
                     if isinstance(expr, IntLiteral):
                         yield expr.value, typ, mnemElem.roles
@@ -942,24 +947,24 @@ class ValuePlaceholder(Placeholder):
     '''
 
     type = property(lambda self: self._type)
-    value = property(lambda self: self._value)
+    code = property(lambda self: self._code)
 
-    def __init__(self, name, typ, value):
+    def __init__(self, name, typ, code):
         Placeholder.__init__(self, name)
         self._type = typ
-        self._value = None if value is None else simplifyExpression(value)
+        self._code = checkType(code, (CodeBlock, type(None)), 'code block')
 
     def __repr__(self):
         return 'ValuePlaceholder(%r, %r, %r)' % (
-            self._name, self._type, self._value
+            self._name, self._type, self._code
             )
 
     def __str__(self):
-        value = self._value
-        if value is None:
+        code = self._code
+        if code is None:
             return '{%s %s}' % (self._type, self._name)
         else:
-            return '{%s %s = %s}' % (self._type, self._name, self._value)
+            return '{%s %s = %s}' % (self._type, self._name, code.retRef)
 
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made

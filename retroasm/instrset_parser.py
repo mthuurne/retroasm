@@ -764,16 +764,10 @@ def _parseModeEntries(
                         _buildPlaceholder(spec, semType, ctxBuilder)
                         if isinstance(spec, ValuePlaceholderSpec):
                             if spec.value is None:
-                                value = None
+                                code = None
                             else:
                                 code = ctxBuilder.createCodeBlock(name)
-                                ref = code.retRef
-                                # TODO: While the documentation says we do support
-                                #       defining references in the context, the
-                                #       parse code rejects "<type>&".
-                                assert isinstance(ref, FixedValue), ref
-                                value = ref.expr
-                            placeholder = ValuePlaceholder(name, semType, value)
+                            placeholder = ValuePlaceholder(name, semType, code)
                         elif isinstance(spec, MatchPlaceholderSpec):
                             placeholder = MatchPlaceholder(name, spec.mode)
                         else:
