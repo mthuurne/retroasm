@@ -757,7 +757,7 @@ def _parseModeEntries(
 
                 # Compute semantics for placeholders.
                 ctxBuilder = SemanticsCodeBlockBuilder(namespace)
-                placeholders = {}
+                placeholders = OrderedDict()
                 try:
                     for name, spec in placeholderSpecs.items():
                         semType = spec.semanticsType
