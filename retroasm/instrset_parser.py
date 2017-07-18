@@ -755,12 +755,30 @@ def _parseModeEntries(
                 else:
                     placeholderSpecs, flagsRequired = {}, set()
 
-                # Define placeholders in context builder.
+                # Compute semantics for placeholders.
                 ctxBuilder = SemanticsCodeBlockBuilder(namespace)
+                placeholders = {}
                 try:
-                    for spec in placeholderSpecs.values():
+                    for name, spec in placeholderSpecs.items():
                         semType = spec.semanticsType
                         _buildPlaceholder(spec, semType, ctxBuilder)
+                        if isinstance(spec, ValuePlaceholderSpec):
+                            if spec.value is None:
+                                value = None
+                            else:
+                                code = ctxBuilder.createCodeBlock(name)
+                                ref = code.retRef
+                                # TODO: While the documentation says we do support
+                                #       defining references in the context, the
+                                #       parse code rejects "<type>&".
+                                assert isinstance(ref, FixedValue), ref
+                                value = ref.expr
+                            placeholder = ValuePlaceholder(name, semType, value)
+                        elif isinstance(spec, MatchPlaceholderSpec):
+                            placeholder = MatchPlaceholder(name, spec.mode)
+                        else:
+                            assert False, spec
+                        placeholders[name] = placeholder
                 except BadInput as ex:
                     reader.error(
                         'error in context: %s', ex, location=ex.location
@@ -798,28 +816,6 @@ def _parseModeEntries(
                     decoding = _parseModeDecoding(
                         encoding, encBuilder, placeholderSpecs, reader
                         )
-
-                # Convert placeholders.
-                placeholders = {}
-                for name, spec in placeholderSpecs.items():
-                    if isinstance(spec, ValuePlaceholderSpec):
-                        if spec.value is None:
-                            value = None
-                        else:
-                            ref = ctxBuilder.namespace[name]
-                            # TODO: While the documentation says we do support
-                            #       defining references in the context, the
-                            #       parse code rejects "<type>&".
-                            assert isinstance(ref, FixedValue), ref
-                            value = ref.expr
-                        placeholder = ValuePlaceholder(
-                            name, spec.semanticsType, value
-                            )
-                    elif isinstance(spec, MatchPlaceholderSpec):
-                        placeholder = MatchPlaceholder(name, spec.mode)
-                    else:
-                        assert False, spec
-                    placeholders[name] = placeholder
 
                 # Parse mnemonic.
                 mnemonic = mnemBase + tuple(_parseMnemonic(
