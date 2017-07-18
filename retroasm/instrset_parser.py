@@ -858,7 +858,7 @@ def _parseModeEntries(
                         # This is the last field.
                         continue
                     try:
-                        semantics = semBuilder.createCodeBlock(reader)
+                        semantics = semBuilder.createCodeBlock(log=reader)
                         # TODO: Inline code block into ctxBuilder as a function
                         #       call, where all placeholders are arguments.
                         #       Store the result in the ModeEntry, in addition

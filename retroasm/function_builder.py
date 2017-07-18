@@ -37,7 +37,7 @@ def createFunc(reader, funcName, retType, args, namespace):
         code = None
     else:
         try:
-            code = builder.createCodeBlock(reader)
+            code = builder.createCodeBlock(log=reader)
         except ValueError:
             code = None
 
