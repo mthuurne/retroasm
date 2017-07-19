@@ -184,8 +184,8 @@ class ModeEntry:
     '''
 
     def __init__(
-            self, encoding, decoding, mnemonic, semantics, placeholders,
-            flagsRequired, location
+            self, encoding, decoding, mnemonic, semType, semantics,
+            placeholders, flagsRequired, location
             ):
         # Filter out zero-length encoding items.
         # There is no good reason to ban them, but keeping them around would
@@ -201,6 +201,7 @@ class ModeEntry:
 
         self.decoding = decoding
         self.mnemonic = mnemonic
+        self.semType = semType
         self.semantics = semantics
         self.placeholders = placeholders
         self.flagsRequired = frozenset(flagsRequired)

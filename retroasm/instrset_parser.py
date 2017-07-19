@@ -862,7 +862,7 @@ def _parseModeEntries(
             pass
         else:
             yield ModeEntry(
-                encoding, decoding, mnemonic, semantics, placeholders,
+                encoding, decoding, mnemonic, modeType, semantics, placeholders,
                 flagsRequired, reader.getLocation()
                 )
 
