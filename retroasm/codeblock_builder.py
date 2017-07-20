@@ -137,15 +137,20 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
-    def createCodeBlock(self, retName='ret', log=None):
+    def createCodeBlock(self, ret='ret', log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If the give name exists in this builder's namespace, the reference with
-        that name will be the returned reference, otherwise nothing is returned.
+        If 'ret' is a reference, that will be used as the returned reference.
+        If 'ret' is an existing name in this block's namespace, the reference
+        with that name will be used as the returned reference.
+        If 'ret' is None or a non-existing name, the created code block will
+        not return anything.
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(self.nodes, self.namespace.get(retName))
+        if isinstance(ret, str):
+            ret = self.namespace.get(ret)
+        code = CodeBlockSimplifier(self.nodes, ret)
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
