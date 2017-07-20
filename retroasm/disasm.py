@@ -1,81 +1,91 @@
 from .analysis import PlaceholderRole
 from .codeblock import ArgumentValue, FixedValue, LoadedValue
+from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import EncodeMatch, MatchPlaceholder, ValuePlaceholder
 from .storage import Variable
-from .types import IntType
+from .types import IntType, ReferenceType
 from .utils import checkType
 
-class InstructionMatch:
-    '''A decoded instruction at a particular address.
+def buildMatch(match, builder):
+    '''Adds the semantics of an EncodeMatch to the given code block builder.
+    Returns a mapping of placeholder name to the matched value or reference;
+    mode placeholders are represented by a nested mapping.
     '''
+    entry = match.entry
 
-    def __init__(self, encodeMatch, pcAddr):
-        self._match = checkType(encodeMatch, EncodeMatch, 'encode match')
-        self._pcAddr = checkType(pcAddr, int, 'program counter')
+    values = {}
+    def fetchArg(name):
+        value = values[name]
+        return value['ret'] if isinstance(value, dict) else value
 
-    def __repr__(self):
-        return 'InstructionMatch(%r, 0x%x)' % (self._match, self._pcAddr)
-
-    def _substMapping(self, expr):
-        if isinstance(expr, ArgumentValue):
-            return IntLiteral(self._match[expr.name])
-        if isinstance(expr, LoadedValue):
-            storage = expr.load.storage
-            if isinstance(storage, Variable) and storage.name == 'pc':
-                return IntLiteral(self._pcAddr)
-        return None
-
-    def iterMnemonic(self, match=None):
-        '''Yields a mnemonic representation of this match.
-        '''
-        if match is None:
-            match = self._match
-        entry = match.entry
-        for mnemElem in entry.mnemonic:
-            if isinstance(mnemElem, str):
-                yield mnemElem
-            elif isinstance(mnemElem, int):
-                yield mnemElem, IntType.int, frozenset()
-            elif isinstance(mnemElem, MatchPlaceholder):
-                subMatch = match[mnemElem.name]
-                for subElem in self.iterMnemonic(subMatch):
-                    if isinstance(subElem, str):
-                        yield subElem
-                    else:
-                        value, typ, roles = subElem
-                        yield value, typ, roles | mnemElem.roles
-            elif isinstance(mnemElem, ValuePlaceholder):
-                name = mnemElem.name
-                typ = mnemElem.type
-                code = mnemElem.code
-                if code is None:
-                    # Value was decoded.
-                    value = match[name]
-                    if typ.signed:
-                        width = typ.width
-                        if value >= 1 << (width - 1):
-                            value -= 1 << width
-                    yield value, typ, mnemElem.roles
-                else:
-                    # Value is computed.
-                    ref = mnemElem.code.retRef
-                    # TODO: While the documentation says we do support
-                    #       defining references in the context, the
-                    #       parse code rejects "<type>&".
-                    assert isinstance(ref, FixedValue), ref
-                    expr = simplifyExpression(
-                        ref.expr.substitute(self._substMapping)
-                        )
-                    if isinstance(expr, IntLiteral):
-                        yield expr.value, typ, mnemElem.roles
-                    else:
-                        # TODO: Is this a bug? A definition error?
-                        #       Or can it happen normally?
-                        yield name
+    for name, placeholder in entry.placeholders.items():
+        if isinstance(placeholder, MatchPlaceholder):
+            values[name] = buildMatch(match[name], builder)
+        elif isinstance(placeholder, ValuePlaceholder):
+            placeholderCode = placeholder.code
+            if placeholderCode is None:
+                value = match[name]
+                typ = placeholder.type
+                if typ.signed:
+                    width = typ.width
+                    if value >= 1 << (width - 1):
+                        value -= 1 << width
+                values[name] = IntLiteral(value)
             else:
-                assert False, mnemElem
+                ref = builder.inlineBlock(placeholderCode, fetchArg)
+                # TODO: While the documentation says we do support
+                #       defining references in the context, the
+                #       parse code rejects "<type>&".
+                values[name] = ref.emitLoad(None)
+        else:
+            assert False, placeholder
+
+    retRef = builder.inlineBlock(entry.semantics, fetchArg)
+    if retRef is not None:
+        if isinstance(entry.semType, ReferenceType):
+            values['ret'] = retRef
+        else:
+            values['ret'] = retRef.emitLoad(None)
+
+    return values
+
+def iterMnemonic(match, values):
+    '''Yields a mnemonic representation of the given match.
+    '''
+    for mnemElem in match.entry.mnemonic:
+        if isinstance(mnemElem, str):
+            yield mnemElem
+        elif isinstance(mnemElem, int):
+            yield mnemElem, IntType.int, frozenset()
+        elif isinstance(mnemElem, MatchPlaceholder):
+            name = mnemElem.name
+            for subElem in iterMnemonic(match[name], values[name]):
+                if isinstance(subElem, str):
+                    yield subElem
+                else:
+                    value, typ, roles = subElem
+                    yield value, typ, roles | mnemElem.roles
+        elif isinstance(mnemElem, ValuePlaceholder):
+            name = mnemElem.name
+            typ = mnemElem.type
+            code = mnemElem.code
+            value = values[name]
+            if code is None:
+                # Value was decoded.
+                assert isinstance(value, IntLiteral), repr(value)
+                yield value.value, typ, mnemElem.roles
+            else:
+                # Value is computed.
+                if isinstance(value, IntLiteral):
+                    yield value.value, typ, mnemElem.roles
+                else:
+                    # TODO: Is this a bug? A definition error?
+                    #       Or can it happen normally?
+                    yield name
+        else:
+            assert False, mnemElem
 
 class Disassembler:
 
@@ -90,7 +100,9 @@ class Disassembler:
         The fetched data is assumed to be code for the given instruction set,
         to be executed at the given address.
         '''
-        decoder = self._instrSet.decoder
+        instrSet = self._instrSet
+        decoder = instrSet.decoder
+        globalNamespace = instrSet.globalNamespace
         numBytes = fetcher.numBytes
 
         decoded = self._decoded
@@ -106,8 +118,11 @@ class Disassembler:
             if match is None:
                 decoded[addr] = fetcher[0]
             else:
-                decoded[addr] = instr = InstructionMatch(match, postAddr)
-                for mnemElem in instr.iterMnemonic():
+                builder = SemanticsCodeBlockBuilder(globalNamespace)
+                builder.namespace['pc'].emitStore(IntLiteral(postAddr), None)
+                values = buildMatch(match, builder)
+                decoded[addr] = instr = (match, values)
+                for mnemElem in iterMnemonic(*instr):
                     if not isinstance(mnemElem, str):
                         value, typ_, roles = mnemElem
                         if PlaceholderRole.code_addr in roles:
@@ -138,8 +153,8 @@ class Disassembler:
             label = labels.get(addr)
             if label is not None:
                 print(formatter.formatLabel(label))
-            match = decoded[addr]
-            if isinstance(match, InstructionMatch):
-                print(formatter.formatMnemonic(match.iterMnemonic(), labels))
+            instr = decoded[addr]
+            if isinstance(instr, int):
+                print(formatter.formatData(instr, encType))
             else:
-                print(formatter.formatData(match, encType))
+                print(formatter.formatMnemonic(iterMnemonic(*instr), labels))

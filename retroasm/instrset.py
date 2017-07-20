@@ -5,6 +5,8 @@ class InstructionSet(ModeTable):
     '''Contains all definitions for a processor's instruction set.
     '''
 
+    globalNamespace = property(lambda self: self._globalNamespace)
+
     def __init__(self, encWidth, auxEncWidth, globalNamespace, instructions):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
