@@ -462,6 +462,32 @@ class SlicedReference(Reference):
         combined = simplifyExpression(combined)
         self._ref._emitStoreBits(combined, location)
 
+def verifyLoads(nodes, retRef=None):
+    '''Performs consistency checks on the LoadedValues in the given nodes and
+    return reference.
+    Raises AssertionError if an inconsistency is found.
+    '''
+    # Check that every LoadedValue has an associated Load node, which must
+    # execute before the LoadedValue is used.
+    loads = set()
+    for node in nodes:
+        # Check that all expected loads have occurred.
+        if isinstance(node, Store):
+            for value in node.expr.iterInstances(LoadedValue):
+                assert value.load in loads, value
+        for expr in node.storage.iterExpressions():
+            for value in expr.iterInstances(LoadedValue):
+                assert value.load in loads, value
+        # Remember this load.
+        if isinstance(node, Load):
+            loads.add(node)
+    # Check I/O indices in the returned reference.
+    if retRef is not None:
+        for storage in retRef.iterStorages():
+            for expr in storage.iterExpressions():
+                for value in expr.iterInstances(LoadedValue):
+                    assert value.load in loads, value
+
 class CodeBlock:
 
     def __init__(self, nodes, retRef):
@@ -483,27 +509,7 @@ class CodeBlock:
         '''Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         '''
-        # Check that every LoadedValue has an associated Load node, which must
-        # execute before the LoadedValue is used.
-        loads = set()
-        for node in self.nodes:
-            # Check that all expected loads have occurred.
-            if isinstance(node, Store):
-                for value in node.expr.iterInstances(LoadedValue):
-                    assert value.load in loads, value
-            for expr in node.storage.iterExpressions():
-                for value in expr.iterInstances(LoadedValue):
-                    assert value.load in loads, value
-            # Remember this load.
-            if isinstance(node, Load):
-                loads.add(node)
-        # Check I/O indices in the returned reference.
-        retRef = self.retRef
-        if retRef is not None:
-            for storage in retRef.iterStorages():
-                for expr in storage.iterExpressions():
-                    for value in expr.iterInstances(LoadedValue):
-                        assert value.load in loads, value
+        verifyLoads(self.nodes, self.retRef)
 
     def dump(self):
         '''Prints this code block on stdout.
