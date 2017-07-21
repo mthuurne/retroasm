@@ -67,10 +67,11 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
+        argsV = lambda value: args(V=FixedValue(value, IntType.u(8)))
         step0 = IntLiteral(100)
-        step1 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step0)))
-        step2 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step1)))
-        step3 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step2)))
+        step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
+        step2 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step1)))
+        step3 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step2)))
         outerRet = outer.addVariable('ret')
         outer.emitStore(outerRet, step3)
 
@@ -145,10 +146,11 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         func = Function('inc', IntType.u(9), {'V': IntType.u(8)}, incCode)
 
         outer = TestCodeBlockBuilder()
+        argsV = lambda value: args(V=FixedValue(value, IntType.u(8)))
         step0 = IntLiteral(0x89FE)
-        step1 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step0)))
-        step2 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step1)))
-        step3 = outer.emitLoad(outer.inlineBlock(incCode, args(V=step2)))
+        step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
+        step2 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step1)))
+        step3 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step2)))
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, step3)
 
@@ -404,7 +406,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertIsNotNone(innerCode.retRef)
 
         outer = TestCodeBlockBuilder()
-        addr = IntLiteral(0x4002)
+        addr = FixedValue(IntLiteral(0x4002), IntType.u(16))
         retRef = outer.inlineBlock(innerCode, args(A=addr))
         outerRet = outer.addVariable('ret')
         retVal = outer.emitLoad(retRef)

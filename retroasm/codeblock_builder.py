@@ -64,6 +64,8 @@ class CodeBlockBuilder:
 
     def inlineFunctionCall(self, func, argMap, location):
         '''Inlines a call to the given function with the given arguments.
+        All arguments should be passed as references: value arguments should
+        have their expression wrapped in a FixedValue.
         Returns a Reference containing the value returned by the inlined
         function, or None if the function does not return anything.
         '''
@@ -233,9 +235,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
     def inlineBlock(self, code, argFetcher):
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
-        should return the expression (for value arguments) or reference (for
-        reference arguments) for that argument, or None if the argument should
-        remain an argument in the inlined block.
+        should return the reference passed for that argument, or None if the
+        argument should remain an argument in the inlined block.
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
         '''
@@ -243,11 +244,12 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         loadResults = {}
         def substExpr(expr):
             if isinstance(expr, ArgumentValue):
-                return argFetcher(expr.name)
+                arg = argFetcher(expr.name)
+                if arg is not None:
+                    return arg.emitLoad(None)
             elif isinstance(expr, LoadedValue):
                 return loadResults.get(expr)
-            else:
-                return None
+            return None
         def importExpr(expr):
             return expr.substitute(substExpr)
 

@@ -262,6 +262,9 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
                         )
             else:
                 try:
+                    # TODO: While the documentation says we do support defining
+                    #       references in the context, parseType() rejects
+                    #       "<type>&"; we'd have to use parseTypeDecl() instead.
                     typ = parseType(typeName)
                 except ValueError:
                     reader.error(

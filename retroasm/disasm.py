@@ -5,7 +5,7 @@ from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import EncodeMatch, MatchPlaceholder, ValuePlaceholder
 from .storage import Variable
-from .types import IntType, ReferenceType
+from .types import IntType
 from .utils import checkType
 
 def buildMatch(match, builder):
@@ -26,28 +26,17 @@ def buildMatch(match, builder):
         elif isinstance(placeholder, ValuePlaceholder):
             placeholderCode = placeholder.code
             if placeholderCode is None:
-                value = match[name]
-                typ = placeholder.type
-                if typ.signed:
-                    width = typ.width
-                    if value >= 1 << (width - 1):
-                        value -= 1 << width
-                values[name] = IntLiteral(value)
+                values[name] = FixedValue(
+                    IntLiteral(match[name]), placeholder.type
+                    )
             else:
-                ref = builder.inlineBlock(placeholderCode, fetchArg)
-                # TODO: While the documentation says we do support
-                #       defining references in the context, the
-                #       parse code rejects "<type>&".
-                values[name] = ref.emitLoad(None)
+                values[name] = builder.inlineBlock(placeholderCode, fetchArg)
         else:
             assert False, placeholder
 
     retRef = builder.inlineBlock(entry.semantics, fetchArg)
     if retRef is not None:
-        if isinstance(entry.semType, ReferenceType):
-            values['ret'] = retRef
-        else:
-            values['ret'] = retRef.emitLoad(None)
+        values['ret'] = retRef
 
     return values
 
@@ -74,8 +63,13 @@ def iterMnemonic(match, values):
             value = values[name]
             if code is None:
                 # Value was decoded.
-                assert isinstance(value, IntLiteral), repr(value)
-                yield value.value, typ, mnemElem.roles
+                assert isinstance(value, FixedValue), repr(value)
+                # Note that FixedValue doesn't actually emit a Load node,
+                # but unlike the 'expr' property emitLoad() applies sign
+                # extension.
+                expr = simplifyExpression(value.emitLoad(None))
+                assert isinstance(expr, IntLiteral), repr(expr)
+                yield expr.value, typ, mnemElem.roles
             else:
                 # Value is computed.
                 if isinstance(value, IntLiteral):

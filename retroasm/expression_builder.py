@@ -163,25 +163,17 @@ def _convertFunctionCall(callNode, builder):
             )
     argMap = {}
     for (name, decl), argNode in zip(func.args.items(), argNodes):
-        if isinstance(decl, IntType):
-            value = buildExpression(argNode, builder)
-        elif isinstance(decl, ReferenceType):
-            try:
-                value = buildReference(argNode, builder)
-            except BadExpression as ex:
-                raise BadExpression(
-                    'bad value for reference argument "%s %s": %s'
-                    % (decl, name, ex),
-                    ex.location
-                    )
-            if value.width != decl.type.width:
-                raise BadExpression.withText(
-                    '%s-bit reference passed for reference argument "%s %s"'
-                    % (value.width, decl, name),
-                    argNode.treeLocation
-                    )
-        else:
-            assert False, decl
+        value = buildReference(argNode, builder)
+        # Value arguments are not truncated when passed, but are truncated by
+        # the local variable that they are stored into.
+        # For reference arguments, we demand the passed width to match the
+        # argument width, so truncation is never required.
+        if isinstance(decl, ReferenceType) and value.width != decl.type.width:
+            raise BadExpression.withText(
+                '%s-bit reference passed for reference argument "%s %s"'
+                % (value.width, decl, name),
+                argNode.treeLocation
+                )
         argMap[name] = value
 
     # Inline function call.
