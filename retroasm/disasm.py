@@ -8,37 +8,35 @@ from .storage import Variable
 from .types import IntType
 from .utils import checkType
 
-def buildMatch(match, builder):
-    '''Adds the semantics of an EncodeMatch to the given code block builder.
-    Returns a mapping of placeholder name to the matched value or reference;
+def buildMatch(match, builder, values):
+    '''Adds the semantics of an EncodeMatch to the given code block builder
+    and the placeholder values to the given 'values' mapping. In that mapping,
     mode placeholders are represented by a nested mapping.
+    Returns the returned reference of the match's semantics.
     '''
     entry = match.entry
 
-    values = {}
-    def fetchArg(name):
-        value = values[name]
-        return value['ret'] if isinstance(value, dict) else value
-
+    args = {}
     for name, placeholder in entry.placeholders.items():
         if isinstance(placeholder, MatchPlaceholder):
-            values[name] = buildMatch(match[name], builder)
+            values[name] = subValues = {}
+            args[name] = buildMatch(match[name], builder, subValues)
         elif isinstance(placeholder, ValuePlaceholder):
             placeholderCode = placeholder.code
             if placeholderCode is None:
-                values[name] = FixedValue(
-                    IntLiteral(match[name]), placeholder.type
-                    )
+                ref = FixedValue(IntLiteral(match[name]), placeholder.type)
             else:
-                values[name] = builder.inlineBlock(placeholderCode, fetchArg)
+                ref = builder.inlineBlock(placeholderCode, args.__getitem__)
+            args[name] = ref
+            valRef = builder.createCodeBlock(ref).retRef
+            # Note that FixedValue doesn't actually emit a Load node, but
+            # unlike the 'expr' property emitLoad() applies sign extension.
+            assert isinstance(valRef, FixedValue), valRef
+            values[name] = simplifyExpression(valRef.emitLoad(None))
         else:
             assert False, placeholder
 
-    retRef = builder.inlineBlock(entry.semantics, fetchArg)
-    if retRef is not None:
-        values['ret'] = retRef
-
-    return values
+    return builder.inlineBlock(entry.semantics, args.__getitem__)
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.
@@ -63,13 +61,8 @@ def iterMnemonic(match, values):
             value = values[name]
             if code is None:
                 # Value was decoded.
-                assert isinstance(value, FixedValue), repr(value)
-                # Note that FixedValue doesn't actually emit a Load node,
-                # but unlike the 'expr' property emitLoad() applies sign
-                # extension.
-                expr = simplifyExpression(value.emitLoad(None))
-                assert isinstance(expr, IntLiteral), repr(expr)
-                yield expr.value, typ, mnemElem.roles
+                assert isinstance(value, IntLiteral), repr(value)
+                yield value.value, typ, mnemElem.roles
             else:
                 # Value is computed.
                 if isinstance(value, IntLiteral):
@@ -114,7 +107,8 @@ class Disassembler:
             else:
                 builder = SemanticsCodeBlockBuilder(globalNamespace)
                 builder.namespace['pc'].emitStore(IntLiteral(postAddr), None)
-                values = buildMatch(match, builder)
+                values = {}
+                buildMatch(match, builder, values)
                 decoded[addr] = instr = (match, values)
                 for mnemElem in iterMnemonic(*instr):
                     if not isinstance(mnemElem, str):
