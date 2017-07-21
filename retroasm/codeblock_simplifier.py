@@ -84,6 +84,15 @@ class CodeBlockSimplifier(CodeBlock):
             # Apply load replacement.
             changed |= self._updateExpressions(loadReplacements.get)
 
+        # Determine which local variables are part of the returned reference.
+        # Unlike other local variables, we can't eliminate these.
+        retVars = set()
+        retRef = self.retRef
+        if retRef is not None:
+            for storage in retRef.iterStorages():
+                if isinstance(storage, Variable) and storage.scope == 1:
+                    retVars.add(storage)
+
         # Remove stores for which the value is overwritten before it is loaded.
         # Variable loads were already eliminated by the code above and since
         # variables cease to exist at the end of a block, all variable stores
@@ -103,7 +112,7 @@ class CodeBlockSimplifier(CodeBlock):
                     if storage in willBeOverwritten or (
                             isinstance(storage, Variable) and
                             storage.scope == 1 and
-                            storage.name != 'ret'
+                            storage not in retVars
                             ):
                         changed = True
                         del nodes[i]

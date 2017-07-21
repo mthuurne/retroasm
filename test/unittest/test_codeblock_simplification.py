@@ -288,6 +288,17 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             simplifyExpression(valueV)
             )
 
+    def test_retref_override(self):
+        '''Test code block creation with a non-default returned reference.'''
+        refV = self.builder.addVariable('V', IntType.u(20))
+        value = IntLiteral(604)
+        self.builder.emitStore(refV, value)
+
+        code = self.builder.createCodeBlock(refV)
+        self.assertIsNotNone(code.retRef)
+        self.assertEqual(code.retRef.width, 20)
+        self.assertRetVal(code, 604)
+
     def test_return_io_index(self):
         '''Test returning an I/O reference with a simplifiable index.'''
         addr = AddOperator(IntLiteral(1), IntLiteral(1))
