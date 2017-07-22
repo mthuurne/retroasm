@@ -108,7 +108,7 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
     _scope = 1
 
     def __init__(self, parentNamespace):
-        namespace = LocalNamespace(self, parentNamespace)
+        namespace = LocalNamespace(parentNamespace)
         CodeBlockBuilder.__init__(self, namespace)
 
     def emitValueArgument(self, name, typ, location):

@@ -1,7 +1,4 @@
-from .codeblock import FixedValue, Reference, SingleReference
-from .function import Function
 from .linereader import BadInput
-from .storage import IOChannel
 from .utils import checkType
 
 class Namespace:
@@ -74,16 +71,11 @@ class GlobalNamespace(Namespace):
 class LocalNamespace(Namespace):
     '''A namespace for local blocks, that can import entries from its parent
     namespace on demand.
-    Its goal is to avoid a lot of redundant references when a block is first
-    created: although the simplifier can remove those, that is a pretty
-    inefficient operation which should be applied to non-trivial cases only.
     '''
 
-    def __init__(self, block, parent):
+    def __init__(self, parent):
         Namespace.__init__(self)
-        self.block = block
         self.parent = checkType(parent, Namespace, 'parent namespace')
-        self.storageImportMap = {}
 
     def __contains__(self, key):
         return super().__contains__(key) or key in self.parent
@@ -93,28 +85,9 @@ class LocalNamespace(Namespace):
             return super().__getitem__(key)
         except KeyError:
             value = self.parent[key]
-            if isinstance(value, (Function, IOChannel)):
-                pass
-            elif isinstance(value, Reference):
-                value = value.clone(self._importSingleRef)
-            else:
-                assert False, (key, repr(value))
             self.elements[key] = value
             self.locations[key] = None
             return value
-
-    def _importSingleRef(self, parentRef):
-        '''Imports the given SingleReference from the parent builder into the
-        local namespace. Returns the local reference.
-        '''
-        storage = parentRef.storage
-        importMap = self.storageImportMap
-        try:
-            return importMap[storage]
-        except KeyError:
-            localRef = SingleReference(storage, parentRef.type)
-            importMap[storage] = localRef
-            return localRef
 
     def _checkName(self, name, location):
         if name == 'pc':
