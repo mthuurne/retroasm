@@ -1,3 +1,4 @@
+from .analysis import determinePlaceholderRoles
 from .codeblock import (
     ArgumentValue, ConcatenatedReference, FixedValue, SlicedReference
     )
@@ -864,6 +865,10 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
+            # Perform some basic analysis.
+            pc = namespace['pc'].storage
+            determinePlaceholderRoles(semantics, placeholders, pc)
+
             yield ModeEntry(
                 encoding, decoding, mnemonic, modeType, semantics, placeholders,
                 flagsRequired, reader.getLocation()

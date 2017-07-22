@@ -7,24 +7,22 @@ PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
     'code_addr', 'data_addr'
     ))
 
-def iterBranchAddrs(code):
+def iterBranchAddrs(code, pc):
     '''Yields the expressions written to the PC register by the given code
     block.
     '''
     for node in code.nodes:
-        if isinstance(node, Store):
-            storage = node.storage
-            if isinstance(storage, Variable) and storage.name == 'pc':
-                yield node.expr
+        if isinstance(node, Store) and node.storage is pc:
+            yield node.expr
 
-def determinePlaceholderRoles(semantics, placeholders):
+def determinePlaceholderRoles(semantics, placeholders, pc):
     '''Analyze semantics to figure out the roles of placeholders.
     While this won't be sufficient to determine the role of all literal values,
     it can handle a few common cases reliably and efficiently.
     '''
 
     # Mark placeholders written to the program counter as code addresses.
-    for expr in iterBranchAddrs(semantics):
+    for expr in iterBranchAddrs(semantics, pc):
         if isinstance(expr, ArgumentValue):
             placeholder = placeholders[expr.name]
             placeholder.addRole(PlaceholderRole.code_addr)

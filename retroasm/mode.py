@@ -1,6 +1,4 @@
-from .analysis import (
-    PlaceholderRole, determinePlaceholderRoles, iterBranchAddrs
-    )
+from .analysis import PlaceholderRole
 from .codeblock import CodeBlock
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
@@ -221,9 +219,6 @@ class ModeEntry:
                     'Inconsistent widths among auxiliary encoding units'
                     )
 
-        # Perform some basic analysis.
-        determinePlaceholderRoles(semantics, placeholders)
-
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r)' % (
             self.encoding, self.decoding, self.mnemonic, self.semantics,
@@ -442,10 +437,6 @@ class ModeEntry:
                 decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
         return decoder
-
-    @const_property
-    def branchAddrs(self):
-        return tuple(iterBranchAddrs(self.semantics))
 
 class FixedPatternDecoder(Decoder):
     '''Decoder that matches encoded bit strings by looking for a fixed pattern
