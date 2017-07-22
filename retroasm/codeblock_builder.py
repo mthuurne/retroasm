@@ -26,7 +26,7 @@ class CodeBlockBuilder:
                 print('    return ref %s' % retRef)
 
     def _addNamedStorage(self, name, storage, location):
-        ref = SingleReference(self, storage, storage.type)
+        ref = SingleReference(storage, storage.type)
         self.namespace.define(name, ref, location)
         return ref
 
@@ -38,7 +38,7 @@ class CodeBlockBuilder:
         addrWidth = channel.addrType.width
         truncatedIndex = optSlice(index, 0, addrWidth)
         storage = IOStorage(channel, truncatedIndex)
-        return SingleReference(self, storage, channel.elemType)
+        return SingleReference(storage, channel.elemType)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -195,7 +195,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         ref = self.emitVariable(name, typ, location)
 
         # Store initial value.
-        ref.emitStore(value, location)
+        ref.emitStore(self, value, location)
 
         return ref
 
@@ -244,7 +244,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             if isinstance(expr, ArgumentValue):
                 arg = argFetcher(expr.name)
                 if arg is not None:
-                    return arg.emitLoad(None)
+                    return arg.emitLoad(self, None)
             elif isinstance(expr, LoadedValue):
                 return loadResults.get(expr)
             return None
@@ -268,7 +268,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             #       We are copying the _emitLoadBits() output here, not the
             #       emitLoad() output.
             typ = IntType.u(newStorage.width)
-            return SingleReference(self, newStorage, typ)
+            return SingleReference(newStorage, typ)
         storageCache = {}
         def importStorage(storage):
             '''Returns a reference to an imported version of the given storage.
@@ -285,11 +285,11 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             ref = importStorage(node.storage)
             if isinstance(node, Load):
                 assert isinstance(expr, LoadedValue), expr
-                value = ref.emitLoad(node.location)
+                value = ref.emitLoad(self, node.location)
                 loadResults[expr] = value
             elif isinstance(node, Store):
                 newExpr = importExpr(expr)
-                ref.emitStore(newExpr, node.location)
+                ref.emitStore(self, newExpr, node.location)
             else:
                 assert False, node
 

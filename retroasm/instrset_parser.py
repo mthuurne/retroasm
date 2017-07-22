@@ -425,7 +425,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                 continue
 
             try:
-                encValue = encRef.emitLoad(encLoc)
+                encValue = encRef.emitLoad(encBuilder, encLoc)
             except BadInput as ex:
                 reader.error(
                     'error evaluating encoding: %s', ex,
@@ -666,7 +666,7 @@ def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
         # Note that modeType can be None because of earlier errors.
         if modeType is not None:
             retRef = semBuilder.emitVariable('ret', modeType, semLoc)
-            retRef.emitStore(expr, semLoc)
+            retRef.emitStore(semBuilder, expr, semLoc)
 
 def _rejectNodeClasses(node, badClasses):
     if isinstance(node, badClasses):
@@ -682,7 +682,7 @@ def _parseInstrSemantics(semStr, semLoc, builder, modeType):
         _rejectNodeClasses(node.lhs, (DefinitionNode, DeclarationNode))
         lhs = buildReference(node.lhs, builder)
         rhs = buildExpression(node.rhs, builder)
-        lhs.emitStore(rhs, node.lhs.treeLocation)
+        lhs.emitStore(builder, rhs, node.lhs.treeLocation)
     elif isinstance(node, EmptyNode):
         pass
     else:

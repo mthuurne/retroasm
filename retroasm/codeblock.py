@@ -191,7 +191,7 @@ class Reference:
             if newStorage is storage:
                 return ref
             else:
-                return SingleReference(ref.block, newStorage, ref.type)
+                return SingleReference(newStorage, ref.type)
 
         def updateFixedValue(ref):
             expr = ref.expr
@@ -203,12 +203,12 @@ class Reference:
 
         return self.clone(updateSingleRef, updateFixedValue)
 
-    def emitLoad(self, location):
+    def emitLoad(self, builder, location):
         '''Emits load nodes for loading a typed value from the referenced
         storage(s).
         Returns the loaded value as an Expression.
         '''
-        value = self._emitLoadBits(location)
+        value = self._emitLoadBits(builder, location)
 
         # Apply sign extension, if necessary.
         typ = self._type
@@ -218,19 +218,19 @@ class Reference:
                 return SignExtension(value, width)
         return value
 
-    def _emitLoadBits(self, location):
+    def _emitLoadBits(self, builder, location):
         '''Emits load nodes for loading a bit string from the referenced
         storage(s).
         Returns the value of the bit string as an Expression.
         '''
         raise NotImplementedError
 
-    def emitStore(self, value, location):
+    def emitStore(self, builder, value, location):
         '''Emits store nodes for storing a value into the referenced storage(s).
         '''
-        self._emitStoreBits(truncate(value, self.width), location)
+        self._emitStoreBits(builder, truncate(value, self.width), location)
 
-    def _emitStoreBits(self, value, location):
+    def _emitStoreBits(self, builder, value, location):
         '''Emits store nodes for storing a bit string into the referenced
         storage(s).
         '''
@@ -262,27 +262,23 @@ class FixedValue(Reference):
     def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         return fixedValueCloner(self)
 
-    def _emitLoadBits(self, location):
+    def _emitLoadBits(self, builder, location):
         return self._expr
 
-    def _emitStoreBits(self, value, location):
+    def _emitStoreBits(self, builder, value, location):
         pass
 
 class SingleReference(Reference):
-    __slots__ = ('_block', '_storage')
+    __slots__ = ('_storage',)
 
-    block = property(lambda self: self._block)
     storage = property(lambda self: self._storage)
 
-    def __init__(self, block, storage, typ):
+    def __init__(self, storage, typ):
         Reference.__init__(self, typ)
-        self._block = block
         self._storage = checkType(storage, Storage, 'storage')
 
     def __repr__(self):
-        return 'SingleReference(%r, %r, %r)' % (
-            self._block, self._storage, self._type
-            )
+        return 'SingleReference(%r, %r)' % (self._storage, self._type)
 
     def __str__(self):
         return str(self._storage)
@@ -296,11 +292,11 @@ class SingleReference(Reference):
     def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
         return singleRefCloner(self)
 
-    def _emitLoadBits(self, location):
-        return self._block.emitLoadBits(self._storage, location)
+    def _emitLoadBits(self, builder, location):
+        return builder.emitLoadBits(self._storage, location)
 
-    def _emitStoreBits(self, value, location):
-        self._block.emitStoreBits(self._storage, value, location)
+    def _emitStoreBits(self, builder, value, location):
+        builder.emitStoreBits(self._storage, value, location)
 
 class ConcatenatedReference(Reference):
     __slots__ = ('_refs',)
@@ -350,21 +346,21 @@ class ConcatenatedReference(Reference):
             changed |= clone is not ref
         return ConcatenatedReference(*refs) if changed else self
 
-    def _emitLoadBits(self, location):
+    def _emitLoadBits(self, builder, location):
         terms = []
         offset = 0
         for ref in self._refs:
-            value = ref._emitLoadBits(location)
+            value = ref._emitLoadBits(builder, location)
             terms.append(value if offset == 0 else LShift(value, offset))
             offset += ref.width
         return OrOperator(*terms)
 
-    def _emitStoreBits(self, value, location):
+    def _emitStoreBits(self, builder, value, location):
         offset = 0
         for ref in self._refs:
             width = ref.width
             valueSlice = optSlice(value, offset, width)
-            ref._emitStoreBits(valueSlice, location)
+            ref._emitStoreBits(builder, valueSlice, location)
             offset += width
 
 class SlicedReference(Reference):
@@ -435,14 +431,14 @@ class SlicedReference(Reference):
                 width = IntLiteral(width)
             return SlicedReference(clone, self._offset, width)
 
-    def _emitLoadBits(self, location):
+    def _emitLoadBits(self, builder, location):
         # Load value from our reference.
-        value = self._ref._emitLoadBits(location)
+        value = self._ref._emitLoadBits(builder, location)
 
         # Slice the loaded value.
         return truncate(RVShift(value, self._offset), self.width)
 
-    def _emitStoreBits(self, value, location):
+    def _emitStoreBits(self, builder, value, location):
         offset = self._offset
         width = self.width
         valueMask = LVShift(IntLiteral(maskForWidth(width)), offset)
@@ -450,7 +446,7 @@ class SlicedReference(Reference):
         # Get mask and previous value of our reference.
         ref = self._ref
         fullMask = IntLiteral(maskForWidth(ref.width))
-        prevValue = ref._emitLoadBits(location)
+        prevValue = ref._emitLoadBits(builder, location)
 
         # Combine previous value with new value.
         maskLit = AndOperator(fullMask, XorOperator(IntLiteral(-1), valueMask))
@@ -460,7 +456,7 @@ class SlicedReference(Reference):
             )
 
         combined = simplifyExpression(combined)
-        self._ref._emitStoreBits(combined, location)
+        self._ref._emitStoreBits(builder, combined, location)
 
 def verifyLoads(nodes, retRef=None):
     '''Performs consistency checks on the LoadedValues in the given nodes and
@@ -499,9 +495,7 @@ class CodeBlock:
             if isinstance(node, Load):
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
-        self.retRef = None if retRef is None else retRef.clone(
-            lambda ref, code=self: SingleReference(code, ref.storage, ref.type)
-            )
+        self.retRef = retRef
         self._updateExpressions(valueMapping.get)
         assert self.verify() is None
 

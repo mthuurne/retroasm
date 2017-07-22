@@ -32,7 +32,7 @@ def buildMatch(match, builder, values):
             # Note that FixedValue doesn't actually emit a Load node, but
             # unlike the 'expr' property emitLoad() applies sign extension.
             assert isinstance(valRef, FixedValue), valRef
-            values[name] = simplifyExpression(valRef.emitLoad(None))
+            values[name] = simplifyExpression(valRef.emitLoad(builder, None))
         else:
             assert False, placeholder
 
@@ -106,7 +106,8 @@ class Disassembler:
                 decoded[addr] = fetcher[0]
             else:
                 builder = SemanticsCodeBlockBuilder(globalNamespace)
-                builder.namespace['pc'].emitStore(IntLiteral(postAddr), None)
+                pcRef = builder.namespace['pc']
+                pcRef.emitStore(builder, IntLiteral(postAddr), None)
                 values = {}
                 buildMatch(match, builder, values)
                 decoded[addr] = instr = (match, values)

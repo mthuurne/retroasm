@@ -57,10 +57,10 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
         SemanticsCodeBlockBuilder.__init__(self, globalBuilder.namespace)
 
     def emitLoad(self, ref):
-        return ref.emitLoad(None)
+        return ref.emitLoad(self, None)
 
     def emitStore(self, ref, expr):
-        ref.emitStore(expr, None)
+        ref.emitStore(self, expr, None)
 
     def addRegister(self, name, typ=IntType.u(8)):
         try:

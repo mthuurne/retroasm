@@ -112,7 +112,7 @@ class LocalNamespace(Namespace):
         try:
             return importMap[storage]
         except KeyError:
-            localRef = SingleReference(self.block, storage, parentRef.type)
+            localRef = SingleReference(storage, parentRef.type)
             importMap[storage] = localRef
             return localRef
 

@@ -229,13 +229,19 @@ def _convertExpressionOperator(node, builder):
         if retRef is None:
             return unit
         else:
-            return retRef.emitLoad(node.treeLocation)
+            return retRef.emitLoad(builder, node.treeLocation)
     elif operator is Operator.lookup:
-        return _convertReferenceLookup(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceLookup(node, builder).emitLoad(
+            builder, node.treeLocation
+            )
     elif operator is Operator.slice:
-        return _convertReferenceSlice(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceSlice(node, builder).emitLoad(
+            builder, node.treeLocation
+            )
     elif operator is Operator.concatenation:
-        return _convertReferenceConcat(node, builder).emitLoad(node.treeLocation)
+        return _convertReferenceConcat(node, builder).emitLoad(
+            builder, node.treeLocation
+            )
     else:
         return _convertArithmetic(node, builder)
 
@@ -250,7 +256,7 @@ def buildExpression(node, builder):
                 node.location
                 )
         else:
-            return ident.emitLoad(node.location)
+            return ident.emitLoad(builder, node.location)
     elif isinstance(node, OperatorNode):
         return _convertExpressionOperator(node, builder)
     elif isinstance(node, DeclarationNode):
@@ -413,7 +419,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
                     )
                 continue
 
-            lhs.emitStore(rhs, node.lhs.treeLocation)
+            lhs.emitStore(builder, rhs, node.lhs.treeLocation)
 
         elif isinstance(node, DefinitionNode):
             # Constant/reference definition.
