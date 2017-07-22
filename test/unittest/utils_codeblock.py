@@ -75,7 +75,7 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
         assert isinstance(globalRef, SingleReference), globalRef
         assert typ is globalRef.type, globalRef
         reg = globalRef.storage
-        assert reg.name == name, reg
+        assert ref.storage is reg
         assert reg.width == typ.width
 
         return ref

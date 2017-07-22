@@ -25,14 +25,14 @@ class CodeBlockBuilder:
             if not (isinstance(storage, Variable) and storage.name == 'ret'):
                 print('    return ref %s' % retRef)
 
-    def _addNamedStorage(self, storage, location):
+    def _addNamedStorage(self, name, storage, location):
         ref = SingleReference(self, storage, storage.type)
-        self.namespace.define(storage.name, ref, location)
+        self.namespace.define(name, ref, location)
         return ref
 
     def emitVariable(self, name, refType, location):
-        var = Variable(name, refType, self._scope)
-        return self._addNamedStorage(var, location)
+        var = Variable(refType, self._scope)
+        return self._addNamedStorage(name, var, location)
 
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
@@ -169,15 +169,12 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             if log is not None:
                 for load in ununitializedLoads:
                     log.error(
-                        'variable "%s" is read before it is initialized'
-                        % load.storage.decl,
+                        'variable is read before it is initialized',
                         location=load.location
                         )
             raise ValueError(
-                'Code block reads uninitialized variable(s): %s' % ', '.join(
-                    load.storage.decl
-                    for load in ununitializedLoads
-                    )
+                'Code block reads %d uninitialized variable(s)'
+                % len(ununitializedLoads)
                 )
 
         # Finalize code block.
@@ -203,7 +200,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         return ref
 
     def emitReferenceArgument(self, name, refType, location):
-        return self._addNamedStorage(RefArgStorage(name, refType), location)
+        storage = RefArgStorage(name, refType)
+        return self._addNamedStorage(name, storage, location)
 
     def emitLoadBits(self, storage, location):
         load = Load(storage, location)
@@ -261,9 +259,6 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
                         (storage.width, ref.width)
                     return ref
                 newStorage = storage
-            elif isinstance(storage, Variable) and storage.scope == 1 \
-                    and storage.name == 'ret':
-                newStorage = Variable('inlined_ret', storage.type, 1)
             else:
                 newStorage = storage.substituteExpressions(importExpr)
 

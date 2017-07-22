@@ -144,27 +144,22 @@ class Storage:
         '''
         return self
 
-class NamedStorage(Storage):
-    '''Base class for named storages that exist in a global or local namespace.
+class TypedStorage(Storage):
+    '''Base class for storages with a known type.
     '''
-    __slots__ = ('_name', '_type')
+    __slots__ = ('_type',)
 
-    name = property(lambda self: self._name)
     type = property(lambda self: self._type)
-    decl = property(lambda self: '%s %s' % (self._type, self._name))
 
-    def __init__(self, name, typ):
-        self._name = checkType(name, str, 'storage name')
-        if not reName.match(name):
-            raise ValueError('invalid name: "%s"', name)
+    def __init__(self, typ):
         self._type = checkType(typ, IntType, 'named storage value type')
         Storage.__init__(self, typ.width)
 
     def __repr__(self):
-        return '%s(%r, %r)' % (self.__class__.__name__, self._name, self._type)
+        return '%s(%r)' % (self.__class__.__name__, self._type)
 
     def __str__(self):
-        return self._name
+        return '%s@%x' % (self._type, id(self))
 
     def canLoadHaveSideEffect(self):
         raise NotImplementedError
@@ -181,7 +176,7 @@ class NamedStorage(Storage):
     def mightBeSame(self, other):
         raise NotImplementedError
 
-class Variable(NamedStorage):
+class Variable(TypedStorage):
     '''A simple piece of named storage.
     Is used for registers as well as variables.
     '''
@@ -189,13 +184,13 @@ class Variable(NamedStorage):
 
     scope = property(lambda self: self._scope)
 
-    def __init__(self, name, typ, scope):
+    def __init__(self, typ, scope):
+        TypedStorage.__init__(self, typ)
         self._scope = checkType(scope, int, 'scope level')
-        NamedStorage.__init__(self, name, typ)
 
     def __repr__(self):
-        return '%s(%r, %r, %d)' % (
-            self.__class__.__name__, self._name, self._type, self._scope
+        return '%s(%r, %d)' % (
+            self.__class__.__name__, self._type, self._scope
             )
 
     def canLoadHaveSideEffect(self):
@@ -216,15 +211,27 @@ class Variable(NamedStorage):
             self._scope == 0 and isinstance(other, RefArgStorage)
             )
 
-class RefArgStorage(NamedStorage):
+class RefArgStorage(TypedStorage):
     '''A placeholder storage location for a storage passed to a function by
     reference. The storage properties depend on which concrete storage will be
     passed, so until we know the concrete storage we have to assume the worst
     case.
     '''
-    __slots__ = ()
+    __slots__ = ('_name',)
 
-    decl = property(lambda self: '%s& %s' % (self._type, self._name))
+    name = property(lambda self: self._name)
+
+    def __init__(self, name, typ):
+        self._name = checkType(name, str, 'storage name')
+        if not reName.match(name):
+            raise ValueError('invalid name: "%s"', name)
+        TypedStorage.__init__(self, typ)
+
+    def __repr__(self):
+        return '%s(%r, %r)' % (self.__class__.__name__, self._name, self._type)
+
+    def __str__(self):
+        return self._name
 
     def canLoadHaveSideEffect(self):
         return True
