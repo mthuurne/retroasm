@@ -3,6 +3,8 @@ from .expression_simplifier import simplifyExpression
 from .reference import FixedValue, SingleReference
 from .storage import Variable
 
+from collections import defaultdict
+
 class CodeBlockSimplifier(CodeBlock):
 
     expressions = property(CodeBlock._gatherExpressions)
@@ -126,32 +128,35 @@ class CodeBlockSimplifier(CodeBlock):
     def removeUnusedLoads(self):
         '''Remove side-effect-free loads of which the LoadedValue is unused.
         '''
-        while True:
-            # Find all LoadedValues that are used.
-            valuesInUse = {
-                loaded
-                for expr in self.expressions
-                for loaded in expr.iterInstances(LoadedValue)
-                }
+        nodes = self.nodes
 
-            # Remove unused Loads.
-            nodes = self.nodes
-            inUseChanged = False
-            for i in range(len(nodes) - 1,  -1, -1):
-                node = nodes[i]
-                if isinstance(node, Load):
-                    if node.expr not in valuesInUse:
-                        storage = node.storage
-                        if not storage.canLoadHaveSideEffect():
-                            del nodes[i]
-                            # If the removed load was from a storage that uses
-                            # another load's LoadedValue, that LoadedValue may
-                            # have become unused.
-                            inUseChanged |= any(
-                                True
-                                for expr in storage.iterExpressions()
-                                for loaded in expr.iterInstances(LoadedValue)
-                                )
+        # Keep track of how often each LoadedValue is used.
+        useCounts = defaultdict(int)
+        def updateCounts(expr, delta=1):
+            for loaded in expr.iterInstances(LoadedValue):
+                useCounts[loaded] += delta
 
-            if not inUseChanged:
-                break
+        # Compute initial use counts.
+        for node in nodes:
+            if isinstance(node, Store):
+                updateCounts(node.expr)
+            for expr in node.storage.iterExpressions():
+                updateCounts(expr)
+        retRef = self.retRef
+        if retRef is not None:
+            for expr in retRef.iterExpressions():
+                updateCounts(expr)
+
+        # Remove unnecesary Loads.
+        for i in range(len(nodes) - 1,  -1, -1):
+            node = nodes[i]
+            if isinstance(node, Load):
+                if useCounts[node.expr] == 0:
+                    storage = node.storage
+                    if not storage.canLoadHaveSideEffect():
+                        del nodes[i]
+                        # Update useCounts, so we can remove earlier Loads that
+                        # became unused because the Load we just removed was
+                        # the sole user of their LoadedValue.
+                        for expr in storage.iterExpressions():
+                            updateCounts(expr, -1)
