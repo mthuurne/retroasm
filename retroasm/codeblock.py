@@ -1,6 +1,6 @@
 from .expression import Expression
 from .linereader import InputLocation
-from .storage import Storage
+from .storage import RefArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property
 
@@ -219,6 +219,33 @@ class CodeBlock:
         return storages
 
     storages = const_property(_gatherStorages)
+
+    def _gatherArguments(self):
+        '''A dictionary containing all arguments that occur in this code block.
+        The dictionary keys are the argument names, the dictionary values are
+        ArgumentValue for pass-by-value arguments and RefArgStorage for
+        pass-by-reference arguments.
+        ValueError is raised if the same name is used for multiple arguments.
+        '''
+        args = {}
+        def addArg(arg):
+            name = arg.name
+            prev = args.get(name)
+            if prev is None:
+                args[name] = arg
+            elif prev is not arg:
+                raise ValueError('multiple arguments named "%s"' % name)
+
+        for expr in self.expressions:
+            for argVal in expr.iterInstances(ArgumentValue):
+                addArg(argVal)
+        for storage in self.storages:
+            if isinstance(storage, RefArgStorage):
+                addArg(storage)
+
+        return args
+
+    arguments = const_property(_gatherArguments)
 
     def _updateExpressions(self, substFunc):
         '''Calls the given substitution function with each expression in this

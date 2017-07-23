@@ -52,8 +52,9 @@ def createFunc(reader, funcName, retType, args, namespace):
         # Warn about unused arguments.
         # Note that simplification can remove usage that has no effect on
         # execution, but it is probably a good idea to warn about that too.
+        codeArgs = code.arguments
         for argName in args.keys():
-            if func.findArg(argName) is None:
+            if argName not in codeArgs:
                 reader.warning(
                     'unused argument "%s" in function "%s"',
                     argName, funcName, location=headerLocation

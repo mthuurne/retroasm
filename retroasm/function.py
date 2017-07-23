@@ -1,6 +1,4 @@
-from .codeblock import ArgumentValue, Store
-from .storage import IOStorage, RefArgStorage
-from .types import IntType, ReferenceType
+from .types import ReferenceType
 
 class Function:
 
@@ -34,35 +32,6 @@ class Function:
             print('    no code')
         else:
             self.code.dump()
-
-    def findArg(self, argName):
-        '''Searches the representation of the argument with the given name in
-        this function's code block.
-        For pass-by-value arguments, an ArgumentValue is returned.
-        For pass-by-reference arguments, a RefArgStorage is returned.
-        If the argument does not occur in the code block, None is returned.
-        If no argument with the given name existed when the function was
-        created, KeyError is raised.
-        If this Function doesn't have a code block, ValueError is raised.
-        '''
-        if self.code is None:
-            raise ValueError('Function does not have a code block')
-        arg = self.args[argName]
-        if isinstance(arg, IntType):
-            # Look for an ArgumentValue with the same name.
-            for expr in self.code.expressions:
-                for value in expr.iterInstances(ArgumentValue):
-                    if value.name == argName:
-                        return value
-        elif isinstance(arg, ReferenceType):
-            # Look for a RefArgStorage with the same name.
-            for storage in self.code.storages:
-                if isinstance(storage, RefArgStorage):
-                    if storage.name == argName:
-                        return storage
-        else:
-            assert False, arg
-        return None
 
 def _checkReturn(retType, retRef):
     '''Check consistency between declared return type and code block.
