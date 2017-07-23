@@ -20,10 +20,7 @@ class CodeBlockBuilder:
         '''Prints the current state of this code block builder on stdout.
         '''
         if 'ret' in self.namespace:
-            retRef = self.namespace['ret']
-            storage = retRef.storage
-            if not (isinstance(storage, Variable) and storage.name == 'ret'):
-                print('    return ref %s' % retRef)
+            print('    return ref %s' % self.namespace['ret'])
 
     def _addNamedStorage(self, name, storage, location):
         ref = SingleReference(storage, storage.type)

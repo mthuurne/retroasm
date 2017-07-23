@@ -4,7 +4,7 @@ from .expression import (
     )
 from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation
-from .storage import Storage, Variable
+from .storage import Storage
 from .types import IntType, maskForWidth, unlimited
 from .utils import checkType, const_property
 
@@ -504,11 +504,7 @@ class CodeBlock:
         for node in self.nodes:
             print('    %s (%s-bit)' % (node, node.storage.width))
         if self.retRef is not None:
-            if not (isinstance(self.retRef, SingleReference) and
-                    isinstance(self.retRef.storage, Variable) and
-                    self.retRef.storage.name == 'ret'
-                    ):
-                print('    return ref %s' % self.retRef)
+            print('    return ref %s' % self.retRef)
 
     def _gatherExpressions(self):
         '''A set of all expressions that are contained in this block.
