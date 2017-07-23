@@ -21,9 +21,17 @@ class CodeBlockSimplifier(CodeBlock):
             changed = False
             changed |= self._updateExpressions(simplifyExpression)
             changed |= self.removeRedundantNodes()
-            changed |= self.removeUnusedLoads()
             if not changed:
                 break
+
+        # Removal of unused loads will not enable any other simplifications.
+        # However, it can enable the removal of more unused loads, in the case
+        # where a loaded value was used as an index for another unused load.
+        while True:
+            changed = self.removeUnusedLoads()
+            if not changed:
+                break
+
         assert self.verify() is None
 
     def removeRedundantNodes(self):
