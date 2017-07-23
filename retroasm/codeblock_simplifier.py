@@ -46,6 +46,14 @@ class CodeBlockSimplifier(CodeBlock):
         while i < len(nodes):
             node = nodes[i]
             storage = node.storage
+
+            # Apply load replacements to storage.
+            if loadReplacements:
+                newStorage = storage.substituteExpressions(loadReplacements.get)
+                if newStorage is not storage:
+                    changed = True
+                    node.storage = storage = newStorage
+
             value = currentValues.get(storage)
             if isinstance(node, Load):
                 if value is not None:
@@ -60,6 +68,14 @@ class CodeBlockSimplifier(CodeBlock):
                     currentValues[storage] = node.expr
             elif isinstance(node, Store):
                 expr = node.expr
+
+                # Apply load replacements to stored expression.
+                if loadReplacements:
+                    newExpr = expr.substitute(loadReplacements.get)
+                    if newExpr is not expr:
+                        changed = True
+                        node.expr = expr = newExpr
+
                 if value == expr:
                     # Current value is rewritten.
                     if not storage.canStoreHaveSideEffect():
@@ -69,6 +85,7 @@ class CodeBlockSimplifier(CodeBlock):
                 elif storage.isSticky():
                     # Remember stored value.
                     currentValues[storage] = expr
+
                 # Remove values for storages that might be aliases.
                 for storage2 in list(currentValues.keys()):
                     if storage != storage2 and storage.mightBeSame(storage2):
@@ -77,19 +94,15 @@ class CodeBlockSimplifier(CodeBlock):
                         if currentValues[storage2] != expr:
                             del currentValues[storage2]
             i += 1
+
+        # Apply load replacements to returned reference.
         if loadReplacements:
-            # Compute the transitive closure of the replacements, to avoid
-            # inserting a replacement expression that itself contains
-            # expressions that should be replaced.
-            for key, expr in loadReplacements.items():
-                while True:
-                    newExpr = expr.substitute(loadReplacements.get)
-                    if newExpr is expr:
-                        break
-                    expr = newExpr
-                loadReplacements[key] = expr
-            # Apply load replacement.
-            changed |= self._updateExpressions(loadReplacements.get)
+            retRef = self.retRef
+            if retRef is not None:
+                newRef = retRef.substitute(expressionFunc=loadReplacements.get)
+                if newRef is not retRef:
+                    changed = True
+                    self.retRef = newRef
 
         return changed
 
