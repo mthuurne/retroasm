@@ -134,14 +134,11 @@ class CodeBlockSimplifier(CodeBlock):
         # Remove unused Loads.
         nodes = self.nodes
         changed = False
-        i = 0
-        while i < len(nodes):
+        for i in range(len(nodes) - 1,  -1, -1):
             node = nodes[i]
             if isinstance(node, Load):
                 if node.expr not in valuesInUse:
                     if not node.storage.canLoadHaveSideEffect():
                         changed = True
                         del nodes[i]
-                        continue
-            i += 1
         return changed
