@@ -1,7 +1,6 @@
-from .codeblock import (
-    CodeBlock, FixedValue, Load, LoadedValue, SingleReference, Store
-    )
+from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression_simplifier import simplifyExpression
+from .reference import FixedValue, SingleReference
 from .storage import Variable
 
 class CodeBlockSimplifier(CodeBlock):

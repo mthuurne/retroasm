@@ -1,11 +1,11 @@
 from utils_codeblock import TestCodeBlockBuilder
 
-from retroasm.codeblock import (
-    ConcatenatedReference, Load, LoadedValue, Reference, SingleReference,
-    SlicedReference, Store
-    )
+from retroasm.codeblock import Load, LoadedValue, Store
 from retroasm.expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
+    )
+from retroasm.reference import (
+    ConcatenatedReference, Reference, SingleReference, SlicedReference
     )
 from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
 

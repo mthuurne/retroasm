@@ -1,7 +1,5 @@
 from .analysis import determinePlaceholderRoles
-from .codeblock import (
-    ArgumentValue, ConcatenatedReference, FixedValue, SlicedReference
-    )
+from .codeblock import ArgumentValue
 from .codeblock_builder import (
     EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, SemanticsCodeBlockBuilder
     )
@@ -23,6 +21,7 @@ from .mode import (
     ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
+from .reference import ConcatenatedReference, FixedValue, SlicedReference
 from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited

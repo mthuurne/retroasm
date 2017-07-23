@@ -1,6 +1,4 @@
-from .codeblock import (
-    ConcatenatedReference, FixedValue, Load, Reference, SlicedReference, Store
-    )
+from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
     Negation, OrOperator, RVShift, SignTest, XorOperator, optSlice, truncate
@@ -13,6 +11,9 @@ from .expression_parser import (
 from .function import Function
 from .linereader import BadInput
 from .namespace import NameExistsError
+from .reference import (
+    ConcatenatedReference, FixedValue, Reference, SlicedReference
+    )
 from .storage import IOChannel
 from .types import IntType, ReferenceType, parseTypeDecl, unlimited
 from .utils import Singleton

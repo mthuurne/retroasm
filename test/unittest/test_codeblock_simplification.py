@@ -1,15 +1,15 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 from utils_expression import TestExprMixin, makeConcat
 
-from retroasm.codeblock import (
-    ArgumentValue, ConcatenatedReference, FixedValue, Load, SingleReference,
-    SlicedReference, Store
-    )
+from retroasm.codeblock import ArgumentValue, Load, Store
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
     AddOperator, AndOperator, IntLiteral, OrOperator, truncate
     )
 from retroasm.expression_simplifier import simplifyExpression
+from retroasm.reference import (
+    ConcatenatedReference, FixedValue, SingleReference, SlicedReference
+    )
 from retroasm.storage import IOStorage
 from retroasm.types import IntType
 

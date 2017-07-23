@@ -1,11 +1,9 @@
-from .codeblock import (
-    ArgumentValue, FixedValue, Load, LoadedValue, Reference, SingleReference,
-    Store
-    )
+from .codeblock import ArgumentValue, Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import optSlice
 from .linereader import BadInput
 from .namespace import LocalNamespace
+from .reference import FixedValue, Reference, SingleReference
 from .storage import IOStorage, RefArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType

@@ -1,10 +1,11 @@
 from utils_codeblock import NodeChecker, TestCodeBlockBuilder
 
-from retroasm.codeblock import (
-    ConcatenatedReference, FixedValue, Load, SlicedReference, Store
-    )
+from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
+from retroasm.reference import (
+    ConcatenatedReference, FixedValue, SlicedReference
+    )
 from retroasm.types import IntType
 
 import unittest
