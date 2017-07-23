@@ -26,6 +26,9 @@ class CodeBlockSimplifier(CodeBlock):
             if not changed:
                 break
 
+        # Removal of unused stores might make some loads unused.
+        self.removeUnusedStores()
+
         # Removal of unused loads will not enable any other simplifications.
         self.removeUnusedLoads()
 
@@ -88,6 +91,14 @@ class CodeBlockSimplifier(CodeBlock):
             # Apply load replacement.
             changed |= self._updateExpressions(loadReplacements.get)
 
+        return changed
+
+    def removeUnusedStores(self):
+        '''Remove side-effect-free stores that will be overwritten or that
+        write a variable that will go out of scope.
+        '''
+        nodes = self.nodes
+
         # Determine which local variables are part of the returned reference.
         # Unlike other local variables, we can't eliminate these.
         retVars = set()
@@ -98,12 +109,12 @@ class CodeBlockSimplifier(CodeBlock):
                     retVars.add(storage)
 
         # Remove stores for which the value is overwritten before it is loaded.
-        # Variable loads were already eliminated by the code above and since
-        # variables cease to exist at the end of a block, all variable stores
-        # are at this point considered redundant.
+        # Local variable loads were already eliminated by removeRedundantNodes()
+        # and since variables cease to exist at the end of a block, all local
+        # variable stores are at this point considered redundant, unless the
+        # variable is part of the returned reference.
         willBeOverwritten = set()
-        i = len(nodes) - 1
-        while i >= 0:
+        for i in range(len(nodes) - 1,  -1, -1):
             node = nodes[i]
             storage = node.storage
             if not storage.canStoreHaveSideEffect():
@@ -118,12 +129,8 @@ class CodeBlockSimplifier(CodeBlock):
                             storage.scope == 1 and
                             storage not in retVars
                             ):
-                        changed = True
                         del nodes[i]
                     willBeOverwritten.add(storage)
-            i -= 1
-
-        return changed
 
     def removeUnusedLoads(self):
         '''Remove side-effect-free loads of which the LoadedValue is unused.
