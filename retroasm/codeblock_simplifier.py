@@ -25,12 +25,7 @@ class CodeBlockSimplifier(CodeBlock):
                 break
 
         # Removal of unused loads will not enable any other simplifications.
-        # However, it can enable the removal of more unused loads, in the case
-        # where a loaded value was used as an index for another unused load.
-        while True:
-            changed = self.removeUnusedLoads()
-            if not changed:
-                break
+        self.removeUnusedLoads()
 
         assert self.verify() is None
 
@@ -130,23 +125,33 @@ class CodeBlockSimplifier(CodeBlock):
 
     def removeUnusedLoads(self):
         '''Remove side-effect-free loads of which the LoadedValue is unused.
-        Returns True iff any loads were removed.
         '''
-        # Find all LoadedValues that are used.
-        valuesInUse = {
-            loaded
-            for expr in self.expressions
-            for loaded in expr.iterInstances(LoadedValue)
-            }
+        while True:
+            # Find all LoadedValues that are used.
+            valuesInUse = {
+                loaded
+                for expr in self.expressions
+                for loaded in expr.iterInstances(LoadedValue)
+                }
 
-        # Remove unused Loads.
-        nodes = self.nodes
-        changed = False
-        for i in range(len(nodes) - 1,  -1, -1):
-            node = nodes[i]
-            if isinstance(node, Load):
-                if node.expr not in valuesInUse:
-                    if not node.storage.canLoadHaveSideEffect():
-                        changed = True
-                        del nodes[i]
-        return changed
+            # Remove unused Loads.
+            nodes = self.nodes
+            inUseChanged = False
+            for i in range(len(nodes) - 1,  -1, -1):
+                node = nodes[i]
+                if isinstance(node, Load):
+                    if node.expr not in valuesInUse:
+                        storage = node.storage
+                        if not storage.canLoadHaveSideEffect():
+                            del nodes[i]
+                            # If the removed load was from a storage that uses
+                            # another load's LoadedValue, that LoadedValue may
+                            # have become unused.
+                            inUseChanged |= any(
+                                True
+                                for expr in storage.iterExpressions()
+                                for loaded in expr.iterInstances(LoadedValue)
+                                )
+
+            if not inUseChanged:
+                break
