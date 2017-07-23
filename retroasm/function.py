@@ -6,25 +6,7 @@ class Function:
 
     def __init__(self, name, retType, args, code):
         if code is not None:
-            # Check consistency between declared return type and code block.
-            if retType is None:
-                if code.retRef is not None:
-                    raise ValueError(
-                        'function "%s" has no return type, '
-                        'but its code block defines "ret"' % name
-                        )
-            elif isinstance(retType, ReferenceType):
-                if code.retRef is None:
-                    raise ValueError(
-                        'function "%s" should return a reference '
-                        'but does not define "ret"' % name
-                        )
-            else: # returns a value
-                if code.retRef is None:
-                    raise ValueError(
-                        'missing return value assignment in function "%s"'
-                        % name
-                        )
+            _checkReturn(retType, code.retRef)
 
         self.name = name
         self.retType = retType
@@ -81,3 +63,25 @@ class Function:
         else:
             assert False, arg
         return None
+
+def _checkReturn(retType, retRef):
+    '''Check consistency between declared return type and code block.
+    Raises ValueError if an inconsistency is found.
+    '''
+    if retType is None:
+        if retRef is not None:
+            raise ValueError(
+                'function "%s" has no return type, but its code block defines '
+                '"ret"' % name
+                )
+    elif isinstance(retType, ReferenceType):
+        if retRef is None:
+            raise ValueError(
+                'function "%s" should return a reference but does not define '
+                '"ret"' % name
+                )
+    else: # returns a value
+        if retRef is None:
+            raise ValueError(
+                'missing return value assignment in function "%s"' % name
+                )
