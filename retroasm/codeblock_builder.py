@@ -298,10 +298,4 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         if retRef is None:
             return None
         else:
-            def importSingleRef(ref):
-                return importStorage(ref.storage)
-            def importFixedValue(ref):
-                expr = ref.expr
-                imp = importExpr(expr)
-                return ref if imp is expr else FixedValue(imp, ref.type)
-            return retRef.clone(importSingleRef, importFixedValue)
+            return retRef.substitute(importStorage, importExpr)

@@ -139,12 +139,6 @@ class LoadedValue(Expression):
         # pylint: disable=protected-access
         return self._load is other._load
 
-def identical(ref):
-    '''Clone function that returns the passed reference as-is.
-    This is used as the default clone function in Reference.clone().
-    '''
-    return ref
-
 class Reference:
     '''Abstract base class for references.
     '''
@@ -166,42 +160,17 @@ class Reference:
         '''
         raise NotImplementedError
 
-    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
-        '''Returns a deep copy of this reference, in which each SingleReference
-        is passed to the singleRefCloner function and replaced by the Reference
-        returned by that function, as well as each FixedValue passed to the
-        fixedValueCloner function and replaced by its return value.
-        If the copy would be identical to the cloned reference, the original
-        object is returned instead of a copy. Since References are immutable,
-        this optimization is safe.
+    def substitute(self, storageFunc=None, expressionFunc=None):
+        '''Applies the given substitution functions to each applicable
+        subreference of this reference and returns the resulting reference.
+        The storage function passed a storage as its argument and must return
+        None if no substitution is to take place and a reference to the
+        replacement otherwise.
+        If no storage substitution took place, the expression function is
+        applied. This function should follow the same contract as the function
+        passed to Expression.substitute().
         '''
         raise NotImplementedError
-
-    def updateStorageExpressions(self, substFunc):
-        '''Returns a deep copy of this reference, in which each IOStorage index
-        and FixedValue expression is passed to the given substitution function.
-        See Expression.substitute() for details about the substitution function.
-        If the copy would be identical to the cloned reference, the original
-        object is returned instead of a copy. Since References are immutable,
-        this optimization is safe.
-        '''
-        def updateSingleRef(ref):
-            storage = ref.storage
-            newStorage = storage.substituteExpressions(substFunc)
-            if newStorage is storage:
-                return ref
-            else:
-                return SingleReference(newStorage, ref.type)
-
-        def updateFixedValue(ref):
-            expr = ref.expr
-            newExpr = expr.substitute(substFunc)
-            if newExpr is expr:
-                return ref
-            else:
-                return FixedValue(newExpr, ref.type)
-
-        return self.clone(updateSingleRef, updateFixedValue)
 
     def emitLoad(self, builder, location):
         '''Emits load nodes for loading a typed value from the referenced
@@ -259,8 +228,15 @@ class FixedValue(Reference):
     def iterStorages(self):
         return iter(())
 
-    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
-        return fixedValueCloner(self)
+    def substitute(self, storageFunc=None, expressionFunc=None):
+        if expressionFunc is None:
+            return self
+        expr = self._expr
+        newExpr = expr.substitute(expressionFunc)
+        if newExpr is expr:
+            return self
+        else:
+            return FixedValue(newExpr, self._type)
 
     def _emitLoadBits(self, builder, location):
         return self._expr
@@ -289,8 +265,25 @@ class SingleReference(Reference):
     def iterStorages(self):
         yield self._storage
 
-    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
-        return singleRefCloner(self)
+    def substitute(self, storageFunc=None, expressionFunc=None):
+        storage = self._storage
+        if storageFunc is not None:
+            newRef = storageFunc(storage)
+            if newRef is not None:
+                if isinstance(newRef, SingleReference) and \
+                        newRef._storage is storage and \
+                        newRef._type is self._type:
+                    return self
+                else:
+                    return newRef
+
+        if expressionFunc is None:
+            return self
+        newStorage = storage.substituteExpressions(expressionFunc)
+        if newStorage is storage:
+            return self
+        else:
+            return SingleReference(newStorage, self._type)
 
     def _emitLoadBits(self, builder, location):
         return builder.emitLoadBits(self._storage, location)
@@ -337,13 +330,13 @@ class ConcatenatedReference(Reference):
         for ref in self._refs:
             yield from ref.iterStorages()
 
-    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
+    def substitute(self, storageFunc=None, expressionFunc=None):
         changed = False
         refs = []
         for ref in self._refs:
-            clone = ref.clone(singleRefCloner, fixedValueCloner)
-            refs.append(clone)
-            changed |= clone is not ref
+            newRef = ref.substitute(storageFunc, expressionFunc)
+            refs.append(newRef)
+            changed |= newRef is not ref
         return ConcatenatedReference(*refs) if changed else self
 
     def _emitLoadBits(self, builder, location):
@@ -420,16 +413,16 @@ class SlicedReference(Reference):
     def iterStorages(self):
         return self._ref.iterStorages()
 
-    def clone(self, singleRefCloner=identical, fixedValueCloner=identical):
+    def substitute(self, storageFunc=None, expressionFunc=None):
         ref = self._ref
-        clone = ref.clone(singleRefCloner, fixedValueCloner)
-        if clone is ref:
+        newRef = ref.substitute(storageFunc, expressionFunc)
+        if newRef is ref:
             return self
         else:
             width = self.width
             if width is not unlimited:
                 width = IntLiteral(width)
-            return SlicedReference(clone, self._offset, width)
+            return SlicedReference(newRef, self._offset, width)
 
     def _emitLoadBits(self, builder, location):
         # Load value from our reference.
@@ -575,7 +568,7 @@ class CodeBlock:
         # Update returned reference.
         retRef = self.retRef
         if retRef is not None:
-            newRef = retRef.updateStorageExpressions(substFunc)
+            newRef = retRef.substitute(expressionFunc=substFunc)
             if newRef is not retRef:
                 changed = True
                 self.retRef = newRef
