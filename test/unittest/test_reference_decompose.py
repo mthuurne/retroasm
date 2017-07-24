@@ -12,7 +12,7 @@ from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
 import unittest
 
 def sliceRef(ref, offset, width):
-    return SlicedReference(ref, IntLiteral(offset), IntLiteral(width))
+    return SlicedReference(ref, IntLiteral(offset), width)
 
 class DecomposeTests:
     '''Abstract base class for reference decompose tests.'''

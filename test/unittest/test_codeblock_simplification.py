@@ -344,9 +344,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refH = self.builder.addRegister('h')
         refL = self.builder.addRegister('l')
         refHL = ConcatenatedReference(refL, refH)
-        self.builder.addRetReference(
-            SlicedReference(refHL, IntLiteral(0), IntLiteral(8))
-            )
+        self.builder.addRetReference(SlicedReference(refHL, IntLiteral(0), 8))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
         self.assertIsNotNone(code.retRef)

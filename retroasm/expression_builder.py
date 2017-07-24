@@ -8,6 +8,7 @@ from .expression_parser import (
     DefinitionNode, EmptyNode, IdentifierNode, LabelNode, MultiMatchNode,
     NumberNode, Operator, OperatorNode
     )
+from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .namespace import NameExistsError
@@ -295,7 +296,7 @@ def _convertReferenceLookup(node, builder):
     ref = buildReference(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
-        return SlicedReference(ref, index, IntLiteral(1))
+        return SlicedReference(ref, index, 1)
     except ValueError as ex:
         raise BadExpression('invalid bitwise lookup: %s' % ex, node.location)
 
@@ -316,6 +317,12 @@ def _convertReferenceSlice(node, builder):
     else:
         width = AddOperator(end, Complement(offset))
     try:
+        if width is not unlimited:
+            width = simplifyExpression(Expression.checkScalar(width))
+            if isinstance(width, IntLiteral):
+                width = width.value
+            else:
+                raise ValueError('slice width cannot be determined')
         return SlicedReference(ref, offset, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)

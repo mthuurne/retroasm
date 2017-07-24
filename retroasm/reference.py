@@ -243,14 +243,7 @@ class SlicedReference(Reference):
             raise ValueError('slice offset must not be negative')
         self._offset = offset
 
-        if width is unlimited:
-            typ = IntType.int
-        else:
-            width = simplifyExpression(Expression.checkScalar(width))
-            if isinstance(width, IntLiteral):
-                typ = IntType.u(width.value)
-            else:
-                raise ValueError('slice width cannot be determined')
+        typ = IntType.int if width is unlimited else IntType.u(width)
         Reference.__init__(self, typ)
 
     def __repr__(self):
@@ -287,10 +280,7 @@ class SlicedReference(Reference):
         if newRef is ref:
             return self
         else:
-            width = self.width
-            if width is not unlimited:
-                width = IntLiteral(width)
-            return SlicedReference(newRef, self._offset, width)
+            return SlicedReference(newRef, self._offset, self.width)
 
     def _emitLoadBits(self, builder, location):
         # Load value from our reference.
