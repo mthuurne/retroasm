@@ -52,10 +52,11 @@ def _checkArgs(declArgs, codeArgs):
                     'reference argument "%s" is not a reference in code block'
                     % name
                     )
-            if typ.type != arg.type:
+            if typ.type.width != arg.width:
                 raise ValueError(
-                    'reference argument "%s" is declared with type %s but '
-                    'has type %s in code block' % (name, typ.type, arg.type)
+                    'reference argument "%s" is declared with width %s but '
+                    'has width %s in code block'
+                    % (name, typ.type.width, arg.width)
                     )
         else:
             if not isinstance(arg, ArgumentValue):

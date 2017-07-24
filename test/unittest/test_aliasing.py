@@ -25,7 +25,7 @@ class AliasTests(unittest.TestCase):
         a = Variable(8, 0)
         b = Variable(8, 0)
         l = Variable(8, 1)
-        r = RefArgStorage('R', IntType.u(8))
+        r = RefArgStorage('R', 8)
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(a, a)
@@ -39,7 +39,7 @@ class AliasTests(unittest.TestCase):
         l = Variable(8, 1)
         l2 = Variable(8, 1)
         a = Variable(8, 0)
-        r = RefArgStorage('R', IntType.u(8))
+        r = RefArgStorage('R', 8)
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))
         self.assertAlias(l, l)
@@ -50,8 +50,8 @@ class AliasTests(unittest.TestCase):
 
     def test_unknown_storage_aliasing(self):
         '''Test when unknown storages might be aliased.'''
-        r = RefArgStorage('R', IntType.u(8))
-        r2 = RefArgStorage('R2', IntType.u(8))
+        r = RefArgStorage('R', 8)
+        r2 = RefArgStorage('R2', 8)
         a = Variable(8, 0)
         l = Variable(8, 1)
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
@@ -66,7 +66,7 @@ class AliasTests(unittest.TestCase):
         '''Test when I/O storages might be aliased.'''
         a = Variable(8, 0)
         l = Variable(8, 1)
-        r = RefArgStorage('R', IntType.u(8))
+        r = RefArgStorage('R', 8)
         mem = IOChannel('mem', IntType.u(8), IntType.u(16))
         io = IOChannel('io', IntType.u(8), IntType.u(16))
         m = IOStorage(mem, IntLiteral(0xC000))

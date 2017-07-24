@@ -195,7 +195,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         return ref
 
     def emitReferenceArgument(self, name, typ, location):
-        storage = RefArgStorage(name, typ)
+        storage = RefArgStorage(name, typ.width)
         return self._addNamedStorage(name, storage, typ, location)
 
     def emitLoadBits(self, storage, location):

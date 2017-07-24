@@ -212,7 +212,7 @@ class Variable(Storage):
             self._scope == 0 and isinstance(other, RefArgStorage)
             )
 
-class RefArgStorage(TypedStorage):
+class RefArgStorage(Storage):
     '''A placeholder storage location for a storage passed to a function by
     reference. The storage properties depend on which concrete storage will be
     passed, so until we know the concrete storage we have to assume the worst
@@ -222,14 +222,14 @@ class RefArgStorage(TypedStorage):
 
     name = property(lambda self: self._name)
 
-    def __init__(self, name, typ):
+    def __init__(self, name, width):
         self._name = checkType(name, str, 'storage name')
         if not reName.match(name):
             raise ValueError('invalid name: "%s"', name)
-        TypedStorage.__init__(self, typ)
+        Storage.__init__(self, width)
 
     def __repr__(self):
-        return '%s(%r, %r)' % (self.__class__.__name__, self._name, self._type)
+        return 'RefArgStorage(%r, %s)' % (self._name, self._width)
 
     def __str__(self):
         return self._name
