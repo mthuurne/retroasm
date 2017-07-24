@@ -144,38 +144,6 @@ class Storage:
         '''
         return self
 
-class TypedStorage(Storage):
-    '''Base class for storages with a known type.
-    '''
-    __slots__ = ('_type',)
-
-    type = property(lambda self: self._type)
-
-    def __init__(self, typ):
-        self._type = checkType(typ, IntType, 'named storage value type')
-        Storage.__init__(self, typ.width)
-
-    def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self._type)
-
-    def __str__(self):
-        return '%s@%x' % (self._type, id(self))
-
-    def canLoadHaveSideEffect(self):
-        raise NotImplementedError
-
-    def canStoreHaveSideEffect(self):
-        raise NotImplementedError
-
-    def isLoadConsistent(self):
-        raise NotImplementedError
-
-    def isSticky(self):
-        raise NotImplementedError
-
-    def mightBeSame(self, other):
-        raise NotImplementedError
-
 class Variable(Storage):
     '''A simple piece of named storage.
     Is used for registers as well as variables.
