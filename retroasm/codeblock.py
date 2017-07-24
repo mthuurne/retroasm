@@ -252,16 +252,12 @@ class CodeBlock:
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution
         function returns None, the original expression is kept.
-        Returns True iff any substitutions were made.
         '''
-        changed = False
-
         for node in self.nodes:
             # Update indices for I/O storages.
             storage = node.storage
             newStorage = storage.substituteExpressions(substFunc)
             if newStorage is not storage:
-                changed = True
                 node.storage = newStorage
 
             # Update node with new expression.
@@ -269,7 +265,6 @@ class CodeBlock:
                 expr = node.expr
                 newExpr = expr.substitute(substFunc)
                 if newExpr is not expr:
-                    changed = True
                     node.expr = newExpr
 
         # Update returned reference.
@@ -277,7 +272,4 @@ class CodeBlock:
         if retRef is not None:
             newRef = retRef.substitute(expressionFunc=substFunc)
             if newRef is not retRef:
-                changed = True
                 self.retRef = newRef
-
-        return changed
