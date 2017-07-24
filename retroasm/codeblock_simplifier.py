@@ -19,9 +19,13 @@ class CodeBlockSimplifier(CodeBlock):
     def simplify(self):
         '''Attempt to simplify the code block as much as possible.
         '''
+        # Peform initial simplification of all expressions.
+        # This allows removeRedundantNodes() to only simplify expressions when
+        # it changes them.
+        self._updateExpressions(simplifyExpression)
+
         while True:
             changed = False
-            changed |= self._updateExpressions(simplifyExpression)
             changed |= self.removeRedundantNodes()
             if not changed:
                 break
@@ -38,10 +42,16 @@ class CodeBlockSimplifier(CodeBlock):
         changed = False
         nodes = self.nodes
 
+        loadReplacements = {}
+        def replaceLoadedValues(expr):
+            newExpr = expr.substitute(loadReplacements.get)
+            if newExpr is not expr:
+                newExpr = simplifyExpression(newExpr)
+            return newExpr
+
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
         currentValues = {}
-        loadReplacements = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
@@ -49,7 +59,7 @@ class CodeBlockSimplifier(CodeBlock):
 
             # Apply load replacements to storage.
             if loadReplacements:
-                newStorage = storage.substituteExpressions(loadReplacements.get)
+                newStorage = storage.substituteExpressions(replaceLoadedValues)
                 if newStorage is not storage:
                     changed = True
                     node.storage = storage = newStorage
@@ -71,7 +81,7 @@ class CodeBlockSimplifier(CodeBlock):
 
                 # Apply load replacements to stored expression.
                 if loadReplacements:
-                    newExpr = expr.substitute(loadReplacements.get)
+                    newExpr = expr.substitute(replaceLoadedValues)
                     if newExpr is not expr:
                         changed = True
                         node.expr = expr = newExpr
@@ -99,7 +109,7 @@ class CodeBlockSimplifier(CodeBlock):
         if loadReplacements:
             retRef = self.retRef
             if retRef is not None:
-                newRef = retRef.substitute(expressionFunc=loadReplacements.get)
+                newRef = retRef.substitute(expressionFunc=replaceLoadedValues)
                 if newRef is not retRef:
                     changed = True
                     self.retRef = newRef
