@@ -24,11 +24,8 @@ class CodeBlockSimplifier(CodeBlock):
         # it changes them.
         self._updateExpressions(simplifyExpression)
 
-        while True:
-            changed = False
-            changed |= self.removeRedundantNodes()
-            if not changed:
-                break
+        # This mainly collapses incremental updates to variables.
+        self.removeRedundantNodes()
 
         # Removal of unused stores might make some loads unused.
         self.removeUnusedStores()
@@ -39,7 +36,6 @@ class CodeBlockSimplifier(CodeBlock):
         assert self.verify() is None
 
     def removeRedundantNodes(self):
-        changed = False
         nodes = self.nodes
 
         loadReplacements = {}
@@ -61,7 +57,6 @@ class CodeBlockSimplifier(CodeBlock):
             if loadReplacements:
                 newStorage = storage.substituteExpressions(replaceLoadedValues)
                 if newStorage is not storage:
-                    changed = True
                     node.storage = storage = newStorage
 
             value = currentValues.get(storage)
@@ -70,7 +65,6 @@ class CodeBlockSimplifier(CodeBlock):
                     # Use known value instead of loading it.
                     loadReplacements[node.expr] = value
                     if not storage.canLoadHaveSideEffect():
-                        changed = True
                         del nodes[i]
                         continue
                 elif storage.isLoadConsistent():
@@ -83,13 +77,11 @@ class CodeBlockSimplifier(CodeBlock):
                 if loadReplacements:
                     newExpr = expr.substitute(replaceLoadedValues)
                     if newExpr is not expr:
-                        changed = True
                         node.expr = expr = newExpr
 
                 if value == expr:
                     # Current value is rewritten.
                     if not storage.canStoreHaveSideEffect():
-                        changed = True
                         del nodes[i]
                         continue
                 elif storage.isSticky():
@@ -111,10 +103,7 @@ class CodeBlockSimplifier(CodeBlock):
             if retRef is not None:
                 newRef = retRef.substitute(expressionFunc=replaceLoadedValues)
                 if newRef is not retRef:
-                    changed = True
                     self.retRef = newRef
-
-        return changed
 
     def removeUnusedStores(self):
         '''Remove side-effect-free stores that will be overwritten or that
