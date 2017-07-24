@@ -176,7 +176,7 @@ class TypedStorage(Storage):
     def mightBeSame(self, other):
         raise NotImplementedError
 
-class Variable(TypedStorage):
+class Variable(Storage):
     '''A simple piece of named storage.
     Is used for registers as well as variables.
     '''
@@ -184,14 +184,15 @@ class Variable(TypedStorage):
 
     scope = property(lambda self: self._scope)
 
-    def __init__(self, typ, scope):
-        TypedStorage.__init__(self, typ)
+    def __init__(self, width, scope):
+        Storage.__init__(self, width)
         self._scope = checkType(scope, int, 'scope level')
 
     def __repr__(self):
-        return '%s(%r, %d)' % (
-            self.__class__.__name__, self._type, self._scope
-            )
+        return 'Variable(%s, %d)' % (self._width, self._scope)
+
+    def __str__(self):
+        return 'var%s@%x' % (self._width, id(self))
 
     def canLoadHaveSideEffect(self):
         return False

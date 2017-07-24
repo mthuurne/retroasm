@@ -20,14 +20,14 @@ class CodeBlockBuilder:
         if 'ret' in self.namespace:
             print('    return ref %s' % self.namespace['ret'])
 
-    def _addNamedStorage(self, name, storage, location):
-        ref = SingleReference(storage, storage.type)
+    def _addNamedStorage(self, name, storage, typ, location):
+        ref = SingleReference(storage, typ)
         self.namespace.define(name, ref, location)
         return ref
 
-    def emitVariable(self, name, refType, location):
-        var = Variable(refType, self._scope)
-        return self._addNamedStorage(name, var, location)
+    def emitVariable(self, name, typ, location):
+        var = Variable(typ.width, self._scope)
+        return self._addNamedStorage(name, var, typ, location)
 
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
@@ -194,9 +194,9 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
         return ref
 
-    def emitReferenceArgument(self, name, refType, location):
-        storage = RefArgStorage(name, refType)
-        return self._addNamedStorage(name, storage, location)
+    def emitReferenceArgument(self, name, typ, location):
+        storage = RefArgStorage(name, typ)
+        return self._addNamedStorage(name, storage, typ, location)
 
     def emitLoadBits(self, storage, location):
         load = Load(storage, location)
