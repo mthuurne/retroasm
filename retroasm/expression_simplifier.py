@@ -29,53 +29,50 @@ def _simplifyAlgebraic(cls, exprs):
     '''
     changed = False
 
-    if cls.associative:
-        # Merge subexpressions of the same type into this expression.
-        i = 0
-        while i < len(exprs):
-            expr = exprs[i]
-            if expr.__class__ is cls:
-                subExprs = expr.exprs
-                exprs[i:i+1] = subExprs
-                changed = True
-            else:
-                i += 1
+    # Merge subexpressions of the same type into this expression.
+    i = 0
+    while i < len(exprs):
+        expr = exprs[i]
+        if expr.__class__ is cls:
+            subExprs = expr.exprs
+            exprs[i:i+1] = subExprs
+            changed = True
+        else:
+            i += 1
 
-    if cls.associative and cls.commutative:
-        # Move all literals to the end.
-        # This makes the later merge step more effective.
-        numExprs = len(exprs)
-        while numExprs > 0 and isinstance(exprs[numExprs - 1], IntLiteral):
+    # Move all literals to the end.
+    # This makes the later merge step more effective.
+    numExprs = len(exprs)
+    while numExprs > 0 and isinstance(exprs[numExprs - 1], IntLiteral):
+        numExprs -= 1
+    i = 0
+    while i < numExprs:
+        expr = exprs[i]
+        if isinstance(expr, IntLiteral):
+            del exprs[i]
+            exprs.append(expr)
             numExprs -= 1
-        i = 0
-        while i < numExprs:
-            expr = exprs[i]
-            if isinstance(expr, IntLiteral):
-                del exprs[i]
-                exprs.append(expr)
-                numExprs -= 1
-                changed = True
-            else:
-                i += 1
+            changed = True
+        else:
+            i += 1
 
-    if cls.associative or len(exprs) == 2:
-        # Merge literals.
-        i = 1
-        while i < len(exprs):
-            expr1 = exprs[i - 1]
-            if not isinstance(expr1, IntLiteral):
-                i += 1
-                continue
-            expr2 = exprs[i]
-            if not isinstance(expr2, IntLiteral):
-                i += 2
-                continue
-            expr = cls.combineLiterals(expr1, expr2)
-            if expr is None:
-                i += 1
-            else:
-                exprs[i-1:i+1] = [expr]
-                changed = True
+    # Merge literals.
+    i = 1
+    while i < len(exprs):
+        expr1 = exprs[i - 1]
+        if not isinstance(expr1, IntLiteral):
+            i += 1
+            continue
+        expr2 = exprs[i]
+        if not isinstance(expr2, IntLiteral):
+            i += 2
+            continue
+        expr = cls.combineLiterals(expr1, expr2)
+        if expr is None:
+            i += 1
+        else:
+            exprs[i-1:i+1] = [expr]
+            changed = True
 
     absorber = cls.absorber
     if absorber is not None:

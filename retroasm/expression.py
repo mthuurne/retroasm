@@ -187,10 +187,10 @@ class ComposedExpression(Expression):
 class SimplifiableComposedExpression(ComposedExpression):
     '''Base class for composed expressions that can be simplified using
     their algebraic properties.
+    All subclasses of this class must represent operations that are both
+    associative and commutative.
     '''
     __slots__ = ()
-    associative = property()
-    commutative = property()
     idempotent = property()
     identity = property()
     absorber = property()
@@ -217,8 +217,6 @@ class SimplifiableComposedExpression(ComposedExpression):
 class AndOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeAndOverOr',)
     operator = '&'
-    associative = True
-    commutative = True
     idempotent = True
     identity = IntLiteral(-1)
     absorber = IntLiteral(0)
@@ -269,8 +267,6 @@ class AndOperator(SimplifiableComposedExpression):
 class OrOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeOrOverAnd', )
     operator = '|'
-    associative = True
-    commutative = True
     idempotent = True
     identity = IntLiteral(0)
     absorber = IntLiteral(-1)
@@ -292,8 +288,6 @@ class OrOperator(SimplifiableComposedExpression):
 class XorOperator(SimplifiableComposedExpression):
     __slots__ = ()
     operator = '^'
-    associative = True
-    commutative = True
     idempotent = False
     identity = IntLiteral(0)
     absorber = None
@@ -311,8 +305,6 @@ class XorOperator(SimplifiableComposedExpression):
 class AddOperator(SimplifiableComposedExpression):
     __slots__ = ()
     operator = '+'
-    associative = True
-    commutative = True
     idempotent = False
     identity = IntLiteral(0)
     absorber = None
