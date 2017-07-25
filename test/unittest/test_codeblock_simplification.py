@@ -8,7 +8,7 @@ from retroasm.expression import (
     )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.reference import (
-    ConcatenatedReference, FixedValue, SingleReference, SlicedReference
+    ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits
     )
 from retroasm.storage import IOStorage
 from retroasm.types import IntType
@@ -44,8 +44,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             load, store = code.nodes
             self.assertIsInstance(load, Load)
             self.assertIsInstance(store, Store)
-            self.assertEqual(load.storage, refA.storage)
-            self.assertEqual(store.storage, refB.storage)
+            self.assertEqual(load.storage, refA.bits.storage)
+            self.assertEqual(store.storage, refB.bits.storage)
             self.assertIs(store.expr, load.expr)
 
         code = self.builder.createCodeBlock()
@@ -63,8 +63,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, const2)
 
         correct = (
-            Store(const1, refA.storage),
-            Store(const1, refB.storage),
+            Store(const1, refA.bits.storage),
+            Store(const1, refB.bits.storage),
             )
 
         code = self.createSimplifiedCode()
@@ -81,7 +81,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, refA.storage)
+        self.assertIs(node.storage, refA.bits.storage)
         self.assertIntLiteral(node.expr, 0)
 
     def test_unused_load_nonremoval(self):
@@ -91,7 +91,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         loadM = self.builder.emitLoad(refM)
 
         correct = (
-            Load(refM.storage),
+            Load(refM.bits.storage),
             )
 
         code = self.createSimplifiedCode()
@@ -108,10 +108,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadA2)
 
         def correct():
-            loadA = Load(refA.storage)
+            loadA = Load(refA.bits.storage)
             yield loadA
-            yield Store(loadA.expr, refB.storage)
-            yield Store(loadA.expr, refC.storage)
+            yield Store(loadA.expr, refB.bits.storage)
+            yield Store(loadA.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct())
@@ -132,9 +132,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertIsInstance(load, Load)
         self.assertIsInstance(store1, Store)
         self.assertIsInstance(store2, Store)
-        self.assertEqual(load.storage, refA.storage)
-        self.assertEqual(store1.storage, refA.storage)
-        self.assertEqual(store2.storage, refB.storage)
+        self.assertEqual(load.storage, refA.bits.storage)
+        self.assertEqual(store1.storage, refA.bits.storage)
+        self.assertEqual(store2.storage, refB.bits.storage)
         self.assertEqual(store1.expr, store2.expr)
         self.assertTrunc(
             simplifyExpression(store1.expr),
@@ -154,9 +154,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA)
 
         def correct():
-            loadA = Load(refA.storage)
+            loadA = Load(refA.bits.storage)
             yield loadA
-            yield Store(loadA.expr, refB.storage)
+            yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct())
@@ -172,9 +172,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadB)
 
         def correct():
-            loadB = Load(refB.storage)
+            loadB = Load(refB.bits.storage)
             yield loadB
-            yield Store(loadB.expr, refC.storage)
+            yield Store(loadB.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct())
@@ -193,13 +193,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refC, loadA2)
 
         def correct():
-            loadA1 = Load(refA.storage)
+            loadA1 = Load(refA.bits.storage)
             yield loadA1
-            yield Store(const, refX.storage)
-            loadA2 = Load(refA.storage)
+            yield Store(const, refX.bits.storage)
+            loadA2 = Load(refA.bits.storage)
             yield loadA2
-            yield Store(loadA1.expr, refB.storage)
-            yield Store(loadA2.expr, refC.storage)
+            yield Store(loadA1.expr, refB.bits.storage)
+            yield Store(loadA2.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct())
@@ -215,10 +215,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.emitStore(refB, loadA2)
 
         def correct():
-            loadA = Load(refA.storage)
+            loadA = Load(refA.bits.storage)
             yield loadA
-            yield Store(loadA.expr, refX.storage)
-            yield Store(loadA.expr, refB.storage)
+            yield Store(loadA.expr, refX.bits.storage)
+            yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct())
@@ -236,7 +236,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.assertEqual(len(code.nodes), 1)
         node = code.nodes[0]
         self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, refA.storage)
+        self.assertIs(node.storage, refA.bits.storage)
         self.assertTrunc(
             node.expr,
             AddOperator(ArgumentValue('V', 255), IntLiteral(1)),
@@ -274,12 +274,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         valueA = code.nodes[0].expr
         def correct():
-            load = Load(refA.storage)
+            load = Load(refA.bits.storage)
             yield load
             expr = retVal.substitute(
                 lambda expr: load.expr if expr is valueA else None
                 )
-            yield Store(expr, refRet.storage)
+            yield Store(expr, refRet.bits.storage)
         self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
         self.assertOr(
@@ -306,9 +306,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsInstance(code.retRef, SingleReference)
+        self.assertIsNotNone(code.retRef)
+        self.assertIsInstance(code.retRef.bits, SingleStorage)
         self.assertIs(code.retRef.type, IntType.u(8))
-        storage = code.retRef.storage
+        storage = code.retRef.bits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 2)
 
@@ -321,30 +322,33 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsInstance(code.retRef, SingleReference)
+        self.assertIsNotNone(code.retRef)
+        self.assertIsInstance(code.retRef.bits, SingleStorage)
         self.assertIs(code.retRef.type, IntType.u(8))
-        storage = code.retRef.storage
+        storage = code.retRef.bits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 0x4120)
 
     def test_return_fixed_value_ref(self):
         '''Test returning a reference to a fixed value.'''
         add = AddOperator(IntLiteral(1), IntLiteral(2))
-        value = FixedValue(add, IntType.u(8))
-        self.builder.addRetReference(value)
+        value = FixedValue(add, 8)
+        self.builder.addRetReference(Reference(value, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
         self.assertIsNotNone(code.retRef)
         self.assertEqual(code.retRef.width, 8)
-        self.assertIsInstance(code.retRef, FixedValue)
-        self.assertIntLiteral(code.retRef.expr, 3)
+        self.assertEqual(code.retRef.bits.width, 8)
+        self.assertIsInstance(code.retRef.bits, FixedValue)
+        self.assertIntLiteral(code.retRef.bits.expr, 3)
 
     def test_return_complex_ref(self):
         '''Test returning a non-trivial reference.'''
         refH = self.builder.addRegister('h')
         refL = self.builder.addRegister('l')
-        refHL = ConcatenatedReference(refL, refH)
-        self.builder.addRetReference(SlicedReference(refHL, IntLiteral(0), 8))
+        bitsHL = ConcatenatedBits(refL.bits, refH.bits)
+        retBits = SlicedBits(bitsHL, IntLiteral(0), 8)
+        self.builder.addRetReference(Reference(retBits, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
         self.assertIsNotNone(code.retRef)
@@ -372,9 +376,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        correct = [Store(retVal, ret.storage)]
+        correct = [Store(retVal, ret.bits.storage)]
         if counterRemains:
-            correct.insert(0, Store(retVal, counterRef.storage))
+            correct.insert(0, Store(retVal, counterRef.bits.storage))
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)
         self.assertEqual(retWidth, 8)
@@ -449,15 +453,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             if isinstance(node.storage, IOStorage)
             )
         def correct():
-            loadS = Load(refS.storage)
+            loadS = Load(refS.bits.storage)
             yield loadS
             expr = truncate(incS, 8).substitute(
                 lambda expr: loadS.expr if expr is loadS1 else None
                 )
-            yield Store(expr, refS.storage)
+            yield Store(expr, refS.bits.storage)
             loadM = Load(ioStorage)
             yield loadM
-            yield Store(loadM.expr, refD.storage)
+            yield Store(loadM.expr, refD.bits.storage)
         self.assertNodes(code.nodes, correct())
 
 if __name__ == '__main__':

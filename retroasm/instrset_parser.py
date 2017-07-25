@@ -21,7 +21,7 @@ from .mode import (
     ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
-from .reference import ConcatenatedReference, FixedValue, SlicedReference
+from .reference import ConcatenatedBits, FixedValue, SlicedBits
 from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
@@ -488,36 +488,36 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
         else:
             assert False, spec
 
-def _decomposeReference(ref):
-    if isinstance(ref, FixedValue):
-        yield ref.expr, 0, 0, ref.width
-    elif isinstance(ref, ConcatenatedReference):
+def _decomposeBitString(bits):
+    if isinstance(bits, FixedValue):
+        yield bits.expr, 0, 0, bits.width
+    elif isinstance(bits, ConcatenatedBits):
         offset = 0
-        for subRef in ref:
-            for expr, immIdx, refIdx, width in _decomposeReference(subRef):
+        for sub in bits:
+            for expr, immIdx, refIdx, width in _decomposeBitString(sub):
                 yield expr, immIdx, offset + refIdx, width
-            offset += subRef.width
-    elif isinstance(ref, SlicedReference):
-        # Note that SlicedReference has already simplified the offset.
-        offset = ref.offset
+            offset += sub.width
+    elif isinstance(bits, SlicedBits):
+        # Note that SlicedBits has already simplified the offset.
+        offset = bits.offset
         if isinstance(offset, IntLiteral):
             start = offset.value
-            end = start + ref.width
-            for expr, immIdx, refIdx, width in _decomposeReference(ref.ref):
+            end = start + bits.width
+            for expr, immIdx, bitsIdx, width in _decomposeBitString(bits.bits):
                 # Clip to slice boundaries.
-                refStart = max(refIdx, start)
-                refEnd = min(refIdx + width, end)
+                bitsStart = max(bitsIdx, start)
+                bitsEnd = min(bitsIdx + width, end)
                 # Output if clipped slice is not empty.
-                width = refEnd - refStart
+                width = bitsEnd - bitsStart
                 if width > 0:
-                    immShift = refStart - refIdx
-                    yield expr, immIdx + immShift, refStart - start, width
+                    immShift = bitsStart - bitsIdx
+                    yield expr, immIdx + immShift, bitsStart - start, width
         else:
             raise ValueError('slices in encoding must have fixed offset')
     else:
-        # Note: SingleReference cannot occur in encoding since the stateless
+        # Note: SingleStorage cannot occur in encoding since the stateless
         #       builder would trigger an error when loading from it.
-        assert False, ref
+        assert False, bits
 
 def _decomposeEncodingExprs(encElems, reader):
     fixedMatcher = []
@@ -528,7 +528,9 @@ def _decomposeEncodingExprs(encElems, reader):
         fixedMask = 0
         fixedValue = 0
         try:
-            for expr, immIdx, refIdx, width in _decomposeReference(encElem.ref):
+            for expr, immIdx, refIdx, width in _decomposeBitString(
+                    encElem.ref.bits
+                    ):
                 if isinstance(expr, ArgumentValue):
                     decodeMap[expr.name].append(
                         (immIdx, encIdx, refIdx, width)
@@ -865,7 +867,7 @@ def _parseModeEntries(
             pass
         else:
             # Perform some basic analysis.
-            pc = namespace['pc'].storage
+            pc = namespace['pc'].bits.storage
             determinePlaceholderRoles(semantics, placeholders, pc)
 
             yield ModeEntry(

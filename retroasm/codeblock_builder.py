@@ -3,7 +3,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import optSlice
 from .linereader import BadInput
 from .namespace import LocalNamespace
-from .reference import FixedValue, Reference, SingleReference
+from .reference import BitString, FixedValue, Reference, SingleStorage
 from .storage import IOStorage, RefArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
@@ -21,7 +21,8 @@ class CodeBlockBuilder:
             print('    return ref %s' % self.namespace['ret'])
 
     def _addNamedStorage(self, name, storage, typ, location):
-        ref = SingleReference(storage, typ)
+        bits = SingleStorage(storage)
+        ref = Reference(bits, typ)
         self.namespace.define(name, ref, location)
         return ref
 
@@ -33,7 +34,8 @@ class CodeBlockBuilder:
         addrWidth = channel.addrType.width
         truncatedIndex = optSlice(index, 0, addrWidth)
         storage = IOStorage(channel, truncatedIndex)
-        return SingleReference(storage, channel.elemType)
+        bits = SingleStorage(storage)
+        return Reference(bits, channel.elemType)
 
     def defineReference(self, name, value, location):
         '''Defines a reference with the given name and value.
@@ -120,8 +122,11 @@ class EncodingCodeBlockBuilder(
 
     def emitValueArgument(self, name, typ, location):
         checkType(typ, IntType, 'value argument')
-        value = ArgumentValue(name, maskForWidth(typ.width))
-        return self.defineReference(name, FixedValue(value, typ), location)
+        width = typ.width
+        value = ArgumentValue(name, maskForWidth(width))
+        bits = FixedValue(value, width)
+        ref = Reference(bits, typ)
+        return self.defineReference(name, ref, location)
 
 class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
@@ -228,7 +233,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
     def inlineBlock(self, code, argFetcher):
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
-        should return the reference passed for that argument, or None if the
+        should return the bit string passed for that argument, or None if the
         argument should remain an argument in the inlined block.
         Returns a Reference containing the value returned by the inlined
         block, or None if the inlined block does not return anything.
@@ -248,43 +253,38 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
         def importStorageUncached(storage):
             if isinstance(storage, RefArgStorage):
-                ref = argFetcher(storage.name)
-                if ref is not None:
-                    assert storage.width == ref.width, \
-                        (storage.width, ref.width)
-                    return ref
+                bits = argFetcher(storage.name)
+                if bits is not None:
+                    assert isinstance(bits, BitString), repr(bits)
+                    assert storage.width == bits.width, \
+                        (storage.width, bits.width)
+                    return bits
                 newStorage = storage
             else:
                 newStorage = storage.substituteExpressions(importExpr)
-
-            # Note: It doesn't matter whether the original reference for
-            #       this storage was signed, since the sign extension will
-            #       be imported as part of an expression.
-            #       We are copying the _emitLoadBits() output here, not the
-            #       emitLoad() output.
-            typ = IntType.u(newStorage.width)
-            return SingleReference(newStorage, typ)
+            return SingleStorage(newStorage)
         storageCache = {}
         def importStorage(storage):
-            '''Returns a reference to an imported version of the given storage.
+            '''Returns a bit string containing the imported version of the given
+            storage.
             '''
-            ref = storageCache.get(storage)
-            if ref is None:
-                ref = importStorageUncached(storage)
-                storageCache[storage] = ref
-            return ref
+            bits = storageCache.get(storage)
+            if bits is None:
+                bits = importStorageUncached(storage)
+                storageCache[storage] = bits
+            return bits
 
         # Copy nodes.
         for node in code.nodes:
             expr = node.expr
-            ref = importStorage(node.storage)
+            bits = importStorage(node.storage)
             if isinstance(node, Load):
                 assert isinstance(expr, LoadedValue), expr
-                value = ref.emitLoad(self, node.location)
+                value = bits.emitLoad(self, node.location)
                 loadResults[expr] = value
             elif isinstance(node, Store):
                 newExpr = importExpr(expr)
-                ref.emitStore(self, newExpr, node.location)
+                bits.emitStore(self, newExpr, node.location)
             else:
                 assert False, node
 

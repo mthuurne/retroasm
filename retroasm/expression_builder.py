@@ -12,9 +12,7 @@ from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .namespace import NameExistsError
-from .reference import (
-    ConcatenatedReference, FixedValue, Reference, SlicedReference
-    )
+from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
 from .storage import IOChannel
 from .types import IntType, ReferenceType, parseTypeDecl, unlimited
 from .utils import Singleton
@@ -92,7 +90,8 @@ def convertDefinition(kind, nameNode, typ, value, builder):
                 ex.location
                 )
         declWidth = typ.width
-        ref = FixedValue(truncate(expr, declWidth), typ)
+        bits = FixedValue(truncate(expr, declWidth), declWidth)
+        ref = Reference(bits, typ)
     elif kind is DeclarationKind.reference:
         try:
             ref = buildReference(value, builder)
@@ -176,7 +175,7 @@ def _convertFunctionCall(callNode, builder):
                 % (value.width, decl, name),
                 argNode.treeLocation
                 )
-        argMap[name] = value
+        argMap[name] = value.bits
 
     # Inline function call.
     return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
@@ -296,9 +295,11 @@ def _convertReferenceLookup(node, builder):
     ref = buildReference(exprNode, builder)
     index = buildExpression(indexNode, builder)
     try:
-        return SlicedReference(ref, index, 1)
+        bits = SlicedBits(ref.bits, index, 1)
     except ValueError as ex:
         raise BadExpression('invalid bitwise lookup: %s' % ex, node.location)
+    else:
+        return Reference(bits, IntType.u(1))
 
 def _convertReferenceSlice(node, builder):
     exprNode, startNode, endNode = node.operands
@@ -323,9 +324,12 @@ def _convertReferenceSlice(node, builder):
                 width = width.value
             else:
                 raise ValueError('slice width cannot be determined')
-        return SlicedReference(ref, offset, width)
+        bits = SlicedBits(ref.bits, offset, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)
+    else:
+        typ = IntType(width, width is unlimited)
+        return Reference(bits, typ)
 
 def _convertReferenceConcat(node, builder):
     exprNode1, exprNode2 = node.operands
@@ -341,7 +345,10 @@ def _convertReferenceConcat(node, builder):
             'unlimited width',
             node.treeLocation
             )
-    return ConcatenatedReference(ref2, ref1)
+    bits = ConcatenatedBits(ref2.bits, ref1.bits)
+    width = bits.width
+    typ = IntType(width, width != 0 and ref1.type.signed)
+    return Reference(bits, typ)
 
 comparisonOperators = (
     Operator.negation, Operator.equal, Operator.unequal,
@@ -369,13 +376,13 @@ def _convertReferenceOperator(node, builder):
     else:
         expr = _convertArithmetic(node, builder)
         typ = IntType.u(1) if operator in comparisonOperators else IntType.int
-        return FixedValue(expr, typ)
+        return Reference(FixedValue(expr, typ.width), typ)
 
 def buildReference(node, builder):
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
         typ = IntType(node.width, node.width is unlimited)
-        return FixedValue(literal, typ)
+        return Reference(FixedValue(literal, node.width), typ)
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, builder)
     elif isinstance(node, DefinitionNode):

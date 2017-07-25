@@ -5,7 +5,7 @@ from retroasm.codeblock_builder import (
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.namespace import Namespace, GlobalNamespace
-from retroasm.reference import SingleReference
+from retroasm.reference import Reference, SingleStorage
 from retroasm.storage import IOChannel, Variable
 from retroasm.types import IntType, unlimited
 
@@ -34,7 +34,8 @@ class NodeChecker:
     def getRetVal(self, code):
         retRef = code.retRef
         self.assertIsNotNone(retRef)
-        retStorage = retRef.storage
+        self.assertIsInstance(retRef.bits, SingleStorage)
+        retStorage = retRef.bits.storage
         retVal = None
         for node in code.nodes:
             if node.storage is retStorage:
@@ -73,10 +74,11 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
 
         # Check that existing global namespace entry is this register.
         globalRef = self.globalBuilder.namespace[name]
-        assert isinstance(globalRef, SingleReference), globalRef
+        assert isinstance(globalRef, Reference), globalRef
+        assert isinstance(globalRef.bits, SingleStorage), globalRef.bits
         assert typ is globalRef.type, globalRef
-        reg = globalRef.storage
-        assert ref.storage is reg
+        reg = globalRef.bits.storage
+        assert ref.bits.storage is reg
         assert reg.width == typ.width
 
         return ref

@@ -156,7 +156,7 @@ def verifyLoads(nodes, retRef=None):
             loads.add(node)
     # Check I/O indices in the returned reference.
     if retRef is not None:
-        for storage in retRef.iterStorages():
+        for storage in retRef.bits.iterStorages():
             for expr in storage.iterExpressions():
                 for value in expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
@@ -202,7 +202,7 @@ class CodeBlock:
             expressions.update(node.storage.iterExpressions())
         retRef = self.retRef
         if retRef is not None:
-            expressions.update(retRef.iterExpressions())
+            expressions.update(retRef.bits.iterExpressions())
         return expressions
 
     expressions = const_property(_gatherExpressions)
@@ -215,7 +215,7 @@ class CodeBlock:
             storages.add(node.storage)
         retRef = self.retRef
         if retRef is not None:
-            storages.update(retRef.iterStorages())
+            storages.update(retRef.bits.iterStorages())
         return storages
 
     storages = const_property(_gatherStorages)

@@ -4,7 +4,7 @@ from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import EncodeMatch, MatchPlaceholder, ValuePlaceholder
-from .reference import FixedValue
+from .reference import FixedValue, Reference
 from .storage import Variable
 from .types import IntType
 from .utils import checkType
@@ -13,7 +13,7 @@ def buildMatch(match, builder, values):
     '''Adds the semantics of an EncodeMatch to the given code block builder
     and the placeholder values to the given 'values' mapping. In that mapping,
     mode placeholders are represented by a nested mapping.
-    Returns the returned reference of the match's semantics.
+    Returns the returned bit string of the match's semantics.
     '''
     entry = match.entry
 
@@ -25,19 +25,23 @@ def buildMatch(match, builder, values):
         elif isinstance(placeholder, ValuePlaceholder):
             placeholderCode = placeholder.code
             if placeholderCode is None:
-                ref = FixedValue(IntLiteral(match[name]), placeholder.type)
+                ref = Reference(
+                    FixedValue(IntLiteral(match[name]), placeholder.type.width),
+                    placeholder.type
+                    )
             else:
                 ref = builder.inlineBlock(placeholderCode, args.__getitem__)
-            args[name] = ref
+            args[name] = ref.bits
             valRef = builder.createCodeBlock(ref).retRef
-            # Note that FixedValue doesn't actually emit a Load node, but
-            # unlike the 'expr' property emitLoad() applies sign extension.
-            assert isinstance(valRef, FixedValue), valRef
+            # Note that FixedValue doesn't actually emit a Load node; the reason
+            # to use Reference.emitLoad() here is to apply sign extension.
+            assert isinstance(valRef.bits, FixedValue), valRef
             values[name] = simplifyExpression(valRef.emitLoad(builder, None))
         else:
             assert False, placeholder
 
-    return builder.inlineBlock(entry.semantics, args.__getitem__)
+    retRef = builder.inlineBlock(entry.semantics, args.__getitem__)
+    return None if retRef is None else retRef.bits
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.

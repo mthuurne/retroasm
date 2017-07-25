@@ -1,6 +1,6 @@
 from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression_simplifier import simplifyExpression
-from .reference import FixedValue, SingleReference
+from .reference import FixedValue
 from .storage import Variable
 
 from collections import defaultdict
@@ -116,7 +116,7 @@ class CodeBlockSimplifier(CodeBlock):
         retVars = set()
         retRef = self.retRef
         if retRef is not None:
-            for storage in retRef.iterStorages():
+            for storage in retRef.bits.iterStorages():
                 if isinstance(storage, Variable) and storage.scope == 1:
                     retVars.add(storage)
 
@@ -163,7 +163,7 @@ class CodeBlockSimplifier(CodeBlock):
                 updateCounts(expr)
         retRef = self.retRef
         if retRef is not None:
-            for expr in retRef.iterExpressions():
+            for expr in retRef.bits.iterExpressions():
                 updateCounts(expr)
 
         # Remove unnecesary Loads.

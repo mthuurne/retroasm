@@ -4,7 +4,7 @@ from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.function import Function
 from retroasm.reference import (
-    ConcatenatedReference, FixedValue, SlicedReference
+    ConcatenatedBits, FixedValue, Reference, SlicedBits
     )
 from retroasm.types import IntType
 
@@ -50,8 +50,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerA.storage),
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerA.bits.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -68,7 +68,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incCode = inc.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        argsV = lambda value: args(V=FixedValue(value, IntType.u(8)))
+        argsV = lambda value: args(V=FixedValue(value, 8))
         step0 = IntLiteral(100)
         step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
         step2 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step1)))
@@ -79,7 +79,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -105,7 +105,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 3000)
@@ -128,7 +128,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 0x72)
@@ -147,7 +147,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         func = Function('inc', IntType.u(9), {'V': IntType.u(8)}, incCode)
 
         outer = TestCodeBlockBuilder()
-        argsV = lambda value: args(V=FixedValue(value, IntType.u(8)))
+        argsV = lambda value: args(V=FixedValue(value, 8))
         step0 = IntLiteral(0x89FE)
         step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
         step2 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step1)))
@@ -158,7 +158,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 1)
@@ -178,9 +178,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regA = outer.namespace['a']
         initA = IntLiteral(100)
         outer.emitStore(outerA, initA)
-        outer.inlineBlock(incCode, args(R=regA))
-        outer.inlineBlock(incCode, args(R=regA))
-        outer.inlineBlock(incCode, args(R=regA))
+        outer.inlineBlock(incCode, args(R=regA.bits))
+        outer.inlineBlock(incCode, args(R=regA.bits))
+        outer.inlineBlock(incCode, args(R=regA.bits))
         outerRet = outer.addVariable('ret')
         finalA = outer.emitLoad(outerA)
         outer.emitStore(outerRet, finalA)
@@ -189,8 +189,8 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code.verify()
         retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerA.storage),
-            Store(retVal, outerRet.storage),
+            Store(retVal, outerA.bits.storage),
+            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -210,17 +210,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerL = outer.addRegister('l')
         regH = outer.namespace['h']
         regL = outer.namespace['l']
-        regHL = ConcatenatedReference(regL, regH)
+        bitsHL = ConcatenatedBits(regL.bits, regH.bits)
 
         initH = IntLiteral(0xab)
         initL = IntLiteral(0xcd)
         outer.emitStore(outerH, initH)
         outer.emitStore(outerL, initL)
-        outer.inlineBlock(incCode, args(R=regHL))
-        outer.inlineBlock(incCode, args(R=regHL))
-        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
         outerRet = outer.addVariable('ret', IntType.u(16))
-        finalHL = outer.emitLoad(regHL)
+        finalHL = outer.emitLoad(Reference(bitsHL, IntType.u(16)))
         outer.emitStore(outerRet, finalHL)
 
         code = createSimplifiedCode(outer)
@@ -239,17 +239,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
         outer = TestCodeBlockBuilder()
         outerH = outer.addRegister('h')
-        outerL = FixedValue(IntLiteral(0xcd), IntType.u(8))
+        outerL = FixedValue(IntLiteral(0xcd), 8)
         regH = outer.namespace['h']
-        regHL = ConcatenatedReference(outerL, regH)
+        bitsHL = ConcatenatedBits(outerL, regH.bits)
 
         initH = IntLiteral(0xab)
         outer.emitStore(outerH, initH)
-        outer.inlineBlock(incCode, args(R=regHL))
-        outer.inlineBlock(incCode, args(R=regHL))
-        outer.inlineBlock(incCode, args(R=regHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
+        outer.inlineBlock(incCode, args(R=bitsHL))
         outerRet = outer.addVariable('ret', IntType.u(16))
-        finalHL = outer.emitLoad(regHL)
+        finalHL = outer.emitLoad(Reference(bitsHL, IntType.u(16)))
         outer.emitStore(outerRet, finalHL)
 
         code = createSimplifiedCode(outer)
@@ -271,7 +271,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         regR = outer.namespace['r']
         initR = IntLiteral(0xcdef)
         outer.emitStore(outerR, initR)
-        sliceR = SlicedReference(regR, IntLiteral(4), 8)
+        sliceR = SlicedBits(regR.bits, IntLiteral(4), 8)
         outer.inlineBlock(incCode, args(R=sliceR))
         outer.inlineBlock(incCode, args(R=sliceR))
         outer.inlineBlock(incCode, args(R=sliceR))
@@ -340,7 +340,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
+        fixedVal = FixedValue(IntLiteral(0xa4), 8)
         retRef = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
@@ -361,7 +361,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
 
         outer = TestCodeBlockBuilder()
-        fixedVal = FixedValue(IntLiteral(0xa4), IntType.u(8))
+        fixedVal = FixedValue(IntLiteral(0xa4), 8)
         retRef = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
         retVal = outer.emitLoad(retRef)
@@ -407,7 +407,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertIsNotNone(innerCode.retRef)
 
         outer = TestCodeBlockBuilder()
-        addr = FixedValue(IntLiteral(0x4002), IntType.u(16))
+        addr = FixedValue(IntLiteral(0x4002), 16)
         retRef = outer.inlineBlock(innerCode, args(A=addr))
         outerRet = outer.addVariable('ret')
         retVal = outer.emitLoad(retRef)
@@ -416,13 +416,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         code = createSimplifiedCode(outer)
         retVal, retWidth = self.getRetVal(code)
         def correct():
-            load = Load(retRef.storage)
+            load = Load(retRef.bits.storage)
             yield load
             addrVal = code.nodes[0].expr
             expr = retVal.substitute(
                 lambda expr: load.expr if expr is addrVal else None
                 )
-            yield Store(expr, outerRet.storage)
+            yield Store(expr, outerRet.bits.storage)
         self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
 
