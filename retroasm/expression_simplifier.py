@@ -140,12 +140,6 @@ def _customSimplifyAnd(node, exprs):
     if len(exprs) < 2:
         return False
 
-    def simplifyRestricted(alt):
-        assert isinstance(alt, AndOperator), alt
-        if not node._tryDistributeAndOverOr:
-            alt._tryDistributeAndOverOr = False
-        return simplifyExpression(alt)
-
     mask = node.computeMask(exprs)
 
     # Remove mask literal from subexpressions; we'll re-add it later if needed.
@@ -159,18 +153,14 @@ def _customSimplifyAnd(node, exprs):
     changed = False
     maskLiteral = IntLiteral(mask)
     for i, expr in enumerate(exprs):
-        if len(exprs) >= 2:
-            masked = simplifyRestricted(AndOperator(expr, maskLiteral))
-            if masked is not expr and complexity(masked) <= complexity(expr):
-                exprs[i] = expr = masked
-                changed = True
         masked = _simplifyMasked(expr, mask)
         if masked is not expr:
             exprs[i] = expr = masked
             changed = True
     if changed:
         # Force earlier simplification steps to run again.
-        alt = simplifyRestricted(AndOperator(*(exprs + [maskLiteral])))
+        alt = AndOperator(*(exprs + [maskLiteral]))
+        alt._tryDistributeAndOverOr = node._tryDistributeAndOverOr
         exprs[:] = [simplifyExpression(alt)]
         return True
 
