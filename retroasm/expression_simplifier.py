@@ -116,29 +116,29 @@ def _simplifyComposed(composed):
     exprs = list(composed.exprs)
 
     # Perform basic simplifications until we get no more improvements from them.
-    _simplifyAlgebraic(composed.__class__, exprs)
+    changed = _simplifyAlgebraic(composed.__class__, exprs)
     while True:
         if not _simplifyList(exprs):
             break
+        changed = True
         if not _simplifyAlgebraic(composed.__class__, exprs):
             break
 
-    _customSimplifiers[type(composed)](composed, exprs)
+    changed |= _customSimplifiers[type(composed)](composed, exprs)
 
     if len(exprs) == 0:
         return IntLiteral(composed.identity)
     elif len(exprs) == 1:
         return exprs[0]
-    elif len(exprs) == len(composed.exprs) \
-            and all(new is old for new, old in zip(exprs, composed.exprs)):
-        return composed
-    else:
+    elif changed:
         return composed.__class__(*exprs)
+    else:
+        return composed
 
 def _customSimplifyAnd(node, exprs):
     # pylint: disable=protected-access
     if len(exprs) < 2:
-        return
+        return False
 
     def simplifyRestricted(alt):
         assert isinstance(alt, AndOperator), alt
@@ -172,13 +172,16 @@ def _customSimplifyAnd(node, exprs):
         # Force earlier simplification steps to run again.
         alt = simplifyRestricted(AndOperator(*(exprs + [maskLiteral])))
         exprs[:] = [simplifyExpression(alt)]
-        return
+        return True
 
     # Append mask if it is not redundant.
     if mask != -1 and mask != node.computeMask(exprs):
         # Non-simplified expressions should remain the same objects.
         maskChanged = orgMaskLiteral is None or mask != orgMaskLiteral.value
         exprs.append(IntLiteral(mask) if maskChanged else orgMaskLiteral)
+    else:
+        maskChanged = orgMaskLiteral is not None
+    changed |= maskChanged
 
     if node._tryDistributeAndOverOr:
         myComplexity = node.nodeComplexity \
@@ -195,12 +198,14 @@ def _customSimplifyAnd(node, exprs):
                 alt = simplifyExpression(alt)
                 if complexity(alt) < myComplexity:
                     exprs[:] = [alt]
-                    return
+                    return True
+
+    return changed
 
 def _customSimplifyOr(node, exprs):
     # pylint: disable=protected-access
     if not exprs:
-        return
+        return False
 
     myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
     for i, expr in enumerate(exprs):
@@ -215,9 +220,13 @@ def _customSimplifyOr(node, exprs):
             alt = simplifyExpression(alt)
             if complexity(alt) < myComplexity:
                 exprs[:] = [alt]
-                return
+                return True
+
+    return False
 
 def _customSimplifyXor(node, exprs): # pylint: disable=unused-argument
+    changed = False
+
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -229,13 +238,17 @@ def _customSimplifyXor(node, exprs): # pylint: disable=unused-argument
         else:
             del exprs[j]
             del exprs[i]
+            changed = True
 
     if not exprs:
-        return
+        return changed
 
     # TODO: Distribution over AND and OR.
+    return changed
 
 def _customSimplifyAdd(node, exprs): # pylint: disable=unused-argument
+    changed = False
+
     # Remove pairs of A and -A.
     complIdx = 0
     while complIdx < len(exprs):
@@ -252,6 +265,9 @@ def _customSimplifyAdd(node, exprs): # pylint: disable=unused-argument
             if idx < complIdx:
                 complIdx -= 1
             del exprs[complIdx]
+            changed = True
+
+    return changed
 
 _customSimplifiers = {
     AndOperator: _customSimplifyAnd,
