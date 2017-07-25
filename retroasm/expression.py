@@ -203,16 +203,11 @@ class SimplifiableComposedExpression(ComposedExpression):
     def computeMask(cls, exprs):
         raise NotImplementedError
 
-    # pylint: disable=unused-argument
-
     @classmethod
-    def combineLiterals(cls, literal1, literal2):
-        '''Attempt to combine the two given literals into a single expression.
-        Returns the new expression if successful, None otherwise.
-        The default implementation returns None, subclasses are encouraged
-        to override this method.
+    def combineLiterals(cls, *values):
+        '''Combine the given literal values into a single value.
         '''
-        return None
+        raise NotImplementedError
 
 class AndOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeAndOverOr',)
@@ -261,8 +256,8 @@ class AndOperator(SimplifiableComposedExpression):
         return reduce(int.__and__, (expr.mask for expr in exprs), -1)
 
     @classmethod
-    def combineLiterals(cls, literal1, literal2):
-        return IntLiteral(literal1.value & literal2.value)
+    def combineLiterals(cls, *values):
+        return reduce(int.__and__, values, -1)
 
 class OrOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeOrOverAnd', )
@@ -282,8 +277,8 @@ class OrOperator(SimplifiableComposedExpression):
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
-    def combineLiterals(cls, literal1, literal2):
-        return IntLiteral(literal1.value | literal2.value)
+    def combineLiterals(cls, *values):
+        return reduce(int.__or__, values, 0)
 
 class XorOperator(SimplifiableComposedExpression):
     __slots__ = ()
@@ -299,8 +294,8 @@ class XorOperator(SimplifiableComposedExpression):
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
-    def combineLiterals(cls, literal1, literal2):
-        return IntLiteral(literal1.value ^ literal2.value)
+    def combineLiterals(cls, *values):
+        return reduce(int.__xor__, values, 0)
 
 class AddOperator(SimplifiableComposedExpression):
     __slots__ = ()
@@ -332,8 +327,8 @@ class AddOperator(SimplifiableComposedExpression):
         return result
 
     @classmethod
-    def combineLiterals(cls, literal1, literal2):
-        return IntLiteral(literal1.value + literal2.value)
+    def combineLiterals(cls, *values):
+        return sum(values)
 
     def __str__(self):
         exprs = self._exprs

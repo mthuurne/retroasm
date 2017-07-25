@@ -34,45 +34,35 @@ def _simplifyAlgebraic(cls, exprs):
     while i < len(exprs):
         expr = exprs[i]
         if expr.__class__ is cls:
-            subExprs = expr.exprs
-            exprs[i:i+1] = subExprs
+            del exprs[i]
+            exprs += expr.exprs
             changed = True
         else:
             i += 1
 
     # Move all literals to the end.
-    # This makes the later merge step more effective.
-    numExprs = len(exprs)
-    while numExprs > 0 and isinstance(exprs[numExprs - 1], IntLiteral):
-        numExprs -= 1
     i = 0
-    while i < numExprs:
+    firstLiteral = len(exprs)
+    while firstLiteral != 0 and isinstance(exprs[firstLiteral - 1], IntLiteral):
+        firstLiteral -= 1
+    i = 0
+    while i < firstLiteral:
         expr = exprs[i]
         if isinstance(expr, IntLiteral):
             del exprs[i]
             exprs.append(expr)
-            numExprs -= 1
+            firstLiteral -= 1
             changed = True
         else:
             i += 1
 
     # Merge literals.
-    i = 1
-    while i < len(exprs):
-        expr1 = exprs[i - 1]
-        if not isinstance(expr1, IntLiteral):
-            i += 1
-            continue
-        expr2 = exprs[i]
-        if not isinstance(expr2, IntLiteral):
-            i += 2
-            continue
-        expr = cls.combineLiterals(expr1, expr2)
-        if expr is None:
-            i += 1
-        else:
-            exprs[i-1:i+1] = [expr]
-            changed = True
+    if len(exprs) - firstLiteral >= 2:
+        value = cls.combineLiterals(*(
+            expr.value for expr in exprs[firstLiteral:]
+            ))
+        exprs[firstLiteral:] = [IntLiteral(value)]
+        changed = True
 
     absorber = cls.absorber
     if absorber is not None:
