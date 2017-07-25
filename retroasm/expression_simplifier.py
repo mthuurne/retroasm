@@ -126,9 +126,7 @@ def _simplifyComposed(composed):
     _customSimplifiers[type(composed)](composed, exprs)
 
     if len(exprs) == 0:
-        substitute = composed.emptySubstitute
-        assert substitute is not None
-        return simplifyExpression(substitute)
+        return IntLiteral(composed.identity)
     elif len(exprs) == 1:
         return exprs[0]
     elif len(exprs) == len(composed.exprs) \

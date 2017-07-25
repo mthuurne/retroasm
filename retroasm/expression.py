@@ -194,7 +194,6 @@ class SimplifiableComposedExpression(ComposedExpression):
     idempotent = property()
     identity = property()
     absorber = property()
-    emptySubstitute = property(lambda self: IntLiteral(self.identity))
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
