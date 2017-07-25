@@ -45,6 +45,8 @@ def _simplifyAlgebraic(cls, exprs):
         # Move all literals to the end.
         # This makes the later merge step more effective.
         numExprs = len(exprs)
+        while numExprs > 0 and isinstance(exprs[numExprs - 1], IntLiteral):
+            numExprs -= 1
         i = 0
         while i < numExprs:
             expr = exprs[i]
