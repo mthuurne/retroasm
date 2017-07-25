@@ -194,7 +194,7 @@ class SimplifiableComposedExpression(ComposedExpression):
     idempotent = property()
     identity = property()
     absorber = property()
-    emptySubstitute = property(lambda self: self.identity)
+    emptySubstitute = property(lambda self: IntLiteral(self.identity))
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
@@ -213,8 +213,8 @@ class AndOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeAndOverOr',)
     operator = '&'
     idempotent = True
-    identity = IntLiteral(-1)
-    absorber = IntLiteral(0)
+    identity = -1
+    absorber = 0
 
     def __init__(self, *exprs):
         SimplifiableComposedExpression.__init__(self, *exprs)
@@ -263,8 +263,8 @@ class OrOperator(SimplifiableComposedExpression):
     __slots__ = ('_tryDistributeOrOverAnd', )
     operator = '|'
     idempotent = True
-    identity = IntLiteral(0)
-    absorber = IntLiteral(-1)
+    identity = 0
+    absorber = -1
 
     def __init__(self, *exprs):
         SimplifiableComposedExpression.__init__(self, *exprs)
@@ -284,7 +284,7 @@ class XorOperator(SimplifiableComposedExpression):
     __slots__ = ()
     operator = '^'
     idempotent = False
-    identity = IntLiteral(0)
+    identity = 0
     absorber = None
 
     @classmethod
@@ -301,7 +301,7 @@ class AddOperator(SimplifiableComposedExpression):
     __slots__ = ()
     operator = '+'
     idempotent = False
-    identity = IntLiteral(0)
+    identity = 0
     absorber = None
 
     @classmethod

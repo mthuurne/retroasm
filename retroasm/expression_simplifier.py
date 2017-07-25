@@ -64,40 +64,35 @@ def _simplifyAlgebraic(cls, exprs):
         exprs[firstLiteral:] = [IntLiteral(value)]
         changed = True
 
-    absorber = cls.absorber
-    if absorber is not None:
-        absorber = simplifyExpression(absorber)
-        # If any absorber is present, the result is the absorber.
-        if any(expr == absorber for expr in exprs):
-            changed |= len(exprs) != 1
-            exprs[:] = [absorber]
+    # Check remaining literal.
+    if len(exprs) - firstLiteral == 1:
+        value = exprs[-1].value
+
+        # If the absorber is present, the result is the absorber.
+        absorber = cls.absorber
+        if value == absorber:
+            if len(exprs) != 1:
+                del exprs[:-1]
+                changed = True
             return changed
 
-    identity = cls.identity
-    if identity is not None:
-        # Remove identity values.
-        numExprs = len(exprs)
-        i = 0
-        while i < numExprs:
-            if exprs[i] == identity:
-                del exprs[i]
-                numExprs -= 1
-                changed = True
-            else:
-                i += 1
+        # Remove identity literal.
+        identity = cls.identity
+        if value == identity:
+            del exprs[-1]
+            changed = True
 
     if cls.idempotent:
         # Remove duplicate values.
-        numExprs = len(exprs)
         i = 0
-        while i + 1 < numExprs:
+        while i + 1 < firstLiteral:
             expr = exprs[i]
             i += 1
             j = i
-            while j < numExprs:
+            while j < firstLiteral:
                 if exprs[j] == expr:
                     del exprs[j]
-                    numExprs -= 1
+                    firstLiteral -= 1
                     changed = True
                 else:
                     j += 1
