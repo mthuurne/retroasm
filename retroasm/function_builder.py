@@ -42,13 +42,13 @@ def createFunc(reader, funcName, retType, args, namespace):
             code = None
 
     try:
-        func = Function(funcName, retType, args, code)
+        func = Function(retType, args, code)
     except ValueError as ex:
         reader.error(
             'error in function "%s": %s', funcName, ex, location=headerLocation
             )
         code = None
-        func = Function(funcName, retType, args, code)
+        func = Function(retType, args, code)
 
     if code is not None:
         # Warn about unused arguments.

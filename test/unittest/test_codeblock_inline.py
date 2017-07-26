@@ -118,7 +118,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerRet = inner.addVariable('ret')
         inner.emitStore(innerRet, innerVal)
         innerCode = inner.createCodeBlock()
-        func = Function('get', IntType.u(8), {}, innerCode)
+        func = Function(IntType.u(8), {}, innerCode)
 
         outer = TestCodeBlockBuilder()
         outerVal = outer.emitLoad(outer.inlineFunctionCall(func, {}, None))
@@ -144,7 +144,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
-        func = Function('inc', IntType.u(8), {'V': IntType.u(8)}, incCode)
+        func = Function(IntType.u(8), {'V': IntType.u(8)}, incCode)
 
         outer = TestCodeBlockBuilder()
         argsV = lambda value: args(V=FixedValue(value, 8))

@@ -4,29 +4,25 @@ from .types import ReferenceType
 
 class Function:
 
-    def __init__(self, name, retType, args, code):
+    def __init__(self, retType, args, code):
         if code is not None:
             _checkArgs(args, code.arguments)
             _checkReturn(retType, code.retBits)
 
-        self.name = name
         self.retType = retType
         self.args = args
         self.code = code
 
     def __repr__(self):
-        return 'Function(%r, %r, %r, %r)' % (
-            self.name, self.retType, self.args, self.code
-            )
+        return 'Function(%r, %r, %r)' % (self.retType, self.args, self.code)
 
     def __str__(self):
-        return 'func %s%s(%s)' % (
-            '' if self.retType is None else '%s ' % self.retType,
-            self.name,
+        return '(%s) -> %s' % (
             ', '.join(
                 '%s %s' % (decl, name)
                 for name, decl in self.args.items()
-                )
+                ),
+            'unit' if self.retType is None else self.retType,
             )
 
     def dump(self):
