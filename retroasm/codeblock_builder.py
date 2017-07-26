@@ -142,9 +142,9 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
     def createCodeBlock(self, ret='ret', log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If 'ret' is a reference, that will be used as the returned reference.
+        If 'ret' is a reference, that will be used for the returned bit string.
         If 'ret' is an existing name in this block's namespace, the reference
-        with that name will be used as the returned reference.
+        with that name will be used for the returned bit string.
         If 'ret' is None or a non-existing name, the created code block will
         not return anything.
         Raises ValueError if this builder does not represent a valid code block.
@@ -152,7 +152,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         '''
         if isinstance(ret, str):
             ret = self.namespace.get(ret)
-        code = CodeBlockSimplifier(self.nodes, ret)
+        retBits = None if ret is None else ret.bits
+        code = CodeBlockSimplifier(self.nodes, retBits)
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
@@ -235,8 +236,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
         argument should remain an argument in the inlined block.
-        Returns a Reference containing the value returned by the inlined
-        block, or None if the inlined block does not return anything.
+        Returns a BitString containing the value returned by the inlined block,
+        or None if the inlined block does not return anything.
         '''
 
         loadResults = {}
@@ -289,8 +290,8 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
                 assert False, node
 
         # Determine return value.
-        retRef = code.retRef
-        if retRef is None:
+        retBits = code.retBits
+        if retBits is None:
             return None
         else:
-            return retRef.substitute(importStorage, importExpr)
+            return retBits.substitute(importStorage, importExpr)

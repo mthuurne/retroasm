@@ -23,25 +23,24 @@ def buildMatch(match, builder, values):
             values[name] = subValues = {}
             args[name] = buildMatch(match[name], builder, subValues)
         elif isinstance(placeholder, ValuePlaceholder):
+            typ = placeholder.type
             placeholderCode = placeholder.code
             if placeholderCode is None:
-                ref = Reference(
-                    FixedValue(IntLiteral(match[name]), placeholder.type.width),
-                    placeholder.type
-                    )
+                argBits = FixedValue(IntLiteral(match[name]), typ.width)
             else:
-                ref = builder.inlineBlock(placeholderCode, args.__getitem__)
-            args[name] = ref.bits
-            valRef = builder.createCodeBlock(ref).retRef
+                argBits = builder.inlineBlock(placeholderCode, args.__getitem__)
+            args[name] = argBits
+            ref = Reference(argBits, typ)
+            valBits = builder.createCodeBlock(ref).retBits
             # Note that FixedValue doesn't actually emit a Load node; the reason
             # to use Reference.emitLoad() here is to apply sign extension.
-            assert isinstance(valRef.bits, FixedValue), valRef
+            assert isinstance(valBits, FixedValue), valBits
+            valRef = Reference(valBits, typ)
             values[name] = simplifyExpression(valRef.emitLoad(builder, None))
         else:
             assert False, placeholder
 
-    retRef = builder.inlineBlock(entry.semantics, args.__getitem__)
-    return None if retRef is None else retRef.bits
+    return builder.inlineBlock(entry.semantics, args.__getitem__)
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.

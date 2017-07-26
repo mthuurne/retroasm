@@ -32,17 +32,16 @@ class NodeChecker:
         self.assertEqual(expr.value, value)
 
     def getRetVal(self, code):
-        retRef = code.retRef
-        self.assertIsNotNone(retRef)
-        self.assertIsInstance(retRef.bits, SingleStorage)
-        retStorage = retRef.bits.storage
+        retBits = code.retBits
+        self.assertIsInstance(retBits, SingleStorage)
+        retStorage = retBits.storage
         retVal = None
         for node in code.nodes:
             if node.storage is retStorage:
                 self.assertIsInstance(node, Store)
                 self.assertIsNone(retVal)
                 retVal = node.expr
-        return retVal, retRef.width
+        return retVal, retBits.width
 
     def assertRetVal(self, code, value):
         expr, width = self.getRetVal(code)

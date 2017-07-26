@@ -7,7 +7,7 @@ class Function:
     def __init__(self, name, retType, args, code):
         if code is not None:
             _checkArgs(args, code.arguments)
-            _checkReturn(retType, code.retRef)
+            _checkReturn(retType, code.retBits)
 
         self.name = name
         self.retType = retType
@@ -65,24 +65,36 @@ def _checkArgs(declArgs, codeArgs):
                     % name
                     )
 
-def _checkReturn(retType, retRef):
+def _checkReturn(retType, retBits):
     '''Check consistency between declared return type and code block.
     Raises ValueError if an inconsistency is found.
     '''
     if retType is None:
-        if retRef is not None:
+        if retBits is not None:
             raise ValueError(
-                'function "%s" has no return type, but its code block defines '
-                '"ret"' % name
+                'function has no return type, but its code block defines "ret"'
                 )
     elif isinstance(retType, ReferenceType):
-        if retRef is None:
+        if retBits is None:
             raise ValueError(
-                'function "%s" should return a reference but does not define '
-                '"ret"' % name
+                'function has return type %s, but its code block does not '
+                'define "ret"' % retType
+                )
+        if retType.type.width != retBits.width:
+            raise ValueError(
+                'function has return type %s, but its code block defines "ret" '
+                'with width %s'
+                % (retType, retBits.width)
                 )
     else: # returns a value
-        if retRef is None:
+        if retBits is None:
             raise ValueError(
-                'missing return value assignment in function "%s"' % name
+                'function has return type %s, but its code block does not '
+                'assign to "ret"' % retType
+                )
+        if retType.width != retBits.width:
+            raise ValueError(
+                'function has return type %s, but its code block defines "ret" '
+                'with width %s'
+                % (retType, retBits.width)
                 )

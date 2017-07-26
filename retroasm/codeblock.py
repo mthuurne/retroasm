@@ -1,5 +1,6 @@
 from .expression import Expression
 from .linereader import InputLocation
+from .reference import Reference
 from .storage import RefArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property
@@ -135,9 +136,9 @@ class LoadedValue(Expression):
         # pylint: disable=protected-access
         return self._load is other._load
 
-def verifyLoads(nodes, retRef=None):
+def verifyLoads(nodes, retBits=None):
     '''Performs consistency checks on the LoadedValues in the given nodes and
-    return reference.
+    returned bit string.
     Raises AssertionError if an inconsistency is found.
     '''
     # Check that every LoadedValue has an associated Load node, which must
@@ -154,16 +155,16 @@ def verifyLoads(nodes, retRef=None):
         # Remember this load.
         if isinstance(node, Load):
             loads.add(node)
-    # Check I/O indices in the returned reference.
-    if retRef is not None:
-        for storage in retRef.bits.iterStorages():
+    # Check I/O indices in the returned bit string.
+    if retBits is not None:
+        for storage in retBits.iterStorages():
             for expr in storage.iterExpressions():
                 for value in expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
 
 class CodeBlock:
 
-    def __init__(self, nodes, retRef):
+    def __init__(self, nodes, retBits):
         clonedNodes = []
         valueMapping = {}
         for node in nodes:
@@ -172,7 +173,7 @@ class CodeBlock:
             if isinstance(node, Load):
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
-        self.retRef = retRef
+        self.retBits = retBits
         self._updateExpressions(valueMapping.get)
         assert self.verify() is None
 
@@ -180,15 +181,15 @@ class CodeBlock:
         '''Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         '''
-        verifyLoads(self.nodes, self.retRef)
+        verifyLoads(self.nodes, self.retBits)
 
     def dump(self):
         '''Prints this code block on stdout.
         '''
         for node in self.nodes:
             print('    %s (%s-bit)' % (node, node.storage.width))
-        if self.retRef is not None:
-            print('    return ref %s' % self.retRef)
+        if self.retBits is not None:
+            print('    return %s' % self.retBits)
 
     def _gatherExpressions(self):
         '''A set of all expressions that are contained in this block.
@@ -200,9 +201,9 @@ class CodeBlock:
             if isinstance(node, Store):
                 expressions.add(node.expr)
             expressions.update(node.storage.iterExpressions())
-        retRef = self.retRef
-        if retRef is not None:
-            expressions.update(retRef.bits.iterExpressions())
+        retBits = self.retBits
+        if retBits is not None:
+            expressions.update(retBits.iterExpressions())
         return expressions
 
     expressions = const_property(_gatherExpressions)
@@ -213,9 +214,9 @@ class CodeBlock:
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
-        retRef = self.retRef
-        if retRef is not None:
-            storages.update(retRef.bits.iterStorages())
+        retBits = self.retBits
+        if retBits is not None:
+            storages.update(retBits.iterStorages())
         return storages
 
     storages = const_property(_gatherStorages)
@@ -267,9 +268,9 @@ class CodeBlock:
                 if newExpr is not expr:
                     node.expr = newExpr
 
-        # Update returned reference.
-        retRef = self.retRef
-        if retRef is not None:
-            newRef = retRef.substitute(expressionFunc=substFunc)
-            if newRef is not retRef:
-                self.retRef = newRef
+        # Update returned bit string.
+        retBits = self.retBits
+        if retBits is not None:
+            newBits = retBits.substitute(expressionFunc=substFunc)
+            if newBits is not retBits:
+                self.retBits = newBits

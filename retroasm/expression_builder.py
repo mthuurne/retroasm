@@ -178,7 +178,14 @@ def _convertFunctionCall(callNode, builder):
         argMap[name] = value.bits
 
     # Inline function call.
-    return builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
+    retBits = builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
+    if retBits is None:
+        return None
+    else:
+        retType = func.retType
+        if isinstance(retType, ReferenceType):
+            retType = retType.type
+        return Reference(retBits, retType)
 
 def _convertArithmetic(node, builder):
     operator = node.operator
@@ -226,11 +233,11 @@ def _convertArithmetic(node, builder):
 def _convertExpressionOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        retRef = _convertFunctionCall(node, builder)
-        if retRef is None:
+        ref = _convertFunctionCall(node, builder)
+        if ref is None:
             return unit
         else:
-            return retRef.emitLoad(builder, node.treeLocation)
+            return ref.emitLoad(builder, node.treeLocation)
     elif operator is Operator.lookup:
         return _convertReferenceLookup(node, builder).emitLoad(
             builder, node.treeLocation
@@ -359,14 +366,14 @@ comparisonOperators = (
 def _convertReferenceOperator(node, builder):
     operator = node.operator
     if operator is Operator.call:
-        retRef = _convertFunctionCall(node, builder)
-        if retRef is None:
+        ref = _convertFunctionCall(node, builder)
+        if ref is None:
             raise BadExpression(
                 'function does not return anything; expected reference',
                 node.treeLocation
                 )
         else:
-            return retRef
+            return ref
     elif operator is Operator.lookup:
         return _convertReferenceLookup(node, builder)
     elif operator is Operator.slice:

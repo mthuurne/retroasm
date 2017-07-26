@@ -890,7 +890,7 @@ class ValuePlaceholder(Placeholder):
         if code is None:
             return '{%s %s}' % (self._type, self._name)
         else:
-            return '{%s %s = %s}' % (self._type, self._name, code.retRef)
+            return '{%s %s = %s}' % (self._type, self._name, code.retBits)
 
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made

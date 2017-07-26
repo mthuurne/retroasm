@@ -666,8 +666,8 @@ def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
         expr = buildExpression(semantics, semBuilder)
         # Note that modeType can be None because of earlier errors.
         if modeType is not None:
-            retRef = semBuilder.emitVariable('ret', modeType, semLoc)
-            retRef.emitStore(semBuilder, expr, semLoc)
+            ref = semBuilder.emitVariable('ret', modeType, semLoc)
+            ref.emitStore(semBuilder, expr, semLoc)
 
 def _rejectNodeClasses(node, badClasses):
     if isinstance(node, badClasses):

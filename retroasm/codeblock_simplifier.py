@@ -97,13 +97,13 @@ class CodeBlockSimplifier(CodeBlock):
                             del currentValues[storage2]
             i += 1
 
-        # Apply load replacements to returned reference.
+        # Apply load replacements to returned bit string.
         if loadReplacements:
-            retRef = self.retRef
-            if retRef is not None:
-                newRef = retRef.substitute(expressionFunc=replaceLoadedValues)
-                if newRef is not retRef:
-                    self.retRef = newRef
+            retBits = self.retBits
+            if retBits is not None:
+                newBits = retBits.substitute(expressionFunc=replaceLoadedValues)
+                if newBits is not retBits:
+                    self.retBits = newBits
 
     def removeUnusedStores(self):
         '''Remove side-effect-free stores that will be overwritten or that
@@ -111,12 +111,12 @@ class CodeBlockSimplifier(CodeBlock):
         '''
         nodes = self.nodes
 
-        # Determine which local variables are part of the returned reference.
+        # Determine which local variables are part of the returned bit string.
         # Unlike other local variables, we can't eliminate these.
         retVars = set()
-        retRef = self.retRef
-        if retRef is not None:
-            for storage in retRef.bits.iterStorages():
+        retBits = self.retBits
+        if retBits is not None:
+            for storage in retBits.iterStorages():
                 if isinstance(storage, Variable) and storage.scope == 1:
                     retVars.add(storage)
 
@@ -124,7 +124,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Local variable loads were already eliminated by removeRedundantNodes()
         # and since variables cease to exist at the end of a block, all local
         # variable stores are at this point considered redundant, unless the
-        # variable is part of the returned reference.
+        # variable is part of the returned bit string.
         willBeOverwritten = set()
         for i in range(len(nodes) - 1,  -1, -1):
             node = nodes[i]
@@ -161,9 +161,9 @@ class CodeBlockSimplifier(CodeBlock):
                 updateCounts(node.expr)
             for expr in node.storage.iterExpressions():
                 updateCounts(expr)
-        retRef = self.retRef
-        if retRef is not None:
-            for expr in retRef.bits.iterExpressions():
+        retBits = self.retBits
+        if retBits is not None:
+            for expr in retBits.iterExpressions():
                 updateCounts(expr)
 
         # Remove unnecesary Loads.

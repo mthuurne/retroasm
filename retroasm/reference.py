@@ -307,14 +307,6 @@ class Reference:
                 % (bits.width, typ)
                 )
 
-    def substitute(self, storageFunc=None, expressionFunc=None):
-        bits = self._bits
-        newBits = self._bits.substitute(storageFunc, expressionFunc)
-        if newBits is bits:
-            return self
-        else:
-            return Reference(newBits, self._type)
-
     def emitLoad(self, builder, location):
         '''Emits load nodes for loading a typed value from the referenced
         bit string.

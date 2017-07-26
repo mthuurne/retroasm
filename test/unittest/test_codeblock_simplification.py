@@ -288,15 +288,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             simplifyExpression(valueV)
             )
 
-    def test_retref_override(self):
-        '''Test code block creation with a non-default returned reference.'''
+    def test_retbits_override(self):
+        '''Test code block creation with a non-default returned bit string.'''
         refV = self.builder.addVariable('V', IntType.u(20))
         value = IntLiteral(604)
         self.builder.emitStore(refV, value)
 
         code = self.builder.createCodeBlock(refV)
-        self.assertIsNotNone(code.retRef)
-        self.assertEqual(code.retRef.width, 20)
+        self.assertIsNotNone(code.retBits)
+        self.assertEqual(code.retBits.width, 20)
         self.assertRetVal(code, 604)
 
     def test_return_io_index(self):
@@ -306,10 +306,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsNotNone(code.retRef)
-        self.assertIsInstance(code.retRef.bits, SingleStorage)
-        self.assertIs(code.retRef.type, IntType.u(8))
-        storage = code.retRef.bits.storage
+        self.assertIsInstance(code.retBits, SingleStorage)
+        self.assertEqual(code.retBits.width, 8)
+        storage = code.retBits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 2)
 
@@ -322,10 +321,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsNotNone(code.retRef)
-        self.assertIsInstance(code.retRef.bits, SingleStorage)
-        self.assertIs(code.retRef.type, IntType.u(8))
-        storage = code.retRef.bits.storage
+        self.assertIsInstance(code.retBits, SingleStorage)
+        self.assertEqual(code.retBits.width, 8)
+        storage = code.retBits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 0x4120)
 
@@ -336,11 +334,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(Reference(value, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertIsNotNone(code.retRef)
-        self.assertEqual(code.retRef.width, 8)
-        self.assertEqual(code.retRef.bits.width, 8)
-        self.assertIsInstance(code.retRef.bits, FixedValue)
-        self.assertIntLiteral(code.retRef.bits.expr, 3)
+        self.assertIsInstance(code.retBits, FixedValue)
+        self.assertEqual(code.retBits.width, 8)
+        self.assertIntLiteral(code.retBits.expr, 3)
 
     def test_return_complex_ref(self):
         '''Test returning a non-trivial reference.'''
@@ -351,8 +347,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.builder.addRetReference(Reference(retBits, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertIsNotNone(code.retRef)
-        self.assertEqual(code.retRef.width, 8)
+        self.assertIsNotNone(code.retBits)
+        self.assertEqual(code.retBits.width, 8)
         # Note that we only simplify expressions, not references, so the
         # reference itself is still complex. All we really check here is
         # that code block creation doesn't break, but that is worthwhile

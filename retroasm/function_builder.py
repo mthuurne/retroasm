@@ -44,7 +44,9 @@ def createFunc(reader, funcName, retType, args, namespace):
     try:
         func = Function(funcName, retType, args, code)
     except ValueError as ex:
-        reader.error('%s', ex, location=headerLocation)
+        reader.error(
+            'error in function "%s": %s', funcName, ex, location=headerLocation
+            )
         code = None
         func = Function(funcName, retType, args, code)
 
