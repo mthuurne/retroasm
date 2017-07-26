@@ -244,7 +244,9 @@ Constants can be defined using the syntax `def <value type> <name> = <expr>`:
 
     def u8 V = a
 
-As the name implies, constants are immutable. The expression value is evaluated when the constant is defined, so in the example above `V` represents the value of the `a` register at the time that control reaches the `def` statement.
+As the name implies, constants are immutable. While it is allowed to attempt to write a value to a constant, doing so will not change the constant's value. The reason for allowing writes to constants is that it can be useful to have a concatenated reference that is part writable and part read-only.
+
+A constant's value is evaluated when that constant is defined, so in the example above `V` represents the value of the `a` register at the time that control reaches the `def` statement.
 
 ### References
 
@@ -257,6 +259,12 @@ The referenced storage location is loaded from or stored to when the reference i
     def u8& R = mem[hl]
 
 This will create a reference to the memory location at the address specified by the value of `hl` at the time of the `def` statement. That fixed memory location will be read or written when `R` is loaded from or stored to, even when `hl` is modified later.
+
+Literals and constants can be part of a reference's definition: when read they produce their value, when written they remain unchanged. For example the stack pointer of the 6502 can be defined as follows:
+
+    def u16& sp = $01;s
+
+When read, the upper byte of the stack pointer's value will be `$01`. When written, the upper byte of the written value is ignored.
 
 ### Flow Control
 
