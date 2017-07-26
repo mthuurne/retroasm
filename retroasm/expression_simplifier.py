@@ -200,20 +200,22 @@ def _customSimplifyOr(node, exprs):
     if not exprs:
         return False
 
-    myComplexity = node.nodeComplexity + sum(complexity(expr) for expr in exprs)
-    for i, expr in enumerate(exprs):
-        if isinstance(expr, AndOperator) and node._tryDistributeOrOverAnd:
-            # Distribute OR over AND.
-            orExprs = exprs[:i] + exprs[i+1:]
-            alt = AndOperator(*(
-                OrOperator(term, *orExprs)
-                for term in expr.exprs
-                ))
-            alt._tryDistributeAndOverOr = False
-            alt = simplifyExpression(alt)
-            if complexity(alt) < myComplexity:
-                exprs[:] = [alt]
-                return True
+    if node._tryDistributeOrOverAnd:
+        myComplexity = node.nodeComplexity \
+            + sum(complexity(expr) for expr in exprs)
+        for i, expr in enumerate(exprs):
+            if isinstance(expr, AndOperator):
+                # Distribute OR over AND.
+                orExprs = exprs[:i] + exprs[i+1:]
+                alt = AndOperator(*(
+                    OrOperator(term, *orExprs)
+                    for term in expr.exprs
+                    ))
+                alt._tryDistributeAndOverOr = False
+                alt = simplifyExpression(alt)
+                if complexity(alt) < myComplexity:
+                    exprs[:] = [alt]
+                    return True
 
     return False
 
