@@ -140,38 +140,41 @@ def _customSimplifyAnd(node, exprs):
     if len(exprs) < 2:
         return False
 
-    mask = node.computeMask(exprs)
-
     # Remove mask literal from subexpressions; we'll re-add it later if needed.
     orgMaskLiteral = exprs[-1]
     if isinstance(orgMaskLiteral, IntLiteral):
+        explicitMask = orgMaskLiteral.value
         del exprs[-1]
     else:
+        explicitMask = -1
         orgMaskLiteral = None
+
+    exprMask = node.computeMask(exprs)
+    mask = exprMask & explicitMask
 
     # Try to simplify individual subexpressions by applying bit mask.
     changed = False
-    maskLiteral = IntLiteral(mask)
     for i, expr in enumerate(exprs):
         masked = _simplifyMasked(expr, mask)
         if masked is not expr:
-            exprs[i] = expr = masked
+            exprs[i] = masked
             changed = True
-    if changed:
-        # Force earlier simplification steps to run again.
-        alt = AndOperator(*(exprs + [maskLiteral]))
-        alt._tryDistributeAndOverOr = node._tryDistributeAndOverOr
-        exprs[:] = [simplifyExpression(alt)]
-        return True
 
     # Append mask if it is not redundant.
-    if mask != -1 and mask != node.computeMask(exprs):
+    if mask != exprMask:
         # Non-simplified expressions should remain the same objects.
-        maskChanged = orgMaskLiteral is None or mask != orgMaskLiteral.value
+        maskChanged = orgMaskLiteral is None or mask != explicitMask
         exprs.append(IntLiteral(mask) if maskChanged else orgMaskLiteral)
     else:
         maskChanged = orgMaskLiteral is not None
-    changed |= maskChanged
+
+    # If _simplifyMasked() resulted in simplfications, force earlier steps to
+    # run again.
+    if changed:
+        alt = AndOperator(*exprs)
+        alt._tryDistributeAndOverOr = node._tryDistributeAndOverOr
+        exprs[:] = [simplifyExpression(alt)]
+        return True
 
     if node._tryDistributeAndOverOr:
         myComplexity = node.nodeComplexity \
@@ -190,7 +193,7 @@ def _customSimplifyAnd(node, exprs):
                     exprs[:] = [alt]
                     return True
 
-    return changed
+    return maskChanged
 
 def _customSimplifyOr(node, exprs):
     # pylint: disable=protected-access
