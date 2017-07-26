@@ -18,21 +18,21 @@ class BitString:
         self._width = checkType(width, (int, type(unlimited)), 'width')
 
     def iterExpressions(self):
-        '''Iterates through the expressions contained in this reference.
+        '''Iterates through the expressions contained in this bit string.
         '''
         raise NotImplementedError
 
     def iterStorages(self):
-        '''Iterates through the storages accessed through this reference.
+        '''Iterates through the storages accessed through this bit string.
         '''
         raise NotImplementedError
 
     def substitute(self, storageFunc=None, expressionFunc=None):
         '''Applies the given substitution functions to each applicable
-        subreference of this reference and returns the resulting reference.
+        term in this bit string and returns the resulting bit string.
         The storage function passed a storage as its argument and must return
-        None if no substitution is to take place and a reference to the
-        replacement otherwise.
+        None if no substitution is to take place and a replacement bit string
+        otherwise.
         If no storage substitution took place, the expression function is
         applied. This function should follow the same contract as the function
         passed to Expression.substitute().
@@ -40,14 +40,14 @@ class BitString:
         raise NotImplementedError
 
     def emitLoad(self, builder, location):
-        '''Emits load nodes for loading a bit string from the referenced
+        '''Emits load nodes for loading a bit string from the underlying
         storage(s).
         Returns the value of the bit string as an Expression.
         '''
         raise NotImplementedError
 
     def emitStore(self, builder, value, location):
-        '''Emits store nodes for storing a bit string into the referenced
+        '''Emits store nodes for storing a bit string into the underlying
         storage(s).
         '''
         raise NotImplementedError
@@ -115,13 +115,13 @@ class SingleStorage(BitString):
     def substitute(self, storageFunc=None, expressionFunc=None):
         storage = self._storage
         if storageFunc is not None:
-            newRef = storageFunc(storage)
-            if newRef is not None:
-                if isinstance(newRef, SingleStorage) and \
-                        newRef._storage is storage:
+            newBits = storageFunc(storage)
+            if newBits is not None:
+                if isinstance(newBits, SingleStorage) and \
+                        newBits._storage is storage:
                     return self
                 else:
-                    return newRef
+                    return newBits
 
         if expressionFunc is None:
             return self
