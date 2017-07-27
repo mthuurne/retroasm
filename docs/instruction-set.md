@@ -319,6 +319,8 @@ If the return type is a reference type, the function returns a reference by defi
         def u8 H = mem[(A + x + 1)[:8]]
         ret = mem[H ; L]
 
+If a local variable is part of a returned reference, it will be treated as a constant containing the value of that variable at the exit of the function body. It is not possible to modify a local variable after the function has finished executing.
+
 Modes
 -----
 

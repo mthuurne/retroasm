@@ -97,28 +97,23 @@ class CodeBlockSimplifier(CodeBlock):
                             del currentValues[storage2]
             i += 1
 
-        # Apply load replacements to returned bit string.
-        if loadReplacements:
-            retBits = self.retBits
-            if retBits is not None:
-                newBits = retBits.substitute(expressionFunc=replaceLoadedValues)
-                if newBits is not retBits:
-                    self.retBits = newBits
+        # Fixate variables and apply load replacements in returned bit string.
+        retBits = self.retBits
+        if retBits is not None:
+            def fixateVariables(storage):
+                if isinstance(storage, Variable) and storage.scope == 1:
+                    return FixedValue(currentValues[storage], storage.width)
+                else:
+                    return None
+            newBits = retBits.substitute(fixateVariables, replaceLoadedValues)
+            if newBits is not retBits:
+                self.retBits = newBits
 
     def removeUnusedStores(self):
         '''Remove side-effect-free stores that will be overwritten or that
         write a variable that will go out of scope.
         '''
         nodes = self.nodes
-
-        # Determine which local variables are part of the returned bit string.
-        # Unlike other local variables, we can't eliminate these.
-        retVars = set()
-        retBits = self.retBits
-        if retBits is not None:
-            for storage in retBits.iterStorages():
-                if isinstance(storage, Variable) and storage.scope == 1:
-                    retVars.add(storage)
 
         # Remove stores for which the value is overwritten before it is loaded.
         # Local variable loads were already eliminated by removeRedundantNodes()
@@ -137,9 +132,7 @@ class CodeBlockSimplifier(CodeBlock):
                     willBeOverwritten.discard(storage)
                 elif isinstance(node, Store):
                     if storage in willBeOverwritten or (
-                            isinstance(storage, Variable) and
-                            storage.scope == 1 and
-                            storage not in retVars
+                            isinstance(storage, Variable) and storage.scope == 1
                             ):
                         del nodes[i]
                     willBeOverwritten.add(storage)

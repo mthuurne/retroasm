@@ -5,7 +5,7 @@ from retroasm.codeblock_builder import (
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.namespace import Namespace, GlobalNamespace
-from retroasm.reference import Reference, SingleStorage
+from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Variable
 from retroasm.types import IntType, unlimited
 
@@ -33,15 +33,8 @@ class NodeChecker:
 
     def getRetVal(self, code):
         retBits = code.retBits
-        self.assertIsInstance(retBits, SingleStorage)
-        retStorage = retBits.storage
-        retVal = None
-        for node in code.nodes:
-            if node.storage is retStorage:
-                self.assertIsInstance(node, Store)
-                self.assertIsNone(retVal)
-                retVal = node.expr
-        return retVal, retBits.width
+        self.assertIsInstance(retBits, FixedValue)
+        return retBits.expr, retBits.width
 
     def assertRetVal(self, code, value):
         expr, width = self.getRetVal(code)

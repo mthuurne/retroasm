@@ -51,7 +51,6 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, outerA.bits.storage),
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 12345)
@@ -77,11 +76,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 103)
         self.assertEqual(retWidth, 8)
 
@@ -103,11 +101,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, inlinedVal)
 
         code = createSimplifiedCode(outer)
-        retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 3000)
         self.assertEqual(retWidth, 16)
 
@@ -126,11 +123,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, outerVal)
 
         code = createSimplifiedCode(outer)
-        retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 0x72)
         self.assertEqual(retWidth, 16)
 
@@ -156,11 +152,10 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, step3)
 
         code = createSimplifiedCode(outer)
-        retVal, retWidth = self.getRetVal(code)
         correct = (
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 1)
         self.assertEqual(retWidth, 16)
 
@@ -186,11 +181,9 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, finalA)
 
         code = createSimplifiedCode(outer)
-        code.verify()
         retVal, retWidth = self.getRetVal(code)
         correct = (
             Store(retVal, outerA.bits.storage),
-            Store(retVal, outerRet.bits.storage),
             )
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 103)
@@ -223,10 +216,16 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         finalHL = outer.emitLoad(Reference(bitsHL, IntType.u(16)))
         outer.emitStore(outerRet, finalHL)
 
+        finalVal = 0xabcd + 3 * 0x1234
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 3)
-        self.assertRetVal(code, 0xabcd + 3 * 0x1234)
+        correct = (
+            Store(IntLiteral(finalVal & 0xFF), outerL.bits.storage),
+            Store(IntLiteral(finalVal >> 8), outerH.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertRetVal(code, finalVal)
+        self.assertEqual(retWidth, 16)
 
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
@@ -252,10 +251,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         finalHL = outer.emitLoad(Reference(bitsHL, IntType.u(16)))
         outer.emitStore(outerRet, finalHL)
 
+        finalVal = 0xabcd + 3 * 0x1300
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 2)
-        self.assertRetVal(code, 0xabcd + 3 * 0x1300)
+        correct = (
+            Store(IntLiteral(finalVal >> 8), outerH.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertRetVal(code, finalVal)
+        self.assertEqual(retWidth, 16)
 
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
@@ -279,10 +283,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         finalR = outer.emitLoad(outerR)
         outer.emitStore(outerRet, finalR)
 
+        finalVal = 0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4)
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 2)
-        self.assertRetVal(code, 0xc00f | (((0xde + 3 * 0x12) & 0xff) << 4))
+        correct = (
+            Store(IntLiteral(finalVal), outerR.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertRetVal(code, finalVal)
+        self.assertEqual(retWidth, 16)
 
     def test_inline_unsigned_reg(self):
         '''Test reading of an unsigned register.'''
@@ -302,10 +311,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal = outer.emitLoad(retBits)
         outer.emitStore(outerRet, retVal)
 
+        finalVal = 0x00b2
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 2)
-        self.assertRetVal(code, 0x00b2)
+        correct = (
+            Store(initA, outerA.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        self.assertRetVal(code, finalVal)
 
     def test_inline_signed_reg(self):
         '''Test reading of a signed register.'''
@@ -325,10 +337,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal = outer.emitLoad(retBits)
         outer.emitStore(outerRet, retVal)
 
+        finalVal = 0xffb2
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 2)
-        self.assertRetVal(code, 0xffb2)
+        correct = (
+            Store(initA, outerA.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertRetVal(code, finalVal)
+        self.assertEqual(retWidth, 16)
 
     def test_load_from_unsigned_reference_arg(self):
         '''Test reading of a value passed via an unsigned reference.'''
@@ -347,9 +364,12 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, retVal)
 
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        correct = (
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 0x00a4)
+        self.assertEqual(retWidth, 16)
 
     def test_load_from_signed_reference_arg(self):
         '''Test reading of a value passed via a signed reference.'''
@@ -368,9 +388,12 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, retVal)
 
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 1)
+        correct = (
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 0xffa4)
+        self.assertEqual(retWidth, 16)
 
     def test_return_simple_reference(self):
         '''Test returning a reference to a global.'''
@@ -392,9 +415,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, retVal)
 
         code = createSimplifiedCode(outer)
-        code.verify()
-        self.assertEqual(len(code.nodes), 2)
+        correct = (
+            Store(value, outerA.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
         self.assertRetVal(code, 0xba)
+        self.assertEqual(retWidth, 8)
 
     def test_return_io_reference(self):
         '''Test returning a reference to an index in an I/O channel.'''
@@ -414,17 +441,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outer.emitStore(outerRet, retVal)
 
         code = createSimplifiedCode(outer)
+        correct = (
+            Load(retBits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
         retVal, retWidth = self.getRetVal(code)
-        def correct():
-            load = Load(retBits.storage)
-            yield load
-            addrVal = code.nodes[0].expr
-            expr = retVal.substitute(
-                lambda expr: load.expr if expr is addrVal else None
-                )
-            yield Store(expr, outerRet.bits.storage)
-        self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
+        self.assertEqual(retVal, code.nodes[0].expr)
 
 if __name__ == '__main__':
     verbose = True

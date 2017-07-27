@@ -270,17 +270,14 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         combined = OrOperator(loadA, loadV)
         self.builder.emitStore(refRet, combined)
 
+        correct = (
+            Load(refA.bits.storage),
+            )
+
         code = self.createSimplifiedCode()
+        self.assertNodes(code.nodes, correct)
         retVal, retWidth = self.getRetVal(code)
         valueA = code.nodes[0].expr
-        def correct():
-            load = Load(refA.bits.storage)
-            yield load
-            expr = retVal.substitute(
-                lambda expr: load.expr if expr is valueA else None
-                )
-            yield Store(expr, refRet.bits.storage)
-        self.assertNodes(code.nodes, correct())
         self.assertEqual(retWidth, 8)
         self.assertOr(
             retVal,
@@ -372,7 +369,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
         code = self.createSimplifiedCode()
         retVal, retWidth = self.getRetVal(code)
-        correct = [Store(retVal, ret.bits.storage)]
+        correct = []
         if counterRemains:
             correct.insert(0, Store(retVal, counterRef.bits.storage))
         self.assertNodes(code.nodes, correct)
