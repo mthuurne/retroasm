@@ -329,8 +329,10 @@ class AddOperator(MultiExpression):
                 fragments += ('+', str(expr))
         return '(%s)' % ' '.join(fragments)
 
-class Complement(Expression):
-    __slots__ = ('_expr', '_mask')
+class SingleExpression(Expression):
+    '''Base class for expressions that have a single subexpression.
+    '''
+    __slots__ = ('_expr',)
 
     expr = property(lambda self: self._expr)
 
@@ -341,69 +343,48 @@ class Complement(Expression):
     def _ctorargs(self):
         return self._expr,
 
-    def __str__(self):
-        return '-%s' % self._expr
-
     def _equals(self, other):
         return self._expr == other._expr
+
+class Complement(SingleExpression):
+    __slots__ = ('_mask',)
+
+    def __str__(self):
+        return '-%s' % self._expr
 
     @const_property
     def mask(self):
         exprMask = self._expr.mask
         return 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
 
-class Negation(Expression):
-    __slots__ = ('_expr',)
+class Negation(SingleExpression):
+    __slots__ = ()
 
-    expr = property(lambda self: self._expr)
     mask = property(lambda self: 1)
-
-    def __init__(self, expr):
-        Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
-
-    def _ctorargs(self):
-        return self._expr,
 
     def __str__(self):
         return '!%s' % self._expr
 
-    def _equals(self, other):
-        return self._expr == other._expr
-
-class SignTest(Expression):
+class SignTest(SingleExpression):
     '''Tests the sign of the given expression.
     '''
-    __slots__ = ('_expr')
+    __slots__ = ()
 
-    expr = property(lambda self: self._expr)
     mask = property(lambda self: 1)
-
-    def __init__(self, expr):
-        Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
-
-    def _ctorargs(self):
-        return self._expr,
 
     def __str__(self):
         return 'sign(%s)' % self._expr
 
-    def _equals(self, other):
-        return self._expr == other._expr
-
-class SignExtension(Expression):
+class SignExtension(SingleExpression):
     '''Extends the sign bit at the front of a given expression.
     '''
-    __slots__ = ('_expr', '_width')
+    __slots__ = ('_width',)
 
-    expr = property(lambda self: self._expr)
     width = property(lambda self: self._width)
     mask = property(lambda self: 0 if self._width == 0 else -1)
 
     def __init__(self, expr, width):
-        Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
+        SingleExpression.__init__(self, expr)
         self._width = checkType(width, int, 'width')
 
     def _ctorargs(self):
@@ -413,7 +394,7 @@ class SignExtension(Expression):
         return 's%d(%s)' % (self._width, self._expr)
 
     def _equals(self, other):
-        return self._expr == other._expr and self._width == other._width
+        return self._width == other._width and super()._equals(other)
 
 _SHIFT_LIMIT_BITS = 256
 '''When shifting left, do not create masks longer than this number of bits.
@@ -426,17 +407,15 @@ will most likely be truncated at a later stage, getting an exact mask is not
 important.
 '''
 
-class LShift(Expression):
+class LShift(SingleExpression):
     '''Shifts a bit string to the left, appending zero bits at the end.
     '''
-    __slots__ = ('_expr', '_offset', '_mask')
+    __slots__ = ('_offset', '_mask')
 
-    expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
 
     def __init__(self, expr, offset):
-        Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
+        SingleExpression.__init__(self, expr)
         self._offset = checkType(offset, int, 'shift offset')
         if offset < 0:
             raise ValueError('negative shift count')
@@ -448,7 +427,7 @@ class LShift(Expression):
         return '(%s << %d)' % (self._expr, self._offset)
 
     def _equals(self, other):
-        return self._offset == other._offset and self._expr == other._expr
+        return self._offset == other._offset and super()._equals(other)
 
     @const_property
     def mask(self):
@@ -461,17 +440,15 @@ class LShift(Expression):
         else:
             return -1 << _SHIFT_LIMIT_BITS
 
-class RShift(Expression):
+class RShift(SingleExpression):
     '''Drops the lower N bits from a bit string.
     '''
-    __slots__ = ('_expr', '_offset', '_mask')
+    __slots__ = ('_offset', '_mask')
 
-    expr = property(lambda self: self._expr)
     offset = property(lambda self: self._offset)
 
     def __init__(self, expr, offset):
-        Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
+        SingleExpression.__init__(self, expr)
         self._offset = checkType(offset, int, 'shift offset')
         if offset < 0:
             raise ValueError('negative shift count')
@@ -486,7 +463,7 @@ class RShift(Expression):
             return '%s[%d:]' % (self._expr, self._offset)
 
     def _equals(self, other):
-        return self._offset == other._offset and self._expr == other._expr
+        return self._offset == other._offset and super()._equals(other)
 
     @const_property
     def mask(self):
