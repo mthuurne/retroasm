@@ -1,6 +1,7 @@
 from .analysis import PlaceholderRole
 from .codeblock import ArgumentValue, LoadedValue
 from .codeblock_builder import SemanticsCodeBlockBuilder
+from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import EncodeMatch, MatchPlaceholder, ValuePlaceholder
@@ -30,8 +31,9 @@ def buildMatch(match, builder, values):
             else:
                 argBits = builder.inlineBlock(placeholderCode, args.__getitem__)
             args[name] = argBits
-            ref = Reference(argBits, typ)
-            valBits = builder.createCodeBlock(ref).retBits
+            code = CodeBlockSimplifier(builder.nodes, argBits)
+            code.simplify()
+            valBits = code.retBits
             # Note that FixedValue doesn't actually emit a Load node; the reason
             # to use Reference.emitLoad() here is to apply sign extension.
             assert isinstance(valBits, FixedValue), valBits
