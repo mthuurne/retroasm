@@ -1,6 +1,6 @@
 from .expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift, Negation,
-    OrOperator, RShift, RVShift, SimplifiableComposedExpression, SignExtension,
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
+    MultiExpression, Negation, OrOperator, RShift, RVShift, SignExtension,
     SignTest, XorOperator, optSlice
     )
 from .types import maskForWidth, widthForMask
@@ -12,7 +12,7 @@ def complexity(expr):
     '''
     if isinstance(expr, IntLiteral):
         return 1
-    elif isinstance(expr, SimplifiableComposedExpression):
+    elif isinstance(expr, MultiExpression):
         return expr.nodeComplexity + sum(
             complexity(subExpr) for subExpr in expr.exprs
             )
@@ -24,7 +24,7 @@ def complexity(expr):
 
 def _simplifyAlgebraic(cls, exprs):
     '''Simplify the given list of expressions using algebraic properties of the
-    given SimplifiableComposedExpression subclass.
+    given MultiExpression subclass.
     Returns True if the expression list was changed, False otherwise.
     '''
     changed = False

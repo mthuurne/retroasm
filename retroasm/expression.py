@@ -145,11 +145,19 @@ class IntLiteral(Expression):
     def _equals(self, other):
         return self._value == other._value
 
-class ComposedExpression(Expression):
-    '''Base class for expressions that combine multiple subexpressions.
+class MultiExpression(Expression):
+    '''Base class for expressions that combine zero or more subexpressions.
+    All subclasses of this class must represent operations that are both
+    associative and commutative; other algebraic properties differ per subclass.
     '''
     __slots__ = ('_exprs', '_mask')
     operator = property()
+    idempotent = property()
+    identity = property()
+    absorber = property()
+
+    nodeComplexity = 1
+    '''Contribution of the expression node itself to expression complexity.'''
 
     exprs = property(lambda self: self._exprs)
 
@@ -174,6 +182,12 @@ class ComposedExpression(Expression):
         '''
         raise NotImplementedError
 
+    @classmethod
+    def combineLiterals(cls, *values):
+        '''Combine the given literal values into a single value.
+        '''
+        raise NotImplementedError
+
     def __str__(self):
         sep = ' %s ' % self.operator
         return '(%s)' % sep.join(str(expr) for expr in self._exprs)
@@ -184,31 +198,7 @@ class ComposedExpression(Expression):
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
             )
 
-class SimplifiableComposedExpression(ComposedExpression):
-    '''Base class for composed expressions that can be simplified using
-    their algebraic properties.
-    All subclasses of this class must represent operations that are both
-    associative and commutative.
-    '''
-    __slots__ = ()
-    idempotent = property()
-    identity = property()
-    absorber = property()
-
-    nodeComplexity = 1
-    '''Contribution of the expression node itself to expression complexity.'''
-
-    @classmethod
-    def computeMask(cls, exprs):
-        raise NotImplementedError
-
-    @classmethod
-    def combineLiterals(cls, *values):
-        '''Combine the given literal values into a single value.
-        '''
-        raise NotImplementedError
-
-class AndOperator(SimplifiableComposedExpression):
+class AndOperator(MultiExpression):
     __slots__ = ('_tryDistributeAndOverOr',)
     operator = '&'
     idempotent = True
@@ -216,7 +206,7 @@ class AndOperator(SimplifiableComposedExpression):
     absorber = 0
 
     def __init__(self, *exprs):
-        SimplifiableComposedExpression.__init__(self, *exprs)
+        MultiExpression.__init__(self, *exprs)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeAndOverOr = True
@@ -258,7 +248,7 @@ class AndOperator(SimplifiableComposedExpression):
     def combineLiterals(cls, *values):
         return reduce(int.__and__, values, -1)
 
-class OrOperator(SimplifiableComposedExpression):
+class OrOperator(MultiExpression):
     __slots__ = ('_tryDistributeOrOverAnd', )
     operator = '|'
     idempotent = True
@@ -266,7 +256,7 @@ class OrOperator(SimplifiableComposedExpression):
     absorber = -1
 
     def __init__(self, *exprs):
-        SimplifiableComposedExpression.__init__(self, *exprs)
+        MultiExpression.__init__(self, *exprs)
 
         # Set this to False to block the simplification attempt.
         self._tryDistributeOrOverAnd = True
@@ -279,7 +269,7 @@ class OrOperator(SimplifiableComposedExpression):
     def combineLiterals(cls, *values):
         return reduce(int.__or__, values, 0)
 
-class XorOperator(SimplifiableComposedExpression):
+class XorOperator(MultiExpression):
     __slots__ = ()
     operator = '^'
     idempotent = False
@@ -296,7 +286,7 @@ class XorOperator(SimplifiableComposedExpression):
     def combineLiterals(cls, *values):
         return reduce(int.__xor__, values, 0)
 
-class AddOperator(SimplifiableComposedExpression):
+class AddOperator(MultiExpression):
     __slots__ = ()
     operator = '+'
     idempotent = False
