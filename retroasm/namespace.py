@@ -7,6 +7,7 @@ class Namespace:
     Fetching elements is done through a dictionary-like interface.
     Storing elements is done by calling define().
     '''
+    scope = property()
 
     def __init__(self):
         self.elements = {}
@@ -60,6 +61,7 @@ class Namespace:
 class GlobalNamespace(Namespace):
     '''Namespace for the global scope.
     '''
+    scope = property(lambda self: 0)
 
     def _checkName(self, name, location):
         if name == 'ret':
@@ -72,6 +74,7 @@ class LocalNamespace(Namespace):
     '''A namespace for local blocks, that can import entries from its parent
     namespace on demand.
     '''
+    scope = property(lambda self: 1)
 
     def __init__(self, parent):
         Namespace.__init__(self)

@@ -9,7 +9,6 @@ from .types import IntType, maskForWidth
 from .utils import checkType
 
 class CodeBlockBuilder:
-    _scope = property()
 
     def __init__(self, namespace):
         self.namespace = namespace
@@ -27,7 +26,7 @@ class CodeBlockBuilder:
         return ref
 
     def emitVariable(self, name, typ, location):
-        var = Variable(typ.width, self._scope)
+        var = Variable(typ.width, self.namespace.scope)
         return self._addNamedStorage(name, var, typ, location)
 
     def emitIOReference(self, channel, index):
@@ -99,10 +98,9 @@ class StatelessCodeBlockBuilderMixin:
             )
 
 class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
-    _scope = 0
+    pass
 
 class LocalCodeBlockBuilder(CodeBlockBuilder):
-    _scope = 1
 
     def __init__(self, parentNamespace):
         namespace = LocalNamespace(parentNamespace)
