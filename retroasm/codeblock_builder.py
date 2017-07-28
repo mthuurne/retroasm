@@ -106,25 +106,10 @@ class LocalCodeBlockBuilder(CodeBlockBuilder):
         namespace = LocalNamespace(parentNamespace)
         CodeBlockBuilder.__init__(self, namespace)
 
-    def emitValueArgument(self, name, typ, location):
-        '''Adds a passed-by-value argument to this code block.
-        The initial value is represented by an ArgumentValue and is stored
-        into a corresponding local Variable that is created by this method.
-        Returns the Reference to the corresponding Variable.
-        '''
-        raise NotImplementedError
-
 class EncodingCodeBlockBuilder(
         StatelessCodeBlockBuilderMixin, LocalCodeBlockBuilder
         ):
-
-    def emitValueArgument(self, name, typ, location):
-        checkType(typ, IntType, 'value argument')
-        width = typ.width
-        value = ArgumentValue(name, maskForWidth(width))
-        bits = FixedValue(value, width)
-        ref = Reference(bits, typ)
-        return self.defineReference(name, ref, location)
+    pass
 
 class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
 
@@ -187,7 +172,7 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         into the corresponding Variable.
         Returns the Reference to the corresponding Variable.
         '''
-        checkType(typ, IntType, 'value argument')
+        checkType(typ, IntType, 'value argument type')
         value = ArgumentValue(name, maskForWidth(typ.width))
 
         # Add Variable.

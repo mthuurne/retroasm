@@ -21,7 +21,7 @@ from .mode import (
     ValuePlaceholder
     )
 from .namespace import GlobalNamespace, NameExistsError
-from .reference import ConcatenatedBits, FixedValue, SlicedBits
+from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
 from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
@@ -297,7 +297,10 @@ def _buildPlaceholder(spec, typ, builder):
     elif isinstance(typ, ReferenceType):
         builder.emitReferenceArgument(name, typ.type, decl.name.location)
     else:
-        builder.emitValueArgument(name, typ, decl.name.location)
+        immediate = ArgumentValue(name, typ.mask)
+        bits = FixedValue(immediate, typ.width)
+        ref = Reference(bits, typ)
+        builder.defineReference(name, ref, decl.name.location)
 
 def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
