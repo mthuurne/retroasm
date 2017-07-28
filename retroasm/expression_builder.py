@@ -44,6 +44,10 @@ class Unit(Expression, metaclass=Singleton):
     def _equals(self, other):
         return self is other
 
+    @property
+    def complexity(self):
+        raise ValueError('unit value has no complexity')
+
     def _checkScalar(self):
         raise BadExpression(
             'attempt to use return value of function that returns nothing'

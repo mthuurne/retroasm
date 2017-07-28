@@ -110,6 +110,12 @@ class ArgumentValue(Expression):
         # pylint: disable=protected-access
         return self._name == other._name
 
+    @property
+    def complexity(self):
+        # We don't know what the complexity will be of the value passed for
+        # this argument; make a wild guess.
+        return 3
+
 class LoadedValue(Expression):
     '''A value loaded from a storage location.
     '''
@@ -135,6 +141,12 @@ class LoadedValue(Expression):
     def _equals(self, other):
         # pylint: disable=protected-access
         return self._load is other._load
+
+    @property
+    def complexity(self):
+        # Since loaded values are only available at runtime, they are not
+        # desirable in analysis, so assign a high cost to them.
+        return 8
 
 def verifyLoads(nodes, retBits=None):
     '''Performs consistency checks on the LoadedValues in the given nodes and

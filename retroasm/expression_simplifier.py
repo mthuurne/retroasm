@@ -5,23 +5,6 @@ from .expression import (
     )
 from .types import maskForWidth, widthForMask
 
-def complexity(expr):
-    '''Returns a postive number that reflects the complexity of the given
-    expression: the higher the number, the more complex the expression.
-    This is used to compare simplification candidates.
-    '''
-    if isinstance(expr, IntLiteral):
-        return 1
-    elif isinstance(expr, MultiExpression):
-        return expr.nodeComplexity + sum(
-            complexity(subExpr) for subExpr in expr.exprs
-            )
-    elif isinstance(expr, (
-            Complement, Negation, SignExtension, LShift, RShift)):
-        return 1 + complexity(expr.expr)
-    else:
-        return 2
-
 def _simplifyAlgebraic(cls, exprs):
     '''Simplify the given list of expressions using algebraic properties of the
     given MultiExpression subclass.
@@ -178,7 +161,7 @@ def _customSimplifyAnd(node, exprs):
 
     if node._tryDistributeAndOverOr:
         myComplexity = node.nodeComplexity \
-            + sum(complexity(expr) for expr in exprs)
+            + sum(expr.complexity for expr in exprs)
         for i, expr in enumerate(exprs):
             if isinstance(expr, OrOperator):
                 # Distribute AND over OR.
@@ -189,7 +172,7 @@ def _customSimplifyAnd(node, exprs):
                     ))
                 alt._tryDistributeOrOverAnd = False
                 alt = simplifyExpression(alt)
-                if complexity(alt) < myComplexity:
+                if alt.complexity < myComplexity:
                     exprs[:] = [alt]
                     return True
 
@@ -202,7 +185,7 @@ def _customSimplifyOr(node, exprs):
 
     if node._tryDistributeOrOverAnd:
         myComplexity = node.nodeComplexity \
-            + sum(complexity(expr) for expr in exprs)
+            + sum(expr.complexity for expr in exprs)
         for i, expr in enumerate(exprs):
             if isinstance(expr, AndOperator):
                 # Distribute OR over AND.
@@ -213,7 +196,7 @@ def _customSimplifyOr(node, exprs):
                     ))
                 alt._tryDistributeAndOverOr = False
                 alt = simplifyExpression(alt)
-                if complexity(alt) < myComplexity:
+                if alt.complexity < myComplexity:
                     exprs[:] = [alt]
                     return True
 
@@ -346,7 +329,7 @@ def _simplifyNegation(negation):
                 RShift(term, expr.offset) for term in subExpr.exprs
                 ))))
 
-    if alt is not None and complexity(alt) < complexity(negation):
+    if alt is not None and alt.complexity < negation.complexity:
         return alt
     else:
         return negation
@@ -423,7 +406,7 @@ def _simplifyLShift(lshift):
             *(LShift(term, offset) for term in expr.exprs)
             )
         alt = simplifyExpression(alt)
-        if complexity(alt) <= complexity(lshift):
+        if alt.complexity <= lshift.complexity:
             return alt
 
     if expr is lshift.expr:
@@ -464,7 +447,7 @@ def _simplifyRShift(rshift):
             *(RShift(term, offset) for term in expr.exprs)
             )
         alt = simplifyExpression(alt)
-        if complexity(alt) < complexity(rshift):
+        if alt.complexity < rshift.complexity:
             return alt
 
     if expr is rshift.expr:

@@ -34,6 +34,10 @@ class TestValue(Expression):
     def _equals(self, other):
         return self is other
 
+    @property
+    def complexity(self):
+        return 3
+
 class TestExprMixin:
 
     def assertIntLiteral(self, expr, value):

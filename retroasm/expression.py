@@ -84,6 +84,14 @@ class Expression:
         '''
         pass
 
+    @property
+    def complexity(self):
+        '''Returns a postive number that reflects the complexity of this
+        expression: the higher the number, the more complex the expression.
+        This is used to compare simplification candidates.
+        '''
+        raise NotImplementedError
+
     def iterInstances(self, cls):
         '''Yields the subexpressions of this expression that are instances of
         the given Python type.
@@ -145,6 +153,10 @@ class IntLiteral(Expression):
     def _equals(self, other):
         return self._value == other._value
 
+    @property
+    def complexity(self):
+        return 1
+
 class MultiExpression(Expression):
     '''Base class for expressions that combine zero or more subexpressions.
     All subclasses of this class must represent operations that are both
@@ -181,6 +193,12 @@ class MultiExpression(Expression):
         '''Returns the bit mask for the composition of the given expressions.
         '''
         raise NotImplementedError
+
+    @property
+    def complexity(self):
+        return self.nodeComplexity + sum(
+            expr.complexity for expr in self._exprs
+            )
 
     @classmethod
     def combineLiterals(cls, *values):
@@ -346,6 +364,10 @@ class SingleExpression(Expression):
     def _equals(self, other):
         return self._expr == other._expr
 
+    @property
+    def complexity(self):
+        return 1 + self._expr.complexity
+
 class Complement(SingleExpression):
     __slots__ = ('_mask',)
 
@@ -465,6 +487,10 @@ class RShift(SingleExpression):
     def _equals(self, other):
         return self._offset == other._offset and super()._equals(other)
 
+    @property
+    def complexity(self):
+        return 1 + self._expr.complexity
+
     @const_property
     def mask(self):
         return self._expr.mask >> self._offset
@@ -482,6 +508,10 @@ class LVShift(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = Expression.checkScalar(offset)
+
+    @property
+    def complexity(self):
+        return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
     def mask(self):
@@ -522,6 +552,10 @@ class RVShift(Expression):
         Expression.__init__(self)
         self._expr = Expression.checkScalar(expr)
         self._offset = Expression.checkScalar(offset)
+
+    @property
+    def complexity(self):
+        return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
     def mask(self):
