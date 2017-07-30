@@ -3,9 +3,8 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import optSlice
 from .linereader import BadInput
 from .namespace import LocalNamespace
-from .reference import BitString, FixedValue, Reference, SingleStorage
+from .reference import BitString, Reference, SingleStorage
 from .storage import IOStorage, RefArgStorage, Variable
-from .types import IntType, maskForWidth
 from .utils import checkType
 
 class CodeBlockBuilder:
@@ -19,31 +18,12 @@ class CodeBlockBuilder:
         if 'ret' in self.namespace:
             print('    return ref %s' % self.namespace['ret'])
 
-    def _addNamedStorage(self, name, storage, typ, location):
-        bits = SingleStorage(storage)
-        ref = Reference(bits, typ)
-        self.namespace.define(name, ref, location)
-        return ref
-
-    def emitVariable(self, name, typ, location):
-        var = Variable(typ.width, self.namespace.scope)
-        return self._addNamedStorage(name, var, typ, location)
-
     def emitIOReference(self, channel, index):
         addrWidth = channel.addrType.width
         truncatedIndex = optSlice(index, 0, addrWidth)
         storage = IOStorage(channel, truncatedIndex)
         bits = SingleStorage(storage)
         return Reference(bits, channel.elemType)
-
-    def defineReference(self, name, value, location):
-        '''Defines a reference with the given name and value.
-        Returns the given value.
-        Raises NameExistsError if the name is already taken.
-        '''
-        checkType(value, Reference, 'value')
-        self.namespace.define(name, value, location)
-        return value
 
     def emitLoadBits(self, storage, location):
         '''Loads the value from the given storage by emitting a Load node on
@@ -165,27 +145,6 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
         code.simplify()
         code.freeze()
         return code
-
-    def emitValueArgument(self, name, typ, location):
-        '''Adds a passed-by-value argument to this code block.
-        The initial value is represented by an ArgumentValue and is stored
-        into the corresponding Variable.
-        Returns the Reference to the corresponding Variable.
-        '''
-        checkType(typ, IntType, 'value argument type')
-        value = ArgumentValue(name, maskForWidth(typ.width))
-
-        # Add Variable.
-        ref = self.emitVariable(name, typ, location)
-
-        # Store initial value.
-        ref.emitStore(self, value, location)
-
-        return ref
-
-    def emitReferenceArgument(self, name, typ, location):
-        storage = RefArgStorage(name, typ.width)
-        return self._addNamedStorage(name, storage, typ, location)
 
     def emitLoadBits(self, storage, location):
         load = Load(storage, location)

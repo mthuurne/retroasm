@@ -61,7 +61,7 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
             ref = self.namespace[name]
         except KeyError:
             # Insert register into global namespace.
-            self.globalBuilder.emitVariable(name, typ, None)
+            self.globalBuilder.namespace.addVariable(name, typ, None)
             ref = self.namespace[name]
 
         # Check that existing global namespace entry is this register.
@@ -95,13 +95,13 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
         return self.emitIOReference(localChannel, index)
 
     def addValueArgument(self, name, typ=IntType.u(8)):
-        return self.emitValueArgument(name, typ, None)
+        return self.namespace.addValueArgument(self, name, typ, None)
 
     def addReferenceArgument(self, name, typ=IntType.u(8)):
-        return self.emitReferenceArgument(name, typ, None)
+        return self.namespace.addReferenceArgument(name, typ, None)
 
     def addVariable(self, name, typ=IntType.u(8)):
-        return self.emitVariable(name, typ, None)
+        return self.namespace.addVariable(name, typ, None)
 
     def addRetReference(self, value):
-        return self.defineReference('ret', value, None)
+        return self.namespace.define('ret', value, None)

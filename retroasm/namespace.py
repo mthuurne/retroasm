@@ -1,4 +1,8 @@
+from .codeblock import ArgumentValue
 from .linereader import BadInput
+from .reference import Reference, SingleStorage
+from .storage import RefArgStorage, Variable
+from .types import IntType, maskForWidth
 from .utils import checkType
 
 class Namespace:
@@ -57,6 +61,48 @@ class Namespace:
         Raises NameExistsError if the name is rejected.
         '''
         pass
+
+    def _addNamedStorage(self, name, storage, typ, location):
+        bits = SingleStorage(storage)
+        ref = Reference(bits, typ)
+        self.define(name, ref, location)
+        return ref
+
+    def addVariable(self, name, typ, location):
+        '''Adds a variable with the given name and type to this namespace.
+        Returns a reference to the variable.
+        '''
+        checkType(typ, IntType, 'variable type')
+        storage = Variable(typ.width, self.scope)
+        return self._addNamedStorage(name, storage, typ, location)
+
+    def addValueArgument(self, builder, name, typ, location):
+        '''Adds a passed-by-value argument to this namespace.
+        A variable is created with the same name as the argument. The passed
+        value is represented by an ArgumentValue and a store is emitted on the
+        given builder to set the passed value as the initial value of the
+        variable.
+        Returns a reference to the corresponding variable.
+        '''
+        checkType(typ, IntType, 'value argument type')
+        value = ArgumentValue(name, maskForWidth(typ.width))
+
+        # Add Variable.
+        ref = self.addVariable(name, typ, location)
+
+        # Store initial value.
+        ref.emitStore(builder, value, location)
+
+        return ref
+
+    def addReferenceArgument(self, name, typ, location):
+        '''Adds a pass-by-reference argument with the given name and type to
+        this namespace.
+        Returns a reference to the argument.
+        '''
+        checkType(typ, IntType, 'reference argument type')
+        storage = RefArgStorage(name, typ.width)
+        return self._addNamedStorage(name, storage, typ, location)
 
 class GlobalNamespace(Namespace):
     '''Namespace for the global scope.

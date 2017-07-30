@@ -55,7 +55,7 @@ class Unit(Expression, metaclass=Singleton):
 
 unit = Unit()
 
-def declareVariable(node, builder):
+def declareVariable(node, namespace):
     assert node.kind is DeclarationKind.variable, node.kind
 
     # Determine type.
@@ -73,7 +73,7 @@ def declareVariable(node, builder):
 
     # Add declaration to namespace.
     try:
-        return builder.emitVariable(name, typ, nameNode.location)
+        return namespace.addVariable(name, typ, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
             'failed to declare variable "%s %s": %s' % (typ, name, ex),
@@ -115,20 +115,20 @@ def convertDefinition(kind, nameNode, typ, value, builder):
 
     # Add definition to namespace.
     try:
-        return builder.defineReference(name, ref, nameNode.location)
+        return builder.namespace.define(name, ref, nameNode.location)
     except NameExistsError as ex:
         raise NameExistsError(
             'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
             ex.location
             )
 
-def _convertIdentifier(node, builder):
-    '''Looks up an identifier in the builder's namespace.
+def _convertIdentifier(node, namespace):
+    '''Looks up an identifier in a namespace.
     Returns either an IOChannel or a Reference.
     '''
     name = node.name
     try:
-        value = builder.namespace[name]
+        value = namespace[name]
     except KeyError:
         raise UnknownNameError(name, 'unknown name "%s"' % name, node.location)
     if isinstance(value, Function):
@@ -261,7 +261,7 @@ def buildExpression(node, builder):
     if isinstance(node, NumberNode):
         return IntLiteral(node.value)
     elif isinstance(node, IdentifierNode):
-        ident = _convertIdentifier(node, builder)
+        ident = _convertIdentifier(node, builder.namespace)
         if isinstance(ident, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
@@ -292,7 +292,7 @@ def buildExpression(node, builder):
 def _convertReferenceLookup(node, builder):
     exprNode, indexNode = node.operands
     if isinstance(exprNode, IdentifierNode):
-        ident = _convertIdentifier(exprNode, builder)
+        ident = _convertIdentifier(exprNode, builder.namespace)
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, builder)
@@ -395,14 +395,14 @@ def buildReference(node, builder):
         typ = IntType(node.width, node.width is unlimited)
         return Reference(FixedValue(literal, node.width), typ)
     elif isinstance(node, DeclarationNode):
-        return declareVariable(node, builder)
+        return declareVariable(node, builder.namespace)
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
             'definition must be only statement on a line',
             node.treeLocation
             )
     elif isinstance(node, IdentifierNode):
-        ident = _convertIdentifier(node, builder)
+        ident = _convertIdentifier(node, builder.namespace)
         if isinstance(ident, IOChannel):
             raise BadExpression(
                 'I/O channel "%s" can only be used for lookup' % node.name,
@@ -486,7 +486,7 @@ def emitCodeFromStatements(reader, builder, statements, retType):
         elif isinstance(node, DeclarationNode):
             # Variable declaration.
             try:
-                declareVariable(node, builder)
+                declareVariable(node, builder.namespace)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
             continue

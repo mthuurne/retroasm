@@ -52,7 +52,9 @@ def _parseRegs(reader, argStr, builder):
 
             for regName in parts[1:]:
                 try:
-                    builder.emitVariable(regName, regType, reader.getLocation())
+                    builder.namespace.addVariable(
+                        regName, regType, reader.getLocation()
+                        )
                 except ValueError as ex:
                     reader.error(str(ex))
                 except NameExistsError as ex:
@@ -95,7 +97,7 @@ def _parseRegs(reader, argStr, builder):
             # Add alias definition.
             try:
                 location = reader.getLocation()
-                builder.defineReference(aliasName, alias, location)
+                builder.namespace.define(aliasName, alias, location)
             except NameExistsError as ex:
                 reader.error(
                     'error defining register alias: %s', ex,
@@ -289,18 +291,19 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
     return placeholderSpecs, flagsRequired
 
 def _buildPlaceholder(spec, typ, builder):
+    namespace = builder.namespace
     decl = spec.decl
     name = decl.name.name
     value = spec.value
     if value is not None:
         convertDefinition(decl.kind, decl.name, typ, value, builder)
     elif isinstance(typ, ReferenceType):
-        builder.emitReferenceArgument(name, typ.type, decl.name.location)
+        namespace.addReferenceArgument(name, typ.type, decl.name.location)
     else:
         immediate = ArgumentValue(name, typ.mask)
         bits = FixedValue(immediate, typ.width)
         ref = Reference(bits, typ)
-        builder.defineReference(name, ref, decl.name.location)
+        builder.namespace.define(name, ref, decl.name.location)
 
 def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
@@ -664,12 +667,12 @@ def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
                     % (ref.type, modeType.type),
                     location=semLoc
                     )
-        semBuilder.defineReference('ret', ref, semLoc)
+        semBuilder.namespace.define('ret', ref, semLoc)
     else:
         expr = buildExpression(semantics, semBuilder)
         # Note that modeType can be None because of earlier errors.
         if modeType is not None:
-            ref = semBuilder.emitVariable('ret', modeType, semLoc)
+            ref = semBuilder.namespace.addVariable('ret', modeType, semLoc)
             ref.emitStore(semBuilder, expr, semLoc)
 
 def _rejectNodeClasses(node, badClasses):
@@ -835,12 +838,12 @@ def _parseModeEntries(
                             location = spec.decl.name.location
                             semType = spec.semanticsType
                             if isinstance(semType, ReferenceType):
-                                semBuilder.emitReferenceArgument(
+                                semBuilder.namespace.addReferenceArgument(
                                     name, semType.type, location
                                     )
                             else:
-                                semBuilder.emitValueArgument(
-                                    name, semType, location
+                                semBuilder.namespace.addValueArgument(
+                                    semBuilder, name, semType, location
                                     )
 
                         if not semStr:
