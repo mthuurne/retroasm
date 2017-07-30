@@ -1,7 +1,7 @@
 from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
-    Negation, OrOperator, RVShift, SignTest, XorOperator, optSlice, truncate
+    Negation, OrOperator, RVShift, SignTest, XorOperator, truncate
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,

@@ -1,6 +1,5 @@
 from .expression import Expression
 from .linereader import InputLocation
-from .reference import Reference
 from .storage import RefArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property

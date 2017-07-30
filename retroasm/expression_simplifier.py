@@ -1,7 +1,7 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
-    MultiExpression, Negation, OrOperator, RShift, RVShift, SignExtension,
-    SignTest, XorOperator, optSlice
+    Negation, OrOperator, RShift, RVShift, SignExtension, SignTest, XorOperator,
+    optSlice
     )
 from .types import maskForWidth, widthForMask
 

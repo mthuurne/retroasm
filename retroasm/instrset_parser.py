@@ -10,8 +10,8 @@ from .expression_builder import (
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
-    FlagTestNode, IdentifierNode, LabelNode, MultiMatchNode, NumberNode,
-    parseContext, parseExpr, parseExprList, parseInt, parseStatement
+    FlagTestNode, IdentifierNode, LabelNode, MultiMatchNode, parseContext,
+    parseExpr, parseExprList, parseInt, parseStatement
     )
 from .function_builder import createFunc
 from .instrset import InstructionSet

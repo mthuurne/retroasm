@@ -1,5 +1,5 @@
 from .codeblock import ArgumentValue, Store
-from .storage import IOStorage, Variable
+from .storage import IOStorage
 
 from enum import Enum
 

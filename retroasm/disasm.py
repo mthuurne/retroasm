@@ -1,14 +1,11 @@
 from .analysis import PlaceholderRole
-from .codeblock import ArgumentValue, LoadedValue
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
-from .mode import EncodeMatch, MatchPlaceholder, ValuePlaceholder
+from .mode import MatchPlaceholder, ValuePlaceholder
 from .reference import FixedValue, Reference
-from .storage import Variable
 from .types import IntType
-from .utils import checkType
 
 def buildMatch(match, builder, values):
     '''Adds the semantics of an EncodeMatch to the given code block builder
