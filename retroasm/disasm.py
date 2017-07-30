@@ -95,7 +95,7 @@ class Disassembler:
         '''
         instrSet = self._instrSet
         decoder = instrSet.decoder
-        globalNamespace = instrSet.globalNamespace
+        pcRef = instrSet.globalNamespace['pc']
         numBytes = fetcher.numBytes
 
         decoded = self._decoded
@@ -111,8 +111,7 @@ class Disassembler:
             if match is None:
                 decoded[addr] = fetcher[0]
             else:
-                builder = SemanticsCodeBlockBuilder(globalNamespace)
-                pcRef = builder.namespace['pc']
+                builder = SemanticsCodeBlockBuilder()
                 pcRef.emitStore(builder, IntLiteral(postAddr), None)
                 values = {}
                 buildMatch(match, builder, values)

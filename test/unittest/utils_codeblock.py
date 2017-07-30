@@ -1,10 +1,12 @@
 from retroasm.codeblock import Load, Store
 from retroasm.codeblock_builder import (
-    GlobalCodeBlockBuilder, SemanticsCodeBlockBuilder
+    SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
     )
 from retroasm.expression import Expression, IntLiteral
 from retroasm.expression_simplifier import simplifyExpression
-from retroasm.namespace import Namespace, GlobalNamespace
+from retroasm.namespace import (
+    GlobalNamespace, LocalNamespace, createIOReference
+    )
 from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Variable
 from retroasm.types import IntType, unlimited
@@ -42,30 +44,31 @@ class NodeChecker:
         mask = -1 if width is unlimited else ((1 << width) - 1)
         self.assertEqual(expr.value & mask, value)
 
-class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
+class TestNamespace(LocalNamespace):
 
-    def __init__(self, globalBuilder=None):
-        if globalBuilder is None:
-            globalBuilder = GlobalCodeBlockBuilder(GlobalNamespace())
-        self.globalBuilder = globalBuilder
-        SemanticsCodeBlockBuilder.__init__(self, globalBuilder.namespace)
+    def __init__(self, globalNamespace=None):
+        if globalNamespace is None:
+            globalBuilder = StatelessCodeBlockBuilder()
+            globalNamespace = GlobalNamespace(globalBuilder)
+        localBuilder = SemanticsCodeBlockBuilder()
+        LocalNamespace.__init__(self, globalNamespace, localBuilder)
 
     def emitLoad(self, ref):
-        return ref.emitLoad(self, None)
+        return ref.emitLoad(self.builder, None)
 
     def emitStore(self, ref, expr):
-        ref.emitStore(self, expr, None)
+        ref.emitStore(self.builder, expr, None)
 
     def addRegister(self, name, typ=IntType.u(8)):
         try:
-            ref = self.namespace[name]
+            ref = self[name]
         except KeyError:
             # Insert register into global namespace.
-            self.globalBuilder.namespace.addVariable(name, typ, None)
-            ref = self.namespace[name]
+            self.parent.addVariable(name, typ, None)
+            ref = self[name]
 
         # Check that existing global namespace entry is this register.
-        globalRef = self.globalBuilder.namespace[name]
+        globalRef = self.parent[name]
         assert isinstance(globalRef, Reference), globalRef
         assert isinstance(globalRef.bits, SingleStorage), globalRef.bits
         assert typ is globalRef.type, globalRef
@@ -78,30 +81,36 @@ class TestCodeBlockBuilder(SemanticsCodeBlockBuilder):
     def addIOStorage(self, channelName, index,
             elemType=IntType.u(8), addrType=IntType.u(16)):
         try:
-            channel = self.globalBuilder.namespace[channelName]
+            channel = self.parent[channelName]
         except KeyError:
             # Insert channel into global namespace.
             channel = IOChannel(channelName, elemType, addrType)
-            self.globalBuilder.namespace.define(channelName, channel, None)
+            self.parent.define(channelName, channel, None)
         else:
             # Check that existing global namespace entry is this channel.
             assert isinstance(channel, IOChannel), channel
             assert channel.elemType is elemType, channel
             assert channel.addrType is addrType, channel
         # Import channel from global namespace into local namespace.
-        localChannel = self.namespace[channelName]
+        localChannel = self[channelName]
         assert localChannel is channel
         # Create I/O storage.
-        return self.emitIOReference(localChannel, index)
+        return createIOReference(localChannel, index)
 
-    def addValueArgument(self, name, typ=IntType.u(8)):
-        return self.namespace.addValueArgument(self, name, typ, None)
+    def addValueArgument(self, name, typ=IntType.u(8), location=None):
+        return super().addValueArgument(name, typ, location)
 
-    def addReferenceArgument(self, name, typ=IntType.u(8)):
-        return self.namespace.addReferenceArgument(name, typ, None)
+    def addReferenceArgument(self, name, typ=IntType.u(8), location=None):
+        return super().addReferenceArgument(name, typ, location)
 
-    def addVariable(self, name, typ=IntType.u(8)):
-        return self.namespace.addVariable(name, typ, None)
+    def addVariable(self, name, typ=IntType.u(8), location=None):
+        return super().addVariable(name, typ, location)
 
     def addRetReference(self, value):
-        return self.namespace.define('ret', value, None)
+        return super().define('ret', value, None)
+
+    def inlineBlock(self, code, argFetcher):
+        return self.builder.inlineBlock(code, argFetcher)
+
+    def inlineFunctionCall(self, func, argMap, location=None):
+        return self.builder.inlineFunctionCall(func, argMap, location)

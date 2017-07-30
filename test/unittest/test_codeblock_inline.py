@@ -1,4 +1,4 @@
-from utils_codeblock import NodeChecker, TestCodeBlockBuilder
+from utils_codeblock import NodeChecker, TestNamespace
 
 from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral
@@ -31,14 +31,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_easy(self):
         '''Test whether inlining works when there are no complications.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         innerA = inner.addRegister('a', IntType.u(16))
         const = IntLiteral(12345)
         inner.emitStore(innerA, const)
 
         # Share the global namespace to make sure that the outer and inner block
         # are using the same registers.
-        outer = TestCodeBlockBuilder(inner.globalBuilder)
+        outer = TestNamespace(inner)
         outerA = outer.addRegister('a', IntType.u(16))
         zero = IntLiteral(0)
         outer.emitStore(outerA, zero)
@@ -58,7 +58,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addValueArgument('V')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
@@ -66,7 +66,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inc.emitStore(incRet, incAdd)
         incCode = inc.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         argsV = lambda value: args(V=FixedValue(value, 8))
         step0 = IntLiteral(100)
         step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
@@ -85,7 +85,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_multiret(self):
         '''Test whether inlining works when "ret" is written multiple times.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         val0 = IntLiteral(1000)
         val1 = IntLiteral(2000)
         val2 = IntLiteral(3000)
@@ -95,7 +95,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner.emitStore(innerRet, val2)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         inlinedVal = outer.emitLoad(outer.inlineBlock(innerCode, args()))
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, inlinedVal)
@@ -110,15 +110,15 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_ret_truncate(self):
         '''Test whether the value returned by a block is truncated.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         innerVal = IntLiteral(0x8472)
         innerRet = inner.addVariable('ret')
         inner.emitStore(innerRet, innerVal)
         innerCode = inner.createCodeBlock()
         func = Function(IntType.u(8), {}, innerCode)
 
-        outer = TestCodeBlockBuilder()
-        outerVal = outer.emitLoad(outer.inlineFunctionCall(func, {}, None))
+        outer = TestNamespace()
+        outerVal = outer.emitLoad(outer.inlineFunctionCall(func, {}))
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, outerVal)
 
@@ -133,7 +133,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_truncate(self):
         '''Test whether expressions passed via value arguments are truncated.'''
         # Note: Default width is 8 bits.
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addValueArgument('V')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
@@ -142,7 +142,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incCode = inc.createCodeBlock()
         func = Function(IntType.u(8), {'V': IntType.u(8)}, incCode)
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         argsV = lambda value: args(V=FixedValue(value, 8))
         step0 = IntLiteral(0x89FE)
         step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
@@ -161,21 +161,20 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addReferenceArgument('R')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
         inc.emitStore(incArgRef, incAdd)
         incCode = inc.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         outerA = outer.addRegister('a')
-        regA = outer.namespace['a']
         initA = IntLiteral(100)
         outer.emitStore(outerA, initA)
-        outer.inlineBlock(incCode, args(R=regA.bits))
-        outer.inlineBlock(incCode, args(R=regA.bits))
-        outer.inlineBlock(incCode, args(R=regA.bits))
+        outer.inlineBlock(incCode, args(R=outerA.bits))
+        outer.inlineBlock(incCode, args(R=outerA.bits))
+        outer.inlineBlock(incCode, args(R=outerA.bits))
         outerRet = outer.addVariable('ret')
         finalA = outer.emitLoad(outerA)
         outer.emitStore(outerRet, finalA)
@@ -191,19 +190,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addReferenceArgument('R', IntType.u(16))
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
         incCode = inc.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         outerH = outer.addRegister('h')
         outerL = outer.addRegister('l')
-        regH = outer.namespace['h']
-        regL = outer.namespace['l']
-        bitsHL = ConcatenatedBits(regL.bits, regH.bits)
+        bitsHL = ConcatenatedBits(outerL.bits, outerH.bits)
 
         initH = IntLiteral(0xab)
         initL = IntLiteral(0xcd)
@@ -229,18 +226,17 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addReferenceArgument('R', IntType.u(16))
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
         incCode = inc.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         outerH = outer.addRegister('h')
         outerL = FixedValue(IntLiteral(0xcd), 8)
-        regH = outer.namespace['h']
-        bitsHL = ConcatenatedBits(outerL, regH.bits)
+        bitsHL = ConcatenatedBits(outerL, outerH.bits)
 
         initH = IntLiteral(0xab)
         outer.emitStore(outerH, initH)
@@ -263,19 +259,18 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
-        inc = TestCodeBlockBuilder()
+        inc = TestNamespace()
         incArgRef = inc.addReferenceArgument('R')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x12))
         inc.emitStore(incArgRef, incAdd)
         incCode = inc.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         outerR = outer.addRegister('r', IntType.u(16))
-        regR = outer.namespace['r']
         initR = IntLiteral(0xcdef)
         outer.emitStore(outerR, initR)
-        sliceR = SlicedBits(regR.bits, IntLiteral(4), 8)
+        sliceR = SlicedBits(outerR.bits, IntLiteral(4), 8)
         outer.inlineBlock(incCode, args(R=sliceR))
         outer.inlineBlock(incCode, args(R=sliceR))
         outer.inlineBlock(incCode, args(R=sliceR))
@@ -295,14 +290,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_inline_unsigned_reg(self):
         '''Test reading of an unsigned register.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         innerA = inner.addRegister('a')
         innerLoad = inner.emitLoad(innerA)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, innerLoad)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder(inner.globalBuilder)
+        outer = TestNamespace(inner)
         outerA = outer.addRegister('a')
         initA = IntLiteral(0xb2)
         outer.emitStore(outerA, initA)
@@ -321,14 +316,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_inline_signed_reg(self):
         '''Test reading of a signed register.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         innerA = inner.addRegister('a', IntType.s(8))
         innerLoad = inner.emitLoad(innerA)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, innerLoad)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder(inner.globalBuilder)
+        outer = TestNamespace(inner)
         outerA = outer.addRegister('a', IntType.s(8))
         initA = IntLiteral(0xb2)
         outer.emitStore(outerA, initA)
@@ -349,14 +344,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_load_from_unsigned_reference_arg(self):
         '''Test reading of a value passed via an unsigned reference.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         argRef = inner.addReferenceArgument('R')
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         fixedVal = FixedValue(IntLiteral(0xa4), 8)
         retBits = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
@@ -373,14 +368,14 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_load_from_signed_reference_arg(self):
         '''Test reading of a value passed via a signed reference.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         argRef = inner.addReferenceArgument('R', IntType.s(8))
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)
         innerCode = inner.createCodeBlock()
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         fixedVal = FixedValue(IntLiteral(0xa4), 8)
         retBits = outer.inlineBlock(innerCode, args(R=fixedVal))
         outerRet = outer.addVariable('ret', IntType.u(16))
@@ -397,13 +392,13 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_return_simple_reference(self):
         '''Test returning a reference to a global.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         innerA = inner.addRegister('a')
         inner.addRetReference(innerA)
         innerCode = inner.createCodeBlock()
         self.assertIsNotNone(innerCode.retBits)
 
-        outer = TestCodeBlockBuilder(inner.globalBuilder)
+        outer = TestNamespace(inner)
         retBits = outer.inlineBlock(innerCode, args())
         outerA = outer.addRegister('a')
         fake = IntLiteral(0xdc)
@@ -425,7 +420,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
 
     def test_return_io_reference(self):
         '''Test returning a reference to an index in an I/O channel.'''
-        inner = TestCodeBlockBuilder()
+        inner = TestNamespace()
         addrArg = inner.addValueArgument('A', IntType.u(16))
         addrVal = inner.emitLoad(addrArg)
         memByte = inner.addIOStorage('mem', addrVal)
@@ -433,7 +428,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerCode = inner.createCodeBlock()
         self.assertIsNotNone(innerCode.retBits)
 
-        outer = TestCodeBlockBuilder()
+        outer = TestNamespace()
         addr = FixedValue(IntLiteral(0x4002), 16)
         retBits = outer.inlineBlock(innerCode, args(A=addr))
         outerRet = outer.addVariable('ret')

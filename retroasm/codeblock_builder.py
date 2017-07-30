@@ -1,29 +1,15 @@
 from .codeblock import ArgumentValue, Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
-from .expression import optSlice
 from .linereader import BadInput
-from .namespace import LocalNamespace
-from .reference import BitString, Reference, SingleStorage
-from .storage import IOStorage, RefArgStorage, Variable
-from .utils import checkType
+from .reference import BitString, SingleStorage
+from .storage import RefArgStorage, Variable
 
 class CodeBlockBuilder:
-
-    def __init__(self, namespace):
-        self.namespace = namespace
 
     def dump(self):
         '''Prints the current state of this code block builder on stdout.
         '''
-        if 'ret' in self.namespace:
-            print('    return ref %s' % self.namespace['ret'])
-
-    def emitIOReference(self, channel, index):
-        addrWidth = channel.addrType.width
-        truncatedIndex = optSlice(index, 0, addrWidth)
-        storage = IOStorage(channel, truncatedIndex)
-        bits = SingleStorage(storage)
-        return Reference(bits, channel.elemType)
+        pass
 
     def emitLoadBits(self, storage, location):
         '''Loads the value from the given storage by emitting a Load node on
@@ -52,9 +38,9 @@ class IllegalStateAccess(BadInput):
     in a situation where that is not allowed.
     '''
 
-class StatelessCodeBlockBuilderMixin:
-    '''A CodeBlockBuilder can inherit this to raise IllegalStateAccess when its
-    users attempt touch any state, such as performing register access or I/O.
+class StatelessCodeBlockBuilder(CodeBlockBuilder):
+    '''A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
+    touch any state, such as performing register access or I/O.
     '''
 
     def emitLoadBits(self, storage, location):
@@ -77,24 +63,9 @@ class StatelessCodeBlockBuilderMixin:
             location
             )
 
-class GlobalCodeBlockBuilder(StatelessCodeBlockBuilderMixin, CodeBlockBuilder):
-    pass
+class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
-class LocalCodeBlockBuilder(CodeBlockBuilder):
-
-    def __init__(self, parentNamespace):
-        namespace = LocalNamespace(parentNamespace)
-        CodeBlockBuilder.__init__(self, namespace)
-
-class EncodingCodeBlockBuilder(
-        StatelessCodeBlockBuilderMixin, LocalCodeBlockBuilder
-        ):
-    pass
-
-class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
-
-    def __init__(self, parentNamespace):
-        LocalCodeBlockBuilder.__init__(self, parentNamespace)
+    def __init__(self):
         self.nodes = []
 
     def dump(self):
@@ -102,20 +73,14 @@ class SemanticsCodeBlockBuilder(LocalCodeBlockBuilder):
             print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
-    def createCodeBlock(self, ret='ret', log=None):
+    def createCodeBlock(self, retBits, log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If 'ret' is a reference, that will be used for the returned bit string.
-        If 'ret' is an existing name in this block's namespace, the reference
-        with that name will be used for the returned bit string.
-        If 'ret' is None or a non-existing name, the created code block will
-        not return anything.
+        If 'ret' is a bit string, that will be used for the returned bit string.
+        If 'ret' is None, the created code block will not return anything.
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        if isinstance(ret, str):
-            ret = self.namespace.get(ret)
-        retBits = None if ret is None else ret.bits
         code = CodeBlockSimplifier(self.nodes, retBits)
 
         # Check for reading of uninitialized variables.

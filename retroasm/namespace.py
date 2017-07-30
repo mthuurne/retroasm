@@ -1,7 +1,8 @@
 from .codeblock import ArgumentValue
+from .expression import optSlice
 from .linereader import BadInput
 from .reference import Reference, SingleStorage
-from .storage import RefArgStorage, Variable
+from .storage import IOStorage, RefArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
 
@@ -13,7 +14,8 @@ class Namespace:
     '''
     scope = property()
 
-    def __init__(self):
+    def __init__(self, builder):
+        self.builder = builder
         self.elements = {}
         self.locations = {}
 
@@ -28,6 +30,14 @@ class Namespace:
 
     def __getitem__(self, key):
         return self.elements[key]
+
+    def dump(self):
+        '''Prints the current state of this namespace and its code block
+        builder on stdout.
+        '''
+        self.builder.dump()
+        if 'ret' in self.elements:
+            print('    return ref %s' % self.elements['ret'])
 
     def get(self, key):
         return self.elements.get(key)
@@ -76,7 +86,7 @@ class Namespace:
         storage = Variable(typ.width, self.scope)
         return self._addNamedStorage(name, storage, typ, location)
 
-    def addValueArgument(self, builder, name, typ, location):
+    def addValueArgument(self, name, typ, location):
         '''Adds a passed-by-value argument to this namespace.
         A variable is created with the same name as the argument. The passed
         value is represented by an ArgumentValue and a store is emitted on the
@@ -91,7 +101,7 @@ class Namespace:
         ref = self.addVariable(name, typ, location)
 
         # Store initial value.
-        ref.emitStore(builder, value, location)
+        ref.emitStore(self.builder, value, location)
 
         return ref
 
@@ -122,8 +132,8 @@ class LocalNamespace(Namespace):
     '''
     scope = property(lambda self: 1)
 
-    def __init__(self, parent):
-        Namespace.__init__(self)
+    def __init__(self, parent, builder):
+        Namespace.__init__(self, builder)
         self.parent = checkType(parent, Namespace, 'parent namespace')
 
     def __contains__(self, key):
@@ -145,7 +155,28 @@ class LocalNamespace(Namespace):
                 location
                 )
 
+    def createCodeBlock(self, ret='ret', log=None):
+        '''Returns a CodeBlock object containing the items emitted so far.
+        The state of the builder does not change.
+        If 'ret' is an existing name in this namespace, the reference with that
+        name will be used for the returned bit string.
+        If 'ret' is None or a non-existing name, the created code block will
+        not return anything.
+        Raises ValueError if our builder does not represent a valid code block.
+        If a log is provided, errors are logged individually as well.
+        '''
+        retRef = None if ret is None else self.elements.get(ret)
+        retBits = None if retRef is None else retRef.bits
+        return self.builder.createCodeBlock(retBits, log)
+
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name
     which is already in use.
     '''
+
+def createIOReference(channel, index):
+    addrWidth = channel.addrType.width
+    truncatedIndex = optSlice(index, 0, addrWidth)
+    storage = IOStorage(channel, truncatedIndex)
+    bits = SingleStorage(storage)
+    return Reference(bits, channel.elemType)

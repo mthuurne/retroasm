@@ -1,7 +1,7 @@
 from .analysis import determinePlaceholderRoles
 from .codeblock import ArgumentValue
 from .codeblock_builder import (
-    EncodingCodeBlockBuilder, GlobalCodeBlockBuilder, SemanticsCodeBlockBuilder
+    SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
     )
 from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .expression import IntLiteral
@@ -20,7 +20,7 @@ from .mode import (
     EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode, ModeEntry,
     ValuePlaceholder
     )
-from .namespace import GlobalNamespace, NameExistsError
+from .namespace import GlobalNamespace, LocalNamespace, NameExistsError
 from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
 from .storage import IOChannel, namePat
 from .types import (
@@ -33,7 +33,7 @@ import re
 _nameTok = r'\s*(' + namePat + r')\s*'
 _typeTok = r'\s*(' + namePat + r'&?)\s*'
 
-def _parseRegs(reader, argStr, builder):
+def _parseRegs(reader, argStr, globalNamespace):
     headerLocation = reader.getLocation()
     if argStr:
         reader.error('register definition must have no arguments')
@@ -52,7 +52,7 @@ def _parseRegs(reader, argStr, builder):
 
             for regName in parts[1:]:
                 try:
-                    builder.namespace.addVariable(
+                    globalNamespace.addVariable(
                         regName, regType, reader.getLocation()
                         )
                 except ValueError as ex:
@@ -83,7 +83,7 @@ def _parseRegs(reader, argStr, builder):
             rhsLoc = reader.getLocation((len(parts[0]) + 1, len(line)))
             try:
                 tree = parseExpr(parts[1], rhsLoc)
-                alias = buildReference(tree, builder)
+                alias = buildReference(tree, globalNamespace)
             except BadInput as ex:
                 reader.error(str(ex), location=ex.location)
                 continue
@@ -97,7 +97,7 @@ def _parseRegs(reader, argStr, builder):
             # Add alias definition.
             try:
                 location = reader.getLocation()
-                builder.namespace.define(aliasName, alias, location)
+                globalNamespace.define(aliasName, alias, location)
             except NameExistsError as ex:
                 reader.error(
                     'error defining register alias: %s', ex,
@@ -106,7 +106,7 @@ def _parseRegs(reader, argStr, builder):
         else:
             reader.error('register definition line with multiple "="')
 
-    if 'pc' not in builder.namespace:
+    if 'pc' not in globalNamespace:
         reader.error(
             'no program counter defined: '
             'a register or alias named "pc" is required',
@@ -290,22 +290,21 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
 
     return placeholderSpecs, flagsRequired
 
-def _buildPlaceholder(spec, typ, builder):
-    namespace = builder.namespace
+def _buildPlaceholder(spec, typ, namespace):
     decl = spec.decl
     name = decl.name.name
     value = spec.value
     if value is not None:
-        convertDefinition(decl.kind, decl.name, typ, value, builder)
+        convertDefinition(decl.kind, decl.name, typ, value, namespace)
     elif isinstance(typ, ReferenceType):
         namespace.addReferenceArgument(name, typ.type, decl.name.location)
     else:
         immediate = ArgumentValue(name, typ.mask)
         bits = FixedValue(immediate, typ.width)
         ref = Reference(bits, typ)
-        builder.namespace.define(name, ref, decl.name.location)
+        namespace.define(name, ref, decl.name.location)
 
-def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
+def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
     # Errors are stored rather than reported immediately, since it is possible
     # to define expressions that are valid as semantics but not as encodings.
@@ -318,7 +317,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
         if encWidth is not None:
             encType = IntType.u(encWidth)
             try:
-                _buildPlaceholder(spec, encType, encBuilder)
+                _buildPlaceholder(spec, encType, encNamespace)
             except BadInput as ex:
                 encErrors[name] = ex
 
@@ -407,7 +406,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
         else:
             # Expression possibly containing single encoding field matches.
             try:
-                encRef = buildReference(encNode, encBuilder)
+                encRef = buildReference(encNode, encNamespace)
             except BadInput as ex:
                 if isinstance(ex, UnknownNameError):
                     placeholder = placeholderSpecs.get(ex.name)
@@ -430,7 +429,7 @@ def _parseModeEncoding(encNodes, encBuilder, placeholderSpecs, reader):
                 continue
 
             try:
-                encValue = encRef.emitLoad(encBuilder, encLoc)
+                encValue = encRef.emitLoad(encNamespace.builder, encLoc)
             except BadInput as ex:
                 reader.error(
                     'error evaluating encoding: %s', ex,
@@ -656,10 +655,10 @@ def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
         sequentialMap[None] = fixedMatcher
         return sequentialMap
 
-def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
+def _parseModeSemantics(semStr, semLoc, semNamespace, modeType):
     semantics = parseExpr(semStr, semLoc)
     if isinstance(modeType, ReferenceType):
-        ref = buildReference(semantics, semBuilder)
+        ref = buildReference(semantics, semNamespace)
         if modeType is not None:
             if ref.type != modeType.type:
                 raise BadInput(
@@ -667,13 +666,13 @@ def _parseModeSemantics(semStr, semLoc, semBuilder, modeType):
                     % (ref.type, modeType.type),
                     location=semLoc
                     )
-        semBuilder.namespace.define('ret', ref, semLoc)
+        semNamespace.define('ret', ref, semLoc)
     else:
-        expr = buildExpression(semantics, semBuilder)
+        expr = buildExpression(semantics, semNamespace)
         # Note that modeType can be None because of earlier errors.
         if modeType is not None:
-            ref = semBuilder.namespace.addVariable('ret', modeType, semLoc)
-            ref.emitStore(semBuilder, expr, semLoc)
+            ref = semNamespace.addVariable('ret', modeType, semLoc)
+            ref.emitStore(semNamespace.builder, expr, semLoc)
 
 def _rejectNodeClasses(node, badClasses):
     if isinstance(node, badClasses):
@@ -682,21 +681,21 @@ def _rejectNodeClasses(node, badClasses):
             location=node.treeLocation
             )
 
-def _parseInstrSemantics(semStr, semLoc, builder, modeType):
+def _parseInstrSemantics(semStr, semLoc, namespace, modeType):
     assert modeType is None, modeType
     node = parseStatement(semStr, semLoc)
     if isinstance(node, AssignmentNode):
         _rejectNodeClasses(node.lhs, (DefinitionNode, DeclarationNode))
-        lhs = buildReference(node.lhs, builder)
-        rhs = buildExpression(node.rhs, builder)
-        lhs.emitStore(builder, rhs, node.lhs.treeLocation)
+        lhs = buildReference(node.lhs, namespace)
+        rhs = buildExpression(node.rhs, namespace)
+        lhs.emitStore(namespace.builder, rhs, node.lhs.treeLocation)
     elif isinstance(node, EmptyNode):
         pass
     else:
         _rejectNodeClasses(node, (
             DefinitionNode, DeclarationNode, BranchNode, LabelNode
             ))
-        buildExpression(node, builder)
+        buildExpression(node, namespace)
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
@@ -736,7 +735,8 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
-        reader, namespace, modes, modeType, mnemBase, parseSem, wantSemantics
+        reader, globalNamespace, modes, modeType, mnemBase, parseSem,
+        wantSemantics
         ):
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
@@ -767,17 +767,18 @@ def _parseModeEntries(
                     placeholderSpecs, flagsRequired = {}, set()
 
                 # Compute semantics for placeholders.
-                ctxBuilder = SemanticsCodeBlockBuilder(namespace)
+                ctxBuilder = SemanticsCodeBlockBuilder()
+                ctxNamespace = LocalNamespace(globalNamespace, ctxBuilder)
                 placeholders = OrderedDict()
                 try:
                     for name, spec in placeholderSpecs.items():
                         semType = spec.semanticsType
-                        _buildPlaceholder(spec, semType, ctxBuilder)
+                        _buildPlaceholder(spec, semType, ctxNamespace)
                         if isinstance(spec, ValuePlaceholderSpec):
                             if spec.value is None:
                                 code = None
                             else:
-                                code = ctxBuilder.createCodeBlock(name)
+                                code = ctxNamespace.createCodeBlock(name)
                             placeholder = ValuePlaceholder(name, semType, code)
                         elif isinstance(spec, MatchPlaceholderSpec):
                             placeholder = MatchPlaceholder(name, spec.mode)
@@ -792,7 +793,8 @@ def _parseModeEntries(
                     continue
 
                 # Parse encoding.
-                encBuilder = EncodingCodeBlockBuilder(namespace)
+                encBuilder = StatelessCodeBlockBuilder()
+                encNamespace = LocalNamespace(globalNamespace, encBuilder)
                 if encStr:
                     try:
                         # Parse encoding field.
@@ -811,7 +813,7 @@ def _parseModeEntries(
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
-                                encNodes, encBuilder, placeholderSpecs, reader
+                                encNodes, encNamespace, placeholderSpecs, reader
                                 ))
                     except DelayedError:
                         encoding = None
@@ -831,19 +833,20 @@ def _parseModeEntries(
 
                 # Parse semantics.
                 if wantSemantics:
-                    semBuilder = SemanticsCodeBlockBuilder(namespace)
+                    semBuilder = SemanticsCodeBlockBuilder()
+                    semNamespace = LocalNamespace(globalNamespace, semBuilder)
                     try:
                         # Define placeholders in semantics builder.
                         for name, spec in placeholderSpecs.items():
                             location = spec.decl.name.location
                             semType = spec.semanticsType
                             if isinstance(semType, ReferenceType):
-                                semBuilder.namespace.addReferenceArgument(
+                                semNamespace.addReferenceArgument(
                                     name, semType.type, location
                                     )
                             else:
-                                semBuilder.namespace.addValueArgument(
-                                    semBuilder, name, semType, location
+                                semNamespace.addValueArgument(
+                                    name, semType, location
                                     )
 
                         if not semStr:
@@ -851,7 +854,7 @@ def _parseModeEntries(
                             semStr = mnemStr
                             semLoc = mnemLoc
 
-                        parseSem(semStr, semLoc, semBuilder, modeType)
+                        parseSem(semStr, semLoc, semNamespace, modeType)
                     except BadInput as ex:
                         reader.error(
                             'error in semantics: %s', ex, location=ex.location
@@ -859,7 +862,7 @@ def _parseModeEntries(
                         # This is the last field.
                         continue
                     try:
-                        semantics = semBuilder.createCodeBlock(log=reader)
+                        semantics = semNamespace.createCodeBlock(log=reader)
                         # TODO: Inline code block into ctxBuilder as a function
                         #       call, where all placeholders are arguments.
                         #       Store the result in the ModeEntry, in addition
@@ -873,7 +876,7 @@ def _parseModeEntries(
             pass
         else:
             # Perform some basic analysis.
-            pc = namespace['pc'].bits.storage
+            pc = globalNamespace['pc'].bits.storage
             determinePlaceholderRoles(semantics, placeholders, pc)
 
             yield ModeEntry(
@@ -933,7 +936,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
-def _parseMode(reader, namespace, modes, wantSemantics):
+def _parseMode(reader, globalNamespace, modes, wantSemantics):
     # Parse header line.
     modeLocation = reader.getLocation()
     match = _reModeHeader.match(modeLocation.line)
@@ -972,7 +975,7 @@ def _parseMode(reader, namespace, modes, wantSemantics):
 
     # Parse entries.
     entries = list(_parseModeEntries(
-        reader, namespace, modes, semType, (), _parseModeSemantics,
+        reader, globalNamespace, modes, semType, (), _parseModeSemantics,
         wantSemantics
         ))
 
@@ -983,12 +986,12 @@ def _parseMode(reader, namespace, modes, wantSemantics):
     if addMode:
         modes[modeName] = mode
 
-def _parseInstr(reader, argStr, namespace, modes, wantSemantics):
+def _parseInstr(reader, argStr, globalNamespace, modes, wantSemantics):
     mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
 
     for instr in _parseModeEntries(
-            reader, namespace, modes, None, mnemBase, _parseInstrSemantics,
-            wantSemantics
+            reader, globalNamespace, modes, None, mnemBase,
+            _parseInstrSemantics, wantSemantics
             ):
         encWidth = instr.encodingWidth
         if encWidth is None:
@@ -1013,8 +1016,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
         logger = getLogger('parse-instr')
         logger.setLevel(WARNING)
 
-    globalNamespace = GlobalNamespace()
-    builder = GlobalCodeBlockBuilder(globalNamespace)
+    globalBuilder = StatelessCodeBlockBuilder()
+    globalNamespace = GlobalNamespace(globalBuilder)
     modes = {}
     instructions = []
 
@@ -1026,7 +1029,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             defType = parts[0]
             argStr = '' if len(parts) == 1 else parts[1]
             if defType == 'reg':
-                _parseRegs(reader, argStr, builder)
+                _parseRegs(reader, argStr, globalNamespace)
             elif defType == 'io':
                 _parseIO(reader, argStr, globalNamespace)
             elif defType == 'func':

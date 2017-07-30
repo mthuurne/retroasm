@@ -3,6 +3,7 @@ from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, parseStatement
 from .function import Function
 from .linereader import DelayedError
+from .namespace import LocalNamespace
 from .types import ReferenceType
 
 def _parseBody(reader):
@@ -21,28 +22,27 @@ def _parseBody(reader):
 def createFunc(reader, funcName, retType, args, globalNamespace):
     headerLocation = reader.getLocation()
 
-    builder = SemanticsCodeBlockBuilder(globalNamespace)
-    namespace = builder.namespace
+    builder = SemanticsCodeBlockBuilder()
+    namespace = LocalNamespace(globalNamespace, builder)
     for argName, argDecl in args.items():
         if isinstance(argDecl, ReferenceType):
             namespace.addReferenceArgument(
                 argName, argDecl.type, headerLocation
                 )
         else:
-            namespace.addValueArgument(
-                builder, argName, argDecl, headerLocation
-                )
+            namespace.addValueArgument(argName, argDecl, headerLocation)
     if retType is not None and not isinstance(retType, ReferenceType):
         namespace.addVariable('ret', retType, headerLocation)
 
     try:
         with reader.checkErrors():
-            emitCodeFromStatements(reader, builder, _parseBody(reader), retType)
+            bodyNodes = _parseBody(reader)
+            emitCodeFromStatements(reader, namespace, bodyNodes, retType)
     except DelayedError:
         code = None
     else:
         try:
-            code = builder.createCodeBlock(log=reader)
+            code = namespace.createCodeBlock(log=reader)
         except ValueError:
             code = None
 
