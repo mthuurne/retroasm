@@ -37,7 +37,7 @@ class Namespace:
         '''
         self.builder.dump()
         if 'ret' in self.elements:
-            print('    return ref %s' % self.elements['ret'])
+            print('    return %s' % self.elements['ret'])
 
     def get(self, key):
         return self.elements.get(key)

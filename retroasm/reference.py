@@ -307,6 +307,9 @@ class Reference:
                 % (bits.width, typ)
                 )
 
+    def __str__(self):
+        return '%s& %s' % (self._type, self._bits)
+
     def emitLoad(self, builder, location):
         '''Emits load nodes for loading a typed value from the referenced
         bit string.
