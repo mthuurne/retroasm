@@ -299,8 +299,9 @@ def _buildPlaceholder(spec, typ, namespace):
     elif isinstance(typ, ReferenceType):
         namespace.addReferenceArgument(name, typ.type, decl.name.location)
     else:
-        immediate = ArgumentValue(name, typ.mask)
-        bits = FixedValue(immediate, typ.width)
+        width = typ.width
+        immediate = ArgumentValue(name, maskForWidth(width))
+        bits = FixedValue(immediate, width)
         ref = Reference(bits, typ)
         namespace.define(name, ref, decl.name.location)
 

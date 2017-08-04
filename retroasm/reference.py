@@ -4,7 +4,7 @@ from .expression import (
     )
 from .expression_simplifier import simplifyExpression
 from .storage import Storage
-from .types import IntType, maskForWidth, unlimited
+from .types import IntType, maskForWidth, unlimited, widthForMask
 from .utils import checkType
 
 class BitString:
@@ -60,8 +60,12 @@ class FixedValue(BitString):
     expr = property(lambda self: self._expr)
 
     def __init__(self, expr, width):
+        '''Construct a FixedValue with the given value and width.
+        The mask of the value Expression must fit within the given width.
+        '''
         BitString.__init__(self, width)
         self._expr = Expression.checkScalar(expr)
+        assert widthForMask(expr.mask) <= width, expr
 
     def __repr__(self):
         return 'FixedValue(%r, %s)' % (self._expr, self._width)

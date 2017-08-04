@@ -130,35 +130,6 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         self.assertRetVal(code, 0x72)
         self.assertEqual(retWidth, 16)
 
-    def test_arg_truncate(self):
-        '''Test whether expressions passed via value arguments are truncated.'''
-        # Note: Default width is 8 bits.
-        inc = TestNamespace()
-        incArgRef = inc.addValueArgument('V')
-        incArgVal = inc.emitLoad(incArgRef)
-        incAdd = AddOperator(incArgVal, IntLiteral(1))
-        incRet = inc.addVariable('ret')
-        inc.emitStore(incRet, incAdd)
-        incCode = inc.createCodeBlock()
-        func = Function(IntType.u(8), {'V': IntType.u(8)}, incCode)
-
-        outer = TestNamespace()
-        argsV = lambda value: args(V=FixedValue(value, 8))
-        step0 = IntLiteral(0x89FE)
-        step1 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step0)))
-        step2 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step1)))
-        step3 = outer.emitLoad(outer.inlineBlock(incCode, argsV(step2)))
-        outerRet = outer.addVariable('ret', IntType.u(16))
-        outer.emitStore(outerRet, step3)
-
-        code = createSimplifiedCode(outer)
-        correct = (
-            )
-        self.assertNodes(code.nodes, correct)
-        retVal, retWidth = self.getRetVal(code)
-        self.assertRetVal(code, 1)
-        self.assertEqual(retWidth, 16)
-
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
         inc = TestNamespace()
