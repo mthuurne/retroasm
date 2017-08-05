@@ -221,7 +221,8 @@ class ModeEntry:
                     )
 
         # Perform some basic analysis.
-        determinePlaceholderRoles(semantics, placeholders, pc)
+        if pc is not None:
+            determinePlaceholderRoles(semantics, placeholders, pc)
 
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r, %r)' % (

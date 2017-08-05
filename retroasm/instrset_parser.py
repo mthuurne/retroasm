@@ -20,7 +20,9 @@ from .mode import (
     ValuePlaceholder
     )
 from .namespace import GlobalNamespace, LocalNamespace, NameExistsError
-from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
+from .reference import (
+    ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits
+    )
 from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
@@ -105,12 +107,23 @@ def _parseRegs(reader, argStr, globalNamespace):
         else:
             reader.error('register definition line with multiple "="')
 
+    # Check the program counter.
     if 'pc' not in globalNamespace:
         reader.error(
             'no program counter defined: '
             'a register or alias named "pc" is required',
             location=headerLocation
             )
+        return None
+    pcBits = globalNamespace['pc'].bits
+    if isinstance(pcBits, SingleStorage):
+        return pcBits.storage
+    else:
+        reader.error(
+            'program counter must be a single register',
+            location=globalNamespace.locations['pc']
+            )
+        return None
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
@@ -735,7 +748,7 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
-        reader, globalNamespace, modes, modeType, mnemBase, parseSem,
+        reader, globalNamespace, pc, modes, modeType, mnemBase, parseSem,
         wantSemantics
         ):
     for line in reader.iterBlock():
@@ -875,7 +888,6 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
-            pc = globalNamespace['pc'].bits.storage
             yield ModeEntry(
                 encoding, decoding, mnemonic, modeType, semantics, pc,
                 placeholders, flagsRequired, reader.getLocation()
@@ -933,7 +945,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
-def _parseMode(reader, globalNamespace, modes, wantSemantics):
+def _parseMode(reader, globalNamespace, pc, modes, wantSemantics):
     # Parse header line.
     modeLocation = reader.getLocation()
     match = _reModeHeader.match(modeLocation.line)
@@ -972,7 +984,7 @@ def _parseMode(reader, globalNamespace, modes, wantSemantics):
 
     # Parse entries.
     entries = list(_parseModeEntries(
-        reader, globalNamespace, modes, semType, (), _parseModeSemantics,
+        reader, globalNamespace, pc, modes, semType, (), _parseModeSemantics,
         wantSemantics
         ))
 
@@ -983,11 +995,11 @@ def _parseMode(reader, globalNamespace, modes, wantSemantics):
     if addMode:
         modes[modeName] = mode
 
-def _parseInstr(reader, argStr, globalNamespace, modes, wantSemantics):
+def _parseInstr(reader, argStr, globalNamespace, pc, modes, wantSemantics):
     mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
 
     for instr in _parseModeEntries(
-            reader, globalNamespace, modes, None, mnemBase,
+            reader, globalNamespace, pc, modes, None, mnemBase,
             _parseInstrSemantics, wantSemantics
             ):
         encWidth = instr.encodingWidth
@@ -1017,6 +1029,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
     globalNamespace = GlobalNamespace(globalBuilder)
     modes = {}
     instructions = []
+    pc = None
 
     with DefLineReader.open(pathname, logger) as reader:
         for header in reader:
@@ -1026,16 +1039,16 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             defType = parts[0]
             argStr = '' if len(parts) == 1 else parts[1]
             if defType == 'reg':
-                _parseRegs(reader, argStr, globalNamespace)
+                pc = _parseRegs(reader, argStr, globalNamespace)
             elif defType == 'io':
                 _parseIO(reader, argStr, globalNamespace)
             elif defType == 'func':
                 _parseFunc(reader, argStr, globalNamespace, wantSemantics)
             elif defType == 'mode':
-                _parseMode(reader, globalNamespace, modes, wantSemantics)
+                _parseMode(reader, globalNamespace, pc, modes, wantSemantics)
             elif defType == 'instr':
                 instructions += _parseInstr(
-                    reader, argStr, globalNamespace, modes, wantSemantics
+                    reader, argStr, globalNamespace, pc, modes, wantSemantics
                     )
             else:
                 reader.error('unknown definition type "%s"', defType)
