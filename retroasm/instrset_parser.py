@@ -1,4 +1,3 @@
-from .analysis import determinePlaceholderRoles
 from .codeblock import ArgumentValue
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
@@ -876,13 +875,10 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
-            # Perform some basic analysis.
             pc = globalNamespace['pc'].bits.storage
-            determinePlaceholderRoles(semantics, placeholders, pc)
-
             yield ModeEntry(
-                encoding, decoding, mnemonic, modeType, semantics, placeholders,
-                flagsRequired, reader.getLocation()
+                encoding, decoding, mnemonic, modeType, semantics, pc,
+                placeholders, flagsRequired, reader.getLocation()
                 )
 
 def _formatEncodingWidth(width):
