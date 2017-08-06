@@ -1,6 +1,8 @@
-from .codeblock import ArgumentValue, Store
-from .storage import IOStorage
+from .codeblock import ArgumentValue, CodeBlock, Store
+from .storage import IOStorage, Variable
+from .utils import checkType
 
+from collections import OrderedDict
 from enum import Enum
 
 PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
@@ -21,11 +23,12 @@ def determinePlaceholderRoles(semantics, placeholders, pc):
     it can handle a few common cases reliably and efficiently.
     '''
 
-    # Mark placeholders written to the program counter as code addresses.
-    for expr in iterBranchAddrs(semantics, pc):
-        if isinstance(expr, ArgumentValue):
-            placeholder = placeholders[expr.name]
-            placeholder.addRole(PlaceholderRole.code_addr)
+    if pc is not None:
+        # Mark placeholders written to the program counter as code addresses.
+        for expr in iterBranchAddrs(semantics, pc):
+            if isinstance(expr, ArgumentValue):
+                placeholder = placeholders[expr.name]
+                placeholder.addRole(PlaceholderRole.code_addr)
 
     # Mark placeholders used as memory indices as data addresses.
     for node in semantics.nodes:
@@ -35,3 +38,16 @@ def determinePlaceholderRoles(semantics, placeholders, pc):
             if isinstance(index, ArgumentValue):
                 placeholder = placeholders[index.name]
                 placeholder.addRole(PlaceholderRole.data_addr)
+
+class CodeTemplate:
+    '''A container for a code block which contains placeholders that will be
+    filled in later.
+    '''
+
+    def __init__(self, code, placeholders, pcVar=None):
+        self.code = checkType(code, CodeBlock, 'code block')
+        self.placeholders = checkType(placeholders, OrderedDict, 'placeholders')
+        self.pcVar = checkType(pcVar, (Variable, type(None)), 'program counter')
+
+        # Perform some basic analysis.
+        determinePlaceholderRoles(code, placeholders, pcVar)

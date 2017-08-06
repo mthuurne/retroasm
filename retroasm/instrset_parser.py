@@ -1,3 +1,4 @@
+from .analysis import CodeTemplate
 from .codeblock import ArgumentValue
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
@@ -888,8 +889,12 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
+            if semantics is None:
+                template = None
+            else:
+                template = CodeTemplate(semantics, placeholders, pc)
             yield ModeEntry(
-                encoding, decoding, mnemonic, semantics, pc, placeholders,
+                encoding, decoding, mnemonic, template, placeholders,
                 flagsRequired, reader.getLocation()
                 )
 

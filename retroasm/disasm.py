@@ -39,7 +39,7 @@ def buildMatch(match, builder, values):
         else:
             assert False, placeholder
 
-    return builder.inlineBlock(entry.semantics, args.__getitem__)
+    return builder.inlineBlock(entry.semantics.code, args.__getitem__)
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.

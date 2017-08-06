@@ -1,4 +1,4 @@
-from .analysis import PlaceholderRole, determinePlaceholderRoles
+from .analysis import PlaceholderRole
 from .codeblock import CodeBlock
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
@@ -182,7 +182,7 @@ class ModeEntry:
     '''
 
     def __init__(
-            self, encoding, decoding, mnemonic, semantics, pc, placeholders,
+            self, encoding, decoding, mnemonic, semantics, placeholders,
             flagsRequired, location
             ):
         # Filter out zero-length encoding items.
@@ -200,7 +200,6 @@ class ModeEntry:
         self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
-        self.pc = pc
         self.placeholders = placeholders
         self.flagsRequired = frozenset(flagsRequired)
         self.location = location
@@ -219,14 +218,10 @@ class ModeEntry:
                     'Inconsistent widths among auxiliary encoding units'
                     )
 
-        # Perform some basic analysis.
-        if pc is not None:
-            determinePlaceholderRoles(semantics, placeholders, pc)
-
     def __repr__(self):
-        return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r, %r)' % (
+        return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r)' % (
             self.encoding, self.decoding, self.mnemonic, self.semantics,
-            self.pc, self.placeholders, self.flagsRequired, self.location
+            self.placeholders, self.flagsRequired, self.location
             )
 
     @property
