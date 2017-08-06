@@ -889,8 +889,8 @@ def _parseModeEntries(
             pass
         else:
             yield ModeEntry(
-                encoding, decoding, mnemonic, modeType, semantics, pc,
-                placeholders, flagsRequired, reader.getLocation()
+                encoding, decoding, mnemonic, semantics, pc, placeholders,
+                flagsRequired, reader.getLocation()
                 )
 
 def _formatEncodingWidth(width):
