@@ -1,4 +1,3 @@
-from .analysis import PlaceholderRole
 from .codeblock import CodeBlock
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
@@ -6,6 +5,7 @@ from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
 from .utils import Singleton, checkType, const_property
 
 from collections import defaultdict
+from enum import Enum
 from functools import reduce
 
 class EncodingExpr:
@@ -852,6 +852,10 @@ class Mode(ModeTable):
 
     def __iter__(self):
         return iter(self._entries)
+
+PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
+    'code_addr', 'data_addr'
+    ))
 
 class Placeholder:
     '''Abstract base class for a mode context element.

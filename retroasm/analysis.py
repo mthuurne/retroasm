@@ -1,13 +1,13 @@
 from .codeblock import ArgumentValue, CodeBlock, Store
+from .codeblock_simplifier import CodeBlockSimplifier
+from .expression import IntLiteral
+from .expression_simplifier import simplifyExpression
+from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
+from .reference import FixedValue, Reference
 from .storage import IOStorage, Variable
 from .utils import checkType
 
 from collections import OrderedDict
-from enum import Enum
-
-PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
-    'code_addr', 'data_addr'
-    ))
 
 def iterBranchAddrs(code, pc):
     '''Yields the expressions written to the PC register by the given code
@@ -51,3 +51,43 @@ class CodeTemplate:
 
         # Perform some basic analysis.
         determinePlaceholderRoles(code, placeholders, pcVar)
+
+    def buildMatch(self, match, builder, values):
+        '''Adds the semantics of an EncodeMatch to the given code block builder
+        and the placeholder values to the given 'values' mapping. In that
+        mapping, mode placeholders are represented by a nested mapping.
+        Returns the returned bit string of the match's semantics.
+        '''
+        args = {}
+        for name, placeholder in self.placeholders.items():
+            if isinstance(placeholder, MatchPlaceholder):
+                values[name] = subValues = {}
+                subMatch = match[name]
+                args[name] = subMatch.entry.semantics.buildMatch(
+                    subMatch, builder, subValues
+                    )
+            elif isinstance(placeholder, ValuePlaceholder):
+                typ = placeholder.type
+                placeholderCode = placeholder.code
+                if placeholderCode is None:
+                    argBits = FixedValue(IntLiteral(match[name]), typ.width)
+                else:
+                    argBits = builder.inlineBlock(
+                        placeholderCode, args.__getitem__
+                        )
+                args[name] = argBits
+                code = CodeBlockSimplifier(builder.nodes, argBits)
+                code.simplify()
+                valBits = code.retBits
+                # Note that FixedValue doesn't actually emit a Load node;
+                # the reason to use Reference.emitLoad() here is to apply
+                # sign extension.
+                assert isinstance(valBits, FixedValue), valBits
+                valRef = Reference(valBits, typ)
+                values[name] = simplifyExpression(
+                    valRef.emitLoad(builder, None)
+                    )
+            else:
+                assert False, placeholder
+
+        return builder.inlineBlock(self.code, args.__getitem__)

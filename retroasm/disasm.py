@@ -1,45 +1,7 @@
-from .analysis import PlaceholderRole
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
-from .expression_simplifier import simplifyExpression
-from .mode import MatchPlaceholder, ValuePlaceholder
-from .reference import FixedValue, Reference
+from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
 from .types import IntType
-
-def buildMatch(match, builder, values):
-    '''Adds the semantics of an EncodeMatch to the given code block builder
-    and the placeholder values to the given 'values' mapping. In that mapping,
-    mode placeholders are represented by a nested mapping.
-    Returns the returned bit string of the match's semantics.
-    '''
-    entry = match.entry
-
-    args = {}
-    for name, placeholder in entry.placeholders.items():
-        if isinstance(placeholder, MatchPlaceholder):
-            values[name] = subValues = {}
-            args[name] = buildMatch(match[name], builder, subValues)
-        elif isinstance(placeholder, ValuePlaceholder):
-            typ = placeholder.type
-            placeholderCode = placeholder.code
-            if placeholderCode is None:
-                argBits = FixedValue(IntLiteral(match[name]), typ.width)
-            else:
-                argBits = builder.inlineBlock(placeholderCode, args.__getitem__)
-            args[name] = argBits
-            code = CodeBlockSimplifier(builder.nodes, argBits)
-            code.simplify()
-            valBits = code.retBits
-            # Note that FixedValue doesn't actually emit a Load node; the reason
-            # to use Reference.emitLoad() here is to apply sign extension.
-            assert isinstance(valBits, FixedValue), valBits
-            valRef = Reference(valBits, typ)
-            values[name] = simplifyExpression(valRef.emitLoad(builder, None))
-        else:
-            assert False, placeholder
-
-    return builder.inlineBlock(entry.semantics.code, args.__getitem__)
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.
@@ -111,7 +73,7 @@ class Disassembler:
                 builder = SemanticsCodeBlockBuilder()
                 pcRef.emitStore(builder, IntLiteral(postAddr), None)
                 values = {}
-                buildMatch(match, builder, values)
+                match.entry.semantics.buildMatch(match, builder, values)
                 decoded[addr] = instr = (match, values)
                 for mnemElem in iterMnemonic(*instr):
                     if not isinstance(mnemElem, str):
