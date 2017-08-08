@@ -293,6 +293,17 @@ class SlicedBits(BitString):
         combined = simplifyExpression(combined)
         bits.emitStore(builder, combined, location)
 
+def decodeInt(encoded, typ):
+    '''Decodes the given encoded representation (Expression) as an integer of
+    the given type (IntType).
+    Returns the decoded value (Expression).
+    '''
+    if typ.signed:
+        width = typ.width
+        if width is not unlimited:
+            return SignExtension(encoded, width)
+    return encoded
+
 class Reference:
     '''Typed access to a bit string.
     '''
@@ -319,15 +330,8 @@ class Reference:
         bit string.
         Returns the loaded value as an Expression.
         '''
-        value = self._bits.emitLoad(builder, location)
-
-        # Apply sign extension, if necessary.
-        typ = self._type
-        if typ.signed:
-            width = typ.width
-            if width is not unlimited:
-                return SignExtension(value, width)
-        return value
+        encoded = self._bits.emitLoad(builder, location)
+        return decodeInt(encoded, self._type)
 
     def emitStore(self, builder, value, location):
         '''Emits store nodes for storing a value into the referenced bit string.

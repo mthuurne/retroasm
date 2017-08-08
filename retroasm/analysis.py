@@ -3,7 +3,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
-from .reference import FixedValue, Reference
+from .reference import FixedValue, decodeInt
 from .storage import IOStorage, Variable
 from .utils import checkType
 
@@ -79,14 +79,8 @@ class CodeTemplate:
                 code = CodeBlockSimplifier(builder.nodes, argBits)
                 code.simplify()
                 valBits = code.retBits
-                # Note that FixedValue doesn't actually emit a Load node;
-                # the reason to use Reference.emitLoad() here is to apply
-                # sign extension.
                 assert isinstance(valBits, FixedValue), valBits
-                valRef = Reference(valBits, typ)
-                values[name] = simplifyExpression(
-                    valRef.emitLoad(builder, None)
-                    )
+                values[name] = simplifyExpression(decodeInt(valBits.expr, typ))
             else:
                 assert False, placeholder
 
