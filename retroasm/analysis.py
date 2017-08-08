@@ -39,6 +39,40 @@ def determinePlaceholderRoles(semantics, placeholders, pc):
                 placeholder = placeholders[index.name]
                 placeholder.addRole(PlaceholderRole.data_addr)
 
+class MatchFiller:
+
+    def fill(self, match, builder, args):
+        values = {}
+        argBits = match.entry.semantics.buildMatch(match, builder, values)
+        return argBits, values
+
+class DecodedValueFiller:
+
+    def __init__(self, typ):
+        self._type = typ
+
+    def fill(self, match, builder, args):
+        encoded = IntLiteral(match)
+        typ = self._type
+        argBits = FixedValue(encoded, typ.width)
+        value = simplifyExpression(decodeInt(encoded, typ))
+        return argBits, value
+
+class ComputedValueFiller:
+
+    def __init__(self, typ, code):
+        self._type = typ
+        self._code = code
+
+    def fill(self, match, builder, args):
+        argBits = builder.inlineBlock(self._code, args.__getitem__)
+        code = CodeBlockSimplifier(builder.nodes, argBits)
+        code.simplify()
+        valBits = code.retBits
+        assert isinstance(valBits, FixedValue), valBits
+        value = simplifyExpression(decodeInt(valBits.expr, self._type))
+        return argBits, value
+
 class CodeTemplate:
     '''A container for a code block which contains placeholders that will be
     filled in later.
@@ -48,6 +82,23 @@ class CodeTemplate:
         self.code = checkType(code, CodeBlock, 'code block')
         self.placeholders = checkType(placeholders, OrderedDict, 'placeholders')
         self.pcVar = checkType(pcVar, (Variable, type(None)), 'program counter')
+
+        # Instantiate fillers that will insert actual values in placeholder
+        # spaces.
+        self.fillers = fillers = []
+        for name, placeholder in self.placeholders.items():
+            if isinstance(placeholder, MatchPlaceholder):
+                filler = MatchFiller()
+            elif isinstance(placeholder, ValuePlaceholder):
+                typ = placeholder.type
+                placeholderCode = placeholder.code
+                if placeholderCode is None:
+                    filler = DecodedValueFiller(typ)
+                else:
+                    filler = ComputedValueFiller(typ, placeholderCode)
+            else:
+                assert False, placeholder
+            fillers.append((name, filler))
 
         # Perform some basic analysis.
         determinePlaceholderRoles(code, placeholders, pcVar)
@@ -59,29 +110,12 @@ class CodeTemplate:
         Returns the returned bit string of the match's semantics.
         '''
         args = {}
-        for name, placeholder in self.placeholders.items():
-            if isinstance(placeholder, MatchPlaceholder):
-                values[name] = subValues = {}
-                subMatch = match[name]
-                args[name] = subMatch.entry.semantics.buildMatch(
-                    subMatch, builder, subValues
-                    )
-            elif isinstance(placeholder, ValuePlaceholder):
-                typ = placeholder.type
-                placeholderCode = placeholder.code
-                if placeholderCode is None:
-                    argBits = FixedValue(IntLiteral(match[name]), typ.width)
-                else:
-                    argBits = builder.inlineBlock(
-                        placeholderCode, args.__getitem__
-                        )
-                args[name] = argBits
-                code = CodeBlockSimplifier(builder.nodes, argBits)
-                code.simplify()
-                valBits = code.retBits
-                assert isinstance(valBits, FixedValue), valBits
-                values[name] = simplifyExpression(decodeInt(valBits.expr, typ))
-            else:
-                assert False, placeholder
-
+        for name, filler in self.fillers:
+            try:
+                decoded = match[name]
+            except KeyError:
+                decoded = None
+            argBits, value = filler.fill(decoded, builder, args)
+            args[name] = argBits
+            values[name] = value
         return builder.inlineBlock(self.code, args.__getitem__)
