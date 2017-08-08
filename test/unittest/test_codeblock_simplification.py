@@ -292,8 +292,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refV, value)
 
         code = self.namespace.createCodeBlock('V')
-        self.assertIsNotNone(code.retBits)
-        self.assertEqual(code.retBits.width, 20)
+        self.assertEqual(len(code.returned), 1)
+        retBits,= code.returned
+        self.assertEqual(retBits.width, 20)
         self.assertRetVal(code, 604)
 
     def test_return_io_index(self):
@@ -303,9 +304,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsInstance(code.retBits, SingleStorage)
-        self.assertEqual(code.retBits.width, 8)
-        storage = code.retBits.storage
+        self.assertEqual(len(code.returned), 1)
+        retBits,= code.returned
+        self.assertIsInstance(retBits, SingleStorage)
+        self.assertEqual(retBits.width, 8)
+        storage = retBits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 2)
 
@@ -318,9 +321,11 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertIsInstance(code.retBits, SingleStorage)
-        self.assertEqual(code.retBits.width, 8)
-        storage = code.retBits.storage
+        self.assertEqual(len(code.returned), 1)
+        retBits,= code.returned
+        self.assertIsInstance(retBits, SingleStorage)
+        self.assertEqual(retBits.width, 8)
+        storage = retBits.storage
         self.assertIsInstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 0x4120)
 
@@ -331,21 +336,24 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(Reference(value, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertIsInstance(code.retBits, FixedValue)
-        self.assertEqual(code.retBits.width, 8)
-        self.assertIntLiteral(code.retBits.expr, 3)
+        self.assertEqual(len(code.returned), 1)
+        retBits,= code.returned
+        self.assertIsInstance(retBits, FixedValue)
+        self.assertEqual(retBits.width, 8)
+        self.assertIntLiteral(retBits.expr, 3)
 
     def test_return_complex_ref(self):
         '''Test returning a non-trivial reference.'''
         refH = self.namespace.addRegister('h')
         refL = self.namespace.addRegister('l')
         bitsHL = ConcatenatedBits(refL.bits, refH.bits)
-        retBits = SlicedBits(bitsHL, IntLiteral(0), 8)
-        self.namespace.addRetReference(Reference(retBits, IntType.u(8)))
+        slicedBits = SlicedBits(bitsHL, IntLiteral(0), 8)
+        self.namespace.addRetReference(Reference(slicedBits, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertIsNotNone(code.retBits)
-        self.assertEqual(code.retBits.width, 8)
+        self.assertEqual(len(code.returned), 1)
+        retBits,= code.returned
+        self.assertEqual(retBits.width, 8)
         # Note that we only simplify expressions, not references, so the
         # reference itself is still complex. All we really check here is
         # that code block creation doesn't break, but that is worthwhile

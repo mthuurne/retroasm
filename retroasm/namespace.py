@@ -166,8 +166,8 @@ class LocalNamespace(Namespace):
         If a log is provided, errors are logged individually as well.
         '''
         retRef = None if ret is None else self.elements.get(ret)
-        retBits = None if retRef is None else retRef.bits
-        return self.builder.createCodeBlock(retBits, log)
+        returned = () if retRef is None else (retRef.bits,)
+        return self.builder.createCodeBlock(returned, log)
 
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name

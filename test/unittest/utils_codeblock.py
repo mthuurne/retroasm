@@ -34,7 +34,7 @@ class NodeChecker:
         self.assertEqual(expr.value, value)
 
     def getRetVal(self, code):
-        retBits = code.retBits
+        retBits, = code.returned
         self.assertIsInstance(retBits, FixedValue)
         return retBits.expr, retBits.width
 

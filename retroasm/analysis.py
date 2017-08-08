@@ -56,7 +56,7 @@ class DecodedValueFiller:
         encoded = IntLiteral(match)
         typ = self._type
         argBits = FixedValue(encoded, typ.width)
-        code = CodeBlock((), argBits)
+        code = CodeBlock((), (argBits,))
         value = simplifyExpression(decodeInt(encoded, typ))
         return code, value
 
@@ -67,10 +67,10 @@ class ComputedValueFiller:
         self._code = code
 
     def fill(self, match, builder, args):
-        argBits = builder.inlineBlock(self._code, args.__getitem__)
-        code = CodeBlockSimplifier(builder.nodes, argBits)
+        returned = builder.inlineBlock(self._code, args.__getitem__)
+        code = CodeBlockSimplifier(builder.nodes, returned)
         code.simplify()
-        valBits = code.retBits
+        valBits, = code.returned
         assert isinstance(valBits, FixedValue), valBits
         value = simplifyExpression(decodeInt(valBits.expr, self._type))
         return code, value
@@ -123,10 +123,10 @@ class CodeTemplate:
             except KeyError:
                 decoded = None
             code, value = filler.fill(decoded, builder, args)
-            argBits = builder.inlineBlock(code, lambda name: None)
+            argBits, = builder.inlineBlock(code, lambda name: None)
             args[name] = argBits
             values[name] = value
-        retBits = builder.inlineBlock(self.code, args.__getitem__)
-        code = CodeBlockSimplifier(builder.nodes, retBits)
+        returned = builder.inlineBlock(self.code, args.__getitem__)
+        code = CodeBlockSimplifier(builder.nodes, returned)
         code.simplify()
         return code

@@ -7,7 +7,7 @@ class Function:
     def __init__(self, retType, args, code):
         if code is not None:
             _checkArgs(args, code.arguments)
-            _checkReturn(retType, code.retBits)
+            _checkReturn(retType, code.returned)
 
         self.retType = retType
         self.args = args
@@ -61,21 +61,25 @@ def _checkArgs(declArgs, codeArgs):
                     % name
                     )
 
-def _checkReturn(retType, retBits):
+def _checkReturn(retType, returned):
     '''Check consistency between declared return type and code block.
     Raises ValueError if an inconsistency is found.
     '''
+    if len(returned) > 1:
+        raise ValueError('code block returns multiple values')
+
     if retType is None:
-        if retBits is not None:
+        if len(returned) != 0:
             raise ValueError(
                 'function has no return type, but its code block defines "ret"'
                 )
     elif isinstance(retType, ReferenceType):
-        if retBits is None:
+        if len(returned) == 0:
             raise ValueError(
                 'function has return type %s, but its code block does not '
                 'define "ret"' % retType
                 )
+        retBits, = returned
         if retType.type.width != retBits.width:
             raise ValueError(
                 'function has return type %s, but its code block defines "ret" '
@@ -83,11 +87,12 @@ def _checkReturn(retType, retBits):
                 % (retType, retBits.width)
                 )
     else: # returns a value
-        if retBits is None:
+        if len(returned) == 0:
             raise ValueError(
                 'function has return type %s, but its code block does not '
                 'assign to "ret"' % retType
                 )
+        retBits, = returned
         if retType.width != retBits.width:
             raise ValueError(
                 'function has return type %s, but its code block defines "ret" '

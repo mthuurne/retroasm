@@ -73,15 +73,15 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
-    def createCodeBlock(self, retBits, log=None):
+    def createCodeBlock(self, returned, log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If 'ret' is a bit string, that will be used for the returned bit string.
-        If 'ret' is None, the created code block will not return anything.
+        The 'returned' sequence contains the bits strings that will be the
+        returned values for the created block.
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well.
         '''
-        code = CodeBlockSimplifier(self.nodes, retBits)
+        code = CodeBlockSimplifier(self.nodes, returned)
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
@@ -136,15 +136,20 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 'Missing values for arguments: %s' % ', '.join(missingArgs)
                 )
 
-        return self.inlineBlock(code, argMap.__getitem__)
+        returned = self.inlineBlock(code, argMap.__getitem__)
+        if len(returned) == 1:
+            return returned[0]
+        else:
+            assert len(returned) == 0, returned
+            return None
 
     def inlineBlock(self, code, argFetcher):
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
         argument should remain an argument in the inlined block.
-        Returns a BitString containing the value returned by the inlined block,
-        or None if the inlined block does not return anything.
+        Returns a list of BitStrings containing the values returned by the
+        inlined block.
         '''
 
         loadResults = {}
@@ -197,8 +202,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 assert False, node
 
         # Determine return value.
-        retBits = code.retBits
-        if retBits is None:
-            return None
-        else:
-            return retBits.substitute(importStorage, importExpr)
+        return [
+            retBits.substitute(importStorage, importExpr)
+            for retBits in code.returned
+            ]

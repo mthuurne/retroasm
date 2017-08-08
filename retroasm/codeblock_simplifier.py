@@ -97,9 +97,9 @@ class CodeBlockSimplifier(CodeBlock):
                             del currentValues[storage2]
             i += 1
 
-        # Fixate variables and apply load replacements in returned bit string.
-        retBits = self.retBits
-        if retBits is not None:
+        # Fixate variables and apply load replacements in returned bit strings.
+        returned = self.returned
+        for i, retBits in enumerate(returned):
             def fixateVariables(storage):
                 if isinstance(storage, Variable) and storage.scope == 1:
                     return FixedValue(currentValues[storage], storage.width)
@@ -107,7 +107,7 @@ class CodeBlockSimplifier(CodeBlock):
                     return None
             newBits = retBits.substitute(fixateVariables, replaceLoadedValues)
             if newBits is not retBits:
-                self.retBits = newBits
+                returned[i] = newBits
 
     def removeUnusedStores(self):
         '''Remove side-effect-free stores that will be overwritten or that
@@ -154,8 +154,7 @@ class CodeBlockSimplifier(CodeBlock):
                 updateCounts(node.expr)
             for expr in node.storage.iterExpressions():
                 updateCounts(expr)
-        retBits = self.retBits
-        if retBits is not None:
+        for retBits in self.returned:
             for expr in retBits.iterExpressions():
                 updateCounts(expr)
 

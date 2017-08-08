@@ -147,9 +147,9 @@ class LoadedValue(Expression):
         # desirable in analysis, so assign a high cost to them.
         return 8
 
-def verifyLoads(nodes, retBits=None):
+def verifyLoads(nodes, returned=()):
     '''Performs consistency checks on the LoadedValues in the given nodes and
-    returned bit string.
+    returned bit strings.
     Raises AssertionError if an inconsistency is found.
     '''
     # Check that every LoadedValue has an associated Load node, which must
@@ -167,7 +167,7 @@ def verifyLoads(nodes, retBits=None):
         if isinstance(node, Load):
             loads.add(node)
     # Check I/O indices in the returned bit string.
-    if retBits is not None:
+    for retBits in returned:
         for storage in retBits.iterStorages():
             for expr in storage.iterExpressions():
                 for value in expr.iterInstances(LoadedValue):
@@ -175,7 +175,7 @@ def verifyLoads(nodes, retBits=None):
 
 class CodeBlock:
 
-    def __init__(self, nodes, retBits):
+    def __init__(self, nodes, returned):
         clonedNodes = []
         valueMapping = {}
         for node in nodes:
@@ -184,7 +184,7 @@ class CodeBlock:
             if isinstance(node, Load):
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
-        self.retBits = retBits
+        self.returned = list(returned)
         self._updateExpressions(valueMapping.get)
         assert self.verify() is None
 
@@ -192,15 +192,15 @@ class CodeBlock:
         '''Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         '''
-        verifyLoads(self.nodes, self.retBits)
+        verifyLoads(self.nodes, self.returned)
 
     def dump(self):
         '''Prints this code block on stdout.
         '''
         for node in self.nodes:
             print('    %s (%s-bit)' % (node, node.storage.width))
-        if self.retBits is not None:
-            print('    return %s' % self.retBits)
+        for retBits in self.returned:
+            print('    return %s' % retBits)
 
     def _gatherExpressions(self):
         '''A set of all expressions that are contained in this block.
@@ -212,8 +212,7 @@ class CodeBlock:
             if isinstance(node, Store):
                 expressions.add(node.expr)
             expressions.update(node.storage.iterExpressions())
-        retBits = self.retBits
-        if retBits is not None:
+        for retBits in self.returned:
             expressions.update(retBits.iterExpressions())
         return expressions
 
@@ -225,8 +224,7 @@ class CodeBlock:
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
-        retBits = self.retBits
-        if retBits is not None:
+        for retBits in self.returned:
             storages.update(retBits.iterStorages())
         return storages
 
@@ -280,8 +278,8 @@ class CodeBlock:
                     node.expr = newExpr
 
         # Update returned bit string.
-        retBits = self.retBits
-        if retBits is not None:
+        returned = self.returned
+        for i, retBits in enumerate(returned):
             newBits = retBits.substitute(expressionFunc=substFunc)
             if newBits is not retBits:
-                self.retBits = newBits
+                returned[i] = newBits
