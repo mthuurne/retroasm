@@ -1,4 +1,3 @@
-from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
 from .types import IntType
@@ -54,7 +53,6 @@ class Disassembler:
         '''
         instrSet = self._instrSet
         decoder = instrSet.decoder
-        pcRef = instrSet.globalNamespace['pc']
         numBytes = fetcher.numBytes
 
         decoded = self._decoded
@@ -70,10 +68,9 @@ class Disassembler:
             if match is None:
                 decoded[addr] = fetcher[0]
             else:
-                builder = SemanticsCodeBlockBuilder()
-                pcRef.emitStore(builder, IntLiteral(postAddr), None)
                 values = {}
-                match.entry.semantics.buildMatch(match, builder, values)
+                pcVal = IntLiteral(postAddr)
+                match.entry.semantics.buildMatch(match, values, pcVal)
                 decoded[addr] = instr = (match, values)
                 for mnemElem in iterMnemonic(*instr):
                     if not isinstance(mnemElem, str):

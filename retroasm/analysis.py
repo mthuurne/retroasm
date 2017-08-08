@@ -1,4 +1,5 @@
 from .codeblock import ArgumentValue, CodeBlock, Store
+from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
@@ -43,8 +44,8 @@ class MatchFiller:
 
     def fill(self, match, builder, args):
         values = {}
-        argBits = match.entry.semantics.buildMatch(match, builder, values)
-        return argBits, values
+        code = match.entry.semantics.buildMatch(match, values)
+        return code, values
 
 class DecodedValueFiller:
 
@@ -55,8 +56,9 @@ class DecodedValueFiller:
         encoded = IntLiteral(match)
         typ = self._type
         argBits = FixedValue(encoded, typ.width)
+        code = CodeBlock((), argBits)
         value = simplifyExpression(decodeInt(encoded, typ))
-        return argBits, value
+        return code, value
 
 class ComputedValueFiller:
 
@@ -71,7 +73,7 @@ class ComputedValueFiller:
         valBits = code.retBits
         assert isinstance(valBits, FixedValue), valBits
         value = simplifyExpression(decodeInt(valBits.expr, self._type))
-        return argBits, value
+        return code, value
 
 class CodeTemplate:
     '''A container for a code block which contains placeholders that will be
@@ -103,19 +105,28 @@ class CodeTemplate:
         # Perform some basic analysis.
         determinePlaceholderRoles(code, placeholders, pcVar)
 
-    def buildMatch(self, match, builder, values):
-        '''Adds the semantics of an EncodeMatch to the given code block builder
-        and the placeholder values to the given 'values' mapping. In that
+    def buildMatch(self, match, values, pcVal=None):
+        '''Builds a code block that defines the semantics of an EncodeMatch and
+        adds the placeholder values to the given 'values' mapping. In that
         mapping, mode placeholders are represented by a nested mapping.
-        Returns the returned bit string of the match's semantics.
+        Returns the code block.
         '''
+        builder = SemanticsCodeBlockBuilder()
+        if pcVal is not None:
+            pcVar = self.pcVar
+            if pcVar is not None:
+                builder.emitStoreBits(pcVar, pcVal, None)
         args = {}
         for name, filler in self.fillers:
             try:
                 decoded = match[name]
             except KeyError:
                 decoded = None
-            argBits, value = filler.fill(decoded, builder, args)
+            code, value = filler.fill(decoded, builder, args)
+            argBits = builder.inlineBlock(code, lambda name: None)
             args[name] = argBits
             values[name] = value
-        return builder.inlineBlock(self.code, args.__getitem__)
+        retBits = builder.inlineBlock(self.code, args.__getitem__)
+        code = CodeBlockSimplifier(builder.nodes, retBits)
+        code.simplify()
+        return code
