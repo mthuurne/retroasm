@@ -143,7 +143,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             assert len(returned) == 0, returned
             return None
 
-    def inlineBlock(self, code, argFetcher):
+    def inlineBlock(self, code, argFetcher=None):
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
@@ -151,6 +151,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         Returns a list of BitStrings containing the values returned by the
         inlined block.
         '''
+        if argFetcher is None:
+            # No substitution takes place, so we can copy nodes and returned
+            # bits as-is.
+            self.nodes += code.nodes
+            return code.returned
 
         loadResults = {}
         def substExpr(expr):
