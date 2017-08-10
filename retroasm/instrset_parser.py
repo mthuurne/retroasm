@@ -20,7 +20,9 @@ from .mode import (
     EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode, ModeEntry,
     ValuePlaceholder
     )
-from .namespace import GlobalNamespace, LocalNamespace, NameExistsError
+from .namespace import (
+    ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
+    )
 from .reference import (
     ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits
     )
@@ -327,13 +329,14 @@ def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
     # from a register.
     encErrors = {}
     for name, spec in placeholderSpecs.items():
-        encWidth = spec.encodingWidth
-        if encWidth is not None:
-            encType = IntType.u(encWidth)
-            try:
-                _buildPlaceholder(spec, encType, encNamespace)
-            except BadInput as ex:
-                encErrors[name] = ex
+        if spec.value is None:
+            encWidth = spec.encodingWidth
+            if encWidth is not None:
+                encType = IntType.u(encWidth)
+                try:
+                    _buildPlaceholder(spec, encType, encNamespace)
+                except BadInput as ex:
+                    encErrors[name] = ex
 
     # Collect all identifiers and multi-matches used in the encoding.
     def collectNames(cls):
@@ -443,7 +446,7 @@ def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
                 continue
 
             try:
-                encValue = encRef.emitLoad(encNamespace.builder, encLoc)
+                encValue = encRef.emitLoad(None, encLoc)
             except BadInput as ex:
                 reader.error(
                     'error evaluating encoding: %s', ex,
@@ -645,7 +648,7 @@ def _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader):
                     + [encoding[idx].location for idx in badIdx]
                 )
 
-def _parseModeDecoding(encoding, encBuilder, placeholderSpecs, reader):
+def _parseModeDecoding(encoding, placeholderSpecs, reader):
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
@@ -807,8 +810,7 @@ def _parseModeEntries(
                     continue
 
                 # Parse encoding.
-                encBuilder = StatelessCodeBlockBuilder()
-                encNamespace = LocalNamespace(globalNamespace, encBuilder)
+                encNamespace = ContextNamespace()
                 if encStr:
                     try:
                         # Parse encoding field.
@@ -835,7 +837,7 @@ def _parseModeEntries(
                     decoding = None
                 else:
                     decoding = _parseModeDecoding(
-                        encoding, encBuilder, placeholderSpecs, reader
+                        encoding, placeholderSpecs, reader
                         )
 
                 # Parse mnemonic.
