@@ -320,15 +320,17 @@ def _buildPlaceholder(spec, typ, namespace):
         ref = Reference(bits, typ)
         namespace.define(name, ref, decl.name.location)
 
-def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
-    # Define placeholders in encoding builder.
+def _parseModeEncoding(encNodes, placeholderSpecs, reader):
+    # Define placeholders in encoding namespace.
+    encNamespace = ContextNamespace()
     for name, spec in placeholderSpecs.items():
         if spec.value is None:
             encWidth = spec.encodingWidth
             if encWidth is not None:
                 encType = IntType.u(encWidth)
+                location = spec.decl.name.location
                 try:
-                    _buildPlaceholder(spec, encType, encNamespace)
+                    encNamespace.addValueArgument(name, encType, location)
                 except NameExistsError as ex:
                     reader.error(
                         'bad placeholder: %s', ex, location=ex.location
@@ -422,18 +424,28 @@ def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
                 encRef = buildReference(encNode, encNamespace)
             except BadInput as ex:
                 if isinstance(ex, UnknownNameError):
-                    placeholder = placeholderSpecs.get(ex.name)
-                    if placeholder is not None \
-                            and placeholder.encodingWidth is None:
-                        reader.error(
-                            'cannot use placeholder "%s" in encoding field, '
-                            'since mode "%s" has an empty encoding sequence',
-                            ex.name, placeholder.mode.name, location=(
-                                ex.location,
-                                placeholder.decl.treeLocation
+                    spec = placeholderSpecs.get(ex.name)
+                    if spec is not None:
+                        if spec.encodingWidth is None:
+                            reader.error(
+                                'cannot use placeholder "%s" in encoding '
+                                'field, since mode "%s" has an empty encoding '
+                                'sequence',
+                                ex.name, spec.mode.name, location=(
+                                    ex.location, spec.decl.treeLocation
+                                    )
                                 )
-                            )
-                        continue
+                            continue
+                        if spec.value is not None:
+                            reader.error(
+                                'cannot use placeholder "%s" in encoding '
+                                'field, since its value is computed in the '
+                                'context',
+                                ex.name, location=(
+                                    ex.location, spec.value.treeLocation
+                                    )
+                                )
+                            continue
                 reader.error(
                     'error in encoding: %s', ex,
                     location=(encLoc, ex.location)
@@ -805,7 +817,6 @@ def _parseModeEntries(
                     continue
 
                 # Parse encoding.
-                encNamespace = ContextNamespace()
                 if encStr:
                     try:
                         # Parse encoding field.
@@ -824,7 +835,7 @@ def _parseModeEntries(
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
-                                encNodes, encNamespace, placeholderSpecs, reader
+                                encNodes, placeholderSpecs, reader
                                 ))
                     except DelayedError:
                         encoding = None
