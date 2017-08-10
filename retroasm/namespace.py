@@ -1,7 +1,7 @@
 from .codeblock import ArgumentValue
 from .expression import optSlice
 from .linereader import BadInput
-from .reference import Reference, SingleStorage
+from .reference import FixedValue, Reference, SingleStorage
 from .storage import IOStorage, RefArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
@@ -12,10 +12,8 @@ class Namespace:
     Fetching elements is done through a dictionary-like interface.
     Storing elements is done by calling define().
     '''
-    scope = property()
 
-    def __init__(self, builder):
-        self.builder = builder
+    def __init__(self):
         self.elements = {}
         self.locations = {}
 
@@ -30,14 +28,6 @@ class Namespace:
 
     def __getitem__(self, key):
         return self.elements[key]
-
-    def dump(self):
-        '''Prints the current state of this namespace and its code block
-        builder on stdout.
-        '''
-        self.builder.dump()
-        if 'ret' in self.elements:
-            print('    return %s' % self.elements['ret'])
 
     def get(self, key):
         return self.elements.get(key)
@@ -78,6 +68,52 @@ class Namespace:
         self.define(name, ref, location)
         return ref
 
+    def addValueArgument(self, name, typ, location):
+        '''Adds a passed-by-value argument to this namespace.
+        Returns a reference to the argument constant.
+        '''
+        checkType(typ, IntType, 'value argument type')
+        width = typ.width
+        value = ArgumentValue(name, maskForWidth(width))
+        bits = FixedValue(value, width)
+        ref = Reference(bits, typ)
+        self.define(name, ref, location)
+        return ref
+
+    def addReferenceArgument(self, name, typ, location):
+        '''Adds a pass-by-reference argument with the given name and type to
+        this namespace.
+        Returns a reference to the argument.
+        '''
+        checkType(typ, IntType, 'reference argument type')
+        storage = RefArgStorage(name, typ.width)
+        return self._addNamedStorage(name, storage, typ, location)
+
+class ContextNamespace(Namespace):
+    '''A namespace for a mode entry context.
+    '''
+
+    def _checkName(self, name, location):
+        _rejectPC(name, location)
+        _rejectRet(name, location)
+
+class BuilderNamespace(Namespace):
+    '''A namespace with an associated code block builder.
+    '''
+    scope = property()
+
+    def __init__(self, builder):
+        Namespace.__init__(self)
+        self.builder = builder
+
+    def dump(self):
+        '''Prints the current state of this namespace and its code block
+        builder on stdout.
+        '''
+        self.builder.dump()
+        if 'ret' in self.elements:
+            print('    return %s' % self.elements['ret'])
+
     def addVariable(self, name, typ, location):
         '''Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
@@ -105,36 +141,23 @@ class Namespace:
 
         return ref
 
-    def addReferenceArgument(self, name, typ, location):
-        '''Adds a pass-by-reference argument with the given name and type to
-        this namespace.
-        Returns a reference to the argument.
-        '''
-        checkType(typ, IntType, 'reference argument type')
-        storage = RefArgStorage(name, typ.width)
-        return self._addNamedStorage(name, storage, typ, location)
-
-class GlobalNamespace(Namespace):
+class GlobalNamespace(BuilderNamespace):
     '''Namespace for the global scope.
     '''
     scope = property(lambda self: 0)
 
     def _checkName(self, name, location):
-        if name == 'ret':
-            raise NameExistsError(
-                'the name "ret" is reserved for function return values',
-                location
-                )
+        _rejectRet(name, location)
 
-class LocalNamespace(Namespace):
+class LocalNamespace(BuilderNamespace):
     '''A namespace for local blocks, that can import entries from its parent
     namespace on demand.
     '''
     scope = property(lambda self: 1)
 
     def __init__(self, parent, builder):
-        Namespace.__init__(self, builder)
         self.parent = checkType(parent, Namespace, 'parent namespace')
+        BuilderNamespace.__init__(self, builder)
 
     def __contains__(self, key):
         return super().__contains__(key) or key in self.parent
@@ -149,11 +172,7 @@ class LocalNamespace(Namespace):
             return value
 
     def _checkName(self, name, location):
-        if name == 'pc':
-            raise NameExistsError(
-                'the name "pc" is reserved for the program counter register',
-                location
-                )
+        _rejectPC(name, location)
 
     def createCodeBlock(self, ret='ret', log=None):
         '''Returns a CodeBlock object containing the items emitted so far.
@@ -173,6 +192,20 @@ class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name
     which is already in use.
     '''
+
+def _rejectRet(name, location):
+    if name == 'ret':
+        raise NameExistsError(
+            'the name "ret" is reserved for function return values',
+            location
+            )
+
+def _rejectPC(name, location):
+    if name == 'pc':
+        raise NameExistsError(
+            'the name "pc" is reserved for the program counter register',
+            location
+            )
 
 def createIOReference(channel, index):
     addrWidth = channel.addrType.width
