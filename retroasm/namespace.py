@@ -13,7 +13,10 @@ class Namespace:
     Storing elements is done by calling define().
     '''
 
-    def __init__(self):
+    def __init__(self, parent):
+        self.parent = checkType(
+            parent, (Namespace, type(None)), 'parent namespace'
+            )
         self.elements = {}
         self.locations = {}
 
@@ -24,10 +27,23 @@ class Namespace:
             )
 
     def __contains__(self, key):
-        return key in self.elements
+        if key in self.elements:
+            return True
+        else:
+            parent = self.parent
+            return parent is not None and key in parent
 
     def __getitem__(self, key):
-        return self.elements[key]
+        try:
+            return self.elements[key]
+        except KeyError:
+            parent = self.parent
+            if parent is None:
+                raise
+            value = parent[key]
+            self.elements[key] = value
+            self.locations[key] = None
+            return value
 
     def get(self, key):
         return self.elements.get(key)
@@ -102,8 +118,8 @@ class BuilderNamespace(Namespace):
     '''
     scope = property()
 
-    def __init__(self, builder):
-        Namespace.__init__(self)
+    def __init__(self, parent, builder):
+        Namespace.__init__(self, parent)
         self.builder = builder
 
     def dump(self):
@@ -146,6 +162,9 @@ class GlobalNamespace(BuilderNamespace):
     '''
     scope = property(lambda self: 0)
 
+    def __init__(self, builder):
+        BuilderNamespace.__init__(self, None, builder)
+
     def _checkName(self, name, location):
         _rejectRet(name, location)
 
@@ -154,22 +173,6 @@ class LocalNamespace(BuilderNamespace):
     namespace on demand.
     '''
     scope = property(lambda self: 1)
-
-    def __init__(self, parent, builder):
-        self.parent = checkType(parent, Namespace, 'parent namespace')
-        BuilderNamespace.__init__(self, builder)
-
-    def __contains__(self, key):
-        return super().__contains__(key) or key in self.parent
-
-    def __getitem__(self, key):
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            value = self.parent[key]
-            self.elements[key] = value
-            self.locations[key] = None
-            return value
 
     def _checkName(self, name, location):
         _rejectPC(name, location)

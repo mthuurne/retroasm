@@ -322,7 +322,7 @@ def _buildPlaceholder(spec, typ, namespace):
 
 def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Define placeholders in encoding namespace.
-    encNamespace = ContextNamespace()
+    encNamespace = ContextNamespace(None)
     for name, spec in placeholderSpecs.items():
         if spec.value is None:
             encWidth = spec.encodingWidth
