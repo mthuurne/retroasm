@@ -322,12 +322,6 @@ def _buildPlaceholder(spec, typ, namespace):
 
 def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
     # Define placeholders in encoding builder.
-    # Errors are stored rather than reported immediately, since it is possible
-    # to define expressions that are valid as semantics but not as encodings.
-    # This is not a problem as long as the associated name is not used in the
-    # encoding field. For example relative addressing reads the base address
-    # from a register.
-    encErrors = {}
     for name, spec in placeholderSpecs.items():
         if spec.value is None:
             encWidth = spec.encodingWidth
@@ -335,8 +329,10 @@ def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
                 encType = IntType.u(encWidth)
                 try:
                     _buildPlaceholder(spec, encType, encNamespace)
-                except BadInput as ex:
-                    encErrors[name] = ex
+                except NameExistsError as ex:
+                    reader.error(
+                        'bad placeholder: %s', ex, location=ex.location
+                        )
 
     # Collect all identifiers and multi-matches used in the encoding.
     def collectNames(cls):
@@ -438,7 +434,6 @@ def _parseModeEncoding(encNodes, encNamespace, placeholderSpecs, reader):
                                 )
                             )
                         continue
-                    ex = encErrors.get(ex.name, ex)
                 reader.error(
                     'error in encoding: %s', ex,
                     location=(encLoc, ex.location)
