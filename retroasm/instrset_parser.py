@@ -329,10 +329,14 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
                 code = placeholderNamespace.createCodeBlock(name)
 
         location = decl.name.location
-        if isinstance(semType, ReferenceType):
-            semNamespace.addReferenceArgument(name, semType.type, location)
-        else:
-            semNamespace.addValueArgument(name, semType, location)
+        try:
+            if isinstance(semType, ReferenceType):
+                semNamespace.addReferenceArgument(name, semType.type, location)
+            else:
+                semNamespace.addValueArgument(name, semType, location)
+        except NameExistsError as ex:
+            reader.error('%s', ex, location=ex.location)
+            continue
 
         if isinstance(spec, ValuePlaceholderSpec):
             yield name, ValuePlaceholder(name, semType, code)
@@ -805,23 +809,15 @@ def _parseModeEntries(
                             placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxStr, ctxLoc, modes, reader
                                 )
+                            placeholders = OrderedDict(_buildPlaceholders(
+                                placeholderSpecs, globalNamespace, reader
+                                ))
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
                     placeholderSpecs, flagsRequired = {}, set()
-
-                # Compute semantics for placeholders.
-                try:
-                    placeholders = OrderedDict(_buildPlaceholders(
-                        placeholderSpecs, globalNamespace, reader
-                        ))
-                except NameExistsError as ex:
-                    reader.error(
-                        'error in context: %s', ex, location=ex.location
-                        )
-                    # To avoid error spam, skip this line.
-                    continue
+                    placeholders = OrderedDict()
 
                 # Parse encoding.
                 if encStr:
