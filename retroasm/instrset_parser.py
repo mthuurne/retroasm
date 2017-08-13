@@ -314,11 +314,6 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace):
         value = spec.value
 
         if value is None:
-            location = decl.name.location
-            if isinstance(semType, ReferenceType):
-                semNamespace.addReferenceArgument(name, semType.type, location)
-            else:
-                semNamespace.addValueArgument(name, semType, location)
             code = None
         else:
             placeholderNamespace = LocalNamespace(
@@ -328,6 +323,12 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace):
                 decl.kind, decl.name, semType, value, placeholderNamespace
                 )
             code = placeholderNamespace.createCodeBlock(name)
+
+        location = decl.name.location
+        if isinstance(semType, ReferenceType):
+            semNamespace.addReferenceArgument(name, semType.type, location)
+        else:
+            semNamespace.addValueArgument(name, semType, location)
 
         if isinstance(spec, ValuePlaceholderSpec):
             yield name, ValuePlaceholder(name, semType, code)
