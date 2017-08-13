@@ -23,9 +23,7 @@ from .mode import (
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
     )
-from .reference import (
-    ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits
-    )
+from .reference import ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 from .storage import IOChannel, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
@@ -304,21 +302,6 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
             assert False, node
 
     return placeholderSpecs, flagsRequired
-
-def _buildPlaceholder(spec, typ, namespace):
-    decl = spec.decl
-    name = decl.name.name
-    value = spec.value
-    if value is not None:
-        convertDefinition(decl.kind, decl.name, typ, value, namespace)
-    elif isinstance(typ, ReferenceType):
-        namespace.addReferenceArgument(name, typ.type, decl.name.location)
-    else:
-        width = typ.width
-        immediate = ArgumentValue(name, maskForWidth(width))
-        bits = FixedValue(immediate, width)
-        ref = Reference(bits, typ)
-        namespace.define(name, ref, decl.name.location)
 
 def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Define placeholders in encoding namespace.
@@ -791,18 +774,34 @@ def _parseModeEntries(
                     placeholderSpecs, flagsRequired = {}, set()
 
                 # Compute semantics for placeholders.
-                ctxBuilder = SemanticsCodeBlockBuilder()
-                ctxNamespace = LocalNamespace(globalNamespace, ctxBuilder)
+                semNamespace = ContextNamespace(globalNamespace)
                 placeholders = OrderedDict()
                 try:
                     for name, spec in placeholderSpecs.items():
+                        decl = spec.decl
                         semType = spec.semanticsType
-                        _buildPlaceholder(spec, semType, ctxNamespace)
+                        value = spec.value
+                        if value is not None:
+                            placeholderNamespace = LocalNamespace(
+                                semNamespace, SemanticsCodeBlockBuilder()
+                                )
+                            convertDefinition(
+                                decl.kind, decl.name, semType, value,
+                                placeholderNamespace
+                                )
+                            code = placeholderNamespace.createCodeBlock(name)
+                        elif isinstance(semType, ReferenceType):
+                            semNamespace.addReferenceArgument(
+                                name, semType.type, decl.name.location
+                                )
+                            code = None
+                        else:
+                            semNamespace.addValueArgument(
+                                name, semType, decl.name.location
+                                )
+                            code = None
+
                         if isinstance(spec, ValuePlaceholderSpec):
-                            if spec.value is None:
-                                code = None
-                            else:
-                                code = ctxNamespace.createCodeBlock(name)
                             placeholder = ValuePlaceholder(name, semType, code)
                         elif isinstance(spec, MatchPlaceholderSpec):
                             placeholder = MatchPlaceholder(name, spec.mode)
