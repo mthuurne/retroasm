@@ -1,5 +1,6 @@
 from .expression import Expression
 from .linereader import InputLocation
+from .reference import BitString
 from .storage import RefArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property
@@ -185,6 +186,8 @@ class CodeBlock:
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
         self.returned = list(returned)
+        assert all(isinstance(ret, BitString) for ret in self.returned), \
+            self.returned
         self._updateExpressions(valueMapping.get)
         assert self.verify() is None
 
