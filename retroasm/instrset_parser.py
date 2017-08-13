@@ -6,7 +6,8 @@ from .codeblock_builder import (
 from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .expression import IntLiteral
 from .expression_builder import (
-    UnknownNameError, buildExpression, buildReference, convertDefinition
+    BadExpression, UnknownNameError, buildExpression, buildReference,
+    convertDefinition
     )
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
@@ -303,7 +304,7 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
 
     return placeholderSpecs, flagsRequired
 
-def _buildPlaceholders(placeholderSpecs, globalNamespace):
+def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
     '''Yields pairs of name and Placeholder object.
     '''
     semNamespace = ContextNamespace(globalNamespace)
@@ -313,16 +314,19 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace):
         semType = spec.semanticsType
         value = spec.value
 
-        if value is None:
-            code = None
-        else:
+        code = None
+        if value is not None:
             placeholderNamespace = LocalNamespace(
                 semNamespace, SemanticsCodeBlockBuilder()
                 )
-            convertDefinition(
-                decl.kind, decl.name, semType, value, placeholderNamespace
-                )
-            code = placeholderNamespace.createCodeBlock(name)
+            try:
+                convertDefinition(
+                    decl.kind, decl.name, semType, value, placeholderNamespace
+                    )
+            except BadExpression as ex:
+                reader.error('%s', ex, location=ex.location)
+            else:
+                code = placeholderNamespace.createCodeBlock(name)
 
         location = decl.name.location
         if isinstance(semType, ReferenceType):
@@ -809,10 +813,10 @@ def _parseModeEntries(
 
                 # Compute semantics for placeholders.
                 try:
-                    placeholders = OrderedDict(
-                        _buildPlaceholders(placeholderSpecs, globalNamespace)
-                        )
-                except BadInput as ex:
+                    placeholders = OrderedDict(_buildPlaceholders(
+                        placeholderSpecs, globalNamespace, reader
+                        ))
+                except NameExistsError as ex:
                     reader.error(
                         'error in context: %s', ex, location=ex.location
                         )
