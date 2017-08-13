@@ -303,6 +303,39 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
 
     return placeholderSpecs, flagsRequired
 
+def _buildPlaceholders(placeholderSpecs, globalNamespace):
+    '''Yields pairs of name and Placeholder object.
+    '''
+    semNamespace = ContextNamespace(globalNamespace)
+
+    for name, spec in placeholderSpecs.items():
+        decl = spec.decl
+        semType = spec.semanticsType
+        value = spec.value
+
+        if value is None:
+            location = decl.name.location
+            if isinstance(semType, ReferenceType):
+                semNamespace.addReferenceArgument(name, semType.type, location)
+            else:
+                semNamespace.addValueArgument(name, semType, location)
+            code = None
+        else:
+            placeholderNamespace = LocalNamespace(
+                semNamespace, SemanticsCodeBlockBuilder()
+                )
+            convertDefinition(
+                decl.kind, decl.name, semType, value, placeholderNamespace
+                )
+            code = placeholderNamespace.createCodeBlock(name)
+
+        if isinstance(spec, ValuePlaceholderSpec):
+            yield name, ValuePlaceholder(name, semType, code)
+        elif isinstance(spec, MatchPlaceholderSpec):
+            yield name, MatchPlaceholder(name, spec.mode)
+        else:
+            assert False, spec
+
 def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Define placeholders in encoding namespace.
     encNamespace = ContextNamespace(None)
@@ -774,40 +807,10 @@ def _parseModeEntries(
                     placeholderSpecs, flagsRequired = {}, set()
 
                 # Compute semantics for placeholders.
-                semNamespace = ContextNamespace(globalNamespace)
-                placeholders = OrderedDict()
                 try:
-                    for name, spec in placeholderSpecs.items():
-                        decl = spec.decl
-                        semType = spec.semanticsType
-                        value = spec.value
-                        if value is not None:
-                            placeholderNamespace = LocalNamespace(
-                                semNamespace, SemanticsCodeBlockBuilder()
-                                )
-                            convertDefinition(
-                                decl.kind, decl.name, semType, value,
-                                placeholderNamespace
-                                )
-                            code = placeholderNamespace.createCodeBlock(name)
-                        elif isinstance(semType, ReferenceType):
-                            semNamespace.addReferenceArgument(
-                                name, semType.type, decl.name.location
-                                )
-                            code = None
-                        else:
-                            semNamespace.addValueArgument(
-                                name, semType, decl.name.location
-                                )
-                            code = None
-
-                        if isinstance(spec, ValuePlaceholderSpec):
-                            placeholder = ValuePlaceholder(name, semType, code)
-                        elif isinstance(spec, MatchPlaceholderSpec):
-                            placeholder = MatchPlaceholder(name, spec.mode)
-                        else:
-                            assert False, spec
-                        placeholders[name] = placeholder
+                    placeholders = OrderedDict(
+                        _buildPlaceholders(placeholderSpecs, globalNamespace)
+                        )
                 except BadInput as ex:
                     reader.error(
                         'error in context: %s', ex, location=ex.location
