@@ -888,10 +888,6 @@ def _parseModeEntries(
                         continue
                     try:
                         semantics = semNamespace.createCodeBlock(log=reader)
-                        # TODO: Inline code block into ctxBuilder as a function
-                        #       call, where all placeholders are arguments.
-                        #       Store the result in the ModeEntry, in addition
-                        #       to the semantics-field-only code block.
                     except ValueError:
                         # Error was already logged inside createCodeBlock().
                         pass
