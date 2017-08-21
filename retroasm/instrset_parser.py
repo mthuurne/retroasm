@@ -486,7 +486,9 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                     )
                 continue
 
-            encWidth = encRef.width
+            encBits = encRef.bits
+
+            encWidth = encBits.width
             if encWidth is unlimited:
                 reader.error(
                     'unlimited width integers are not allowed in encoding',
@@ -496,7 +498,7 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                 checkAux(encWidth, encLoc)
             firstUnitMatched = True
 
-            yield EncodingExpr(encRef, encValue, encLoc)
+            yield EncodingExpr(encBits, encValue, encLoc)
 
     # Check that our encoding field contains sufficient placeholders to be able
     # to make matches in all included mode tables.
@@ -583,7 +585,7 @@ def _decomposeEncodingExprs(encElems, reader):
         fixedValue = 0
         try:
             for expr, immIdx, refIdx, width in _decomposeBitString(
-                    encElem.ref.bits
+                    encElem.bits
                     ):
                 if isinstance(expr, ArgumentValue):
                     decodeMap[expr.name].append(

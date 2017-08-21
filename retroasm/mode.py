@@ -13,21 +13,21 @@ class EncodingExpr:
     expression.
     '''
 
-    ref = property(lambda self: self._ref)
+    bits = property(lambda self: self._bits)
     value = property(lambda self: self._value)
     location = property(lambda self: self._location)
 
-    encodingWidth = property(lambda self: self._ref.width)
+    encodingWidth = property(lambda self: self._bits.width)
     encodedLength = property(lambda self: 1)
 
-    def __init__(self, ref, value, location):
-        self._ref = ref
+    def __init__(self, bits, value, location):
+        self._bits = bits
         self._value = value
         self._location = location
 
     def __repr__(self):
         return 'EncodingExpr(%r, %r, %r)' % (
-            self._ref, self._value, self._location
+            self._bits, self._value, self._location
             )
 
 class EncodingMultiMatch:
