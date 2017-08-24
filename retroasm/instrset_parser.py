@@ -379,8 +379,8 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
             firstAux[1] = location
         elif width != auxWidth:
             reader.error(
-                'encoding item matches width %d, while first auxiliary '
-                'encoding match has width %d', width, auxWidth,
+                'encoding item matches width %s, while first auxiliary '
+                'encoding match has width %s', width, auxWidth,
                 location=(location, auxLoc)
                 )
     claimedMultiMatches = {}
@@ -488,15 +488,10 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
 
             encBits = encRef.bits
 
-            encWidth = encBits.width
-            if encWidth is unlimited:
-                reader.error(
-                    'unlimited width integers are not allowed in encoding',
-                    location=encLoc
-                    )
-            elif firstUnitMatched:
-                checkAux(encWidth, encLoc)
-            firstUnitMatched = True
+            if firstUnitMatched:
+                checkAux(encBits.width, encLoc)
+            else:
+                firstUnitMatched = True
 
             yield EncodingExpr(encBits, encValue, encLoc)
 
@@ -908,7 +903,7 @@ def _parseModeEntries(
                 )
 
 def _formatEncodingWidth(width):
-    return 'empty' if width is None else '%d bits wide' % width
+    return 'empty' if width is None else '%s bits wide' % width
 
 def _determineEncodingWidth(entries, aux, modeName, logger):
     '''Returns the common encoding width for the given list of mode entries.
@@ -1028,8 +1023,8 @@ def _parseInstr(reader, argStr, globalNamespace, pc, modes, wantSemantics):
         auxEncodingWidth = instr.auxEncodingWidth
         if auxEncodingWidth not in (encWidth, None):
             reader.error(
-                'auxiliary instruction encoding units are %d bits wide, '
-                'while first unit is %d bits wide', auxEncodingWidth, encWidth,
+                'auxiliary instruction encoding units are %s bits wide, '
+                'while first unit is %s bits wide', auxEncodingWidth, encWidth,
                 location=instr.auxEncodingLocation
                 )
         yield instr

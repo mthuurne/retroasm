@@ -1,6 +1,6 @@
 from .expression import IntLiteral
 from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
-from .types import IntType
+from .types import IntType, unlimited
 
 def iterMnemonic(match, values):
     '''Yields a mnemonic representation of the given match.
@@ -89,7 +89,8 @@ class Disassembler:
         instrSet = self._instrSet
 
         addrWidth = instrSet.addrWidth
-        encType = IntType.u(instrSet.encodingWidth)
+        encWidth = instrSet.encodingWidth
+        encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
         labels = {}
         dataLabelFormat = 'data_{:0%dx}' % ((addrWidth + 3) // 4)

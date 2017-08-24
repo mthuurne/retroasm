@@ -714,13 +714,13 @@ class EncodeMatch:
         return length
 
 def _formatEncodingWidth(width):
-    return 'empty encoding' if width is None else 'encoding width %d' % width
+    return 'empty encoding' if width is None else 'encoding width %s' % width
 
 def _formatAuxEncodingWidth(width):
     return (
         'no auxiliary encoding items'
         if width is None
-        else 'auxiliary encoding width %d' % width
+        else 'auxiliary encoding width %s' % width
         )
 
 class ModeTable:

@@ -9,6 +9,7 @@ from retroasm.fetch import BigEndianFetcher, ByteFetcher, LittleEndianFetcher
 from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import LineReaderFormatter
 from retroasm.section import ByteOrder, CodeSection, Section, SectionMap
+from retroasm.types import unlimited
 
 from logging import DEBUG, INFO, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
@@ -186,9 +187,9 @@ def disassembleBinary(binary, sectionDefs, entryDefs, logger):
         # Create instruction fetcher.
         byteOrder = section.byteOrder
         instrWidth = instrSet.encodingWidth
-        if instrWidth % 8 != 0:
+        if instrWidth is unlimited or instrWidth % 8 != 0:
             logger.error(
-                'Instruction units must be a multiple of 8 bits wide, got %d',
+                'Instruction units must be a multiple of 8 bits wide, got %s',
                 instrWidth
                 )
             return
