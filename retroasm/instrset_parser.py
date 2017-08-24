@@ -345,6 +345,41 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
         else:
             assert False, spec
 
+def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
+    '''Parse encoding node that is not a MultiMatchNode.
+    Returns the parse result as an EncodingExpr.
+    Raises BadInput if the node is invalid.
+    '''
+    try:
+        encRef = buildReference(encNode, encNamespace)
+    except BadInput as ex:
+        if isinstance(ex, UnknownNameError):
+            spec = placeholderSpecs.get(ex.name)
+            if spec is not None:
+                if spec.encodingWidth is None:
+                    raise BadInput(
+                        'cannot use placeholder "%s" in encoding field, '
+                        'since mode "%s" has an empty encoding sequence'
+                        % (ex.name, spec.mode.name),
+                        location=(ex.location, spec.decl.treeLocation)
+                        )
+                if spec.value is not None:
+                    raise BadInput(
+                        'cannot use placeholder "%s" in encoding field, '
+                        'since its value is computed in the context'
+                        % ex.name,
+                        location=(ex.location, spec.value.treeLocation)
+                        )
+        raise BadInput(
+            'error in encoding: %s' % ex,
+            location=(encNode.treeLocation, ex.location)
+            )
+
+    encLoc = encNode.treeLocation
+    encValue = encRef.emitLoad(None, encLoc)
+    encBits = encRef.bits
+    return EncodingExpr(encBits, encValue, encLoc)
+
 def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Define placeholders in encoding namespace.
     encNamespace = ContextNamespace(None)
@@ -446,54 +481,19 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
         else:
             # Expression possibly containing single encoding field matches.
             try:
-                encRef = buildReference(encNode, encNamespace)
-            except BadInput as ex:
-                if isinstance(ex, UnknownNameError):
-                    spec = placeholderSpecs.get(ex.name)
-                    if spec is not None:
-                        if spec.encodingWidth is None:
-                            reader.error(
-                                'cannot use placeholder "%s" in encoding '
-                                'field, since mode "%s" has an empty encoding '
-                                'sequence',
-                                ex.name, spec.mode.name, location=(
-                                    ex.location, spec.decl.treeLocation
-                                    )
-                                )
-                            continue
-                        if spec.value is not None:
-                            reader.error(
-                                'cannot use placeholder "%s" in encoding '
-                                'field, since its value is computed in the '
-                                'context',
-                                ex.name, location=(
-                                    ex.location, spec.value.treeLocation
-                                    )
-                                )
-                            continue
-                reader.error(
-                    'error in encoding: %s', ex,
-                    location=(encLoc, ex.location)
+                encExpr = _parseEncodingExpr(
+                    encNode, encNamespace, placeholderSpecs
                     )
-                continue
-
-            try:
-                encValue = encRef.emitLoad(None, encLoc)
             except BadInput as ex:
-                reader.error(
-                    'error evaluating encoding: %s', ex,
-                    location=(encLoc, ex.location)
-                    )
+                reader.error('%s', ex, location=ex.location)
                 continue
-
-            encBits = encRef.bits
 
             if firstUnitMatched:
-                checkAux(encBits.width, encLoc)
+                checkAux(encExpr.encodingWidth, encLoc)
             else:
                 firstUnitMatched = True
 
-            yield EncodingExpr(encBits, encValue, encLoc)
+            yield encExpr
 
     # Check that our encoding field contains sufficient placeholders to be able
     # to make matches in all included mode tables.
