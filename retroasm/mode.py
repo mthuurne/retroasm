@@ -14,21 +14,17 @@ class EncodingExpr:
     '''
 
     bits = property(lambda self: self._bits)
-    value = property(lambda self: self._value)
     location = property(lambda self: self._location)
 
     encodingWidth = property(lambda self: self._bits.width)
     encodedLength = property(lambda self: 1)
 
-    def __init__(self, bits, value, location):
+    def __init__(self, bits, location):
         self._bits = bits
-        self._value = value
         self._location = location
 
     def __repr__(self):
-        return 'EncodingExpr(%r, %r, %r)' % (
-            self._bits, self._value, self._location
-            )
+        return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
 
 class EncodingMultiMatch:
     '''A segment in an encoding sequence of zero or more elements, that will

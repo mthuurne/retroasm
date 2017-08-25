@@ -376,9 +376,8 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
             )
 
     encLoc = encNode.treeLocation
-    encValue = encRef.emitLoad(None, encLoc)
     encBits = encRef.bits
-    return EncodingExpr(encBits, encValue, encLoc)
+    return EncodingExpr(encBits, encLoc)
 
 def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Define placeholders in encoding namespace.
