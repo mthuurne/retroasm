@@ -405,20 +405,7 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     multiMatches = set(collectNames(MultiMatchNode))
 
     # Evaluate encoding field.
-    firstAux = [None, None]
-    def checkAux(width, location):
-        auxWidth, auxLoc = firstAux
-        if auxWidth is None:
-            firstAux[0] = width
-            firstAux[1] = location
-        elif width != auxWidth:
-            reader.error(
-                'encoding item matches width %s, while first auxiliary '
-                'encoding match has width %s', width, auxWidth,
-                location=(location, auxLoc)
-                )
     claimedMultiMatches = {}
-    firstUnitMatched = False
     for encNode in encNodes:
         encLoc = encNode.treeLocation
         if isinstance(encNode, MultiMatchNode):
@@ -465,34 +452,15 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                     )
                 continue
 
-            if firstUnitMatched:
-                if start == 0:
-                    checkAux(modeWidth, encLoc)
-                if modeAuxWidth is not None:
-                    checkAux(modeAuxWidth, encLoc)
-            else:
-                if modeAuxWidth is not None:
-                    if mode.encodedLength != start + 1:
-                        checkAux(modeAuxWidth, encLoc)
-                firstUnitMatched = True
-
             yield EncodingMultiMatch(name, mode, start, encLoc)
         else:
             # Expression possibly containing single encoding field matches.
             try:
-                encExpr = _parseEncodingExpr(
+                yield _parseEncodingExpr(
                     encNode, encNamespace, placeholderSpecs
                     )
             except BadInput as ex:
                 reader.error('%s', ex, location=ex.location)
-                continue
-
-            if firstUnitMatched:
-                checkAux(encExpr.encodingWidth, encLoc)
-            else:
-                firstUnitMatched = True
-
-            yield encExpr
 
     # Check that our encoding field contains sufficient placeholders to be able
     # to make matches in all included mode tables.
@@ -537,6 +505,47 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                     )
         else:
             assert False, spec
+
+def _checkAuxEncodingWidth(encoding, logger):
+    '''Check whether the encoding widths in the given encoding are the same
+    for all auxiliary encoding items.
+    Violations are logged as errors on the given logger.
+    '''
+    firstAux = [None, None]
+    def checkAux(width, location):
+        auxWidth, auxLoc = firstAux
+        if auxWidth is None:
+            firstAux[0] = width
+            firstAux[1] = location
+        elif width != auxWidth:
+            logger.error(
+                'encoding item matches width %s, while first auxiliary '
+                'encoding match has width %s', width, auxWidth,
+                location=(location, auxLoc)
+                )
+    firstUnitMatched = False
+    for encExpr in encoding:
+        encLoc = encExpr.location
+        if isinstance(encExpr, EncodingExpr):
+            if firstUnitMatched:
+                checkAux(encExpr.encodingWidth, encLoc)
+            else:
+                firstUnitMatched = True
+        elif isinstance(encExpr, EncodingMultiMatch):
+            mode = encExpr.mode
+            modeAuxWidth = mode.auxEncodingWidth
+            if firstUnitMatched:
+                if encExpr.start == 0:
+                    checkAux(mode.encodingWidth, encLoc)
+                if modeAuxWidth is not None:
+                    checkAux(modeAuxWidth, encLoc)
+            else:
+                if modeAuxWidth is not None:
+                    if mode.encodedLength != encExpr.start + 1:
+                        checkAux(modeAuxWidth, encLoc)
+                firstUnitMatched = True
+        else:
+            assert False, encExpr
 
 def _decomposeBitString(bits):
     if isinstance(bits, FixedValue):
@@ -836,6 +845,8 @@ def _parseModeEntries(
                             encoding = tuple(_parseModeEncoding(
                                 encNodes, placeholderSpecs, reader
                                 ))
+                        with reader.checkErrors():
+                            _checkAuxEncodingWidth(encoding, reader)
                     except DelayedError:
                         encoding = None
                 if encoding is None:
