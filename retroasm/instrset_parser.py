@@ -379,7 +379,30 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
     encBits = encRef.bits
     return EncodingExpr(encBits, encLoc)
 
-def _parseModeEncoding(encNodes, placeholderSpecs, reader):
+def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
+    '''Parse an encoding node of type MultiMatchNode.
+    Returns the parse result as an EncodingMultiMatch.
+    Raises BadInput if the node is invalid.
+    '''
+    name = encNode.name
+    try:
+        placeholder = placeholderSpecs[name]
+    except KeyError:
+        raise BadInput(
+            'placeholder "%s" does not exist in context' % name,
+            location=encNode.treeLocation
+            )
+    if not isinstance(placeholder, MatchPlaceholderSpec):
+        raise BadInput(
+            'placeholder "%s" does not represent a mode match' % name,
+            location=(encNode.treeLocation, placeholder.decl.treeLocation)
+            )
+
+    mode = placeholder.mode
+    start = 1 if name in identifiers else 0
+    return EncodingMultiMatch(name, mode, start, encNode.treeLocation)
+
+def _parseModeEncoding(encNodes, placeholderSpecs, logger):
     # Define placeholders in encoding namespace.
     encNamespace = ContextNamespace(None)
     for name, spec in placeholderSpecs.items():
@@ -391,7 +414,7 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                 try:
                     encNamespace.addValueArgument(name, encType, location)
                 except NameExistsError as ex:
-                    reader.error(
+                    logger.error(
                         'bad placeholder: %s', ex, location=ex.location
                         )
 
@@ -406,60 +429,56 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
     # Evaluate encoding field.
     claimedMultiMatches = {}
     for encNode in encNodes:
-        encLoc = encNode.treeLocation
-        if isinstance(encNode, MultiMatchNode):
-            # Match multiple encoding fields as-is.
-            name = encNode.name
-            try:
-                placeholder = placeholderSpecs[name]
-            except KeyError:
-                reader.error(
-                    'placeholder "%s" does not exist in context', name,
-                    location=encLoc
+        try:
+            if isinstance(encNode, MultiMatchNode):
+                # Match multiple encoding fields as-is.
+                yield _parseMultiMatch(
+                    encNode, identifiers, placeholderSpecs
                     )
-                continue
-            if not isinstance(placeholder, MatchPlaceholderSpec):
-                reader.error(
-                    'placeholder "%s" does not represent a mode match', name,
-                    location=(encLoc, placeholder.decl.treeLocation)
-                    )
-                continue
-            mode = placeholder.mode
-            if name in claimedMultiMatches:
-                reader.error(
-                    'duplicate multi-match placeholder "%s@"', name,
-                    location=(encLoc, claimedMultiMatches[name])
-                    )
+
+                # TODO: This is a problem for decoding, so report it there.
+                name = encNode.name
+                if name in claimedMultiMatches:
+                    raise BadInput(
+                        'duplicate multi-match placeholder "%s@"' % name,
+                        location=(
+                            encNode.treeLocation, claimedMultiMatches[name]
+                            )
+                        )
+                else:
+                    claimedMultiMatches[name] = encNode.treeLocation
             else:
-                claimedMultiMatches[name] = encLoc
-
-            start = 1 if name in identifiers else 0
-            # Technically there is nothing wrong with always matching zero
-            # elements, but it is probably not what the user intended.
-            modeWidth = mode.encodingWidth
-            if modeWidth is None:
-                reader.warning(
-                    'mode "%s" does not contain encoding elements',
-                    mode.name, location=(encLoc, placeholder.decl.treeLocation)
-                    )
-                continue
-            modeAuxWidth = mode.auxEncodingWidth
-            if start >= 1 and modeAuxWidth is None:
-                reader.warning(
-                    'mode "%s" does not match auxiliary encoding units',
-                    mode.name, location=(encLoc, placeholder.decl.treeLocation)
-                    )
-                continue
-
-            yield EncodingMultiMatch(name, mode, start, encLoc)
-        else:
-            # Expression possibly containing single encoding field matches.
-            try:
+                # Expression possibly containing single encoding field matches.
                 yield _parseEncodingExpr(
                     encNode, encNamespace, placeholderSpecs
                     )
-            except BadInput as ex:
-                reader.error('%s', ex, location=ex.location)
+        except BadInput as ex:
+            logger.error('%s', ex, location=ex.location)
+
+def _checkEmptyMultiMatches(encoding, placeholderSpecs, logger):
+    '''Warn about multi-matches that always match zero elements.
+    Technically there is nothing wrong with those, but it is probably not what
+    the user intended.
+    '''
+    for encExpr in encoding:
+        if isinstance(encExpr, EncodingMultiMatch):
+            mode = encExpr.mode
+            if mode.encodingWidth is None:
+                logger.warning(
+                    'mode "%s" does not contain encoding elements',
+                    mode.name, location=(
+                        encExpr.location,
+                        placeholderSpecs[encExpr.name].decl.treeLocation
+                        )
+                    )
+            elif encExpr.start >= 1 and mode.auxEncodingWidth is None:
+                logger.warning(
+                    'mode "%s" does not match auxiliary encoding units',
+                    mode.name, location=(
+                        encExpr.location,
+                        placeholderSpecs[encExpr.name].decl.treeLocation
+                        )
+                    )
 
 def _checkMissingPlaceholders(encoding, placeholderSpecs, location, logger):
     '''Check that our encoding field contains sufficient placeholders to be able
@@ -860,6 +879,9 @@ def _parseModeEntries(
                                 ))
                         with reader.checkErrors():
                             _checkAuxEncodingWidth(encoding, reader)
+                            _checkEmptyMultiMatches(
+                                encoding, placeholderSpecs, reader
+                                )
                             _checkMissingPlaceholders(
                                 encoding, placeholderSpecs, encFullSpan, reader
                                 )
