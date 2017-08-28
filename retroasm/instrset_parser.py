@@ -395,14 +395,13 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                         'bad placeholder: %s', ex, location=ex.location
                         )
 
-    # Collect all identifiers and multi-matches used in the encoding.
-    def collectNames(cls):
-        for encNode in encNodes:
-            for subNode in encNode:
-                if isinstance(subNode, cls):
-                    yield subNode.name
-    identifiers = set(collectNames(IdentifierNode))
-    multiMatches = set(collectNames(MultiMatchNode))
+    # Collect the names of all identifiers used in the encoding.
+    identifiers = set(
+        subNode.name
+        for encNode in encNodes
+        for subNode in encNode
+        if isinstance(subNode, IdentifierNode)
+        )
 
     # Evaluate encoding field.
     claimedMultiMatches = {}
@@ -462,25 +461,33 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
             except BadInput as ex:
                 reader.error('%s', ex, location=ex.location)
 
-    # Check that our encoding field contains sufficient placeholders to be able
-    # to make matches in all included mode tables.
-    def encFullSpan():
-        if len(encNodes) == 0:
-            return reader.getLocation((0, 1))
+def _checkMissingPlaceholders(encoding, placeholderSpecs, location, logger):
+    '''Check that our encoding field contains sufficient placeholders to be able
+    to make matches in all included mode tables.
+    '''
+    # Take inventory of placeholders in the encoding.
+    identifiers = set()
+    multiMatches = set()
+    for encExpr in encoding:
+        if isinstance(encExpr, EncodingExpr):
+            for expr in encExpr.bits.iterExpressions():
+                for arg in expr.iterInstances(ArgumentValue):
+                    identifiers.add(arg.name)
+        elif isinstance(encExpr, EncodingMultiMatch):
+            multiMatches.add(encExpr.name)
         else:
-            return mergeSpan(
-                encNodes[0].treeLocation,
-                encNodes[-1].treeLocation
-                )
+            assert False, encExpr
+
+    # Check whether all placeholders from the context occur in the encoding.
     for name, spec in placeholderSpecs.items():
         if isinstance(spec, ValuePlaceholderSpec):
             if spec.value is not None:
                 # The value is computed, so we don't need to encode it.
                 continue
             if name not in identifiers:
-                reader.error(
+                logger.error(
                     'value placeholder "%s" does not occur in encoding', name,
-                    location=(encFullSpan(), spec.decl.treeLocation)
+                    location=(location, spec.decl.treeLocation)
                     )
         elif isinstance(spec, MatchPlaceholderSpec):
             mode = spec.mode
@@ -491,17 +498,17 @@ def _parseModeEncoding(encNodes, placeholderSpecs, reader):
                 # Mode is matched using "X@" syntax.
                 continue
             if name not in identifiers:
-                reader.error(
+                logger.error(
                     'no placeholder "%s" for mode "%s" in encoding',
                     name, mode.name,
-                    location=(encFullSpan(), spec.decl.treeLocation)
+                    location=(location, spec.decl.treeLocation)
                     )
             if mode.auxEncodingWidth is not None:
-                reader.error(
+                logger.error(
                     'mode "%s" matches auxiliary encoding units, but there '
                     'is no "%s@" placeholder for them',
                     mode.name, name,
-                    location=(encFullSpan(), spec.decl.treeLocation)
+                    location=(location, spec.decl.treeLocation)
                     )
         else:
             assert False, spec
@@ -839,7 +846,13 @@ def _parseModeEntries(
                 if encNodes is None:
                     encoding = None
                 else:
-                    # Evaluate encoding field in encoding builder.
+                    if len(encNodes) == 0:
+                        encFullSpan = reader.getLocation((0, 1))
+                    else:
+                        encFullSpan = mergeSpan(
+                            encNodes[0].treeLocation,
+                            encNodes[-1].treeLocation
+                            )
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
@@ -847,6 +860,9 @@ def _parseModeEntries(
                                 ))
                         with reader.checkErrors():
                             _checkAuxEncodingWidth(encoding, reader)
+                            _checkMissingPlaceholders(
+                                encoding, placeholderSpecs, encFullSpan, reader
+                                )
                     except DelayedError:
                         encoding = None
                 if encoding is None:
