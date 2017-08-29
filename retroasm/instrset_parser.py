@@ -427,7 +427,6 @@ def _parseModeEncoding(encNodes, placeholderSpecs, logger):
         )
 
     # Evaluate encoding field.
-    claimedMultiMatches = {}
     for encNode in encNodes:
         try:
             if isinstance(encNode, MultiMatchNode):
@@ -435,18 +434,6 @@ def _parseModeEncoding(encNodes, placeholderSpecs, logger):
                 yield _parseMultiMatch(
                     encNode, identifiers, placeholderSpecs
                     )
-
-                # TODO: This is a problem for decoding, so report it there.
-                name = encNode.name
-                if name in claimedMultiMatches:
-                    raise BadInput(
-                        'duplicate multi-match placeholder "%s@"' % name,
-                        location=(
-                            encNode.treeLocation, claimedMultiMatches[name]
-                            )
-                        )
-                else:
-                    claimedMultiMatches[name] = encNode.treeLocation
             else:
                 # Expression possibly containing single encoding field matches.
                 yield _parseEncodingExpr(
@@ -572,6 +559,22 @@ def _checkAuxEncodingWidth(encoding, logger):
                 firstUnitMatched = True
         else:
             assert False, encExpr
+
+def _checkDuplicateMultiMatches(encoding, logger):
+    '''Checks whether more than one multi-matcher exists for the same
+    placeholder. If they exist, they are reported as errors on the given logger.
+    '''
+    claimedMultiMatches = {}
+    for encExpr in encoding:
+        if isinstance(encExpr, EncodingMultiMatch):
+            name = encExpr.name
+            if name in claimedMultiMatches:
+                logger.error(
+                    'duplicate multi-match placeholder "%s@"', name,
+                    location=(encExpr.location, claimedMultiMatches[name])
+                    )
+            else:
+                claimedMultiMatches[name] = encExpr.location
 
 def _decomposeBitString(bits):
     if isinstance(bits, FixedValue):
@@ -882,6 +885,7 @@ def _parseModeEntries(
                             _checkEmptyMultiMatches(
                                 encoding, placeholderSpecs, reader
                                 )
+                            _checkDuplicateMultiMatches(encoding, reader)
                             _checkMissingPlaceholders(
                                 encoding, placeholderSpecs, encFullSpan, reader
                                 )
