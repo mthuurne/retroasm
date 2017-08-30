@@ -350,7 +350,7 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
     '''
-    namespace = LocalNamespace(encNamespace, StatelessCodeBlockBuilder())
+    namespace = LocalNamespace(encNamespace, SemanticsCodeBlockBuilder())
     try:
         encRef = buildReference(encNode, namespace)
     except BadInput as ex:
@@ -377,7 +377,13 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
             )
 
     encLoc = encNode.treeLocation
-    encBits = encRef.bits
+    code = namespace.builder.createCodeBlock((encRef.bits,))
+    if len(code.nodes) != 0:
+        raise BadInput(
+            'encoding expression accesses state or performs I/O',
+            location=encLoc
+            )
+    encBits, = code.returned
     return EncodingExpr(encBits, encLoc)
 
 def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
@@ -403,9 +409,9 @@ def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
     start = 1 if name in identifiers else 0
     return EncodingMultiMatch(name, mode, start, encNode.treeLocation)
 
-def _parseModeEncoding(encNodes, placeholderSpecs, logger):
+def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
     # Define placeholders in encoding namespace.
-    encNamespace = ContextNamespace(None)
+    encNamespace = ContextNamespace(globalNamespace)
     for name, spec in placeholderSpecs.items():
         if spec.value is None:
             encWidth = spec.encodingWidth
@@ -879,7 +885,8 @@ def _parseModeEntries(
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
-                                encNodes, placeholderSpecs, reader
+                                encNodes, placeholderSpecs, globalNamespace,
+                                reader
                                 ))
                         with reader.checkErrors():
                             _checkAuxEncodingWidth(encoding, reader)
