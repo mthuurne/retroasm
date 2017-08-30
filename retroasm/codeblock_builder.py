@@ -73,13 +73,14 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
-    def createCodeBlock(self, returned, log=None):
+    def createCodeBlock(self, returned, log=None, location=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
         returned values for the created block.
         Raises ValueError if this builder does not represent a valid code block.
-        If a log is provided, errors are logged individually as well.
+        If a log is provided, errors are logged individually as well, using
+        the given location if no specific location is known.
         '''
         code = CodeBlockSimplifier(self.nodes, returned)
 
@@ -99,12 +100,21 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 for load in ununitializedLoads:
                     log.error(
                         'variable is read before it is initialized',
-                        location=load.location
+                        location=load.location or location
                         )
             raise ValueError(
                 'Code block reads %d uninitialized variable(s)'
                 % len(ununitializedLoads)
                 )
+
+        # Check for returning of uninitialized variables.
+        for retBits in returned:
+            for storage in retBits.iterStorages():
+                if isinstance(storage, Variable) and storage.scope == 1:
+                    if storage not in initializedVariables:
+                        msg = 'code block returns uninitialized variable(s)'
+                        log.error(msg, location=location)
+                        raise ValueError(msg.capitalize())
 
         # Finalize code block.
         code.simplify()

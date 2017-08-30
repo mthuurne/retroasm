@@ -42,7 +42,9 @@ def createFunc(reader, funcName, retType, args, globalNamespace):
         code = None
     else:
         try:
-            code = namespace.createCodeBlock(log=reader)
+            code = namespace.createCodeBlock(
+                log=reader, location=headerLocation
+                )
         except ValueError:
             code = None
 

@@ -177,7 +177,7 @@ class LocalNamespace(BuilderNamespace):
     def _checkName(self, name, location):
         _rejectPC(name, location)
 
-    def createCodeBlock(self, ret='ret', log=None):
+    def createCodeBlock(self, ret='ret', log=None, location=None):
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         If 'ret' is an existing name in this namespace, the reference with that
@@ -185,11 +185,12 @@ class LocalNamespace(BuilderNamespace):
         If 'ret' is None or a non-existing name, the created code block will
         not return anything.
         Raises ValueError if our builder does not represent a valid code block.
-        If a log is provided, errors are logged individually as well.
+        If a log is provided, errors are logged individually as well, using
+        the given location if no specific location is known.
         '''
         retRef = None if ret is None else self.elements.get(ret)
         returned = () if retRef is None else (retRef.bits,)
-        return self.builder.createCodeBlock(returned, log)
+        return self.builder.createCodeBlock(returned, log, location)
 
 class NameExistsError(BadInput):
     '''Raised when attempting to add an element to a namespace under a name
