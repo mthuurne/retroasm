@@ -59,7 +59,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
         # TODO: This is probably overly strict: calling a function that does
         #       not touch state should be fine.
         raise IllegalStateAccess(
-            'attempt to call function ("%s")' % func.name,
+            'attempt to call function',
             location
             )
 
