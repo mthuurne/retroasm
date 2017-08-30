@@ -350,8 +350,9 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
     '''
+    namespace = LocalNamespace(encNamespace, StatelessCodeBlockBuilder())
     try:
-        encRef = buildReference(encNode, encNamespace)
+        encRef = buildReference(encNode, namespace)
     except BadInput as ex:
         if isinstance(ex, UnknownNameError):
             spec = placeholderSpecs.get(ex.name)
