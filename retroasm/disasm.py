@@ -16,8 +16,9 @@ def iterMnemonic(match, values):
                 if isinstance(subElem, str):
                     yield subElem
                 else:
-                    value, typ, roles = subElem
-                    yield value, typ, roles | mnemElem.roles
+                    value, typ, subRoles = subElem
+                    roles = frozenset() # TODO: Re-implement.
+                    yield value, typ, subRoles | roles
         elif isinstance(mnemElem, ValuePlaceholder):
             name = mnemElem.name
             typ = mnemElem.type
@@ -26,11 +27,13 @@ def iterMnemonic(match, values):
             if code is None:
                 # Value was decoded.
                 assert isinstance(value, IntLiteral), repr(value)
-                yield value.value, typ, mnemElem.roles
+                roles = frozenset() # TODO: Re-implement.
+                yield value.value, typ, roles
             else:
                 # Value is computed.
                 if isinstance(value, IntLiteral):
-                    yield value.value, typ, mnemElem.roles
+                    roles = frozenset() # TODO: Re-implement.
+                    yield value.value, typ, roles
                 else:
                     # TODO: Is this a bug? A definition error?
                     #       Or can it happen normally?

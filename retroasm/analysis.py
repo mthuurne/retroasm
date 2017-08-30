@@ -1,44 +1,14 @@
-from .codeblock import ArgumentValue, CodeBlock, Store
+from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
-from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
+from .mode import MatchPlaceholder, ValuePlaceholder
 from .reference import FixedValue, decodeInt
-from .storage import IOStorage, Variable
+from .storage import Variable
 from .utils import checkType
 
 from collections import OrderedDict
-
-def iterBranchAddrs(code, pc):
-    '''Yields the expressions written to the PC register by the given code
-    block.
-    '''
-    for node in code.nodes:
-        if isinstance(node, Store) and node.storage is pc:
-            yield node.expr
-
-def determinePlaceholderRoles(semantics, placeholders, pc):
-    '''Analyze semantics to figure out the roles of placeholders.
-    While this won't be sufficient to determine the role of all literal values,
-    it can handle a few common cases reliably and efficiently.
-    '''
-
-    if pc is not None:
-        # Mark placeholders written to the program counter as code addresses.
-        for expr in iterBranchAddrs(semantics, pc):
-            if isinstance(expr, ArgumentValue):
-                placeholder = placeholders[expr.name]
-                placeholder.addRole(PlaceholderRole.code_addr)
-
-    # Mark placeholders used as memory indices as data addresses.
-    for node in semantics.nodes:
-        storage = node.storage
-        if isinstance(storage, IOStorage) and storage.channel.name == 'mem':
-            index = storage.index
-            if isinstance(index, ArgumentValue):
-                placeholder = placeholders[index.name]
-                placeholder.addRole(PlaceholderRole.data_addr)
 
 class MatchFiller:
 
@@ -101,9 +71,6 @@ class CodeTemplate:
             else:
                 assert False, placeholder
             fillers.append((name, filler))
-
-        # Perform some basic analysis.
-        determinePlaceholderRoles(code, placeholders, pcVar)
 
     def buildMatch(self, match, values, pcVal=None):
         '''Builds a code block that defines the semantics of an EncodeMatch and

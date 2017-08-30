@@ -858,14 +858,9 @@ class Placeholder:
     '''
 
     name = property(lambda self: self._name)
-    roles = property(lambda self: frozenset(self._roles))
 
     def __init__(self, name):
         self._name = name
-        self._roles = set()
-
-    def addRole(self, role):
-        self._roles.add(checkType(role, PlaceholderRole, 'role'))
 
 class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.
