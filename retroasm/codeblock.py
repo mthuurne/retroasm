@@ -1,7 +1,7 @@
 from .expression import Expression
 from .linereader import InputLocation
 from .reference import BitString
-from .storage import RefArgStorage, Storage
+from .storage import ArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property
 
@@ -83,38 +83,6 @@ class Store(AccessNode):
 
     def clone(self):
         return Store(self._expr, self._storage, self._location)
-
-class ArgumentValue(Expression):
-    '''A value passed into a code block as an argument.
-    '''
-    __slots__ = ('_name', '_mask')
-
-    name = property(lambda self: self._name)
-    mask = property(lambda self: self._mask)
-
-    def __init__(self, name, mask):
-        Expression.__init__(self)
-        self._name = checkType(name, str, 'name')
-        self._mask = checkType(mask, int, 'mask')
-
-    def _ctorargs(self):
-        return self._name, self._mask
-
-    def __repr__(self):
-        return 'ArgumentValue(%r, %d)' % (self._name, self._mask)
-
-    def __str__(self):
-        return self._name
-
-    def _equals(self, other):
-        # pylint: disable=protected-access
-        return self._name == other._name
-
-    @property
-    def complexity(self):
-        # We don't know what the complexity will be of the value passed for
-        # this argument; make a wild guess.
-        return 3
 
 class LoadedValue(Expression):
     '''A value loaded from a storage location.
@@ -235,27 +203,19 @@ class CodeBlock:
 
     def _gatherArguments(self):
         '''A dictionary containing all arguments that occur in this code block.
-        The dictionary keys are the argument names, the dictionary values are
-        ArgumentValue for pass-by-value arguments and RefArgStorage for
-        pass-by-reference arguments.
+        The dictionary keys are the argument names and the dictionary values
+        are ArgStorage instances.
         ValueError is raised if the same name is used for multiple arguments.
         '''
         args = {}
-        def addArg(arg):
-            name = arg.name
-            prev = args.get(name)
-            if prev is None:
-                args[name] = arg
-            elif prev is not arg:
-                raise ValueError('multiple arguments named "%s"' % name)
-
-        for expr in self.expressions:
-            for argVal in expr.iterInstances(ArgumentValue):
-                addArg(argVal)
         for storage in self.storages:
-            if isinstance(storage, RefArgStorage):
-                addArg(storage)
-
+            if isinstance(storage, ArgStorage):
+                name = storage.name
+                prev = args.get(name)
+                if prev is None:
+                    args[name] = storage
+                elif prev is not storage:
+                    raise ValueError('multiple arguments named "%s"' % name)
         return args
 
     arguments = const_property(_gatherArguments)

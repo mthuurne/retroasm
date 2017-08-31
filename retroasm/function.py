@@ -1,5 +1,4 @@
-from .codeblock import ArgumentValue
-from .storage import RefArgStorage
+from .storage import RefArgStorage, ValArgStorage
 from .types import ReferenceType
 
 class Function:
@@ -48,18 +47,19 @@ def _checkArgs(declArgs, codeArgs):
                     'reference argument "%s" is not a reference in code block'
                     % name
                     )
-            if typ.type.width != arg.width:
-                raise ValueError(
-                    'reference argument "%s" is declared with width %s but '
-                    'has width %s in code block'
-                    % (name, typ.type.width, arg.width)
-                    )
+            typ = typ.type
         else:
-            if not isinstance(arg, ArgumentValue):
+            if not isinstance(arg, ValArgStorage):
                 raise ValueError(
                     'value argument "%s" is not a value in code block'
                     % name
                     )
+        if typ.width != arg.width:
+            raise ValueError(
+                'argument "%s" is declared with width %s but has width %s '
+                'in code block'
+                % (name, typ.width, arg.width)
+                )
 
 def _checkReturn(retType, returned):
     '''Check consistency between declared return type and code block.

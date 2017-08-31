@@ -180,11 +180,10 @@ class Variable(Storage):
             self._scope == 0 and isinstance(other, RefArgStorage)
             )
 
-class RefArgStorage(Storage):
-    '''A placeholder storage location for a storage passed to a function by
-    reference. The storage properties depend on which concrete storage will be
-    passed, so until we know the concrete storage we have to assume the worst
-    case.
+class ArgStorage(Storage):
+    '''A placeholder storage location for a storage passed to a function.
+    The storage properties depend on which concrete storage will be passed,
+    so until we know the concrete storage we have to assume the worst case.
     '''
     __slots__ = ('_name',)
 
@@ -197,10 +196,31 @@ class RefArgStorage(Storage):
         Storage.__init__(self, width)
 
     def __repr__(self):
-        return 'RefArgStorage(%r, %s)' % (self._name, self._width)
+        return '%s(%r, %s)' % (self.__class__.__name__, self._name, self._width)
 
     def __str__(self):
         return self._name
+
+    def canLoadHaveSideEffect(self):
+        raise NotImplementedError
+
+    def canStoreHaveSideEffect(self):
+        raise NotImplementedError
+
+    def isLoadConsistent(self):
+        raise NotImplementedError
+
+    def isSticky(self):
+        raise NotImplementedError
+
+    def mightBeSame(self, other):
+        raise NotImplementedError
+
+class RefArgStorage(ArgStorage):
+    '''A placeholder storage location for a storage passed to a function by
+    reference.
+    '''
+    __slots__ = ()
 
     def canLoadHaveSideEffect(self):
         return True
@@ -218,6 +238,27 @@ class RefArgStorage(Storage):
         # A variable can only be referenced via arguments if it exists in
         # the global scope.
         return not isinstance(other, Variable) or other._scope == 0
+
+class ValArgStorage(ArgStorage):
+    '''A placeholder storage location for a storage passed to a function by
+    value.
+    '''
+    __slots__ = ()
+
+    def canLoadHaveSideEffect(self):
+        return False
+
+    def canStoreHaveSideEffect(self):
+        return False
+
+    def isLoadConsistent(self):
+        return True
+
+    def isSticky(self):
+        return False
+
+    def mightBeSame(self, other):
+        return False
 
 class IOStorage(Storage):
     '''Storage location accessed via an I/O channel at a particular index.

@@ -1,8 +1,7 @@
-from .codeblock import ArgumentValue
 from .expression import optSlice
 from .linereader import BadInput
 from .reference import FixedValue, Reference, SingleStorage
-from .storage import IOStorage, RefArgStorage, Variable
+from .storage import IOStorage, RefArgStorage, ValArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
 
@@ -89,12 +88,8 @@ class Namespace:
         Returns a reference to the argument constant.
         '''
         checkType(typ, IntType, 'value argument type')
-        width = typ.width
-        value = ArgumentValue(name, maskForWidth(width))
-        bits = FixedValue(value, width)
-        ref = Reference(bits, typ)
-        self.define(name, ref, location)
-        return ref
+        storage = ValArgStorage(name, typ.width)
+        return self._addNamedStorage(name, storage, typ, location)
 
     def addReferenceArgument(self, name, typ, location):
         '''Adds a pass-by-reference argument with the given name and type to
@@ -141,21 +136,23 @@ class BuilderNamespace(Namespace):
     def addValueArgument(self, name, typ, location):
         '''Adds a passed-by-value argument to this namespace.
         A variable is created with the same name as the argument. The passed
-        value is represented by an ArgumentValue and a store is emitted on the
-        given builder to set the passed value as the initial value of the
-        variable.
+        value is loaded from an ValArgStorage and then stored as the initial
+        value of the variable.
         Returns a reference to the corresponding variable.
         '''
         checkType(typ, IntType, 'value argument type')
-        value = ArgumentValue(name, maskForWidth(typ.width))
+        storage = ValArgStorage(name, typ.width)
+        argRef = Reference(SingleStorage(storage), typ)
 
         # Add Variable.
-        ref = self.addVariable(name, typ, location)
+        varRef = self.addVariable(name, typ, location)
 
         # Store initial value.
-        ref.emitStore(self.builder, value, location)
+        builder = self.builder
+        value = argRef.emitLoad(builder, location)
+        varRef.emitStore(builder, value, location)
 
-        return ref
+        return varRef
 
 class GlobalNamespace(BuilderNamespace):
     '''Namespace for the global scope.

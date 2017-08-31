@@ -1,7 +1,7 @@
 from utils_codeblock import NodeChecker, TestNamespace
 from utils_expression import TestExprMixin, makeConcat
 
-from retroasm.codeblock import ArgumentValue, Load, Store
+from retroasm.codeblock import Load, Store
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
 from retroasm.expression import (
     AddOperator, AndOperator, IntLiteral, OrOperator, truncate
@@ -226,23 +226,20 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_local_value(self):
         '''Test whether load and stores of variables are removed.'''
         refA = self.namespace.addRegister('a')
-        refV = self.namespace.addValueArgument('V')
+        refB = self.namespace.addRegister('b')
+        refV = self.namespace.addVariable('V')
+        loadA = self.namespace.emitLoad(refA)
+        self.namespace.emitStore(refV, loadA)
         loadV = self.namespace.emitLoad(refV)
-        incV = AddOperator(loadV, IntLiteral(1))
-        self.namespace.emitStore(refV, incV)
-        self.namespace.emitStore(refA, incV)
+        self.namespace.emitStore(refB, loadV)
+
+        def correct():
+            loadA = Load(refA.bits.storage)
+            yield loadA
+            yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.nodes), 1)
-        node = code.nodes[0]
-        self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, refA.bits.storage)
-        self.assertTrunc(
-            node.expr,
-            AddOperator(ArgumentValue('V', 255), IntLiteral(1)),
-            incV.mask.bit_length(),
-            refA.width
-            )
+        self.assertNodes(code.nodes, correct())
 
     def test_unused_storage_removal(self):
         '''Test whether unused storages are removed.'''
@@ -259,9 +256,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_return_value(self):
         '''Test whether a return value is stored correctly.'''
         refV = self.namespace.addValueArgument('V')
-        self.assertEqual(len(self.namespace.builder.nodes), 1)
-        self.assertIsInstance(self.namespace.builder.nodes[0], Store)
-        valueV = self.namespace.builder.nodes[0].expr
+        self.assertEqual(len(self.namespace.builder.nodes), 2)
+        self.assertIsInstance(self.namespace.builder.nodes[0], Load)
+        self.assertIsInstance(self.namespace.builder.nodes[1], Store)
+        argV = self.namespace.builder.nodes[0].storage
 
         refA = self.namespace.addRegister('a')
         refRet = self.namespace.addVariable('ret')
@@ -271,13 +269,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refRet, combined)
 
         correct = (
+            Load(argV),
             Load(refA.bits.storage),
             )
 
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, correct)
         retVal, retWidth = self.getRetVal(code)
-        valueA = code.nodes[0].expr
+        valueV = code.nodes[0].expr
+        valueA = code.nodes[1].expr
         self.assertEqual(retWidth, 8)
         self.assertOr(
             retVal,

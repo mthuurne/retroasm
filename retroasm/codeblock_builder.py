@@ -1,8 +1,8 @@
-from .codeblock import ArgumentValue, Load, LoadedValue, Store
+from .codeblock import Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
 from .linereader import BadInput
 from .reference import BitString, SingleStorage
-from .storage import RefArgStorage, Variable
+from .storage import ArgStorage, Variable
 
 class CodeBlockBuilder:
 
@@ -168,19 +168,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return code.returned
 
         loadResults = {}
-        def substExpr(expr):
-            if isinstance(expr, ArgumentValue):
-                arg = argFetcher(expr.name)
-                if arg is not None:
-                    return arg.emitLoad(self, None)
-            elif isinstance(expr, LoadedValue):
-                return loadResults.get(expr)
-            return None
         def importExpr(expr):
-            return expr.substitute(substExpr)
+            return expr.substitute(loadResults.get)
 
         def importStorageUncached(storage):
-            if isinstance(storage, RefArgStorage):
+            if isinstance(storage, ArgStorage):
                 bits = argFetcher(storage.name)
                 if bits is not None:
                     assert isinstance(bits, BitString), repr(bits)

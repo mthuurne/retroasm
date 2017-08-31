@@ -1,5 +1,4 @@
 from .analysis import CodeTemplate
-from .codeblock import ArgumentValue
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
     )
@@ -25,7 +24,7 @@ from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
     )
 from .reference import ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
-from .storage import IOChannel, namePat
+from .storage import IOChannel, ValArgStorage, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
     )
@@ -483,9 +482,9 @@ def _checkMissingPlaceholders(encoding, placeholderSpecs, location, logger):
     multiMatches = set()
     for encExpr in encoding:
         if isinstance(encExpr, EncodingExpr):
-            for expr in encExpr.bits.iterExpressions():
-                for arg in expr.iterInstances(ArgumentValue):
-                    identifiers.add(arg.name)
+            for storage in encExpr.bits.iterStorages():
+                if isinstance(storage, ValArgStorage):
+                    identifiers.add(storage.name)
         elif isinstance(encExpr, EncodingMultiMatch):
             multiMatches.add(encExpr.name)
         else:
@@ -584,7 +583,9 @@ def _checkDuplicateMultiMatches(encoding, logger):
                 claimedMultiMatches[name] = encExpr.location
 
 def _decomposeBitString(bits):
-    if isinstance(bits, FixedValue):
+    if isinstance(bits, SingleStorage):
+        yield bits.storage, 0, 0, bits.width
+    elif isinstance(bits, FixedValue):
         yield bits.expr, 0, 0, bits.width
     elif isinstance(bits, ConcatenatedBits):
         offset = 0
@@ -610,8 +611,6 @@ def _decomposeBitString(bits):
         else:
             raise ValueError('slices in encoding must have fixed offset')
     else:
-        # Note: SingleStorage cannot occur in encoding since the stateless
-        #       builder would trigger an error when loading from it.
         assert False, bits
 
 def _decomposeEncodingExprs(encElems, reader):
@@ -626,7 +625,7 @@ def _decomposeEncodingExprs(encElems, reader):
             for expr, immIdx, refIdx, width in _decomposeBitString(
                     encElem.bits
                     ):
-                if isinstance(expr, ArgumentValue):
+                if isinstance(expr, ValArgStorage):
                     decodeMap[expr.name].append(
                         (immIdx, encIdx, refIdx, width)
                         )

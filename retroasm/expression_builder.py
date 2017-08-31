@@ -14,7 +14,9 @@ from .linereader import BadInput
 from .namespace import NameExistsError, createIOReference
 from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
 from .storage import IOChannel
-from .types import IntType, ReferenceType, parseTypeDecl, unlimited
+from .types import (
+    IntType, ReferenceType, parseTypeDecl, unlimited, widthForMask
+    )
 from .utils import Singleton
 
 class BadExpression(BadInput):
@@ -140,6 +142,7 @@ def _convertIdentifier(node, namespace):
 
 def _convertFunctionCall(callNode, namespace):
     nameNode, *argNodes = callNode.operands
+    builder = namespace.builder
 
     # Get function object.
     assert isinstance(nameNode, IdentifierNode), nameNode
@@ -168,23 +171,28 @@ def _convertFunctionCall(callNode, namespace):
             )
     argMap = {}
     for (name, decl), argNode in zip(func.args.items(), argNodes):
-        value = buildReference(argNode, namespace)
-        # Value arguments are not truncated when passed, but are truncated by
-        # the local variable that they are stored into.
-        # For reference arguments, we demand the passed width to match the
-        # argument width, so truncation is never required.
-        if isinstance(decl, ReferenceType) and value.width != decl.type.width:
-            raise BadExpression.withText(
-                '%s-bit reference passed for reference argument "%s %s"'
-                % (value.width, decl, name),
-                argNode.treeLocation
-                )
-        argMap[name] = value.bits
+        ref = buildReference(argNode, namespace)
+        if isinstance(decl, ReferenceType):
+            # For reference arguments, we demand the passed width to match the
+            # argument width, so truncation is never required.
+            if ref.width != decl.type.width:
+                raise BadExpression.withText(
+                    '%s-bit reference passed for reference argument "%s %s"'
+                    % (ref.width, decl, name),
+                    argNode.treeLocation
+                    )
+            bits = ref.bits
+        else:
+            # Value arguments must be evaluated and truncated when passed.
+            value = ref.emitLoad(builder, argNode.treeLocation)
+            argWidth = decl.width
+            if widthForMask(value.mask) > argWidth:
+                value = truncate(value, argWidth)
+            bits = FixedValue(value, argWidth)
+        argMap[name] = bits
 
     # Inline function call.
-    retBits = namespace.builder.inlineFunctionCall(
-        func, argMap, callNode.treeLocation
-        )
+    retBits = builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
     if retBits is None:
         return None
     else:
