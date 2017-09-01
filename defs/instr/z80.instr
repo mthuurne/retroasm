@@ -80,6 +80,7 @@ mode u8& reg8
 %011                . e
 %100                . h
 %101                . l
+%110                . (hl)              . mem[hl]
 %111                . a
 
 mode u8& memx
@@ -92,7 +93,6 @@ R                   . R                 . R                 . reg8 R
 %100                . iyh               .                   . ?iy
 %101                . ixl               .                   . ?ix
 %101                . iyl               .                   . ?iy
-%110                . (hl)              . mem[hl]
 %110, R             . R                 . R                 . memx R
 
 # 16-bit registers
