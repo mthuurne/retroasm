@@ -1,45 +1,6 @@
 from .expression import IntLiteral
-from .mode import MatchPlaceholder, PlaceholderRole, ValuePlaceholder
+from .mode import ModeMatch
 from .types import IntType, unlimited
-
-def iterMnemonic(match, values):
-    '''Yields a mnemonic representation of the given match.
-    '''
-    for mnemElem in match.entry.mnemonic:
-        if isinstance(mnemElem, str):
-            yield mnemElem
-        elif isinstance(mnemElem, int):
-            yield mnemElem, IntType.int, frozenset()
-        elif isinstance(mnemElem, MatchPlaceholder):
-            name = mnemElem.name
-            for subElem in iterMnemonic(match[name], values[name]):
-                if isinstance(subElem, str):
-                    yield subElem
-                else:
-                    value, typ, subRoles = subElem
-                    roles = frozenset() # TODO: Re-implement.
-                    yield value, typ, subRoles | roles
-        elif isinstance(mnemElem, ValuePlaceholder):
-            name = mnemElem.name
-            typ = mnemElem.type
-            code = mnemElem.code
-            value = values[name]
-            if code is None:
-                # Value was decoded.
-                assert isinstance(value, IntLiteral), repr(value)
-                roles = frozenset() # TODO: Re-implement.
-                yield value.value, typ, roles
-            else:
-                # Value is computed.
-                if isinstance(value, IntLiteral):
-                    roles = frozenset() # TODO: Re-implement.
-                    yield value.value, typ, roles
-                else:
-                    # TODO: Is this a bug? A definition error?
-                    #       Or can it happen normally?
-                    yield name
-        else:
-            assert False, mnemElem
 
 class Disassembler:
 
@@ -65,23 +26,15 @@ class Disassembler:
         while fetcher[0] is not None:
             # TODO: Implement prefix support.
             flags = frozenset()
-            match = decoder.tryDecode(fetcher, flags)
-            encodedLength = 1 if match is None else match.encodedLength
+            encMatch = decoder.tryDecode(fetcher, flags)
+            encodedLength = 1 if encMatch is None else encMatch.encodedLength
             postAddr = addr + encodedLength * numBytes
-            if match is None:
+            if encMatch is None:
                 decoded[addr] = fetcher[0]
             else:
-                values = {}
                 pcVal = IntLiteral(postAddr)
-                match.entry.semantics.buildMatch(match, values, pcVal)
-                decoded[addr] = instr = (match, values)
-                for mnemElem in iterMnemonic(*instr):
-                    if not isinstance(mnemElem, str):
-                        value, typ_, roles = mnemElem
-                        if PlaceholderRole.code_addr in roles:
-                            codeAddrs.add(value)
-                        if PlaceholderRole.data_addr in roles:
-                            dataAddrs.add(value)
+                match = ModeMatch.fromEncodeMatch(encMatch, pcVal)
+                decoded[addr] = match
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 
@@ -107,8 +60,8 @@ class Disassembler:
             label = labels.get(addr)
             if label is not None:
                 print(formatter.formatLabel(label))
-            instr = decoded[addr]
-            if isinstance(instr, int):
-                print(formatter.formatData(instr, encType))
+            match = decoded[addr]
+            if isinstance(match, int):
+                print(formatter.formatData(match, encType))
             else:
-                print(formatter.formatMnemonic(iterMnemonic(*instr), labels))
+                print(formatter.formatMnemonic(match.mnemonic, labels))

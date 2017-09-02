@@ -35,7 +35,9 @@ class Formatter:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
             else:
-                value, typ, roles = mnemElem
+                value, typ = mnemElem
+                # TODO: Role detection needs to be re-implemented.
+                roles = frozenset()
                 label = (
                     labels.get(value)
                     if PlaceholderRole.code_addr in roles or
@@ -54,5 +56,5 @@ class Formatter:
 
     def formatData(self, encoded, typ):
         directive = {8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'}[typ.width]
-        mnemonic = [directive, (encoded, typ, frozenset())]
+        mnemonic = [directive, (encoded, typ)]
         return self.formatMnemonic(mnemonic, {})

@@ -1,7 +1,15 @@
 from .codeblock import CodeBlock
+from .codeblock_builder import SemanticsCodeBlockBuilder
+from .codeblock_simplifier import CodeBlockSimplifier
+from .expression import IntLiteral
+from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
-from .types import maskForWidth, maskToSegments, segmentsToMask, unlimited
+from .reference import FixedValue, decodeInt
+from .storage import ValArgStorage
+from .types import (
+    IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
+    )
 from .utils import Singleton, checkType, const_property
 
 from collections import defaultdict
@@ -709,6 +717,115 @@ class EncodeMatch:
                 assert False, encItem
         return length
 
+class ModeMatch:
+    '''A flattened match of a mode entry at a particular address.
+    Flattened means that all submode matches have been resolved and substituted
+    into this match.
+    '''
+    __slots__ = (
+        '_entry', '_values', '_subs', '_encoding', '_mnemonic', '_semantics'
+        )
+
+    entry = property(lambda self: self._match.entry)
+
+    @classmethod
+    def fromEncodeMatch(cls, match, pcVal):
+        '''Construct a ModeMatch using the data captured in an EncodeMatch.
+        '''
+        entry = match.entry
+        placeholders = entry.placeholders
+        pcVar = entry.semantics.pcVar
+
+        builder = SemanticsCodeBlockBuilder()
+        builder.emitStoreBits(pcVar, pcVal, None)
+
+        values = {}
+        subs = {}
+        def getArg(name):
+            value = values[name]
+            typ = placeholders[name].semanticsType
+            return FixedValue(IntLiteral(value), typ.width)
+        for name, placeholder in placeholders.items():
+            if isinstance(placeholder, MatchPlaceholder):
+                subs[name] = cls.fromEncodeMatch(match[name], pcVal)
+            elif isinstance(placeholder, ValuePlaceholder):
+                code = placeholder.code
+                if code is None:
+                    # Value was decoded.
+                    value = match[name]
+                else:
+                    # Value is computed.
+                    returned = builder.inlineBlock(code, getArg)
+                    matchCode = CodeBlockSimplifier(builder.nodes, returned)
+                    matchCode.simplify()
+                    valBits, = matchCode.returned
+                    assert isinstance(valBits, FixedValue), valBits
+                    valExpr = decodeInt(valBits.expr, placeholder.type)
+                    value = simplifyExpression(valExpr).value
+                values[name] = value
+            else:
+                assert False, placeholder
+
+        return cls(entry, values, subs)
+
+    def __init__(self, entry, values, subs):
+        self._entry = checkType(entry, ModeEntry, 'mode entry')
+        self._values = values
+        self._subs = subs
+
+    def __repr__(self):
+        return 'ModeMatch(%r, %r, %r)' % (self._entry, self._values, self._subs)
+
+    @const_property
+    def encoding(self):
+        entry = self._entry
+        values = self._values
+        subs = self._subs
+
+        def substPlaceholders(storage):
+            if isinstance(storage, ValArgStorage):
+                name = storage.name
+                try:
+                    value = values[name]
+                except KeyError:
+                    value = subs[name].encoding[0]
+                expr = IntLiteral(value)
+                return FixedValue(expr, storage.width)
+
+        for encItem in entry.encoding:
+            if isinstance(encItem, EncodingExpr):
+                bits = encItem.bits.substitute(storageFunc=substPlaceholders)
+                # There are no more SingleStorages in the bit string,
+                # so loading won't emit any nodes.
+                expr = bits.emitLoad(None, None)
+                yield simplifyExpression(expr).value
+            elif isinstance(encItem, EncodingMultiMatch):
+                yield from subs[encItem.name].encoding[encItem.start:]
+            else:
+                assert False, encItem
+
+    @const_property
+    def mnemonic(self):
+        entry = self._entry
+        subs = self._subs
+        values = self._values
+
+        for mnemElem in entry.mnemonic:
+            if isinstance(mnemElem, str):
+                yield mnemElem
+            elif isinstance(mnemElem, int):
+                yield mnemElem, IntType.int
+            elif isinstance(mnemElem, MatchPlaceholder):
+                yield from subs[mnemElem.name].mnemonic
+            elif isinstance(mnemElem, ValuePlaceholder):
+                yield values[mnemElem.name], mnemElem.type
+            else:
+                assert False, mnemElem
+
+    @const_property
+    def semantics(self):
+        return None
+
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %s' % width
 
@@ -858,6 +975,7 @@ class Placeholder:
     '''
 
     name = property(lambda self: self._name)
+    semanticsType = property()
 
     def __init__(self, name):
         self._name = name
@@ -866,7 +984,7 @@ class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.
     '''
 
-    type = property(lambda self: self._type)
+    type = semanticsType = property(lambda self: self._type)
     code = property(lambda self: self._code)
 
     def __init__(self, name, typ, code):
@@ -892,6 +1010,7 @@ class MatchPlaceholder(Placeholder):
     '''
 
     mode = property(lambda self: self._mode)
+    semanticsType = property(lambda self: self._mode.semanticsType)
 
     def __init__(self, name, mode):
         Placeholder.__init__(self, name)
