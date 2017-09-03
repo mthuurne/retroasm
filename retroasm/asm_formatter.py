@@ -1,4 +1,5 @@
 from .mode import PlaceholderRole
+from .reference import Reference
 
 class Formatter:
 
@@ -34,8 +35,8 @@ class Formatter:
         for mnemElem in mnemonic:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
-            else:
-                value, typ = mnemElem
+            elif isinstance(mnemElem, Reference):
+                value = mnemElem.bits.expr.value
                 # TODO: Role detection needs to be re-implemented.
                 roles = frozenset()
                 label = (
@@ -45,9 +46,11 @@ class Formatter:
                     None
                     )
                 if label is None:
-                    parts.append(self.formatInt(value, typ))
+                    parts.append(self.formatInt(value, mnemElem.type))
                 else:
                     parts.append(label)
+            else:
+                assert False, mnemElem
 
         localLabel = ''
         return self._lineFormat.format(

@@ -5,7 +5,7 @@ from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
-from .reference import FixedValue, decodeInt
+from .reference import FixedValue, Reference, decodeInt
 from .storage import ValArgStorage
 from .types import (
     IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
@@ -741,28 +741,25 @@ class ModeMatch:
 
         values = {}
         subs = {}
-        def getArg(name):
-            value = values[name]
-            typ = placeholders[name].semanticsType
-            return FixedValue(IntLiteral(value), typ.width)
         for name, placeholder in placeholders.items():
             if isinstance(placeholder, MatchPlaceholder):
                 subs[name] = cls.fromEncodeMatch(match[name], pcVal)
             elif isinstance(placeholder, ValuePlaceholder):
+                typ = placeholder.type
                 code = placeholder.code
                 if code is None:
                     # Value was decoded.
-                    value = match[name]
+                    value = IntLiteral(match[name])
                 else:
                     # Value is computed.
-                    returned = builder.inlineBlock(code, getArg)
+                    returned = builder.inlineBlock(code, values.__getitem__)
                     matchCode = CodeBlockSimplifier(builder.nodes, returned)
                     matchCode.simplify()
                     valBits, = matchCode.returned
                     assert isinstance(valBits, FixedValue), valBits
-                    valExpr = decodeInt(valBits.expr, placeholder.type)
-                    value = simplifyExpression(valExpr).value
-                values[name] = value
+                    valExpr = decodeInt(valBits.expr, typ)
+                    value = simplifyExpression(valExpr)
+                values[name] = FixedValue(value, typ.width)
             else:
                 assert False, placeholder
 
@@ -786,11 +783,10 @@ class ModeMatch:
             if isinstance(storage, ValArgStorage):
                 name = storage.name
                 try:
-                    value = values[name]
+                    return values[name]
                 except KeyError:
                     value = subs[name].encoding[0]
-                expr = IntLiteral(value)
-                return FixedValue(expr, storage.width)
+                    return FixedValue(IntLiteral(value), storage.width)
 
         for encItem in entry.encoding:
             if isinstance(encItem, EncodingExpr):
@@ -814,11 +810,14 @@ class ModeMatch:
             if isinstance(mnemElem, str):
                 yield mnemElem
             elif isinstance(mnemElem, int):
-                yield mnemElem, IntType.int
+                yield Reference(
+                    FixedValue(IntLiteral(mnemElem), unlimited),
+                    IntType.int
+                    )
             elif isinstance(mnemElem, MatchPlaceholder):
                 yield from subs[mnemElem.name].mnemonic
             elif isinstance(mnemElem, ValuePlaceholder):
-                yield values[mnemElem.name], mnemElem.type
+                yield Reference(values[mnemElem.name], mnemElem.type)
             else:
                 assert False, mnemElem
 
@@ -975,7 +974,6 @@ class Placeholder:
     '''
 
     name = property(lambda self: self._name)
-    semanticsType = property()
 
     def __init__(self, name):
         self._name = name
@@ -984,7 +982,7 @@ class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.
     '''
 
-    type = semanticsType = property(lambda self: self._type)
+    type = property(lambda self: self._type)
     code = property(lambda self: self._code)
 
     def __init__(self, name, typ, code):
@@ -1010,7 +1008,6 @@ class MatchPlaceholder(Placeholder):
     '''
 
     mode = property(lambda self: self._mode)
-    semanticsType = property(lambda self: self._mode.semanticsType)
 
     def __init__(self, name, mode):
         Placeholder.__init__(self, name)
