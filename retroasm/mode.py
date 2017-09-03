@@ -785,8 +785,7 @@ class ModeMatch:
                 try:
                     return values[name]
                 except KeyError:
-                    value = subs[name].encoding[0]
-                    return FixedValue(IntLiteral(value), storage.width)
+                    return subs[name].encoding[0]
 
         for encItem in entry.encoding:
             if isinstance(encItem, EncodingExpr):
@@ -794,7 +793,7 @@ class ModeMatch:
                 # There are no more SingleStorages in the bit string,
                 # so loading won't emit any nodes.
                 expr = bits.emitLoad(None, None)
-                yield simplifyExpression(expr).value
+                yield FixedValue(simplifyExpression(expr), bits.width)
             elif isinstance(encItem, EncodingMultiMatch):
                 yield from subs[encItem.name].encoding[encItem.start:]
             else:
