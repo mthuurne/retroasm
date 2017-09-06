@@ -35,10 +35,13 @@ import re
 _nameTok = r'\s*(' + namePat + r')\s*'
 _typeTok = r'\s*(' + namePat + r'&?)\s*'
 
-def _parseRegs(reader, argStr, globalNamespace):
+def _parseRegs(reader, argSpan, globalNamespace):
     headerLocation = reader.getLocation()
-    if argStr:
-        reader.error('register definition must have no arguments')
+    if argSpan != (-1, -1):
+        reader.error(
+            'register definition must have no arguments',
+            location=headerLocation.updateSpan(argSpan)
+            )
 
     for line in reader.iterBlock():
         parts = line.split('=')
@@ -128,9 +131,12 @@ def _parseRegs(reader, argStr, globalNamespace):
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
-def _parseIO(reader, argStr, namespace):
-    if argStr:
-        reader.error('I/O definition must have no arguments')
+def _parseIO(reader, argSpan, namespace):
+    if argSpan != (-1, -1):
+        reader.error(
+            'I/O definition must have no arguments',
+            location=reader.getLocation(argSpan)
+            )
 
     for line in reader.iterBlock():
         match = _reIOLine.match(line)
@@ -168,58 +174,79 @@ def _parseIO(reader, argStr, namespace):
         else:
             reader.error('invalid I/O definition line')
 
-def _parseFuncArgs(log, argsStr):
+_reCommaSep = re.compile(r'\s*(?:,\s*|$)')
+_reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
+
+def _parseFuncArgs(reader, span):
     '''Parses a function arguments list, returning an OrderedDict.
-    Errors are appended to the given log as they are discovered.
+    Errors are logged on the given reader as they are discovered.
     '''
-    argStrs = [] if not argsStr or argsStr.isspace() else argsStr.split(',')
+    line = reader.lastline
     args = OrderedDict()
-    for i, argStr in enumerate(argStrs, 1):
-        try:
-            typeStr, argName = argStr.split()
-        except ValueError:
-            log.error(
-                'function argument %d not of the form "<type> <name>": %s',
-                i, argStr
+    argSeps = list(_reCommaSep.finditer(line, *span))
+    if len(argSeps) == 1:
+        # Only endpoint found; do we have 0 or 1 argument(s)?
+        if span[0] == span[1] or line[slice(*span)].isspace():
+            return args
+
+    nameLocations = {}
+    for i, (argStr_, argLoc) in enumerate(reader.splitOn(argSeps), 1):
+        argSpan = argLoc.span
+        argMatch = _reArgDecl.match(line, *argSpan)
+        if argMatch is None:
+            if argSpan[0] == argSpan[1]:
+                # Span is empty; pull separator into span.
+                argLoc = argLoc.updateSpan((argSpan[0], argSpan[1] + 1))
+            reader.error(
+                'function argument %d not of the form "<type> <name>"',
+                i, location=argLoc
+                )
+            continue
+
+        typeStr, argName = argMatch.groups()
+        nameLoc = reader.getLocation(argMatch.span(2))
+        if argName == 'ret':
+            reader.error(
+                '"ret" is reserved for the return value; '
+                'it cannot be used as an argument name',
+                location=nameLoc
+                )
+        elif argName in nameLocations:
+            reader.error(
+                'function argument %d has the same name as '
+                'an earlier argument: %s', i, argName,
+                location=(nameLoc, nameLocations[argName])
                 )
         else:
-            if argName == 'ret':
-                log.error(
-                    '"ret" is reserved for the return value; '
-                    'it cannot be used as an argument name'
-                    )
-            elif argName in args:
-                log.error(
-                    'function argument %d has the same name as '
-                    'an earlier argument: %s', i, argName
-                    )
-            else:
-                try:
-                    arg = parseTypeDecl(typeStr)
-                except ValueError as ex:
-                    log.error(
-                        'bad function argument %d ("%s"): %s', i, argName, ex
-                        )
-                    # We still want to check for duplicates, so store
-                    # a dummy value in the local namespace.
-                    arg = None
-                args[argName] = arg
+            nameLocations[argName] = nameLoc
+
+        try:
+            args[argName] = parseTypeDecl(typeStr)
+        except ValueError as ex:
+            reader.error(
+                'bad function argument %d ("%s"): %s', i, argName, ex,
+                location=reader.getLocation(argMatch.span(1))
+                )
+
     return args
 
 _reFuncHeader = re.compile(
     r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
 
-def _parseFunc(reader, argStr, namespace, wantSemantics):
+def _parseFunc(reader, argSpan, namespace, wantSemantics):
     headerLocation = reader.getLocation()
 
     # Parse header line.
-    match = _reFuncHeader.match(argStr)
+    match = _reFuncHeader.match(reader.lastline, *argSpan)
     if not match:
-        reader.error('invalid function header line')
+        reader.error(
+            'invalid function header line',
+            location=headerLocation.updateSpan(argSpan)
+            )
         reader.skipBlock()
         return
-    retTypeStr, funcName, funcArgsStr = match.groups()
+    retTypeStr, funcName, funcArgsStr_ = match.groups()
 
     # Parse return type.
     if retTypeStr is None:
@@ -228,14 +255,17 @@ def _parseFunc(reader, argStr, namespace, wantSemantics):
         try:
             retType = parseTypeDecl(retTypeStr)
         except ValueError as ex:
-            reader.error('bad return type: %s', ex)
+            reader.error(
+                'bad return type: %s', ex,
+                location=headerLocation.updateSpan(match.span(1))
+                )
             reader.skipBlock()
             return
 
     # Parse arguments.
     try:
         with reader.checkErrors():
-            args = _parseFuncArgs(reader, funcArgsStr)
+            args = _parseFuncArgs(reader, match.span(3))
     except DelayedError:
         reader.skipBlock()
         return
@@ -245,8 +275,9 @@ def _parseFunc(reader, argStr, namespace, wantSemantics):
         func = createFunc(reader, funcName, retType, args, namespace)
 
         # Store function in namespace.
+        nameLocation = headerLocation.updateSpan(match.span(2))
         try:
-            namespace.define(funcName, func, headerLocation)
+            namespace.define(funcName, func, nameLocation)
         except NameExistsError as ex:
             reader.error(
                 'error declaring function: %s', ex, location=ex.location
@@ -1063,8 +1094,10 @@ def _parseMode(reader, globalNamespace, pc, modes, wantSemantics):
     if addMode:
         modes[modeName] = mode
 
-def _parseInstr(reader, argStr, globalNamespace, pc, modes, wantSemantics):
-    mnemBase = tuple(_parseMnemonic(argStr, None, {}, reader))
+def _parseInstr(reader, argSpan, globalNamespace, pc, modes, wantSemantics):
+    mnemStr = reader.lastline[slice(*argSpan)]
+    mnemLoc = reader.getLocation(argSpan)
+    mnemBase = tuple(_parseMnemonic(mnemStr, mnemLoc, {}, reader))
 
     for instr in _parseModeEntries(
             reader, globalNamespace, pc, modes, None, mnemBase,
@@ -1088,6 +1121,8 @@ def _parseInstr(reader, argStr, globalNamespace, pc, modes, wantSemantics):
                 )
         yield instr
 
+_reHeader = re.compile(_nameTok + r'(?:\s+(.*\S)\s*)?$')
+
 def parseInstrSet(pathname, logger=None, wantSemantics=True):
     if logger is None:
         logger = getLogger('parse-instr')
@@ -1103,23 +1138,29 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
         for header in reader:
             if not header:
                 continue
-            parts = header.split(maxsplit=1)
-            defType = parts[0]
-            argStr = '' if len(parts) == 1 else parts[1]
+            match = _reHeader.match(header)
+            if match is None:
+                reader.error('malformed line outside block')
+                continue
+            defType = match.group(1)
+            argSpan = match.span(2)
             if defType == 'reg':
-                pc = _parseRegs(reader, argStr, globalNamespace)
+                pc = _parseRegs(reader, argSpan, globalNamespace)
             elif defType == 'io':
-                _parseIO(reader, argStr, globalNamespace)
+                _parseIO(reader, argSpan, globalNamespace)
             elif defType == 'func':
-                _parseFunc(reader, argStr, globalNamespace, wantSemantics)
+                _parseFunc(reader, argSpan, globalNamespace, wantSemantics)
             elif defType == 'mode':
                 _parseMode(reader, globalNamespace, pc, modes, wantSemantics)
             elif defType == 'instr':
                 instructions += _parseInstr(
-                    reader, argStr, globalNamespace, pc, modes, wantSemantics
+                    reader, argSpan, globalNamespace, pc, modes, wantSemantics
                     )
             else:
-                reader.error('unknown definition type "%s"', defType)
+                reader.error(
+                    'unknown definition type "%s"', defType,
+                    location=reader.getLocation(match.span(1))
+                    )
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
