@@ -64,9 +64,10 @@ class Namespace:
         self._checkName(name, location)
         if name in self.elements:
             msg = 'name "%s" redefined' % name
-            oldLocation = self.locations[name]
-            if oldLocation is not None:
-                msg += '; first definition was on line %d' % oldLocation.lineno
+            if location is not None:
+                oldLocation = self.locations[name]
+                if oldLocation is not None:
+                    location = (location, oldLocation)
             raise NameExistsError(msg, location)
         self.locations[name] = location
         self.elements[name] = value
