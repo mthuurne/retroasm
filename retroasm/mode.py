@@ -734,10 +734,10 @@ class ModeMatch:
         '''
         entry = match.entry
         placeholders = entry.placeholders
-        pcVar = entry.semantics.pcVar
+        pcBits = entry.semantics.pcBits
 
         builder = SemanticsCodeBlockBuilder()
-        builder.emitStoreBits(pcVar, pcVal, None)
+        pcBits.emitStore(builder, pcVal, None)
 
         values = {}
         subs = {}

@@ -182,7 +182,7 @@ An integer literal in an alias expression is an example of a fixed value referen
 
 If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `u1`.
 
-The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register. Currently RetroAsm only supports a single register as the program counter: forming a program counter by for example concatenating or adding registers is not supported yet.
+The program counter register must always be named `pc`. If the instruction set uses a different name, that other name can be defined as an alias for the `pc` register.
 
 Input/Output
 ------------

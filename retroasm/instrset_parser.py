@@ -112,20 +112,13 @@ def _parseRegs(reader, argSpan, globalNamespace):
             reader.error('register definition line with multiple "="')
 
     # Check the program counter.
-    if 'pc' not in globalNamespace:
+    try:
+        return globalNamespace['pc'].bits
+    except KeyError:
         reader.error(
             'no program counter defined: '
             'a register or alias named "pc" is required',
             location=headerLocation
-            )
-        return None
-    pcBits = globalNamespace['pc'].bits
-    if isinstance(pcBits, SingleStorage):
-        return pcBits.storage
-    else:
-        reader.error(
-            'program counter must be a single register',
-            location=globalNamespace.locations['pc']
             )
         return None
 

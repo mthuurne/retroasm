@@ -4,8 +4,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .mode import MatchPlaceholder, ValuePlaceholder
-from .reference import FixedValue, decodeInt
-from .storage import Variable
+from .reference import BitString, FixedValue, decodeInt
 from .utils import checkType
 
 from collections import OrderedDict
@@ -50,10 +49,12 @@ class CodeTemplate:
     filled in later.
     '''
 
-    def __init__(self, code, placeholders, pcVar=None):
+    def __init__(self, code, placeholders, pcBits=None):
         self.code = checkType(code, CodeBlock, 'code block')
         self.placeholders = checkType(placeholders, OrderedDict, 'placeholders')
-        self.pcVar = checkType(pcVar, (Variable, type(None)), 'program counter')
+        self.pcBits = checkType(
+            pcBits, (BitString, type(None)), 'program counter'
+            )
 
         # Instantiate fillers that will insert actual values in placeholder
         # spaces.
@@ -80,9 +81,9 @@ class CodeTemplate:
         '''
         builder = SemanticsCodeBlockBuilder()
         if pcVal is not None:
-            pcVar = self.pcVar
-            if pcVar is not None:
-                builder.emitStoreBits(pcVar, pcVal, None)
+            pcBits = self.pcBits
+            if pcBits is not None:
+                pcBits.emitStore(builder, pcVal, None)
         args = {}
         for name, filler in self.fillers:
             try:
