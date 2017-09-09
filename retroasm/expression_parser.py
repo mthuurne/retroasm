@@ -230,7 +230,7 @@ class NumberNode(ParseNode):
         self.width = width
 
 _ParseMode = Enum('_ParseMode', ( # pylint: disable=invalid-name
-    'single', 'multi', 'statement', 'context'
+    'single', 'multi', 'statement', 'registers', 'context'
     ))
 
 def _parse(exprStr, location, mode):
@@ -508,6 +508,59 @@ def _parse(exprStr, location, mode):
                 raise badTokenKind('%s value' % declNode.kind.name, '"="')
             return DefinitionNode(declNode, parseExprTop(), defLocation)
 
+    def parseRegs():
+        defs = []
+        typeNode = None
+        while True:
+            startLocation = token.location
+
+            # Parse type (optional) and name.
+            # If type declaration is omitted, the previous type is re-used.
+            name, location = parseRegIdent(
+                'type name' if typeNode is None else 'type or register name'
+                )
+            ampLocation = token.location
+            if ampLocation.span[0] == location.span[1] \
+                    and token.eat(Token.operator, '&'):
+                # First item is a reference type declaration.
+                typeNode = IdentifierNode(
+                    name + '&', mergeSpan(location, ampLocation)
+                    )
+                name, location = parseRegIdent('alias name')
+            elif typeNode is None or token.peek(Token.identifier):
+                # First item is a value type declaration.
+                typeNode = IdentifierNode(name, location)
+                name, location = parseRegIdent('register name')
+            nameNode = IdentifierNode(name, location)
+
+            # Complete the declaration node.
+            if token.peek(Token.definition):
+                if typeNode.name.endswith('&'):
+                    kind = DeclarationKind.reference
+                else:
+                    kind = DeclarationKind.constant
+            else:
+                kind = DeclarationKind.variable
+            declNode = DeclarationNode(kind, typeNode, nameNode, startLocation)
+
+            # Finish definition.
+            defLocation = token.location
+            if token.eat(Token.definition):
+                defNode = DefinitionNode(declNode, parseExprTop(), defLocation)
+                defs.append(defNode)
+            else:
+                defs.append(declNode)
+            if not token.eat(Token.separator, ','):
+                return defs
+
+    def parseRegIdent(expected):
+        name = token.value
+        location = token.location
+        if token.eat(Token.identifier):
+            return name, location
+        else:
+            raise badTokenKind('register definition', expected)
+
     def parseDecl(keyword, startLocation):
         # Type.
         typeName = token.value
@@ -597,6 +650,7 @@ def _parse(exprStr, location, mode):
     topForMode = {
         _ParseMode.single: parseExprTop,
         _ParseMode.multi: parseList,
+        _ParseMode.registers: parseRegs,
         _ParseMode.context: parseContext,
         _ParseMode.statement: parseStatementTop,
         }
@@ -621,6 +675,9 @@ def parseExpr(exprStr, location):
 
 def parseExprList(exprStr, location):
     return _parse(exprStr, location, _ParseMode.multi)
+
+def parseRegs(exprStr, location):
+    return _parse(exprStr, location, _ParseMode.registers)
 
 def parseContext(exprStr, location):
     return _parse(exprStr, location, _ParseMode.context)

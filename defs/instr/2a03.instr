@@ -6,15 +6,15 @@
 
 reg
 # accumulator
-u8  a
+u8 a
 # index registers
-u8  x y
+u8 x, y
 # flags
-u1  n v b d i z c
-u8  p = n ; v ; %1 ; b ; d ; i ; z ; c
+u1 n, v, b, d, i, z, c
+u8& p = n;v;%1;b;d;i;z;c
 # stack pointer
-u8  s
-u16 sp = $01;s
+u8 s
+u16& sp = $01;s
 # program counter
 u16 pc
 

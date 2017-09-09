@@ -12,31 +12,22 @@
 
 reg
 # flags:
-u1  sf  zf  yf  hf  xf  pf  nf  cf
-u1  sf' zf' yf' hf' xf' pf' nf' cf'
-u8  f   = sf  ; zf  ; yf  ; hf  ; xf  ; pf  ; nf  ; cf
-u8  f'  = sf' ; zf' ; yf' ; hf' ; xf' ; pf' ; nf' ; cf'
+u1 sf, zf, yf, hf, xf, pf, nf, cf
+u8& f = sf;zf;yf;hf;xf;pf;nf;cf
 # main registers:
-u8  a   b   c   d   e   h   l
-u8  a'  b'  c'  d'  e'  h'  l'
-u16 af  = a  ; f
-u16 af' = a' ; f'
-u16 bc  = b  ; c
-u16 bc' = b' ; c'
-u16 de  = d  ; e
-u16 de' = d' ; e'
-u16 hl  = h  ; l
-u16 hl' = h' ; l'
+u8 a, b, c, d, e, h, l
+u16& af = a;f, bc = b;c, de = d;e, hl = h;l
+# shadow registers:
+u16 af', bc', de', hl'
 # index registers:
-u8  ixh ixl iyh iyl
-u16 ix  = ixh ; ixl
-u16 iy  = iyh ; iyl
+u8 ixh, ixl, iyh, iyl
+u16& ix = ixh;ixl, iy = iyh;iyl
 # special registers:
-u8  i   r
-u16 sp  pc
+u8 i, r
+u16 sp, pc
 # interrupt flags and mode:
-u1  iff1    iff2
-u2  im
+u1 iff1, iff2
+u2 im
 
 
 ### I/O

@@ -11,7 +11,7 @@ from .expression_builder import (
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
     FlagTestNode, IdentifierNode, LabelNode, MultiMatchNode, parseContext,
-    parseExpr, parseExprList, parseInt, parseStatement
+    parseExpr, parseExprList, parseInt, parseRegs, parseStatement
     )
 from .function_builder import createFunc
 from .instrset import InstructionSet
@@ -44,72 +44,57 @@ def _parseRegs(reader, argSpan, globalNamespace):
             )
 
     for line in reader.iterBlock():
-        parts = line.split('=')
-        if len(parts) == 1:
-            # base register
-            parts = line.split()
+        try:
+            nodes = parseRegs(line, reader.getLocation())
+        except BadInput as ex:
+            reader.error(
+                'bad register definition line: %s', ex, location=ex.location
+                )
+            continue
 
+        lastTypeLocation = None
+        for node in nodes:
+            # Parse type declaration.
+            decl = node if isinstance(node, DeclarationNode) else node.decl
+            typeLocation = decl.type.location
             try:
-                regType = parseType(parts[0])
+                regType = parseTypeDecl(decl.type.name)
             except ValueError as ex:
-                reader.error(str(ex))
+                # Avoid reporting the same error twice.
+                if typeLocation != lastTypeLocation:
+                    reader.error('%s', ex, location=typeLocation)
                 continue
+            lastTypeLocation = typeLocation
 
-            for regName in parts[1:]:
-                try:
-                    globalNamespace.addVariable(
-                        regName, regType, reader.getLocation()
-                        )
-                except ValueError as ex:
-                    reader.error(str(ex))
-                except NameExistsError as ex:
+            if isinstance(node, DeclarationNode):
+                # Define base register.
+                if isinstance(regType, ReferenceType):
                     reader.error(
-                        'error defining register: %s', ex, location=ex.location
+                        'base register cannot have a reference type',
+                        location=(decl.name.location, typeLocation)
                         )
-        elif len(parts) == 2:
-            # register alias
-
-            # Parse left hand side.
-            try:
-                aliasTypeStr, aliasName = parts[0].split()
-            except ValueError:
-                reader.error(
-                    'left hand side of register alias must be of the form '
-                    '"<type> <name>"'
-                    )
-                continue
-            try:
-                aliasType = parseType(aliasTypeStr)
-            except ValueError as ex:
-                reader.error(str(ex))
-                continue
-
-            # Parse right hand side.
-            rhsLoc = reader.getLocation((len(parts[0]) + 1, len(line)))
-            try:
-                tree = parseExpr(parts[1], rhsLoc)
-                alias = buildReference(tree, globalNamespace)
-            except BadInput as ex:
-                reader.error(str(ex), location=ex.location)
-                continue
-            if alias.width != aliasType.width:
-                reader.error(
-                    'alias is declared as %s bits wide but its definition is '
-                    '%s bits wide', aliasType.width, alias.width
-                    )
-                continue
-
-            # Add alias definition.
-            try:
-                location = reader.getLocation()
-                globalNamespace.define(aliasName, alias, location)
-            except NameExistsError as ex:
-                reader.error(
-                    'error defining register alias: %s', ex,
-                    location=ex.location
-                    )
-        else:
-            reader.error('register definition line with multiple "="')
+                else:
+                    try:
+                        globalNamespace.addVariable(
+                            decl.name.name, regType, decl.name.location
+                            )
+                    except NameExistsError as ex:
+                        reader.error(
+                            'bad base register definition: %s', ex,
+                            location=ex.location
+                            )
+            else:
+                # Define register alias.
+                try:
+                    convertDefinition(
+                        decl.kind, decl.name, regType, node.value,
+                        globalNamespace
+                        )
+                except BadExpression as ex:
+                    reader.error(
+                        'bad register alias definition: %s', ex,
+                        location=ex.location
+                        )
 
     # Check the program counter.
     try:

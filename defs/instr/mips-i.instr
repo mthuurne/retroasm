@@ -12,19 +12,19 @@
 
 reg
 # main
-u32 zero = $00000000
+u32 zero = 0
 u32 at
-u32 v0 v1
-u32 a0 a1 a2 a3
-u32 t0 t1 t2 t3 t4 t5 t6 t7 t8 t9
-u32 s0 s1 s2 s3 s4 s5 s6 s7 s8
-u32 fp = s8
-u32 k0 k1
+u32 v0, v1
+u32 a0, a1, a2, a3
+u32 t0, t1, t2, t3, t4, t5, t6, t7, t8, t9
+u32 s0, s1, s2, s3, s4, s5, s6, s7, s8
+u32& fp = s8
+u32 k0, k1
 u32 gp
 u32 sp
 u32 ra
 # multiplication result
-u32 hi lo
+u32 hi, lo
 # program counter
 u32 pc
 

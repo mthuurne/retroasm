@@ -161,24 +161,34 @@ When a value is used where a reference is expected, a reference to a fixed value
 Registers
 ---------
 
-A register definition consists of a name and a fixed-width type. A register definition block can define multiple registers and register aliases:
+A register definition block can define base registers and register aliases.
+
+A base register is a piece of state in the modeled processor: it can be a general-purpose register that can be used directly in instruction operands or a special-purpose register than must be implicitly accessed through dedicated instructions.
+
+Base registers are defined using the following syntax:
 
     reg
-    <value type> <name>*
-    <value type> <alias> = <expr>
+    <type> <name>, [<type>] <name> [, [<type>] <name> [, ...]]
 
-For example this block defines all registers of the 6502:
+The type can be omitted for the every register but the first on the line. If the type is omitted, a register will have the same type as the previously defined register.
+
+A register alias is not a piece of state itself, but a way to access combinations of base registers and constant values. It can be used to for example create a 16-bit register pair from two 8-bit registers, or an 8-bit flag register from several 1-bit flags.
+
+Register aliases are defined by putting `= <expr>` after the register name. It is possible to define base registers and aliases on the same line, which makes the full syntax for register definitions as follows:
 
     reg
-    u8  a x y
-    u1  n v b d i z c
-    u8  p = n ; v ; %1 ; b ; d ; i ; z ; c
-    u8  s
+    <type> <name> [= <expr>] [, [<type>] <name> [= <expr>] [, ...]]
+
+The definitions can be split over multiple lines to improve readability. As an example, this block defines all registers of the 6502:
+
+    reg
+    u8 a, x, y
+    u1 n, v, b, d, i, z, c
+    u8& p = n;v;%1;b;d;i;z;c
+    u8 s
     u16 pc
 
-The type declaration on aliases is redundant, but mandatory for consistency and as an extra validation.
-
-An integer literal in an alias expression is an example of a fixed value reference: the corresponding bits are always read as that literal value, while writes to those bits are ignored.
+The integer literal `%1` in the value of the `p` alias above is an example of a fixed value reference: the corresponding bits are always read as that literal value, while writes to those bits are ignored.
 
 If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type `u1`.
 

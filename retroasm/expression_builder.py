@@ -90,7 +90,9 @@ def convertDefinition(kind, nameNode, typ, value, namespace):
     if kind is DeclarationKind.constant:
         try:
             expr = buildExpression(value, namespace)
-        except BadExpression as ex:
+        except BadInput as ex:
+            # Note: Catch BadInput rather than BadExpression because builder
+            #       could throw IllegalStateAccess.
             raise BadExpression(
                 'bad value for constant "%s %s": %s' % (typ, name, ex),
                 ex.location

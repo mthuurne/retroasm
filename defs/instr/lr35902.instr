@@ -7,20 +7,17 @@
 
 reg
 # flags:
-u1  zf hf nf cf
-u8  f  = zf ; nf ; hf ; cf ; %0000
+u1 zf, hf, nf, cf
+u8& f = zf ; nf ; hf ; cf ; %0000
 # main registers:
-u8  a  b  c  d  e  h  l
-u16 af = a ; f
-u16 bc = b ; c
-u16 de = d ; e
-u16 hl = h ; l
+u8 a, b, c, d, e, h, l
+u16& af = a;f, bc = b;c, de = d;e, hl = h;l
 # special registers:
-u16 sp pc
+u16 sp, pc
 # interrupt master enable:
 # TODO: We use negative logic right now, so IME can be 0 at boot, but it would
 #       be clearer to support initial values.
-u1  ime
+u1 ime
 
 
 ### I/O
