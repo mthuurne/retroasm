@@ -880,13 +880,6 @@ def _parseModeEntries(
                 if encNodes is None:
                     encoding = None
                 else:
-                    if len(encNodes) == 0:
-                        encFullSpan = reader.getLocation((0, 1))
-                    else:
-                        encFullSpan = mergeSpan(
-                            encNodes[0].treeLocation,
-                            encNodes[-1].treeLocation
-                            )
                     try:
                         with reader.checkErrors():
                             encoding = tuple(_parseModeEncoding(
@@ -900,7 +893,7 @@ def _parseModeEntries(
                                 )
                             _checkDuplicateMultiMatches(encoding, reader)
                             _checkMissingPlaceholders(
-                                encoding, placeholderSpecs, encFullSpan, reader
+                                encoding, placeholderSpecs, encLoc, reader
                                 )
                     except DelayedError:
                         encoding = None
