@@ -35,6 +35,8 @@ import re
 _nameTok = r'\s*(' + namePat + r')\s*'
 _typeTok = r'\s*(' + namePat + r'&?)\s*'
 
+_reDotSep = re.compile(r'\s*(?:\.\s*|$)')
+
 def _parseRegs(reader, argSpan, globalNamespace):
     headerLocation = reader.getLocation()
     if argSpan != (-1, -1):
@@ -107,6 +109,159 @@ def _parseRegs(reader, argSpan, globalNamespace):
             )
         return None
 
+_reCommaSep = re.compile(r'\s*(?:,\s*|$)')
+_reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
+
+def _parseTypedArgs(reader, span, description):
+    '''Parses a typed arguments list, yielding tuples containing type, type's
+    location, name and name's location for each argument.
+    Errors are logged on the given reader as they are discovered.
+    '''
+    line = reader.lastline
+    args = OrderedDict()
+    argSeps = list(_reCommaSep.finditer(line, *span))
+    if len(argSeps) == 1:
+        # Only endpoint found; do we have 0 or 1 argument(s)?
+        if span[0] == span[1] or line[slice(*span)].isspace():
+            return
+
+    for i, (argStr_, argLoc) in enumerate(reader.splitOn(argSeps), 1):
+        argSpan = argLoc.span
+        argMatch = _reArgDecl.match(line, *argSpan)
+        if argMatch is None:
+            if argSpan[0] == argSpan[1]:
+                # Span is empty; pull separator into span.
+                argLoc = argLoc.updateSpan((argSpan[0], argSpan[1] + 1))
+            reader.error(
+                '%s %d not of the form "<type> <name>"', description, i,
+                location=argLoc
+                )
+            continue
+
+        typeStr, argName = argMatch.groups()
+        typeLoc = reader.getLocation(argMatch.span(1))
+        try:
+            argType = parseTypeDecl(typeStr)
+        except ValueError as ex:
+            reader.error(
+                'bad %s %d ("%s"): %s', description, i, argName, ex,
+                location=typeLoc
+                )
+        else:
+            nameLoc = reader.getLocation(argMatch.span(2))
+            yield argType, typeLoc, argName, nameLoc
+
+def _parsePrefix(reader, argSpan, namespace):
+    # Parse header line.
+    try:
+        with reader.checkErrors():
+            flagType = IntType.u(1)
+            for argType, argTypeLoc, argName, argNameLoc in _parseTypedArgs(
+                    reader, argSpan, 'decode flag'
+                    ):
+                if argType is not flagType:
+                    # Maybe in the future we'll support other types.
+                    reader.error(
+                        'decode flag of type "%s", expected "u1"', argType,
+                        location=argTypeLoc
+                        )
+                try:
+                    namespace.addVariable(argName, argType, argNameLoc)
+                except ValueError as ex:
+                    reader.error(str(ex))
+                except NameExistsError as ex:
+                    reader.error(
+                        'error defining decode flag: %s', ex,
+                        location=ex.location
+                        )
+    except DelayedError:
+        reader.skipBlock()
+        return
+
+    # Parse body.
+    for line in reader.iterBlock():
+        # Split line into 3 fields.
+        fields = tuple(reader.splitOn(_reDotSep.finditer(line)))
+        if len(fields) != 3:
+            reader.error(
+                'wrong number of dot-separated fields in prefix line: '
+                'expected 3, got %d', len(fields)
+                )
+            continue
+        (encStr, encLoc), (mnemStr, mnemLoc), (semStr, semLoc) = fields
+
+        # Parse encoding.
+        try:
+            with reader.checkErrors():
+                if not encStr:
+                    reader.error(
+                        'prefix encoding cannot be empty',
+                        location=encLoc
+                        )
+                else:
+                    try:
+                        encNodes = parseExprList(encStr, encLoc)
+                    except BadInput as ex:
+                        reader.error(
+                            'bad prefix encoding: %s', ex,
+                            location=ex.location
+                            )
+                    else:
+                        encoding = []
+                        for encNode in encNodes:
+                            try:
+                                encoding.append(_parseEncodingExpr(
+                                    encNode, namespace, {}
+                                    ))
+                            except BadInput as ex:
+                                reader.error(
+                                    'bad prefix encoding: %s', ex,
+                                    location=ex.location
+                                    )
+        except DelayedError:
+            encoding = None
+
+        # Parse mnemonic.
+        if mnemStr:
+            reader.warning(
+                'prefix mnemonics are not supported yet',
+                location=mnemLoc
+                )
+
+        # Parse semantics.
+        try:
+            with reader.checkErrors():
+                if not semStr:
+                    reader.error(
+                        'prefix semantics cannot be empty; use "nop" instead',
+                        location=semLoc
+                        )
+                else:
+                    semBuilder = SemanticsCodeBlockBuilder()
+                    semNamespace = LocalNamespace(namespace, semBuilder)
+                    try:
+                        _parseInstrSemantics(semStr, semLoc, semNamespace)
+                    except BadInput as ex:
+                        reader.error(
+                            'bad prefix semantics: %s', ex,
+                            location=ex.location
+                            )
+                    else:
+                        try:
+                            semantics = semNamespace.createCodeBlock(log=reader)
+                        except ValueError:
+                            # Error was already logged inside createCodeBlock().
+                            pass
+        except DelayedError:
+            semantics = None
+
+        if False:
+            print('prefix:', '-' if encoding is None else ' '.join(
+                str(enc) for enc in encoding
+                ))
+            if semantics is not None:
+                semantics.dump()
+
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
 def _parseIO(reader, argSpan, namespace):
@@ -152,59 +307,6 @@ def _parseIO(reader, argSpan, namespace):
         else:
             reader.error('invalid I/O definition line')
 
-_reCommaSep = re.compile(r'\s*(?:,\s*|$)')
-_reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
-
-def _parseFuncArgs(reader, span):
-    '''Parses a function arguments list, returning an OrderedDict.
-    Errors are logged on the given reader as they are discovered.
-    '''
-    line = reader.lastline
-    args = OrderedDict()
-    argSeps = list(_reCommaSep.finditer(line, *span))
-    if len(argSeps) == 1:
-        # Only endpoint found; do we have 0 or 1 argument(s)?
-        if span[0] == span[1] or line[slice(*span)].isspace():
-            return args
-
-    nameLocations = {}
-    for i, (argStr_, argLoc) in enumerate(reader.splitOn(argSeps), 1):
-        argSpan = argLoc.span
-        argMatch = _reArgDecl.match(line, *argSpan)
-        if argMatch is None:
-            reader.error(
-                'function argument %d not of the form "<type> <name>"',
-                i, location=argLoc
-                )
-            continue
-
-        typeStr, argName = argMatch.groups()
-        nameLoc = reader.getLocation(argMatch.span(2))
-        if argName == 'ret':
-            reader.error(
-                '"ret" is reserved for the return value; '
-                'it cannot be used as an argument name',
-                location=nameLoc
-                )
-        elif argName in nameLocations:
-            reader.error(
-                'function argument %d has the same name as '
-                'an earlier argument: %s', i, argName,
-                location=(nameLoc, nameLocations[argName])
-                )
-        else:
-            nameLocations[argName] = nameLoc
-
-        try:
-            args[argName] = parseTypeDecl(typeStr)
-        except ValueError as ex:
-            reader.error(
-                'bad function argument %d ("%s"): %s', i, argName, ex,
-                location=reader.getLocation(argMatch.span(1))
-                )
-
-    return args
-
 _reFuncHeader = re.compile(
     r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
@@ -238,9 +340,28 @@ def _parseFunc(reader, argSpan, namespace, wantSemantics):
             return
 
     # Parse arguments.
+    args = OrderedDict()
     try:
         with reader.checkErrors():
-            args = _parseFuncArgs(reader, match.span(3))
+            nameLocations = {}
+            for i, (argType, argTypeLoc, argName, argNameLoc) in enumerate(
+                    _parseTypedArgs(reader, match.span(3), 'function argument'),
+                    1):
+                if argName == 'ret':
+                    reader.error(
+                        '"ret" is reserved for the return value; '
+                        'it cannot be used as an argument name',
+                        location=argNameLoc
+                        )
+                elif argName in nameLocations:
+                    reader.error(
+                        'function argument %d has the same name as '
+                        'an earlier argument: %s', i, argName,
+                        location=(argNameLoc, nameLocations[argName])
+                        )
+                else:
+                    args[argName] = argType
+                    nameLocations[argName] = argNameLoc
     except DelayedError:
         reader.skipBlock()
         return
@@ -776,7 +897,7 @@ def _rejectNodeClasses(node, badClasses):
             location=node.treeLocation
             )
 
-def _parseInstrSemantics(semStr, semLoc, namespace, modeType):
+def _parseInstrSemantics(semStr, semLoc, namespace, modeType=None):
     assert modeType is None, modeType
     node = parseStatement(semStr, semLoc)
     if isinstance(node, AssignmentNode):
@@ -826,8 +947,6 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
         else:
             yield placeholder
             seenPlaceholders[text] = getMatchLocation()
-
-_reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 
 def _parseModeEntries(
         reader, globalNamespace, pc, modes, modeType, mnemBase, parseSem,
@@ -1116,6 +1235,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
                 pc = _parseRegs(reader, argSpan, globalNamespace)
             elif defType == 'io':
                 _parseIO(reader, argSpan, globalNamespace)
+            elif defType == 'prefix':
+                _parsePrefix(reader, argSpan, globalNamespace)
             elif defType == 'func':
                 _parseFunc(reader, argSpan, globalNamespace, wantSemantics)
             elif defType == 'mode':

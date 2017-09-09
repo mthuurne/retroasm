@@ -37,6 +37,13 @@ u8 mem[u16]
 u8 port[u8]
 
 
+### Instruction decoding
+
+prefix u1 ixf, u1 iyf
+$DD                 .                   . ixf;iyf := %10
+$FD                 .                   . ixf;iyf := %01
+
+
 ### Operand mappings
 
 # 16-bit memory access
@@ -75,15 +82,15 @@ mode u8& reg8
 %111                . a
 
 mode u8& memx
-N                   . (ix + N)          . mem[ix + N]       . ?ix, s8 N
-N                   . (iy + N)          . mem[iy + N]       . ?iy, s8 N
+N                   . (ix + N)          . mem[ix + N]       . ?ixf, s8 N
+N                   . (iy + N)          . mem[iy + N]       . ?iyf, s8 N
 
 mode u8& reg8x
 R                   . R                 . R                 . reg8 R
-%100                . ixh               .                   . ?ix
-%100                . iyh               .                   . ?iy
-%101                . ixl               .                   . ?ix
-%101                . iyl               .                   . ?iy
+%100                . ixh               .                   . ?ixf
+%100                . iyh               .                   . ?iyf
+%101                . ixl               .                   . ?ixf
+%101                . iyl               .                   . ?iyf
 %110, R             . R                 . R                 . memx R
 
 # 16-bit registers
@@ -96,8 +103,8 @@ mode u16& reg16
 
 mode u16& hlx
                     . hl
-                    . ix                .                   . ?ix
-                    . iy                .                   . ?iy
+                    . ix                .                   . ?ixf
+                    . iy                .                   . ?iyf
 
 mode u16& reg16x
 R                   . R                 . R                 . reg16 R
@@ -626,11 +633,11 @@ $CB, %01;B;R        . B,R           . bit(B, R, R)                      . u3 B, 
 #       we don't model, so we reset those bits instead.
 $CB, %01;B;%110     . B,(hl)        . bit(B, mem[hl], 0)                . u3 B
 # Undocumented variants do the same thing but with different encoding.
-$CB, N, %01;B;R     . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u3 B, s8 N, reg8 R
-$CB, N, %01;B;R     . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N, reg8 R
+$CB, N, %01;B;R     . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ixf, u3 B, s8 N, reg8 R
+$CB, N, %01;B;R     . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iyf, u3 B, s8 N, reg8 R
 # Put documented encoding last: we want to select this over the undocumented.
-$CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ix, u3 B, s8 N
-$CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iy, u3 B, s8 N
+$CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ixf, u3 B, s8 N
+$CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iyf, u3 B, s8 N
 
 func u8 res(u3 B, u8& R)
     var u8 V := R

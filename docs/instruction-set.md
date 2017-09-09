@@ -331,6 +331,38 @@ If the return type is a reference type, the function returns a reference by defi
 
 If a local variable is part of a returned reference, it will be treated as a constant containing the value of that variable at the exit of the function body. It is not possible to modify a local variable after the function has finished executing.
 
+Instruction Decoding
+--------------------
+
+### Prefixes
+
+Processors like the Z80 and the x86 family have prefixes that modify how instructions work. The syntax described here has only been validated with the Z80, so it might have to be redesigned when support for other instruction sets with prefixes is added later.
+
+A prefix definition uses the following syntax:
+
+    prefix <decode flags>
+    <encoding> . <mnemonic> . <semantics>
+
+The decode flags are defined using a comma-separated list of declarations consisting of a type followed by a name, similar to function arguments. As the term 'flags' suggests, these will typically be booleans, so of the type `u1`. A decode flag is not allowed to have the same name as a register, I/O channel or function.
+
+The body of the prefix definition is a series of dot-separated lines, one per prefix. These are similar to the way mode definitions work, as will be explained in the next section.
+
+The definition of the Z80's prefixes looks like this:
+
+    prefix u1 ixf, u1 iyf
+    $DD     .           . ixf;iyf := %10
+    $FD     .           . ixf;iyf := %01
+
+Here two flags are defined: `ixf` and `iyf`, which select the `IX` and `IY` register overrides respectively. The prefix byte `$DD` before an instruction will set the `ixf` flag and the prefix byte `$FD` will set the `iyf` flag. These two flags are mutually exclusive and only the flag set by the last encountered prefix counts. The mnemonic field is empty, since the prefix is implied by the registers used in the operands: there are no keywords to select prefixes in Z80 assembly.
+
+Decode flags are considered to be zero at the start of the decoding of each instruction. If you want to model a persistent flag, you should instead define a register and one or more instructions to change that register.
+
+Prefixes that select different instruction rather than modify existing instructions should not be modeled as prefixes, but as part of the instruction itself. For example, the Z80 `$CB` and `$ED` prefixes are considered part of the instruction encoding, so `LDIR` has the encoding `$ED $B0`, not `$B0` with a `$ED` prefix.
+
+### Branch Delay Slots
+
+There is no way yet to specify that an instruction set uses branch delay slots, but this will likely be added in the future.
+
 Modes
 -----
 
