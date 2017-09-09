@@ -31,6 +31,9 @@ class EncodingExpr:
         self._bits = bits
         self._location = location
 
+    def __str__(self):
+        return str(self._bits)
+
     def __repr__(self):
         return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
 
@@ -56,6 +59,9 @@ class EncodingMultiMatch:
         self._mode = mode
         self._start = start
         self._location = location
+
+    def __str__(self):
+        return '%s@' % self._name
 
     def __repr__(self):
         return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
