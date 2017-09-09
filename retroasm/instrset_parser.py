@@ -172,9 +172,6 @@ def _parseFuncArgs(reader, span):
         argSpan = argLoc.span
         argMatch = _reArgDecl.match(line, *argSpan)
         if argMatch is None:
-            if argSpan[0] == argSpan[1]:
-                # Span is empty; pull separator into span.
-                argLoc = argLoc.updateSpan((argSpan[0], argSpan[1] + 1))
             reader.error(
                 'function argument %d not of the form "<type> <name>"',
                 i, location=argLoc

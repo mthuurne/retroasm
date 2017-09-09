@@ -296,8 +296,11 @@ class LineReaderFormatter(Formatter):
                     start, end = span
                     start = min(start, length)
                     end = min(end, length)
-                    if start >= end:
+                    if start > end:
                         continue
+                    elif start == end:
+                        # Highlight empty span using single character.
+                        end = start + 1
                     highlight = ('^' if i == last else '~') * (end - start)
                     spanLine = spanLine[:start] + highlight + spanLine[end:]
                 spanLine = spanLine.rstrip()

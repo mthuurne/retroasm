@@ -242,7 +242,7 @@ class ModeEntry:
         '''
         encoding = self.encoding
         if len(encoding) == 0:
-            return self.location.updateSpan((0, 1))
+            return self.location.updateSpan((0, 0))
         else:
             return encoding[0].location
 
@@ -271,7 +271,7 @@ class ModeEntry:
         firstAuxIndex = self._firstAuxIndex
         if firstAuxIndex is None:
             end = 0 if len(encoding) == 0 else encoding[0].location.span[1]
-            return self.location.updateSpan((end, end + 1))
+            return self.location.updateSpan((end, end))
         else:
             return mergeSpan(
                 encoding[firstAuxIndex].location,
