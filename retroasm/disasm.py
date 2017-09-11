@@ -1,5 +1,6 @@
 from .expression import IntLiteral
 from .mode import ModeMatch
+from .reference import FixedValue, Reference
 from .types import IntType, unlimited
 
 class Disassembler:
@@ -18,6 +19,8 @@ class Disassembler:
         instrSet = self._instrSet
         decoder = instrSet.decoder
         numBytes = fetcher.numBytes
+        encWidth = instrSet.encodingWidth
+        encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
         decoded = self._decoded
         codeAddrs = self._codeAddrs
@@ -30,7 +33,8 @@ class Disassembler:
             encodedLength = 1 if encMatch is None else encMatch.encodedLength
             postAddr = addr + encodedLength * numBytes
             if encMatch is None:
-                decoded[addr] = fetcher[0]
+                bits = FixedValue(IntLiteral(fetcher[0]), encWidth)
+                decoded[addr] = Reference(bits, encType)
             else:
                 pcVal = IntLiteral(postAddr)
                 match = ModeMatch.fromEncodeMatch(encMatch, pcVal)
@@ -43,10 +47,7 @@ class Disassembler:
         codeAddrs = self._codeAddrs
         dataAddrs = self._dataAddrs
         instrSet = self._instrSet
-
         addrWidth = instrSet.addrWidth
-        encWidth = instrSet.encodingWidth
-        encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
         labels = {}
         dataLabelFormat = 'data_{:0%dx}' % ((addrWidth + 3) // 4)
@@ -61,7 +62,7 @@ class Disassembler:
             if label is not None:
                 print(formatter.formatLabel(label))
             match = decoded[addr]
-            if isinstance(match, int):
-                print(formatter.formatData(match, encType))
+            if isinstance(match, Reference):
+                print(formatter.formatData(match))
             else:
                 print(formatter.formatMnemonic(match.mnemonic, labels))

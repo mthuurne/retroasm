@@ -57,7 +57,6 @@ class Formatter:
             localLabel, parts[0], self._formatOperands(parts[1:])
             ).rstrip()
 
-    def formatData(self, encoded, typ):
-        directive = {8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'}[typ.width]
-        mnemonic = [directive, (encoded, typ)]
-        return self.formatMnemonic(mnemonic, {})
+    def formatData(self, ref):
+        directive = {8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'}[ref.width]
+        return self.formatMnemonic((directive, ref), {})
