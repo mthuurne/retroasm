@@ -14,7 +14,7 @@ from .expression_parser import (
     parseExpr, parseExprList, parseInt, parseRegs, parseStatement
     )
 from .function_builder import createFunc
-from .instrset import InstructionSet
+from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode, ModeEntry,
@@ -151,8 +151,11 @@ def _parseTypedArgs(reader, span, description):
             nameLoc = reader.getLocation(argMatch.span(2))
             yield argType, typeLoc, argName, nameLoc
 
-def _parsePrefix(reader, argSpan, namespace):
+def _parsePrefix(reader, argSpan, namespace, factory):
+    headerLocation = reader.getLocation()
+
     # Parse header line.
+    decodeFlags = []
     try:
         with reader.checkErrors():
             flagType = IntType.u(1)
@@ -174,11 +177,14 @@ def _parsePrefix(reader, argSpan, namespace):
                         'error defining decode flag: %s', ex,
                         location=ex.location
                         )
+                else:
+                    decodeFlags.append(argName)
     except DelayedError:
         reader.skipBlock()
         return
 
     # Parse body.
+    prefixes = []
     for line in reader.iterBlock():
         # Split line into 3 fields.
         fields = tuple(reader.splitOn(_reDotSep.finditer(line)))
@@ -255,12 +261,16 @@ def _parsePrefix(reader, argSpan, namespace):
         except DelayedError:
             semantics = None
 
-        if False:
-            print('prefix:', '-' if encoding is None else ' '.join(
-                str(enc) for enc in encoding
-                ))
-            if semantics is not None:
-                semantics.dump()
+        if encoding is not None and semantics is not None:
+            prefixes.append(Prefix(encoding, semantics))
+
+    try:
+        factory.addPrefixes(decodeFlags, prefixes)
+    except ValueError as ex:
+        reader.error(
+            'validation of prefix block failed: %s', ex,
+            location=headerLocation
+            )
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
@@ -381,7 +391,7 @@ def _parseFunc(reader, argSpan, namespace, wantSemantics):
     else:
         reader.skipBlock()
 
-def _parseModeContext(ctxStr, ctxLoc, modes, reader):
+def _parseModeContext(ctxStr, ctxLoc, prefixes, modes, reader):
     placeholderSpecs = OrderedDict()
     flagsRequired = set()
     for node in parseContext(ctxStr, ctxLoc):
@@ -424,7 +434,14 @@ def _parseModeContext(ctxStr, ctxLoc, modes, reader):
             else:
                 placeholderSpecs[name] = placeholder
         elif isinstance(node, FlagTestNode):
-            flagsRequired.add(node.name)
+            name = node.name
+            if prefixes.hasFlag(name):
+                flagsRequired.add(name)
+            else:
+                reader.error(
+                    'there is no decode flag named "%s"', name,
+                    location=node.location
+                    )
         else:
             assert False, node
 
@@ -949,8 +966,8 @@ def _parseMnemonic(mnemStr, mnemLoc, placeholders, reader):
             seenPlaceholders[text] = getMatchLocation()
 
 def _parseModeEntries(
-        reader, globalNamespace, pc, modes, modeType, mnemBase, parseSem,
-        wantSemantics
+        reader, globalNamespace, pc, prefixes, modes, modeType, mnemBase,
+        parseSem, wantSemantics
         ):
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
@@ -972,7 +989,7 @@ def _parseModeEntries(
                     try:
                         with reader.checkErrors():
                             placeholderSpecs, flagsRequired = _parseModeContext(
-                                ctxStr, ctxLoc, modes, reader
+                                ctxStr, ctxLoc, prefixes, modes, reader
                                 )
                             placeholders = OrderedDict(_buildPlaceholders(
                                 placeholderSpecs, globalNamespace, reader
@@ -1131,7 +1148,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
-def _parseMode(reader, globalNamespace, pc, modes, wantSemantics):
+def _parseMode(reader, globalNamespace, pc, prefixes, modes, wantSemantics):
     # Parse header line.
     modeLocation = reader.getLocation()
     match = _reModeHeader.match(modeLocation.line)
@@ -1170,8 +1187,8 @@ def _parseMode(reader, globalNamespace, pc, modes, wantSemantics):
 
     # Parse entries.
     entries = list(_parseModeEntries(
-        reader, globalNamespace, pc, modes, semType, (), _parseModeSemantics,
-        wantSemantics
+        reader, globalNamespace, pc, prefixes, modes, semType, (),
+        _parseModeSemantics, wantSemantics
         ))
 
     # Create and remember mode object.
@@ -1181,13 +1198,15 @@ def _parseMode(reader, globalNamespace, pc, modes, wantSemantics):
     if addMode:
         modes[modeName] = mode
 
-def _parseInstr(reader, argSpan, globalNamespace, pc, modes, wantSemantics):
+def _parseInstr(
+        reader, argSpan, globalNamespace, pc, prefixes, modes, wantSemantics
+        ):
     mnemStr = reader.lastline[slice(*argSpan)]
     mnemLoc = reader.getLocation(argSpan)
     mnemBase = tuple(_parseMnemonic(mnemStr, mnemLoc, {}, reader))
 
     for instr in _parseModeEntries(
-            reader, globalNamespace, pc, modes, None, mnemBase,
+            reader, globalNamespace, pc, prefixes, modes, None, mnemBase,
             _parseInstrSemantics, wantSemantics
             ):
         encWidth = instr.encodingWidth
@@ -1217,6 +1236,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
 
     globalBuilder = StatelessCodeBlockBuilder()
     globalNamespace = GlobalNamespace(globalBuilder)
+    prefixes = PrefixMappingFactory(globalNamespace)
     modes = {}
     instructions = []
     pc = None
@@ -1236,14 +1256,17 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             elif defType == 'io':
                 _parseIO(reader, argSpan, globalNamespace)
             elif defType == 'prefix':
-                _parsePrefix(reader, argSpan, globalNamespace)
+                _parsePrefix(reader, argSpan, globalNamespace, prefixes)
             elif defType == 'func':
                 _parseFunc(reader, argSpan, globalNamespace, wantSemantics)
             elif defType == 'mode':
-                _parseMode(reader, globalNamespace, pc, modes, wantSemantics)
+                _parseMode(
+                    reader, globalNamespace, pc, prefixes, modes, wantSemantics
+                    )
             elif defType == 'instr':
                 instructions += _parseInstr(
-                    reader, argSpan, globalNamespace, pc, modes, wantSemantics
+                    reader, argSpan, globalNamespace, pc, prefixes, modes,
+                    wantSemantics
                     )
             else:
                 reader.error(
@@ -1264,7 +1287,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
         anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
         auxEncWidth = encWidth if anyAux else None
         return InstructionSet(
-            encWidth, auxEncWidth, globalNamespace, instructions
+            encWidth, auxEncWidth, globalNamespace, prefixes, instructions
             )
     else:
         return None
