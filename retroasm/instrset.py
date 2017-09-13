@@ -1,6 +1,7 @@
 from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
+from .linereader import BadInput
 from .mode import ModeTable
 from .utils import const_property
 
@@ -9,7 +10,7 @@ from collections import namedtuple
 Prefix = namedtuple('Prefix', ('encoding', 'semantics'))
 
 PrefixMapping = namedtuple('PrefixMapping', (
-    'initCode', 'refForFlag', 'prefixForFlag'
+    'initCode', 'refForFlag', 'prefixForFlag', 'encodingWidth'
     ))
 
 class PrefixMappingFactory:
@@ -19,6 +20,7 @@ class PrefixMappingFactory:
         self._initBuilder = SemanticsCodeBlockBuilder()
         self._refForFlag = {}
         self._prefixForFlag = {}
+        self._encodingWidth = None
 
     def hasFlag(self, name):
         '''Return True iff a decode flag with the given name was added to
@@ -33,7 +35,23 @@ class PrefixMappingFactory:
         namespace or was added more than once.
         Raises ValueError if no reverse mapping could be computed from the
         given prefix semantics.
+        Raises BadInput if an encoding item's width is inconsistent with
+        earlier encoding item widths.
         '''
+        # Check encoding width consistency.
+        encWidth = self._encodingWidth
+        for prefix in prefixes:
+            for encItem in prefix.encoding:
+                if encWidth is None:
+                    encWidth = encItem.encodingWidth
+                elif encWidth != encItem.encodingWidth:
+                    raise BadInput(
+                        'encoding item has width %s while previous item(s) '
+                        'have width %s' % (encItem.encodingWidth, encWidth),
+                        encItem.location
+                        )
+        self._encodingWidth = encWidth
+
         # Collect decode flag variables, build init code for them.
         builder = self._initBuilder
         namespace = self._namespace
@@ -88,7 +106,8 @@ class PrefixMappingFactory:
         return PrefixMapping(
             self._initBuilder.createCodeBlock(()),
             dict(self._refForFlag),
-            dict(self._prefixForFlag)
+            dict(self._prefixForFlag),
+            self._encodingWidth
             )
 
 class InstructionSet(ModeTable):
@@ -103,8 +122,13 @@ class InstructionSet(ModeTable):
             ):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
-                'Auxiliary encoding width must be None or equal to base '
+                'auxiliary encoding width must be None or equal to base '
                 'encoding width %s, got %s instead' % (encWidth, auxEncWidth)
+                )
+        if prefixMapping.encodingWidth not in (None, encWidth):
+            raise ValueError(
+                'prefix encoding width %s is different from instruction '
+                'encoding width %s' % (prefixMapping.encodingWidth, encWidth)
                 )
         ModeTable.__init__(self, encWidth, auxEncWidth, instructions)
         self._globalNamespace = globalNamespace

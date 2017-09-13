@@ -271,6 +271,11 @@ def _parsePrefix(reader, argSpan, namespace, factory):
             'validation of prefix block failed: %s', ex,
             location=headerLocation
             )
+    except BadInput as ex:
+        reader.error(
+            'validation of prefix block failed: %s', ex,
+            location=ex.location
+            )
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
@@ -1276,6 +1281,22 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
+        anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
+        auxEncWidth = encWidth if anyAux else None
+
+        prefixMapping = prefixes.createMapping()
+
+        instrSet = None
+        if reader.errors == 0:
+            try:
+                instrSet = InstructionSet(
+                    encWidth, auxEncWidth, globalNamespace, prefixMapping,
+                    instructions
+                    )
+            except ValueError as ex:
+                reader.error(
+                    'final validation of instruction set failed: %s', ex
+                    )
 
         reader.summarize()
 
@@ -1283,11 +1304,4 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
         '%s = %r' % item for item in sorted(globalNamespace.items())
         ))
 
-    if reader.errors == 0:
-        anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
-        auxEncWidth = encWidth if anyAux else None
-        return InstructionSet(
-            encWidth, auxEncWidth, globalNamespace, prefixes, instructions
-            )
-    else:
-        return None
+    return instrSet
