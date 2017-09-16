@@ -409,6 +409,8 @@ class ModeEntry:
             if isinstance(placeholder, MatchPlaceholder):
                 if name not in decoding and name not in multiMatches:
                     sub = placeholder.mode.decoder
+                    if isinstance(sub, NoMatchDecoder):
+                        return sub
                     decoder = PlaceholderDecoder(name, None, decoder, sub, None)
 
         # Add match placeholders, from high index to low.
@@ -441,6 +443,8 @@ class ModeEntry:
                             for idx, refIdx, width in slices
                             )
                 sub = matcher.mode.decoder
+                if isinstance(sub, NoMatchDecoder):
+                    return sub
                 decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
         return decoder
