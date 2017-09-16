@@ -987,12 +987,10 @@ class ValuePlaceholder(Placeholder):
             )
 
     def __str__(self):
-        code = self._code
-        if code is None:
+        if self._code is None:
             return '{%s %s}' % (self._type, self._name)
         else:
-            retBits, = code.returned
-            return '{%s %s = %s}' % (self._type, self._name, retBits)
+            return '{%s %s = ...}' % (self._type, self._name)
 
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made
