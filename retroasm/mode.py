@@ -114,10 +114,8 @@ class Decoder:
     def dump(self, indent='', submodes=True):
         raise NotImplementedError
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         '''Attempts to decode an instruction from the given fetcher.
-        The flags argument is a set containing the decode flags that apply to
-        the instruction being decoded.
         Returns an EncodeMatch, or None if no match could be made.
         '''
         raise NotImplementedError
@@ -134,9 +132,9 @@ class SequentialDecoder(Decoder):
             decoder.dump(indent + '+ ', submodes)
             indent = ' ' * len(indent)
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         for decoder in self._decoders:
-            match = decoder.tryDecode(fetcher, flags)
+            match = decoder.tryDecode(fetcher)
             if match is not None:
                 return match
         return None
@@ -158,12 +156,12 @@ class TableDecoder(Decoder):
         for idx, decoder in enumerate(self._table):
             decoder.dump(' ' * len(indent) + '$%02x: ' % idx, submodes)
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         encoded = fetcher[self._index]
         if encoded is None:
             return None
         decoder = self._table[(encoded & self._mask) >> self._offset]
-        return decoder.tryDecode(fetcher, flags)
+        return decoder.tryDecode(fetcher)
 
 def _findFirstAuxIndex(encoding):
     '''Returns the index of the first encoding item that can match auxiliary
@@ -302,6 +300,11 @@ class ModeEntry:
     def decoder(self):
         '''A Decoder instance that decodes this entry.
         '''
+        # Check decode flags.
+        if self.flagsRequired:
+            # TODO: Add prefix support.
+            return NoMatchDecoder()
+
         decoding = self.decoding
         encoding = self.encoding
         placeholders = self.placeholders
@@ -408,11 +411,6 @@ class ModeEntry:
                     sub = placeholder.mode.decoder
                     decoder = PlaceholderDecoder(name, None, decoder, sub, None)
 
-        # Add matcher that checks decode flags.
-        flagsRequired = self.flagsRequired
-        if flagsRequired:
-            decoder = FlagsCheckDecoder(flagsRequired, decoder)
-
         # Add match placeholders, from high index to low.
         for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
             for matcher in matchers:
@@ -478,32 +476,12 @@ class FixedPatternDecoder(Decoder):
         maskStr = _formatMask('enc%d' % self._index, self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         encoded = fetcher[self._index]
         if encoded is None or encoded & self._mask != self._value:
             return None
         else:
-            return self._next.tryDecode(fetcher, flags)
-
-class FlagsCheckDecoder(Decoder):
-    '''Decoder that only returns a match if all the required decode flags are
-    present.
-    '''
-
-    def __init__(self, flags, nxt):
-        self._flags = flags
-        self._next = nxt
-
-    def dump(self, indent='', submodes=True):
-        flagsStr = ' '.join('?%s' % flag for flag in sorted(self._flags))
-        self._next.dump(indent + flagsStr + ' -> ', submodes)
-
-    def tryDecode(self, fetcher, flags):
-        for flag in self._flags:
-            if flag not in flags:
-                return None
-        else:
-            return self._next.tryDecode(fetcher, flags)
+            return self._next.tryDecode(fetcher)
 
 class PlaceholderDecoder(Decoder):
     '''Decodes the value for one placeholder.
@@ -541,7 +519,7 @@ class PlaceholderDecoder(Decoder):
         if submodes and sub is not None:
             sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         slices = self._slices
         if slices is None:
             value = None
@@ -562,7 +540,7 @@ class PlaceholderDecoder(Decoder):
             decoded = value
         else:
             auxIdx = self._auxIdx
-            decoded = sub.tryDecode(ModeFetcher(value, fetcher, auxIdx), flags)
+            decoded = sub.tryDecode(ModeFetcher(value, fetcher, auxIdx))
             if decoded is None:
                 return None
             if auxIdx is not None:
@@ -574,7 +552,7 @@ class PlaceholderDecoder(Decoder):
                     fetcher = AfterModeFetcher(fetcher, auxIdx, delta)
 
         # Decode remainder.
-        match = self._next.tryDecode(fetcher, flags)
+        match = self._next.tryDecode(fetcher)
         if match is not None:
             match[self._name] = decoded
         return match
@@ -590,7 +568,7 @@ class MatchFoundDecoder(Decoder):
     def dump(self, indent='', submodes=True):
         print(indent + ' '.join(str(m) for m in self._entry.mnemonic))
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         return EncodeMatch(self._entry)
 
 class NoMatchDecoder(Decoder, metaclass=Singleton):
@@ -601,14 +579,18 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
     def dump(self, indent='', submodes=True):
         print(indent + '(none)')
 
-    def tryDecode(self, fetcher, flags):
+    def tryDecode(self, fetcher):
         return None
 
 def createDecoder(decoders):
     '''Returns a decoder that will decode using the last matching decoder among
     the given decoders.
     '''
-    decoders = list(decoders)
+    decoders = [
+        decoder
+        for decoder in decoders
+        if not isinstance(decoder, NoMatchDecoder)
+        ]
 
     # Handle edge cases.
     if len(decoders) == 0:
