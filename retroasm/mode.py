@@ -6,7 +6,6 @@ from .expression_simplifier import simplifyExpression
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import mergeSpan
 from .reference import FixedValue, Reference, decodeInt
-from .storage import ValArgStorage
 from .types import (
     IntType, maskForWidth, maskToSegments, segmentsToMask, unlimited
     )
@@ -764,32 +763,6 @@ class ModeMatch:
 
     def __repr__(self):
         return 'ModeMatch(%r, %r, %r)' % (self._entry, self._values, self._subs)
-
-    @const_property
-    def encoding(self):
-        entry = self._entry
-        values = self._values
-        subs = self._subs
-
-        def substPlaceholders(storage):
-            if isinstance(storage, ValArgStorage):
-                name = storage.name
-                try:
-                    return values[name]
-                except KeyError:
-                    return subs[name].encoding[0]
-
-        for encItem in entry.encoding:
-            if isinstance(encItem, EncodingExpr):
-                bits = encItem.bits.substitute(storageFunc=substPlaceholders)
-                # There are no more SingleStorages in the bit string,
-                # so loading won't emit any nodes.
-                expr = bits.emitLoad(None, None)
-                yield FixedValue(simplifyExpression(expr), bits.width)
-            elif isinstance(encItem, EncodingMultiMatch):
-                yield from subs[encItem.name].encoding[encItem.start:]
-            else:
-                assert False, encItem
 
     @const_property
     def mnemonic(self):
