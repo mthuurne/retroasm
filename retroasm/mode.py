@@ -865,13 +865,7 @@ class ModeTable:
         def dumpNode(node, indent):
             for entry in node[1]:
                 tokens = ' '.join(str(token) for token in entry.mnemonic)
-                if entry.flagsRequired:
-                    flags = ' -- prefix ' + ' '.join(
-                        sorted(entry.flagsRequired)
-                        )
-                else:
-                    flags = ''
-                print('%s= %s%s' % (indent, tokens, flags))
+                print('%s= %s' % (indent, tokens))
             for match in sorted(node[0].keys(), key=matchKey):
                 print('%s+ %s' % (indent, match))
                 dumpNode(node[0][match], ' ' * len(indent) + '`---')
