@@ -17,8 +17,8 @@ from .function_builder import createFunc
 from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
-    EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode, ModeEntry,
-    ValuePlaceholder
+    Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode,
+    ModeEntry, ValuePlaceholder
     )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
@@ -213,10 +213,10 @@ def _parsePrefix(reader, argSpan, namespace, factory):
                             location=ex.location
                             )
                     else:
-                        encoding = []
+                        encItems = []
                         for encNode in encNodes:
                             try:
-                                encoding.append(_parseEncodingExpr(
+                                encItems.append(_parseEncodingExpr(
                                     encNode, namespace, {}
                                     ))
                             except BadInput as ex:
@@ -226,6 +226,8 @@ def _parsePrefix(reader, argSpan, namespace, factory):
                                     )
         except DelayedError:
             encoding = None
+        else:
+            encoding = Encoding(encItems, encLoc)
 
         # Parse mnemonic.
         if mnemStr:
@@ -597,47 +599,47 @@ def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
         except BadInput as ex:
             logger.error('%s', ex, location=ex.location)
 
-def _checkEmptyMultiMatches(encoding, placeholderSpecs, logger):
+def _checkEmptyMultiMatches(encItems, placeholderSpecs, logger):
     '''Warn about multi-matches that always match zero elements.
     Technically there is nothing wrong with those, but it is probably not what
     the user intended.
     '''
-    for encExpr in encoding:
-        if isinstance(encExpr, EncodingMultiMatch):
-            mode = encExpr.mode
+    for encItem in encItems:
+        if isinstance(encItem, EncodingMultiMatch):
+            mode = encItem.mode
             if mode.encodingWidth is None:
                 logger.warning(
                     'mode "%s" does not contain encoding elements',
                     mode.name, location=(
-                        encExpr.location,
-                        placeholderSpecs[encExpr.name].decl.treeLocation
+                        encItem.location,
+                        placeholderSpecs[encItem.name].decl.treeLocation
                         )
                     )
-            elif encExpr.start >= 1 and mode.auxEncodingWidth is None:
+            elif encItem.start >= 1 and mode.auxEncodingWidth is None:
                 logger.warning(
                     'mode "%s" does not match auxiliary encoding units',
                     mode.name, location=(
-                        encExpr.location,
-                        placeholderSpecs[encExpr.name].decl.treeLocation
+                        encItem.location,
+                        placeholderSpecs[encItem.name].decl.treeLocation
                         )
                     )
 
-def _checkMissingPlaceholders(encoding, placeholderSpecs, location, logger):
+def _checkMissingPlaceholders(encItems, placeholderSpecs, location, logger):
     '''Check that our encoding field contains sufficient placeholders to be able
     to make matches in all included mode tables.
     '''
     # Take inventory of placeholders in the encoding.
     identifiers = set()
     multiMatches = set()
-    for encExpr in encoding:
-        if isinstance(encExpr, EncodingExpr):
-            for storage in encExpr.bits.iterStorages():
+    for encItem in encItems:
+        if isinstance(encItem, EncodingExpr):
+            for storage in encItem.bits.iterStorages():
                 if isinstance(storage, ValArgStorage):
                     identifiers.add(storage.name)
-        elif isinstance(encExpr, EncodingMultiMatch):
-            multiMatches.add(encExpr.name)
+        elif isinstance(encItem, EncodingMultiMatch):
+            multiMatches.add(encItem.name)
         else:
-            assert False, encExpr
+            assert False, encItem
 
     # Check whether all placeholders from the context occur in the encoding.
     for name, spec in placeholderSpecs.items():
@@ -674,7 +676,7 @@ def _checkMissingPlaceholders(encoding, placeholderSpecs, location, logger):
         else:
             assert False, spec
 
-def _checkAuxEncodingWidth(encoding, logger):
+def _checkAuxEncodingWidth(encItems, logger):
     '''Check whether the encoding widths in the given encoding are the same
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
@@ -692,44 +694,44 @@ def _checkAuxEncodingWidth(encoding, logger):
                 location=(location, auxLoc)
                 )
     firstUnitMatched = False
-    for encExpr in encoding:
-        encLoc = encExpr.location
-        if isinstance(encExpr, EncodingExpr):
+    for encItem in encItems:
+        encLoc = encItem.location
+        if isinstance(encItem, EncodingExpr):
             if firstUnitMatched:
-                checkAux(encExpr.encodingWidth, encLoc)
+                checkAux(encItem.encodingWidth, encLoc)
             else:
                 firstUnitMatched = True
-        elif isinstance(encExpr, EncodingMultiMatch):
-            mode = encExpr.mode
+        elif isinstance(encItem, EncodingMultiMatch):
+            mode = encItem.mode
             modeAuxWidth = mode.auxEncodingWidth
             if firstUnitMatched:
-                if encExpr.start == 0:
+                if encItem.start == 0:
                     checkAux(mode.encodingWidth, encLoc)
                 if modeAuxWidth is not None:
                     checkAux(modeAuxWidth, encLoc)
             else:
                 if modeAuxWidth is not None:
-                    if mode.encodedLength != encExpr.start + 1:
+                    if mode.encodedLength != encItem.start + 1:
                         checkAux(modeAuxWidth, encLoc)
                 firstUnitMatched = True
         else:
-            assert False, encExpr
+            assert False, encItem
 
-def _checkDuplicateMultiMatches(encoding, logger):
+def _checkDuplicateMultiMatches(encItems, logger):
     '''Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
     '''
     claimedMultiMatches = {}
-    for encExpr in encoding:
-        if isinstance(encExpr, EncodingMultiMatch):
-            name = encExpr.name
+    for encItem in encItems:
+        if isinstance(encItem, EncodingMultiMatch):
+            name = encItem.name
             if name in claimedMultiMatches:
                 logger.error(
                     'duplicate multi-match placeholder "%s@"', name,
-                    location=(encExpr.location, claimedMultiMatches[name])
+                    location=(encItem.location, claimedMultiMatches[name])
                     )
             else:
-                claimedMultiMatches[name] = encExpr.location
+                claimedMultiMatches[name] = encItem.location
 
 def _decomposeBitString(bits):
     if isinstance(bits, SingleStorage):
@@ -830,7 +832,7 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
             yield name, tuple(decoding)
 
 def _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader):
-    '''Verifies that there is an order in which placeholder can be decoded.
+    '''Verifies that there is an order in which placeholders can be decoded.
     Such an order might not exist because of circular dependencies.
     '''
     # Find indices of multi-matches.
@@ -1023,21 +1025,23 @@ def _parseModeEntries(
                 else:
                     try:
                         with reader.checkErrors():
-                            encoding = tuple(_parseModeEncoding(
+                            encItems = tuple(_parseModeEncoding(
                                 encNodes, placeholderSpecs, globalNamespace,
                                 reader
                                 ))
                         with reader.checkErrors():
-                            _checkAuxEncodingWidth(encoding, reader)
+                            _checkAuxEncodingWidth(encItems, reader)
                             _checkEmptyMultiMatches(
-                                encoding, placeholderSpecs, reader
+                                encItems, placeholderSpecs, reader
                                 )
-                            _checkDuplicateMultiMatches(encoding, reader)
+                            _checkDuplicateMultiMatches(encItems, reader)
                             _checkMissingPlaceholders(
-                                encoding, placeholderSpecs, encLoc, reader
+                                encItems, placeholderSpecs, encLoc, reader
                                 )
                     except DelayedError:
                         encoding = None
+                    else:
+                        encoding = Encoding(encItems, encLoc)
                 if encoding is None:
                     decoding = None
                 else:
@@ -1096,9 +1100,10 @@ def _parseModeEntries(
                 template = None
             else:
                 template = CodeTemplate(semantics, placeholders, pc)
+            reader.getLocation()
             yield ModeEntry(
                 encoding, decoding, mnemonic, template, placeholders,
-                flagsRequired, reader.getLocation()
+                flagsRequired
                 )
 
 def _formatEncodingWidth(width):
@@ -1117,8 +1122,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
     widthFreqs = defaultdict(int)
     for entry in entries:
-        if entry.encoding is not None:
-            widthFreqs[getattr(entry, widthAttr)] += 1
+        widthFreqs[getattr(entry.encoding, widthAttr)] += 1
     if aux:
         widthFreqs.pop(None, None)
 
@@ -1134,16 +1138,17 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
         validWidths = (encWidth, None) if aux else (encWidth, )
         badEntryIndices = []
         for idx, entry in enumerate(entries):
-            if getattr(entry, widthAttr) not in validWidths:
+            encDef = entry.encoding
+            if getattr(encDef, widthAttr) not in validWidths:
                 logger.error(
                     '%sencoding match is %s, while %s is dominant %s',
                     ('auxiliary ' if aux else ''),
-                    _formatEncodingWidth(getattr(entry, widthAttr)),
+                    _formatEncodingWidth(getattr(encDef, widthAttr)),
                     _formatEncodingWidth(encWidth),
                     ('for instructions' if modeName is None else
                         'in mode "%s"' % modeName),
-                    location=(entry.auxEncodingLocation if aux
-                        else entry.encodingLocation)
+                    location=(encDef.auxEncodingLocation if aux
+                        else encDef.encodingLocation)
                     )
                 badEntryIndices.append(idx)
         for idx in reversed(badEntryIndices):
@@ -1214,21 +1219,22 @@ def _parseInstr(
             reader, globalNamespace, pc, prefixes, modes, None, mnemBase,
             _parseInstrSemantics, wantSemantics
             ):
-        encWidth = instr.encodingWidth
+        encDef = instr.encoding
+        encWidth = encDef.encodingWidth
         if encWidth is None:
             reader.error(
                 'instruction encoding must not be empty',
-                location=instr.encodingLocation
+                location=encDef.encodingLocation
                 )
             # Do not yield the instruction, to avoid this problem from being
             # reporting again as a width inconsistency.
             continue
-        auxEncodingWidth = instr.auxEncodingWidth
+        auxEncodingWidth = encDef.auxEncodingWidth
         if auxEncodingWidth not in (encWidth, None):
             reader.error(
                 'auxiliary instruction encoding units are %s bits wide, '
                 'while first unit is %s bits wide', auxEncodingWidth, encWidth,
-                location=instr.auxEncodingLocation
+                location=encDef.auxEncodingLocation
                 )
         yield instr
 

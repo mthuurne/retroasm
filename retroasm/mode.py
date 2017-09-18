@@ -72,6 +72,135 @@ class EncodingMultiMatch:
         length = self._mode.encodedLength
         return None if length is None else length - self._start
 
+def _findFirstAuxIndex(encoding):
+    '''Returns the index of the first encoding item that can match auxiliary
+    encoding units, or None if no auxiliary encoding units can be matched.
+    The given encoding sequence must not contain matchers that never match
+    any encoding units.
+    '''
+    if len(encoding) == 0:
+        # No units matched because there are no matchers.
+        return None
+    firstLen = encoding[0].encodedLength
+    if firstLen >= 2:
+        # First element can match multiple encoding units.
+        return 0
+    assert firstLen != 0, encoding
+    if len(encoding) == 1:
+        # First element matches 1 encoding unit, no second element.
+        return None
+    else:
+        # The second element will match the second unit.
+        assert encoding[1].encodedLength != 0, encoding
+        return 1
+
+class Encoding:
+    '''Defines how (part of) an instruction is encoded.
+    We call the elements of a definition 'items', these are represented by
+    EncodingExpr and EncodingMultiMatch objects. We call the elements of an
+    encoded instruction 'units', depending on the instruction set these are
+    bytes or words or some other fixed-size bit strings.
+    The items within an encoding definition are exposed as a sequence.
+    '''
+
+    def __init__(self, items, location):
+        # Filter out zero-length encoding items.
+        # There is no good reason to ban them, but keeping them around would
+        # unnecessarily complicate the code.
+        self._items = items = tuple(
+            item
+            for item in items
+            if checkType(
+                item, (EncodingExpr, EncodingMultiMatch), 'encoding element'
+                ).encodedLength != 0
+            )
+        self._firstAuxIndex = firstAuxIndex = _findFirstAuxIndex(items)
+
+        # Verify that all auxiliary units have the same width.
+        auxWidth = self.auxEncodingWidth
+        if auxWidth is not None:
+            consistent = True
+            for idx, item in enumerate(items):
+                if idx != 0:
+                    consistent &= item.encodingWidth == auxWidth
+                if isinstance(item, EncodingMultiMatch):
+                    consistent &= item.auxEncodingWidth in (None, auxWidth)
+            if not consistent:
+                raise ValueError(
+                    'inconsistent widths among auxiliary encoding units'
+                    )
+
+        self._location = location
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, index):
+        return self._items[index]
+
+    @property
+    def encodingWidth(self):
+        '''The width in bits a first encoding unit matched by this encoding
+        definition would have, or None if this encoding definition always
+        matches zero encoding units.
+        '''
+        items = self._items
+        return None if len(items) == 0 else items[0].encodingWidth
+
+    @property
+    def encodingLocation(self):
+        '''The InputLocation of the first item in this encoding definition.
+        '''
+        items = self._items
+        return self._location if len(items) == 0 else items[0].location
+
+    @property
+    def auxEncodingWidth(self):
+        '''The width in bits that all non-first encoding units matched by this
+        encoding definition would have, or None if a match cannot contain more
+        than one encoding unit.
+        '''
+        firstAuxIndex = self._firstAuxIndex
+        if firstAuxIndex is None:
+            return None
+        elif firstAuxIndex == 0:
+            return self._items[0].auxEncodingWidth
+        else:
+            assert firstAuxIndex == 1, firstAuxIndex
+            return self._items[1].encodingWidth
+
+    @property
+    def auxEncodingLocation(self):
+        '''The InputLocation of the auxiliary encoding items in this mode
+        entry. If there are no auxiliary encoding items, the end of the
+        encoding field is returned.
+        '''
+        items = self._items
+        firstAuxIndex = self._firstAuxIndex
+        if firstAuxIndex is None:
+            location = self._location if len(items) == 0 else items[0].location
+            end = location.span[1]
+            return location.updateSpan((end, end))
+        else:
+            return mergeSpan(items[firstAuxIndex].location, items[-1].location)
+
+    @const_property
+    def encodedLength(self):
+        '''The number of encoded units (bytes, words etc.) that this encoding
+        definitions matches, or None if that number may vary depending on which
+        match is made in an included mode.
+        '''
+        total = 0
+        for item in self._items:
+            length = item.encodedLength
+            if length is None:
+                return None
+            total += length
+        return total
+
 def _formatSlice(start, end):
     if end == start + 1:
         return '[%d]' % start
@@ -162,138 +291,26 @@ class TableDecoder(Decoder):
         decoder = self._table[(encoded & self._mask) >> self._offset]
         return decoder.tryDecode(fetcher)
 
-def _findFirstAuxIndex(encoding):
-    '''Returns the index of the first encoding item that can match auxiliary
-    encoding units, or None if no auxiliary encoding units can be matched.
-    The given encoding sequence must not contain matchers that never match
-    any encoding units.
-    '''
-    if len(encoding) == 0:
-        # No units matched because there are no matchers.
-        return None
-    firstLen = encoding[0].encodedLength
-    if firstLen >= 2:
-        # First element can match multiple encoding units.
-        return 0
-    assert firstLen != 0, encoding
-    if len(encoding) == 1:
-        # First element matches 1 encoding unit, no second element.
-        return None
-    else:
-        # The second element will match the second unit.
-        assert encoding[1].encodedLength != 0, encoding
-        return 1
-
 class ModeEntry:
     '''One row in a mode table.
     '''
 
     def __init__(
             self, encoding, decoding, mnemonic, semantics, placeholders,
-            flagsRequired, location
+            flagsRequired
             ):
-        # Filter out zero-length encoding items.
-        # There is no good reason to ban them, but keeping them around would
-        # unnecessarily complicate the code.
-        self.encoding = encoding = tuple(
-            encItem
-            for encItem in encoding
-            if checkType(
-                encItem, (EncodingExpr, EncodingMultiMatch), 'encoding element'
-                ).encodedLength != 0
-            )
-        self._firstAuxIndex = firstAuxIndex = _findFirstAuxIndex(encoding)
-
+        self.encoding = checkType(encoding, Encoding, 'encoding definition')
         self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
         self.placeholders = placeholders
         self.flagsRequired = frozenset(flagsRequired)
-        self.location = location
-
-        # Verify that all auxiliary units have the same width.
-        auxWidth = self.auxEncodingWidth
-        if auxWidth is not None:
-            consistent = True
-            for encIdx, encItem in enumerate(encoding):
-                if encIdx != 0:
-                    consistent &= encItem.encodingWidth == auxWidth
-                if isinstance(encItem, EncodingMultiMatch):
-                    consistent &= encItem.auxEncodingWidth in (None, auxWidth)
-            if not consistent:
-                raise ValueError(
-                    'Inconsistent widths among auxiliary encoding units'
-                    )
 
     def __repr__(self):
-        return 'ModeEntry(%r, %r, %r, %r, %r, %r, %r)' % (
+        return 'ModeEntry(%r, %r, %r, %r, %r, %r)' % (
             self.encoding, self.decoding, self.mnemonic, self.semantics,
-            self.placeholders, self.flagsRequired, self.location
+            self.placeholders, self.flagsRequired
             )
-
-    @property
-    def encodingWidth(self):
-        '''The width in bits a first encoding unit matched by this mode entry
-        would have, or None if this entry always matches zero encoding units.
-        '''
-        encoding = self.encoding
-        return None if len(encoding) == 0 else encoding[0].encodingWidth
-
-    @property
-    def encodingLocation(self):
-        '''The InputLocation of the first encoding element in this mode entry.
-        '''
-        encoding = self.encoding
-        if len(encoding) == 0:
-            return self.location.updateSpan((0, 0))
-        else:
-            return encoding[0].location
-
-    @property
-    def auxEncodingWidth(self):
-        '''The width in bits that all non-first encoding units matched by this
-        mode entry would have, or None if a match cannot contain more than one
-        encoding unit.
-        '''
-        firstAuxIndex = self._firstAuxIndex
-        if firstAuxIndex is None:
-            return None
-        elif firstAuxIndex == 0:
-            return self.encoding[0].auxEncodingWidth
-        else:
-            assert firstAuxIndex == 1, firstAuxIndex
-            return self.encoding[1].encodingWidth
-
-    @property
-    def auxEncodingLocation(self):
-        '''The InputLocation of the auxiliary encoding elements in this mode
-        entry. If there are no auxiliary encoding elements, the end of the
-        encoding field is returned.
-        '''
-        encoding = self.encoding
-        firstAuxIndex = self._firstAuxIndex
-        if firstAuxIndex is None:
-            end = 0 if len(encoding) == 0 else encoding[0].location.span[1]
-            return self.location.updateSpan((end, end))
-        else:
-            return mergeSpan(
-                encoding[firstAuxIndex].location,
-                encoding[-1].location
-                )
-
-    @const_property
-    def encodedLength(self):
-        '''The number of encoded data units (bytes, words etc.) that this mode
-        entry matches, or None if that number may vary depending on which match
-        is made in an included mode.
-        '''
-        total = 0
-        for encItem in self.encoding:
-            length = encItem.encodedLength
-            if length is None:
-                return None
-            total += length
-        return total
 
     @const_property
     def decoder(self):
@@ -690,8 +707,8 @@ class EncodeMatch:
 
     @const_property
     def encodedLength(self):
-        entry = self._entry
-        length = entry.encodedLength
+        encDef = self._entry.encoding
+        length = encDef.encodedLength
         if length is not None:
             # Mode entry has fixed encoded length.
             return length
@@ -699,7 +716,7 @@ class EncodeMatch:
         # Mode entry has variable encoded length.
         mapping = self._mapping
         length = 0
-        for encItem in entry.encoding:
+        for encItem in encDef:
             if isinstance(encItem, EncodingExpr):
                 length += 1
             elif isinstance(encItem, EncodingMultiMatch):
@@ -815,18 +832,19 @@ class ModeTable:
         self._entries = entries = tuple(entries)
         for entry in entries:
             assert isinstance(entry, ModeEntry), entry
-            if entry.encodingWidth != encWidth:
+            encDef = entry.encoding
+            if encDef.encodingWidth != encWidth:
                 raise ValueError(
                     'Mode with %s contains entry with %s' % (
                         _formatEncodingWidth(encWidth),
-                        _formatEncodingWidth(entry.encodingWidth)
+                        _formatEncodingWidth(encDef.encodingWidth)
                         )
                     )
-            if entry.auxEncodingWidth not in (None, auxEncWidth):
+            if encDef.auxEncodingWidth not in (None, auxEncWidth):
                 raise ValueError(
                     'Mode with %s contains entry with %s' % (
                         _formatAuxEncodingWidth(auxEncWidth),
-                        _formatAuxEncodingWidth(entry.auxEncodingWidth)
+                        _formatAuxEncodingWidth(encDef.auxEncodingWidth)
                         )
                     )
 
@@ -891,7 +909,7 @@ class ModeTable:
             return 1
         commonLen = None
         for entry in self._entries:
-            entryLen = entry.encodedLength
+            entryLen = entry.encoding.encodedLength
             if entryLen is None:
                 return None
             if entryLen != commonLen:
