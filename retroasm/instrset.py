@@ -144,9 +144,4 @@ class InstructionSet(ModeTable):
     def instructionNames(self):
         '''A set containing the instruction names (operations).
         '''
-        names = set()
-        for instr in self._entries:
-            name = instr.mnemonic[0]
-            if isinstance(name, str):
-                names.add(name)
-        return names
+        return self._mnemTree[0].keys()
