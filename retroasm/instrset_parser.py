@@ -711,7 +711,7 @@ def _checkAuxEncodingWidth(encItems, logger):
                     checkAux(modeAuxWidth, encLoc)
             else:
                 if modeAuxWidth is not None:
-                    if mode.encodedLength != encItem.start + 1:
+                    if encItem.encodedLength != 1:
                         checkAux(modeAuxWidth, encLoc)
                 firstUnitMatched = True
         else:
