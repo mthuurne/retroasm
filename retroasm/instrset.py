@@ -1,8 +1,9 @@
 from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
+from .decode import createDecoder, createEntryDecoder
 from .expression import IntLiteral
 from .linereader import BadInput
-from .mode import ModeTable, createDecoder, createEntryDecoder
+from .mode import ModeTable
 from .utils import const_property
 
 from collections import namedtuple
