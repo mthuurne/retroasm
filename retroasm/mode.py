@@ -944,9 +944,6 @@ class Mode(ModeTable):
     def __str__(self):
         return 'mode %s %s' % (self._semType, self._name)
 
-    def __iter__(self):
-        return iter(self._entries)
-
 PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
     'code_addr', 'data_addr'
     ))
