@@ -295,35 +295,38 @@ class ModeEntry:
     '''One row in a mode table.
     '''
 
-    def __init__(
-            self, encoding, decoding, mnemonic, semantics, placeholders,
-            flagsRequired
-            ):
+    def __init__(self, encoding, mnemonic, semantics, placeholders):
         self.encoding = checkType(encoding, Encoding, 'encoding definition')
-        self.decoding = decoding
         self.mnemonic = mnemonic
         self.semantics = semantics
         self.placeholders = placeholders
-        self.flagsRequired = frozenset(flagsRequired)
 
     def __repr__(self):
-        return 'ModeEntry(%r, %r, %r, %r, %r, %r)' % (
-            self.encoding, self.decoding, self.mnemonic, self.semantics,
-            self.placeholders, self.flagsRequired
+        return 'ModeEntry(%r, %r, %r, %r)' % (
+            self.encoding, self.mnemonic, self.semantics, self.placeholders
             )
 
-    @const_property
-    def decoder(self):
-        '''A Decoder instance that decodes this entry.
+class ParsedModeEntry:
+
+    entry = property(lambda self: self._entry)
+
+    def __init__(self, entry, decoding, flagsRequired):
+        self._entry = checkType(entry, ModeEntry, 'mode entry')
+        self._decoding = decoding
+        self._flagsRequired = frozenset(flagsRequired)
+
+    def createDecoder(self):
+        '''Returns a Decoder instance that decodes this entry.
         '''
         # Check decode flags.
-        if self.flagsRequired:
+        if self._flagsRequired:
             # TODO: Add prefix support.
             return NoMatchDecoder()
 
-        decoding = self.decoding
-        encoding = self.encoding
-        placeholders = self.placeholders
+        decoding = self._decoding
+        entry = self._entry
+        encoding = entry.encoding
+        placeholders = entry.placeholders
 
         def earlyFetch(encIdx):
             '''Returns a pair containing the earliest index at which the given
@@ -410,7 +413,7 @@ class ModeEntry:
             matchersByIndex[whenIdx].append((fetchIdx, fixedMask, fixedValue))
 
         # Start with the leaf node and work towards the root.
-        decoder = MatchFoundDecoder(self)
+        decoder = MatchFoundDecoder(entry)
 
         # Add value placeholders.
         # Since these do not cause rejections, it is most efficient to do them
@@ -823,13 +826,17 @@ class ModeTable:
     encodingWidth = property(lambda self: self._encWidth)
     auxEncodingWidth = property(lambda self: self._auxEncWidth)
 
-    def __init__(self, encWidth, auxEncWidth, entries):
+    def __init__(self, encWidth, auxEncWidth, parsedEntries):
         if encWidth is unlimited or auxEncWidth is unlimited:
             raise ValueError('Unlimited width is not allowed for encoding')
         self._encWidth = encWidth
         self._auxEncWidth = auxEncWidth
 
-        self._entries = entries = tuple(entries)
+        parsedEntries = tuple(parsedEntries)
+        self._entries = entries = tuple(
+            parsedEntry.entry for parsedEntry in parsedEntries
+            )
+
         for entry in entries:
             assert isinstance(entry, ModeEntry), entry
             encDef = entry.encoding
@@ -847,6 +854,11 @@ class ModeTable:
                         _formatAuxEncodingWidth(encDef.auxEncodingWidth)
                         )
                     )
+
+        self.decoder = createDecoder(
+            parsedEntry.createDecoder()
+            for parsedEntry in parsedEntries
+            )
 
         self._mnemTree = ({}, [])
         for entry in entries:
@@ -913,12 +925,6 @@ class ModeTable:
                     return None
         assert commonLen is not None, self
         return commonLen
-
-    @const_property
-    def decoder(self):
-        '''A Decoder instance that decodes the entries in this table.
-        '''
-        return createDecoder(entry.decoder for entry in self._entries)
 
 class Mode(ModeTable):
     '''A pattern for operands, such as an addressing mode or a table defining

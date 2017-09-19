@@ -18,7 +18,7 @@ from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode,
-    ModeEntry, ValuePlaceholder
+    ModeEntry, ParsedModeEntry, ValuePlaceholder
     )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
@@ -1101,10 +1101,8 @@ def _parseModeEntries(
             else:
                 template = CodeTemplate(semantics, placeholders, pc)
             reader.getLocation()
-            yield ModeEntry(
-                encoding, decoding, mnemonic, template, placeholders,
-                flagsRequired
-                )
+            entry = ModeEntry(encoding, mnemonic, template, placeholders)
+            yield ParsedModeEntry(entry, decoding, flagsRequired)
 
 def _formatEncodingWidth(width):
     return 'empty' if width is None else '%s bits wide' % width
@@ -1122,7 +1120,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
     widthFreqs = defaultdict(int)
     for entry in entries:
-        widthFreqs[getattr(entry.encoding, widthAttr)] += 1
+        widthFreqs[getattr(entry.entry.encoding, widthAttr)] += 1
     if aux:
         widthFreqs.pop(None, None)
 
@@ -1138,7 +1136,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
         validWidths = (encWidth, None) if aux else (encWidth, )
         badEntryIndices = []
         for idx, entry in enumerate(entries):
-            encDef = entry.encoding
+            encDef = entry.entry.encoding
             if getattr(encDef, widthAttr) not in validWidths:
                 logger.error(
                     '%sencoding match is %s, while %s is dominant %s',
@@ -1219,7 +1217,7 @@ def _parseInstr(
             reader, globalNamespace, pc, prefixes, modes, None, mnemBase,
             _parseInstrSemantics, wantSemantics
             ):
-        encDef = instr.encoding
+        encDef = instr.entry.encoding
         encWidth = encDef.encodingWidth
         if encWidth is None:
             reader.error(
@@ -1287,7 +1285,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
                 reader.skipBlock()
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
-        anyAux = any(len(instr.encoding) >= 2 for instr in instructions)
+        anyAux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
         auxEncWidth = encWidth if anyAux else None
 
         prefixMapping = prefixes.createMapping()
