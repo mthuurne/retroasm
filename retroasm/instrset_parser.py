@@ -14,11 +14,14 @@ from .expression_parser import (
     parseExpr, parseExprList, parseInt, parseRegs, parseStatement
     )
 from .function_builder import createFunc
-from .instrset import InstructionSet, Prefix, PrefixMappingFactory
+from .instrset import (
+    InstructionSet, ParsedModeEntry, Prefix, PrefixMappingFactory,
+    createDecoderFromParsedEntries
+    )
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode,
-    ModeEntry, ParsedModeEntry, ValuePlaceholder
+    ModeEntry, ValuePlaceholder
     )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
@@ -1194,15 +1197,17 @@ def _parseMode(reader, globalNamespace, pc, prefixes, modes, wantSemantics):
                 )
 
     # Parse entries.
-    entries = list(_parseModeEntries(
+    parsedEntries = list(_parseModeEntries(
         reader, globalNamespace, pc, prefixes, modes, semType, (),
         _parseModeSemantics, wantSemantics
         ))
 
     # Create and remember mode object.
-    encWidth = _determineEncodingWidth(entries, False, modeName, reader)
-    auxEncWidth = _determineEncodingWidth(entries, True, modeName, reader)
+    encWidth = _determineEncodingWidth(parsedEntries, False, modeName, reader)
+    auxEncWidth = _determineEncodingWidth(parsedEntries, True, modeName, reader)
+    entries = tuple(parsedEntry.entry for parsedEntry in parsedEntries)
     mode = Mode(modeName, encWidth, auxEncWidth, semType, modeLocation, entries)
+    mode.decoder = createDecoderFromParsedEntries(parsedEntries)
     if addMode:
         modes[modeName] = mode
 

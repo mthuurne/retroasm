@@ -306,167 +306,151 @@ class ModeEntry:
             self.encoding, self.mnemonic, self.semantics, self.placeholders
             )
 
-class ParsedModeEntry:
+def createEntryDecoder(entry, decoding):
+    '''Returns a Decoder instance that decodes this entry.
+    '''
+    encoding = entry.encoding
+    placeholders = entry.placeholders
 
-    entry = property(lambda self: self._entry)
-
-    def __init__(self, entry, decoding, flagsRequired):
-        self._entry = checkType(entry, ModeEntry, 'mode entry')
-        self._decoding = decoding
-        self._flagsRequired = frozenset(flagsRequired)
-
-    def createDecoder(self):
-        '''Returns a Decoder instance that decodes this entry.
+    def earlyFetch(encIdx):
+        '''Returns a pair containing the earliest index at which the given
+        encoding index can be fetched and the index that should be
+        requested from the fetcher.
         '''
-        # Check decode flags.
-        if self._flagsRequired:
-            # TODO: Add prefix support.
-            return NoMatchDecoder()
-
-        decoding = self._decoding
-        entry = self._entry
-        encoding = entry.encoding
-        placeholders = entry.placeholders
-
-        def earlyFetch(encIdx):
-            '''Returns a pair containing the earliest index at which the given
-            encoding index can be fetched and the index that should be
-            requested from the fetcher.
-            '''
-            whenIdx = fetchIdx = encIdx
-            while whenIdx != 0:
-                encItem = encoding[whenIdx - 1]
-                if isinstance(encItem, EncodingMultiMatch):
-                    encodedLength = encItem.encodedLength
-                    if encodedLength is None:
-                        # Can't move past variable-length matcher.
-                        break
-                    else:
-                        # Adjust index.
-                        fetchIdx += encodedLength - 1
-                whenIdx -= 1
-            return whenIdx, fetchIdx
-
-        # Find all indices that contain multi-matches.
-        multiMatches = {
-            encItem.name: encIdx
-            for encIdx, encItem in enumerate(encoding)
-            if isinstance(encItem, EncodingMultiMatch)
-            }
-
-        # Insert matchers at the last index they need.
-        # Gather value placeholders them.
-        matchersByIndex = [[] for _ in range(len(encoding))]
-        valuePlaceholders = []
-        for name, slices in decoding.items():
-            if name is not None:
-                placeholder = placeholders[name]
-                if isinstance(placeholder, ValuePlaceholder):
-                    valuePlaceholders.append(placeholder)
-                elif isinstance(placeholder, MatchPlaceholder):
-                    lastIdx = max(encIdx for encIdx, refIdx, width in slices)
-                    multiMatchIdx = multiMatches.get(placeholder.name)
-                    if multiMatchIdx is None:
-                        matcher = placeholder
-                    else:
-                        lastIdx = max(lastIdx, multiMatchIdx)
-                        matcher = encoding[multiMatchIdx]
-                        if matcher.encodedLength is None and \
-                                lastIdx > multiMatchIdx:
-                            raise ValueError(
-                                'Variable-length matcher at index %d depends '
-                                'on index %d'
-                                % (multiMatchIdx, lastIdx)
-                                )
-                    matchersByIndex[lastIdx].append(matcher)
+        whenIdx = fetchIdx = encIdx
+        while whenIdx != 0:
+            encItem = encoding[whenIdx - 1]
+            if isinstance(encItem, EncodingMultiMatch):
+                encodedLength = encItem.encodedLength
+                if encodedLength is None:
+                    # Can't move past variable-length matcher.
+                    break
                 else:
-                    assert False, placeholder
-        # Insert multi-matchers without slices.
-        for encIdx in multiMatches.values():
-            matcher = encoding[encIdx]
-            if matcher.start == 0:
-                matchersByIndex[encIdx].append(matcher)
+                    # Adjust index.
+                    fetchIdx += encodedLength - 1
+            whenIdx -= 1
+        return whenIdx, fetchIdx
 
-        # Sort matchers and value placeholders.
-        # The sorting is just to make dumps more readable and consistent between
-        # runs, it doesn't impact correctness.
-        def slicesKey(placeholder):
-            return tuple(
-                (encIdx, -refIdx)
-                for encIdx, refIdx, width in decoding[placeholder.name]
-                )
-        def matcherKey(matcher):
-            return (
-                slicesKey(matcher)
-                if isinstance(matcher, MatchPlaceholder) else
-                matcher
-                )
-        for matchers in matchersByIndex:
-            matchers.sort(key=matcherKey, reverse=True)
-        valuePlaceholders.sort(key=slicesKey, reverse=True)
+    # Find all indices that contain multi-matches.
+    multiMatches = {
+        encItem.name: encIdx
+        for encIdx, encItem in enumerate(encoding)
+        if isinstance(encItem, EncodingMultiMatch)
+        }
 
-        # Insert fixed pattern matchers as early as possible.
-        for encIdx, fixedMask, fixedValue in sorted(
-                decoding[None], reverse=True
-                ):
-            whenIdx, fetchIdx = earlyFetch(encIdx)
-            matchersByIndex[whenIdx].append((fetchIdx, fixedMask, fixedValue))
-
-        # Start with the leaf node and work towards the root.
-        decoder = MatchFoundDecoder(entry)
-
-        # Add value placeholders.
-        # Since these do not cause rejections, it is most efficient to do them
-        # last, when we are certain that this entry matches.
-        for placeholder in valuePlaceholders:
-            name = placeholder.name
-            slices = decoding[name]
-            decoder = PlaceholderDecoder(name, slices, decoder, None, None)
-
-        # Add match placeholders that are not represented in the encoding.
-        for name, placeholder in placeholders.items():
-            if isinstance(placeholder, MatchPlaceholder):
-                if name not in decoding and name not in multiMatches:
-                    sub = placeholder.mode.decoder
-                    if isinstance(sub, NoMatchDecoder):
-                        return sub
-                    decoder = PlaceholderDecoder(name, None, decoder, sub, None)
-
-        # Add match placeholders, from high index to low.
-        for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
-            for matcher in matchers:
-                if isinstance(matcher, MatchPlaceholder):
-                    multiMatch = False
-                elif isinstance(matcher, EncodingMultiMatch):
-                    multiMatch = True
+    # Insert matchers at the last index they need.
+    # Gather value placeholders them.
+    matchersByIndex = [[] for _ in range(len(encoding))]
+    valuePlaceholders = []
+    for name, slices in decoding.items():
+        if name is not None:
+            placeholder = placeholders[name]
+            if isinstance(placeholder, ValuePlaceholder):
+                valuePlaceholders.append(placeholder)
+            elif isinstance(placeholder, MatchPlaceholder):
+                lastIdx = max(encIdx for encIdx, refIdx, width in slices)
+                multiMatchIdx = multiMatches.get(placeholder.name)
+                if multiMatchIdx is None:
+                    matcher = placeholder
                 else:
-                    # Add fixed pattern matcher.
-                    encIdx, fixedMask, fixedValue = matcher
-                    decoder = FixedPatternDecoder.create(
-                        encIdx, fixedMask, fixedValue, decoder
-                        )
-                    continue
-                # Add submode matcher.
-                name = matcher.name
-                auxIdx = multiMatches[name] if multiMatch else None
-                slices = decoding.get(name)
-                if multiMatch and auxIdx != encIdx:
-                    # Some of the slices are located behind the multi-match;
-                    # we should adjust their fetch indices accordingly.
-                    assert auxIdx < encIdx, matcher
-                    adjust = encoding[auxIdx].encodedLength - 1
-                    if adjust != 0:
-                        slices = tuple(
-                            (idx if idx < auxIdx else idx + adjust,
-                                refIdx, width)
-                            for idx, refIdx, width in slices
+                    lastIdx = max(lastIdx, multiMatchIdx)
+                    matcher = encoding[multiMatchIdx]
+                    if matcher.encodedLength is None and \
+                            lastIdx > multiMatchIdx:
+                        raise ValueError(
+                            'Variable-length matcher at index %d depends '
+                            'on index %d'
+                            % (multiMatchIdx, lastIdx)
                             )
-                sub = matcher.mode.decoder
+                matchersByIndex[lastIdx].append(matcher)
+            else:
+                assert False, placeholder
+    # Insert multi-matchers without slices.
+    for encIdx in multiMatches.values():
+        matcher = encoding[encIdx]
+        if matcher.start == 0:
+            matchersByIndex[encIdx].append(matcher)
+
+    # Sort matchers and value placeholders.
+    # The sorting is just to make dumps more readable and consistent between
+    # runs, it doesn't impact correctness.
+    def slicesKey(placeholder):
+        return tuple(
+            (encIdx, -refIdx)
+            for encIdx, refIdx, width in decoding[placeholder.name]
+            )
+    def matcherKey(matcher):
+        return (
+            slicesKey(matcher)
+            if isinstance(matcher, MatchPlaceholder) else
+            matcher
+            )
+    for matchers in matchersByIndex:
+        matchers.sort(key=matcherKey, reverse=True)
+    valuePlaceholders.sort(key=slicesKey, reverse=True)
+
+    # Insert fixed pattern matchers as early as possible.
+    for encIdx, fixedMask, fixedValue in sorted(
+            decoding[None], reverse=True
+            ):
+        whenIdx, fetchIdx = earlyFetch(encIdx)
+        matchersByIndex[whenIdx].append((fetchIdx, fixedMask, fixedValue))
+
+    # Start with the leaf node and work towards the root.
+    decoder = MatchFoundDecoder(entry)
+
+    # Add value placeholders.
+    # Since these do not cause rejections, it is most efficient to do them
+    # last, when we are certain that this entry matches.
+    for placeholder in valuePlaceholders:
+        name = placeholder.name
+        slices = decoding[name]
+        decoder = PlaceholderDecoder(name, slices, decoder, None, None)
+
+    # Add match placeholders that are not represented in the encoding.
+    for name, placeholder in placeholders.items():
+        if isinstance(placeholder, MatchPlaceholder):
+            if name not in decoding and name not in multiMatches:
+                sub = placeholder.mode.decoder
                 if isinstance(sub, NoMatchDecoder):
                     return sub
-                decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
+                decoder = PlaceholderDecoder(name, None, decoder, sub, None)
 
-        return decoder
+    # Add match placeholders, from high index to low.
+    for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
+        for matcher in matchers:
+            if isinstance(matcher, MatchPlaceholder):
+                multiMatch = False
+            elif isinstance(matcher, EncodingMultiMatch):
+                multiMatch = True
+            else:
+                # Add fixed pattern matcher.
+                encIdx, fixedMask, fixedValue = matcher
+                decoder = FixedPatternDecoder.create(
+                    encIdx, fixedMask, fixedValue, decoder
+                    )
+                continue
+            # Add submode matcher.
+            name = matcher.name
+            auxIdx = multiMatches[name] if multiMatch else None
+            slices = decoding.get(name)
+            if multiMatch and auxIdx != encIdx:
+                # Some of the slices are located behind the multi-match;
+                # we should adjust their fetch indices accordingly.
+                assert auxIdx < encIdx, matcher
+                adjust = encoding[auxIdx].encodedLength - 1
+                if adjust != 0:
+                    slices = tuple(
+                        (idx if idx < auxIdx else idx + adjust,
+                            refIdx, width)
+                        for idx, refIdx, width in slices
+                        )
+            sub = matcher.mode.decoder
+            if isinstance(sub, NoMatchDecoder):
+                return sub
+            decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
+
+    return decoder
 
 class FixedPatternDecoder(Decoder):
     '''Decoder that matches encoded bit strings by looking for a fixed pattern
@@ -826,16 +810,12 @@ class ModeTable:
     encodingWidth = property(lambda self: self._encWidth)
     auxEncodingWidth = property(lambda self: self._auxEncWidth)
 
-    def __init__(self, encWidth, auxEncWidth, parsedEntries):
+    def __init__(self, encWidth, auxEncWidth, entries):
         if encWidth is unlimited or auxEncWidth is unlimited:
             raise ValueError('Unlimited width is not allowed for encoding')
         self._encWidth = encWidth
         self._auxEncWidth = auxEncWidth
-
-        parsedEntries = tuple(parsedEntries)
-        self._entries = entries = tuple(
-            parsedEntry.entry for parsedEntry in parsedEntries
-            )
+        self._entries = entries = tuple(entries)
 
         for entry in entries:
             assert isinstance(entry, ModeEntry), entry
@@ -854,11 +834,6 @@ class ModeTable:
                         _formatAuxEncodingWidth(encDef.auxEncodingWidth)
                         )
                     )
-
-        self.decoder = createDecoder(
-            parsedEntry.createDecoder()
-            for parsedEntry in parsedEntries
-            )
 
         self._mnemTree = ({}, [])
         for entry in entries:

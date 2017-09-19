@@ -2,7 +2,7 @@ from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .linereader import BadInput
-from .mode import ModeTable
+from .mode import ModeTable, createDecoder, createEntryDecoder
 from .utils import const_property
 
 from collections import namedtuple
@@ -130,9 +130,14 @@ class InstructionSet(ModeTable):
                 'prefix encoding width %s is different from instruction '
                 'encoding width %s' % (prefixMapping.encodingWidth, encWidth)
                 )
-        ModeTable.__init__(self, encWidth, auxEncWidth, instructions)
+        instructions = tuple(instructions)
+        ModeTable.__init__(
+            self, encWidth, auxEncWidth,
+            (instr.entry for instr in instructions)
+            )
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
+        self.decoder = createDecoderFromParsedEntries(instructions)
 
     @property
     def addrWidth(self):
@@ -145,3 +150,15 @@ class InstructionSet(ModeTable):
         '''A set containing the instruction names (operations).
         '''
         return self._mnemTree[0].keys()
+
+ParsedModeEntry = namedtuple('ParsedModeEntry', (
+    'entry', 'decoding', 'flagsRequired'
+    ))
+
+def createDecoderFromParsedEntries(parsedEntries):
+    return createDecoder(
+        createEntryDecoder(parsedEntry.entry, parsedEntry.decoding)
+        for parsedEntry in parsedEntries
+        # TODO: Add real prefix support.
+        if not parsedEntry.flagsRequired
+        )
