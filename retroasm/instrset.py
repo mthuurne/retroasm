@@ -1,6 +1,6 @@
 from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import createDecoder, createEntryDecoder
+from .decode import DecoderFactory
 from .expression import IntLiteral
 from .linereader import BadInput
 from .mode import ModeTable
@@ -119,7 +119,7 @@ class InstructionSet(ModeTable):
 
     def __init__(
             self, encWidth, auxEncWidth, globalNamespace, prefixMapping,
-            instructions
+            modeEntries
             ):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
@@ -131,14 +131,16 @@ class InstructionSet(ModeTable):
                 'prefix encoding width %s is different from instruction '
                 'encoding width %s' % (prefixMapping.encodingWidth, encWidth)
                 )
-        instructions = tuple(instructions)
+        instructions = modeEntries[None]
         ModeTable.__init__(
             self, encWidth, auxEncWidth,
             (instr.entry for instr in instructions)
             )
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
-        self.decoder = createDecoderFromParsedEntries(instructions)
+
+        decoderFactory = DecoderFactory(modeEntries)
+        self.decoder = decoderFactory.createDecoder(None)
 
     @property
     def addrWidth(self):
@@ -151,15 +153,3 @@ class InstructionSet(ModeTable):
         '''A set containing the instruction names (operations).
         '''
         return self._mnemTree[0].keys()
-
-ParsedModeEntry = namedtuple('ParsedModeEntry', (
-    'entry', 'decoding', 'flagsRequired'
-    ))
-
-def createDecoderFromParsedEntries(parsedEntries):
-    return createDecoder(
-        createEntryDecoder(parsedEntry.entry, parsedEntry.decoding)
-        for parsedEntry in parsedEntries
-        # TODO: Add real prefix support.
-        if not parsedEntry.flagsRequired
-        )

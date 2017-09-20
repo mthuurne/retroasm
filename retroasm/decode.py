@@ -5,7 +5,7 @@ from .mode import (
 from .types import maskForWidth, maskToSegments, segmentsToMask
 from .utils import Singleton, const_property
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from functools import reduce
 
 class EncodeMatch:
@@ -275,7 +275,7 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
     def tryDecode(self, fetcher):
         return None
 
-def createEntryDecoder(entry, decoding):
+def _createEntryDecoder(entry, decoding, factory):
     '''Returns a Decoder instance that decodes this entry.
     '''
     encoding = entry.encoding
@@ -380,7 +380,7 @@ def createEntryDecoder(entry, decoding):
     for name, placeholder in placeholders.items():
         if isinstance(placeholder, MatchPlaceholder):
             if name not in decoding and name not in multiMatches:
-                sub = placeholder.mode.decoder
+                sub = factory.createDecoder(placeholder.mode.name)
                 if isinstance(sub, NoMatchDecoder):
                     return sub
                 decoder = PlaceholderDecoder(name, None, decoder, sub, None)
@@ -414,14 +414,14 @@ def createEntryDecoder(entry, decoding):
                             refIdx, width)
                         for idx, refIdx, width in slices
                         )
-            sub = matcher.mode.decoder
+            sub = factory.createDecoder(matcher.mode.name)
             if isinstance(sub, NoMatchDecoder):
                 return sub
             decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
 
     return decoder
 
-def createDecoder(decoders):
+def _createDecoder(decoders):
     '''Returns a decoder that will decode using the last matching decoder among
     the given decoders.
     '''
@@ -492,14 +492,40 @@ def createDecoder(decoders):
         # a table.
         if sum(len(decs) != 0 for decs in table) == 1:
             return FixedPatternDecoder.create(
-                encIdx, tableMask, index << start, createDecoder(table[index])
+                encIdx, tableMask, index << start, _createDecoder(table[index])
                 )
 
         # Create lookup table.
         return TableDecoder(
-            (createDecoder(d) for d in table), encIdx, tableMask, start
+            (_createDecoder(d) for d in table), encIdx, tableMask, start
             )
 
     # SequentialDecoder picks the first match, so reverse the order.
     decoders.reverse()
     return SequentialDecoder(decoders)
+
+ParsedModeEntry = namedtuple('ParsedModeEntry', (
+    'entry', 'decoding', 'flagsRequired'
+    ))
+
+class DecoderFactory:
+
+    def __init__(self, modeEntries):
+        self._modeEntries = modeEntries
+        self._cache = {}
+
+    def createDecoder(self, modeName):
+        cache = self._cache
+        decoder = cache.get(modeName)
+        if decoder is None:
+            parsedEntries = self._modeEntries[modeName]
+            decoder = _createDecoder(
+                _createEntryDecoder(
+                    parsedEntry.entry, parsedEntry.decoding, self
+                    )
+                for parsedEntry in parsedEntries
+                # TODO: Add real prefix support.
+                if not parsedEntry.flagsRequired
+                )
+            cache[modeName] = decoder
+        return decoder

@@ -3,6 +3,7 @@ from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
     )
 from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
+from .decode import ParsedModeEntry
 from .expression import IntLiteral
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
@@ -14,10 +15,7 @@ from .expression_parser import (
     parseExpr, parseExprList, parseInt, parseRegs, parseStatement
     )
 from .function_builder import createFunc
-from .instrset import (
-    InstructionSet, ParsedModeEntry, Prefix, PrefixMappingFactory,
-    createDecoderFromParsedEntries
-    )
+from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode,
@@ -1159,7 +1157,10 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
 _reModeHeader = re.compile(r'mode\s+' + _typeTok + r'\s' + _nameTok + r'$')
 
-def _parseMode(reader, globalNamespace, pc, prefixes, modes, wantSemantics):
+def _parseMode(
+        reader, globalNamespace, pc, prefixes, modes, modeEntries,
+        wantSemantics
+        ):
     # Parse header line.
     modeLocation = reader.getLocation()
     match = _reModeHeader.match(modeLocation.line)
@@ -1207,9 +1208,9 @@ def _parseMode(reader, globalNamespace, pc, prefixes, modes, wantSemantics):
     auxEncWidth = _determineEncodingWidth(parsedEntries, True, modeName, reader)
     entries = tuple(parsedEntry.entry for parsedEntry in parsedEntries)
     mode = Mode(modeName, encWidth, auxEncWidth, semType, modeLocation, entries)
-    mode.decoder = createDecoderFromParsedEntries(parsedEntries)
     if addMode:
         modes[modeName] = mode
+        modeEntries[modeName] = parsedEntries
 
 def _parseInstr(
         reader, argSpan, globalNamespace, pc, prefixes, modes, wantSemantics
@@ -1252,7 +1253,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
     globalNamespace = GlobalNamespace(globalBuilder)
     prefixes = PrefixMappingFactory(globalNamespace)
     modes = {}
-    instructions = []
+    modeEntries = {}
+    instructions = modeEntries.setdefault(None, [])
     pc = None
 
     with DefLineReader.open(pathname, logger) as reader:
@@ -1275,7 +1277,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
                 _parseFunc(reader, argSpan, globalNamespace, wantSemantics)
             elif defType == 'mode':
                 _parseMode(
-                    reader, globalNamespace, pc, prefixes, modes, wantSemantics
+                    reader, globalNamespace, pc, prefixes, modes, modeEntries,
+                    wantSemantics
                     )
             elif defType == 'instr':
                 instructions += _parseInstr(
@@ -1300,7 +1303,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             try:
                 instrSet = InstructionSet(
                     encWidth, auxEncWidth, globalNamespace, prefixMapping,
-                    instructions
+                    modeEntries
                     )
             except ValueError as ex:
                 reader.error(
