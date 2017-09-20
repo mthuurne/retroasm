@@ -11,13 +11,29 @@ from collections import namedtuple
 Prefix = namedtuple('Prefix', ('encoding', 'semantics'))
 
 PrefixMapping = namedtuple('PrefixMapping', (
-    'initCode', 'refForFlag', 'prefixForFlag', 'encodingWidth'
+    'prefixes', 'initCode', 'refForFlag', 'prefixForFlag', 'encodingWidth'
     ))
+
+def _flagsSetByCode(code):
+    '''Yields those storages to which the value 1 is assigned by the given code
+    block.
+    '''
+    for node in code.nodes:
+        if isinstance(node, Store):
+            value = node.expr
+            if isinstance(value, IntLiteral):
+                if value.value == 0:
+                    continue
+                assert value.value == 1, value.value
+            else:
+                raise ValueError('non-literal assigned to decode flag')
+            yield node.storage
 
 class PrefixMappingFactory:
 
     def __init__(self, namespace):
         self._namespace = namespace
+        self._prefixes = []
         self._initBuilder = SemanticsCodeBlockBuilder()
         self._refForFlag = {}
         self._prefixForFlag = {}
@@ -39,6 +55,8 @@ class PrefixMappingFactory:
         Raises BadInput if an encoding item's width is inconsistent with
         earlier encoding item widths.
         '''
+        self._prefixes += prefixes
+
         # Check encoding width consistency.
         encWidth = self._encodingWidth
         for prefix in prefixes:
@@ -70,18 +88,10 @@ class PrefixMappingFactory:
         # Figure out which prefix sets which flag.
         prefixForFlag = self._prefixForFlag
         for prefix in prefixes:
-            setFlags = set()
-            for node in prefix.semantics.nodes:
-                if isinstance(node, Store):
-                    value = node.expr
-                    if isinstance(value, IntLiteral):
-                        if value.value == 0:
-                            continue
-                        assert value.value == 1, value.value
-                    else:
-                        raise ValueError('non-literal assigned to decode flag')
-                    name = decodeVars[node.storage]
-                    setFlags.add(name)
+            setFlags = set(
+                decodeVars[storage]
+                for storage in _flagsSetByCode(prefix.semantics)
+                )
             if len(setFlags) == 1:
                 name, = setFlags
                 prefixForFlag[name] = prefix
@@ -105,6 +115,7 @@ class PrefixMappingFactory:
         '''Create a PrefixMapping using the prefixes added so far.
         '''
         return PrefixMapping(
+            self._prefixes,
             self._initBuilder.createCodeBlock(()),
             dict(self._refForFlag),
             dict(self._prefixForFlag),
@@ -138,9 +149,57 @@ class InstructionSet(ModeTable):
             )
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
+        self._modeEntries = modeEntries
+        self._decoders = {}
 
-        decoderFactory = DecoderFactory(modeEntries)
-        self.decoder = decoderFactory.createDecoder(None)
+    def getDecoder(self, flags=frozenset()):
+        '''Returns an instruction decoder that decodes an instruction for the
+        given combination of decode flags.
+        '''
+        flags = frozenset(flags)
+        decoders = self._decoders
+        decoder = decoders.get(flags)
+        if decoder is None:
+            decoderFactory = DecoderFactory(self._modeEntries, flags)
+            decoder = decoderFactory.createDecoder(None)
+            decoders[flags] = decoder
+        return decoder
+
+    @const_property
+    def decodeFlagCombinations(self):
+        '''A set containing all possible combinations of decode flags that can
+        be set simultaneously.
+        '''
+        prefixMapping = self._prefixMapping
+        prefixes = prefixMapping.prefixes
+        decodeVars = {
+            ref.bits.storage: name
+            for name, ref in prefixMapping.refForFlag.items()
+            }
+
+        flagSets = set()
+
+        def addRecursive(flags, code):
+            if flags in flagSets:
+                return
+            flagSets.add(flags)
+            for prefix in prefixes:
+                # Build a code block that describes the decoder state changes
+                # from the given code and encountering the current prefix.
+                builder = SemanticsCodeBlockBuilder()
+                builder.inlineBlock(code)
+                builder.inlineBlock(prefix.semantics)
+                newCode = builder.createCodeBlock(())
+
+                # Figure out which decode flags are set by 'newCode'.
+                newFlags = frozenset(
+                    decodeVars[storage]
+                    for storage in _flagsSetByCode(newCode)
+                    )
+                addRecursive(newFlags, newCode)
+
+        addRecursive(frozenset(), prefixMapping.initCode)
+        return flagSets
 
     @property
     def addrWidth(self):

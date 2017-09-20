@@ -17,7 +17,6 @@ class Disassembler:
         to be executed at the given address.
         '''
         instrSet = self._instrSet
-        decoder = instrSet.decoder
         numBytes = fetcher.numBytes
         encWidth = instrSet.encodingWidth
         encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
@@ -29,6 +28,7 @@ class Disassembler:
         while fetcher[0] is not None:
             # TODO: Implement prefix support.
             flags = frozenset()
+            decoder = instrSet.getDecoder(flags)
             encMatch = decoder.tryDecode(fetcher)
             encodedLength = 1 if encMatch is None else encMatch.encodedLength
             postAddr = addr + encodedLength * numBytes

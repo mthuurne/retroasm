@@ -14,17 +14,29 @@ def setupLogging():
     logger.setLevel(logging.INFO)
     return logger
 
+def dumpDecoders(instrSet, submodes):
+    flagCombos = sorted(
+        sorted(flags)
+        for flags in instrSet.decodeFlagCombinations
+        )
+    for flags in flagCombos:
+        print()
+        if flags:
+            print('with decode flag%s %s:' % (
+                '' if len(flags) == 1 else 's', ', '.join(flags)
+                ))
+            print()
+        instrSet.getDecoder(flags).dump(submodes=submodes)
+
 def checkInstrSet(pathname, dumpNoSubs, dumpSubs, logger):
     logger.info('checking: %s', pathname)
     instrSet = parseInstrSet(pathname, logger)
 
     if instrSet is not None:
         if dumpNoSubs:
-            print()
-            instrSet.decoder.dump(submodes=False)
+            dumpDecoders(instrSet, False)
         if dumpSubs:
-            print()
-            instrSet.decoder.dump(submodes=True)
+            dumpDecoders(instrSet, True)
 
 def main():
     from argparse import ArgumentParser

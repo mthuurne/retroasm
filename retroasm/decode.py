@@ -510,8 +510,9 @@ ParsedModeEntry = namedtuple('ParsedModeEntry', (
 
 class DecoderFactory:
 
-    def __init__(self, modeEntries):
+    def __init__(self, modeEntries, flags):
         self._modeEntries = modeEntries
+        self._flags = frozenset(flags)
         self._cache = {}
 
     def createDecoder(self, modeName):
@@ -519,13 +520,13 @@ class DecoderFactory:
         decoder = cache.get(modeName)
         if decoder is None:
             parsedEntries = self._modeEntries[modeName]
+            flagsAreSet = self._flags.issuperset
             decoder = _createDecoder(
                 _createEntryDecoder(
                     parsedEntry.entry, parsedEntry.decoding, self
                     )
                 for parsedEntry in parsedEntries
-                # TODO: Add real prefix support.
-                if not parsedEntry.flagsRequired
+                if flagsAreSet(parsedEntry.flagsRequired)
                 )
             cache[modeName] = decoder
         return decoder
