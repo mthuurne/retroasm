@@ -25,7 +25,7 @@ from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
     )
 from .reference import ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
-from .storage import IOChannel, ValArgStorage, namePat
+from .storage import IOChannel, IOStorage, ValArgStorage, Variable, namePat
 from .types import (
     IntType, ReferenceType, maskForWidth, parseType, parseTypeDecl, unlimited
     )
@@ -535,6 +535,18 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
             location=encLoc
             )
     encBits, = code.returned
+    for storage in encBits.iterStorages():
+        if isinstance(storage, Variable):
+            raise BadInput(
+                'encoding expression references register',
+                location=encLoc
+                )
+        if isinstance(storage, IOStorage):
+            raise BadInput(
+                'encoding expression references storage location '
+                'on I/O channel "%s"' % storage.channel.name,
+                location=encLoc
+                )
     return EncodingExpr(encBits, encLoc)
 
 def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
