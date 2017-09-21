@@ -17,8 +17,8 @@ from .function_builder import createFunc
 from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
-    Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mode,
-    ModeEntry, ValuePlaceholder
+    Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mnemonic,
+    Mode, ModeEntry, ValuePlaceholder
     )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
@@ -1000,11 +1000,13 @@ def _parseModeEntries(
                         )
 
                 # Parse mnemonic.
-                mnemonic = mnemBase + tuple(_parseMnemonic(
+                mnemItems = mnemBase + tuple(_parseMnemonic(
                     mnemStr, mnemLoc, placeholders, reader
                     ))
-                if len(mnemonic) == 0:
+                if len(mnemItems) == 0:
                     reader.error('missing mnemonic', location=mnemLoc)
+                else:
+                    mnemonic = Mnemonic(mnemItems)
 
                 # Parse semantics.
                 if wantSemantics:

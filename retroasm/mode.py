@@ -196,13 +196,34 @@ class Encoding:
             total += length
         return total
 
+class Mnemonic:
+    '''Defines how (part of) an instruction is presented in assembly source
+    code.
+    The items within a mnemonic definition are exposed as a sequence.
+    '''
+
+    def __init__(self, items):
+        self._items = tuple(
+            checkType(item, (str, int, Placeholder), 'mnemonic item')
+            for item in items
+            )
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, index):
+        return self._items[index]
+
 class ModeEntry:
     '''One row in a mode table.
     '''
 
     def __init__(self, encoding, mnemonic, semantics, placeholders):
         self.encoding = checkType(encoding, Encoding, 'encoding definition')
-        self.mnemonic = mnemonic
+        self.mnemonic = checkType(mnemonic, Mnemonic, 'mnemonic definition')
         self.semantics = semantics
         self.placeholders = placeholders
 
