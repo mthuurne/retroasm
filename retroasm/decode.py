@@ -522,11 +522,16 @@ def _createDecoder(decoders):
     '''Returns a decoder that will decode using the last matching decoder among
     the given decoders.
     '''
-    decoders = [
-        decoder
-        for decoder in decoders
-        if not isinstance(decoder, NoMatchDecoder)
-        ]
+    orgDecoders = decoders
+    decoders = []
+    for decoder in orgDecoders:
+        if isinstance(decoder, NoMatchDecoder):
+            # Drop decoder that will never match.
+            continue
+        if isinstance(decoder, MatchFoundDecoder):
+            # Drop all decoders overridden by a guaranteed match.
+            decoders = []
+        decoders.append(decoder)
 
     # Handle edge cases.
     if len(decoders) == 0:
