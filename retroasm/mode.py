@@ -220,8 +220,6 @@ class ModeMatch:
         '_entry', '_values', '_subs', '_encoding', '_mnemonic', '_semantics'
         )
 
-    entry = property(lambda self: self._match.entry)
-
     @classmethod
     def fromEncodeMatch(cls, match, pcVal):
         '''Construct a ModeMatch using the data captured in an EncodeMatch.
@@ -287,10 +285,6 @@ class ModeMatch:
                 yield Reference(values[mnemElem.name], mnemElem.type)
             else:
                 assert False, mnemElem
-
-    @const_property
-    def semantics(self):
-        return None
 
 def _formatEncodingWidth(width):
     return 'empty encoding' if width is None else 'encoding width %s' % width
