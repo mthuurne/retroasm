@@ -1,5 +1,6 @@
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, ModeFetcher
+from .linereader import BadInput
 from .mode import (
     EncodingExpr, EncodingMultiMatch, MatchPlaceholder, ValuePlaceholder
     )
@@ -52,15 +53,20 @@ class EncodeMatch:
         return length
 
 def _decomposeBitString(bits):
-    if isinstance(bits, SingleStorage):
-        yield bits.storage, 0, 0, bits.width
-    elif isinstance(bits, FixedValue):
-        yield bits.expr, 0, 0, bits.width
+    '''Decomposes the given bit string into its base strings (FixedValue and
+    SingleStorage).
+    Yields a series of tuples, containing base string, index in the base
+    string, index in the given string and width of each decomposed slice.
+    Raises ValueError if a bit string cannot be decomposed because it contains
+    a slice with an unknown offset.
+    '''
+    if isinstance(bits, (FixedValue, SingleStorage)):
+        yield bits, 0, 0, bits.width
     elif isinstance(bits, ConcatenatedBits):
         offset = 0
         for sub in bits:
-            for expr, immIdx, refIdx, width in _decomposeBitString(sub):
-                yield expr, immIdx, offset + refIdx, width
+            for base, baseIdx, compIdx, width in _decomposeBitString(sub):
+                yield base, baseIdx, offset + compIdx, width
             offset += sub.width
     elif isinstance(bits, SlicedBits):
         # Note that SlicedBits has already simplified the offset.
@@ -68,21 +74,32 @@ def _decomposeBitString(bits):
         if isinstance(offset, IntLiteral):
             start = offset.value
             end = start + bits.width
-            for expr, immIdx, bitsIdx, width in _decomposeBitString(bits.bits):
+            for base, baseIdx, compIdx, width in _decomposeBitString(bits.bits):
                 # Clip to slice boundaries.
-                bitsStart = max(bitsIdx, start)
-                bitsEnd = min(bitsIdx + width, end)
+                compStart = max(compIdx, start)
+                compEnd = min(compIdx + width, end)
                 # Output if clipped slice is not empty.
-                width = bitsEnd - bitsStart
+                width = compEnd - compStart
                 if width > 0:
-                    immShift = bitsStart - bitsIdx
-                    yield expr, immIdx + immShift, bitsStart - start, width
+                    baseShift = compStart - compIdx
+                    yield base, baseIdx + baseShift, compStart - start, width
         else:
             raise ValueError('slices in encoding must have fixed offset')
     else:
         assert False, bits
 
-def decomposeEncoding(encoding, reader):
+def decomposeEncoding(encoding):
+    '''Decomposes the given Encoding into a matcher for the fixed bit strings
+    and a decode map describing where the placeholders values can be found.
+    Returns a pair of the fixed matcher and the decode map.
+    The fixed matcher is a sequence of tuples, where each tuple contains the
+    index in the encoding followed by the mask and value of the fixed bits
+    pattern at that index.
+    The decode map stores a sequence of tuples for each name, where each tuple
+    contains the index in the placeholder's argument storage, the index of
+    the encoding item, the index within the encoding item and the width.
+    Raises BadInput if the given encoding cannot be decomposed.
+    '''
     fixedMatcher = []
     decodeMap = defaultdict(list)
     for encIdx, encElem in enumerate(encoding):
@@ -91,26 +108,38 @@ def decomposeEncoding(encoding, reader):
         fixedMask = 0
         fixedValue = 0
         try:
-            for expr, immIdx, refIdx, width in _decomposeBitString(
+            for base, baseIdx, compIdx, width in _decomposeBitString(
                     encElem.bits
                     ):
-                if isinstance(expr, ValArgStorage):
-                    decodeMap[expr.name].append(
-                        (immIdx, encIdx, refIdx, width)
-                        )
-                elif isinstance(expr, IntLiteral):
-                    mask = maskForWidth(width) << refIdx
-                    fixedMask |= mask
-                    fixedValue |= ((expr.value >> immIdx) << refIdx) & mask
+                if isinstance(base, SingleStorage):
+                    storage = base.storage
+                    if isinstance(storage, ValArgStorage):
+                        decodeMap[storage.name].append(
+                            (baseIdx, encIdx, compIdx, width)
+                            )
+                    else:
+                        raise ValueError(
+                            'unsupported storage type in encoding: %s'
+                            % storage.__class__.__name__
+                            )
+                elif isinstance(base, FixedValue):
+                    expr = base.expr
+                    if isinstance(expr, IntLiteral):
+                        mask = maskForWidth(width) << compIdx
+                        fixedMask |= mask
+                        value = expr.value
+                        fixedValue |= ((value >> baseIdx) << compIdx) & mask
+                    else:
+                        raise ValueError('unsupported operation in encoding')
                 else:
-                    raise ValueError('unsupported operation in encoding')
+                    assert False, base
         except ValueError as ex:
             # TODO: This message is particularly unclear, because we do not
             #       have the exact location nor can we print the offending
             #       expression.
             #       We could store locations in non-simplified expressions
             #       or decompose parse trees instead of references.
-            reader.error('%s', ex, location=encElem.location)
+            raise BadInput(str(ex), location=encElem.location)
         else:
             if fixedMask != 0:
                 fixedMatcher.append((encIdx, fixedMask, fixedValue))

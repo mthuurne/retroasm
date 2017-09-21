@@ -822,9 +822,12 @@ def _parseModeDecoding(encoding, placeholderSpecs, reader):
     values for context placeholders.
     '''
     try:
-        with reader.checkErrors():
-            # Decompose the encoding expressions.
-            fixedMatcher, decodeMap = decomposeEncoding(encoding, reader)
+        # Decompose the encoding expressions.
+        fixedMatcher, decodeMap = decomposeEncoding(encoding)
+    except BadInput as ex:
+        reader.error('%s', ex, location=ex.location)
+        return None
+    try:
         with reader.checkErrors():
             # Create a mapping to extract immediate values from encoded items.
             sequentialMap = dict(_combinePlaceholderEncodings(
