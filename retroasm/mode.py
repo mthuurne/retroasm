@@ -5,7 +5,8 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import IntLiteral
 from .expression_simplifier import simplifyExpression
 from .linereader import mergeSpan
-from .reference import FixedValue, Reference, decodeInt
+from .reference import FixedValue, Reference, SingleStorage, decodeInt
+from .storage import ValArgStorage
 from .types import IntType, unlimited
 from .utils import checkType, const_property
 
@@ -32,6 +33,20 @@ class EncodingExpr:
 
     def __repr__(self):
         return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
+
+    def rename(self, nameMap):
+        '''Returns a new EncodingExpr, with placeholder names substituted by
+        their value in the given mapping.
+        '''
+        def renameValArg(storage):
+            if isinstance(storage, ValArgStorage):
+                return SingleStorage(
+                    ValArgStorage(nameMap[storage.name], storage.width)
+                    )
+        return EncodingExpr(
+            self._bits.substitute(storageFunc=renameValArg),
+            self._location
+            )
 
 class EncodingMultiMatch:
     '''A segment in an encoding sequence of zero or more elements, that will
@@ -62,6 +77,14 @@ class EncodingMultiMatch:
     def __repr__(self):
         return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
             self._name, self._mode, self._start, self._location
+            )
+
+    def rename(self, nameMap):
+        '''Returns a new EncodingMultiMatch, with the placeholder name
+        substituted by its value in the given mapping.
+        '''
+        return EncodingMultiMatch(
+            nameMap[self._name], self._mode, self._start, self._location
             )
 
     @const_property
@@ -137,6 +160,15 @@ class Encoding:
 
     def __getitem__(self, index):
         return self._items[index]
+
+    def rename(self, nameMap):
+        '''Returns a new Encoding, in which all placeholder names are
+        substituted by their value in the given mapping.
+        '''
+        return Encoding(
+            (item.rename(nameMap) for item in self._items),
+            self._location
+            )
 
     @property
     def encodingWidth(self):
@@ -219,6 +251,16 @@ class Mnemonic:
     def __getitem__(self, index):
         return self._items[index]
 
+    def rename(self, nameMap):
+        '''Returns a new Mnemonic, in which all placeholder names are
+        substituted by their value in the given mapping.
+        '''
+        return Mnemonic(
+            item.rename(nameMap[item.name])
+                if isinstance(item, Placeholder) else item
+            for item in self._items
+            )
+
 class ModeEntry:
     '''One row in a mode table.
     '''
@@ -234,6 +276,21 @@ class ModeEntry:
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r)' % (
             self.encoding, self.mnemonic, self.semantics, self.placeholders
+            )
+
+    def rename(self, nameMap):
+        '''Returns a new ModeEntry, in which all placeholder names are
+        substituted by their value in the given mapping.
+        '''
+        def renamePlaceholders():
+            for name, placeholder in self.placeholders.items():
+                newName = nameMap[name]
+                yield newName, placeholder.rename(newName)
+        return ModeEntry(
+            self.encoding.rename(nameMap),
+            self.mnemonic.rename(nameMap),
+            self.semantics.rename(nameMap),
+            OrderedDict(renamePlaceholders())
             )
 
 class ModeMatch:
@@ -450,6 +507,12 @@ class Placeholder:
     def __init__(self, name):
         self._name = name
 
+    def rename(self, name):
+        '''Returns a new placeholder that is the same as this one, except
+        the name is changed to the given name.
+        '''
+        raise NotImplementedError
+
 class ValuePlaceholder(Placeholder):
     '''An element from a mode context that represents a numeric value.
     '''
@@ -473,6 +536,9 @@ class ValuePlaceholder(Placeholder):
         else:
             return '{%s %s = ...}' % (self._type, self._name)
 
+    def rename(self, name):
+        return ValuePlaceholder(name, self._type, self._code)
+
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made
     in a different mode table.
@@ -489,3 +555,6 @@ class MatchPlaceholder(Placeholder):
 
     def __str__(self):
         return '{%s %s}' % (self._mode.name, self._name)
+
+    def rename(self, name):
+        return MatchPlaceholder(name, self._mode)

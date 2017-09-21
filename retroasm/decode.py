@@ -477,7 +477,7 @@ def _createEntryDecoder(entry, decoding, factory):
     for name, placeholder in placeholders.items():
         if isinstance(placeholder, MatchPlaceholder):
             if name not in decoding and name not in multiMatches:
-                sub = factory.createDecoder(placeholder.mode.name)
+                sub = factory.createDecoder(placeholder.mode.name, name)
                 if isinstance(sub, NoMatchDecoder):
                     return sub
                 decoder = PlaceholderDecoder(name, None, decoder, sub, None)
@@ -511,7 +511,7 @@ def _createEntryDecoder(entry, decoding, factory):
                             refIdx, width)
                         for idx, refIdx, width in slices
                         )
-            sub = factory.createDecoder(matcher.mode.name)
+            sub = factory.createDecoder(matcher.mode.name, name)
             if isinstance(sub, NoMatchDecoder):
                 return sub
             decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
@@ -610,6 +610,32 @@ ParsedModeEntry = namedtuple('ParsedModeEntry', (
     'entry', 'decoding', 'flagsRequired'
     ))
 
+def _qualifyNames(parsedEntry, branchName):
+    '''Returns a pair containing a ModeEntry and decode mapping, where each
+    name starts with the given branch name.
+    If branchName is None, no renaming is performed.
+    '''
+    entry = parsedEntry.entry
+    placeholders = entry.placeholders
+    if branchName is None or len(placeholders) == 0:
+        # Do not rename.
+        return parsedEntry.entry, parsedEntry.decoding
+    elif len(placeholders) == 1:
+        # Replace current name with branch name.
+        name, = placeholders.keys()
+        nameMap = {name: branchName}
+    else:
+        # Prefix current names with branch name.
+        qualifier = branchName + '.'
+        nameMap = {name: qualifier + name for name in placeholders.keys()}
+
+    renamedEntry = entry.rename(nameMap)
+    renamedDecoding = {
+        None if name is None else nameMap[name]: value
+        for name, value in parsedEntry.decoding.items()
+        }
+    return renamedEntry, renamedDecoding
+
 class DecoderFactory:
 
     def __init__(self, modeEntries, flags):
@@ -617,20 +643,21 @@ class DecoderFactory:
         self._flags = frozenset(flags)
         self._cache = {}
 
-    def createDecoder(self, modeName):
+    def createDecoder(self, modeName, branchName):
         cache = self._cache
-        decoder = cache.get(modeName)
+        key = (modeName, branchName)
+        decoder = cache.get(key)
         if decoder is None:
             parsedEntries = self._modeEntries[modeName]
             flagsAreSet = self._flags.issuperset
             decoder = _createDecoder(
                 _createEntryDecoder(
-                    parsedEntry.entry, parsedEntry.decoding, self
+                    *_qualifyNames(parsedEntry, branchName), factory=self
                     )
                 for parsedEntry in parsedEntries
                 if flagsAreSet(parsedEntry.flagsRequired)
                 )
-            cache[modeName] = decoder
+            cache[key] = decoder
         return decoder
 
 class PrefixDecoder:
