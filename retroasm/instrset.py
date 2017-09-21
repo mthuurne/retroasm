@@ -1,6 +1,6 @@
 from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import DecoderFactory
+from .decode import DecoderFactory, PrefixDecoder
 from .expression import IntLiteral
 from .linereader import BadInput
 from .mode import ModeTable
@@ -14,7 +14,7 @@ PrefixMapping = namedtuple('PrefixMapping', (
     'prefixes', 'initCode', 'flagForVar', 'prefixForFlag', 'encodingWidth'
     ))
 
-def _flagsSetByCode(code):
+def flagsSetByCode(code):
     '''Yields those storages to which the value 1 is assigned by the given code
     block.
     '''
@@ -88,7 +88,7 @@ class PrefixMappingFactory:
         for prefix in prefixes:
             setFlags = set(
                 flagForVar[storage]
-                for storage in _flagsSetByCode(prefix.semantics)
+                for storage in flagsSetByCode(prefix.semantics)
                 )
             if len(setFlags) == 1:
                 name, = setFlags
@@ -125,6 +125,7 @@ class InstructionSet(ModeTable):
     '''
 
     globalNamespace = property(lambda self: self._globalNamespace)
+    prefixMapping = property(lambda self: self._prefixMapping)
 
     def __init__(
             self, encWidth, auxEncWidth, globalNamespace, prefixMapping,
@@ -149,6 +150,14 @@ class InstructionSet(ModeTable):
         self._prefixMapping = prefixMapping
         self._modeEntries = modeEntries
         self._decoders = {}
+
+    @const_property
+    def prefixDecodeFunc(self):
+        prefixes = self._prefixMapping.prefixes
+        if len(prefixes) == 0:
+            return lambda fetcher: None
+        else:
+            return PrefixDecoder(prefixes).tryDecode
 
     def getDecoder(self, flags=frozenset()):
         '''Returns an instruction decoder that decodes an instruction for the
@@ -189,7 +198,7 @@ class InstructionSet(ModeTable):
                 # Figure out which decode flags are set by 'newCode'.
                 newFlags = frozenset(
                     flagForVar[storage]
-                    for storage in _flagsSetByCode(newCode)
+                    for storage in flagsSetByCode(newCode)
                     )
                 addRecursive(newFlags, newCode)
 

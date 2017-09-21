@@ -627,3 +627,46 @@ class DecoderFactory:
                 )
             cache[modeName] = decoder
         return decoder
+
+class PrefixDecoder:
+
+    def __init__(self, prefixes):
+        self._tree = tree = {}
+        def addPrefix(node, values, prefix):
+            if values:
+                child = node.setdefault(values[0], {})
+                addPrefix(child, values[1:], prefix)
+            else:
+                node[None] = prefix
+        for prefix in prefixes:
+            # Note that since we have no placeholders in prefixes, the
+            # errors that decomposeEncoding() could report cannot happen.
+            encoding = prefix.encoding
+            fixedMatcher, decodeMap = decomposeEncoding(encoding)
+            assert len(decodeMap) == 0, decodeMap
+            values = []
+            for idx, (encIdx, fixedMask, fixedValue) \
+                    in enumerate(sorted(fixedMatcher)):
+                assert idx == encIdx, (idx, encIdx)
+                assert fixedMask == maskForWidth(encoding.encodingWidth)
+                values.append(fixedValue)
+            assert len(values) == encoding.encodedLength
+            addPrefix(tree, values, prefix)
+
+    def tryDecode(self, fetcher):
+        '''Attempts to decode an instruction prefix from the encoded data
+        provided by the given fetcher.
+        Returns the decoded prefix, or None if no prefix was found.
+        '''
+        idx = 0
+        node = self._tree
+        while True:
+            prefix = node.get(None)
+            if prefix is None:
+                encoded = fetcher[idx]
+                idx += 1
+                node = node.get(encoded)
+                if node is None:
+                    return None
+            else:
+                return prefix

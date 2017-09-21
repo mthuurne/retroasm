@@ -1,4 +1,6 @@
+from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
+from .instrset import flagsSetByCode
 from .mode import ModeMatch
 from .reference import FixedValue, Reference
 from .types import IntType, unlimited
@@ -17,6 +19,10 @@ class Disassembler:
         to be executed at the given address.
         '''
         instrSet = self._instrSet
+        decodePrefix = instrSet.prefixDecodeFunc
+        prefixMapping = instrSet.prefixMapping
+        prefixInitCode = prefixMapping.initCode
+        flagForVar = prefixMapping.flagForVar
         numBytes = fetcher.numBytes
         encWidth = instrSet.encodingWidth
         encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
@@ -26,8 +32,27 @@ class Disassembler:
         dataAddrs = self._dataAddrs
         addr = startAddr
         while fetcher[0] is not None:
-            # TODO: Implement prefix support.
-            flags = frozenset()
+            # Decode prefixes.
+            prefixBuilder = None
+            while True:
+                prefix = decodePrefix(fetcher)
+                if prefix is None:
+                    break
+                if prefixBuilder is None:
+                    prefixBuilder = SemanticsCodeBlockBuilder()
+                    prefixBuilder.inlineBlock(prefixInitCode)
+                prefixBuilder.inlineBlock(prefix.semantics)
+                fetcher = fetcher.advance(prefix.encoding.encodedLength)
+            if prefixBuilder is None:
+                flags = frozenset()
+            else:
+                prefixCode = prefixBuilder.createCodeBlock(())
+                flags = frozenset(
+                    flagForVar[storage]
+                    for storage in flagsSetByCode(prefixCode)
+                    )
+
+            # Decode instruction.
             decoder = instrSet.getDecoder(flags)
             encMatch = decoder.tryDecode(fetcher)
             encodedLength = 1 if encMatch is None else encMatch.encodedLength
