@@ -1,3 +1,4 @@
+from .analysis import CodeTemplate
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
@@ -8,6 +9,7 @@ from .reference import FixedValue, Reference, decodeInt
 from .types import IntType, unlimited
 from .utils import checkType, const_property
 
+from collections import OrderedDict
 from enum import Enum
 
 class EncodingExpr:
@@ -224,8 +226,10 @@ class ModeEntry:
     def __init__(self, encoding, mnemonic, semantics, placeholders):
         self.encoding = checkType(encoding, Encoding, 'encoding definition')
         self.mnemonic = checkType(mnemonic, Mnemonic, 'mnemonic definition')
-        self.semantics = semantics
-        self.placeholders = placeholders
+        self.semantics = checkType(semantics, CodeTemplate, 'semantics')
+        self.placeholders = checkType(
+            placeholders, OrderedDict, 'placeholders definition'
+            )
 
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r)' % (
