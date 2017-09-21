@@ -11,7 +11,7 @@ from collections import namedtuple
 Prefix = namedtuple('Prefix', ('encoding', 'semantics'))
 
 PrefixMapping = namedtuple('PrefixMapping', (
-    'prefixes', 'initCode', 'refForFlag', 'prefixForFlag', 'encodingWidth'
+    'prefixes', 'initCode', 'flagForVar', 'prefixForFlag', 'encodingWidth'
     ))
 
 def _flagsSetByCode(code):
@@ -35,7 +35,7 @@ class PrefixMappingFactory:
         self._namespace = namespace
         self._prefixes = []
         self._initBuilder = SemanticsCodeBlockBuilder()
-        self._refForFlag = {}
+        self._flagForVar = {}
         self._prefixForFlag = {}
         self._encodingWidth = None
 
@@ -43,7 +43,7 @@ class PrefixMappingFactory:
         '''Return True iff a decode flag with the given name was added to
         this factory.
         '''
-        return name in self._refForFlag
+        return name in self._prefixForFlag
 
     def addPrefixes(self, decodeFlags, prefixes):
         '''Adds the given prefixes (sequence of Prefix objects), which use the
@@ -74,22 +74,20 @@ class PrefixMappingFactory:
         # Collect decode flag variables, build init code for them.
         builder = self._initBuilder
         namespace = self._namespace
-        refForFlag = self._refForFlag
+        prefixForFlag = self._prefixForFlag
+        flagForVar = self._flagForVar
         zero = IntLiteral(0)
-        decodeVars = {}
         for name in decodeFlags:
             ref = namespace[name]
-            if name in refForFlag:
+            if name in prefixForFlag:
                 raise KeyError('decode flag redefined: %s' % name)
-            refForFlag[name] = ref
-            decodeVars[ref.bits.storage] = name
+            flagForVar[ref.bits.storage] = name
             ref.emitStore(builder, zero, None)
 
         # Figure out which prefix sets which flag.
-        prefixForFlag = self._prefixForFlag
         for prefix in prefixes:
             setFlags = set(
-                decodeVars[storage]
+                flagForVar[storage]
                 for storage in _flagsSetByCode(prefix.semantics)
                 )
             if len(setFlags) == 1:
@@ -117,7 +115,7 @@ class PrefixMappingFactory:
         return PrefixMapping(
             self._prefixes,
             self._initBuilder.createCodeBlock(()),
-            dict(self._refForFlag),
+            dict(self._flagForVar),
             dict(self._prefixForFlag),
             self._encodingWidth
             )
@@ -172,10 +170,7 @@ class InstructionSet(ModeTable):
         '''
         prefixMapping = self._prefixMapping
         prefixes = prefixMapping.prefixes
-        decodeVars = {
-            ref.bits.storage: name
-            for name, ref in prefixMapping.refForFlag.items()
-            }
+        flagForVar = prefixMapping.flagForVar
 
         flagSets = set()
 
@@ -193,7 +188,7 @@ class InstructionSet(ModeTable):
 
                 # Figure out which decode flags are set by 'newCode'.
                 newFlags = frozenset(
-                    decodeVars[storage]
+                    flagForVar[storage]
                     for storage in _flagsSetByCode(newCode)
                     )
                 addRecursive(newFlags, newCode)
