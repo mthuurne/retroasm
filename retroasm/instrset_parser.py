@@ -23,7 +23,7 @@ from .mode import (
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
     )
-from .storage import IOChannel, IOStorage, ValArgStorage, Variable, namePat
+from .storage import IOChannel, IOStorage, ValArgStorage, Variable
 from .types import (
     IntType, ReferenceType, parseType, parseTypeDecl
     )
@@ -31,8 +31,9 @@ from collections import OrderedDict, defaultdict
 from logging import WARNING, getLogger
 import re
 
-_nameTok = r'\s*(' + namePat + r')\s*'
-_typeTok = r'\s*(' + namePat + r'&?)\s*'
+_namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
+_nameTok = r'\s*(' + _namePat + r')\s*'
+_typeTok = r'\s*(' + _namePat + r'&?)\s*'
 
 _reDotSep = re.compile(r'\s*(?:\.\s*|$)')
 

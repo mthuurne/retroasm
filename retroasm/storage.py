@@ -2,8 +2,6 @@ from .expression import Expression
 from .types import IntType, unlimited
 from .utils import checkType
 
-import re
-
 class IOChannel:
     '''A channel through which a CPU can do input and output.
     '''
@@ -81,9 +79,6 @@ class IOChannel:
         indices can point to the same storage.
         '''
         return True
-
-namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
-reName = re.compile(namePat + '$')
 
 class Storage:
     '''A location in which a typed value can be stored.
@@ -191,8 +186,6 @@ class ArgStorage(Storage):
 
     def __init__(self, name, width):
         self._name = checkType(name, str, 'storage name')
-        if not reName.match(name):
-            raise ValueError('invalid name: "%s"', name)
         Storage.__init__(self, width)
 
     def __repr__(self):
