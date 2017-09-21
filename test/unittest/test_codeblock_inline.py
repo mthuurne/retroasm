@@ -1,7 +1,7 @@
 from utils_codeblock import NodeChecker, TestNamespace
 
 from retroasm.codeblock import Load, Store
-from retroasm.expression import AddOperator, IntLiteral
+from retroasm.expression import AddOperator, IntLiteral, XorOperator
 from retroasm.function import Function
 from retroasm.reference import (
     ConcatenatedBits, FixedValue, Reference, SlicedBits
@@ -418,6 +418,43 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         self.assertEqual(retWidth, 8)
         self.assertEqual(retVal, code.nodes[0].expr)
+
+    def test_unique_loads(self):
+        '''Test whether multiple instances of the same load are kept separate.
+        If the possibility of side effects is ignored, only one load will
+        remain.
+        If the load results are not kept separate, the load result will be
+        XOR-ed with itself, resulting in a 0 result.
+        '''
+        addr = IntLiteral(0xFFFF)
+
+        inner = TestNamespace()
+        memByte = inner.addIOStorage('mem', addr)
+        loadR = inner.emitLoad(memByte)
+        innerRet = inner.addVariable('ret')
+        inner.emitStore(innerRet, loadR)
+        innerCode = inner.createCodeBlock()
+        self.assertEqual(len(innerCode.returned), 1)
+
+        outer = TestNamespace()
+        val1Bits, = outer.inlineBlock(innerCode, None)
+        self.assertIsInstance(val1Bits, FixedValue)
+        val1 = val1Bits.expr
+        val2Bits, = outer.inlineBlock(innerCode, None)
+        self.assertIsInstance(val2Bits, FixedValue)
+        val2 = val2Bits.expr
+        outerRet = outer.addVariable('ret')
+        outer.emitStore(outerRet, XorOperator(val1, val2))
+
+        code = createSimplifiedCode(outer)
+        correct = (
+            Load(memByte.bits.storage),
+            Load(memByte.bits.storage),
+            )
+        self.assertNodes(code.nodes, correct)
+        retVal, retWidth = self.getRetVal(code)
+        self.assertEqual(retWidth, 8)
+        self.assertIsInstance(retVal, XorOperator)
 
 if __name__ == '__main__':
     verbose = True

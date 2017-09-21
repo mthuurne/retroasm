@@ -162,10 +162,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         inlined block.
         '''
         if argFetcher is None:
-            # No substitution takes place, so we can copy nodes and returned
-            # bits as-is.
-            self.nodes += code.nodes
-            return code.returned
+            argFetcher = lambda name: None
 
         loadResults = {}
         def importExpr(expr):
