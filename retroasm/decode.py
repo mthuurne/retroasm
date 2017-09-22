@@ -378,25 +378,6 @@ def _createEntryDecoder(entry, decoding, factory):
     encoding = entry.encoding
     placeholders = entry.placeholders
 
-    def earlyFetch(encIdx):
-        '''Returns a pair containing the earliest index at which the given
-        encoding index can be fetched and the index that should be
-        requested from the fetcher.
-        '''
-        whenIdx = fetchIdx = encIdx
-        while whenIdx != 0:
-            encItem = encoding[whenIdx - 1]
-            if isinstance(encItem, EncodingMultiMatch):
-                encodedLength = encItem.encodedLength
-                if encodedLength is None:
-                    # Can't move past variable-length matcher.
-                    break
-                else:
-                    # Adjust index.
-                    fetchIdx += encodedLength - 1
-            whenIdx -= 1
-        return whenIdx, fetchIdx
-
     # Find all indices that contain multi-matches.
     multiMatches = {
         encItem.name: encIdx
@@ -456,10 +437,21 @@ def _createEntryDecoder(entry, decoding, factory):
     valuePlaceholders.sort(key=slicesKey, reverse=True)
 
     # Insert fixed pattern matchers as early as possible.
-    for encIdx, fixedMask, fixedValue in sorted(
-            decoding[None], reverse=True
-            ):
-        whenIdx, fetchIdx = earlyFetch(encIdx)
+    for encIdx, fixedMask, fixedValue in sorted(decoding[None], reverse=True):
+        # Find the earliest index at which the given encoding index can be
+        # fetched and the index that should be requested from the fetcher.
+        whenIdx = fetchIdx = encIdx
+        while whenIdx != 0:
+            encItem = encoding[whenIdx - 1]
+            if isinstance(encItem, EncodingMultiMatch):
+                encodedLength = encItem.encodedLength
+                if encodedLength is None:
+                    # Can't move past variable-length matcher.
+                    break
+                else:
+                    # Adjust index.
+                    fetchIdx += encodedLength - 1
+            whenIdx -= 1
         matchersByIndex[whenIdx].append((fetchIdx, fixedMask, fixedValue))
 
     # Start with the leaf node and work towards the root.
