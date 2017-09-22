@@ -352,6 +352,8 @@ class MatchFoundDecoder(Decoder):
     It always finds a match.
     '''
 
+    entry = property(lambda self: self._entry)
+
     def __init__(self, entry):
         self._entry = entry
 
@@ -375,18 +377,35 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
 def _createEntryDecoder(entry, decoding, factory):
     '''Returns a Decoder instance that decodes this entry.
     '''
-    encoding = entry.encoding
     placeholders = entry.placeholders
 
     # Find all indices that contain multi-matches.
     multiMatches = {
         encItem.name: encIdx
-        for encIdx, encItem in enumerate(encoding)
+        for encIdx, encItem in enumerate(entry.encoding)
         if isinstance(encItem, EncodingMultiMatch)
         }
 
+    # Look for match placeholders that are not represented in the encoding.
+    for name, placeholder in placeholders.items():
+        if isinstance(placeholder, MatchPlaceholder):
+            if name not in decoding and name not in multiMatches:
+                # A submode match that is not represented in the encoding
+                # will either always match or never match, so if the
+                # simplifications of the sub-decoder were effective, only
+                # MatchFoundDecoder and NoMatchDecoder are possible.
+                sub = factory.createDecoder(placeholder.mode.name, name)
+                if isinstance(sub, NoMatchDecoder):
+                    return sub
+                elif isinstance(sub, MatchFoundDecoder):
+                    entry = entry.fillPlaceholder(name, sub.entry)
+                    placeholders = entry.placeholders
+                else:
+                    assert False, sub
+
     # Insert matchers at the last index they need.
     # Gather value placeholders them.
+    encoding = entry.encoding
     matchersByIndex = [[] for _ in range(len(encoding))]
     valuePlaceholders = []
     for name, slices in decoding.items():
@@ -464,15 +483,6 @@ def _createEntryDecoder(entry, decoding, factory):
         name = placeholder.name
         slices = decoding[name]
         decoder = PlaceholderDecoder(name, slices, decoder, None, None)
-
-    # Add match placeholders that are not represented in the encoding.
-    for name, placeholder in placeholders.items():
-        if isinstance(placeholder, MatchPlaceholder):
-            if name not in decoding and name not in multiMatches:
-                sub = factory.createDecoder(placeholder.mode.name, name)
-                if isinstance(sub, NoMatchDecoder):
-                    return sub
-                decoder = PlaceholderDecoder(name, None, decoder, sub, None)
 
     # Add match placeholders, from high index to low.
     for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):

@@ -34,6 +34,23 @@ class EncodingExpr:
     def __repr__(self):
         return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
 
+    def fillPlaceholder(self, name, entry):
+        '''Returns a new EncodingExpr, in which the match placeholder with the
+        given name replaced by the first encoding element of the given mode
+        entry.
+        If no placeholder with the given name exists, this EncodingExpr is
+        returned.
+        '''
+        def substPlaceholder(storage):
+            if isinstance(storage, ValArgStorage) and storage.name == name:
+                return entry.encoding[0]
+        bits = self._bits
+        newBits = bits.substitute(storageFunc=substPlaceholder)
+        if bits is newBits:
+            return self
+        else:
+            return EncodingExpr(newBits, self._location)
+
     def rename(self, nameMap):
         '''Returns a new EncodingExpr, with placeholder names substituted by
         their value in the given mapping.
@@ -161,6 +178,28 @@ class Encoding:
     def __getitem__(self, index):
         return self._items[index]
 
+    def fillPlaceholder(self, name, entry):
+        '''Returns a new Encoding, in which the match placeholder with the
+        given name is replaced by the given mode entry.
+        If no placeholder with the given name exists, this Encoding is returned.
+        '''
+        items = []
+        changed = False
+        for item in self._items:
+            if isinstance(item, EncodingExpr):
+                filledItem = item.fillPlaceholder(name, entry)
+                items.append(filledItem)
+                changed |= filledItem is not item
+            elif isinstance(item, EncodingMultiMatch):
+                if item.name == name:
+                    items += entry.encoding[item.start:]
+                    changed = True
+                else:
+                    items.append(item)
+            else:
+                assert False, item
+        return Encoding(items, self._location) if changed else self
+
     def rename(self, nameMap):
         '''Returns a new Encoding, in which all placeholder names are
         substituted by their value in the given mapping.
@@ -251,6 +290,21 @@ class Mnemonic:
     def __getitem__(self, index):
         return self._items[index]
 
+    def fillPlaceholder(self, name, entry):
+        '''Returns a new Mnemonic, in which the match placeholder of the given
+        name is replaced by the given mode entry.
+        If no placeholder with the given name exists, this Mnemonic is returned.
+        '''
+        items = []
+        changed = False
+        for item in self._items:
+            if isinstance(item, MatchPlaceholder) and item.name == name:
+                items += entry.mnemonic
+                changed = True
+            else:
+                items.append(item)
+        return Mnemonic(items) if changed else self
+
     def rename(self, nameMap):
         '''Returns a new Mnemonic, in which all placeholder names are
         substituted by their value in the given mapping.
@@ -276,6 +330,22 @@ class ModeEntry:
     def __repr__(self):
         return 'ModeEntry(%r, %r, %r, %r)' % (
             self.encoding, self.mnemonic, self.semantics, self.placeholders
+            )
+
+    def fillPlaceholder(self, name, entry):
+        '''Returns a new entry, in which the match placeholder with the given
+        name is replaced by the given mode entry.
+        '''
+        placeholders = self.placeholders.copy()
+        placeholders.pop(name)
+        # TODO: Implement merge.
+        assert len(entry.placeholders) == 0, entry.placeholders
+
+        return ModeEntry(
+            self.encoding.fillPlaceholder(name, entry),
+            self.mnemonic.fillPlaceholder(name, entry),
+            self.semantics.fillPlaceholder(name, entry),
+            placeholders
             )
 
     def rename(self, nameMap):

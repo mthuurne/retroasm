@@ -18,6 +18,27 @@ class CodeTemplate:
             pcBits, (BitString, type(None)), 'program counter'
             )
 
+    def fillPlaceholder(self, name, entry):
+        '''Returns a new CodeTemplate, which is a copy of this one but with
+        the match placeholder of the given name replaced by the semantics
+        of the given mode entry.
+        '''
+        placeholders = self.placeholders.copy()
+        placeholders.pop(name)
+
+        fillCode = entry.semantics.code
+        # TODO: Support fillCode semantics with side effects.
+        assert len(fillCode.nodes) == 0, entry
+
+        def argFetcher(argName):
+            if argName == name:
+                return fillCode.returned[0]
+        builder = SemanticsCodeBlockBuilder()
+        returned = builder.inlineBlock(self.code, argFetcher)
+        code = builder.createCodeBlock(returned)
+
+        return CodeTemplate(code, placeholders, self.pcBits)
+
     def rename(self, nameMap):
         '''Returns a new CodeTemplate, in which all placeholder names are
         substituted by their value in the given mapping.
