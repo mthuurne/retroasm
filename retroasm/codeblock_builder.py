@@ -103,7 +103,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                         location=load.location or location
                         )
             raise ValueError(
-                'Code block reads %d uninitialized variable(s)'
+                'code block reads %d uninitialized variable(s)'
                 % len(ununitializedLoads)
                 )
 
@@ -114,7 +114,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                     if storage not in initializedVariables:
                         msg = 'code block returns uninitialized variable(s)'
                         log.error(msg, location=location)
-                        raise ValueError(msg.capitalize())
+                        raise ValueError(msg)
 
         # Finalize code block.
         code.simplify()

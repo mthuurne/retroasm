@@ -21,11 +21,11 @@ class Section:
         self._end = checkType(end, int, 'end offset')
 
         if start < 0:
-            raise ValueError('Negative start: %d' % start)
+            raise ValueError('negative start: %d' % start)
         if end < 0:
-            raise ValueError('Negative end: %d' % end)
+            raise ValueError('negative end: %d' % end)
         if end < start:
-            raise ValueError('End (0x%x) before start (0x%x)' % (end, start))
+            raise ValueError('end (0x%x) before start (0x%x)' % (end, start))
 
     def __repr__(self):
         return 'Section(0x%x, 0x%x)' % (self._start, self._end)
@@ -50,7 +50,7 @@ class CodeSection(Section):
         self._base = checkType(base, int, 'base address')
 
         if base < 0:
-            raise ValueError('Negative base: %d' % base)
+            raise ValueError('negative base: %d' % base)
 
     def __repr__(self):
         return 'CodeSection(0x%x, 0x%x, 0x%x, %r, ByteOrder.%s)' % (

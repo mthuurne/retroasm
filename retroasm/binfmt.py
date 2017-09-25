@@ -20,7 +20,7 @@ class EntryPoint:
         self._label = checkType(label, (str, type(None)), 'label')
 
         if offset < 0:
-            raise ValueError('Negative offset: %d' % offset)
+            raise ValueError('negative offset: %d' % offset)
 
     def __repr__(self):
         return 'EntryPoint(0x%x, %r)' % (self._offset, self._label)
@@ -183,7 +183,7 @@ class MSXROM(BinaryFormat):
 
         headerItems = _unpackStruct(image, 0, self._headerStruct)
         if headerItems is None:
-            raise ValueError('No header')
+            raise ValueError('no header')
         self._header = header = namedtuple('MSXROMHeader', (
             'cartID', 'init', 'statement', 'device', 'text', 'reserved'
             ))(*headerItems)
@@ -207,7 +207,7 @@ class MSXROM(BinaryFormat):
         elif cartID == b'CD':
             base = 0x0000
         else:
-            raise ValueError('Unknown cartridge type')
+            raise ValueError('unknown cartridge type')
 
         self._section = CodeSection(
             0x10, 0x8000, base + 0x10, 'z80', ByteOrder.little
@@ -248,7 +248,7 @@ class PSXExecutable(BinaryFormat):
 
         headerItems = _unpackStruct(image, 0, self._headerStruct)
         if headerItems is None:
-            raise ValueError('Incomplete header')
+            raise ValueError('incomplete header')
         self._header = header = namedtuple('PSXEXEHeader', (
             'id', 'textOffset', 'dataOffset', 'pc0', 'gp0',
             'textAddr', 'textSize', 'dataAddr', 'dataSize',

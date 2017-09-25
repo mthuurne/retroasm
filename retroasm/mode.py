@@ -457,7 +457,7 @@ class ModeTable:
 
     def __init__(self, encWidth, auxEncWidth, entries):
         if encWidth is unlimited or auxEncWidth is unlimited:
-            raise ValueError('Unlimited width is not allowed for encoding')
+            raise ValueError('unlimited width is not allowed for encoding')
         self._encWidth = encWidth
         self._auxEncWidth = auxEncWidth
         self._entries = entries = tuple(entries)
@@ -467,14 +467,14 @@ class ModeTable:
             encDef = entry.encoding
             if encDef.encodingWidth != encWidth:
                 raise ValueError(
-                    'Mode with %s contains entry with %s' % (
+                    'mode with %s contains entry with %s' % (
                         _formatEncodingWidth(encWidth),
                         _formatEncodingWidth(encDef.encodingWidth)
                         )
                     )
             if encDef.auxEncodingWidth not in (None, auxEncWidth):
                 raise ValueError(
-                    'Mode with %s contains entry with %s' % (
+                    'mode with %s contains entry with %s' % (
                         _formatAuxEncodingWidth(auxEncWidth),
                         _formatAuxEncodingWidth(encDef.auxEncodingWidth)
                         )
