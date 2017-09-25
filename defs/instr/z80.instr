@@ -647,8 +647,8 @@ func u8 res(u3 B, u8& R)
 
 instr res
 $CB, %10;B;R        . B,R           . res(B, R)             . u3 B, reg8 R
-$CB, R@, %10;B;%110 . B,R           . res(B, R)             . u3 B, memx R
 $CB, R@, %10;B;C    . B,R,C         . C := res(B, R)        . u3 B, memx R, reg8 C
+$CB, R@, %10;B;%110 . B,R           . res(B, R)             . u3 B, memx R
 
 func u8 set(u3 B, u8& R)
     var u8 V := R
@@ -658,8 +658,8 @@ func u8 set(u3 B, u8& R)
 
 instr set
 $CB, %11;B;R        . B,R           . set(B, R)             . u3 B, reg8 R
-$CB, R@, %11;B;%110 . B,R           . set(B, R)             . u3 B, memx R
 $CB, R@, %11;B;C    . B,R,C         . C := set(B, R)        . u3 B, memx R, reg8 C
+$CB, R@, %11;B;%110 . B,R           . set(B, R)             . u3 B, memx R
 
 
 ### Jump (8.9)
