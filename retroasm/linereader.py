@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL, Formatter
+from logging import DEBUG, INFO, WARNING, ERROR, Formatter
 import re
 
 class LineReader:
@@ -62,14 +62,6 @@ class LineReader:
         '''
         self.errors += 1
         self.__log(ERROR, 'ERROR: ' + msg, *args, **kwargs)
-
-    def critical(self, msg, *args, **kwargs):
-        '''Log a message at the CRITICAL level, increase the error count and
-        stop the line iteration.
-        '''
-        self.errors += 1
-        self.__log(CRITICAL, 'FATAL: ' + msg, *args, **kwargs)
-        self.lines = iter(())
 
     @contextmanager
     def checkErrors(self):
