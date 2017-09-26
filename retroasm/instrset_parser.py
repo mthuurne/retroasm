@@ -1048,11 +1048,7 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
-            if semantics is None:
-                template = None
-            else:
-                template = CodeTemplate(semantics, placeholders, pc)
-            reader.getLocation()
+            template = CodeTemplate(semantics, placeholders, pc)
             entry = ModeEntry(encoding, mnemonic, template, placeholders)
             yield ParsedModeEntry(entry, decoding, flagsRequired)
 

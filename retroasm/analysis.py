@@ -12,7 +12,7 @@ class CodeTemplate:
     '''
 
     def __init__(self, code, placeholders, pcBits=None):
-        self.code = checkType(code, CodeBlock, 'code block')
+        self.code = checkType(code, (CodeBlock, type(None)), 'code block')
         self.placeholders = checkType(placeholders, OrderedDict, 'placeholders')
         self.pcBits = checkType(
             pcBits, (BitString, type(None)), 'program counter'
@@ -26,35 +26,44 @@ class CodeTemplate:
         placeholders = self.placeholders.copy()
         placeholders.pop(name)
 
-        fillCode = entry.semantics.code
-        # TODO: Support fillCode semantics with side effects.
-        assert len(fillCode.nodes) == 0, entry
+        code = self.code
+        if code is None:
+            newCode = None
+        else:
+            fillCode = entry.semantics.code
+            # TODO: Support fillCode semantics with side effects.
+            assert len(fillCode.nodes) == 0, entry
 
-        def argFetcher(argName):
-            if argName == name:
-                return fillCode.returned[0]
-        builder = SemanticsCodeBlockBuilder()
-        returned = builder.inlineBlock(self.code, argFetcher)
-        code = builder.createCodeBlock(returned)
+            def argFetcher(argName):
+                if argName == name:
+                    return fillCode.returned[0]
+            builder = SemanticsCodeBlockBuilder()
+            returned = builder.inlineBlock(code, argFetcher)
+            newCode = builder.createCodeBlock(returned)
 
-        return CodeTemplate(code, placeholders, self.pcBits)
+        return CodeTemplate(newCode, placeholders, self.pcBits)
 
     def rename(self, nameMap):
         '''Returns a new CodeTemplate, in which all placeholder names are
         substituted by their value in the given mapping.
         '''
         code = self.code
-        argMap = {
-            storage.name: SingleStorage(
-                storage.__class__(nameMap[storage.name], storage.width)
-                )
-            for storage in code.storages
-            if isinstance(storage, ArgStorage)
-            }
-        builder = SemanticsCodeBlockBuilder()
-        builder.inlineBlock(code, argMap.__getitem__)
+        if code is None:
+            newCode = None
+        else:
+            argMap = {
+                storage.name: SingleStorage(
+                    storage.__class__(nameMap[storage.name], storage.width)
+                    )
+                for storage in code.storages
+                if isinstance(storage, ArgStorage)
+                }
+            builder = SemanticsCodeBlockBuilder()
+            builder.inlineBlock(code, argMap.__getitem__)
+            newCode = builder.createCodeBlock(())
+
         return CodeTemplate(
-            builder.createCodeBlock(()),
+            newCode,
             OrderedDict(
                 (nameMap[name], value)
                 for name, value in self.placeholders.items()
