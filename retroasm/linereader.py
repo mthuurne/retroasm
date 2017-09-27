@@ -314,13 +314,18 @@ class DefLineReader(LineReader):
             self._nextLine()
             line = self._lastline.rstrip()
             match = _reComment.search(line)
-            if match:
-                line = line[ : match.start()].rstrip()
-                if not line:
+            if match is None:
+                span = None
+            else:
+                end = match.start()
+                while end > 0 and line[end - 1].isspace():
+                    end -= 1
+                if end == 0:
                     # Comment lines are ignored rather than returned as empty
                     # lines, such that they don't terminate blocks.
                     continue
-            return InputLocation(self._pathname, self._lineno, line, None)
+                span = (0, end)
+            return InputLocation(self._pathname, self._lineno, line, span)
 
     def iterBlock(self):
         '''Iterates through the lines of the current block.
