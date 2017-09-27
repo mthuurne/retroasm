@@ -153,6 +153,12 @@ def _parsePrefix(reader, args, namespace, factory):
             for argType, argTypeLoc, argNameLoc in _parseTypedArgs(
                     reader, args, 'decode flag'
                     ):
+                if isinstance(argType, ReferenceType):
+                    reader.error(
+                        'decode flag cannot be declared as a reference type',
+                        location=argTypeLoc
+                        )
+                    continue
                 if argType is not flagType:
                     # Maybe in the future we'll support other types.
                     reader.error(
