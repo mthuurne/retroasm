@@ -26,15 +26,14 @@ _tokenPattern = re.compile('|'.join(
         )
     ))
 
-def tokenizeLine(line, location):
+def tokenizeLine(line):
     '''Iterates through the Tokens in a line of assembly.
     '''
-    for match in _tokenPattern.finditer(line):
-        kind = getattr(TokenKind, match.lastgroup)
-        group = kind.name
-        value = match.group(group)
-        span = match.span(group)
-        yield Token(kind, value, location.updateSpan(span))
+    for match in line.findMatches(_tokenPattern):
+        name = match.groupName
+        kind = getattr(TokenKind, name)
+        location = match.group(name)
+        yield Token(kind, location.text, location)
 
 def parseNumber(value):
     if value[0] == '$':
@@ -116,7 +115,7 @@ def parseAsm(reader, instrSet):
         tokens = []
         try:
             with reader.checkErrors():
-                for token in tokenizeLine(line, reader.getLocation()):
+                for token in tokenizeLine(line):
                     kind = token.kind
                     if kind is TokenKind.whitespace:
                         # Skip whitespace.

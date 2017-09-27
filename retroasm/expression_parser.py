@@ -35,10 +35,9 @@ class ExpressionTokenizer:
             )
         ))
 
-    def __init__(self, exprStr, location):
-        self._tokens = self._pattern.finditer(exprStr)
+    def __init__(self, location):
+        self._tokens = location.findMatches(self._pattern)
         self._lineLocation = location
-        self._length = len(exprStr)
         self.__next__()
 
     def __next__(self):
@@ -47,22 +46,18 @@ class ExpressionTokenizer:
                 match = next(self._tokens)
             except StopIteration:
                 kind = Token.end
+                location = self._lineLocation.endLocation
                 value = None
-                span = (self._length, self._length)
                 break
-            kind = getattr(Token, match.lastgroup)
+            name = match.groupName
+            kind = getattr(Token, name)
             if kind is not Token.whitespace:
-                group = kind.name
-                value = match.group(group)
-                span = match.span(group)
+                location = match.group(name)
+                value = location.text
                 break
-        baseSpan = self._lineLocation.span
-        if baseSpan is not None:
-            shift = baseSpan[0]
-            span = (shift + span[0], shift + span[1])
         self.kind = kind
         self.value = value
-        self.location = self._lineLocation.updateSpan(span)
+        self.location = location
 
     def peek(self, kind, value=None):
         '''Returns True if the current token matches the given kind and,
@@ -233,8 +228,8 @@ _ParseMode = Enum('_ParseMode', ( # pylint: disable=invalid-name
     'single', 'multi', 'statement', 'registers', 'context'
     ))
 
-def _parse(exprStr, location, mode):
-    token = ExpressionTokenizer(exprStr, location)
+def _parse(location, mode):
+    token = ExpressionTokenizer(location)
 
     def badTokenKind(where, expected):
         if token.kind is Token.end:
@@ -670,20 +665,20 @@ def _parse(exprStr, location, mode):
     else:
         return expr
 
-def parseExpr(exprStr, location):
-    return _parse(exprStr, location, _ParseMode.single)
+def parseExpr(location):
+    return _parse(location, _ParseMode.single)
 
-def parseExprList(exprStr, location):
-    return _parse(exprStr, location, _ParseMode.multi)
+def parseExprList(location):
+    return _parse(location, _ParseMode.multi)
 
-def parseRegs(exprStr, location):
-    return _parse(exprStr, location, _ParseMode.registers)
+def parseRegs(location):
+    return _parse(location, _ParseMode.registers)
 
-def parseContext(exprStr, location):
-    return _parse(exprStr, location, _ParseMode.context)
+def parseContext(location):
+    return _parse(location, _ParseMode.context)
 
-def parseStatement(exprStr, location):
-    return _parse(exprStr, location, _ParseMode.statement)
+def parseStatement(location):
+    return _parse(location, _ParseMode.statement)
 
 def parseInt(valueStr):
     '''Parse the given string as a binary, decimal or hexadecimal integer.

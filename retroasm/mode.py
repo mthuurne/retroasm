@@ -250,8 +250,7 @@ class Encoding:
         firstAuxIndex = self._firstAuxIndex
         if firstAuxIndex is None:
             location = self._location if len(items) == 0 else items[0].location
-            end = location.span[1]
-            return location.updateSpan((end, end))
+            return location.endLocation
         else:
             return mergeSpan(items[firstAuxIndex].location, items[-1].location)
 

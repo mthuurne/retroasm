@@ -13,14 +13,14 @@ def _parseBody(reader):
     '''
     for line in reader.iterBlock():
         try:
-            yield parseStatement(line, reader.getLocation())
+            yield parseStatement(line)
         except ParseError as ex:
             reader.error(
                 'failed to parse statement: %s', ex, location=ex.location
                 )
 
 def createFunc(reader, funcName, retType, args, globalNamespace):
-    headerLocation = reader.getLocation()
+    headerLocation = reader.location
 
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(globalNamespace, builder)

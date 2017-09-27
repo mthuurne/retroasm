@@ -22,24 +22,34 @@ class LineReader:
             reader.debug('done reading')
 
     def __init__(self, pathname, lines, logger):
-        self.pathname = pathname
-        self.lines = lines
+        self._pathname = pathname
+        self._lines = lines
         self.logger = logger
 
-        self.lastline = None
-        self.lineno = 0
+        self._lastline = None
+        self._lineno = 0
         self.warnings = 0
         self.errors = 0
 
     def __iter__(self):
         return self
 
+    def _nextLine(self):
+        self._lastline = None # in case next() raises StopIteration
+        line = next(self._lines).rstrip('\n')
+        self._lastline = line
+        self._lineno += 1
+
     def __next__(self):
-        self.lastline = None # in case next() raises StopIteration
-        line = next(self.lines).rstrip('\n')
-        self.lastline = line
-        self.lineno += 1
-        return line
+        self._nextLine()
+        return self.location
+
+    @property
+    def location(self):
+        '''Returns an InputLocation object describing the current line in
+        the input file.
+        '''
+        return InputLocation(self._pathname, self._lineno, self._lastline, None)
 
     def debug(self, msg, *args, **kwargs):
         '''Log a message at the DEBUG level.
@@ -89,37 +99,9 @@ class LineReader:
     def __log(self, level, msg, *args, location=None, **kwargs):
         if self.logger.isEnabledFor(level):
             if location is None:
-                location = self.getLocation()
+                location = self.location
             extra = dict(location=location)
             self.logger.log(level, msg, *args, extra=extra, **kwargs)
-
-    def getLocation(self, span=None):
-        '''Returns an InputLocation object describing the current location in
-        the input file. If the 'span' argument is provided, it must be a tuple
-        of the start and end index of the area of interest within the current
-        line.
-        '''
-        return InputLocation(self.pathname, self.lineno, self.lastline, span)
-
-    def splitOn(self, matches):
-        '''Iterates through the fields in the current line which are generated
-        by splitting on the given matches. The 'matches' argument must iterate
-        through regular expression match objects, each matching the separator
-        sequence that terminates the field before it. Each field is yielded as
-        a (str, InputLocation) pair, where the string is the field contents and
-        the location can be used for logging.
-        '''
-        line = self.lastline
-        location = self.getLocation()
-        i = None
-        for match in matches:
-            assert line.startswith(match.string)
-            sepFrom, sepTo = match.span()
-            if i is None:
-                i = match.pos
-            assert sepFrom >= i, (sepFrom, i)
-            yield line[i:sepFrom], location.updateSpan((i, sepFrom))
-            i = sepTo
 
 class InputLocation:
     '''Describes a particular location in an input text file.
@@ -142,6 +124,14 @@ class InputLocation:
     '''The column span information of this location, or None if no column span
     information is available.'''
 
+    @property
+    def effectiveSpan(self):
+        '''The column span information of this location, or the full line if
+        no column span information is available.
+        '''
+        span = self._span
+        return (0, len(self._line)) if span is None else span
+
     def __init__(self, pathname, lineno, line, span=None):
         self._pathname = pathname
         self._lineno = lineno
@@ -154,7 +144,7 @@ class InputLocation:
             )
 
     def __eq__(self, other):
-        return (
+        return ( # pylint: disable=protected-access
             isinstance(other, InputLocation)
             and self._pathname == other._pathname
             and self._lineno == other._lineno
@@ -165,20 +155,108 @@ class InputLocation:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
-    def text(self):
-        '''Returns the text described by this location: the spanned substring
-        if span information is available, otherwise the full line.
-        '''
-        line = self.line
-        span = self.span
-        return line if span is None else line[slice(*span)]
+    def __len__(self):
+        span = self._span
+        return len(self._line) if span is None else span[1] - span[0]
 
     def updateSpan(self, span):
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
         return InputLocation(self._pathname, self._lineno, self._line, span)
+
+    @property
+    def endLocation(self):
+        '''A zero-length location marking the end point of this location.
+        '''
+        end = self.effectiveSpan[1]
+        return self.updateSpan((end, end))
+
+    @property
+    def text(self):
+        '''Returns the text described by this location: the spanned substring
+        if span information is available, otherwise the full line.
+        '''
+        line = self._line
+        span = self._span
+        return line if span is None else line[slice(*span)]
+
+    def match(self, pattern):
+        '''Matches the text in this location to the given compiled regular
+        expression pattern.
+        Returns an InputMatch object, or None if no match was found.
+        '''
+        match = pattern.match(self._line, *self.effectiveSpan)
+        return None if match is None else InputMatch(self, match)
+
+    def findLocations(self, pattern):
+        '''Searches the text in this location for the given compiled regular
+        expression pattern.
+        Returns an iterator that yields an InputLocation object for each
+        match.
+        '''
+        for match in pattern.finditer(self._line, *self.effectiveSpan):
+            yield self.updateSpan(match.span(0))
+
+    def findMatches(self, pattern):
+        '''Searches the text in this location for the given compiled regular
+        expression pattern.
+        Returns an iterator that yields an InputMatch object for each
+        match.
+        '''
+        for match in pattern.finditer(self._line, *self.effectiveSpan):
+            yield InputMatch(self, match)
+
+    def split(self, pattern):
+        '''Splits the text in this location using the given pattern as a
+        separator.
+        Returns an iterator yielding InputLocations representing the text
+        between the separators.
+        '''
+        searchStart, searchEnd = self.effectiveSpan
+        curr = searchStart
+        for match in pattern.finditer(self._line, searchStart, searchEnd):
+            sepStart, sepEnd = match.span(0)
+            yield self.updateSpan((curr, sepStart))
+            curr = sepEnd
+        yield self.updateSpan((curr, searchEnd))
+
+class InputMatch:
+    '''The result of a regular expression operation on an InputLocation.
+    The interface is inspired by, but not equal to, that of match objects from
+    the "re" module of the standard library.
+    '''
+    __slots__ = ('_location', '_match')
+
+    def __init__(self, location, match):
+        self._location = location
+        self._match = match
+
+    def group(self, index):
+        '''Returns an InputLocation for the group matched at the given index,
+        with the first group being 1. If 0 as passed as the index, an
+        InputLocation for the entire matched string is returned.
+        If the group did not participate in the match, None is returned.
+        '''
+        span = self._match.span(index)
+        if span == (-1, -1):
+            return None
+        else:
+            return self._location.updateSpan(span)
+
+    @property
+    def groups(self):
+        '''A tuple containing an InputLocation for each of the groups matched
+        and None for those groups that were not part of the match.
+        '''
+        return tuple(self.group(i) for i in range(1, self._match.re.groups + 1))
+
+    @property
+    def groupName(self):
+        '''The name of the last matched group, or None if last matched group
+        was nameless or no groups were matched.
+        '''
+        return self._match.lastgroup
 
 def mergeSpan(fromLocation, toLocation):
     '''Returns a new location of which the span starts at the start of the
@@ -221,7 +299,7 @@ class BadInput(Exception):
         Exception.__init__(self, msg)
         self.location = location
 
-reComment = re.compile(r'(?<!\\)#')
+_reComment = re.compile(r'(?<!\\)#')
 
 class DefLineReader(LineReader):
     '''Iterates through lines of a block-structured definition file.
@@ -233,25 +311,25 @@ class DefLineReader(LineReader):
 
     def __next__(self):
         while True:
-            line = super().__next__().rstrip()
-            match = reComment.search(line)
+            self._nextLine()
+            line = self._lastline.rstrip()
+            match = _reComment.search(line)
             if match:
                 line = line[ : match.start()].rstrip()
                 if not line:
                     # Comment lines are ignored rather than returned as empty
                     # lines, such that they don't terminate blocks.
                     continue
-            return line
+            return InputLocation(self._pathname, self._lineno, line, None)
 
     def iterBlock(self):
         '''Iterates through the lines of the current block.
         '''
         while True:
             line = next(self)
-            if line:
-                yield line
-            else:
+            if len(line) == 0:
                 break
+            yield line
 
     def skipBlock(self):
         '''Skips the remainder of the current block.
@@ -302,7 +380,7 @@ class LineReaderFormatter(Formatter):
     def _iterParts(self, msg, location):
         if location is None:
             yield msg, None, None, None, []
-        elif not hasattr(location, '__len__'):
+        elif isinstance(location, InputLocation):
             loc = location
             yield msg, loc.pathname, loc.lineno, loc.line, [loc.span]
         else:
