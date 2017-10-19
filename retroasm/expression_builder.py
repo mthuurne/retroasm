@@ -17,7 +17,7 @@ from .storage import IOChannel
 from .types import (
     IntType, ReferenceType, parseTypeDecl, unlimited, widthForMask
     )
-from .utils import Singleton
+from .utils import checkType
 
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.
@@ -31,31 +31,6 @@ class UnknownNameError(BadExpression):
     def __init__(self, name, *args, **kvargs):
         BadExpression.__init__(self, *args, **kvargs)
         self.name = name
-
-class Unit(Expression, metaclass=Singleton):
-    '''Expression that represents the absense of a value.
-    '''
-    __slots__ = ()
-
-    def _ctorargs(self):
-        return ()
-
-    def __str__(self):
-        return 'unit'
-
-    def _equals(self, other):
-        return self is other
-
-    @property
-    def complexity(self):
-        raise ValueError('unit value has no complexity')
-
-    def _checkScalar(self):
-        raise BadExpression(
-            'attempt to use return value of function that returns nothing'
-            )
-
-unit = Unit()
 
 def declareVariable(node, namespace):
     assert node.kind is DeclarationKind.variable, node.kind
@@ -311,11 +286,6 @@ def _convertReferenceLookup(node, namespace):
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, namespace)
-            try:
-                Expression.checkScalar(index)
-            except BadExpression as ex:
-                ex.location = indexNode.treeLocation
-                raise ex
             return createIOReference(channel, index)
 
     ref = buildReference(exprNode, namespace)
@@ -345,7 +315,7 @@ def _convertReferenceSlice(node, namespace):
         width = AddOperator(end, Complement(offset))
     try:
         if width is not unlimited:
-            width = simplifyExpression(Expression.checkScalar(width))
+            width = simplifyExpression(checkType(width, Expression, 'width'))
             if isinstance(width, IntLiteral):
                 width = width.value
             else:

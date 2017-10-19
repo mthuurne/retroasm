@@ -263,7 +263,7 @@ class IOStorage(Storage):
 
     def __init__(self, channel, index):
         self._channel = IOChannel.checkInstance(channel)
-        self._index = Expression.checkScalar(index)
+        self._index = checkType(index, Expression, 'index')
         Storage.__init__(self, channel.elemType.width)
 
     def __repr__(self):

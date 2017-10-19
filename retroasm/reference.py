@@ -64,7 +64,7 @@ class FixedValue(BitString):
         The mask of the value Expression must fit within the given width.
         '''
         BitString.__init__(self, width)
-        self._expr = Expression.checkScalar(expr)
+        self._expr = checkType(expr, Expression, 'value')
         assert widthForMask(expr.mask) <= width, expr
 
     def __repr__(self):
@@ -220,7 +220,7 @@ class SlicedBits(BitString):
         '''
         self._bits = checkType(bits, BitString, 'bit string')
 
-        offset = simplifyExpression(Expression.checkScalar(offset))
+        offset = simplifyExpression(checkType(offset, Expression, 'offset'))
         # Some invalid offsets can only be detected upon use, but others we
         # can detect on definition and rejecting them early is likely helpful
         # towards the user.

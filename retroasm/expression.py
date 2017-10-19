@@ -24,20 +24,6 @@ class Expression:
     0 in all possible values.
     '''
 
-    @staticmethod
-    def checkInstance(expr):
-        if not isinstance(expr, Expression):
-            raise TypeError(
-                'expected Expression subclass, got %s' % type(expr).__name__
-                )
-        return expr
-
-    @staticmethod
-    def checkScalar(expr):
-        Expression.checkInstance(expr)
-        expr._checkScalar()
-        return expr
-
     def _ctorargs(self):
         '''Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
@@ -77,12 +63,6 @@ class Expression:
         The other expression is of the same Python class as this one.
         '''
         raise NotImplementedError
-
-    def _checkScalar(self):
-        '''Does nothing if this expression returns a single value.
-        Otherwise, ValueError is raised.
-        '''
-        pass
 
     @property
     def complexity(self):
@@ -177,7 +157,7 @@ class MultiExpression(Expression):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
         for expr in exprs:
-            Expression.checkScalar(expr)
+            checkType(expr, Expression, 'subexpression')
         Expression.__init__(self)
         self._exprs = exprs
 
@@ -356,7 +336,7 @@ class SingleExpression(Expression):
 
     def __init__(self, expr):
         Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
+        self._expr = checkType(expr, Expression, 'subexpression')
 
     def _ctorargs(self):
         return self._expr,
@@ -506,8 +486,8 @@ class LVShift(Expression):
 
     def __init__(self, expr, offset):
         Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
-        self._offset = Expression.checkScalar(offset)
+        self._expr = checkType(expr, Expression, 'subexpression')
+        self._offset = checkType(offset, Expression, 'offset')
 
     @property
     def complexity(self):
@@ -550,8 +530,8 @@ class RVShift(Expression):
 
     def __init__(self, expr, offset):
         Expression.__init__(self)
-        self._expr = Expression.checkScalar(expr)
-        self._offset = Expression.checkScalar(offset)
+        self._expr = checkType(expr, Expression, 'subexpression')
+        self._offset = checkType(offset, Expression, 'offset')
 
     @property
     def complexity(self):

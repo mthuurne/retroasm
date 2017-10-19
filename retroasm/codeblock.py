@@ -28,7 +28,7 @@ class AccessNode(Node):
 
     @expr.setter
     def expr(self, expr):
-        self._expr = Expression.checkScalar(expr)
+        self._expr = checkType(expr, Expression, 'value')
 
     @storage.setter
     def storage(self, storage):
@@ -70,7 +70,7 @@ class Store(AccessNode):
     def __init__(self, expr, storage, location=None):
         AccessNode.__init__(
             self,
-            Expression.checkScalar(expr),
+            checkType(expr, Expression, 'value'),
             checkType(storage, Storage, 'storage'),
             location
             )
