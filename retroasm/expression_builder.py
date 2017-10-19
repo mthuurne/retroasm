@@ -12,7 +12,9 @@ from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .namespace import NameExistsError, createIOReference
-from .reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
+from .reference import (
+    ConcatenatedBits, FixedValue, Reference, SlicedBits, badReference
+    )
 from .storage import IOChannel
 from .types import (
     IntType, ReferenceType, parseTypeDecl, unlimited, widthForMask
@@ -57,11 +59,11 @@ def declareVariable(node, namespace):
             ex.location
             )
 
-def convertDefinition(kind, nameNode, typ, value, namespace):
-    # Get name.
-    name = nameNode.name
-
-    # Build and validate value expression.
+def convertDefinition(kind, name, typ, value, namespace):
+    '''Build and validate the right hand side of a definition.
+    Returns a Reference to the value.
+    Raises BadExpression if validation fails.
+    '''
     if kind is DeclarationKind.constant:
         try:
             expr = buildExpression(value, namespace)
@@ -74,7 +76,7 @@ def convertDefinition(kind, nameNode, typ, value, namespace):
                 )
         declWidth = typ.width
         bits = FixedValue(truncate(expr, declWidth), declWidth)
-        ref = Reference(bits, typ)
+        return Reference(bits, typ)
     elif kind is DeclarationKind.reference:
         try:
             ref = buildReference(value, namespace)
@@ -89,17 +91,9 @@ def convertDefinition(kind, nameNode, typ, value, namespace):
                 % (ref.width, typ.type),
                 value.treeLocation
                 )
+        return ref
     else:
         assert False, kind
-
-    # Add definition to namespace.
-    try:
-        return namespace.define(name, ref, nameNode.location)
-    except NameExistsError as ex:
-        raise NameExistsError(
-            'failed to define %s "%s %s": %s' % (kind.name, typ, name, ex),
-            ex.location
-            )
 
 def _convertIdentifier(node, namespace):
     '''Looks up an identifier in a namespace.
@@ -505,10 +499,21 @@ def emitCodeFromStatements(reader, whereDesc, namespace, statements, retType):
                         'bad type name in definition: %s' % ex,
                         typeNode.location
                         )
+            # Evaluate value.
+            name = nameNode.name
             try:
-                convertDefinition(kind, nameNode, typ, node.value, namespace)
+                ref = convertDefinition(kind, name, typ, node.value, namespace)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
+                ref = badReference(typ)
+            # Add definition to namespace.
+            try:
+                namespace.define(name, ref, nameNode.location)
+            except NameExistsError as ex:
+                reader.error(
+                    'failed to define %s "%s %s": %s', kind.name, typ, name, ex,
+                    location=ex.location
+                    )
 
         elif isinstance(node, DeclarationNode):
             # Variable declaration.

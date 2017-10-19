@@ -1,10 +1,10 @@
 from .expression import (
-    AddOperator, AndOperator, Expression, IntLiteral, LShift, LVShift,
+    AddOperator, AndOperator, BadValue, Expression, IntLiteral, LShift, LVShift,
     OrOperator, RVShift, SignExtension, XorOperator, optSlice, truncate
     )
 from .expression_simplifier import simplifyExpression
 from .storage import Storage
-from .types import IntType, maskForWidth, unlimited, widthForMask
+from .types import IntType, ReferenceType, maskForWidth, unlimited, widthForMask
 from .utils import checkType
 
 class BitString:
@@ -292,6 +292,45 @@ class SlicedBits(BitString):
 
         combined = simplifyExpression(combined)
         bits.emitStore(builder, combined, location)
+
+class BadBits(BitString):
+    '''A dummy bit string that can be used when an error has been discovered
+    in the input but we don't want to abort parsing immediately.
+    '''
+    __slots__ = ()
+
+    def __init__(self, width):
+        '''Construct a BadBits with the given width.
+        '''
+        BitString.__init__(self, width)
+
+    def __repr__(self):
+        return 'BadBits(%s)' % self._width
+
+    def __str__(self):
+        return '(%s bad bits)' % self._width
+
+    def iterExpressions(self):
+        return iter(())
+
+    def iterStorages(self):
+        return iter(())
+
+    def substitute(self, storageFunc=None, expressionFunc=None):
+        return self
+
+    def emitLoad(self, builder, location):
+        return BadValue(self._width)
+
+    def emitStore(self, builder, value, location):
+        pass
+
+def badReference(decl):
+    '''Returns a dummy reference to the given declared reference/value type,
+    with a BadBits instance as the underlying bit string.
+    '''
+    typ = decl.type if isinstance(decl, ReferenceType) else decl
+    return Reference(BadBits(typ.width), typ)
 
 def decodeInt(encoded, typ):
     '''Decodes the given encoded representation (Expression) as an integer of

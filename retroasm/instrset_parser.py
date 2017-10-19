@@ -23,6 +23,7 @@ from .mode import (
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
     )
+from .reference import badReference
 from .storage import IOChannel, IOStorage, ValArgStorage, Variable
 from .types import (
     IntType, ReferenceType, parseType, parseTypeDecl
@@ -86,14 +87,22 @@ def _parseRegs(reader, args, globalNamespace):
                             )
             else:
                 # Define register alias.
+                name = decl.name.name
                 try:
-                    convertDefinition(
-                        decl.kind, decl.name, regType, node.value,
-                        globalNamespace
+                    ref = convertDefinition(
+                        decl.kind, name, regType, node.value, globalNamespace
                         )
                 except BadExpression as ex:
                     reader.error(
-                        'bad register alias definition: %s', ex,
+                        'bad register alias: %s', ex,
+                        location=ex.location
+                        )
+                    ref = badReference(regType)
+                try:
+                    globalNamespace.define(name, ref, decl.name.location)
+                except NameExistsError as ex:
+                    reader.error(
+                        'failed to define register alias: %s', ex,
                         location=ex.location
                         )
 

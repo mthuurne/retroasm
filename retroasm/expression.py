@@ -108,6 +108,31 @@ class Expression:
         else:
             return self
 
+class BadValue(Expression):
+    '''A dummy expression that can be used when an error has been discovered
+    in the input but we don't want to abort parsing immediately.
+    '''
+    __slots__ = ('_width',)
+
+    mask = property(lambda self: maskForWidth(self._width))
+
+    def __init__(self, width):
+        self._width = checkType(width, (int, unlimited), 'width')
+        Expression.__init__(self)
+
+    def _ctorargs(self):
+        return self._width,
+
+    def __str__(self):
+        return '(%s-bit bad value)' % self._width
+
+    def _equals(self, other):
+        return self is other
+
+    @property
+    def complexity(self):
+        return 1
+
 class IntLiteral(Expression):
     '''An integer literal.
     '''
