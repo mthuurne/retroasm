@@ -1,7 +1,7 @@
 from .codeblock import Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
 from .linereader import BadInput
-from .reference import BitString, SingleStorage
+from .reference import BitString, SingleStorage, badReference
 from .storage import ArgStorage, Variable
 
 class CodeBlockBuilder:
@@ -28,7 +28,7 @@ class CodeBlockBuilder:
         '''Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
-        Returns a Reference containing the value returned by the inlined
+        Returns a BitString containing the value returned by the inlined
         function, or None if the function does not return anything.
         '''
         raise NotImplementedError
@@ -133,7 +133,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
-            return None
+            retType = func.retType
+            return None if retType is None else badReference(retType).bits
 
         badArgs = argMap.keys() - func.args.keys()
         if badArgs:
