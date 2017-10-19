@@ -251,7 +251,10 @@ def _convertExpressionOperator(node, namespace):
     if operator is Operator.call:
         ref = _convertFunctionCall(node, namespace)
         if ref is None:
-            return unit
+            raise BadExpression(
+                'function does not return anything; expected value',
+                node.treeLocation
+                )
         else:
             return ref.emitLoad(namespace.builder, node.treeLocation)
     elif operator is Operator.lookup:
@@ -432,35 +435,78 @@ def buildReference(node, namespace):
     else:
         assert False, node
 
-def emitCodeFromStatements(reader, namespace, statements, retType):
-    '''Emits a code block from the given statements.
+def buildStatementEval(reader, whereDesc, namespace, node):
+    '''Emits loads and stores on the given namespace that produce the (side)
+    effects of evaluating the given node.
+    Errors and warnings are logged on the given reader, using whereDesc as the
+    description of the statement's origin.
     '''
     builder = namespace.builder
+    numNodesBefore = len(builder.nodes)
+
+    if isinstance(node, AssignmentNode):
+        try:
+            lhs = buildReference(node.lhs, namespace)
+        except BadExpression as ex:
+            reader.error(
+                'bad expression on left hand side of assignment in %s: %s',
+                whereDesc, ex, location=ex.location
+                )
+            return
+
+        try:
+            rhs = buildExpression(node.rhs, namespace)
+        except BadExpression as ex:
+            reader.error(
+                'bad expression on right hand side of assignment in %s: %s',
+                whereDesc, ex, location=ex.location
+                )
+            return
+
+        lhs.emitStore(builder, rhs, node.lhs.treeLocation)
+
+    elif isinstance(node, EmptyNode):
+        # Empty statement (NOP).
+        # This is supposed to have no effect, so skip no-effect check.
+        return
+
+    elif isinstance(node, OperatorNode) and node.operator is Operator.call:
+        # Function call.
+        ref_ = _convertFunctionCall(node, namespace)
+        # Skip no-effect check: if a function does nothing, it likely either
+        # does so on purpose or a warning will already have been issued there.
+        return
+
+    else:
+        # Evaluate statement for its side effects.
+        try:
+            buildExpression(node, namespace)
+        except BadExpression as ex:
+            reader.error(
+                'bad expression in statement in %s: %s',
+                whereDesc, ex, location=ex.location
+                )
+            return
+
+    stateChanged = False
+    for execNode in builder.nodes[numNodesBefore:]:
+        if isinstance(execNode, Load):
+            stateChanged |= execNode.storage.canLoadHaveSideEffect()
+        elif isinstance(execNode, Store):
+            stateChanged = True
+    if not stateChanged:
+        reader.warning(
+            'statement in %s has no effect',
+            whereDesc, location=node.treeLocation
+            )
+
+def emitCodeFromStatements(reader, whereDesc, namespace, statements, retType):
+    '''Emits a code block from the given statements.
+    Errors and warnings are logged on the given reader, using whereDesc as the
+    description of the statement's origin.
+    '''
     for node in statements:
-        numNodesBefore = len(builder.nodes)
-
-        if isinstance(node, AssignmentNode):
-            try:
-                lhs = buildReference(node.lhs, namespace)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression on left hand side of assignment: %s', ex,
-                    location=ex.location
-                    )
-                continue
-
-            try:
-                rhs = buildExpression(node.rhs, namespace)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression on right hand side of assignment: %s', ex,
-                    location=ex.location
-                    )
-                continue
-
-            lhs.emitStore(builder, rhs, node.lhs.treeLocation)
-
-        elif isinstance(node, DefinitionNode):
+        if isinstance(node, DefinitionNode):
             # Constant/reference definition.
             decl = node.decl
             kind = decl.kind
@@ -493,8 +539,6 @@ def emitCodeFromStatements(reader, namespace, statements, retType):
                 convertDefinition(kind, nameNode, typ, node.value, namespace)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
-            # Don't evaluate the expression, since that could emit loads.
-            continue
 
         elif isinstance(node, DeclarationNode):
             # Variable declaration.
@@ -502,36 +546,14 @@ def emitCodeFromStatements(reader, namespace, statements, retType):
                 declareVariable(node, namespace)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.location)
-            continue
 
         elif isinstance(node, BranchNode):
             # TODO: Add support.
-            continue
+            pass
 
         elif isinstance(node, LabelNode):
             # TODO: Add support.
-            continue
-
-        elif isinstance(node, EmptyNode):
-            # Empty statement (NOP).
-            continue
+            pass
 
         else:
-            # Evaluate statement for its side effects.
-            try:
-                buildExpression(node, namespace)
-            except BadExpression as ex:
-                reader.error(
-                    'bad expression in statement: %s', ex,
-                    location=ex.location
-                    )
-                continue
-
-        stateChanged = False
-        for execNode in builder.nodes[numNodesBefore:]:
-            if isinstance(execNode, Load):
-                stateChanged |= execNode.storage.canLoadHaveSideEffect()
-            elif isinstance(execNode, Store):
-                stateChanged = True
-        if not stateChanged:
-            reader.warning('statement has no effect')
+            buildStatementEval(reader, whereDesc, namespace, node)

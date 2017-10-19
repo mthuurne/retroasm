@@ -37,7 +37,9 @@ def createFunc(reader, funcName, retType, args, globalNamespace):
     try:
         with reader.checkErrors():
             bodyNodes = _parseBody(reader)
-            emitCodeFromStatements(reader, namespace, bodyNodes, retType)
+            emitCodeFromStatements(
+                reader, 'function body', namespace, bodyNodes, retType
+                )
     except DelayedError:
         code = None
     else:

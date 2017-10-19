@@ -6,12 +6,12 @@ from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .decode import ParsedModeEntry, decomposeEncoding
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
-    convertDefinition
+    buildStatementEval, convertDefinition
     )
 from .expression_parser import (
-    AssignmentNode, BranchNode, DeclarationNode, DefinitionNode, EmptyNode,
-    FlagTestNode, IdentifierNode, LabelNode, MultiMatchNode, parseContext,
-    parseExpr, parseExprList, parseInt, parseRegs, parseStatement
+    DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode,
+    MultiMatchNode, parseContext, parseExpr, parseExprList, parseInt, parseRegs,
+    parseStatement
     )
 from .function_builder import createFunc
 from .instrset import InstructionSet, Prefix, PrefixMappingFactory
@@ -247,7 +247,7 @@ def _parsePrefix(reader, args, namespace, factory):
                     semBuilder = SemanticsCodeBlockBuilder()
                     semNamespace = LocalNamespace(namespace, semBuilder)
                     try:
-                        _parseInstrSemantics(semLoc, semNamespace)
+                        _parseInstrSemantics(reader, semLoc, semNamespace)
                     except BadInput as ex:
                         reader.error(
                             'bad prefix semantics: %s', ex,
@@ -834,7 +834,7 @@ def _parseModeDecoding(encoding, placeholderSpecs, reader):
         sequentialMap[None] = fixedMatcher
         return sequentialMap
 
-def _parseModeSemantics(semLoc, semNamespace, modeType):
+def _parseModeSemantics(reader, semLoc, semNamespace, modeType):
     semantics = parseExpr(semLoc)
     if isinstance(modeType, ReferenceType):
         ref = buildReference(semantics, semNamespace)
@@ -853,28 +853,10 @@ def _parseModeSemantics(semLoc, semNamespace, modeType):
             ref = semNamespace.addVariable('ret', modeType, semLoc)
             ref.emitStore(semNamespace.builder, expr, semLoc)
 
-def _rejectNodeClasses(node, badClasses):
-    if isinstance(node, badClasses):
-        raise BadInput(
-            '%s is not allowed here', node.__class__.__name__[:-4].lower(),
-            location=node.treeLocation
-            )
-
-def _parseInstrSemantics(semLoc, namespace, modeType=None):
+def _parseInstrSemantics(reader, semLoc, namespace, modeType=None):
     assert modeType is None, modeType
     node = parseStatement(semLoc)
-    if isinstance(node, AssignmentNode):
-        _rejectNodeClasses(node.lhs, (DefinitionNode, DeclarationNode))
-        lhs = buildReference(node.lhs, namespace)
-        rhs = buildExpression(node.rhs, namespace)
-        lhs.emitStore(namespace.builder, rhs, node.lhs.treeLocation)
-    elif isinstance(node, EmptyNode):
-        pass
-    else:
-        _rejectNodeClasses(node, (
-            DefinitionNode, DeclarationNode, BranchNode, LabelNode
-            ))
-        buildExpression(node, namespace)
+    buildStatementEval(reader, 'semantics field', namespace, node)
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
@@ -1013,7 +995,7 @@ def _parseModeEntries(
                             # Parse mnemonic field as semantics.
                             semLoc = mnemLoc
 
-                        parseSem(semLoc, semNamespace, modeType)
+                        parseSem(reader, semLoc, semNamespace, modeType)
                     except BadInput as ex:
                         reader.error(
                             'error in semantics: %s', ex, location=ex.location
