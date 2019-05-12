@@ -1,2 +1,4 @@
+poetry.lock
+src/retroasm.egg-info/
 __pycache__/
 output/
