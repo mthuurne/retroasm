@@ -19,12 +19,16 @@ def test(c):
         c.run('pytest', pty=True)
 
 @task
-def types(c):
+def types(c, report=False):
     """Type-check sources with mypy."""
+    cmd = ['mypy']
+    if report:
+        cmd.append('--html-report output/mypy-report.html')
+    cmd.append('src/retroasm/*.py')
     print('Type-checking...')
     with c.cd(str(TOP_DIR)):
         try:
-            c.run('mypy src/retroasm/*.py', pty=True)
+            c.run(' '.join(cmd), pty=True)
         except UnexpectedExit as ex:
             if ex.result.exited < 0:
                 print(ex)
