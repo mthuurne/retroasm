@@ -13,27 +13,27 @@ class FormatTests(unittest.TestCase):
         '''Formats slice expressions.'''
         addr = TestValue('A', IntType.u(16))
         # Truncation and shift in isolation.
-        self.assertEquals(str(simplifyExpression(truncate(addr, 8))), 'A[:8]')
-        self.assertEquals(str(simplifyExpression(RShift(addr, 8))), 'A[8:]')
+        self.assertEqual(str(simplifyExpression(truncate(addr, 8))), 'A[:8]')
+        self.assertEqual(str(simplifyExpression(RShift(addr, 8))), 'A[8:]')
         # Truncation and shift combined.
-        self.assertEquals(
+        self.assertEqual(
             str(simplifyExpression(truncate(RShift(addr, 0), 8))), 'A[:8]'
             )
-        self.assertEquals(
+        self.assertEqual(
             str(simplifyExpression(truncate(RShift(addr, 4), 8))), 'A[4:12]'
             )
-        self.assertEquals(
+        self.assertEqual(
             str(simplifyExpression(truncate(RShift(addr, 8), 8))), 'A[8:]'
             )
 
     def test_index(self):
         '''Formats bit index expressions.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertEquals(str(simplifyExpression(truncate(addr, 1))), 'A[0]')
-        self.assertEquals(
+        self.assertEqual(str(simplifyExpression(truncate(addr, 1))), 'A[0]')
+        self.assertEqual(
             str(simplifyExpression(truncate(RShift(addr, 11), 1))), 'A[11]'
             )
-        self.assertEquals(
+        self.assertEqual(
             str(simplifyExpression(RShift(addr, 15))), 'A[15]'
             )
 
