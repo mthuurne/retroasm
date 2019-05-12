@@ -1,6 +1,7 @@
 from .mode import PlaceholderRole
 from .reference import Reference
 
+
 class Formatter:
 
     margin = 20

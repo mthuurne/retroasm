@@ -1,8 +1,9 @@
+from enum import Enum
+import re
+
 from .linereader import BadInput, mergeSpan
 from .types import unlimited
 
-from enum import Enum
-import re
 
 class ParseError(BadInput):
     '''Raised when the input text cannot be parsed into an expression.

@@ -4,6 +4,7 @@ from .linereader import BadInput
 from .reference import BitString, SingleStorage, badReference
 from .storage import ArgStorage, Variable
 
+
 class CodeBlockBuilder:
 
     def dump(self):

@@ -1,10 +1,10 @@
-from .expression_parser import parseDigits
-from .linereader import DelayedError, LineReader
-
 from collections import namedtuple
 from enum import Enum
 from logging import getLogger
 import re
+
+from .expression_parser import parseDigits
+from .linereader import DelayedError, LineReader
 
 logger = getLogger('parse-asm')
 

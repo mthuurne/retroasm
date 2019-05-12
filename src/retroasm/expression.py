@@ -1,10 +1,10 @@
-from .types import (
-    maskForWidth, maskToSegments, trailingZeroes, unlimited, widthForMask
-    )
-from .utils import checkType, const_property
-
 from functools import reduce
 from itertools import chain
+
+from .types import (
+    maskForWidth, maskToSegments, trailingZeroes, unlimited, widthForMask
+)
+from .utils import checkType, const_property
 
 # pylint: disable=protected-access
 

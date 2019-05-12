@@ -1,6 +1,7 @@
 from .storage import RefArgStorage, ValArgStorage
 from .types import ReferenceType
 
+
 class Function:
 
     def __init__(self, retType, args, code):

@@ -1,6 +1,7 @@
 from .expression_parser import DeclarationNode, ParseNode
 from .utils import checkType
 
+
 class PlaceholderSpec:
 
     decl = property(lambda self: self._decl)

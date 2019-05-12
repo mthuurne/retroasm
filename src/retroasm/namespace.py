@@ -5,6 +5,7 @@ from .storage import IOStorage, RefArgStorage, ValArgStorage, Variable
 from .types import IntType, maskForWidth
 from .utils import checkType
 
+
 class Namespace:
     '''Container in which named elements such as variables, arguments,
     functions etc. are stored.

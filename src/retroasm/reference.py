@@ -1,11 +1,15 @@
 from .expression import (
-    AddOperator, AndOperator, BadValue, Expression, IntLiteral, LShift, LVShift,
-    OrOperator, RVShift, SignExtension, XorOperator, optSlice, truncate
-    )
+    AddOperator, AndOperator, BadValue, Expression, IntLiteral, LShift,
+    LVShift, OrOperator, RVShift, SignExtension, XorOperator, optSlice,
+    truncate
+)
 from .expression_simplifier import simplifyExpression
 from .storage import Storage
-from .types import IntType, ReferenceType, maskForWidth, unlimited, widthForMask
+from .types import (
+    IntType, ReferenceType, maskForWidth, unlimited, widthForMask
+)
 from .utils import checkType
+
 
 class BitString:
     '''Abstract base class for bit strings.

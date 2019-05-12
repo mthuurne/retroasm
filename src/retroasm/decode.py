@@ -1,16 +1,17 @@
+from collections import defaultdict, namedtuple
+from functools import reduce
+
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, ModeFetcher
 from .linereader import BadInput
 from .mode import (
     EncodingExpr, EncodingMultiMatch, MatchPlaceholder, ValuePlaceholder
-    )
+)
 from .reference import ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 from .storage import ValArgStorage
 from .types import maskForWidth, maskToSegments, segmentsToMask
 from .utils import Singleton, const_property
 
-from collections import defaultdict, namedtuple
-from functools import reduce
 
 class EncodeMatch:
     '''A match on the encoding field of a mode entry.

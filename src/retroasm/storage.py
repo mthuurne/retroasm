@@ -2,6 +2,7 @@ from .expression import Expression
 from .types import IntType, unlimited
 from .utils import checkType
 
+
 class IOChannel:
     '''A channel through which a CPU can do input and output.
     '''

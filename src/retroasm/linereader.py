@@ -1,6 +1,7 @@
 from contextlib import contextmanager
-from logging import DEBUG, INFO, WARNING, ERROR, Formatter
+from logging import DEBUG, ERROR, INFO, WARNING, Formatter
 import re
+
 
 class LineReader:
     '''Iterates through the lines of a text file.

@@ -1,10 +1,10 @@
-from .section import ByteOrder, CodeSection, Section
-from .utils import checkType
-
 from collections import namedtuple
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
+
+from .section import ByteOrder, CodeSection, Section
+from .utils import checkType
 
 logger = getLogger('binfmt')
 

@@ -6,6 +6,7 @@ from .linereader import DelayedError
 from .namespace import LocalNamespace
 from .types import ReferenceType
 
+
 def _parseBody(reader):
     '''Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.

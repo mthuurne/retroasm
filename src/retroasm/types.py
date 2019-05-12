@@ -1,5 +1,6 @@
 from .utils import Singleton, Unique
 
+
 class Unlimited(metaclass=Singleton):
     '''Width value for arbitrary-width integer types.
     Compares as infinity: larger than any integer.

@@ -1,9 +1,10 @@
+from collections import defaultdict
+
 from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression_simplifier import simplifyExpression
 from .reference import FixedValue
 from .storage import Variable
 
-from collections import defaultdict
 
 class CodeBlockSimplifier(CodeBlock):
 

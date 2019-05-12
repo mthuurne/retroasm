@@ -1,36 +1,35 @@
+from collections import OrderedDict, defaultdict
+from logging import WARNING, getLogger
+import re
+
 from .analysis import CodeTemplate
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
-    )
+)
 from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
 from .decode import ParsedModeEntry, decomposeEncoding
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
     buildStatementEval, convertDefinition
-    )
+)
 from .expression_parser import (
     DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode,
-    MultiMatchNode, parseContext, parseExpr, parseExprList, parseInt, parseRegs,
-    parseStatement
-    )
+    MultiMatchNode, parseContext, parseExpr, parseExprList, parseInt,
+    parseRegs, parseStatement
+)
 from .function_builder import createFunc
 from .instrset import InstructionSet, Prefix, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
 from .mode import (
     Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mnemonic,
     Mode, ModeEntry, ValuePlaceholder
-    )
+)
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
-    )
+)
 from .reference import badReference
 from .storage import IOChannel, IOStorage, ValArgStorage, Variable
-from .types import (
-    IntType, ReferenceType, parseType, parseTypeDecl
-    )
-from collections import OrderedDict, defaultdict
-from logging import WARNING, getLogger
-import re
+from .types import IntType, ReferenceType, parseType, parseTypeDecl
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _nameTok = r'\s*(' + _namePat + r')\s*'

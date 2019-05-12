@@ -1,3 +1,6 @@
+from collections import OrderedDict
+from enum import Enum
+
 from .analysis import CodeTemplate
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -10,8 +13,6 @@ from .storage import ValArgStorage
 from .types import IntType, unlimited
 from .utils import checkType, const_property
 
-from collections import OrderedDict
-from enum import Enum
 
 class EncodingExpr:
     '''A single element in an encoding sequence that is specified using an

@@ -1,9 +1,10 @@
 from .expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
-    Negation, OrOperator, RShift, RVShift, SignExtension, SignTest, XorOperator,
-    optSlice
-    )
+    Negation, OrOperator, RShift, RVShift, SignExtension, SignTest,
+    XorOperator, optSlice
+)
 from .types import maskForWidth, widthForMask
+
 
 def _simplifyAlgebraic(cls, exprs):
     '''Simplify the given list of expressions using algebraic properties of the

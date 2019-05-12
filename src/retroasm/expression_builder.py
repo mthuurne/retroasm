@@ -2,24 +2,25 @@ from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
     Negation, OrOperator, RVShift, SignTest, XorOperator, truncate
-    )
+)
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
     DefinitionNode, EmptyNode, IdentifierNode, LabelNode, MultiMatchNode,
     NumberNode, Operator, OperatorNode
-    )
+)
 from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput
 from .namespace import NameExistsError, createIOReference
 from .reference import (
     ConcatenatedBits, FixedValue, Reference, SlicedBits, badReference
-    )
+)
 from .storage import IOChannel
 from .types import (
     IntType, ReferenceType, parseTypeDecl, unlimited, widthForMask
-    )
+)
 from .utils import checkType
+
 
 class BadExpression(BadInput):
     '''Raised when the input text cannot be parsed into an expression.

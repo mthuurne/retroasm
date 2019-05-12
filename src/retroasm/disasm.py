@@ -5,6 +5,7 @@ from .mode import ModeMatch
 from .reference import FixedValue, Reference
 from .types import IntType, unlimited
 
+
 class Disassembler:
 
     def __init__(self, instrSet):

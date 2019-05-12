@@ -5,6 +5,7 @@ from .storage import ArgStorage, Storage
 from .types import maskForWidth
 from .utils import checkType, const_property
 
+
 class Node:
     '''Base class for nodes.
     '''

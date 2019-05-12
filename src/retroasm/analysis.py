@@ -1,10 +1,11 @@
+from collections import OrderedDict
+
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .reference import BitString, SingleStorage
 from .storage import ArgStorage
 from .utils import checkType
 
-from collections import OrderedDict
 
 class CodeTemplate:
     '''A container for a code block which contains placeholders that will be

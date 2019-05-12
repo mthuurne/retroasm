@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 from .codeblock import Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .decode import DecoderFactory, PrefixDecoder
@@ -5,8 +7,6 @@ from .expression import IntLiteral
 from .linereader import BadInput
 from .mode import ModeTable
 from .utils import const_property
-
-from collections import namedtuple
 
 Prefix = namedtuple('Prefix', ('encoding', 'semantics'))
 

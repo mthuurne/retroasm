@@ -1,9 +1,10 @@
 from collections.abc import (
     Iterator, MutableMapping, MutableSequence, MutableSet
-    )
+)
 from functools import update_wrapper
 from types import MappingProxyType
 from weakref import WeakValueDictionary
+
 
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there

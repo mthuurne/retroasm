@@ -1,6 +1,6 @@
-from .utils import checkType, search
-
 from enum import Enum
+
+from .utils import checkType, search
 
 ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
     'undefined', 'little', 'big'
