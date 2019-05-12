@@ -1,41 +1,51 @@
 #!/usr/bin/env python3
 
 from markdown import markdownFromFile
+from markdown.extensions import Extension
+from markdown.treeprocessors import Treeprocessor
+from markdown.util import etree
 
 from os import makedirs, walk
 from os.path import isdir
 from shutil import rmtree
 
+class DocumentProcessor(Treeprocessor):
+    def run(self, root):
+        titleText = root.find('./h1').text
+        content = list(root)
+        root.clear()
+        root.tag = 'html'
+        root.text = root.tail = '\n'
+        header = etree.SubElement(root, 'head')
+        header.text = header.tail = '\n'
+        title = etree.SubElement(header, 'title')
+        title.text = titleText
+        title.tail = '\n'
+        body = etree.SubElement(root, 'body')
+        body.text = body.tail = '\n'
+        body.extend(content)
+
+class DocumentExtension(Extension):
+    """Wraps the generated content in a full document.
+    """
+    def extendMarkdown(self, md):
+        md.stripTopLevelTags = False
+        md.treeprocessors.register(
+            DocumentProcessor(md), 'retroasm.document', 0
+            )
+
 extensions = (
     'markdown.extensions.def_list',
     'markdown.extensions.smarty',
     'markdown.extensions.tables',
+    DocumentExtension()
     )
-
-def header(title):
-    yield '<html>'
-    yield '<head>'
-    yield '<title>%s</title>' % title
-    yield '</head>'
-    yield '<body>'
-
-def footer():
-    yield ''
-    yield '</body>'
-    yield '</html>'
-
-def writeLines(out, lines):
-    out.write(''.join(line + '\n' for line in lines).encode('utf8'))
 
 def renderFile(inFileName, outFileName):
     print(inFileName, '->', outFileName)
-    with open(inFileName, 'rb') as inp:
-        title = inp.readline().decode('utf8').strip()
-        inp.seek(0)
-        with open(outFileName, 'wb') as out:
-            writeLines(out, header(title))
-            markdownFromFile(input=inp, output=out, extensions=extensions)
-            writeLines(out, footer())
+    markdownFromFile(
+        input=inFileName, output=outFileName, extensions=extensions
+        )
 
 def processDir(inBase, outBase):
     if isdir(outBase):
