@@ -165,7 +165,7 @@ class IntType(metaclass=Unique):
             's' if self._signed else 'u', self._width
             )
 
-IntType.int = IntType(unlimited, True)
+setattr(IntType, 'int', IntType(unlimited, True))
 
 class ReferenceType(metaclass=Unique):
     '''A reference to a value of a certain type.

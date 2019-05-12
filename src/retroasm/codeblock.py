@@ -1,3 +1,5 @@
+from typing import cast
+
 from .expression import Expression
 from .linereader import InputLocation
 from .reference import BitString
@@ -188,7 +190,7 @@ class CodeBlock:
             expressions.update(retBits.iterExpressions())
         return expressions
 
-    expressions = const_property(_gatherExpressions)
+    expressions = cast(property, const_property(_gatherExpressions))
 
     def _gatherStorages(self):
         '''A set of all storages that are accessed or referenced by this block.
@@ -200,7 +202,7 @@ class CodeBlock:
             storages.update(retBits.iterStorages())
         return storages
 
-    storages = const_property(_gatherStorages)
+    storages = cast(property, const_property(_gatherStorages))
 
     def _gatherArguments(self):
         '''A dictionary containing all arguments that occur in this code block.

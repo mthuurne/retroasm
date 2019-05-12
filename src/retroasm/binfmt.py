@@ -2,6 +2,7 @@ from collections import namedtuple
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
+from typing import Sequence
 
 from .section import ByteOrder, CodeSection, Section
 from .utils import checkType
@@ -47,11 +48,11 @@ class BinaryFormat:
     '''Abstract base class for binary formats.
     '''
 
-    name = None
+    name: str
     '''Short identifying name for this format.'''
-    description = None
+    description: str
     '''User-friendly name for this format.'''
-    extensions = ()
+    extensions: Sequence[str]
     '''Sequence of file name extensions, lower case, excluding the dot.'''
 
     image = property(lambda self: self._image)

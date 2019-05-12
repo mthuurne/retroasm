@@ -1,5 +1,6 @@
 from functools import reduce
 from itertools import chain
+from typing import Optional
 
 from .types import (
     maskForWidth, maskToSegments, trailingZeroes, unlimited, widthForMask
@@ -168,10 +169,10 @@ class MultiExpression(Expression):
     associative and commutative; other algebraic properties differ per subclass.
     '''
     __slots__ = ('_exprs', '_mask')
-    operator = property()
-    idempotent = property()
-    identity = property()
-    absorber = property()
+    operator: str
+    idempotent: bool
+    identity: int
+    absorber: Optional[int]
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
