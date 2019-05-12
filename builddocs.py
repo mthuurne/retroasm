@@ -34,7 +34,7 @@ def renderFile(inFileName, outFileName):
         inp.seek(0)
         with open(outFileName, 'wb') as out:
             writeLines(out, header(title))
-            markdownFromFile(inp, out, extensions)
+            markdownFromFile(input=inp, output=out, extensions=extensions)
             writeLines(out, footer())
 
 def processDir(inBase, outBase):
