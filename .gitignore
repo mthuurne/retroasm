@@ -1,3 +1,4 @@
+.python-version
 poetry.lock
 src/retroasm.egg-info/
 __pycache__/
