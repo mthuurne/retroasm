@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from invoke import task
+from invoke import UnexpectedExit, task
 
 from utils.markdown import renderDir
 
@@ -17,6 +17,17 @@ def test(c):
     """Run tests."""
     with c.cd(str(TOP_DIR)):
         c.run('pytest', pty=True)
+
+@task
+def types(c):
+    """Type-check sources with mypy."""
+    print('Type-checking...')
+    with c.cd(str(TOP_DIR)):
+        try:
+            c.run('mypy src/retroasm/*.py', pty=True)
+        except UnexpectedExit as ex:
+            if ex.result.exited < 0:
+                print(ex)
 
 @task
 def isort(c):
