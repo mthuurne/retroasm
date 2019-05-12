@@ -2,8 +2,15 @@ from pathlib import Path
 
 from invoke import task
 
+from utils.markdown import renderDir
+
 TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / 'src'
+
+@task
+def docs(c):
+    """Build documentation."""
+    renderDir('docs', 'output/docs/')
 
 @task
 def isort(c):

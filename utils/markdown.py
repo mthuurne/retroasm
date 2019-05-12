@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
+from os import makedirs, walk
+from os.path import isdir
+from shutil import rmtree
 
 from markdown import markdownFromFile
 from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 from markdown.util import etree
-
-from os import makedirs, walk
-from os.path import isdir
-from shutil import rmtree
 
 class DocumentProcessor(Treeprocessor):
     def run(self, root):
@@ -47,7 +45,7 @@ def renderFile(inFileName, outFileName):
         input=inFileName, output=outFileName, extensions=extensions
         )
 
-def processDir(inBase, outBase):
+def renderDir(inBase, outBase):
     if isdir(outBase):
         rmtree(outBase)
     for dirPath, subdirList, fileList in walk(inBase):
@@ -65,6 +63,3 @@ def processDir(inBase, outBase):
                     dirPath + fileName,
                     outDir + fileName[ : -3] + '.html'
                     )
-
-if __name__ == '__main__':
-    processDir('docs', 'output/docs')
