@@ -24,7 +24,7 @@ import sys
 
 if __name__ == '__main__':
     loader = defaultTestLoader
-    modules = loader.discover('test/unittest/')
+    modules = loader.discover('tests/unit/')
     if len(sys.argv) == 1:
         toRun = modules
     else:
