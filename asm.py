@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import logging
+import sys
+
+sys.path.append('src')
+
 from retroasm.asm_parser import readSource
 from retroasm.instrset_parser import parseInstrSet
 from retroasm.linereader import DelayedError, LineReaderFormatter
-
-import logging
 
 def setupLogging():
     handler = logging.StreamHandler()

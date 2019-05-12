@@ -22,6 +22,8 @@
 from unittest import TestSuite, TextTestRunner, defaultTestLoader
 import sys
 
+sys.path.append('src')
+
 if __name__ == '__main__':
     loader = defaultTestLoader
     modules = loader.discover('tests/unit/')
