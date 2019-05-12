@@ -13,6 +13,12 @@ def docs(c):
     renderDir('docs', 'output/docs/')
 
 @task
+def test(c):
+    """Run tests."""
+    with c.cd(str(TOP_DIR)):
+        c.run('pytest', pty=True)
+
+@task
 def isort(c):
     """Sort imports."""
     print('Sorting imports...')

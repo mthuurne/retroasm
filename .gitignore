@@ -1,5 +1,6 @@
 .python-version
 poetry.lock
 src/retroasm.egg-info/
+.cache/
 __pycache__/
 output/
