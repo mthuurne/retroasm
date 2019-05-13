@@ -7,7 +7,7 @@ class Formatter:
     margin = 20
     operationWidth = 8
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lineFormat = '{:%d}{:%d}{}' % (self.margin, self.operationWidth)
 
     def formatInt(self, value, typ):

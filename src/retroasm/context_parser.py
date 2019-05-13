@@ -27,12 +27,12 @@ class ValuePlaceholderSpec(PlaceholderSpec):
             value, (type(None), ParseNode), 'placeholder value'
             )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'ValuePlaceholderSpec(%r, %r, %r)' % (
             self._decl, self._type, self._value
             )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{%s %s}' % (self._type, self.name)
 
 class MatchPlaceholderSpec(PlaceholderSpec):
@@ -47,8 +47,8 @@ class MatchPlaceholderSpec(PlaceholderSpec):
         PlaceholderSpec.__init__(self, decl)
         self._mode = mode
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'MatchPlaceholderSpec(%r, %r)' % (self._decl, self._mode)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{%s %s}' % (self._mode.name, self.name)

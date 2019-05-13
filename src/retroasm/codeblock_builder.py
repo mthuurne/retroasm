@@ -1,25 +1,35 @@
-from .codeblock import Load, LoadedValue, Store
+from typing import Iterable, List, Optional, Set
+
+from .codeblock import AccessNode, CodeBlock, Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
-from .linereader import BadInput
+from .expression import Expression
+from .linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, SingleStorage, badReference
-from .storage import ArgStorage, Variable
+from .storage import ArgStorage, Storage, Variable
 
 
 class CodeBlockBuilder:
 
-    def dump(self):
+    def dump(self) -> None:
         '''Prints the current state of this code block builder on stdout.
         '''
         pass
 
-    def emitLoadBits(self, storage, location):
+    def emitLoadBits(self,
+                     storage: Storage,
+                     location: InputLocation
+                     ) -> Expression:
         '''Loads the value from the given storage by emitting a Load node on
         this builder.
         Returns an expression that represents the loaded value.
         '''
         raise NotImplementedError
 
-    def emitStoreBits(self, storage, value, location):
+    def emitStoreBits(self,
+                      storage: Storage,
+                      value: Expression,
+                      location: InputLocation
+                      ) -> None:
         '''Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         '''
@@ -66,15 +76,19 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
-    def __init__(self):
-        self.nodes = []
+    def __init__(self) -> None:
+        self.nodes: List[AccessNode] = []
 
-    def dump(self):
+    def dump(self) -> None:
         for node in self.nodes:
             print('    %s (%s-bit)' % (node, node.storage.width))
         super().dump()
 
-    def createCodeBlock(self, returned, log=None, location=None):
+    def createCodeBlock(self,
+                        returned: Iterable[BitString],
+                        log: Optional[LineReader] = None,
+                        location: Optional[InputLocation] = None
+                        ) -> CodeBlock:
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
@@ -87,7 +101,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
-        initializedVariables = set()
+        initializedVariables: Set[Variable] = set()
         for node in code.nodes:
             storage = node.storage
             if isinstance(storage, Variable) and storage.scope == 1:
@@ -114,7 +128,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 if isinstance(storage, Variable) and storage.scope == 1:
                     if storage not in initializedVariables:
                         msg = 'code block returns uninitialized variable(s)'
-                        log.error(msg, location=location)
+                        if log is not None:
+                            log.error(msg, location=location)
                         raise ValueError(msg)
 
         # Finalize code block.

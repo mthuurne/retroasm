@@ -1,5 +1,3 @@
-from typing import cast
-
 from .expression import Expression
 from .linereader import InputLocation
 from .reference import BitString
@@ -52,10 +50,10 @@ class Load(AccessNode):
         expr = LoadedValue(self, maskForWidth(storage.width))
         AccessNode.__init__(self, expr, storage, location)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Load(%r, %r)' % (self._storage, self._location)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'load from %s' % self._storage
 
     @AccessNode.expr.setter
@@ -78,10 +76,10 @@ class Store(AccessNode):
             location
             )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Store(%r, %r, %r)' % (self._expr, self._storage, self._location)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'store %s in %s' % (self._expr, self._storage)
 
     def clone(self):
@@ -92,10 +90,15 @@ class LoadedValue(Expression):
     '''
     __slots__ = ('_load', '_mask')
 
-    load = property(lambda self: self._load)
-    mask = property(lambda self: self._mask)
+    @property
+    def load(self) -> Load:
+        return self._load
 
-    def __init__(self, load, mask):
+    @property
+    def mask(self) -> int:
+        return self._mask
+
+    def __init__(self, load: Load, mask: int):
         Expression.__init__(self)
         self._load = checkType(load, Load, 'load node')
         self._mask = checkType(mask, int, 'mask')
@@ -103,10 +106,10 @@ class LoadedValue(Expression):
     def _ctorargs(self):
         return self._load, self._mask
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'LoadedValue(%r, %d)' % (self._load, self._mask)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'load(%s)' % self._load.storage
 
     def _equals(self, other):
@@ -114,7 +117,7 @@ class LoadedValue(Expression):
         return self._load is other._load
 
     @property
-    def complexity(self):
+    def complexity(self) -> int:
         # Since loaded values are only available at runtime, they are not
         # desirable in analysis, so assign a high cost to them.
         return 8
@@ -168,7 +171,7 @@ class CodeBlock:
         '''
         verifyLoads(self.nodes, self.returned)
 
-    def dump(self):
+    def dump(self) -> None:
         '''Prints this code block on stdout.
         '''
         for node in self.nodes:
@@ -190,7 +193,7 @@ class CodeBlock:
             expressions.update(retBits.iterExpressions())
         return expressions
 
-    expressions = cast(property, const_property(_gatherExpressions))
+    expressions = const_property(_gatherExpressions)
 
     def _gatherStorages(self):
         '''A set of all storages that are accessed or referenced by this block.
@@ -202,7 +205,7 @@ class CodeBlock:
             storages.update(retBits.iterStorages())
         return storages
 
-    storages = cast(property, const_property(_gatherStorages))
+    storages = const_property(_gatherStorages)
 
     def _gatherArguments(self):
         '''A dictionary containing all arguments that occur in this code block.

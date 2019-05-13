@@ -85,7 +85,7 @@ class ParseNode:
         '''Location information, where the span includes to the entire tree
         under this node.'''
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '%s(%s)' % (
             self.__class__.__name__,
             ', '.join(

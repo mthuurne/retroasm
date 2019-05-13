@@ -23,7 +23,7 @@ class EncodeMatch:
         self._entry = entry
         self._mapping = {}
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'EncodeMatch(%r, %r)' % (self._entry, self._mapping)
 
     def __getitem__(self, key):

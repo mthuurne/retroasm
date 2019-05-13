@@ -29,10 +29,10 @@ class EncodingExpr:
         self._bits = bits
         self._location = location
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self._bits)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
 
     def fillPlaceholder(self, name, entry):
@@ -89,10 +89,10 @@ class EncodingMultiMatch:
         self._start = start
         self._location = location
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '%s@' % self._name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
             self._name, self._mode, self._start, self._location
             )
@@ -327,7 +327,7 @@ class ModeEntry:
             placeholders, OrderedDict, 'placeholders definition'
             )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'ModeEntry(%r, %r, %r, %r)' % (
             self.encoding, self.mnemonic, self.semantics, self.placeholders
             )
@@ -414,7 +414,7 @@ class ModeMatch:
         self._values = values
         self._subs = subs
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'ModeMatch(%r, %r, %r)' % (self._entry, self._values, self._subs)
 
     @const_property
@@ -561,7 +561,7 @@ class Mode(ModeTable):
         self._semType = semType
         self._location = location
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'mode %s %s' % (self._semType, self._name)
 
 PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
@@ -595,12 +595,12 @@ class ValuePlaceholder(Placeholder):
         self._type = typ
         self._code = checkType(code, (CodeBlock, type(None)), 'code block')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'ValuePlaceholder(%r, %r, %r)' % (
             self._name, self._type, self._code
             )
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self._code is None:
             return '{%s %s}' % (self._type, self._name)
         else:
@@ -620,10 +620,10 @@ class MatchPlaceholder(Placeholder):
         Placeholder.__init__(self, name)
         self._mode = mode
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'MatchPlaceholder(%r, %r)' % (self._name, self._mode)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{%s %s}' % (self._mode.name, self._name)
 
     def rename(self, name):

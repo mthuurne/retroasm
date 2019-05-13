@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from collections.abc import (
     Iterator, MutableMapping, MutableSequence, MutableSet
 )
 from functools import update_wrapper
 from types import MappingProxyType
+from typing import (
+    TYPE_CHECKING, Callable, Tuple, Type, TypeVar, Union, cast, overload
+)
 from weakref import WeakValueDictionary
 
+T = TypeVar('T')
 
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there
@@ -43,49 +49,53 @@ class Singleton(type):
             cls.__instance = instance
         return instance
 
-class const_property:
-    '''Decorator for properties that don't change in value.
-    The getter function is called at most once: the first time the property
-    is read.
-    If the getter returns an iterator or a mutable sequence, set or mapping,
-    the returned value is converted to a read-only value.
-    The value is stored in an attribute that is named equal to the wrapped
-    getter function, with an underscore prepended. In classes that define
-    __slots__, make sure that you include this attribute as well.
-    '''
+if TYPE_CHECKING:
+    # TODO: This correctly expresses the caching part, but not the const part.
+    const_property = property
+else:
+    class const_property:
+        '''Decorator for properties that don't change in value.
+        The getter function is called at most once: the first time the property
+        is read.
+        If the getter returns an iterator or a mutable sequence, set or mapping,
+        the returned value is converted to a read-only value.
+        The value is stored in an attribute that is named equal to the wrapped
+        getter function, with an underscore prepended. In classes that define
+        __slots__, make sure that you include this attribute as well.
+        '''
 
-    def __init__(self, getter):
-        self._getter = getter
-        self._name = '_' + getter.__name__
-        update_wrapper(self, getter)
+        def __init__(self, getter):
+            self._getter = getter
+            self._name = '_' + getter.__name__
+            update_wrapper(self, getter)
 
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        else:
-            name = self._name
-            value = getattr(instance, name, None)
-            if value is None:
-                value = self._getter(instance)
+        def __get__(self, obj, objtype):
+            if obj is None:
+                return self
+            else:
+                name = self._name
+                value = getattr(obj, name, None)
+                if value is None:
+                    value = self._getter(obj)
 
-                # Convert to read-only type.
-                if isinstance(value, (Iterator, MutableSequence)):
-                    value = tuple(value)
-                elif isinstance(value, MutableSet):
-                    value = frozenset(value)
-                elif isinstance(value, MutableMapping):
-                    value = MappingProxyType(value)
+                    # Convert to read-only type.
+                    if isinstance(value, (Iterator, MutableSequence)):
+                        value = tuple(value)
+                    elif isinstance(value, MutableSet):
+                        value = frozenset(value)
+                    elif isinstance(value, MutableMapping):
+                        value = MappingProxyType(value)
 
-                setattr(instance, name, value)
-            return value
+                    setattr(obj, name, value)
+                return value
 
-    def __set__(self, instance, value):
-        raise AttributeError('const_property cannot be set')
+        def __set__(self, obj, value):
+            raise AttributeError('const_property cannot be set')
 
-    def __delete__(self, instance):
-        raise AttributeError('const_property cannot be deleted')
+        def __delete__(self, obj):
+            raise AttributeError('const_property cannot be deleted')
 
-def checkType(obj, typ, desc):
+def checkType(obj: T, typ: Union[Type[T], Tuple[Type, ...]], desc: str) -> T:
     '''Checks whether the given object is of the given type(s).
     If it is, the object is returned unchanged, otherwise TypeError is raised,
     with the "desc" argument used to describe the object in the error message.
@@ -100,7 +110,7 @@ def checkType(obj, typ, desc):
         actual = type(obj).__name__
         raise TypeError('%s must be %s, got %s' % (desc, good, actual))
 
-def search(low, high, test):
+def search(low: int, high: int, test: Callable[[int], bool]) -> int:
     '''Binary search: [low..high) is the range to search; function "test"
     takes a single value from that interval and returns a truth value.
     The function must be ascending: (test(x) and y >= x) => test(y).

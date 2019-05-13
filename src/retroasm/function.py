@@ -13,10 +13,10 @@ class Function:
         self.args = args
         self.code = code
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Function(%r, %r, %r)' % (self.retType, self.args, self.code)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '(%s) -> %s' % (
             ', '.join(
                 '%s %s' % (decl, name)
@@ -25,7 +25,7 @@ class Function:
             'unit' if self.retType is None else self.retType,
             )
 
-    def dump(self):
+    def dump(self) -> None:
         print(str(self))
         if self.code is None:
             print('    no code')

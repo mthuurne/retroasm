@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable, Iterator, Tuple, Union, cast
+
 from .utils import Singleton, Unique
 
 
@@ -7,52 +11,52 @@ class Unlimited(metaclass=Singleton):
     '''
     __slots__ = ()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'unlimited'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'unlimited'
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return super().__hash__()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is other
         else:
             return NotImplemented
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is not other
         else:
             return NotImplemented
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return False
         else:
             return NotImplemented
 
-    def __le__(self, other):
+    def __le__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is other
         else:
             return NotImplemented
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is not other
         else:
             return NotImplemented
 
-    def __ge__(self, other):
+    def __ge__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return True
         else:
             return NotImplemented
 
-    def __add__(self, other):
+    def __add__(self, other: Union[int, Unlimited]) -> Unlimited:
         if isinstance(other, (int, Unlimited)):
             return self
         else:
@@ -60,24 +64,24 @@ class Unlimited(metaclass=Singleton):
 
     __radd__ = __add__
 
-    def __sub__(self, other):
+    def __sub__(self, other: int) -> Unlimited:
         if isinstance(other, int):
             return self
         else:
             return NotImplemented
 
-    def __rsub__(self, other):
+    def __rsub__(self, other: int) -> None:
         return NotImplemented
 
 unlimited = Unlimited()
 
-def maskForWidth(width):
-    return -1 if width is unlimited else (1 << width) - 1
+def maskForWidth(width: Union[int, Unlimited]) -> int:
+    return -1 if width is unlimited else (1 << cast(int, width)) - 1
 
-def widthForMask(mask):
+def widthForMask(mask: int) -> Union[int, Unlimited]:
     return unlimited if mask < 0 else mask.bit_length()
 
-def trailingZeroes(n):
+def trailingZeroes(n: int) -> Union[int, Unlimited]:
     if n == 0:
         return unlimited
     count = 0
@@ -85,7 +89,9 @@ def trailingZeroes(n):
         count += 1
     return count
 
-def maskToSegments(mask):
+Segment = Tuple[int, Union[int, Unlimited]]
+
+def maskToSegments(mask: int) -> Iterator[Segment]:
     '''Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
     The segments are returned in increasing order.
@@ -108,7 +114,7 @@ def maskToSegments(mask):
             mask >>= 1
         yield start, i
 
-def segmentsToMask(segments):
+def segmentsToMask(segments: Iterable[Segment]) -> int:
     '''Computes a mask that corresponds to the given sequence of pairs of
     start and end indices.
     Overlapping or empty segments are allowed, start larger than end is not.
@@ -116,7 +122,9 @@ def segmentsToMask(segments):
     '''
     mask = 0
     for start, end in segments:
-        mask |= (-1 if end is unlimited else (1 << (end - start)) - 1) << start
+        mask |= (
+            -1 if end is unlimited else (1 << (cast(int, end) - start)) - 1
+            ) << start
     return mask
 
 class IntType(metaclass=Unique):
@@ -128,25 +136,31 @@ class IntType(metaclass=Unique):
     '''
     __slots__ = ('_width', '_signed', '__weakref__')
 
-    width = property(lambda self: self._width)
-    signed = property(lambda self: self._signed)
-    mask = property(
-         lambda self: -1 if self._signed else maskForWidth(self._width)
-         )
+    @property
+    def width(self) -> Union[int, Unlimited]:
+        return self._width
+
+    @property
+    def signed(self) -> bool:
+        return self._signed
+
+    @property
+    def mask(self) -> int:
+         return -1 if self._signed else maskForWidth(self._width)
 
     @classmethod
-    def u(cls, width):
+    def u(cls, width: Union[int, Unlimited]) -> IntType:
         '''Creates an unsigned integer type of the given width.
         '''
         return cls(width, False)
 
     @classmethod
-    def s(cls, width):
+    def s(cls, width: Union[int, Unlimited]) -> IntType:
         '''Creates a signed integer type of the given width.
         '''
         return cls(width, True)
 
-    def __init__(self, width, signed):
+    def __init__(self, width: Union[int, Unlimited], signed: bool):
         if isinstance(width, int):
             if width < 0:
                 raise ValueError('width must not be negative: %d' % width)
@@ -157,33 +171,38 @@ class IntType(metaclass=Unique):
         self._width = width
         self._signed = signed
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'IntType(%s, %s)' % (self._width, self._signed)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'int' if self._width is unlimited else '%s%d' % (
-            's' if self._signed else 'u', self._width
+            's' if self._signed else 'u', cast(int, self._width)
             )
 
-setattr(IntType, 'int', IntType(unlimited, True))
+    if TYPE_CHECKING:
+        int = IntType(unlimited, True)
+
+IntType.int = IntType(unlimited, True)
 
 class ReferenceType(metaclass=Unique):
     '''A reference to a value of a certain type.
     '''
     __slots__ = ('_type', '__weakref__')
 
-    type = property(lambda self: self._type)
+    @property
+    def type(self) -> IntType:
+        return self._type
 
-    def __init__(self, typ):
+    def __init__(self, typ: IntType):
         self._type = typ
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'ReferenceType(%r)' % self._type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '%s&' % self._type
 
-def parseType(typeName):
+def parseType(typeName: str) -> IntType:
     if typeName == 'int':
         return IntType.int
     if typeName.startswith('u') or typeName.startswith('s'):
@@ -192,7 +211,7 @@ def parseType(typeName):
             return IntType(int(widthStr), typeName.startswith('s'))
     raise ValueError('"%s" is not a valid type name' % typeName)
 
-def parseTypeDecl(typeDecl):
+def parseTypeDecl(typeDecl: str) -> Union[IntType, ReferenceType]:
     if typeDecl.endswith('&'):
         return ReferenceType(parseType(typeDecl[:-1]))
     else:

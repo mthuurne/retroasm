@@ -139,7 +139,7 @@ class InputLocation:
         self._line = line
         self._span = span
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'InputLocation(%r, %r, %r, %r)' % (
             self._pathname, self._lineno, self._line, self._span
             )
