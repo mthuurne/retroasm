@@ -65,7 +65,7 @@ class BitString:
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         '''Emits load nodes for loading a bit string from the underlying
         storage(s).
@@ -76,7 +76,7 @@ class BitString:
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         '''Emits store nodes for storing a bit string into the underlying
         storage(s).
@@ -130,14 +130,14 @@ class FixedValue(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         return self._expr
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         pass
 
@@ -191,14 +191,14 @@ class SingleStorage(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         return builder.emitLoadBits(self._storage, location)
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         builder.emitStoreBits(self._storage, value, location)
 
@@ -259,7 +259,7 @@ class ConcatenatedBits(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         terms = []
         offset = 0
@@ -272,7 +272,7 @@ class ConcatenatedBits(BitString):
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         offset = 0
         for sub in self._subs:
@@ -357,7 +357,7 @@ class SlicedBits(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         # Load value from our bit string.
         value = self._bits.emitLoad(builder, location)
@@ -368,7 +368,7 @@ class SlicedBits(BitString):
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         offset = self._offset
         width = self.width
@@ -422,14 +422,14 @@ class BadBits(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         return BadValue(self._width)
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         pass
 
@@ -481,7 +481,7 @@ class Reference:
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: InputLocation
+                 location: Optional[InputLocation]
                  ) -> Expression:
         '''Emits load nodes for loading a typed value from the referenced
         bit string.
@@ -493,7 +493,7 @@ class Reference:
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: InputLocation
+                  location: Optional[InputLocation]
                   ) -> None:
         '''Emits store nodes for storing a value into the referenced bit string.
         '''

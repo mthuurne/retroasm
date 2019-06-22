@@ -17,7 +17,7 @@ class CodeBlockBuilder:
 
     def emitLoadBits(self,
                      storage: Storage,
-                     location: InputLocation
+                     location: Optional[InputLocation]
                      ) -> Expression:
         '''Loads the value from the given storage by emitting a Load node on
         this builder.
@@ -28,7 +28,7 @@ class CodeBlockBuilder:
     def emitStoreBits(self,
                       storage: Storage,
                       value: Expression,
-                      location: InputLocation
+                      location: Optional[InputLocation]
                       ) -> None:
         '''Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
@@ -54,13 +54,20 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
     touch any state, such as performing register access or I/O.
     '''
 
-    def emitLoadBits(self, storage, location):
+    def emitLoadBits(self,
+                     storage: Storage,
+                     location: Optional[InputLocation]
+                     ) -> Expression:
         raise IllegalStateAccess(
             'attempt to read state: %s' % storage,
             location
             )
 
-    def emitStoreBits(self, storage, value, location):
+    def emitStoreBits(self,
+                      storage: Storage,
+                      value: Expression,
+                      location: Optional[InputLocation]
+                      ) -> None:
         raise IllegalStateAccess(
             'attempt to write state: %s' % storage,
             location
@@ -137,12 +144,19 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def emitLoadBits(self, storage, location):
+    def emitLoadBits(self,
+                     storage: Storage,
+                     location: Optional[InputLocation]
+                     ) -> Expression:
         load = Load(storage, location)
         self.nodes.append(load)
         return load.expr
 
-    def emitStoreBits(self, storage, value, location):
+    def emitStoreBits(self,
+                      storage: Storage,
+                      value: Expression,
+                      location: Optional[InputLocation]
+                      ) -> None:
         self.nodes.append(Store(value, storage, location))
 
     def inlineFunctionCall(self, func, argMap, location):
