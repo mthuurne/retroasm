@@ -1,108 +1,13 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
-from logging import DEBUG, ERROR, INFO, WARNING, Formatter
+from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
+from typing import (
+    IO, Any, Iterable, Iterator, Match, Optional, Pattern, Sequence, Tuple,
+    Type, TypeVar, Union, cast, overload
+)
 import re
 
-
-class LineReader:
-    '''Iterates through the lines of a text file.
-    The lines will not contain a trailing newline character.
-    Log methods on the reader can be used to produce log records with context
-    information: path name and the number and contents of the current line.
-    Errors and warnings reported in this way are counted.
-    The companion class LineReaderFormatter can be used to incorporate the
-    context information in the logging.
-    '''
-
-    @classmethod
-    @contextmanager
-    def open(cls, pathname, logger):
-        with open(pathname, 'r') as lines:
-            reader = cls(pathname, lines, logger)
-            reader.debug('start reading')
-            yield reader
-            reader.debug('done reading')
-
-    def __init__(self, pathname, lines, logger):
-        self._pathname = pathname
-        self._lines = lines
-        self.logger = logger
-
-        self._lastline = None
-        self._lineno = 0
-        self.warnings = 0
-        self.errors = 0
-
-    def __iter__(self):
-        return self
-
-    def _nextLine(self):
-        self._lastline = None # in case next() raises StopIteration
-        line = next(self._lines).rstrip('\n')
-        self._lastline = line
-        self._lineno += 1
-
-    def __next__(self):
-        self._nextLine()
-        return self.location
-
-    @property
-    def location(self):
-        '''Returns an InputLocation object describing the current line in
-        the input file.
-        '''
-        return InputLocation(self._pathname, self._lineno, self._lastline, None)
-
-    def debug(self, msg, *args, **kwargs):
-        '''Log a message at the DEBUG level.
-        '''
-        self.__log(DEBUG, msg, *args, **kwargs)
-
-    def info(self, msg, *args, **kwargs):
-        '''Log a message at the INFO level.
-        '''
-        self.__log(INFO, msg, *args, **kwargs)
-
-    def warning(self, msg, *args, **kwargs):
-        '''Log a message at the WARNING level and increase the warning count.
-        '''
-        self.warnings += 1
-        self.__log(WARNING, 'warning: ' + msg, *args, **kwargs)
-
-    def error(self, msg, *args, **kwargs):
-        '''Log a message at the ERROR level and increase the error count.
-        '''
-        self.errors += 1
-        self.__log(ERROR, 'ERROR: ' + msg, *args, **kwargs)
-
-    @contextmanager
-    def checkErrors(self):
-        '''Returns a context manager that raises DelayedError on context close
-        if any errors were logged since the context was opened.
-        '''
-        errorsBefore = self.errors
-        yield self
-        numErrors = self.errors - errorsBefore
-        if numErrors != 0:
-            raise DelayedError('%d errors were logged' % numErrors)
-
-    def summarize(self):
-        '''Log a message containing the error and warning counts.
-        '''
-        level = ERROR if self.errors > 0 else (
-            WARNING if self.warnings > 0 else INFO
-            )
-        msg = '%d error%s and %d warning%s' % (
-            self.errors, '' if self.errors == 1 else 's',
-            self.warnings, '' if self.warnings == 1 else 's'
-            )
-        self.__log(level, msg)
-
-    def __log(self, level, msg, *args, location=None, **kwargs):
-        if self.logger.isEnabledFor(level):
-            if location is None:
-                location = self.location
-            extra = dict(location=location)
-            self.logger.log(level, msg, *args, extra=extra, **kwargs)
 
 class InputLocation:
     '''Describes a particular location in an input text file.
@@ -111,29 +16,44 @@ class InputLocation:
     '''
     __slots__ = ('_pathname', '_lineno', '_line', '_span')
 
-    pathname = property(lambda self: self._pathname)
-    '''The file system path to the input text file.'''
-
-    line = property(lambda self: self._line)
-    '''The contents of the input line that this location describes.'''
-
-    lineno = property(lambda self: self._lineno)
-    '''The number of this location's line in the input file, where line 1 is
-    the first line.'''
-
-    span = property(lambda self: self._span)
-    '''The column span information of this location, or None if no column span
-    information is available.'''
+    @property
+    def pathname(self) -> str:
+        '''The file system path to the input text file.'''
+        return self._pathname
 
     @property
-    def effectiveSpan(self):
+    def line(self) -> str:
+        '''The contents of the input line that this location describes.'''
+        return self._line
+
+    @property
+    def lineno(self) -> int:
+        '''The number of this location's line in the input file,
+        where line 1 is the first line.
+        '''
+        return self._lineno
+
+    @property
+    def span(self) -> Optional[Tuple[int, int]]:
+        '''The column span information of this location,
+        or None if no column span information is available.
+        '''
+        return self._span
+
+    @property
+    def effectiveSpan(self) -> Tuple[int, int]:
         '''The column span information of this location, or the full line if
         no column span information is available.
         '''
         span = self._span
         return (0, len(self._line)) if span is None else span
 
-    def __init__(self, pathname, lineno, line, span=None):
+    def __init__(self,
+                 pathname: str,
+                 lineno: int,
+                 line: str,
+                 span: Optional[Tuple[int, int]] = None
+                 ):
         self._pathname = pathname
         self._lineno = lineno
         self._line = line
@@ -144,37 +64,47 @@ class InputLocation:
             self._pathname, self._lineno, self._line, self._span
             )
 
-    def __eq__(self, other):
-        return ( # pylint: disable=protected-access
-            isinstance(other, InputLocation)
-            and self._pathname == other._pathname
-            and self._lineno == other._lineno
-            and self._line == other._line
-            and self._span == other._span
-            )
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, InputLocation):
+            # pylint: disable=protected-access
+            return (self._pathname == other._pathname
+                and self._lineno == other._lineno
+                and self._line == other._line
+                and self._span == other._span
+                )
+        else:
+            return NotImplemented
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, InputLocation):
+            # pylint: disable=protected-access
+            return (self._pathname != other._pathname
+                 or self._lineno != other._lineno
+                 or self._line != other._line
+                 or self._span != other._span
+                 )
+        else:
+            return NotImplemented
 
-    def __len__(self):
+    def __len__(self) -> int:
         span = self._span
         return len(self._line) if span is None else span[1] - span[0]
 
-    def updateSpan(self, span):
+    def updateSpan(self, span: Optional[Tuple[int, int]]) -> InputLocation:
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
         return InputLocation(self._pathname, self._lineno, self._line, span)
 
     @property
-    def endLocation(self):
+    def endLocation(self) -> InputLocation:
         '''A zero-length location marking the end point of this location.
         '''
         end = self.effectiveSpan[1]
         return self.updateSpan((end, end))
 
     @property
-    def text(self):
+    def text(self) -> str:
         '''Returns the text described by this location: the spanned substring
         if span information is available, otherwise the full line.
         '''
@@ -182,7 +112,7 @@ class InputLocation:
         span = self._span
         return line if span is None else line[slice(*span)]
 
-    def match(self, pattern):
+    def match(self, pattern: Pattern[str]) -> Optional['InputMatch']:
         '''Matches the text in this location to the given compiled regular
         expression pattern.
         Returns an InputMatch object, or None if no match was found.
@@ -190,7 +120,7 @@ class InputLocation:
         match = pattern.match(self._line, *self.effectiveSpan)
         return None if match is None else InputMatch(self, match)
 
-    def findLocations(self, pattern):
+    def findLocations(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
         '''Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputLocation object for each
@@ -199,7 +129,7 @@ class InputLocation:
         for match in pattern.finditer(self._line, *self.effectiveSpan):
             yield self.updateSpan(match.span(0))
 
-    def findMatches(self, pattern):
+    def findMatches(self, pattern: Pattern[str]) -> Iterator['InputMatch']:
         '''Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputMatch object for each
@@ -208,7 +138,7 @@ class InputLocation:
         for match in pattern.finditer(self._line, *self.effectiveSpan):
             yield InputMatch(self, match)
 
-    def split(self, pattern):
+    def split(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
         '''Splits the text in this location using the given pattern as a
         separator.
         Returns an iterator yielding InputLocations representing the text
@@ -229,14 +159,21 @@ class InputMatch:
     '''
     __slots__ = ('_location', '_match')
 
-    def __init__(self, location, match):
+    def __init__(self, location: InputLocation, match: Match[str]):
         self._location = location
         self._match = match
 
-    def group(self, index):
+    @overload
+    def group(self, index: int) -> Optional[InputLocation]: ...
+
+    @overload
+    def group(self, index: str) -> Optional[InputLocation]: ...
+
+    def group(self, index: Union[int, str]) -> Optional[InputLocation]:
         '''Returns an InputLocation for the group matched at the given index,
-        with the first group being 1. If 0 as passed as the index, an
-        InputLocation for the entire matched string is returned.
+        which can be name or a numeric index with the first group being 1.
+        If 0 as passed as the index, an InputLocation for the entire matched
+        string is returned.
         If the group did not participate in the match, None is returned.
         '''
         span = self._match.span(index)
@@ -246,25 +183,31 @@ class InputMatch:
             return self._location.updateSpan(span)
 
     @property
-    def groups(self):
-        '''A tuple containing an InputLocation for each of the groups matched
-        and None for those groups that were not part of the match.
+    def groups(self) -> Sequence[Optional[InputLocation]]:
+        '''A sequence containing an InputLocation for each of the groups
+        matched and None for those groups that were not part of the match.
         '''
-        return tuple(self.group(i) for i in range(1, self._match.re.groups + 1))
+        return tuple(self.group(i + 1) for i in range(self._match.re.groups))
 
     @property
-    def groupName(self):
+    def groupName(self) -> Optional[str]:
         '''The name of the last matched group, or None if last matched group
         was nameless or no groups were matched.
         '''
         return self._match.lastgroup
 
-def mergeSpan(fromLocation, toLocation):
+def mergeSpan(fromLocation: InputLocation,
+              toLocation: InputLocation
+              ) -> InputLocation:
     '''Returns a new location of which the span starts at the start of the
     given 'from' location and ends at the end of the given 'to' location.
     Both given locations must be on the same line.
     '''
-    mergedSpan = (fromLocation.span[0], toLocation.span[1])
+    fromSpan = fromLocation.span
+    assert fromSpan is not None, fromLocation
+    toSpan = toLocation.span
+    assert toSpan is not None, toLocation
+    mergedSpan = (fromSpan[0], toSpan[1])
     mergedLocation = fromLocation.updateSpan(mergedSpan)
     assert mergedLocation == toLocation.updateSpan(mergedSpan), \
             (fromLocation, toLocation)
@@ -289,16 +232,135 @@ class BadInput(Exception):
     '''
 
     @classmethod
-    def withText(cls, msg, location):
+    def withText(cls, msg: str, location: InputLocation) -> BadInput:
         '''Returns an instance of the BadInput (sub)class it is called on,
         with the input text in the location's span appended after the error
         message.
         '''
         return cls('%s: %s' % (msg, location.text), location)
 
-    def __init__(self, msg, location=None):
+    def __init__(self,
+                 msg: str,
+                 location: Union[None, InputLocation,Sequence[InputLocation]]
+                    = None
+                 ):
         Exception.__init__(self, msg)
         self.location = location
+
+LineReaderT = TypeVar('LineReaderT', bound='LineReader')
+
+class LineReader:
+    '''Iterates through the lines of a text file.
+    The lines will not contain a trailing newline character.
+    Log methods on the reader can be used to produce log records with context
+    information: path name and the number and contents of the current line.
+    Errors and warnings reported in this way are counted.
+    The companion class LineReaderFormatter can be used to incorporate the
+    context information in the logging.
+    '''
+
+    @classmethod
+    @contextmanager
+    def open(cls: Type[LineReaderT],
+             pathname: str,
+             logger: Logger
+             ) -> Iterator[LineReaderT]:
+        with open(pathname, 'r') as lines:
+            reader = cls(pathname, lines, logger)
+            reader.debug('start reading')
+            yield reader
+            reader.debug('done reading')
+
+    def __init__(self, pathname: str, lines: IO[str], logger: Logger):
+        self._pathname = pathname
+        self._lines = lines
+        self.logger = logger
+
+        self._lastline: Optional[str] = None
+        self._lineno = 0
+        self.warnings = 0
+        self.errors = 0
+
+    def __iter__(self) -> Iterator[InputLocation]:
+        return self
+
+    def _nextLine(self) -> str:
+        self._lastline = None # in case next() raises StopIteration
+        line = next(self._lines).rstrip('\n')
+        self._lastline = line
+        self._lineno += 1
+        return line
+
+    def __next__(self) -> InputLocation:
+        self._nextLine()
+        return self.location
+
+    @property
+    def location(self) -> InputLocation:
+        '''Returns an InputLocation object describing the current line in
+        the input file.
+        '''
+        lastline = self._lastline
+        if lastline is None:
+            raise ValueError('Location requested for EOF')
+        return InputLocation(self._pathname, self._lineno, lastline, None)
+
+    def debug(self, msg: str, *args: object, **kwargs: object) -> None:
+        '''Log a message at the DEBUG level.
+        '''
+        self.__log(DEBUG, msg, *args, **kwargs)
+
+    def info(self, msg: str, *args: object, **kwargs: object) -> None:
+        '''Log a message at the INFO level.
+        '''
+        self.__log(INFO, msg, *args, **kwargs)
+
+    def warning(self, msg: str, *args: object, **kwargs: object) -> None:
+        '''Log a message at the WARNING level and increase the warning count.
+        '''
+        self.warnings += 1
+        self.__log(WARNING, 'warning: ' + msg, *args, **kwargs)
+
+    def error(self, msg: str, *args: object, **kwargs: object) -> None:
+        '''Log a message at the ERROR level and increase the error count.
+        '''
+        self.errors += 1
+        self.__log(ERROR, 'ERROR: ' + msg, *args, **kwargs)
+
+    @contextmanager
+    def checkErrors(self) -> Iterator['LineReader']:
+        '''Returns a context manager that raises DelayedError on context close
+        if any errors were logged since the context was opened.
+        '''
+        errorsBefore = self.errors
+        yield self
+        numErrors = self.errors - errorsBefore
+        if numErrors != 0:
+            raise DelayedError('%d errors were logged' % numErrors)
+
+    def summarize(self) -> None:
+        '''Log a message containing the error and warning counts.
+        '''
+        level = ERROR if self.errors > 0 else (
+            WARNING if self.warnings > 0 else INFO
+            )
+        msg = '%d error%s and %d warning%s' % (
+            self.errors, '' if self.errors == 1 else 's',
+            self.warnings, '' if self.warnings == 1 else 's'
+            )
+        self.__log(level, msg)
+
+    def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
+        logger = self.logger
+        if logger.isEnabledFor(level):
+            location = cast(
+                Union[None, InputLocation, Sequence[InputLocation]],
+                kwargs.pop('location', None)
+                )
+            if location is None and self._lastline is not None:
+                location = self.location
+            extra = dict(location=location)
+            logger.log(level, msg, *args, extra=extra, **kwargs)
 
 _reComment = re.compile(r'(?<!\\)#')
 
@@ -310,10 +372,9 @@ class DefLineReader(LineReader):
     multiple errors in a single pass.
     '''
 
-    def __next__(self):
+    def __next__(self) -> InputLocation:
         while True:
-            self._nextLine()
-            line = self._lastline.rstrip()
+            line = self._nextLine().rstrip()
             match = _reComment.search(line)
             if match is None:
                 span = None
@@ -328,7 +389,7 @@ class DefLineReader(LineReader):
                 span = (0, end)
             return InputLocation(self._pathname, self._lineno, line, span)
 
-    def iterBlock(self):
+    def iterBlock(self) -> Iterator[InputLocation]:
         '''Iterates through the lines of the current block.
         '''
         while True:
@@ -337,7 +398,7 @@ class DefLineReader(LineReader):
                 break
             yield line
 
-    def skipBlock(self):
+    def skipBlock(self) -> None:
         '''Skips the remainder of the current block.
         '''
         for _ in self.iterBlock():
@@ -345,12 +406,20 @@ class DefLineReader(LineReader):
 
 class LineReaderFormatter(Formatter):
 
-    def format(self, record):
+    def format(self, record: LogRecord) -> str:
         msg = super().format(record)
-        location = getattr(record, 'location', None)
+        location = cast(
+            Union[None, InputLocation, Sequence[InputLocation]],
+            getattr(record, 'location', None)
+            )
         return '\n'.join(self._formatParts(self._iterParts(msg, location)))
 
-    def _formatParts(self, parts):
+    def _formatParts(self,
+                     parts: Iterable[Tuple[
+                         Optional[str], Optional[str], int, Optional[str],
+                         Sequence[Optional[Tuple[int, int]]]
+                         ]]
+                     ) -> Iterator[str]:
         for msg, pathname, lineno, line, spans in parts:
             if pathname is None:
                 assert msg is not None
@@ -383,13 +452,20 @@ class LineReaderFormatter(Formatter):
                 if spanLine:
                     yield spanLine
 
-    def _iterParts(self, msg, location):
+    def _iterParts(self,
+                   msg: str,
+                   location: Union[None, InputLocation, Sequence[InputLocation]]
+                   ) -> Iterator[Tuple[
+                         Optional[str], Optional[str], int, Optional[str],
+                         Sequence[Optional[Tuple[int, int]]]
+                         ]]:
         if location is None:
-            yield msg, None, None, None, []
+            yield msg, None, -1, None, []
         elif isinstance(location, InputLocation):
             loc = location
             yield msg, loc.pathname, loc.lineno, loc.line, [loc.span]
         else:
+            multiMsg: Optional[str] = msg
             i = 0
             while i < len(location):
                 # Merge spans of following locations on the same line.
@@ -402,5 +478,5 @@ class LineReaderFormatter(Formatter):
                         location[i].pathname == loc.pathname:
                     spans.append(location[i].span)
                     i += 1
-                yield msg, loc.pathname, lineno, loc.line, spans
-                msg = None
+                yield multiMsg, loc.pathname, lineno, loc.line, spans
+                multiMsg = None
