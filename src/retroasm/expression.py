@@ -3,8 +3,8 @@ from __future__ import annotations
 from functools import reduce
 from itertools import chain
 from typing import (
-    Callable, Iterable, Iterator, Optional, Sequence, Type, TypeVar, Union,
-    cast
+    Callable, Iterable, Iterator, Optional, Sequence, Tuple, Type, TypeVar,
+    Union, cast
 )
 
 from .types import (
@@ -36,7 +36,7 @@ class Expression:
         '''
         raise NotImplementedError
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[object, ...]:
         '''Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
         '''
@@ -67,7 +67,7 @@ class Expression:
             return NotImplemented
 
     def __hash__(self) -> int:
-        return hash(tuple(self._ctorargs()) + (self.__class__,))
+        return hash(self._ctorargs() + (self.__class__,))
 
     def _equals(self: ExprT, other: ExprT) -> bool:
         '''Returns True if this expression is equal to the other expression,
@@ -136,7 +136,7 @@ class BadValue(Expression):
         self._width = checkType(width, (int, Unlimited), 'width')
         Expression.__init__(self)
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Union[int, Unlimited]]:
         return self._width,
 
     def __str__(self) -> str:
@@ -166,7 +166,7 @@ class IntLiteral(Expression):
         self._value = checkType(value, int, 'value')
         Expression.__init__(self)
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[int]:
         return self._value,
 
     def __str__(self) -> str:
@@ -209,11 +209,11 @@ class MultiExpression(Expression):
         Expression.__init__(self)
         self._exprs = exprs
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, ...]:
         return self._exprs
 
     @const_property
-    def mask(self):
+    def mask(self) -> int:
         return self.computeMask(self._exprs)
 
     @classmethod
@@ -392,7 +392,7 @@ class SingleExpression(Expression):
         Expression.__init__(self)
         self._expr = checkType(expr, Expression, 'subexpression')
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[object, ...]:
         return self._expr,
 
     def _equals(self: SingleExprT, other: SingleExprT) -> bool:
@@ -409,9 +409,9 @@ class Complement(SingleExpression):
         return '-%s' % self._expr
 
     @const_property
-    def mask(self):
+    def mask(self) -> int:
         exprMask = self._expr.mask
-        return 0 if exprMask == 0 else -1 << trailingZeroes(exprMask)
+        return 0 if exprMask == 0 else -1 << cast(int, trailingZeroes(exprMask))
 
 class Negation(SingleExpression):
     __slots__ = ()
@@ -452,7 +452,7 @@ class SignExtension(SingleExpression):
         SingleExpression.__init__(self, expr)
         self._width = checkType(width, int, 'width')
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, int]:
         return self._expr, self._width
 
     def __str__(self) -> str:
@@ -487,7 +487,7 @@ class LShift(SingleExpression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -522,7 +522,7 @@ class RShift(SingleExpression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -566,12 +566,14 @@ class LVShift(Expression):
         return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
-    def mask(self):
+    def mask(self) -> int:
         exprMask = self._expr.mask
         if exprMask == 0:
             return 0
         offsetMask = self._offset.mask
-        width = widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask)
+        width = cast(int, widthForMask(
+            offsetMask if offsetMask >= 0 else ~offsetMask
+            ))
         mask = exprMask
         for i in range(width):
             if 1 << i >= _SHIFT_LIMIT_BITS:
@@ -579,10 +581,11 @@ class LVShift(Expression):
                 break
             if (offsetMask >> i) & 1:
                 mask |= mask << (1 << i)
-        return mask if offsetMask >= 0 else \
-                mask | (-1 << ((1 << width) + trailingZeroes(exprMask)))
+        return mask if offsetMask >= 0 else mask | (
+            -1 << ((1 << width) + cast(int, trailingZeroes(exprMask)))
+            )
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, Expression]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -615,17 +618,17 @@ class RVShift(Expression):
         return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
-    def mask(self):
+    def mask(self) -> int:
         exprMask = self._expr.mask
         offsetMask = self._offset.mask
         if offsetMask >= 0:
             # There is a limited number of possible offsets.
-            offsetWidth = widthForMask(offsetMask)
+            offsetWidth = cast(int, widthForMask(offsetMask))
         elif exprMask >= 0:
             # There is an unlimited number of possible offsets, but only
             # offsets below the width of the expression mask contribute.
-            exprWidth = widthForMask(exprMask)
-            offsetWidth = widthForMask(exprWidth)
+            exprWidth = cast(int, widthForMask(exprMask))
+            offsetWidth = cast(int, widthForMask(exprWidth))
         else:
             # There is no value we can rule out.
             assert exprMask < 0 and offsetMask < 0, self
@@ -636,7 +639,7 @@ class RVShift(Expression):
                 mask |= mask >> (1 << i)
         return mask
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Expression, Expression]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
