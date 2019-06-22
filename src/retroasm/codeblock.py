@@ -1,4 +1,9 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import (
+    AbstractSet, Callable, Dict, Iterable, Mapping, Optional, Set, Tuple,
+    TypeVar
+)
 
 from .expression import Expression
 from .linereader import InputLocation
@@ -49,7 +54,7 @@ class AccessNode(Node):
     def location(self) -> Optional[InputLocation]:
         return self._location
 
-    def clone(self):
+    def clone(self) -> AccessNode:
         '''Create a clone of this node.
         '''
         raise NotImplementedError
@@ -59,7 +64,10 @@ class Load(AccessNode):
     '''
     __slots__ = ()
 
-    def __init__(self, storage, location=None):
+    def __init__(self,
+                 storage: Storage,
+                 location: Optional[InputLocation] = None
+                 ):
         checkType(storage, Storage, 'storage')
         expr = LoadedValue(self, maskForWidth(storage.width))
         AccessNode.__init__(self, expr, storage, location)
@@ -76,11 +84,11 @@ class Load(AccessNode):
     def expr(self) -> Expression:
         return super().expr
 
-    @AccessNode.expr.setter
-    def expr(self, expr):
+    @expr.setter
+    def expr(self, expr: Expression) -> None:
         raise AttributeError('Cannot change expression for Load nodes')
 
-    def clone(self):
+    def clone(self) -> Load:
         return Load(self._storage, self._location)
 
 class Store(AccessNode):
@@ -88,7 +96,11 @@ class Store(AccessNode):
     '''
     __slots__ = ()
 
-    def __init__(self, expr, storage, location=None):
+    def __init__(self,
+                 expr: Expression,
+                 storage: Storage,
+                 location: Optional[InputLocation] = None
+                 ):
         AccessNode.__init__(
             self,
             checkType(expr, Expression, 'value'),
@@ -102,7 +114,7 @@ class Store(AccessNode):
     def __str__(self) -> str:
         return 'store %s in %s' % (self._expr, self._storage)
 
-    def clone(self):
+    def clone(self) -> Store:
         return Store(self._expr, self._storage, self._location)
 
 class LoadedValue(Expression):
@@ -123,7 +135,7 @@ class LoadedValue(Expression):
         self._load = checkType(load, Load, 'load node')
         self._mask = checkType(mask, int, 'mask')
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> Tuple[Load, int]:
         return self._load, self._mask
 
     def __repr__(self) -> str:
@@ -132,7 +144,7 @@ class LoadedValue(Expression):
     def __str__(self) -> str:
         return 'load(%s)' % self._load.storage
 
-    def _equals(self, other):
+    def _equals(self, other: LoadedValue) -> bool:
         # pylint: disable=protected-access
         return self._load is other._load
 
@@ -142,14 +154,16 @@ class LoadedValue(Expression):
         # desirable in analysis, so assign a high cost to them.
         return 8
 
-def verifyLoads(nodes, returned=()):
+def verifyLoads(nodes: Iterable[AccessNode],
+                returned: Iterable[BitString] = ()
+                ) -> None:
     '''Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
     '''
     # Check that every LoadedValue has an associated Load node, which must
     # execute before the LoadedValue is used.
-    loads = set()
+    loads: Set[Load] = set()
     for node in nodes:
         # Check that all expected loads have occurred.
         if isinstance(node, Store):
@@ -170,9 +184,12 @@ def verifyLoads(nodes, returned=()):
 
 class CodeBlock:
 
-    def __init__(self, nodes, returned):
+    def __init__(self,
+                 nodes: Iterable[AccessNode],
+                 returned: Iterable[BitString]
+                 ):
         clonedNodes = []
-        valueMapping = {}
+        valueMapping: Dict[Expression, Expression] = {}
         for node in nodes:
             clone = node.clone()
             clonedNodes.append(clone)
@@ -183,13 +200,15 @@ class CodeBlock:
         assert all(isinstance(ret, BitString) for ret in self.returned), \
             self.returned
         self._updateExpressions(valueMapping.get)
-        assert self.verify() is None
+        assert self.verify()
 
-    def verify(self):
+    def verify(self) -> bool:
         '''Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
+        Returns True on success, never returns False.
         '''
         verifyLoads(self.nodes, self.returned)
+        return True
 
     def dump(self) -> None:
         '''Prints this code block on stdout.
@@ -199,11 +218,7 @@ class CodeBlock:
         for retBits in self.returned:
             print('    return %s' % retBits)
 
-    def _gatherExpressions(self):
-        '''A set of all expressions that are contained in this block.
-        Only top-level expressions are included, not all subexpressions of
-        those top-level expressions.
-        '''
+    def _gatherExpressions(self) -> Set[Expression]:
         expressions = set()
         for node in self.nodes:
             if isinstance(node, Store):
@@ -213,11 +228,15 @@ class CodeBlock:
             expressions.update(retBits.iterExpressions())
         return expressions
 
-    expressions = const_property(_gatherExpressions)
-
-    def _gatherStorages(self):
-        '''A set of all storages that are accessed or referenced by this block.
+    @const_property
+    def expressions(self) -> AbstractSet[Expression]:
+        '''A set of all expressions that are contained in this block.
+        Only top-level expressions are included, not all subexpressions of
+        those top-level expressions.
         '''
+        return self._gatherExpressions()
+
+    def _gatherStorages(self) -> Set[Storage]:
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
@@ -225,15 +244,14 @@ class CodeBlock:
             storages.update(retBits.iterStorages())
         return storages
 
-    storages = const_property(_gatherStorages)
-
-    def _gatherArguments(self):
-        '''A dictionary containing all arguments that occur in this code block.
-        The dictionary keys are the argument names and the dictionary values
-        are ArgStorage instances.
-        ValueError is raised if the same name is used for multiple arguments.
+    @property
+    def storages(self) -> AbstractSet[Storage]:
+        '''A set of all storages that are accessed or referenced by this block.
         '''
-        args = {}
+        return self._gatherStorages()
+
+    def _gatherArguments(self) -> Mapping[str, ArgStorage]:
+        args: Dict[str, ArgStorage] = {}
         for storage in self.storages:
             if isinstance(storage, ArgStorage):
                 name = storage.name
@@ -244,9 +262,17 @@ class CodeBlock:
                     raise ValueError('multiple arguments named "%s"' % name)
         return args
 
-    arguments = const_property(_gatherArguments)
+    @const_property
+    def arguments(self) -> Mapping[str, ArgStorage]:
+        '''A mapping containing all arguments that occur in this code block.
+        ValueError is raised if the same name is used for multiple arguments.
+        '''
+        return self._gatherArguments()
 
-    def _updateExpressions(self, substFunc):
+    def _updateExpressions(self,
+                           substFunc: Callable[[Expression],
+                                               Optional[Expression]]
+                           ) -> None:
         '''Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution

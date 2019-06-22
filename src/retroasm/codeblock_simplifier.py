@@ -1,15 +1,22 @@
 from collections import defaultdict
+from typing import AbstractSet
 
 from .codeblock import CodeBlock, Load, LoadedValue, Store
+from .expression import Expression
 from .expression_simplifier import simplifyExpression
 from .reference import FixedValue
-from .storage import Variable
+from .storage import Storage, Variable
 
 
 class CodeBlockSimplifier(CodeBlock):
 
-    expressions = property(CodeBlock._gatherExpressions)
-    storages = property(CodeBlock._gatherStorages)
+    @property
+    def expressions(self) -> AbstractSet[Expression]:
+        return self._gatherExpressions()
+
+    @property
+    def storages(self) -> AbstractSet[Storage]:
+        return self._gatherStorages()
 
     def freeze(self):
         '''Change the type of this object from CodeBlockSimplifier to CodeBlock,
@@ -34,7 +41,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Removal of unused loads will not enable any other simplifications.
         self.removeUnusedLoads()
 
-        assert self.verify() is None
+        assert self.verify()
 
     def removeRedundantNodes(self):
         nodes = self.nodes
