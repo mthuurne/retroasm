@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import (
     AbstractSet, Callable, Dict, Iterable, Mapping, Optional, Set, Tuple,
-    TypeVar
+    TypeVar, cast
 )
 
 from .expression import Expression
@@ -78,11 +78,9 @@ class Load(AccessNode):
     def __str__(self) -> str:
         return 'load from %s' % self._storage
 
-    # Repeat getter to work around issue in mypy.
-    #   https://github.com/python/mypy/issues/1465
     @property
-    def expr(self) -> Expression:
-        return super().expr
+    def expr(self) -> LoadedValue:
+        return cast(LoadedValue, self._expr)
 
     @expr.setter
     def expr(self, expr: Expression) -> None:

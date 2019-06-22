@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import AbstractSet
+from typing import AbstractSet, DefaultDict, Dict, Optional
 
 from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression import Expression
@@ -18,13 +18,13 @@ class CodeBlockSimplifier(CodeBlock):
     def storages(self) -> AbstractSet[Storage]:
         return self._gatherStorages()
 
-    def freeze(self):
+    def freeze(self) -> None:
         '''Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
         '''
-        self.__class__ = CodeBlock
+        self.__class__ = CodeBlock # type: ignore
 
-    def simplify(self):
+    def simplify(self) -> None:
         '''Attempt to simplify the code block as much as possible.
         '''
         # Peform initial simplification of all expressions.
@@ -43,11 +43,11 @@ class CodeBlockSimplifier(CodeBlock):
 
         assert self.verify()
 
-    def removeRedundantNodes(self):
+    def removeRedundantNodes(self) -> None:
         nodes = self.nodes
 
-        loadReplacements = {}
-        def replaceLoadedValues(expr):
+        loadReplacements: Dict[Expression, Expression] = {}
+        def replaceLoadedValues(expr: Expression) -> Expression:
             newExpr = expr.substitute(loadReplacements.get)
             if newExpr is not expr:
                 newExpr = simplifyExpression(newExpr)
@@ -55,7 +55,7 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
-        currentValues = {}
+        currentValues: Dict[Storage, Expression] = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
@@ -108,7 +108,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Fixate variables and apply load replacements in returned bit strings.
         returned = self.returned
         for i, retBits in enumerate(returned):
-            def fixateVariables(storage):
+            def fixateVariables(storage: Storage) -> Optional[FixedValue]:
                 if isinstance(storage, Variable) and storage.scope == 1:
                     return FixedValue(currentValues[storage], storage.width)
                 else:
@@ -117,7 +117,7 @@ class CodeBlockSimplifier(CodeBlock):
             if newBits is not retBits:
                 returned[i] = newBits
 
-    def removeUnusedStores(self):
+    def removeUnusedStores(self) -> None:
         '''Remove side-effect-free stores that will be overwritten or that
         write a variable that will go out of scope.
         '''
@@ -145,14 +145,14 @@ class CodeBlockSimplifier(CodeBlock):
                         del nodes[i]
                     willBeOverwritten.add(storage)
 
-    def removeUnusedLoads(self):
+    def removeUnusedLoads(self) -> None:
         '''Remove side-effect-free loads of which the LoadedValue is unused.
         '''
         nodes = self.nodes
 
         # Keep track of how often each LoadedValue is used.
-        useCounts = defaultdict(int)
-        def updateCounts(expr, delta=1):
+        useCounts = DefaultDict[LoadedValue, int](int)
+        def updateCounts(expr: Expression, delta: int = 1) -> None:
             for loaded in expr.iterInstances(LoadedValue):
                 useCounts[loaded] += delta
 
