@@ -1,16 +1,18 @@
+from typing import Iterator, Mapping, Union
+
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
-from .expression_parser import ParseError, parseStatement
+from .expression_parser import ParseError, ParseNode, parseStatement
 from .function import Function
-from .linereader import DelayedError
-from .namespace import LocalNamespace
-from .types import ReferenceType
+from .linereader import DefLineReader, DelayedError
+from .namespace import GlobalNamespace, LocalNamespace
+from .types import IntType, ReferenceType
 
 
-def _parseBody(reader):
+def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
     '''Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
-    Errors are appended to the given LineReader as they are discovered.
+    Errors are appended to `reader` as they are discovered.
     '''
     for line in reader.iterBlock():
         try:
@@ -20,7 +22,12 @@ def _parseBody(reader):
                 'failed to parse statement: %s', ex, location=ex.location
                 )
 
-def createFunc(reader, funcName, retType, args, globalNamespace):
+def createFunc(reader: DefLineReader,
+               funcName: str,
+               retType: Union[None, IntType, ReferenceType],
+               args: Mapping[str, Union[IntType, ReferenceType]],
+               globalNamespace: GlobalNamespace
+               ) -> Function:
     headerLocation = reader.location
 
     builder = SemanticsCodeBlockBuilder()

@@ -1,10 +1,18 @@
-from .storage import RefArgStorage, ValArgStorage
-from .types import ReferenceType
+from typing import Mapping, Optional, Sequence, Union
+
+from .codeblock import CodeBlock
+from .reference import BitString
+from .storage import RefArgStorage, Storage, ValArgStorage
+from .types import IntType, ReferenceType
 
 
 class Function:
 
-    def __init__(self, retType, args, code):
+    def __init__(self,
+                 retType: Union[None, IntType, ReferenceType],
+                 args: Mapping[str, Union[IntType, ReferenceType]],
+                 code: Optional[CodeBlock]
+                 ):
         if code is not None:
             _checkArgs(args, code.arguments)
             _checkReturn(retType, code.returned)
@@ -32,7 +40,9 @@ class Function:
         else:
             self.code.dump()
 
-def _checkArgs(declArgs, codeArgs):
+def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
+               codeArgs: Mapping[str, Storage]
+               ) -> None:
     '''Check consistency between declared argument types and code block.
     Raises ValueError if an inconsistency is found.
     '''
@@ -62,7 +72,9 @@ def _checkArgs(declArgs, codeArgs):
                 % (name, typ.width, arg.width)
                 )
 
-def _checkReturn(retType, returned):
+def _checkReturn(retType: Union[None, IntType, ReferenceType],
+                 returned: Sequence[BitString]
+                 ) -> None:
     '''Check consistency between declared return type and code block.
     Raises ValueError if an inconsistency is found.
     '''
