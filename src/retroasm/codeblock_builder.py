@@ -1,8 +1,11 @@
-from typing import Iterable, List, Optional, Set
+from typing import (
+    Callable, Dict, Iterable, List, Mapping, Optional, Set, Union
+)
 
 from .codeblock import AccessNode, CodeBlock, Load, LoadedValue, Store
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression
+from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, SingleStorage, badReference
 from .storage import ArgStorage, Storage, Variable
@@ -35,7 +38,11 @@ class CodeBlockBuilder:
         '''
         raise NotImplementedError
 
-    def inlineFunctionCall(self, func, argMap, location):
+    def inlineFunctionCall(self,
+                           func: Function,
+                           argMap: Mapping[str, Optional[BitString]],
+                           location: InputLocation
+                           ) -> Optional[BitString]:
         '''Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
@@ -73,7 +80,11 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
             location
             )
 
-    def inlineFunctionCall(self, func, argMap, location):
+    def inlineFunctionCall(self,
+                           func: Function,
+                           argMap: Mapping[str, Optional[BitString]],
+                           location: InputLocation
+                           ) -> Optional[BitString]:
         # TODO: This is probably overly strict: calling a function that does
         #       not touch state should be fine.
         raise IllegalStateAccess(
@@ -159,7 +170,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                       ) -> None:
         self.nodes.append(Store(value, storage, location))
 
-    def inlineFunctionCall(self, func, argMap, location):
+    def inlineFunctionCall(self,
+                           func: Function,
+                           argMap: Mapping[str, Optional[BitString]],
+                           location: InputLocation
+                           ) -> Optional[BitString]:
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
@@ -184,7 +199,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             assert len(returned) == 0, returned
             return None
 
-    def inlineBlock(self, code, argFetcher=None):
+    def inlineBlock(self,
+                    code: CodeBlock,
+                    argFetcher: Callable[[str], Optional[BitString]]
+                        = lambda name: None
+                    ) -> List[BitString]:
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
@@ -192,14 +211,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         Returns a list of BitStrings containing the values returned by the
         inlined block.
         '''
-        if argFetcher is None:
-            argFetcher = lambda name: None
 
-        loadResults = {}
-        def importExpr(expr):
+        loadResults: Dict[Expression, Expression] = {}
+        def importExpr(expr: Expression) -> Expression:
             return expr.substitute(loadResults.get)
 
-        def importStorageUncached(storage):
+        def importStorageUncached(storage: Storage
+                                  ) -> Union[BitString, SingleStorage]:
             if isinstance(storage, ArgStorage):
                 bits = argFetcher(storage.name)
                 if bits is not None:
@@ -207,12 +225,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                     assert storage.width == bits.width, \
                         (storage.width, bits.width)
                     return bits
-                newStorage = storage
+                newStorage: Storage = storage
             else:
                 newStorage = storage.substituteExpressions(importExpr)
             return SingleStorage(newStorage)
-        storageCache = {}
-        def importStorage(storage):
+        storageCache: Dict[Storage, BitString] = {}
+        def importStorage(storage: Storage) -> BitString:
             '''Returns a bit string containing the imported version of the given
             storage.
             '''
