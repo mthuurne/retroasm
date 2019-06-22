@@ -20,7 +20,7 @@ isort = {version = "^4.3",extras = ["pyproject"]}
 invoke = "^1.2"
 pytest = "^4.5"
 pytest-pythonpath = "^0.7.3"
-mypy = "^0.701.0"
+mypy = ">=0.710"
 lxml = "^4.3"
 
 [build-system]

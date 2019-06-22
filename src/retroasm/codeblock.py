@@ -1,3 +1,5 @@
+from typing import Optional
+
 from .expression import Expression
 from .linereader import InputLocation
 from .reference import BitString
@@ -16,24 +18,36 @@ class AccessNode(Node):
     '''
     __slots__ = ('_expr', '_storage', '_location')
 
-    expr = property(lambda self: self._expr)
-    storage = property(lambda self: self._storage)
-    location = property(lambda self: self._location)
-
-    def __init__(self, expr, storage, location):
+    def __init__(self,
+                 expr: Expression,
+                 storage: Storage,
+                 location: Optional[InputLocation]
+                 ):
         self._expr = expr
         self._storage = storage
         self._location = None if location is None else checkType(
             location, InputLocation, 'location'
             )
 
+    @property
+    def expr(self) -> Expression:
+        return self._expr
+
     @expr.setter
-    def expr(self, expr):
+    def expr(self, expr: Expression) -> None:
         self._expr = checkType(expr, Expression, 'value')
 
+    @property
+    def storage(self) -> Storage:
+        return self._storage
+
     @storage.setter
-    def storage(self, storage):
+    def storage(self, storage: Storage) -> None:
         self._storage = checkType(storage, Storage, 'storage')
+
+    @property
+    def location(self) -> Optional[InputLocation]:
+        return self._location
 
     def clone(self):
         '''Create a clone of this node.
@@ -55,6 +69,12 @@ class Load(AccessNode):
 
     def __str__(self) -> str:
         return 'load from %s' % self._storage
+
+    # Repeat getter to work around issue in mypy.
+    #   https://github.com/python/mypy/issues/1465
+    @property
+    def expr(self) -> Expression:
+        return super().expr
 
     @AccessNode.expr.setter
     def expr(self, expr):
