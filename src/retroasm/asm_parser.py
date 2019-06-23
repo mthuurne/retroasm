@@ -1,18 +1,31 @@
-from collections import namedtuple
-from enum import Enum
+from enum import Enum, auto
 from logging import getLogger
+from typing import (
+    Iterable, Iterator, List, NamedTuple, Optional, Sequence, Type, Union, cast
+)
 import re
 
 from .expression_parser import parseDigits
-from .linereader import DelayedError, LineReader
+from .instrset import InstructionSet
+from .linereader import DelayedError, InputLocation, LineReader
 
 logger = getLogger('parse-asm')
 
-Token = namedtuple('Token', ('kind', 'value', 'location'))
+class TokenKind(Enum):
+    number = auto()
+    word = auto()
+    symbol = auto()
+    string = auto()
+    comment = auto()
+    whitespace = auto()
+    end = auto()
 
-TokenKind = Enum('TokenKind', ( # pylint: disable=invalid-name
-    'number', 'word', 'symbol', 'string', 'comment', 'whitespace', 'end'
-    ))
+# TODO: Writing parsed integer value back into the token leads to less clean
+#       typing. We should probably have separate output data structures.
+class Token(NamedTuple):
+    kind: TokenKind
+    value: Union[int, str]
+    location: InputLocation
 
 _tokenPattern = re.compile('|'.join(
     '(?P<%s>%s)' % (token.name, regex) for token, regex in (
@@ -26,16 +39,18 @@ _tokenPattern = re.compile('|'.join(
         )
     ))
 
-def tokenizeLine(line):
+def tokenizeLine(line: InputLocation) -> Iterator[Token]:
     '''Iterates through the Tokens in a line of assembly.
     '''
     for match in line.findMatches(_tokenPattern):
         name = match.groupName
-        kind = getattr(TokenKind, name)
+        assert name is not None
+        kind = TokenKind[name]
         location = match.group(name)
+        assert location is not None
         yield Token(kind, location.text, location)
 
-def parseNumber(value):
+def parseNumber(value: str) -> int:
     if value[0] == '$':
         return parseDigits(value[1:], 16)
     elif value[0] == '%':
@@ -53,7 +68,8 @@ def parseNumber(value):
         else:
             return parseDigits(value, base)
 
-def createMatchSequence(tokens, reader):
+def createMatchSequence(tokens: Iterable[Token]
+                        ) -> Iterator[Union[Type[int], int, str]]:
     '''Convert tokens to a match sequence.
     '''
     for token in tokens:
@@ -65,7 +81,7 @@ def createMatchSequence(tokens, reader):
         else:
             assert False, token
 
-def parseInstruction(tokens, reader):
+def parseInstruction(tokens: List[Token], reader: LineReader) -> None:
     try:
         with reader.checkErrors():
             # Arbitrary strings are not allowed as instruction operands, but
@@ -73,7 +89,7 @@ def parseInstruction(tokens, reader):
             for idx in range(len(tokens)):
                 token = tokens[idx]
                 if token.kind is TokenKind.string:
-                    value = token.value
+                    value = cast(str, token.value)
                     assert len(value) >= 2, value
                     assert value[0] == value[-1], value
                     if len(value) == 2:
@@ -93,20 +109,20 @@ def parseInstruction(tokens, reader):
     except DelayedError:
         return None
 
-    matchSeq = tuple(createMatchSequence(tokens, reader))
+    matchSeq = tuple(createMatchSequence(tokens))
 
     reader.info(
         'instruction %s', ' '.join(str(elem) for elem in matchSeq),
         location=tokens[0].location
         )
 
-def parseDirective(tokens, reader):
+def parseDirective(tokens: Sequence[Token], reader: LineReader) -> None:
     reader.info(
         'directive: %s', ' '.join(str(token.value) for token in tokens),
         location=tokens[0].location
         )
 
-def parseAsm(reader, instrSet):
+def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
     instrSet.dumpMnemonicTree()
     instructionNames = instrSet.instructionNames
 
@@ -125,8 +141,10 @@ def parseAsm(reader, instrSet):
                         break
                     elif kind is TokenKind.number:
                         # Convert to int.
+                        valueStr = token.value
+                        assert isinstance(valueStr, str)
                         try:
-                            value = parseNumber(token.value)
+                            value = parseNumber(valueStr)
                         except ValueError as ex:
                             reader.error('%s', ex, location=token.location)
                             continue
@@ -136,11 +154,15 @@ def parseAsm(reader, instrSet):
         except DelayedError:
             continue
 
-        def check(idx, kind, value=None, tokens=tokens):
+        def check(idx: int, kind: TokenKind, value: Optional[str] = None,
+                  tokens: Sequence[Token] = tokens
+                  ) -> bool:
             if idx < len(tokens):
                 token = tokens[idx]
                 if token.kind is kind:
-                    if value is None or token.value.lower() == value:
+                    valueStr = token.value
+                    assert isinstance(valueStr, str)
+                    if value is None or valueStr.lower() == value:
                         return True
             return False
 
@@ -172,7 +194,7 @@ def parseAsm(reader, instrSet):
         else:
             parseDirective(tokens, reader)
 
-def readSource(path, instrSet):
+def readSource(path: str, instrSet: InstructionSet) -> None:
     with LineReader.open(path, logger) as reader:
         with reader.checkErrors():
             parseAsm(reader, instrSet)

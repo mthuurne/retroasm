@@ -697,7 +697,7 @@ def parseInt(valueStr):
     else:
         return parseDigits(valueStr, 10), unlimited
 
-def parseDigits(digits, base):
+def parseDigits(digits: str, base: int) -> int:
     '''Wrapper around the "int" constructor that generated a slightly more
     detailed ValueError message if the given string contains characters that
     are not valid as digits in the given base.
