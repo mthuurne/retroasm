@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from typing import Optional, Sequence
+
+
 class Fetcher:
     '''Abstract base class for instruction fetchers.
     '''
@@ -6,7 +11,7 @@ class Fetcher:
     def __init__(self) -> None:
         self._cached = self._fetch(0)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> Optional[int]:
         if key is 0:
             # Fast path for most frequently used index.
             return self._cached
@@ -20,7 +25,7 @@ class Fetcher:
                 'fetcher index must be integer, not %s' % type(key).__name__
                 )
 
-    def _fetch(self, index):
+    def _fetch(self, index: int) -> Optional[int]:
         '''Returns the data unit at the given index, or None if the index is
         out of range.
         '''
@@ -31,12 +36,12 @@ class ImageFetcher(Fetcher):
     '''
     __slots__ = ('_image', '_offset', '_end', '_numBytes')
 
-    image = property(lambda self: self._image)
-    offset = property(lambda self: self._offset)
-    end = property(lambda self: self._end)
-    numBytes = property(lambda self: self._numBytes)
-
-    def __init__(self, image, start, end, numBytes):
+    def __init__(self,
+                 image: Sequence[int],
+                 start: int,
+                 end: int,
+                 numBytes: int
+                 ):
         self._image = image
         self._offset = start
         self._end = end
@@ -49,10 +54,26 @@ class ImageFetcher(Fetcher):
             self._image, self._offset, self._end, self._numBytes
             )
 
-    def _fetch(self, index):
+    @property
+    def image(self) -> Sequence[int]:
+        return self._image
+
+    @property
+    def offset(self) -> int:
+        return self._offset
+
+    @property
+    def end(self) -> int:
+        return self._end
+
+    @property
+    def numBytes(self) -> int:
+        return self._numBytes
+
+    def _fetch(self, index: int) -> Optional[int]:
         raise NotImplementedError
 
-    def advance(self, steps=1):
+    def advance(self, steps: int = 1) -> ImageFetcher:
         '''Returns a new fetcher of the same type, with an offset that is one
         one data unit advanced beyond our offset.
         '''
@@ -68,10 +89,15 @@ class ByteFetcher(ImageFetcher):
     '''
     __slots__ = ()
 
-    def __init__(self, image, start, end, numBytes=1):
+    def __init__(self,
+                 image: Sequence[int],
+                 start: int,
+                 end: int,
+                 numBytes: int = 1
+                 ):
         ImageFetcher.__init__(self, image, start, end, numBytes)
 
-    def _fetch(self, index):
+    def _fetch(self, index: int) -> Optional[int]:
         offset = self._offset + index
         return self._image[offset] if offset < self._end else None
 
@@ -81,7 +107,7 @@ class MultiByteFetcher(ImageFetcher):
     '''
     __slots__ = ()
 
-    def _fetch(self, index):
+    def _fetch(self, index: int) -> Optional[int]:
         numBytes = self._numBytes
         offset = self._offset + index * numBytes
         after = offset + numBytes
@@ -90,7 +116,7 @@ class MultiByteFetcher(ImageFetcher):
         else:
             return self._fetchRange(offset, after)
 
-    def _fetchRange(self, start, end):
+    def _fetchRange(self, start: int, end: int) -> int:
         '''Returns the data unit between the given byte offsets.
         '''
         raise NotImplementedError
@@ -101,7 +127,7 @@ class BigEndianFetcher(MultiByteFetcher):
     '''
     __slots__ = ()
 
-    def _fetchRange(self, start, end):
+    def _fetchRange(self, start: int, end: int) -> int:
         image = self._image
         value = 0
         for byte in image[start:end]:
@@ -115,7 +141,7 @@ class LittleEndianFetcher(MultiByteFetcher):
     '''
     __slots__ = ()
 
-    def _fetchRange(self, start, end):
+    def _fetchRange(self, start: int, end: int) -> int:
         image = self._image
         value = 0
         shift = 0
@@ -129,13 +155,17 @@ class ModeFetcher(Fetcher):
     '''
     __slots__ = ('_first', '_auxFetcher', '_auxIndex')
 
-    def __init__(self, first, auxFetcher, auxIndex):
+    def __init__(self,
+                 first: Optional[int],
+                 auxFetcher: Fetcher,
+                 auxIndex: Optional[int]
+                 ):
         self._first = first
         self._auxFetcher = auxFetcher
         self._auxIndex = auxIndex
         Fetcher.__init__(self)
 
-    def _fetch(self, index):
+    def _fetch(self, index: int) -> Optional[int]:
         first = self._first
         if first is not None:
             if index == 0:
@@ -154,13 +184,17 @@ class AfterModeFetcher(Fetcher):
     '''
     __slots__ = ('_fetcher', '_auxIndex', '_delta')
 
-    def __init__(self, fetcher, auxIndex, delta):
+    def __init__(self,
+                 fetcher: Fetcher,
+                 auxIndex: int,
+                 delta: int
+                 ):
         self._fetcher = fetcher
         self._auxIndex = auxIndex
         self._delta = delta
         Fetcher.__init__(self)
 
-    def _fetch(self, index):
+    def _fetch(self, index: int) -> Optional[int]:
         if index >= self._auxIndex:
             assert index > self._auxIndex
             index += self._delta
