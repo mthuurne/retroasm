@@ -48,14 +48,16 @@ def renderFile(inFileName, outFileName):
 def renderDir(inBase, outBase):
     if isdir(outBase):
         rmtree(outBase)
+    inPrefix = str(inBase) + '/'
+    outPrefix = str(outBase) + '/'
     for dirPath, subdirList, fileList in walk(inBase):
         dirPath += '/'
-        if not dirPath.startswith(inBase + '/'):
+        if not dirPath.startswith(inPrefix):
             raise ValueError(
                 'os.walk entered directory "%s" which is outside its '
                 'root "%s"' % (dirPath, inBase)
                 )
-        outDir = outBase + dirPath[len(inBase) : ]
+        outDir = outPrefix + dirPath[len(inPrefix) : ]
         for fileName in fileList:
             if fileName.endswith('.md'):
                 makedirs(outDir, exist_ok = True)

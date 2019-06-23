@@ -10,7 +10,7 @@ SRC_DIR = TOP_DIR / 'src'
 @task
 def docs(c):
     """Build documentation."""
-    renderDir('docs', 'output/docs/')
+    renderDir(TOP_DIR / 'docs', TOP_DIR / 'output' / 'docs')
 
 @task
 def test(c):
