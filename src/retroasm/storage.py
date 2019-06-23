@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, Optional, Union, cast
+from typing import Callable, Iterator, Optional, cast
 
 from .expression import Expression
-from .types import IntType, Unlimited, unlimited
+from .types import IntType, Width, unlimited
 from .utils import checkType
 
 
@@ -99,10 +99,10 @@ class Storage:
     __slots__ = ('_width',)
 
     @property
-    def width(self) -> Union[int, Unlimited]:
+    def width(self) -> Width:
         return self._width
 
-    def __init__(self, width: Union[int, Unlimited]):
+    def __init__(self, width: Width):
         self._width = checkType(width, (int, type(unlimited)), 'storage width')
         if width < 0:
             raise ValueError(
@@ -169,7 +169,7 @@ class Variable(Storage):
     def scope(self) -> int:
         return self._scope
 
-    def __init__(self, width: Union[int, Unlimited], scope: int):
+    def __init__(self, width: Width, scope: int):
         Storage.__init__(self, width)
         self._scope = checkType(scope, int, 'scope level')
 
@@ -208,7 +208,7 @@ class ArgStorage(Storage):
     def name(self) -> str:
         return self._name
 
-    def __init__(self, name: str, width: Union[int, Unlimited]):
+    def __init__(self, name: str, width: Width):
         self._name = checkType(name, str, 'storage name')
         Storage.__init__(self, width)
 

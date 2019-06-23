@@ -13,7 +13,7 @@ from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation
 from .storage import Storage
 from .types import (
-    IntType, ReferenceType, Unlimited, maskForWidth, unlimited, widthForMask
+    IntType, ReferenceType, Width, maskForWidth, unlimited, widthForMask
 )
 from .utils import checkType
 
@@ -29,10 +29,10 @@ class BitString:
     __slots__ = ('_width',)
 
     @property
-    def width(self) -> Union[int, Unlimited]:
+    def width(self) -> Width:
         return self._width
 
-    def __init__(self, width: Union[int, Unlimited]):
+    def __init__(self, width: Width):
         self._width = checkType(width, (int, type(unlimited)), 'width')
 
     def iterExpressions(self) -> Iterator[Expression]:
@@ -92,7 +92,7 @@ class FixedValue(BitString):
     def expr(self) -> Expression:
         return self._expr
 
-    def __init__(self, expr: Expression, width: Union[int, Unlimited]):
+    def __init__(self, expr: Expression, width: Width):
         '''Construct a FixedValue with the given value and width.
         The mask of the value Expression must fit within the given width.
         '''
@@ -294,11 +294,7 @@ class SlicedBits(BitString):
     def offset(self) -> Expression:
         return self._offset
 
-    def __init__(self,
-                 bits: BitString,
-                 offset: Expression,
-                 width: Union[int, Unlimited]
-                 ):
+    def __init__(self, bits: BitString, offset: Expression, width: Width):
         '''Creates a slice of the given bit string.
         '''
         self._bits = checkType(bits, BitString, 'bit string')
@@ -394,7 +390,7 @@ class BadBits(BitString):
     '''
     __slots__ = ()
 
-    def __init__(self, width: Union[int, Unlimited]):
+    def __init__(self, width: Width):
         '''Construct a BadBits with the given width.
         '''
         BitString.__init__(self, width)
@@ -464,7 +460,7 @@ class Reference:
         return self._type
 
     @property
-    def width(self) -> Union[int, Unlimited]:
+    def width(self) -> Width:
         return self._type.width
 
     def __init__(self, bits: BitString, typ: IntType):

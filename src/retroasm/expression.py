@@ -4,11 +4,11 @@ from functools import reduce
 from itertools import chain
 from typing import (
     Callable, Iterable, Iterator, Optional, Sequence, Tuple, Type, TypeVar,
-    Union, cast
+    cast
 )
 
 from .types import (
-    Unlimited, maskForWidth, maskToSegments, trailingZeroes, unlimited,
+    Width, maskForWidth, maskToSegments, trailingZeroes, unlimited,
     widthForMask
 )
 from .utils import checkType, const_property
@@ -132,11 +132,11 @@ class BadValue(Expression):
     def mask(self) -> int:
         return maskForWidth(self._width)
 
-    def __init__(self, width: Union[int, Unlimited]):
-        self._width = checkType(width, (int, Unlimited), 'width')
+    def __init__(self, width: Width):
+        self._width = checkType(width, (int, type(unlimited)), 'width')
         Expression.__init__(self)
 
-    def _ctorargs(self) -> Tuple[Union[int, Unlimited]]:
+    def _ctorargs(self) -> Tuple[Width]:
         return self._width,
 
     def __str__(self) -> str:
@@ -264,7 +264,7 @@ class AndOperator(MultiExpression):
             value = last.value
             width = widthForMask(value)
             if width is not unlimited and maskForWidth(width) == value:
-                assert not isinstance(width, Unlimited)
+                assert isinstance(width, int)
                 # Special formatting for truncation and slicing.
                 if len(exprs) == 2:
                     first = exprs[0]
@@ -343,7 +343,7 @@ class AddOperator(MultiExpression):
     @classmethod
     def computeMask(cls, exprs: Iterable[Expression]) -> int:
         result = 0
-        cmbValue: Union[int, Unlimited] = 0
+        cmbValue: Width = 0
         cmbMask = 0
         for start, end in sorted(chain(*(
                 maskToSegments(expr.mask) for expr in exprs))):
@@ -648,13 +648,10 @@ class RVShift(Expression):
     def _equals(self, other: RVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
 
-def truncate(expr: Expression, width: Union[int, Unlimited]) -> Expression:
+def truncate(expr: Expression, width: Width) -> Expression:
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
 
-def optSlice(expr: Expression,
-             index: int,
-             width: Union[int, Unlimited]
-             ) -> Expression:
+def optSlice(expr: Expression, index: int, width: Width) -> Expression:
     '''Return a slice of the given expression, at the given index with the given
     width, without adding any unnecessary operations.
     '''

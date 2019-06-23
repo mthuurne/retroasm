@@ -75,13 +75,15 @@ class Unlimited(metaclass=Singleton):
 
 unlimited = Unlimited()
 
-def maskForWidth(width: Union[int, Unlimited]) -> int:
+Width = Union[int, Unlimited]
+
+def maskForWidth(width: Width) -> int:
     return -1 if width is unlimited else (1 << cast(int, width)) - 1
 
-def widthForMask(mask: int) -> Union[int, Unlimited]:
+def widthForMask(mask: int) -> Width:
     return unlimited if mask < 0 else mask.bit_length()
 
-def trailingZeroes(n: int) -> Union[int, Unlimited]:
+def trailingZeroes(n: int) -> Width:
     if n == 0:
         return unlimited
     count = 0
@@ -89,7 +91,7 @@ def trailingZeroes(n: int) -> Union[int, Unlimited]:
         count += 1
     return count
 
-Segment = Tuple[int, Union[int, Unlimited]]
+Segment = Tuple[int, Width]
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
     '''Iterates through pairs of start and end indices of maximally long
@@ -137,7 +139,7 @@ class IntType(metaclass=Unique):
     __slots__ = ('_width', '_signed', '__weakref__')
 
     @property
-    def width(self) -> Union[int, Unlimited]:
+    def width(self) -> Width:
         return self._width
 
     @property
@@ -149,18 +151,18 @@ class IntType(metaclass=Unique):
          return -1 if self._signed else maskForWidth(self._width)
 
     @classmethod
-    def u(cls, width: Union[int, Unlimited]) -> IntType:
+    def u(cls, width: Width) -> IntType:
         '''Creates an unsigned integer type of the given width.
         '''
         return cls(width, False)
 
     @classmethod
-    def s(cls, width: Union[int, Unlimited]) -> IntType:
+    def s(cls, width: Width) -> IntType:
         '''Creates a signed integer type of the given width.
         '''
         return cls(width, True)
 
-    def __init__(self, width: Union[int, Unlimited], signed: bool):
+    def __init__(self, width: Width, signed: bool):
         if isinstance(width, int):
             if width < 0:
                 raise ValueError('width must not be negative: %d' % width)
