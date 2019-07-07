@@ -40,7 +40,7 @@ _tokenPattern = re.compile('|'.join(
     '(?P<%s>%s)' % (token.name, regex) for token, regex in (
         # pylint: disable=bad-whitespace
         (TokenKind.number,      r'\$\w+|%\w+|\d\w*'),
-        (TokenKind.word,        r'\w+'),
+        (TokenKind.word,        r'[\w.]+'),
         (TokenKind.string,      r'"[^"]*"|\'[^\']*\''),
         (TokenKind.comment,     r';.*$'),
         (TokenKind.whitespace,  r'\s+'),
