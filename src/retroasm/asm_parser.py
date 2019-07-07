@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from logging import getLogger
 from typing import (
-    Iterable, Iterator, List, NamedTuple, Optional, Sequence, Type, Union, cast
+    Iterable, Iterator, List, NamedTuple, Optional, Sequence, Type, Union
 )
 import re
 
@@ -21,11 +21,9 @@ class TokenKind(Enum):
     whitespace = auto()
     end = auto()
 
-# TODO: Writing parsed integer value back into the token leads to less clean
-#       typing. We should probably have separate output data structures.
 class Token(NamedTuple):
     kind: TokenKind
-    value: Union[int, str]
+    value: str
     location: InputLocation
 
     def check(self, kind: TokenKind, value: Optional[str] = None) -> bool:
@@ -34,9 +32,7 @@ class Token(NamedTuple):
         Return True for a match, False otherwise.
         """
         if self.kind is kind:
-            valueStr = self.value
-            assert isinstance(valueStr, str)
-            if value is None or valueStr.casefold() == value:
+            if value is None or self.value.casefold() == value:
                 return True
         return False
 
@@ -69,7 +65,6 @@ def parseNumber(token: Token) -> NumberNode:
     """
 
     value = token.value
-    assert isinstance(value, str), token
     if value[0] == '$':
         digits = value[1:]
         digitWidth = 4
@@ -101,7 +96,7 @@ def createMatchSequence(tokens: Iterable[Token]
     '''
     for token in tokens:
         kind = token.kind
-        if kind is TokenKind.number:
+        if kind is TokenKind.number or kind is TokenKind.string:
             yield int
         elif kind is TokenKind.word or kind is TokenKind.symbol:
             yield token.value
@@ -111,12 +106,18 @@ def createMatchSequence(tokens: Iterable[Token]
 def parseInstruction(tokens: List[Token], reader: LineReader) -> None:
     try:
         with reader.checkErrors():
-            # Arbitrary strings are not allowed as instruction operands, but
-            # single characters should be replaced by their character numbers.
-            for idx in range(len(tokens)):
-                token = tokens[idx]
-                if token.kind is TokenKind.string:
-                    value = cast(str, token.value)
+            for token in tokens:
+                if token.kind is TokenKind.number:
+                    # Convert to int.
+                    try:
+                        number = parseNumber(token)
+                    except ValueError as ex:
+                        reader.error('%s', ex, location=token.location)
+                elif token.kind is TokenKind.string:
+                    # Arbitrary strings are not allowed as instruction
+                    # operands, but single characters should be replaced
+                    # by their character numbers.
+                    value = token.value
                     assert len(value) >= 2, value
                     assert value[0] == value[-1], value
                     if len(value) == 2:
@@ -125,9 +126,7 @@ def parseInstruction(tokens: List[Token], reader: LineReader) -> None:
                             location=token.location
                             )
                     elif len(value) == 3:
-                        tokens[idx] = Token(
-                            TokenKind.number, ord(value[1]), token.location
-                            )
+                        number = NumberNode(ord(value[1]), 8, token.location)
                     else:
                         reader.error(
                             'multi-character string in instruction operand',
@@ -155,30 +154,11 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
 
     for line in reader:
         # Tokenize entire line.
-        tokens = []
-        try:
-            with reader.checkErrors():
-                for token in tokenizeLine(line):
-                    kind = token.kind
-                    if kind is TokenKind.whitespace:
-                        # Skip whitespace.
-                        continue
-                    elif kind is TokenKind.comment:
-                        # Strip comment.
-                        break
-                    elif kind is TokenKind.number:
-                        # Convert to int.
-                        try:
-                            value = parseNumber(token)
-                        except ValueError as ex:
-                            reader.error('%s', ex, location=token.location)
-                            continue
-                        else:
-                            token = Token(kind, value.value, token.location)
-                    tokens.append(token)
-        except DelayedError:
-            continue
-
+        tokens = [
+            token
+            for token in tokenizeLine(line)
+            if token.kind not in (TokenKind.whitespace, TokenKind.comment)
+            ]
         # Add sentinel.
         tokens.append(Token(TokenKind.end, '', line.endLocation))
 
