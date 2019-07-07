@@ -5,9 +5,10 @@ from typing import (
 )
 import re
 
-from .expression_parser import parseDigits
+from .expression_parser import NumberNode, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
+from .types import unlimited
 
 logger = getLogger('parse-asm')
 
@@ -50,23 +51,37 @@ def tokenizeLine(line: InputLocation) -> Iterator[Token]:
         assert location is not None
         yield Token(kind, location.text, location)
 
-def parseNumber(value: str) -> int:
+def parseNumber(token: Token) -> NumberNode:
+    """Parse a token of kind `TokenKind.number`.
+    Raise `ValueError` if the token does not contain a valid numeric literal.
+    """
+
+    value = token.value
+    assert isinstance(value, str), token
     if value[0] == '$':
-        return parseDigits(value[1:], 16)
+        digits = value[1:]
+        digitWidth = 4
     elif value[0] == '%':
-        return parseDigits(value[1:], 2)
+        digits = value[1:]
+        digitWidth = 1
     elif value[0] == '0' and len(value) >= 2 and value[1] in 'xXbB':
-        return parseDigits(value[2:], 16 if value[1] in 'xX' else 2)
+        digits = value[2:]
+        digitWidth = 4 if value[1] in 'xX' else 1
     elif value[-1].isdigit():
-        return parseDigits(value, 10)
+        # Decimal numbers have no integer per-digit width.
+        return NumberNode(parseDigits(value, 10), unlimited, token.location)
     else:
+        digits = value[:-1]
         try:
-            base = {'b': 2, 'h': 16}[value[-1].lower()]
-            value = value[:-1]
+            digitWidth = {'b': 1, 'h': 4}[value[-1].casefold()]
         except KeyError:
             raise ValueError('bad number suffix "%s"' % value[-1])
-        else:
-            return parseDigits(value, base)
+
+    return NumberNode(
+        parseDigits(digits, 1 << digitWidth),
+        len(digits) * digitWidth,
+        token.location
+        )
 
 def createMatchSequence(tokens: Iterable[Token]
                         ) -> Iterator[Union[Type[int], int, str]]:
@@ -141,15 +156,13 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
                         break
                     elif kind is TokenKind.number:
                         # Convert to int.
-                        valueStr = token.value
-                        assert isinstance(valueStr, str)
                         try:
-                            value = parseNumber(valueStr)
+                            value = parseNumber(token)
                         except ValueError as ex:
                             reader.error('%s', ex, location=token.location)
                             continue
                         else:
-                            token = Token(kind, value, token.location)
+                            token = Token(kind, value.value, token.location)
                     tokens.append(token)
         except DelayedError:
             continue
