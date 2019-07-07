@@ -393,7 +393,10 @@ class DefLineReader(LineReader):
         '''Iterates through the lines of the current block.
         '''
         while True:
-            line = next(self)
+            try:
+                line = next(self)
+            except StopIteration:
+                break
             if len(line) == 0:
                 break
             yield line
