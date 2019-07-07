@@ -34,6 +34,18 @@ def types(c, report=False):
                 print(ex)
 
 @task
+def lint(c, src=None):
+    """Check sources with PyLint."""
+    print('Linting...')
+    sources = (
+        (TOP_DIR / 'src' / 'retroasm').glob('**/*.py')
+        if src is None
+        else Path.cwd().glob(src)
+        )
+    with c.cd(str(TOP_DIR)):
+        c.run('pylint %s' % ' '.join(str(path) for path in sources), pty=True)
+
+@task
 def isort(c):
     """Sort imports."""
     print('Sorting imports...')
