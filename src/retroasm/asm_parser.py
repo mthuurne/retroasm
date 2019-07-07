@@ -28,6 +28,18 @@ class Token(NamedTuple):
     value: Union[int, str]
     location: InputLocation
 
+    def check(self, kind: TokenKind, value: Optional[str] = None) -> bool:
+        """Check whether this token is of a particular kind
+        and optionally check the value as well.
+        Return True for a match, False otherwise.
+        """
+        if self.kind is kind:
+            valueStr = self.value
+            assert isinstance(valueStr, str)
+            if value is None or valueStr.casefold() == value:
+                return True
+        return False
+
 _tokenPattern = re.compile('|'.join(
     '(?P<%s>%s)' % (token.name, regex) for token, regex in (
         # pylint: disable=bad-whitespace
@@ -94,7 +106,7 @@ def createMatchSequence(tokens: Iterable[Token]
         elif kind is TokenKind.word or kind is TokenKind.symbol:
             yield token.value
         else:
-            assert False, token
+            assert kind is TokenKind.end, token
 
 def parseInstruction(tokens: List[Token], reader: LineReader) -> None:
     try:
@@ -167,34 +179,25 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
         except DelayedError:
             continue
 
-        def check(idx: int, kind: TokenKind, value: Optional[str] = None,
-                  tokens: Sequence[Token] = tokens
-                  ) -> bool:
-            if idx < len(tokens):
-                token = tokens[idx]
-                if token.kind is kind:
-                    valueStr = token.value
-                    assert isinstance(valueStr, str)
-                    if value is None or valueStr.lower() == value:
-                        return True
-            return False
+        # Add sentinel.
+        tokens.append(Token(TokenKind.end, '', line.endLocation))
 
         # Look for a label.
         label = None
-        if check(0, TokenKind.word):
-            if check(1, TokenKind.symbol, ':'):
+        if tokens[0].check(TokenKind.word):
+            if tokens[1].check(TokenKind.symbol, ':'):
                 label = tokens[0].value
                 del tokens[:2]
-            elif check(1, TokenKind.word, 'equ'):
+            elif tokens[1].check(TokenKind.word, 'equ'):
                 label = tokens[0].value
                 del tokens[0]
         if label is not None:
             reader.info('label: %s', label)
 
         # Look for a directive or instruction.
-        if not tokens:
+        if tokens[0].check(TokenKind.end):
             continue
-        if not check(0, TokenKind.word):
+        if not tokens[0].check(TokenKind.word):
             reader.error(
                 'expected directive or instruction, got %s',
                 tokens[0].kind.name,
