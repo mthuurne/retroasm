@@ -171,6 +171,9 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
             elif tokens[1].check(TokenKind.word, 'equ'):
                 label = tokens[0].value
                 del tokens[0]
+            elif tokens[0].value.startswith('.'):
+                label = tokens[0].value
+                del tokens[0]
         if label is not None:
             reader.info('label: %s', label)
 
