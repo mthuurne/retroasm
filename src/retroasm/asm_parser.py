@@ -1,66 +1,29 @@
-from enum import Enum, auto
+from __future__ import annotations
+
 from logging import getLogger
-from typing import (
-    Iterable, Iterator, List, NamedTuple, Optional, Sequence, Type, Union
-)
-import re
+from typing import Iterable, Iterator, List, Sequence, Type, Union
 
 from .expression_parser import NumberNode, parseDigits
 from .instrset import InstructionSet
-from .linereader import DelayedError, InputLocation, LineReader
+from .linereader import DelayedError, LineReader
+from .tokens import Token, TokenEnum
 from .types import unlimited
 
 logger = getLogger('parse-asm')
 
-class TokenKind(Enum):
-    number = auto()
-    word = auto()
-    symbol = auto()
-    string = auto()
-    comment = auto()
-    whitespace = auto()
-    end = auto()
 
-class Token(NamedTuple):
-    kind: TokenKind
-    value: str
-    location: InputLocation
+class AsmToken(TokenEnum):
+    # pylint: disable=bad-whitespace
+    number      = r'\$\w+|%\w+|\d\w*'
+    word        = r'[\w.]+'
+    string      = r'"[^"]*"|\'[^\']*\''
+    comment     = r';.*$'
+    whitespace  = r'\s+'
+    symbol      = r'.'
+    end         = None
 
-    def check(self, kind: TokenKind, value: Optional[str] = None) -> bool:
-        """Check whether this token is of a particular kind
-        and optionally check the value as well.
-        Return True for a match, False otherwise.
-        """
-        if self.kind is kind:
-            if value is None or self.value.casefold() == value:
-                return True
-        return False
-
-_tokenPattern = re.compile('|'.join(
-    '(?P<%s>%s)' % (token.name, regex) for token, regex in (
-        # pylint: disable=bad-whitespace
-        (TokenKind.number,      r'\$\w+|%\w+|\d\w*'),
-        (TokenKind.word,        r'[\w.]+'),
-        (TokenKind.string,      r'"[^"]*"|\'[^\']*\''),
-        (TokenKind.comment,     r';.*$'),
-        (TokenKind.whitespace,  r'\s+'),
-        (TokenKind.symbol,      r'.'),
-        )
-    ))
-
-def tokenizeLine(line: InputLocation) -> Iterator[Token]:
-    '''Iterates through the Tokens in a line of assembly.
-    '''
-    for match in line.findMatches(_tokenPattern):
-        name = match.groupName
-        assert name is not None
-        kind = TokenKind[name]
-        location = match.group(name)
-        assert location is not None
-        yield Token(kind, location.text, location)
-
-def parseNumber(token: Token) -> NumberNode:
-    """Parse a token of kind `TokenKind.number`.
+def parseNumber(token: Token[AsmToken]) -> NumberNode:
+    """Parse a token of kind `AsmToken.number`.
     Raise `ValueError` if the token does not contain a valid numeric literal.
     """
 
@@ -96,24 +59,24 @@ def createMatchSequence(tokens: Iterable[Token]
     '''
     for token in tokens:
         kind = token.kind
-        if kind is TokenKind.number or kind is TokenKind.string:
+        if kind is AsmToken.number or kind is AsmToken.string:
             yield int
-        elif kind is TokenKind.word or kind is TokenKind.symbol:
+        elif kind is AsmToken.word or kind is AsmToken.symbol:
             yield token.value
         else:
-            assert kind is TokenKind.end, token
+            assert kind is AsmToken.end, token
 
-def parseInstruction(tokens: List[Token], reader: LineReader) -> None:
+def parseInstruction(tokens: List[Token[AsmToken]], reader: LineReader) -> None:
     try:
         with reader.checkErrors():
             for token in tokens:
-                if token.kind is TokenKind.number:
+                if token.kind is AsmToken.number:
                     # Convert to int.
                     try:
                         number = parseNumber(token)
                     except ValueError as ex:
                         reader.error('%s', ex, location=token.location)
-                elif token.kind is TokenKind.string:
+                elif token.kind is AsmToken.string:
                     # Arbitrary strings are not allowed as instruction
                     # operands, but single characters should be replaced
                     # by their character numbers.
@@ -156,19 +119,17 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
         # Tokenize entire line.
         tokens = [
             token
-            for token in tokenizeLine(line)
-            if token.kind not in (TokenKind.whitespace, TokenKind.comment)
+            for token in AsmToken.scan(line)
+            if token.kind not in (AsmToken.whitespace, AsmToken.comment)
             ]
-        # Add sentinel.
-        tokens.append(Token(TokenKind.end, '', line.endLocation))
 
         # Look for a label.
         label = None
-        if tokens[0].check(TokenKind.word):
-            if tokens[1].check(TokenKind.symbol, ':'):
+        if tokens[0].check(AsmToken.word):
+            if tokens[1].check(AsmToken.symbol, ':'):
                 label = tokens[0].value
                 del tokens[:2]
-            elif tokens[1].check(TokenKind.word, 'equ'):
+            elif tokens[1].check(AsmToken.word, 'equ'):
                 label = tokens[0].value
                 del tokens[0]
             elif tokens[0].value.startswith('.'):
@@ -178,9 +139,9 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
             reader.info('label: %s', label)
 
         # Look for a directive or instruction.
-        if tokens[0].check(TokenKind.end):
+        if tokens[0].check(AsmToken.end):
             continue
-        if not tokens[0].check(TokenKind.word):
+        if not tokens[0].check(AsmToken.word):
             reader.error(
                 'expected directive or instruction, got %s',
                 tokens[0].kind.name,
