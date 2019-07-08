@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from logging import getLogger
-from typing import Iterable, Iterator, List, Sequence, Type, Union
+from typing import Iterable, Iterator, Optional, Tuple, Type, Union
 
 from .expression_parser import NumberNode, parseDigits
 from .instrset import InstructionSet
-from .linereader import DelayedError, LineReader
-from .tokens import Token, TokenEnum
+from .linereader import DelayedError, InputLocation, LineReader
+from .tokens import TokenEnum, Tokenizer
 from .types import unlimited
 
 logger = getLogger('parse-asm')
@@ -14,20 +14,20 @@ logger = getLogger('parse-asm')
 
 class AsmToken(TokenEnum):
     # pylint: disable=bad-whitespace
-    number      = r'\$\w+|%\w+|\d\w*'
-    word        = r'[\w.]+'
-    string      = r'"[^"]*"|\'[^\']*\''
-    comment     = r';.*$'
-    whitespace  = r'\s+'
-    symbol      = r'.'
-    end         = None
+    number  = r'\$\w+|%\w+|\d\w*'
+    word    = r'[\w.]+'
+    string  = r'"[^"]*"|\'[^\']*\''
+    comment = r';.*$'
+    symbol  = r'.'
 
-def parseNumber(token: Token[AsmToken]) -> NumberNode:
-    """Parse a token of kind `AsmToken.number`.
-    Raise `ValueError` if the token does not contain a valid numeric literal.
+Token = Tuple[AsmToken, InputLocation]
+
+def parseNumber(location: InputLocation) -> NumberNode:
+    """Parse a numeric literal in one of several formats.
+    Raise `ValueError` if the location does not contain a valid number.
     """
 
-    value = token.value
+    value = location.text
     if value[0] == '$':
         digits = value[1:]
         digitWidth = 4
@@ -39,7 +39,7 @@ def parseNumber(token: Token[AsmToken]) -> NumberNode:
         digitWidth = 4 if value[1] in 'xX' else 1
     elif value[-1].isdigit():
         # Decimal numbers have no integer per-digit width.
-        return NumberNode(parseDigits(value, 10), unlimited, token.location)
+        return NumberNode(parseDigits(value, 10), unlimited, location)
     else:
         digits = value[:-1]
         try:
@@ -50,65 +50,78 @@ def parseNumber(token: Token[AsmToken]) -> NumberNode:
     return NumberNode(
         parseDigits(digits, 1 << digitWidth),
         len(digits) * digitWidth,
-        token.location
+        location
         )
 
-def createMatchSequence(tokens: Iterable[Token]
+def createMatchSequence(name: InputLocation,
+                        tokens: Iterable[Token]
                         ) -> Iterator[Union[Type[int], int, str]]:
     '''Convert tokens to a match sequence.
     '''
-    for token in tokens:
-        kind = token.kind
+    yield name.text
+    for kind, location in tokens:
         if kind is AsmToken.number or kind is AsmToken.string:
             yield int
         elif kind is AsmToken.word or kind is AsmToken.symbol:
-            yield token.value
+            yield location.text
         else:
-            assert kind is AsmToken.end, token
+            assert kind is AsmToken.comment, kind
 
-def parseInstruction(tokens: List[Token[AsmToken]], reader: LineReader) -> None:
+def parseInstruction(name: InputLocation,
+                     tokens: Tokenizer[AsmToken],
+                     reader: LineReader
+                     ) -> None:
+    tokenList = list(tokens)
+
     try:
         with reader.checkErrors():
-            for token in tokens:
-                if token.kind is AsmToken.number:
+            for kind, location in tokenList:
+                if kind is AsmToken.number:
                     # Convert to int.
                     try:
-                        number = parseNumber(token)
+                        number = parseNumber(location)
                     except ValueError as ex:
-                        reader.error('%s', ex, location=token.location)
-                elif token.kind is AsmToken.string:
+                        reader.error('%s', ex, location=location)
+                elif kind is AsmToken.string:
                     # Arbitrary strings are not allowed as instruction
                     # operands, but single characters should be replaced
                     # by their character numbers.
-                    value = token.value
+                    value = location.text
                     assert len(value) >= 2, value
                     assert value[0] == value[-1], value
                     if len(value) == 2:
                         reader.error(
                             'empty string in instruction operand',
-                            location=token.location
+                            location=location
                             )
                     elif len(value) == 3:
-                        number = NumberNode(ord(value[1]), 8, token.location)
+                        number = NumberNode(ord(value[1]), 8, location)
                     else:
                         reader.error(
                             'multi-character string in instruction operand',
-                            location=token.location
+                            location=location
                             )
     except DelayedError:
         return None
 
-    matchSeq = tuple(createMatchSequence(tokens))
+    matchSeq = tuple(createMatchSequence(name, tokenList))
 
     reader.info(
         'instruction %s', ' '.join(str(elem) for elem in matchSeq),
-        location=tokens[0].location
+        location=name
         )
 
-def parseDirective(tokens: Sequence[Token], reader: LineReader) -> None:
+def parseDirective(name: InputLocation,
+                   tokens: Tokenizer[AsmToken],
+                   reader: LineReader
+                   ) -> None:
+    directive = [name]
+    for kind, location in tokens:
+        if kind is not AsmToken.comment:
+            directive.append(location)
     reader.info(
-        'directive: %s', ' '.join(str(token.value) for token in tokens),
-        location=tokens[0].location
+        'directive: %s', ' '.join(location.text for location in directive),
+        location=name
         )
 
 def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
@@ -116,43 +129,41 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
     instructionNames = instrSet.instructionNames
 
     for line in reader:
-        # Tokenize entire line.
-        tokens = [
-            token
-            for token in AsmToken.scan(line)
-            if token.kind not in (AsmToken.whitespace, AsmToken.comment)
-            ]
+        tokens = AsmToken.scan(line)
 
         # Look for a label.
         label = None
-        if tokens[0].check(AsmToken.word):
-            if tokens[1].check(AsmToken.symbol, ':'):
-                label = tokens[0].value
-                del tokens[:2]
-            elif tokens[1].check(AsmToken.word, 'equ'):
-                label = tokens[0].value
-                del tokens[0]
-            elif tokens[0].value.startswith('.'):
-                label = tokens[0].value
-                del tokens[0]
+        firstWord: Optional[InputLocation] = None
+        if tokens.peek(AsmToken.word):
+            location = tokens.location
+            tokens.eat(AsmToken.word)
+            if tokens.eat(AsmToken.symbol, ':') \
+                    or (tokens.peek(AsmToken.word) and
+                            tokens.value.casefold() == 'equ') \
+                    or location.text.startswith('.'):
+                label = location.text
+            else:
+                firstWord = location
         if label is not None:
             reader.info('label: %s', label)
 
         # Look for a directive or instruction.
-        if tokens[0].check(AsmToken.end):
-            continue
-        if not tokens[0].check(AsmToken.word):
+        if firstWord is None and tokens.peek(AsmToken.word):
+            firstWord = tokens.location
+            tokens.eat(AsmToken.word)
+        if firstWord is not None:
+            if firstWord.text.casefold() in instructionNames:
+                parseInstruction(firstWord, tokens, reader)
+            else:
+                parseDirective(firstWord, tokens, reader)
+        elif tokens.eat(AsmToken.comment):
+            assert tokens.end, tokens.kind
+        elif not tokens.end:
             reader.error(
                 'expected directive or instruction, got %s',
-                tokens[0].kind.name,
-                location=tokens[0].location
+                tokens.kind.name,
+                location=tokens.location
                 )
-            continue
-        firstWord = tokens[0].value
-        if firstWord in instructionNames:
-            parseInstruction(tokens, reader)
-        else:
-            parseDirective(tokens, reader)
 
 def readSource(path: str, instrSet: InstructionSet) -> None:
     with LineReader.open(path, logger) as reader:

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from enum import Enum, EnumMeta
 from typing import (
-    TYPE_CHECKING, Any, Dict, Generic, Iterator, Optional, Pattern, Tuple,
-    Type, TypeVar, cast
+    TYPE_CHECKING, Any, Dict, Iterator, Optional, Pattern, Tuple, Type,
+    TypeVar, cast
 )
 import re
 
@@ -27,50 +27,108 @@ class TokenMeta(EnumMeta):
         return newClass
 
 class TokenEnum(Enum, metaclass=TokenMeta):
-    """Base class for token types."""
+    """Base class for token types.
 
-    def __init__(self, regex: Optional[str]):
+    Each member should have as its value the regular expression for
+    matching that kind of token.
+    """
+
+    def __init__(self, regex: str):
         self.regex = regex
 
     @classmethod
     def compilePattern(cls) -> Pattern[str]:
-        return re.compile(
-            '|'.join(
-                '(?P<%s>%s)' % (name, token.regex)
-                for name, token in cls.__members__.items()
-                if token is not None
-                )
+        patterns = [r'(\s+)']
+        patterns += (
+            '(?P<%s>%s)' % (name, token.regex)
+            for name, token in cls.__members__.items()
             )
+        return re.compile('|'.join(patterns))
 
     @classmethod
-    def scan(cls: Type[TokenT], inp: InputLocation) -> Iterator[Token[TokenT]]:
+    def scan(cls: Type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
         """Splits an input string into tokens."""
-        for match in inp.findMatches(cls.pattern):
-            name = match.groupName
-            assert name is not None
-            kind = cls[name]
-            location = match.group(name)
-            assert location is not None
-            yield Token(kind, location.text, location)
-        endToken = getattr(cls, 'end', None)
-        if endToken is not None:
-            yield Token(endToken, '', inp.endLocation)
+        return Tokenizer(cls, location)
 
 TokenT = TypeVar('TokenT', bound=TokenEnum)
 
-class Token(Generic[TokenT]):
+class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
 
-    def __init__(self, kind: TokenT, value: str, location: InputLocation):
-        self.kind = kind
-        self.value = value
-        self.location = location
+    _kind: Optional[TokenT]
+    _location: InputLocation
 
-    def check(self, kind: TokenT, value: Optional[str] = None) -> bool:
-        """Check whether this token is of a particular kind
-        and optionally check the value as well.
+    @property
+    def end(self) -> bool:
+        """Has the end of the input been reached?"""
+        return self._kind is None
+
+    @property
+    def kind(self) -> TokenT:
+        """The token kind of the current token.
+        Raise `ValueError` if called at end of input.
+        """
+        kind = self._kind
+        if kind is None:
+            raise ValueError('out of tokens')
+        return kind
+
+    @property
+    def value(self) -> str:
+        """The text of the current token."""
+        return self._location.text
+
+    @property
+    def location(self) -> InputLocation:
+        """The input location of the current token."""
+        return self._location
+
+    def __init__(self, tokenClass: Type[TokenT], location: InputLocation):
+        self._tokens = location.findMatches(tokenClass.pattern)
+        self._tokenClass = tokenClass
+        self._fullLocation = location
+        self._advance()
+
+    def __next__(self) -> Tuple[TokenT, InputLocation]:
+        kind = self._kind
+        if kind is None:
+            raise StopIteration
+        location = self._location
+        self._advance()
+        return kind, location
+
+    def _advance(self) -> None:
+        while True:
+            try:
+                match = next(self._tokens)
+            except StopIteration:
+                kind = None
+                location = self._fullLocation.endLocation
+            else:
+                name = match.groupName
+                if name is None:
+                    # Skip whitespace.
+                    continue
+                kind = self._tokenClass[name]
+                matchLocation = match.group(name)
+                assert matchLocation is not None
+                location = matchLocation
+            break
+        self._kind = kind
+        self._location = location
+
+    def peek(self, kind: TokenT, value: Optional[str] = None) -> bool:
+        """Check whether the current token matches the given kind and,
+        if specified, also the given value.
         Return True for a match, False otherwise.
         """
-        if self.kind is kind:
-            if value is None or self.value.casefold() == value:
-                return True
-        return False
+        return self._kind is kind and (value is None or self.value == value)
+
+    def eat(self, kind: TokenT, value: Optional[str] = None) -> bool:
+        """Consume the current token if it matches the given kind and,
+        if specified, also the given value.
+        Return True if the token is consumed, False otherwise.
+        """
+        found = self.peek(kind, value)
+        if found:
+            self._advance()
+        return found
