@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from logging import getLogger
-from typing import Iterable, Iterator, Optional, Tuple, Type, Union
+from typing import Iterable, Iterator, Tuple, Type, Union
 
 from .expression_parser import NumberNode, parseDigits
 from .instrset import InstructionSet
@@ -133,30 +133,28 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
 
         # Look for a label.
         label = None
-        firstWord: Optional[InputLocation] = None
-        if tokens.peek(AsmToken.word):
-            location = tokens.location
-            tokens.eat(AsmToken.word)
-            if tokens.eat(AsmToken.symbol, ':') \
-                    or (tokens.peek(AsmToken.word) and
-                            tokens.value.casefold() == 'equ') \
-                    or location.text.startswith('.'):
-                label = location.text
-            else:
-                firstWord = location
+        firstWord = tokens.eat(AsmToken.word)
+        if firstWord is not None and (
+                # explicit label declaration
+                tokens.eat(AsmToken.symbol, ':') is not None
+                # EQU directive
+                or (tokens.peek(AsmToken.word) and
+                    tokens.value.casefold() == 'equ')
+                # local label
+                or firstWord.text.startswith('.')
+                ):
+            label = firstWord.text
+            firstWord = tokens.eat(AsmToken.word)
         if label is not None:
             reader.info('label: %s', label)
 
         # Look for a directive or instruction.
-        if firstWord is None and tokens.peek(AsmToken.word):
-            firstWord = tokens.location
-            tokens.eat(AsmToken.word)
         if firstWord is not None:
             if firstWord.text.casefold() in instructionNames:
                 parseInstruction(firstWord, tokens, reader)
             else:
                 parseDirective(firstWord, tokens, reader)
-        elif tokens.eat(AsmToken.comment):
+        elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end:
             reader.error(

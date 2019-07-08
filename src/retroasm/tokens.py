@@ -123,12 +123,19 @@ class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
         """
         return self._kind is kind and (value is None or self.value == value)
 
-    def eat(self, kind: TokenT, value: Optional[str] = None) -> bool:
+    def eat(self,
+            kind: TokenT,
+            value: Optional[str] = None
+            ) -> Optional[InputLocation]:
         """Consume the current token if it matches the given kind and,
         if specified, also the given value.
-        Return True if the token is consumed, False otherwise.
+        Return the token's input location if the token was consumed,
+        or None if no match was found.
         """
         found = self.peek(kind, value)
         if found:
+            location = self._location
             self._advance()
-        return found
+            return location
+        else:
+            return None
