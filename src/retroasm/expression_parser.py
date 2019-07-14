@@ -110,13 +110,13 @@ class OperatorNode(ParseNode):
 
     def _treeLocation(self):
         location = self.location
-        baseLocation = location.updateSpan(None)
+        baseLocation = location.updateSpan((0, 0))
         treeStart, treeEnd = location.span
         for operand in self.operands:
             if operand is None:
                 continue
             location = operand.treeLocation
-            assert location.updateSpan(None) == baseLocation
+            assert location.updateSpan((0, 0)) == baseLocation
             start, end = location.span
             treeStart = min(treeStart, start)
             treeEnd = max(treeEnd, end)

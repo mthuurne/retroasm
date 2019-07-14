@@ -34,25 +34,16 @@ class InputLocation:
         return self._lineno
 
     @property
-    def span(self) -> Optional[Tuple[int, int]]:
-        '''The column span information of this location,
-        or None if no column span information is available.
+    def span(self) -> Tuple[int, int]:
+        '''The column span information of this location.
         '''
         return self._span
-
-    @property
-    def effectiveSpan(self) -> Tuple[int, int]:
-        '''The column span information of this location, or the full line if
-        no column span information is available.
-        '''
-        span = self._span
-        return (0, len(self._line)) if span is None else span
 
     def __init__(self,
                  pathname: str,
                  lineno: int,
                  line: str,
-                 span: Optional[Tuple[int, int]] = None
+                 span: Tuple[int, int]
                  ):
         self._pathname = pathname
         self._lineno = lineno
@@ -87,10 +78,10 @@ class InputLocation:
             return NotImplemented
 
     def __len__(self) -> int:
-        span = self._span
-        return len(self._line) if span is None else span[1] - span[0]
+        start, end = self._span
+        return end - start
 
-    def updateSpan(self, span: Optional[Tuple[int, int]]) -> InputLocation:
+    def updateSpan(self, span: Tuple[int, int]) -> InputLocation:
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
@@ -100,7 +91,7 @@ class InputLocation:
     def endLocation(self) -> InputLocation:
         '''A zero-length location marking the end point of this location.
         '''
-        end = self.effectiveSpan[1]
+        end = self._span[1]
         return self.updateSpan((end, end))
 
     @property
@@ -108,16 +99,14 @@ class InputLocation:
         '''Returns the text described by this location: the spanned substring
         if span information is available, otherwise the full line.
         '''
-        line = self._line
-        span = self._span
-        return line if span is None else line[slice(*span)]
+        return self._line[slice(*self._span)]
 
     def match(self, pattern: Pattern[str]) -> Optional['InputMatch']:
         '''Matches the text in this location to the given compiled regular
         expression pattern.
         Returns an InputMatch object, or None if no match was found.
         '''
-        match = pattern.match(self._line, *self.effectiveSpan)
+        match = pattern.match(self._line, *self._span)
         return None if match is None else InputMatch(self, match)
 
     def findLocations(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
@@ -126,7 +115,7 @@ class InputLocation:
         Returns an iterator that yields an InputLocation object for each
         match.
         '''
-        for match in pattern.finditer(self._line, *self.effectiveSpan):
+        for match in pattern.finditer(self._line, *self._span):
             yield self.updateSpan(match.span(0))
 
     def findMatches(self, pattern: Pattern[str]) -> Iterator['InputMatch']:
@@ -135,7 +124,7 @@ class InputLocation:
         Returns an iterator that yields an InputMatch object for each
         match.
         '''
-        for match in pattern.finditer(self._line, *self.effectiveSpan):
+        for match in pattern.finditer(self._line, *self._span):
             yield InputMatch(self, match)
 
     def split(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
@@ -144,7 +133,7 @@ class InputLocation:
         Returns an iterator yielding InputLocations representing the text
         between the separators.
         '''
-        searchStart, searchEnd = self.effectiveSpan
+        searchStart, searchEnd = self._span
         curr = searchStart
         for match in pattern.finditer(self._line, searchStart, searchEnd):
             sepStart, sepEnd = match.span(0)
@@ -204,9 +193,7 @@ def mergeSpan(fromLocation: InputLocation,
     Both given locations must be on the same line.
     '''
     fromSpan = fromLocation.span
-    assert fromSpan is not None, fromLocation
     toSpan = toLocation.span
-    assert toSpan is not None, toLocation
     mergedSpan = (fromSpan[0], toSpan[1])
     mergedLocation = fromLocation.updateSpan(mergedSpan)
     assert mergedLocation == toLocation.updateSpan(mergedSpan), \
@@ -303,7 +290,8 @@ class LineReader:
         lastline = self._lastline
         if lastline is None:
             raise ValueError('Location requested for EOF')
-        return InputLocation(self._pathname, self._lineno, lastline, None)
+        span = (0, len(lastline))
+        return InputLocation(self._pathname, self._lineno, lastline, span)
 
     def debug(self, msg: str, *args: object, **kwargs: object) -> None:
         '''Log a message at the DEBUG level.
@@ -377,7 +365,7 @@ class DefLineReader(LineReader):
             line = self._nextLine().rstrip()
             match = _reComment.search(line)
             if match is None:
-                span = None
+                span = (0, len(line))
             else:
                 end = match.start()
                 while end > 0 and line[end - 1].isspace():
@@ -420,7 +408,7 @@ class LineReaderFormatter(Formatter):
     def _formatParts(self,
                      parts: Iterable[Tuple[
                          Optional[str], Optional[str], int, Optional[str],
-                         Sequence[Optional[Tuple[int, int]]]
+                         Sequence[Tuple[int, int]]
                          ]]
                      ) -> Iterator[str]:
         for msg, pathname, lineno, line, spans in parts:
@@ -439,8 +427,6 @@ class LineReaderFormatter(Formatter):
                 spanLine = ' ' * length
                 last = len(spans) - 1
                 for i, span in enumerate(reversed(spans)):
-                    if span is None:
-                        continue
                     start, end = span
                     start = min(start, length)
                     end = min(end, length)
@@ -460,7 +446,7 @@ class LineReaderFormatter(Formatter):
                    location: Union[None, InputLocation, Sequence[InputLocation]]
                    ) -> Iterator[Tuple[
                          Optional[str], Optional[str], int, Optional[str],
-                         Sequence[Optional[Tuple[int, int]]]
+                         Sequence[Tuple[int, int]]
                          ]]:
         if location is None:
             yield msg, None, -1, None, []
