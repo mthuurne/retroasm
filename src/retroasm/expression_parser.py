@@ -1,8 +1,13 @@
-from enum import Enum
+from __future__ import annotations
 
-from .linereader import BadInput, mergeSpan
+from enum import Enum, auto
+from typing import (
+    Any, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
+)
+
+from .linereader import BadInput, InputLocation, mergeSpan
 from .tokens import TokenEnum
-from .types import unlimited
+from .types import Width, cast, unlimited
 
 
 class ParseError(BadInput):
@@ -27,7 +32,7 @@ class ExprToken(TokenEnum):
 class ParseNode:
     __slots__ = ('location', 'treeLocation')
 
-    def __init__(self, location):
+    def __init__(self, location: InputLocation):
         self.location = location
         self.treeLocation = location
         '''Location information, where the span includes to the entire tree
@@ -43,7 +48,7 @@ class ParseNode:
                 )
             )
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ParseNode]:
         yield self
 
 class EmptyNode(ParseNode):
@@ -52,21 +57,25 @@ class EmptyNode(ParseNode):
 class LabelNode(ParseNode):
     __slots__ = ('name', )
 
-    def __init__(self, name, location):
+    def __init__(self, name: str, location: InputLocation):
         ParseNode.__init__(self, location)
         self.name = name
 
 class FlagTestNode(ParseNode):
     __slots__ = ('name', )
 
-    def __init__(self, name, location):
+    def __init__(self, name: str, location: InputLocation):
         ParseNode.__init__(self, location)
         self.name = name
 
 class BranchNode(ParseNode):
     __slots__ = ('cond', 'target')
 
-    def __init__(self, cond, target, location):
+    def __init__(self,
+                 cond: ParseNode,
+                 target: LabelNode,
+                 location: InputLocation
+                 ):
         ParseNode.__init__(self, location)
         self.cond = cond
         self.target = target
@@ -75,40 +84,59 @@ class BranchNode(ParseNode):
 class AssignmentNode(ParseNode):
     __slots__ = ('lhs', 'rhs')
 
-    def __init__(self, lhs, rhs, location):
+    def __init__(self, lhs: ParseNode, rhs: ParseNode, location: InputLocation):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
         self.treeLocation = mergeSpan(lhs.treeLocation, rhs.treeLocation)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ParseNode]:
         yield self
         yield from self.lhs
         yield from self.rhs
 
-Operator = Enum('Operator', ( # pylint: disable=invalid-name
-    'bitwise_and', 'bitwise_or', 'bitwise_xor', 'add', 'sub', 'complement',
-    'bitwise_complement', 'concatenation', 'lookup', 'negation', 'slice',
-    'shift_left', 'shift_right', 'equal', 'unequal', 'lesser', 'lesser_equal',
-    'greater', 'greater_equal', 'call'
-    ))
+class Operator(Enum):
+    bitwise_and = auto()
+    bitwise_or = auto()
+    bitwise_xor = auto()
+    add = auto()
+    sub = auto()
+    complement = auto()
+    bitwise_complement = auto()
+    concatenation = auto()
+    lookup = auto()
+    negation = auto()
+    slice = auto()
+    shift_left = auto()
+    shift_right = auto()
+    equal = auto()
+    unequal = auto()
+    lesser = auto()
+    lesser_equal = auto()
+    greater = auto()
+    greater_equal = auto()
+    call = auto()
 
 class OperatorNode(ParseNode):
     __slots__ = ('operator', 'operands')
 
-    def __init__(self, operator, operands, location):
+    def __init__(self,
+                 operator: Operator,
+                 operands: Iterable[Optional[ParseNode]],
+                 location: InputLocation
+                 ):
         ParseNode.__init__(self, location)
         self.operator = operator
-        self.operands = tuple(operands)
+        self.operands: Sequence[Optional[ParseNode]] = tuple(operands)
         self.treeLocation = self._treeLocation()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ParseNode]:
         yield self
         for operand in self.operands:
             if operand is not None:
                 yield from operand
 
-    def _treeLocation(self):
+    def _treeLocation(self) -> InputLocation:
         location = self.location
         baseLocation = location.updateSpan((0, 0))
         treeStart, treeEnd = location.span
@@ -125,42 +153,51 @@ class OperatorNode(ParseNode):
 class IdentifierNode(ParseNode):
     __slots__ = ('name',)
 
-    def __init__(self, name, location):
+    def __init__(self, name: str, location: InputLocation):
         ParseNode.__init__(self, location)
         self.name = name
 
 class MultiMatchNode(ParseNode):
     __slots__ = ('name',)
 
-    def __init__(self, name, location):
+    def __init__(self, name: str, location: InputLocation):
         ParseNode.__init__(self, location)
         self.name = name
 
-DeclarationKind = Enum('DeclarationKind', ( # pylint: disable=invalid-name
-    'variable', 'constant', 'reference'
-    ))
+class DeclarationKind(Enum):
+    variable = auto()
+    constant = auto()
+    reference = auto()
 
 class DeclarationNode(ParseNode):
     __slots__ = ('kind', 'type', 'name')
 
-    def __init__(self, kind, typ, name, location):
+    def __init__(self,
+                 kind: DeclarationKind,
+                 typ: Optional[IdentifierNode],
+                 name: IdentifierNode,
+                 location: InputLocation
+                 ):
         ParseNode.__init__(self, location)
         self.kind = kind
         self.type = typ
         self.name = name
-        self.treeLocation = name.treeLocation if location is None else \
-                mergeSpan(location, name.treeLocation)
+        self.treeLocation = mergeSpan(location, name.treeLocation)
 
 class DefinitionNode(ParseNode):
     __slots__ = ('decl', 'value')
 
-    def __init__(self, decl, value, location):
+    def __init__(self,
+                 decl: DeclarationNode,
+                 value: ParseNode,
+                 location: InputLocation
+                 ):
         ParseNode.__init__(self, location)
         self.decl = decl
         self.value = value
         self.treeLocation = mergeSpan(decl.treeLocation, value.treeLocation)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ParseNode]:
         yield self
         yield from self.decl
         yield from self.value
@@ -168,19 +205,25 @@ class DefinitionNode(ParseNode):
 class NumberNode(ParseNode):
     __slots__ = ('value', 'width')
 
-    def __init__(self, value, width, location):
+    def __init__(self, value: int, width: Width, location: InputLocation):
         ParseNode.__init__(self, location)
         self.value = value
         self.width = width
 
-_ParseMode = Enum('_ParseMode', ( # pylint: disable=invalid-name
-    'single', 'multi', 'statement', 'registers', 'context'
-    ))
+DefDeclNode = Union[DeclarationNode, DefinitionNode]
+ContextNode = Union[DeclarationNode, DefinitionNode, FlagTestNode]
 
-def _parse(location, mode):
+class _ParseMode(Enum):
+    single = auto()
+    multi = auto()
+    statement = auto()
+    registers = auto()
+    context = auto()
+
+def _parse(location: InputLocation, mode: _ParseMode) -> Any:
     tokens = ExprToken.scan(location)
 
-    def badTokenKind(where, expected):
+    def badTokenKind(where: str, expected: str) -> ParseError:
         if tokens.end:
             gotDesc = 'end of input'
         else:
@@ -190,15 +233,16 @@ def _parse(location, mode):
             )
         return ParseError(msg, tokens.location)
 
-    def parseStatementTop():
+    def parseStatementTop() -> ParseNode:
         if tokens.peek(ExprToken.label):
             return parseLabel()
         location = tokens.eat(ExprToken.keyword, 'branch')
         if location is not None:
-            if tokens.peek(ExprToken.label):
-                cond = NumberNode(1, 1, location)
-            else:
-                cond = parseExprTop()
+            cond = (
+                NumberNode(1, 1, location)
+                if tokens.peek(ExprToken.label)
+                else parseExprTop()
+                )
             target = parseLabel()
             return BranchNode(cond, target, location)
         location = tokens.eat(ExprToken.keyword, 'nop')
@@ -206,29 +250,30 @@ def _parse(location, mode):
             return EmptyNode(location)
         return parseAssign()
 
-    def parseLabel():
+    def parseLabel() -> LabelNode:
         location = tokens.eat(ExprToken.label)
         if location is None:
             raise badTokenKind('label', '"@<name>"')
         return LabelNode(location.text[1:], location)
 
-    def parseAssign():
+    def parseAssign() -> ParseNode:
         expr = parseExprTop()
         location = tokens.eat(ExprToken.assignment, ':=')
         if location is None:
             return expr
         return AssignmentNode(expr, parseExprTop(), location)
 
-    def parseList():
+    def parseList() -> Iterable[ParseNode]:
         exprs = []
         while True:
             exprs.append(parseExprTop())
             if tokens.eat(ExprToken.separator, ',') is None:
                 return exprs
 
-    def parseContext():
+    def parseContext() -> Iterable[ContextNode]:
         elems = []
         while True:
+            node: ContextNode
             if tokens.peek(ExprToken.identifier):
                 node = parseDecl('ctx', tokens.location)
                 defLocation = tokens.eat(ExprToken.definition)
@@ -247,28 +292,28 @@ def _parse(location, mode):
             if tokens.eat(ExprToken.separator, ',') is None:
                 return elems
 
-    def parseOr():
+    def parseOr() -> ParseNode:
         expr = parseXor()
         location = tokens.eat(ExprToken.operator, '|')
         if location is None:
             return expr
         return OperatorNode(Operator.bitwise_or, (expr, parseOr()), location)
 
-    def parseXor():
+    def parseXor() -> ParseNode:
         expr = parseAnd()
         location = tokens.eat(ExprToken.operator, '^')
         if location is None:
             return expr
         return OperatorNode(Operator.bitwise_xor, (expr, parseXor()), location)
 
-    def parseAnd():
+    def parseAnd() -> ParseNode:
         expr = parseEqual()
         location = tokens.eat(ExprToken.operator, '&')
         if location is None:
             return expr
         return OperatorNode(Operator.bitwise_and, (expr, parseAnd()), location)
 
-    def parseEqual():
+    def parseEqual() -> ParseNode:
         expr = parseCompare()
         location = tokens.eat(ExprToken.operator, '==')
         if location is not None:
@@ -282,7 +327,7 @@ def _parse(location, mode):
                 )
         return expr
 
-    def parseCompare():
+    def parseCompare() -> ParseNode:
         expr = parseShift()
         location = tokens.eat(ExprToken.operator, '<')
         if location is not None:
@@ -306,7 +351,7 @@ def _parse(location, mode):
                 )
         return expr
 
-    def parseShift():
+    def parseShift() -> ParseNode:
         expr = parseAddSub()
         location = tokens.eat(ExprToken.operator, '<<')
         if location is not None:
@@ -320,7 +365,7 @@ def _parse(location, mode):
                 )
         return expr
 
-    def parseAddSub(expr=None):
+    def parseAddSub(expr: Optional[ParseNode] = None) -> ParseNode:
         if expr is None:
             expr = parseConcat()
         location = tokens.eat(ExprToken.operator, '+')
@@ -335,7 +380,7 @@ def _parse(location, mode):
                 )
         return expr
 
-    def parseConcat():
+    def parseConcat() -> ParseNode:
         expr = parseUnary()
         location = tokens.eat(ExprToken.operator, ';')
         if location is not None:
@@ -344,7 +389,7 @@ def _parse(location, mode):
                 )
         return expr
 
-    def parseUnary():
+    def parseUnary() -> ParseNode:
         location = tokens.eat(ExprToken.operator, '-')
         if location is not None:
             return OperatorNode(Operator.complement, (parseUnary(),), location)
@@ -358,13 +403,14 @@ def _parse(location, mode):
                 )
         return parseIndexed()
 
-    def parseIndexed():
+    def parseIndexed() -> ParseNode:
         expr = parseGroup()
         while True:
             openLocation = tokens.eat(ExprToken.bracket, '[')
             if openLocation is None:
                 return expr
 
+            start: Optional[ParseNode]
             sepLocation = tokens.eat(ExprToken.separator, ':')
             if sepLocation is None:
                 start = parseExprTop()
@@ -372,6 +418,7 @@ def _parse(location, mode):
             else:
                 start = None
 
+            end: Optional[ParseNode]
             closeLocation = tokens.eat(ExprToken.bracket, ']')
             if sepLocation is None:
                 if closeLocation is None:
@@ -393,7 +440,7 @@ def _parse(location, mode):
                     mergeSpan(openLocation, closeLocation)
                     )
 
-    def parseGroup():
+    def parseGroup() -> ParseNode:
         openLocation = tokens.eat(ExprToken.bracket, '(')
         if openLocation is not None:
             expr = parseExprTop()
@@ -411,7 +458,7 @@ def _parse(location, mode):
             ident = parseIdent()
             if isinstance(ident, IdentifierNode) and ident.name == 'ret':
                 declNode = DeclarationNode(
-                    DeclarationKind.reference, None, ident, None
+                    DeclarationKind.reference, None, ident, ident.location
                     )
                 defLocation = tokens.eat(ExprToken.definition)
                 if defLocation is not None:
@@ -429,7 +476,7 @@ def _parse(location, mode):
 
         raise badTokenKind('innermost', 'identifier, number or function call')
 
-    def parseDefinition():
+    def parseDefinition() -> DefDeclNode:
         # Keyword.
         keywordLocation = tokens.eat(ExprToken.keyword)
         assert keywordLocation is not None, tokens.location
@@ -451,9 +498,9 @@ def _parse(location, mode):
                 raise badTokenKind('%s value' % declNode.kind.name, '"="')
             return DefinitionNode(declNode, parseExprTop(), defLocation)
 
-    def parseRegs():
-        defs = []
-        typeNode = None
+    def parseRegs() -> Iterable[DefDeclNode]:
+        defs: List[DefDeclNode] = []
+        typeNode: Optional[IdentifierNode] = None
         while True:
             startLocation = tokens.location
 
@@ -507,7 +554,9 @@ def _parse(location, mode):
             if tokens.eat(ExprToken.separator, ',') is None:
                 return defs
 
-    def parseDecl(keyword, startLocation):
+    def parseDecl(keyword: str,
+                  startLocation: InputLocation
+                  ) -> DeclarationNode:
         kind = {
             'ctx': DeclarationKind.constant,
             'def': DeclarationKind.constant,
@@ -551,7 +600,7 @@ def _parse(location, mode):
 
         return DeclarationNode(kind, typeNode, nameNode, startLocation)
 
-    def parseIdent():
+    def parseIdent() -> Union[IdentifierNode, OperatorNode]:
         location = tokens.eat(ExprToken.identifier)
         assert location is not None, tokens.location
 
@@ -561,11 +610,11 @@ def _parse(location, mode):
         else:
             return identifier
 
-    def parseFunctionCall(name):
+    def parseFunctionCall(name: IdentifierNode) -> OperatorNode:
         openLocation = tokens.eat(ExprToken.bracket, '(')
         assert openLocation is not None, tokens.location
 
-        exprs = [name]
+        exprs: List[ParseNode] = [name]
         closeLocation = tokens.eat(ExprToken.bracket, ')')
         while closeLocation is None:
             exprs.append(parseExprTop())
@@ -577,7 +626,7 @@ def _parse(location, mode):
         location = mergeSpan(openLocation, closeLocation)
         return OperatorNode(Operator.call, exprs, location)
 
-    def parseNumber():
+    def parseNumber() -> NumberNode:
         location = tokens.eat(ExprToken.number)
         assert location is not None, tokens.location
         try:
@@ -610,22 +659,22 @@ def _parse(location, mode):
             )
     return expr
 
-def parseExpr(location):
-    return _parse(location, _ParseMode.single)
+def parseExpr(location: InputLocation) -> ParseNode:
+    return cast(ParseNode, _parse(location, _ParseMode.single))
 
-def parseExprList(location):
-    return _parse(location, _ParseMode.multi)
+def parseExprList(location: InputLocation) -> Iterable[ParseNode]:
+    return cast(Iterable[ParseNode], _parse(location, _ParseMode.multi))
 
-def parseRegs(location):
-    return _parse(location, _ParseMode.registers)
+def parseRegs(location: InputLocation) -> Iterable[DefDeclNode]:
+    return cast(Iterable[DefDeclNode], _parse(location, _ParseMode.registers))
 
-def parseContext(location):
-    return _parse(location, _ParseMode.context)
+def parseContext(location: InputLocation) -> Iterable[ContextNode]:
+    return cast(Iterable[ContextNode], _parse(location, _ParseMode.context))
 
-def parseStatement(location):
-    return _parse(location, _ParseMode.statement)
+def parseStatement(location: InputLocation) -> ParseNode:
+    return cast(ParseNode, _parse(location, _ParseMode.statement))
 
-def parseInt(valueStr):
+def parseInt(valueStr: str) -> Tuple[int, Width]:
     '''Parse the given string as a binary, decimal or hexadecimal integer.
     Returns a pair containing the value and the width of the literal in bits.
     Raises ValueError if the given string does not represent an integer.
