@@ -1,3 +1,5 @@
+from typing import Iterable, Optional, Sequence, Union, cast, overload
+
 from .codeblock import Load, Store
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LVShift,
@@ -6,18 +8,19 @@ from .expression import (
 from .expression_parser import (
     AssignmentNode, BranchNode, DeclarationKind, DeclarationNode,
     DefinitionNode, EmptyNode, IdentifierNode, LabelNode, MultiMatchNode,
-    NumberNode, Operator, OperatorNode
+    NumberNode, Operator, OperatorNode, ParseNode
 )
 from .expression_simplifier import simplifyExpression
 from .function import Function
-from .linereader import BadInput
-from .namespace import NameExistsError, createIOReference
+from .linereader import BadInput, InputLocation, LineReader
+from .namespace import BuilderNamespace, NameExistsError, createIOReference
 from .reference import (
     ConcatenatedBits, FixedValue, Reference, SlicedBits, badReference
 )
 from .storage import IOChannel
 from .types import (
-    IntType, ReferenceType, parseTypeDecl, unlimited, widthForMask
+    IntType, ReferenceType, Width, parseType, parseTypeDecl, unlimited,
+    widthForMask
 )
 from .utils import checkType
 
@@ -31,20 +34,26 @@ class UnknownNameError(BadExpression):
     in any of its surrounding namespaces.
     '''
 
-    def __init__(self, name, *args, **kvargs):
-        BadExpression.__init__(self, *args, **kvargs)
+    def __init__(self, name: str, msg: str, location: InputLocation):
+        BadExpression.__init__(self, msg, location)
         self.name = name
 
-def declareVariable(node, namespace):
+def declareVariable(node: DeclarationNode,
+                    namespace: BuilderNamespace
+                    ) -> Reference:
     assert node.kind is DeclarationKind.variable, node.kind
 
     # Determine type.
+    # Note: The type node is None for 'ret' declarations, but those are
+    #       reference declarations, not variable declarations.
+    typeNode = node.type
+    assert typeNode is not None, node
     try:
-        typ = parseTypeDecl(node.type.name)
+        typ = parseType(typeNode.name)
     except ValueError as ex:
         raise BadExpression(
             'bad type name in definition: %s' % ex,
-            node.type.location
+            typeNode.location
             )
 
     # Get name.
@@ -60,7 +69,12 @@ def declareVariable(node, namespace):
             ex.location
             )
 
-def convertDefinition(kind, name, typ, value, namespace):
+def convertDefinition(kind: DeclarationKind,
+                      name: str,
+                      typ: Union[IntType, ReferenceType],
+                      value: ParseNode,
+                      namespace: BuilderNamespace
+                      ) -> Reference:
     '''Build and validate the right hand side of a definition.
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
@@ -75,6 +89,7 @@ def convertDefinition(kind, name, typ, value, namespace):
                 'bad value for constant "%s %s": %s' % (typ, name, ex),
                 ex.location
                 )
+        assert isinstance(typ, IntType), typ
         declWidth = typ.width
         bits = FixedValue(truncate(expr, declWidth), declWidth)
         return Reference(bits, typ)
@@ -86,6 +101,7 @@ def convertDefinition(kind, name, typ, value, namespace):
                 'bad value for reference "%s %s": %s' % (typ, name, ex),
                 ex.location
                 )
+        assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
             raise BadExpression.withText(
                 '%s-bit value does not match declared type "%s"'
@@ -96,9 +112,10 @@ def convertDefinition(kind, name, typ, value, namespace):
     else:
         assert False, kind
 
-def _convertIdentifier(node, namespace):
+def _convertIdentifier(node: IdentifierNode,
+                       namespace: BuilderNamespace
+                       ) -> Union[IOChannel, Reference]:
     '''Looks up an identifier in a namespace.
-    Returns either an IOChannel or a Reference.
     '''
     name = node.name
     try:
@@ -112,7 +129,9 @@ def _convertIdentifier(node, namespace):
     else:
         assert False, (name, repr(value))
 
-def _convertFunctionCall(callNode, namespace):
+def _convertFunctionCall(callNode: OperatorNode,
+                         namespace: BuilderNamespace
+                         ) -> Optional[Reference]:
     nameNode, *argNodes = callNode.operands
     builder = namespace.builder
 
@@ -143,6 +162,7 @@ def _convertFunctionCall(callNode, namespace):
             )
     argMap = {}
     for (name, decl), argNode in zip(func.args.items(), argNodes):
+        assert argNode is not None, callNode
         ref = buildReference(argNode, namespace)
         if isinstance(decl, ReferenceType):
             # For reference arguments, we demand the passed width to match the
@@ -171,11 +191,19 @@ def _convertFunctionCall(callNode, namespace):
         retType = func.retType
         if isinstance(retType, ReferenceType):
             retType = retType.type
+        else:
+            # If retType is None, retBits would be None too.
+            assert retType is not None, func
         return Reference(retBits, retType)
 
-def _convertArithmetic(node, namespace):
+def _convertArithmetic(node: OperatorNode,
+                       namespace: BuilderNamespace
+                       ) -> Expression:
     operator = node.operator
-    exprs = tuple(buildExpression(node, namespace) for node in node.operands)
+    exprs: Sequence[Expression] = tuple(
+        buildExpression(cast(ParseNode, node), namespace)
+        for node in node.operands
+        )
     if operator is Operator.bitwise_and:
         return AndOperator(*exprs)
     elif operator is Operator.bitwise_or:
@@ -216,7 +244,9 @@ def _convertArithmetic(node, namespace):
     else:
         assert False, operator
 
-def _convertExpressionOperator(node, namespace):
+def _convertExpressionOperator(node: OperatorNode,
+                               namespace: BuilderNamespace
+                               ) -> Expression:
     operator = node.operator
     if operator is Operator.call:
         ref = _convertFunctionCall(node, namespace)
@@ -242,7 +272,7 @@ def _convertExpressionOperator(node, namespace):
     else:
         return _convertArithmetic(node, namespace)
 
-def buildExpression(node, namespace):
+def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
     if isinstance(node, NumberNode):
         return IntLiteral(node.value)
     elif isinstance(node, IdentifierNode):
@@ -274,14 +304,19 @@ def buildExpression(node, namespace):
     else:
         assert False, node
 
-def _convertReferenceLookup(node, namespace):
+def _convertReferenceLookup(node: OperatorNode,
+                            namespace: BuilderNamespace
+                            ) -> Reference:
     exprNode, indexNode = node.operands
+    assert indexNode is not None, node
     if isinstance(exprNode, IdentifierNode):
         ident = _convertIdentifier(exprNode, namespace)
         if isinstance(ident, IOChannel):
             channel = ident
             index = buildExpression(indexNode, namespace)
             return createIOReference(channel, index)
+    else:
+        assert exprNode is not None, node
 
     ref = buildReference(exprNode, namespace)
     index = buildExpression(indexNode, namespace)
@@ -292,49 +327,64 @@ def _convertReferenceLookup(node, namespace):
     else:
         return Reference(bits, IntType.u(1))
 
-def _convertReferenceSlice(node, namespace):
+def _convertReferenceSlice(node: OperatorNode,
+                           namespace: BuilderNamespace
+                           ) -> Reference:
     exprNode, startNode, endNode = node.operands
+    assert exprNode is not None, node
     ref = buildReference(exprNode, namespace)
-    if startNode is None:
-        offset = IntLiteral(0)
-    else:
-        offset = buildExpression(startNode, namespace)
+    startExpr = (
+        IntLiteral(0)
+        if startNode is None
+        else buildExpression(startNode, namespace)
+        )
     if endNode is None:
         refWidth = ref.width
-        end = unlimited if refWidth is unlimited else IntLiteral(refWidth)
+        if refWidth is unlimited:
+            endExpr: Optional[Expression] = None
+        else:
+            endExpr = IntLiteral(cast(int, refWidth))
     else:
-        end = buildExpression(endNode, namespace)
-    if startNode is None or end is unlimited:
-        width = end
-    else:
-        width = AddOperator(end, Complement(offset))
+        endExpr = buildExpression(endNode, namespace)
+    widthExpr: Optional[Expression] = (
+        endExpr
+        if startNode is None or endExpr is None
+        else AddOperator(endExpr, Complement(startExpr))
+        )
     try:
-        if width is not unlimited:
-            width = simplifyExpression(checkType(width, Expression, 'width'))
-            if isinstance(width, IntLiteral):
-                width = width.value
+        if widthExpr is None:
+            width: Width = unlimited
+        else:
+            widthExpr = simplifyExpression(widthExpr)
+            if isinstance(widthExpr, IntLiteral):
+                width = widthExpr.value
             else:
                 raise ValueError('slice width cannot be determined')
-        bits = SlicedBits(ref.bits, offset, width)
+        bits = SlicedBits(ref.bits, startExpr, width)
     except ValueError as ex:
         raise BadExpression('invalid slice: %s' % ex, node.location)
     else:
         typ = IntType(width, width is unlimited)
         return Reference(bits, typ)
 
-def _convertReferenceConcat(node, namespace):
+def _convertReferenceConcat(node: OperatorNode,
+                            namespace: BuilderNamespace
+                            ) -> Reference:
     exprNode1, exprNode2 = node.operands
+    assert exprNode1 is not None, node
+    assert exprNode2 is not None, node
     ref1 = buildReference(exprNode1, namespace)
     ref2 = buildReference(exprNode2, namespace)
     if ref2.width is unlimited:
-        node = exprNode2
-        while isinstance(node, OperatorNode) and \
-                node.operator is Operator.concatenation:
-            node = node.operands[0]
+        nonFirstNode = exprNode2
+        while isinstance(nonFirstNode, OperatorNode) and \
+                nonFirstNode.operator is Operator.concatenation:
+            assert nonFirstNode.operands[0] is not None, node
+            nonFirstNode = nonFirstNode.operands[0]
         raise BadExpression.withText(
             'only the first concatenation operand is allowed to have '
             'unlimited width',
-            node.treeLocation
+            nonFirstNode.treeLocation
             )
     bits = ConcatenatedBits(ref2.bits, ref1.bits)
     width = bits.width
@@ -347,7 +397,9 @@ comparisonOperators = (
     Operator.greater, Operator.greater_equal,
     )
 
-def _convertReferenceOperator(node, namespace):
+def _convertReferenceOperator(node: OperatorNode,
+                              namespace: BuilderNamespace
+                              ) -> Reference:
     operator = node.operator
     if operator is Operator.call:
         ref = _convertFunctionCall(node, namespace)
@@ -369,7 +421,7 @@ def _convertReferenceOperator(node, namespace):
         typ = IntType.u(1) if operator in comparisonOperators else IntType.int
         return Reference(FixedValue(expr, typ.width), typ)
 
-def buildReference(node, namespace):
+def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
     if isinstance(node, NumberNode):
         literal = IntLiteral(node.value)
         typ = IntType(node.width, node.width is unlimited)
@@ -400,7 +452,11 @@ def buildReference(node, namespace):
     else:
         assert False, node
 
-def buildStatementEval(reader, whereDesc, namespace, node):
+def buildStatementEval(reader: LineReader,
+                       whereDesc: str,
+                       namespace: BuilderNamespace,
+                       node: ParseNode
+                       ) -> None:
     '''Emits loads and stores on the given namespace that produce the (side)
     effects of evaluating the given node.
     Errors and warnings are logged on the given reader, using whereDesc as the
@@ -465,7 +521,12 @@ def buildStatementEval(reader, whereDesc, namespace, node):
             whereDesc, location=node.treeLocation
             )
 
-def emitCodeFromStatements(reader, whereDesc, namespace, statements, retType):
+def emitCodeFromStatements(reader: LineReader,
+                           whereDesc: str,
+                           namespace: BuilderNamespace,
+                           statements: Iterable[ParseNode],
+                           retType: Union[None, IntType, ReferenceType]
+                           ) -> None:
     '''Emits a code block from the given statements.
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
@@ -490,7 +551,7 @@ def emitCodeFromStatements(reader, whereDesc, namespace, statements, retType):
                         location=decl.location
                         )
                     continue
-                typ = retType
+                typ: Union[IntType, ReferenceType] = retType
             else:
                 # Determine type.
                 try:
