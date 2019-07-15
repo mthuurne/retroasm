@@ -21,7 +21,7 @@ invoke = "^1.2"
 pytest = "^4.5"
 pytest-pythonpath = "^0.7.3"
 pylint = "^2.3"
-mypy = ">=0.710"
+mypy = ">=0.720"
 lxml = "^4.3"
 
 [build-system]
