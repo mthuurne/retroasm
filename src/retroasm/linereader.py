@@ -228,8 +228,8 @@ class BadInput(Exception):
 
     def __init__(self,
                  msg: str,
-                 location: Union[None, InputLocation,Sequence[InputLocation]]
-                    = None
+                 location: Union[None, InputLocation, Sequence[InputLocation]]
+                     = None
                  ):
         Exception.__init__(self, msg)
         self.location = location
