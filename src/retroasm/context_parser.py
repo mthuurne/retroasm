@@ -1,26 +1,55 @@
+from typing import Optional, Union
+
 from .expression_parser import DeclarationNode, ParseNode
+from .mode import Mode
+from .types import IntType, ReferenceType, Width
 from .utils import checkType
 
 
 class PlaceholderSpec:
 
-    decl = property(lambda self: self._decl)
-    name = property(lambda self: self._decl.name.name)
+    @property
+    def decl(self) -> DeclarationNode:
+        return self._decl
 
-    encodingWidth = property()
-    semanticsType = property()
-    value = property()
+    @property
+    def name(self) -> str:
+        return self._decl.name.name
 
-    def __init__(self, decl):
+    @property
+    def encodingWidth(self) -> Optional[Width]:
+        raise NotImplementedError
+
+    @property
+    def semanticsType(self) -> Union[None, IntType, ReferenceType]:
+        raise NotImplementedError
+
+    @property
+    def value(self) -> Optional[ParseNode]:
+        raise NotImplementedError
+
+    def __init__(self, decl: DeclarationNode):
         self._decl = checkType(decl, DeclarationNode, 'placeholder declaration')
 
 class ValuePlaceholderSpec(PlaceholderSpec):
 
-    encodingWidth = property(lambda self: self._type.width)
-    semanticsType = property(lambda self: self._type)
-    value = property(lambda self: self._value)
+    @property
+    def encodingWidth(self) -> Width:
+        return self._type.width
 
-    def __init__(self, decl, typ, value):
+    @property
+    def semanticsType(self) -> IntType:
+        return self._type
+
+    @property
+    def value(self) -> Optional[ParseNode]:
+        return self._value
+
+    def __init__(self,
+                 decl: DeclarationNode,
+                 typ: IntType,
+                 value: Optional[ParseNode]
+                 ):
         PlaceholderSpec.__init__(self, decl)
         self._type = typ
         self._value = checkType(
@@ -37,13 +66,23 @@ class ValuePlaceholderSpec(PlaceholderSpec):
 
 class MatchPlaceholderSpec(PlaceholderSpec):
 
-    encodingWidth = property(lambda self: self._mode.encodingWidth)
-    semanticsType = property(lambda self: self._mode.semanticsType)
-    value = property(lambda self: None)
+    @property
+    def encodingWidth(self) -> Optional[int]:
+        return self._mode.encodingWidth # type: ignore
 
-    mode = property(lambda self: self._mode)
+    @property
+    def semanticsType(self) -> Union[None, IntType, ReferenceType]:
+        return self._mode.semanticsType # type: ignore
 
-    def __init__(self, decl, mode):
+    @property
+    def value(self) -> None:
+        return None
+
+    @property
+    def mode(self) -> Mode:
+        return self._mode
+
+    def __init__(self, decl: DeclarationNode, mode: Mode):
         PlaceholderSpec.__init__(self, decl)
         self._mode = mode
 
