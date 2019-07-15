@@ -56,7 +56,7 @@ class Unlimited(metaclass=Singleton):
         else:
             return NotImplemented
 
-    def __add__(self, other: Union[int, Unlimited]) -> Unlimited:
+    def __add__(self, other: object) -> Unlimited:
         if isinstance(other, (int, Unlimited)):
             return self
         else:
@@ -64,7 +64,7 @@ class Unlimited(metaclass=Singleton):
 
     __radd__ = __add__
 
-    def __sub__(self, other: int) -> Unlimited:
+    def __sub__(self, other: object) -> Unlimited:
         if isinstance(other, int):
             return self
         else:
