@@ -68,11 +68,11 @@ class MatchPlaceholderSpec(PlaceholderSpec):
 
     @property
     def encodingWidth(self) -> Optional[int]:
-        return self._mode.encodingWidth # type: ignore
+        return self._mode.encodingWidth
 
     @property
     def semanticsType(self) -> Union[None, IntType, ReferenceType]:
-        return self._mode.semanticsType # type: ignore
+        return self._mode.semanticsType
 
     @property
     def value(self) -> None:

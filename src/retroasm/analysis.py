@@ -42,10 +42,14 @@ class CodeTemplate:
             newCode = None
         else:
             fillCode = entry.semantics.code
+            # TODO: Verify that this is indeed never called without fillCode.
+            assert fillCode is not None
             # TODO: Support fillCode semantics with side effects.
             assert len(fillCode.nodes) == 0, entry
 
             def argFetcher(argName: str) -> Optional[BitString]:
+                # https://github.com/python/mypy/issues/2608
+                assert fillCode is not None
                 return fillCode.returned[0] if argName == name else None
             builder = SemanticsCodeBlockBuilder()
             returned = builder.inlineBlock(code, argFetcher)
