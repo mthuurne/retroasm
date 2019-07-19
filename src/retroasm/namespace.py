@@ -78,7 +78,7 @@ class Namespace:
         If the name was already taken, NameExistsError is raised.
         '''
         checkType(name, str, 'name')
-        self._checkName(name, location)
+        self._checkName(name, value, location)
         if name in self.elements:
             msg = 'name "%s" redefined' % name
             if location is not None:
@@ -89,8 +89,13 @@ class Namespace:
         self.locations[name] = location
         self.elements[name] = value
 
-    def _checkName(self, name: str, location: InputLocation) -> None:
-        '''Checks whether the given name can be used in this namespace.
+    def _checkName(self,
+                   name: str,
+                   value: NamespaceValue,
+                   location: InputLocation
+                   ) -> None:
+        '''Checks whether the given name can be used in this namespace
+        for the given value.
         Raises NameExistsError if the name is rejected.
         '''
         pass
@@ -135,7 +140,11 @@ class ContextNamespace(Namespace):
     '''A namespace for a mode entry context.
     '''
 
-    def _checkName(self, name: str, location: InputLocation) -> None:
+    def _checkName(self,
+                   name: str,
+                   value: NamespaceValue,
+                   location: InputLocation
+                   ) -> None:
         _rejectPC(name, location)
         _rejectRet(name, location)
 
@@ -210,7 +219,13 @@ class GlobalNamespace(BuilderNamespace):
     def __init__(self, builder: SemanticsCodeBlockBuilder):
         BuilderNamespace.__init__(self, None, builder)
 
-    def _checkName(self, name: str, location: InputLocation) -> None:
+    def _checkName(self,
+                   name: str,
+                   value: NamespaceValue,
+                   location: InputLocation
+                   ) -> None:
+        if not isinstance(value, Reference):
+            _rejectPC(name, location)
         _rejectRet(name, location)
 
 class LocalNamespace(BuilderNamespace):
@@ -222,7 +237,11 @@ class LocalNamespace(BuilderNamespace):
     def scope(self) -> int:
         return 1
 
-    def _checkName(self, name: str, location: InputLocation) -> None:
+    def _checkName(self,
+                   name: str,
+                   value: NamespaceValue,
+                   location: InputLocation
+                   ) -> None:
         _rejectPC(name, location)
 
     def createCodeBlock(self,
