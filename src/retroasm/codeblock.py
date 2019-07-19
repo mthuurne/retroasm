@@ -73,10 +73,10 @@ class Load(AccessNode):
         AccessNode.__init__(self, expr, storage, location)
 
     def __repr__(self) -> str:
-        return 'Load(%r, %r)' % (self._storage, self._location)
+        return f'Load({self._storage!r}, {self._location!r})'
 
     def __str__(self) -> str:
-        return 'load from %s' % self._storage
+        return f'load from {self._storage}'
 
     @property
     def expr(self) -> LoadedValue:
@@ -107,10 +107,10 @@ class Store(AccessNode):
             )
 
     def __repr__(self) -> str:
-        return 'Store(%r, %r, %r)' % (self._expr, self._storage, self._location)
+        return f'Store({self._expr!r}, {self._storage!r}, {self._location!r})'
 
     def __str__(self) -> str:
-        return 'store %s in %s' % (self._expr, self._storage)
+        return f'store {self._expr} in {self._storage}'
 
     def clone(self) -> Store:
         return Store(self._expr, self._storage, self._location)
@@ -137,10 +137,10 @@ class LoadedValue(Expression):
         return self._load, self._mask
 
     def __repr__(self) -> str:
-        return 'LoadedValue(%r, %d)' % (self._load, self._mask)
+        return f'LoadedValue({self._load!r}, {self._mask:d})'
 
     def __str__(self) -> str:
-        return 'load(%s)' % self._load.storage
+        return f'load({self._load.storage})'
 
     def _equals(self, other: LoadedValue) -> bool:
         # pylint: disable=protected-access
@@ -212,9 +212,9 @@ class CodeBlock:
         '''Prints this code block on stdout.
         '''
         for node in self.nodes:
-            print('    %s (%s-bit)' % (node, node.storage.width))
+            print(f'    {node} ({node.storage.width}-bit)')
         for retBits in self.returned:
-            print('    return %s' % retBits)
+            print(f'    return {retBits}')
 
     def _gatherExpressions(self) -> Set[Expression]:
         expressions = set()
@@ -257,7 +257,7 @@ class CodeBlock:
                 if prev is None:
                     args[name] = storage
                 elif prev is not storage:
-                    raise ValueError('multiple arguments named "%s"' % name)
+                    raise ValueError(f'multiple arguments named "{name}"')
         return args
 
     @const_property

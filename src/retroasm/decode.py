@@ -24,7 +24,7 @@ class EncodeMatch:
         self._mapping = {}
 
     def __repr__(self) -> str:
-        return 'EncodeMatch(%r, %r)' % (self._entry, self._mapping)
+        return f'EncodeMatch({self._entry!r}, {self._mapping!r})'
 
     def __getitem__(self, key):
         return self._mapping[key]
@@ -148,11 +148,11 @@ def decomposeEncoding(encoding):
 
 def _formatSlice(start, end):
     if end == start + 1:
-        return '[%d]' % start
+        return f'[{start:d}]'
     elif start == 0:
-        return '[:%d]' % end
+        return f'[:{end:d}]'
     else:
-        return '[%d:%d]' % (start, end)
+        return f'[{start:d}:{end:d}]'
 
 def _formatMask(name, mask, value=None):
     segments = list(maskToSegments(mask))
@@ -224,10 +224,10 @@ class TableDecoder(Decoder):
         assert (mask >> offset) == len(self._table) - 1
 
     def dump(self, indent='', submodes=True):
-        name = 'enc%d' % self._index
+        name = f'enc{self._index:d}'
         print(indent + _formatMask(name, self._mask & (-1 << self._offset)))
         for idx, decoder in enumerate(self._table):
-            decoder.dump(' ' * len(indent) + '$%02x: ' % idx, submodes)
+            decoder.dump(' ' * len(indent) + f'${idx:02x}: ', submodes)
 
     def tryDecode(self, fetcher):
         encoded = fetcher[self._index]
@@ -264,7 +264,7 @@ class FixedPatternDecoder(Decoder):
         self._next = nxt
 
     def dump(self, indent='', submodes=True):
-        maskStr = _formatMask('enc%d' % self._index, self._mask, self._value)
+        maskStr = _formatMask(f'enc{self._index:d}', self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
     def tryDecode(self, fetcher):
@@ -302,11 +302,11 @@ class PlaceholderDecoder(Decoder):
             items = [sliceStr] if sliceStr else []
             auxIdx = self._auxIdx
             if auxIdx is not None:
-                items.append('enc%d+' % auxIdx)
+                items.append(f'enc{auxIdx:d}+')
             valStr = 'sub(%s)' % ', '.join(items)
 
         name = self._name
-        self._next.dump(indent + '%s=%s, ' % (name, valStr), submodes)
+        self._next.dump(indent + f'{name}={valStr}, ', submodes)
         if submodes and sub is not None:
             sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 

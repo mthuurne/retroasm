@@ -30,17 +30,17 @@ class Section:
         self._end = checkType(end, int, 'end offset')
 
         if start < 0:
-            raise ValueError('negative start: %d' % start)
+            raise ValueError(f'negative start: {start:d}')
         if end < 0:
-            raise ValueError('negative end: %d' % end)
+            raise ValueError(f'negative end: {end:d}')
         if end < start:
-            raise ValueError('end (0x%x) before start (0x%x)' % (end, start))
+            raise ValueError(f'end (0x{end:x}) before start (0x{start:x})')
 
     def __repr__(self) -> str:
-        return 'Section(0x%x, 0x%x)' % (self._start, self._end)
+        return f'Section(0x{self._start:x}, 0x{self._end:x})'
 
     def __str__(self) -> str:
-        return '[0x%x..0x%x)' % (self._start, self._end)
+        return f'[0x{self._start:x}..0x{self._end:x})'
 
 class CodeSection(Section):
     '''Section that contains code and possibly also data.
@@ -73,7 +73,7 @@ class CodeSection(Section):
         self._base = checkType(base, int, 'base address')
 
         if base < 0:
-            raise ValueError('negative base: %d' % base)
+            raise ValueError(f'negative base: {base:d}')
 
     def __repr__(self) -> str:
         return 'CodeSection(0x%x, 0x%x, 0x%x, %r, ByteOrder.%s)' % (
@@ -91,7 +91,7 @@ class CodeSection(Section):
         if start <= offset < self._end:
             return offset
         else:
-            raise ValueError('address outside section: 0x%x' % addr)
+            raise ValueError(f'address outside section: 0x{addr:x}')
 
 class SectionMap:
     '''A collection of sections.
@@ -106,7 +106,7 @@ class SectionMap:
         for section in sections:
             if prev is not None and section.start < prev.end:
                 raise ValueError(
-                    'section %s overlaps section %s' % (prev, section)
+                    f'section {prev} overlaps section {section}'
                     )
             prev = section
         self._sections = sections
@@ -118,7 +118,7 @@ class SectionMap:
         return len(self._sections)
 
     def __repr__(self) -> str:
-        return 'SectionMap(%r)' % self._sections
+        return f'SectionMap({self._sections!r})'
 
     def sectionAt(self, offset: int) -> Optional[Section]:
         '''Returns the section at the given offset, or None if there is no

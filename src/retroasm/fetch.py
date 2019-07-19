@@ -17,12 +17,12 @@ class Fetcher:
             return self._cached
         elif isinstance(key, int):
             if key < 0:
-                raise IndexError('fetcher index must not be negative: %d' % key)
+                raise IndexError(f'fetcher index must not be negative: {key:d}')
             else:
                 return self._fetch(key)
         else:
             raise TypeError(
-                'fetcher index must be integer, not %s' % type(key).__name__
+                f'fetcher index must be integer, not {type(key).__name__}'
                 )
 
     def _fetch(self, index: int) -> Optional[int]:

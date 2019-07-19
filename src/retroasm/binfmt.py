@@ -29,17 +29,17 @@ class EntryPoint:
         self._label = checkType(label, (str, type(None)), 'label')
 
         if offset < 0:
-            raise ValueError('negative offset: %d' % offset)
+            raise ValueError(f'negative offset: {offset:d}')
 
     def __repr__(self) -> str:
-        return 'EntryPoint(0x%x, %r)' % (self._offset, self._label)
+        return f'EntryPoint(0x{self._offset:x}, {self._label!r})'
 
     def __str__(self) -> str:
         label = self._label
         if label is None:
-            return '0x%x' % self._offset
+            return f'0x{self._offset:x}'
         else:
-            return '0x%x (%s)' % (self._offset, label)
+            return f'0x{self._offset:x} ({label})'
 
 def _yieldEntryPoint(section: CodeSection,
                      addr: int,
@@ -50,7 +50,7 @@ def _yieldEntryPoint(section: CodeSection,
     except ValueError as ex:
         logger.warning(
             'Ignoring entry point%s: %s',
-            '' if name is None else ' "%s"' % name, ex
+            '' if name is None else f' "{name}"', ex
             )
     else:
         yield EntryPoint(offset, name)

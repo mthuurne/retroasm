@@ -87,7 +87,7 @@ class MatchPlaceholderSpec(PlaceholderSpec):
         self._mode = mode
 
     def __repr__(self) -> str:
-        return 'MatchPlaceholderSpec(%r, %r)' % (self._decl, self._mode)
+        return f'MatchPlaceholderSpec({self._decl!r}, {self._mode!r})'
 
     def __str__(self) -> str:
         return '{%s %s}' % (self._mode.name, self.name)

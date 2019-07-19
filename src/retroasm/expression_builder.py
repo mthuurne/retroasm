@@ -52,7 +52,7 @@ def declareVariable(node: DeclarationNode,
         typ = parseType(typeNode.name)
     except ValueError as ex:
         raise BadExpression(
-            'bad type name in definition: %s' % ex,
+            f'bad type name in definition: {ex}',
             typeNode.location
             )
 
@@ -65,7 +65,7 @@ def declareVariable(node: DeclarationNode,
         return namespace.addVariable(name, typ, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
-            'failed to declare variable "%s %s": %s' % (typ, name, ex),
+            f'failed to declare variable "{typ} {name}": {ex}',
             ex.location
             )
 
@@ -86,7 +86,7 @@ def convertDefinition(kind: DeclarationKind,
             # Note: Catch BadInput rather than BadExpression because builder
             #       could throw IllegalStateAccess.
             raise BadExpression(
-                'bad value for constant "%s %s": %s' % (typ, name, ex),
+                f'bad value for constant "{typ} {name}": {ex}',
                 ex.location
                 )
         assert isinstance(typ, IntType), typ
@@ -98,7 +98,7 @@ def convertDefinition(kind: DeclarationKind,
             ref = buildReference(value, namespace)
         except BadExpression as ex:
             raise BadExpression(
-                'bad value for reference "%s %s": %s' % (typ, name, ex),
+                f'bad value for reference "{typ} {name}": {ex}',
                 ex.location
                 )
         assert isinstance(typ, ReferenceType), typ
@@ -121,9 +121,9 @@ def _convertIdentifier(node: IdentifierNode,
     try:
         value = namespace[name]
     except KeyError:
-        raise UnknownNameError(name, 'unknown name "%s"' % name, node.location)
+        raise UnknownNameError(name, f'unknown name "{name}"', node.location)
     if isinstance(value, Function):
-        raise BadExpression('function "%s" is not called' % name, node.location)
+        raise BadExpression(f'function "{name}" is not called', node.location)
     elif isinstance(value, (IOChannel, Reference)):
         return value
     else:
@@ -143,12 +143,12 @@ def _convertFunctionCall(callNode: OperatorNode,
     except KeyError:
         raise UnknownNameError(
             funcName,
-            'no function named "%s"' % funcName,
+            f'no function named "{funcName}"',
             nameNode.location
             )
     if not isinstance(func, Function):
         raise BadExpression(
-            '"%s" is not a function' % funcName,
+            f'"{funcName}" is not a function',
             nameNode.location
             )
 
@@ -279,7 +279,7 @@ def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
         ident = _convertIdentifier(node, namespace)
         if isinstance(ident, IOChannel):
             raise BadExpression(
-                'I/O channel "%s" can only be used for lookup' % node.name,
+                f'I/O channel "{node.name}" can only be used for lookup',
                 node.location
                 )
         else:
@@ -323,7 +323,7 @@ def _convertReferenceLookup(node: OperatorNode,
     try:
         bits = SlicedBits(ref.bits, index, 1)
     except ValueError as ex:
-        raise BadExpression('invalid bitwise lookup: %s' % ex, node.location)
+        raise BadExpression(f'invalid bitwise lookup: {ex}', node.location)
     else:
         return Reference(bits, IntType.u(1))
 
@@ -362,7 +362,7 @@ def _convertReferenceSlice(node: OperatorNode,
                 raise ValueError('slice width cannot be determined')
         bits = SlicedBits(ref.bits, startExpr, width)
     except ValueError as ex:
-        raise BadExpression('invalid slice: %s' % ex, node.location)
+        raise BadExpression(f'invalid slice: {ex}', node.location)
     else:
         typ = IntType(width, width is unlimited)
         return Reference(bits, typ)
@@ -437,7 +437,7 @@ def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
         ident = _convertIdentifier(node, namespace)
         if isinstance(ident, IOChannel):
             raise BadExpression(
-                'I/O channel "%s" can only be used for lookup' % node.name,
+                f'I/O channel "{node.name}" can only be used for lookup',
                 node.location
                 )
         else:
@@ -558,7 +558,7 @@ def emitCodeFromStatements(reader: LineReader,
                     typ = parseTypeDecl(typeNode.name)
                 except ValueError as ex:
                     raise BadExpression(
-                        'bad type name in definition: %s' % ex,
+                        f'bad type name in definition: {ex}',
                         typeNode.location
                         )
             # Evaluate value.

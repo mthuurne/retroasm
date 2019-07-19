@@ -140,7 +140,7 @@ class BadValue(Expression):
         return self._width,
 
     def __str__(self) -> str:
-        return '(%s-bit bad value)' % self._width
+        return f'({self._width}-bit bad value)'
 
     def _equals(self, other: BadValue) -> bool:
         return self is other
@@ -174,7 +174,7 @@ class IntLiteral(Expression):
         if value < 10: # small, zero or negative -> print as decimal
             return str(self._value)
         else: # print as hexadecimal
-            return '$%X' % value
+            return f'${value:X}'
 
     def _equals(self, other: IntLiteral) -> bool:
         return self._value == other._value
@@ -235,7 +235,7 @@ class MultiExpression(Expression):
         raise NotImplementedError
 
     def __str__(self) -> str:
-        sep = ' %s ' % self.operator
+        sep = f' {self.operator} '
         return '(%s)' % sep.join(str(expr) for expr in self._exprs)
 
     def _equals(self, other: MultiExpression) -> bool:
@@ -271,16 +271,16 @@ class AndOperator(MultiExpression):
                     if isinstance(first, RShift):
                         offset = first.offset
                         if width == 1:
-                            return '%s[%d]' % (first.expr, offset)
+                            return f'{first.expr}[{offset:d}]'
                         else:
                             return '%s[%d:%d]' % (
                                 first.expr, offset, offset + width
                                 )
                     else:
                         if width == 1:
-                            return '%s[0]' % first
+                            return f'{first}[0]'
                         else:
-                            return '%s[:%d]' % (first, width)
+                            return f'{first}[:{width:d}]'
                 else:
                     return '(%s)[:%d]' % (
                         ' & '.join(str(expr) for expr in exprs[:-1]), width
@@ -406,7 +406,7 @@ class Complement(SingleExpression):
     __slots__ = ('_mask',)
 
     def __str__(self) -> str:
-        return '-%s' % self._expr
+        return f'-{self._expr}'
 
     @const_property
     def mask(self) -> int:
@@ -421,7 +421,7 @@ class Negation(SingleExpression):
         return 1
 
     def __str__(self) -> str:
-        return '!%s' % self._expr
+        return f'!{self._expr}'
 
 class SignTest(SingleExpression):
     '''Tests the sign of the given expression.
@@ -433,7 +433,7 @@ class SignTest(SingleExpression):
         return 1
 
     def __str__(self) -> str:
-        return 'sign(%s)' % self._expr
+        return f'sign({self._expr})'
 
 class SignExtension(SingleExpression):
     '''Extends the sign bit at the front of a given expression.
@@ -456,7 +456,7 @@ class SignExtension(SingleExpression):
         return self._expr, self._width
 
     def __str__(self) -> str:
-        return 's%d(%s)' % (self._width, self._expr)
+        return f's{self._width:d}({self._expr})'
 
     def _equals(self, other: SignExtension) -> bool:
         return self._width == other._width and super()._equals(other)
@@ -491,7 +491,7 @@ class LShift(SingleExpression):
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return '(%s << %d)' % (self._expr, self._offset)
+        return f'({self._expr} << {self._offset:d})'
 
     def _equals(self, other: LShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
@@ -527,9 +527,9 @@ class RShift(SingleExpression):
 
     def __str__(self) -> str:
         if self.mask == 1:
-            return '%s[%d]' % (self._expr, self._offset)
+            return f'{self._expr}[{self._offset:d}]'
         else:
-            return '%s[%d:]' % (self._expr, self._offset)
+            return f'{self._expr}[{self._offset:d}:]'
 
     def _equals(self, other: RShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
@@ -589,7 +589,7 @@ class LVShift(Expression):
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return '(%s << %s)' % (self._expr, self._offset)
+        return f'({self._expr} << {self._offset})'
 
     def _equals(self, other: LVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
@@ -643,7 +643,7 @@ class RVShift(Expression):
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return '(%s >> %s)' % (self._expr, self._offset)
+        return f'({self._expr} >> {self._offset})'
 
     def _equals(self, other: RVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr

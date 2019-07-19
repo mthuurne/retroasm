@@ -66,7 +66,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
                      location: Optional[InputLocation]
                      ) -> Expression:
         raise IllegalStateAccess(
-            'attempt to read state: %s' % storage,
+            f'attempt to read state: {storage}',
             location
             )
 
@@ -76,7 +76,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
                       location: Optional[InputLocation]
                       ) -> None:
         raise IllegalStateAccess(
-            'attempt to write state: %s' % storage,
+            f'attempt to write state: {storage}',
             location
             )
 
@@ -99,7 +99,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def dump(self) -> None:
         for node in self.nodes:
-            print('    %s (%s-bit)' % (node, node.storage.width))
+            print(f'    {node} ({node.storage.width}-bit)')
         super().dump()
 
     def createCodeBlock(self,

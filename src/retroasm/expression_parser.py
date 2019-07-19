@@ -227,10 +227,8 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         if tokens.end:
             gotDesc = 'end of input'
         else:
-            gotDesc = '%s "%s"' % (tokens.kind.name, tokens.value)
-        msg = 'bad %s expression: expected %s, got %s' % (
-            where, expected, gotDesc
-            )
+            gotDesc = f'{tokens.kind.name} "{tokens.value}"'
+        msg = f'bad {where} expression: expected {expected}, got {gotDesc}'
         return ParseError(msg, tokens.location)
 
     def parseStatementTop() -> ParseNode:
@@ -495,7 +493,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             return declNode
         else:
             if defLocation is None:
-                raise badTokenKind('%s value' % declNode.kind.name, '"="')
+                raise badTokenKind(f'{declNode.kind.name} value', '"="')
             return DefinitionNode(declNode, parseExprTop(), defLocation)
 
     def parseRegs() -> Iterable[DefDeclNode]:
@@ -594,7 +592,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         nameLocation = tokens.eat(ExprToken.identifier)
         if nameLocation is None:
             raise badTokenKind(
-                '%s definition' % kind.name, '%s name' % kind.name
+                f'{kind.name} definition', f'{kind.name} name'
                 )
         nameNode = IdentifierNode(nameLocation.text, nameLocation)
 
@@ -632,7 +630,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         try:
             value, width = parseInt(location.text)
         except ValueError as ex:
-            raise ParseError('%s' % ex, location)
+            raise ParseError(f'{ex}', location)
         else:
             return NumberNode(value, width, location)
 
@@ -648,13 +646,12 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
     expr = topForMode[mode]()
     if tokens.peek(ExprToken.other):
         raise ParseError(
-            'unexpected character "%s" in expression' % tokens.value,
+            f'unexpected character "{tokens.value}" in expression',
             tokens.location
             )
     if not tokens.end:
         raise ParseError(
-            'found %s "%s" in an unexpected place'
-            % (tokens.kind.name, tokens.value),
+            f'found {tokens.kind.name} "{tokens.value}" in an unexpected place',
             tokens.location
             )
     return expr
@@ -685,7 +682,7 @@ def parseInt(valueStr: str) -> Tuple[int, Width]:
         return parseDigits(valueStr[1:], 2), len(valueStr) - 1
     elif valueStr[0] == '0' and len(valueStr) != 1:
         raise ValueError(
-            'leading zeroes not allowed on decimal number: %s' % valueStr
+            f'leading zeroes not allowed on decimal number: {valueStr}'
             )
     else:
         return parseDigits(valueStr, 10), unlimited
@@ -700,5 +697,5 @@ def parseDigits(digits: str, base: int) -> int:
     except ValueError:
         baseDesc = {2: 'binary', 10: 'decimal', 16: 'hexadecimal'}
         raise ValueError(
-            'bad %s number: %s' % (baseDesc[base], digits)
+            f'bad {baseDesc[base]} number: {digits}'
             )

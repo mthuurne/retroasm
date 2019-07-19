@@ -521,7 +521,7 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
                         location=(ex.location, spec.value.treeLocation)
                         )
         raise BadInput(
-            'error in encoding: %s' % ex,
+            f'error in encoding: {ex}',
             location=(encNode.treeLocation, ex.location)
             )
 
@@ -557,12 +557,12 @@ def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
         placeholder = placeholderSpecs[name]
     except KeyError:
         raise BadInput(
-            'placeholder "%s" does not exist in context' % name,
+            f'placeholder "{name}" does not exist in context',
             location=encNode.treeLocation
             )
     if not isinstance(placeholder, MatchPlaceholderSpec):
         raise BadInput(
-            'placeholder "%s" does not represent a mode match' % name,
+            f'placeholder "{name}" does not represent a mode match',
             location=(encNode.treeLocation, placeholder.decl.treeLocation)
             )
 
@@ -758,7 +758,7 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
         prev = 0
         for immIdx, encIdx, refIdx, width in sorted(slices):
             if prev < immIdx:
-                problems.append('gap at [%d:%d]' % (prev, immIdx))
+                problems.append(f'gap at [{prev:d}:{immIdx:d}]')
             elif prev > immIdx:
                 problems.append(
                     'overlap at [%d:%d]' % (immIdx, min(immIdx + width, prev))
@@ -766,7 +766,7 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
             prev = max(immIdx + width, prev)
             decoding.append((encIdx, refIdx, width))
         if prev < immWidth:
-            problems.append('gap at [%d:%d]' % (prev, immWidth))
+            problems.append(f'gap at [{prev:d}:{immWidth:d}]')
         elif prev > immWidth:
             assert False, (name, slices)
         if problems:
@@ -1027,7 +1027,7 @@ def _parseModeEntries(
             yield ParsedModeEntry(entry, decoding, flagsRequired)
 
 def _formatEncodingWidth(width):
-    return 'empty' if width is None else '%s bits wide' % width
+    return 'empty' if width is None else f'{width} bits wide'
 
 def _determineEncodingWidth(entries, aux, modeName, logger):
     '''Returns the common encoding width for the given list of mode entries.
@@ -1066,7 +1066,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
                     _formatEncodingWidth(getattr(encDef, widthAttr)),
                     _formatEncodingWidth(encWidth),
                     ('for instructions' if modeName is None else
-                        'in mode "%s"' % modeName),
+                        f'in mode "{modeName}"'),
                     location=(encDef.auxEncodingLocation if aux
                         else encDef.encodingLocation)
                     )

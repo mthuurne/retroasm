@@ -40,7 +40,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
     def compilePattern(cls) -> Pattern[str]:
         patterns = [r'(\s+)']
         patterns += (
-            '(?P<%s>%s)' % (name, token.regex)
+            f'(?P<{name}>{token.regex})'
             for name, token in cls.__members__.items()
             )
         return re.compile('|'.join(patterns))

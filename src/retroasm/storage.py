@@ -28,7 +28,7 @@ class IOChannel:
     def checkInstance(channel: IOChannel) -> IOChannel:
         if not isinstance(channel, IOChannel):
             raise TypeError(
-                'expected IOChannel subclass, got %s' % type(channel).__name__
+                f'expected IOChannel subclass, got {type(channel).__name__}'
                 )
         return channel
 
@@ -43,7 +43,7 @@ class IOChannel:
             )
 
     def __str__(self) -> str:
-        return '%s %s[%s]' % (self._elemType, self._name, self._addrType)
+        return f'{self._elemType} {self._name}[{self._addrType}]'
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
@@ -174,10 +174,10 @@ class Variable(Storage):
         self._scope = checkType(scope, int, 'scope level')
 
     def __repr__(self) -> str:
-        return 'Variable(%s, %d)' % (self._width, self._scope)
+        return f'Variable({self._width}, {self._scope:d})'
 
     def __str__(self) -> str:
-        return 'var%s@%x' % (self._width, id(self))
+        return f'var{self._width}@{id(self):x}'
 
     def canLoadHaveSideEffect(self) -> bool:
         return False
@@ -213,7 +213,7 @@ class ArgStorage(Storage):
         Storage.__init__(self, width)
 
     def __repr__(self) -> str:
-        return '%s(%r, %s)' % (self.__class__.__name__, self._name, self._width)
+        return f'{self.__class__.__name__}({self._name!r}, {self._width})'
 
     def __str__(self) -> str:
         return self._name
@@ -296,10 +296,10 @@ class IOStorage(Storage):
         Storage.__init__(self, channel.elemType.width)
 
     def __repr__(self) -> str:
-        return 'IOStorage(%r, %r)' % (self._channel, self._index)
+        return f'IOStorage({self._channel!r}, {self._index!r})'
 
     def __str__(self) -> str:
-        return '%s[%s]' % (self._channel.name, self._index)
+        return f'{self._channel.name}[{self._index}]'
 
     def __eq__(self, other: object) -> bool:
         return ( # pylint: disable=protected-access

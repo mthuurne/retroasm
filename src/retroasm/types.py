@@ -165,7 +165,7 @@ class IntType(metaclass=Unique):
     def __init__(self, width: Width, signed: bool):
         if isinstance(width, int):
             if width < 0:
-                raise ValueError('width must not be negative: %d' % width)
+                raise ValueError(f'width must not be negative: {width:d}')
         elif width is not unlimited:
             raise TypeError(
                 'width must be integer or unlimited, got %s' % type(width)
@@ -174,7 +174,7 @@ class IntType(metaclass=Unique):
         self._signed = signed
 
     def __repr__(self) -> str:
-        return 'IntType(%s, %s)' % (self._width, self._signed)
+        return f'IntType({self._width}, {self._signed})'
 
     def __str__(self) -> str:
         return 'int' if self._width is unlimited else '%s%d' % (
@@ -199,10 +199,10 @@ class ReferenceType(metaclass=Unique):
         self._type = typ
 
     def __repr__(self) -> str:
-        return 'ReferenceType(%r)' % self._type
+        return f'ReferenceType({self._type!r})'
 
     def __str__(self) -> str:
-        return '%s&' % self._type
+        return f'{self._type}&'
 
 def parseType(typeName: str) -> IntType:
     if typeName == 'int':
@@ -211,7 +211,7 @@ def parseType(typeName: str) -> IntType:
         widthStr = typeName[1:]
         if widthStr.isdigit():
             return IntType(int(widthStr), typeName.startswith('s'))
-    raise ValueError('"%s" is not a valid type name' % typeName)
+    raise ValueError(f'"{typeName}" is not a valid type name')
 
 def parseTypeDecl(typeDecl: str) -> Union[IntType, ReferenceType]:
     if typeDecl.endswith('&'):

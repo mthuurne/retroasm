@@ -22,7 +22,7 @@ class Function:
         self.code = code
 
     def __repr__(self) -> str:
-        return 'Function(%r, %r, %r)' % (self.retType, self.args, self.code)
+        return f'Function({self.retType!r}, {self.args!r}, {self.code!r})'
 
     def __str__(self) -> str:
         return '(%s) -> %s' % (
@@ -50,7 +50,7 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
         try:
             typ = declArgs[name]
         except KeyError:
-            raise ValueError('code block uses undeclared argument "%s"' % name)
+            raise ValueError(f'code block uses undeclared argument "{name}"')
 
         if isinstance(typ, ReferenceType):
             if not isinstance(arg, RefArgStorage):
@@ -62,8 +62,7 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
         else:
             if not isinstance(arg, ValArgStorage):
                 raise ValueError(
-                    'value argument "%s" is not a value in code block'
-                    % name
+                    f'value argument "{name}" is not a value in code block'
                     )
         if typ.width != arg.width:
             raise ValueError(

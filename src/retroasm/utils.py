@@ -108,7 +108,7 @@ def checkType(obj: T, typ: Union[Type[T], Tuple[Type, ...]], desc: str) -> T:
         else:
             good = ' or '.join(goodType.__name__ for goodType in typ)
         actual = type(obj).__name__
-        raise TypeError('%s must be %s, got %s' % (desc, good, actual))
+        raise TypeError(f'{desc} must be {good}, got {actual}')
 
 def search(low: int, high: int, test: Callable[[int], bool]) -> int:
     '''Binary search: [low..high) is the range to search; function "test"

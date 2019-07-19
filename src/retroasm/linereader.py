@@ -226,7 +226,7 @@ class BadInput(Exception):
         with the input text in the location's span appended after the error
         message.
         '''
-        return cls('%s: %s' % (msg, location.text), location)
+        return cls(f'{msg}: {location.text}', location)
 
     def __init__(self,
                  msg: str,
@@ -326,7 +326,7 @@ class LineReader:
         yield self
         numErrors = self.errors - errorsBefore
         if numErrors != 0:
-            raise DelayedError('%d errors were logged' % numErrors)
+            raise DelayedError(f'{numErrors:d} errors were logged')
 
     def summarize(self) -> None:
         '''Log a message containing the error and warning counts.
@@ -418,9 +418,9 @@ class LineReaderFormatter(Formatter):
                 assert msg is not None
                 yield msg
             elif msg is None:
-                yield '%s:%d:' % (pathname, lineno)
+                yield f'{pathname}:{lineno:d}:'
             else:
-                yield '%s:%d: %s' % (pathname, lineno, msg)
+                yield f'{pathname}:{lineno:d}: {msg}'
 
             if line is not None:
                 yield line

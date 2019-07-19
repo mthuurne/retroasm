@@ -80,7 +80,7 @@ class PrefixMappingFactory:
         for name in decodeFlags:
             ref = namespace[name]
             if name in prefixForFlag:
-                raise KeyError('decode flag redefined: %s' % name)
+                raise KeyError(f'decode flag redefined: {name}')
             flagForVar[ref.bits.storage] = name
             ref.emitStore(builder, zero, None)
 

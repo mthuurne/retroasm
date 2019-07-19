@@ -80,7 +80,7 @@ class Namespace:
         checkType(name, str, 'name')
         self._checkName(name, value, location)
         if name in self.elements:
-            msg = 'name "%s" redefined' % name
+            msg = f'name "{name}" redefined'
             if location is not None:
                 oldLocation = self.locations[name]
                 if oldLocation is not None:

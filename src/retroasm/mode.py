@@ -60,7 +60,7 @@ class EncodingExpr:
         return str(self._bits)
 
     def __repr__(self) -> str:
-        return 'EncodingExpr(%r, %r)' % (self._bits, self._location)
+        return f'EncodingExpr({self._bits!r}, {self._location!r})'
 
     def fillPlaceholder(self, name: str, entry: ModeEntry) -> EncodingExpr:
         '''Returns a new EncodingExpr, in which the match placeholder with the
@@ -144,7 +144,7 @@ class EncodingMultiMatch:
         self._location = location
 
     def __str__(self) -> str:
-        return '%s@' % self._name
+        return f'{self._name}@'
 
     def __repr__(self) -> str:
         return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
@@ -493,7 +493,7 @@ class ModeMatch:
         self._subs = subs
 
     def __repr__(self) -> str:
-        return 'ModeMatch(%r, %r, %r)' % (self._entry, self._values, self._subs)
+        return f'ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})'
 
     @const_property
     def mnemonic(self) -> Iterator[Union[str, Reference]]:
@@ -517,13 +517,13 @@ class ModeMatch:
                 assert False, mnemElem
 
 def _formatEncodingWidth(width: Optional[int]) -> str:
-    return 'empty encoding' if width is None else 'encoding width %s' % width
+    return 'empty encoding' if width is None else f'encoding width {width}'
 
 def _formatAuxEncodingWidth(width: Optional[int]) -> str:
     return (
         'no auxiliary encoding items'
         if width is None
-        else 'auxiliary encoding width %s' % width
+        else f'auxiliary encoding width {width}'
         )
 
 MnemMatch = Union[str, Type[int], 'Mode']
@@ -588,9 +588,9 @@ class ModeTable:
         def dumpNode(node: MnemTreeNode, indent: str) -> None:
             for entry in node[1]:
                 tokens = ' '.join(str(token) for token in entry.mnemonic)
-                print('%s= %s' % (indent, tokens))
+                print(f'{indent}= {tokens}')
             for match in sorted(node[0].keys(), key=matchKey):
-                print('%s+ %s' % (indent, match))
+                print(f'{indent}+ {match}')
                 dumpNode(node[0][match], ' ' * len(indent) + '`---')
         dumpNode(self._mnemTree, '')
 
@@ -669,7 +669,7 @@ class Mode(ModeTable):
         self._location = location
 
     def __str__(self) -> str:
-        return 'mode %s %s' % (self._semType, self._name)
+        return f'mode {self._semType} {self._name}'
 
 PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
     'code_addr', 'data_addr'
@@ -737,7 +737,7 @@ class MatchPlaceholder(Placeholder):
         self._mode = mode
 
     def __repr__(self) -> str:
-        return 'MatchPlaceholder(%r, %r)' % (self._name, self._mode)
+        return f'MatchPlaceholder({self._name!r}, {self._mode!r})'
 
     def __str__(self) -> str:
         return '{%s %s}' % (self._mode.name, self._name)

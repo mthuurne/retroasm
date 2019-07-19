@@ -101,7 +101,7 @@ class FixedValue(BitString):
         assert widthForMask(expr.mask) <= width, expr
 
     def __repr__(self) -> str:
-        return 'FixedValue(%r, %s)' % (self._expr, self._width)
+        return f'FixedValue({self._expr!r}, {self._width})'
 
     def __str__(self) -> str:
         return str(self._expr)
@@ -153,7 +153,7 @@ class SingleStorage(BitString):
         BitString.__init__(self, storage.width)
 
     def __repr__(self) -> str:
-        return 'SingleStorage(%r)' % self._storage
+        return f'SingleStorage({self._storage!r})'
 
     def __str__(self) -> str:
         return str(self._storage)
@@ -310,9 +310,7 @@ class SlicedBits(BitString):
         BitString.__init__(self, width)
 
     def __repr__(self) -> str:
-        return 'SlicedBits(%r, %r, %s)' % (
-            self._bits, self._offset, self._width
-            )
+        return f'SlicedBits({self._bits!r}, {self._offset!r}, {self._width})'
 
     def __str__(self) -> str:
         offset = self._offset
@@ -329,7 +327,7 @@ class SlicedBits(BitString):
                 end = ''
             else:
                 end = str(AddOperator(offset, IntLiteral(cast(int, width))))
-            return '%s[%s:%s]' % (self._bits, offset, end)
+            return f'{self._bits}[{offset}:{end}]'
 
     def iterExpressions(self) -> Iterator[Expression]:
         return self._bits.iterExpressions()
@@ -396,10 +394,10 @@ class BadBits(BitString):
         BitString.__init__(self, width)
 
     def __repr__(self) -> str:
-        return 'BadBits(%s)' % self._width
+        return f'BadBits({self._width})'
 
     def __str__(self) -> str:
-        return '(%s bad bits)' % self._width
+        return f'({self._width} bad bits)'
 
     def iterExpressions(self) -> Iterator[Expression]:
         return iter(())
@@ -473,7 +471,7 @@ class Reference:
                 )
 
     def __str__(self) -> str:
-        return '%s& %s' % (self._type, self._bits)
+        return f'{self._type}& {self._bits}'
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
