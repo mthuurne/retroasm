@@ -338,18 +338,18 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
         reader.error('invalid function header line', location=headerArgs)
         reader.skipBlock()
         return
-    retTypeLoc, funcNameLoc, funcArgsLoc = match.groups
 
     # Parse return type.
-    if retTypeLoc is None:
-        retType = None
-    else:
+    if match.hasGroup(1):
+        retTypeLoc = match.group(1)
         try:
             retType = parseTypeDecl(retTypeLoc.text)
         except ValueError as ex:
             reader.error('bad return type: %s', ex, location=retTypeLoc)
             reader.skipBlock()
             return
+    else:
+        retType = None
 
     # Parse arguments.
     args = OrderedDict()
@@ -357,7 +357,8 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
         with reader.checkErrors():
             nameLocations = {}
             for i, (argType, argTypeLoc_, argNameLoc) in enumerate(
-                    _parseTypedArgs(reader, funcArgsLoc, 'function argument'),
+                    _parseTypedArgs(reader, match.group(3),
+                                    'function argument'),
                     1):
                 argName = argNameLoc.text
                 if argName == 'ret':
@@ -380,6 +381,7 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
         return
 
     if wantSemantics:
+        funcNameLoc = match.group(2)
         funcName = funcNameLoc.text
 
         # Parse body lines.
@@ -1182,7 +1184,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
             if match is None:
                 reader.error('malformed line outside block')
                 continue
-            keyword, args = match.groups
+            keyword = match.group(1)
+            args = match.group(2) if match.hasGroup(2) else None
             defType = keyword.text
             if defType == 'reg':
                 pc = _parseRegs(reader, args, globalNamespace)

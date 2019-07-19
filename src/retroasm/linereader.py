@@ -152,31 +152,39 @@ class InputMatch:
         self._location = location
         self._match = match
 
-    @overload
-    def group(self, index: int) -> Optional[InputLocation]: ...
+    def hasGroup(self, index: Union[int, str]) -> bool:
+        '''Returns `True` iff a group matched at the given index,
+        which can be name or a numeric index with the first group being 1.
+        '''
+        return self._match.span(index) != (-1, -1)
 
     @overload
-    def group(self, index: str) -> Optional[InputLocation]: ...
+    def group(self, index: int) -> InputLocation: ...
 
-    def group(self, index: Union[int, str]) -> Optional[InputLocation]:
+    @overload
+    def group(self, index: str) -> InputLocation: ...
+
+    def group(self, index: Union[int, str]) -> InputLocation:
         '''Returns an InputLocation for the group matched at the given index,
         which can be name or a numeric index with the first group being 1.
         If 0 as passed as the index, an InputLocation for the entire matched
         string is returned.
-        If the group did not participate in the match, None is returned.
+        If the group did not participate in the match, ValueError is raised.
         '''
         span = self._match.span(index)
         if span == (-1, -1):
-            return None
+            name = f'{index}' if isinstance(index, int) else f'"{index}"'
+            raise ValueError(f'group {name} was not part of the match')
         else:
             return self._location.updateSpan(span)
 
     @property
-    def groups(self) -> Sequence[Optional[InputLocation]]:
-        '''A sequence containing an InputLocation for each of the groups
-        matched and None for those groups that were not part of the match.
+    def groups(self) -> Iterator[InputLocation]:
+        '''Iterates through the InputLocations of each of the groups matched.
+        If a group did not participate in the match, ValueError is raised.
         '''
-        return tuple(self.group(i + 1) for i in range(self._match.re.groups))
+        for i in range(self._match.re.groups):
+            yield self.group(i + 1)
 
     @property
     def groupName(self) -> Optional[str]:
