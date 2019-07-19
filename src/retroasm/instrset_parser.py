@@ -39,7 +39,7 @@ _reDotSep = re.compile(r'\s*\.\s*')
 
 def _parseRegs(reader, args, globalNamespace):
     headerLocation = reader.location
-    if args is not None:
+    if args:
         reader.error(
             'register definition must have no arguments', location=args
             )
@@ -289,7 +289,7 @@ def _parsePrefix(reader, args, namespace, factory):
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
 def _parseIO(reader, args, namespace):
-    if args is not None:
+    if args:
         reader.error('I/O definition must have no arguments', location=args)
 
     for line in reader.iterBlock():
@@ -1136,7 +1136,7 @@ def _parseMode(
 def _parseInstr(
         reader, args, globalNamespace, pc, prefixes, modes, wantSemantics
         ):
-    mnemBase = () if args is None else tuple(_parseMnemonic(args, {}, reader))
+    mnemBase = tuple(_parseMnemonic(args, {}, reader))
 
     for instr in _parseModeEntries(
             reader, globalNamespace, pc, prefixes, modes, None, mnemBase,
@@ -1185,7 +1185,7 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
                 reader.error('malformed line outside block')
                 continue
             keyword = match.group(1)
-            args = match.group(2) if match.hasGroup(2) else None
+            args = match.group(2) if match.hasGroup(2) else header.endLocation
             defType = keyword.text
             if defType == 'reg':
                 pc = _parseRegs(reader, args, globalNamespace)
