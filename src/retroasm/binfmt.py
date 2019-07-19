@@ -395,11 +395,11 @@ def detectBinaryFormat(image: bytes,
         # First try formats for which the file name extension matches.
         binPath = PurePath(fileName)
         ext = binPath.suffix.lstrip('.').lower()
-        namesForExt = set(
+        namesForExt = {
             binfmt.name
             for binfmt in _formatsByName.values()
             if ext in binfmt.extensions
-            )
+            }
         binfmt = _detectBinaryFormats(image, namesForExt, True)
         if binfmt is not None:
             return binfmt

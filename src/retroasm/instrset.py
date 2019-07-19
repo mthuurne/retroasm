@@ -86,10 +86,10 @@ class PrefixMappingFactory:
 
         # Figure out which prefix sets which flag.
         for prefix in prefixes:
-            setFlags = set(
+            setFlags = {
                 flagForVar[storage]
                 for storage in flagsSetByCode(prefix.semantics)
-                )
+                }
             if len(setFlags) == 1:
                 name, = setFlags
                 prefixForFlag[name] = prefix

@@ -587,12 +587,12 @@ def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
                         )
 
     # Collect the names of all identifiers used in the encoding.
-    identifiers = set(
+    identifiers = {
         subNode.name
         for encNode in encNodes
         for subNode in encNode
         if isinstance(subNode, IdentifierNode)
-        )
+        }
 
     # Evaluate encoding field.
     for encNode in encNodes:
