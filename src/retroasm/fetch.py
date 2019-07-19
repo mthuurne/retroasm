@@ -12,7 +12,7 @@ class Fetcher:
         self._cached = self._fetch(0)
 
     def __getitem__(self, key: int) -> Optional[int]:
-        if key is 0:
+        if key == 0:
             # Fast path for most frequently used index.
             return self._cached
         elif isinstance(key, int):
