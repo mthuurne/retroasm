@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from typing import (
     IO, Any, Iterable, Iterator, Match, Optional, Pattern, Sequence, Tuple,
-    Type, TypeVar, Union, cast, overload
+    Type, TypeVar, Union, cast
 )
 import re
 
@@ -157,12 +157,6 @@ class InputMatch:
         which can be name or a numeric index with the first group being 1.
         '''
         return self._match.span(index) != (-1, -1)
-
-    @overload
-    def group(self, index: int) -> InputLocation: ...
-
-    @overload
-    def group(self, index: str) -> InputLocation: ...
 
     def group(self, index: Union[int, str]) -> InputLocation:
         '''Returns an InputLocation for the group matched at the given index,
