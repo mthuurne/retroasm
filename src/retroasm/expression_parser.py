@@ -457,11 +457,11 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         if tokens.peek(ExprToken.identifier):
             ident = parseIdent()
             if isinstance(ident, IdentifierNode) and ident.name == 'ret':
-                declNode = DeclarationNode(
-                    DeclarationKind.reference, None, ident, ident.location
-                    )
                 defLocation = tokens.eat(ExprToken.definition)
                 if defLocation is not None:
+                    declNode = DeclarationNode(
+                        DeclarationKind.reference, None, ident, ident.location
+                        )
                     return DefinitionNode(declNode, parseExprTop(), defLocation)
             return ident
 
