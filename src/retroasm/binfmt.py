@@ -32,14 +32,14 @@ class EntryPoint:
             raise ValueError(f'negative offset: {offset:d}')
 
     def __repr__(self) -> str:
-        return f'EntryPoint(0x{self._offset:x}, {self._label!r})'
+        return f'EntryPoint({self._offset:#x}, {self._label!r})'
 
     def __str__(self) -> str:
         label = self._label
         if label is None:
-            return f'0x{self._offset:x}'
+            return f'{self._offset:#x}'
         else:
-            return f'0x{self._offset:x} ({label})'
+            return f'{self._offset:#x} ({label})'
 
 def _yieldEntryPoint(section: CodeSection,
                      addr: int,

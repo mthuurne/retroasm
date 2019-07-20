@@ -34,13 +34,13 @@ class Section:
         if end < 0:
             raise ValueError(f'negative end: {end:d}')
         if end < start:
-            raise ValueError(f'end (0x{end:x}) before start (0x{start:x})')
+            raise ValueError(f'end ({end:#x}) before start ({start:#x})')
 
     def __repr__(self) -> str:
-        return f'Section(0x{self._start:x}, 0x{self._end:x})'
+        return f'Section({self._start:#x}, {self._end:#x})'
 
     def __str__(self) -> str:
-        return f'[0x{self._start:x}..0x{self._end:x})'
+        return f'[{self._start:#x}..{self._end:#x})'
 
 class CodeSection(Section):
     '''Section that contains code and possibly also data.
@@ -76,8 +76,8 @@ class CodeSection(Section):
             raise ValueError(f'negative base: {base:d}')
 
     def __repr__(self) -> str:
-        return f'CodeSection(0x{self._start:x}, 0x{self._end:x}, ' \
-                           f'0x{self._base:x}, {self._instrSetName!r}, ' \
+        return f'CodeSection({self._start:#x}, {self._end:#x}, ' \
+                           f'{self._base:#x}, {self._instrSetName!r}, ' \
                            f'ByteOrder.{self._byteOrder.name})'
 
     def offsetForAddr(self, addr: int) -> int:
@@ -90,7 +90,7 @@ class CodeSection(Section):
         if start <= offset < self._end:
             return offset
         else:
-            raise ValueError(f'address outside section: 0x{addr:x}')
+            raise ValueError(f'address outside section: {addr:#x}')
 
 class SectionMap:
     '''A collection of sections.
