@@ -76,10 +76,9 @@ class CodeSection(Section):
             raise ValueError(f'negative base: {base:d}')
 
     def __repr__(self) -> str:
-        return 'CodeSection(0x%x, 0x%x, 0x%x, %r, ByteOrder.%s)' % (
-            self._start, self._end, self._base, self._instrSetName,
-            self._byteOrder.name
-            )
+        return f'CodeSection(0x{self._start:x}, 0x{self._end:x}, ' \
+                           f'0x{self._base:x}, {self._instrSetName!r}, ' \
+                           f'ByteOrder.{self._byteOrder.name})'
 
     def offsetForAddr(self, addr: int) -> int:
         '''Returns the offset in the image at which the given address can be

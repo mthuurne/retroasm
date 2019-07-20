@@ -27,7 +27,7 @@ class Function:
     def __str__(self) -> str:
         return '(%s) -> %s' % (
             ', '.join(
-                '%s %s' % (decl, name)
+                f'{decl} {name}'
                 for name, decl in self.args.items()
                 ),
             'unit' if self.retType is None else self.retType,

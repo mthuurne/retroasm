@@ -162,7 +162,7 @@ def _formatMask(name, mask, value=None):
         if value is None:
             return segStr
         else:
-            return '%s=$%x' % (segStr, (value & mask) >> start)
+            return f'{segStr}=${(value & mask) >> start:x}'
     else:
         digits = []
         while mask:

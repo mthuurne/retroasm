@@ -57,12 +57,11 @@ class ValuePlaceholderSpec(PlaceholderSpec):
             )
 
     def __repr__(self) -> str:
-        return 'ValuePlaceholderSpec(%r, %r, %r)' % (
-            self._decl, self._type, self._value
-            )
+        return f'ValuePlaceholderSpec({self._decl!r}, {self._type!r}, ' \
+                                    f'{self._value!r})'
 
     def __str__(self) -> str:
-        return '{%s %s}' % (self._type, self.name)
+        return f'{{{self._type} {self.name}}}'
 
 class MatchPlaceholderSpec(PlaceholderSpec):
 
@@ -90,4 +89,4 @@ class MatchPlaceholderSpec(PlaceholderSpec):
         return f'MatchPlaceholderSpec({self._decl!r}, {self._mode!r})'
 
     def __str__(self) -> str:
-        return '{%s %s}' % (self._mode.name, self.name)
+        return f'{{{self._mode.name} {self.name}}}'

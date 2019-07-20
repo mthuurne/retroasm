@@ -147,9 +147,8 @@ class EncodingMultiMatch:
         return f'{self._name}@'
 
     def __repr__(self) -> str:
-        return 'EncodingMultiMatch(%r, %r, %r, %r)' % (
-            self._name, self._mode, self._start, self._location
-            )
+        return f'EncodingMultiMatch({self._name!r}, {self._mode!r}, ' \
+                                 f' {self._start!r}, {self._location!r})'
 
     def rename(self, nameMap: Mapping[str, str]) -> EncodingMultiMatch:
         '''Returns a new EncodingMultiMatch, with the placeholder name
@@ -399,9 +398,8 @@ class ModeEntry:
         self.placeholders = placeholders
 
     def __repr__(self) -> str:
-        return 'ModeEntry(%r, %r, %r, %r)' % (
-            self.encoding, self.mnemonic, self.semantics, self.placeholders
-            )
+        return f'ModeEntry({self.encoding!r}, {self.mnemonic!r}, ' \
+                         f'{self.semantics!r}, {self.placeholders!r})'
 
     def fillPlaceholder(self, name: str, entry: ModeEntry) -> ModeEntry:
         '''Returns a new entry, in which the match placeholder with the given
@@ -710,15 +708,14 @@ class ValuePlaceholder(Placeholder):
         self._code = checkType(code, (CodeBlock, type(None)), 'code block')
 
     def __repr__(self) -> str:
-        return 'ValuePlaceholder(%r, %r, %r)' % (
-            self._name, self._type, self._code
-            )
+        return f'ValuePlaceholder({self._name!r}, {self._type!r}, ' \
+                                f'{self._code!r})'
 
     def __str__(self) -> str:
         if self._code is None:
-            return '{%s %s}' % (self._type, self._name)
+            return f'{{{self._type} {self._name}}}'
         else:
-            return '{%s %s = ...}' % (self._type, self._name)
+            return f'{{{self._type} {self._name} = ...}}'
 
     def rename(self, name: str) -> ValuePlaceholder:
         return ValuePlaceholder(name, self._type, self._code)
@@ -740,7 +737,7 @@ class MatchPlaceholder(Placeholder):
         return f'MatchPlaceholder({self._name!r}, {self._mode!r})'
 
     def __str__(self) -> str:
-        return '{%s %s}' % (self._mode.name, self._name)
+        return f'{{{self._mode.name} {self._name}}}'
 
     def rename(self, name: str) -> MatchPlaceholder:
         return MatchPlaceholder(name, self._mode)

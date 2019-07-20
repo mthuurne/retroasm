@@ -42,7 +42,7 @@ class ParseNode:
         return '%s(%s)' % (
             self.__class__.__name__,
             ', '.join(
-                '%s=%s' % (slot, getattr(self, slot))
+                f'{slot}={getattr(self, slot)}'
                 for cls in self.__class__.__mro__[:-2] # drop ParseNode, object
                 for slot in cls.__slots__
                 )

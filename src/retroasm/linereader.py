@@ -51,9 +51,8 @@ class InputLocation:
         self._span = span
 
     def __repr__(self) -> str:
-        return 'InputLocation(%r, %r, %r, %r)' % (
-            self._pathname, self._lineno, self._line, self._span
-            )
+        return f'InputLocation({self._pathname!r}, {self._lineno!r}, ' \
+                             f'{self._line!r}, {self._span!r})'
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, InputLocation):

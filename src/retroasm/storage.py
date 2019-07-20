@@ -38,9 +38,8 @@ class IOChannel:
         self._addrType = checkType(addrType, IntType, 'address type')
 
     def __repr__(self) -> str:
-        return 'IOChannel(%r, %r, %r)' % (
-            self._name, self._elemType, self._addrType
-            )
+        return f'IOChannel({self._name!r}, {self._elemType!r}, ' \
+                         f'{self._addrType!r})'
 
     def __str__(self) -> str:
         return f'{self._elemType} {self._name}[{self._addrType}]'
