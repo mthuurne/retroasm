@@ -104,8 +104,8 @@ def convertDefinition(kind: DeclarationKind,
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
             raise BadExpression.withText(
-                '%s-bit value does not match declared type "%s"'
-                % (ref.width, typ.type),
+                f'{ref.width}-bit value does not match '
+                f'declared type "{typ.type}"',
                 value.treeLocation
                 )
         return ref
@@ -155,9 +155,9 @@ def _convertFunctionCall(callNode: OperatorNode,
     # Fill argument map.
     if len(argNodes) != len(func.args):
         raise BadExpression(
-            'argument count mismatch: function "%s" takes %d argument(s), '
-            'while call provides %d argument(s)'
-            % (funcName, len(func.args), len(argNodes)),
+            f'argument count mismatch: function "{funcName}" '
+            f'takes {len(func.args):d} argument(s), while call '
+            f'provides {len(argNodes):d} argument(s)',
             callNode.location
             )
     argMap = {}
@@ -169,8 +169,8 @@ def _convertFunctionCall(callNode: OperatorNode,
             # argument width, so truncation is never required.
             if ref.width != decl.type.width:
                 raise BadExpression.withText(
-                    '%s-bit reference passed for reference argument "%s %s"'
-                    % (ref.width, decl, name),
+                    f'{ref.width}-bit reference passed for '
+                    f'reference argument "{decl} {name}"',
                     argNode.treeLocation
                     )
             bits = ref.bits

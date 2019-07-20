@@ -273,9 +273,8 @@ class AndOperator(MultiExpression):
                         if width == 1:
                             return f'{first.expr}[{offset:d}]'
                         else:
-                            return '%s[%d:%d]' % (
-                                first.expr, offset, offset + width
-                                )
+                            return f'{first.expr}[{offset:d}:' \
+                                                f'{offset + width:d}]'
                     else:
                         if width == 1:
                             return f'{first}[0]'

@@ -49,10 +49,10 @@ class ImageFetcher(Fetcher):
         Fetcher.__init__(self)
 
     def __repr__(self) -> str:
-        return '%s(%r, %d, %d, %d)' % (
-            self.__class__.__name__,
-            self._image, self._offset, self._end, self._numBytes
-            )
+        return f'{self.__class__.__name__}({self._image!r}, ' \
+                                         f'{self._offset:d}, ' \
+                                         f'{self._end:d}, ' \
+                                         f'{self._numBytes:d})'
 
     @property
     def image(self) -> Sequence[int]:

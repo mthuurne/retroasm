@@ -169,7 +169,7 @@ class BuilderNamespace(Namespace):
         '''
         self.builder.dump()
         if 'ret' in self.elements:
-            print('    return %s' % self.elements['ret'])
+            print(f"    return {self.elements['ret']}")
 
     def addVariable(self,
                     name: str,

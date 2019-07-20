@@ -333,10 +333,8 @@ class LineReader:
         level = ERROR if self.errors > 0 else (
             WARNING if self.warnings > 0 else INFO
             )
-        msg = '%d error%s and %d warning%s' % (
-            self.errors, '' if self.errors == 1 else 's',
-            self.warnings, '' if self.warnings == 1 else 's'
-            )
+        msg = f"{_pluralize(self.errors, 'error')} and " \
+              f"{_pluralize(self.warnings, 'warning')}"
         self.__log(level, msg)
 
     def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
@@ -395,6 +393,9 @@ class DefLineReader(LineReader):
         '''
         for _ in self.iterBlock():
             pass
+
+def _pluralize(count: int, verb: str) -> str:
+    return f"{count:d} {verb}{'' if count == 1 else 's'}"
 
 class LineReaderFormatter(Formatter):
 

@@ -25,7 +25,7 @@ class Formatter:
                 width = value.bit_length()
             else:
                 assert isinstance(width, int)
-            return ('${:0%dx}' % ((width + 3) // 4)).format(value)
+            return f'${{:0{(width + 3) // 4:d}x}}'.format(value)
 
     def _formatOperands(self, operands: Iterable[str]) -> str:
         prevWord = False

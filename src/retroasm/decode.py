@@ -120,8 +120,8 @@ def decomposeEncoding(encoding):
                             )
                     else:
                         raise ValueError(
-                            'unsupported storage type in encoding: %s'
-                            % storage.__class__.__name__
+                            f'unsupported storage type in encoding: '
+                            f'{storage.__class__.__name__}'
                             )
                 elif isinstance(base, FixedValue):
                     expr = base.expr
@@ -291,7 +291,7 @@ class PlaceholderDecoder(Decoder):
             sliceStr = ''
         else:
             sliceStr = ';'.join(
-                'enc%d%s' % (encIdx, _formatSlice(refIdx, refIdx + width))
+                f'enc{encIdx:d}{_formatSlice(refIdx, refIdx + width)}'
                 for encIdx, refIdx, width in reversed(slices)
                 )
 
@@ -425,9 +425,8 @@ def _createEntryDecoder(entry, decoding, factory):
                     if matcher.encodedLength is None and \
                             lastIdx > multiMatchIdx:
                         raise ValueError(
-                            'Variable-length matcher at index %d depends '
-                            'on index %d'
-                            % (multiMatchIdx, lastIdx)
+                            f'Variable-length matcher at index '
+                            f'{multiMatchIdx:d} depends on index {lastIdx:d}'
                             )
                 matchersByIndex[lastIdx].append(matcher)
             else:

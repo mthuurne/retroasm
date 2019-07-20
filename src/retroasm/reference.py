@@ -465,10 +465,8 @@ class Reference:
         self._bits = checkType(bits, BitString, 'bit string')
         self._type = checkType(typ, IntType, 'value type')
         if bits.width != typ.width:
-            raise ValueError(
-                'bit string of %s bits used for reference of type %s'
-                % (bits.width, typ)
-                )
+            raise ValueError(f'bit string of {bits.width} bits '
+                             f'used for reference of type {typ}')
 
     def __str__(self) -> str:
         return f'{self._type}& {self._bits}'

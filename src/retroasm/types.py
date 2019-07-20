@@ -168,7 +168,7 @@ class IntType(metaclass=Unique):
                 raise ValueError(f'width must not be negative: {width:d}')
         elif width is not unlimited:
             raise TypeError(
-                'width must be integer or unlimited, got %s' % type(width)
+                f'width must be integer or unlimited, got {type(width)}'
                 )
         self._width = width
         self._signed = signed
@@ -177,9 +177,8 @@ class IntType(metaclass=Unique):
         return f'IntType({self._width}, {self._signed})'
 
     def __str__(self) -> str:
-        return 'int' if self._width is unlimited else '%s%d' % (
-            's' if self._signed else 'u', cast(int, self._width)
-            )
+        return 'int' if self._width is unlimited \
+          else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
 
     if TYPE_CHECKING:
         int = IntType(unlimited, True)

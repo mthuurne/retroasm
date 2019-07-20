@@ -508,16 +508,16 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
             if spec is not None:
                 if spec.encodingWidth is None:
                     raise BadInput(
-                        'cannot use placeholder "%s" in encoding field, '
-                        'since mode "%s" has an empty encoding sequence'
-                        % (ex.name, spec.mode.name),
+                        f'cannot use placeholder "{ex.name}" '
+                        f'in encoding field, since mode "{spec.mode.name}" '
+                        f'has an empty encoding sequence',
                         location=(ex.location, spec.decl.treeLocation)
                         )
                 if spec.value is not None:
                     raise BadInput(
-                        'cannot use placeholder "%s" in encoding field, '
-                        'since its value is computed in the context'
-                        % ex.name,
+                        f'cannot use placeholder "{ex.name}" '
+                        f'in encoding field, since its value is '
+                        f'computed in the context',
                         location=(ex.location, spec.value.treeLocation)
                         )
         raise BadInput(
@@ -541,8 +541,8 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
                 )
         if isinstance(storage, IOStorage):
             raise BadInput(
-                'encoding expression references storage location '
-                'on I/O channel "%s"' % storage.channel.name,
+                f'encoding expression references storage location '
+                f'on I/O channel "{storage.channel.name}"',
                 location=encLoc
                 )
     return EncodingExpr(encBits, encLoc)
@@ -761,7 +761,7 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
                 problems.append(f'gap at [{prev:d}:{immIdx:d}]')
             elif prev > immIdx:
                 problems.append(
-                    'overlap at [%d:%d]' % (immIdx, min(immIdx + width, prev))
+                    f'overlap at [{immIdx:d}:{min(immIdx + width, prev):d}]'
                     )
             prev = max(immIdx + width, prev)
             decoding.append((encIdx, refIdx, width))
@@ -851,8 +851,8 @@ def _parseModeSemantics(reader, semLoc, semNamespace, modeType):
         if modeType is not None:
             if ref.type != modeType.type:
                 raise BadInput(
-                    'semantics type %s does not match mode type %s'
-                    % (ref.type, modeType.type),
+                    f'semantics type {ref.type} does not match '
+                    f'mode type {modeType.type}',
                     location=semLoc
                     )
         semNamespace.define('ret', ref, semLoc)

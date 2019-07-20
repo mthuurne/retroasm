@@ -73,13 +73,13 @@ class Disassembler:
         codeAddrs = self._codeAddrs
         dataAddrs = self._dataAddrs
         instrSet = self._instrSet
-        addrWidth = instrSet.addrWidth
+        addrDigits = (instrSet.addrWidth + 3) // 4
 
         labels = {}
-        dataLabelFormat = 'data_{:0%dx}' % ((addrWidth + 3) // 4)
+        dataLabelFormat = f'data_{{:0{addrDigits:d}x}}'
         for addr in dataAddrs:
             labels[addr] = dataLabelFormat.format(addr)
-        codeLabelFormat = 'code_{:0%dx}' % ((addrWidth + 3) // 4)
+        codeLabelFormat = f'code_{{:0{addrDigits:d}x}}'
         for addr in codeAddrs:
             labels[addr] = codeLabelFormat.format(addr)
 

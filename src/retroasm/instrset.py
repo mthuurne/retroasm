@@ -65,8 +65,8 @@ class PrefixMappingFactory:
                     encWidth = encItem.encodingWidth
                 elif encWidth != encItem.encodingWidth:
                     raise BadInput(
-                        'encoding item has width %s while previous item(s) '
-                        'have width %s' % (encItem.encodingWidth, encWidth),
+                        f'encoding item has width {encItem.encodingWidth} '
+                        f'while previous item(s) have width {encWidth}',
                         encItem.location
                         )
         self._encodingWidth = encWidth
@@ -133,13 +133,13 @@ class InstructionSet(ModeTable):
             ):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
-                'auxiliary encoding width must be None or equal to base '
-                'encoding width %s, got %s instead' % (encWidth, auxEncWidth)
+                f'auxiliary encoding width must be None or equal to base '
+                f'encoding width {encWidth}, got {auxEncWidth} instead'
                 )
         if prefixMapping.encodingWidth not in (None, encWidth):
             raise ValueError(
-                'prefix encoding width %s is different from instruction '
-                'encoding width %s' % (prefixMapping.encodingWidth, encWidth)
+                f'prefix encoding width {prefixMapping.encodingWidth} is '
+                f'different from instruction encoding width {encWidth}'
                 )
         instructions = modeEntries[None]
         ModeTable.__init__(

@@ -105,7 +105,7 @@ class Storage:
         self._width = checkType(width, (int, type(unlimited)), 'storage width')
         if width < 0:
             raise ValueError(
-                'storage width must not be negative: %d' % cast(int, width)
+                f'storage width must not be negative: {cast(int, width):d}'
                 )
 
     def canLoadHaveSideEffect(self) -> bool:

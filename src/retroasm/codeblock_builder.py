@@ -136,8 +136,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                         location=load.location or location
                         )
             raise ValueError(
-                'code block reads %d uninitialized variable(s)'
-                % len(ununitializedLoads)
+                f'code block reads {len(ununitializedLoads):d} '
+                f'uninitialized variable(s)'
                 )
 
         # Check for returning of uninitialized variables.

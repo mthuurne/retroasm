@@ -55,8 +55,8 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
         if isinstance(typ, ReferenceType):
             if not isinstance(arg, RefArgStorage):
                 raise ValueError(
-                    'reference argument "%s" is not a reference in code block'
-                    % name
+                    f'reference argument "{name}" is not a reference '
+                    f'in code block'
                     )
             typ = typ.type
         else:
@@ -66,9 +66,8 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
                     )
         if typ.width != arg.width:
             raise ValueError(
-                'argument "%s" is declared with width %s but has width %s '
-                'in code block'
-                % (name, typ.width, arg.width)
+                f'argument "{name}" is declared with width {typ.width} '
+                f'but has width {arg.width} in code block'
                 )
 
 def _checkReturn(retType: Union[None, IntType, ReferenceType],
@@ -88,26 +87,24 @@ def _checkReturn(retType: Union[None, IntType, ReferenceType],
     elif isinstance(retType, ReferenceType):
         if len(returned) == 0:
             raise ValueError(
-                'function has return type %s, but its code block does not '
-                'define "ret"' % retType
+                f'function has return type {retType}, but its code block '
+                f'does not define "ret"'
                 )
         retBits, = returned
         if retType.type.width != retBits.width:
             raise ValueError(
-                'function has return type %s, but its code block defines "ret" '
-                'with width %s'
-                % (retType, retBits.width)
+                f'function has return type {retType}, but its code block '
+                f'defines "ret" with width {retBits.width}'
                 )
     else: # returns a value
         if len(returned) == 0:
             raise ValueError(
-                'function has return type %s, but its code block does not '
-                'assign to "ret"' % retType
+                f'function has return type {retType}, but its code block '
+                f'does not assign to "ret"'
                 )
         retBits, = returned
         if retType.width != retBits.width:
             raise ValueError(
-                'function has return type %s, but its code block defines "ret" '
-                'with width %s'
-                % (retType, retBits.width)
+                f'function has return type {retType}, but its code block '
+                f'defines "ret" with width {retBits.width}'
                 )
