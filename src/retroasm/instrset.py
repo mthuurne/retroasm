@@ -1,20 +1,34 @@
-from collections import namedtuple
+from typing import (
+    AbstractSet, Callable, Collection, Dict, Iterable, Iterator, List, Mapping,
+    MutableSet, NamedTuple, Optional, Sequence, cast
+)
 
-from .codeblock import Store
+from .codeblock import CodeBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import DecoderFactory, PrefixDecoder
+from .decode import Decoder, DecoderFactory, ParsedModeEntry, PrefixDecoder
 from .expression import IntLiteral
+from .fetch import ModeFetcher
 from .linereader import BadInput
-from .mode import ModeTable
+from .mode import Encoding, ModeEntry, ModeTable
+from .namespace import GlobalNamespace, Namespace
+from .reference import Reference, SingleStorage
+from .storage import Storage
+from .types import Width
 from .utils import const_property
 
-Prefix = namedtuple('Prefix', ('encoding', 'semantics'))
 
-PrefixMapping = namedtuple('PrefixMapping', (
-    'prefixes', 'initCode', 'flagForVar', 'prefixForFlag', 'encodingWidth'
-    ))
+class Prefix(NamedTuple):
+    encoding: Encoding
+    semantics: CodeBlock
 
-def flagsSetByCode(code):
+class PrefixMapping(NamedTuple):
+    prefixes: Sequence[Prefix]
+    initCode: CodeBlock
+    flagForVar: Mapping[Storage, str]
+    prefixForFlag: Mapping[str, Prefix]
+    encodingWidth: Optional[int]
+
+def flagsSetByCode(code: CodeBlock) -> Iterator[Storage]:
     '''Yields those storages to which the value 1 is assigned by the given code
     block.
     '''
@@ -31,23 +45,26 @@ def flagsSetByCode(code):
 
 class PrefixMappingFactory:
 
-    def __init__(self, namespace):
+    def __init__(self, namespace: Namespace):
         self._namespace = namespace
-        self._prefixes = []
+        self._prefixes: List[Prefix] = []
         self._initBuilder = SemanticsCodeBlockBuilder()
-        self._flagForVar = {}
-        self._prefixForFlag = {}
-        self._encodingWidth = None
+        self._flagForVar: Dict[Storage, str] = {}
+        self._prefixForFlag: Dict[str, Prefix] = {}
+        self._encodingWidth: Optional[int] = None
 
-    def hasFlag(self, name):
+    def hasFlag(self, name: str) -> bool:
         '''Return True iff a decode flag with the given name was added to
         this factory.
         '''
         return name in self._prefixForFlag
 
-    def addPrefixes(self, decodeFlags, prefixes):
-        '''Adds the given prefixes (sequence of Prefix objects), which use the
-        given decode flags (sequence of names), to this mapping.
+    def addPrefixes(self,
+                    decodeFlags: Collection[str],
+                    prefixes: Iterable[Prefix],
+                    ) -> None:
+        '''Adds `prefixes`, which use the flags in `decodeFlags`, to this
+        mapping.
         Raises KeyError if a decode flag name either does not exist in the
         namespace or was added more than once.
         Raises ValueError if no reverse mapping could be computed from the
@@ -78,10 +95,10 @@ class PrefixMappingFactory:
         flagForVar = self._flagForVar
         zero = IntLiteral(0)
         for name in decodeFlags:
-            ref = namespace[name]
+            ref = cast(Reference, namespace[name])
             if name in prefixForFlag:
                 raise KeyError(f'decode flag redefined: {name}')
-            flagForVar[ref.bits.storage] = name
+            flagForVar[cast(SingleStorage, ref.bits).storage] = name
             ref.emitStore(builder, zero, None)
 
         # Figure out which prefix sets which flag.
@@ -109,8 +126,8 @@ class PrefixMappingFactory:
                 % ', '.join(sorted(unsettableFlags))
                 )
 
-    def createMapping(self):
-        '''Create a PrefixMapping using the prefixes added so far.
+    def createMapping(self) -> PrefixMapping:
+        '''Create a `PrefixMapping` using the prefixes added so far.
         '''
         return PrefixMapping(
             self._prefixes,
@@ -124,13 +141,21 @@ class InstructionSet(ModeTable):
     '''Contains all definitions for a processor's instruction set.
     '''
 
-    globalNamespace = property(lambda self: self._globalNamespace)
-    prefixMapping = property(lambda self: self._prefixMapping)
+    @property
+    def globalNamespace(self) -> GlobalNamespace:
+        return self._globalNamespace
 
-    def __init__(
-            self, encWidth, auxEncWidth, globalNamespace, prefixMapping,
-            modeEntries
-            ):
+    @property
+    def prefixMapping(self) -> PrefixMapping:
+        return self._prefixMapping
+
+    def __init__(self,
+                 encWidth: Optional[int],
+                 auxEncWidth: Optional[int],
+                 globalNamespace: GlobalNamespace,
+                 prefixMapping: PrefixMapping,
+                 modeEntries: Mapping[Optional[str], List[ParsedModeEntry]]
+                 ):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
                 f'auxiliary encoding width must be None or equal to base '
@@ -149,17 +174,19 @@ class InstructionSet(ModeTable):
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
         self._modeEntries = modeEntries
-        self._decoders = {}
+        self._decoders: Dict[AbstractSet[str], Decoder] = {}
 
     @const_property
-    def prefixDecodeFunc(self):
+    def prefixDecodeFunc(self) -> Callable[[ModeFetcher], Optional[Prefix]]:
         prefixes = self._prefixMapping.prefixes
         if len(prefixes) == 0:
             return lambda fetcher: None
         else:
             return PrefixDecoder(prefixes).tryDecode
 
-    def getDecoder(self, flags=frozenset()):
+    def getDecoder(self,
+                   flags: AbstractSet[str] = frozenset()
+                   ) -> Decoder:
         '''Returns an instruction decoder that decodes an instruction for the
         given combination of decode flags.
         '''
@@ -173,7 +200,7 @@ class InstructionSet(ModeTable):
         return decoder
 
     @const_property
-    def decodeFlagCombinations(self):
+    def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:
         '''A set containing all possible combinations of decode flags that can
         be set simultaneously.
         '''
@@ -181,9 +208,9 @@ class InstructionSet(ModeTable):
         prefixes = prefixMapping.prefixes
         flagForVar = prefixMapping.flagForVar
 
-        flagSets = set()
+        flagSets: MutableSet[AbstractSet[str]] = set()
 
-        def addRecursive(flags, code):
+        def addRecursive(flags: AbstractSet[str], code: CodeBlock) -> None:
             if flags in flagSets:
                 return
             flagSets.add(flags)
@@ -206,13 +233,13 @@ class InstructionSet(ModeTable):
         return flagSets
 
     @property
-    def addrWidth(self):
+    def addrWidth(self) -> Width:
         '''The width of the program counter, in bits.
         '''
-        return self._globalNamespace['pc'].width
+        return cast(Reference, self._globalNamespace['pc']).width
 
     @const_property
-    def instructionNames(self):
+    def instructionNames(self) -> AbstractSet[str]:
         '''A set containing the instruction names (operations).
         '''
-        return self._mnemTree[0].keys()
+        return cast(AbstractSet[str], self._mnemTree[0].keys())
