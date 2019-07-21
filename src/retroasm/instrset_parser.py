@@ -49,7 +49,7 @@ def _parseRegs(reader, args, globalNamespace):
             nodes = parseRegs(line)
         except BadInput as ex:
             reader.error(
-                'bad register definition line: %s', ex, location=ex.location
+                'bad register definition line: %s', ex, location=ex.locations
                 )
             continue
 
@@ -82,7 +82,7 @@ def _parseRegs(reader, args, globalNamespace):
                     except NameExistsError as ex:
                         reader.error(
                             'bad base register definition: %s', ex,
-                            location=ex.location
+                            location=ex.locations
                             )
             else:
                 # Define register alias.
@@ -94,7 +94,7 @@ def _parseRegs(reader, args, globalNamespace):
                 except BadExpression as ex:
                     reader.error(
                         'bad register alias: %s', ex,
-                        location=ex.location
+                        location=ex.locations
                         )
                     ref = badReference(regType)
                 try:
@@ -102,7 +102,7 @@ def _parseRegs(reader, args, globalNamespace):
                 except NameExistsError as ex:
                     reader.error(
                         'failed to define register alias: %s', ex,
-                        location=ex.location
+                        location=ex.locations
                         )
 
     # Check the program counter.
@@ -181,7 +181,7 @@ def _parsePrefix(reader, args, namespace, factory):
                 except NameExistsError as ex:
                     reader.error(
                         'error defining decode flag: %s', ex,
-                        location=ex.location
+                        location=ex.locations
                         )
                 else:
                     decodeFlags.append(argName)
@@ -217,7 +217,7 @@ def _parsePrefix(reader, args, namespace, factory):
                     except BadInput as ex:
                         reader.error(
                             'bad prefix encoding: %s', ex,
-                            location=ex.location
+                            location=ex.locations
                             )
                     else:
                         encItems = []
@@ -229,7 +229,7 @@ def _parsePrefix(reader, args, namespace, factory):
                             except BadInput as ex:
                                 reader.error(
                                     'bad prefix encoding: %s', ex,
-                                    location=ex.location
+                                    location=ex.locations
                                     )
         except DelayedError:
             encoding = None
@@ -259,7 +259,7 @@ def _parsePrefix(reader, args, namespace, factory):
                     except BadInput as ex:
                         reader.error(
                             'bad prefix semantics: %s', ex,
-                            location=ex.location
+                            location=ex.locations
                             )
                     else:
                         try:
@@ -283,7 +283,7 @@ def _parsePrefix(reader, args, namespace, factory):
     except BadInput as ex:
         reader.error(
             'validation of prefix block failed: %s', ex,
-            location=ex.location
+            location=ex.locations
             )
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
@@ -324,7 +324,7 @@ def _parseIO(reader, args, namespace):
                 namespace.define(name, channel, nameLoc)
             except NameExistsError as ex:
                 reader.error(
-                    'error defining I/O channel: %s', ex, location=ex.location
+                    'error defining I/O channel: %s', ex, location=ex.locations
                     )
 
 _reFuncHeader = re.compile(
@@ -392,7 +392,7 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
             namespace.define(funcName, func, funcNameLoc)
         except NameExistsError as ex:
             reader.error(
-                'error declaring function: %s', ex, location=ex.location
+                'error declaring function: %s', ex, location=ex.locations
                 )
     else:
         reader.skipBlock()
@@ -473,7 +473,7 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
                     decl.kind, decl.name, semType, value, placeholderNamespace
                     )
             except BadExpression as ex:
-                reader.error('%s', ex, location=ex.location)
+                reader.error('%s', ex, location=ex.locations)
             else:
                 code = placeholderNamespace.createCodeBlock(name)
 
@@ -484,7 +484,7 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
             else:
                 semNamespace.addValueArgument(name, semType, location)
         except NameExistsError as ex:
-            reader.error('%s', ex, location=ex.location)
+            reader.error('%s', ex, location=ex.locations)
             continue
 
         if isinstance(spec, ValuePlaceholderSpec):
@@ -511,41 +511,40 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
                         f'cannot use placeholder "{ex.name}" '
                         f'in encoding field, since mode "{spec.mode.name}" '
                         f'has an empty encoding sequence',
-                        location=(ex.location, spec.decl.treeLocation)
+                        *ex.locations, spec.decl.treeLocation
                         )
                 if spec.value is not None:
                     raise BadInput(
                         f'cannot use placeholder "{ex.name}" '
                         f'in encoding field, since its value is '
                         f'computed in the context',
-                        location=(ex.location, spec.value.treeLocation)
+                        *ex.locations, spec.value.treeLocation
                         )
         raise BadInput(
             f'error in encoding: {ex}',
-            location=(encNode.treeLocation, ex.location)
+            encNode.treeLocation, *ex.locations
             )
 
-    encLoc = encNode.treeLocation
     code = namespace.builder.createCodeBlock((encRef.bits,))
     if len(code.nodes) != 0:
         raise BadInput(
             'encoding expression accesses state or performs I/O',
-            location=encLoc
+            encNode.treeLocation
             )
     encBits, = code.returned
     for storage in encBits.iterStorages():
         if isinstance(storage, Variable):
             raise BadInput(
                 'encoding expression references register',
-                location=encLoc
+                encNode.treeLocation
                 )
         if isinstance(storage, IOStorage):
             raise BadInput(
                 f'encoding expression references storage location '
                 f'on I/O channel "{storage.channel.name}"',
-                location=encLoc
+                encNode.treeLocation
                 )
-    return EncodingExpr(encBits, encLoc)
+    return EncodingExpr(encBits, encNode.treeLocation)
 
 def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
     '''Parse an encoding node of type MultiMatchNode.
@@ -558,12 +557,12 @@ def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
     except KeyError:
         raise BadInput(
             f'placeholder "{name}" does not exist in context',
-            location=encNode.treeLocation
+            encNode.treeLocation
             )
     if not isinstance(placeholder, MatchPlaceholderSpec):
         raise BadInput(
             f'placeholder "{name}" does not represent a mode match',
-            location=(encNode.treeLocation, placeholder.decl.treeLocation)
+            encNode.treeLocation, placeholder.decl.treeLocation
             )
 
     mode = placeholder.mode
@@ -583,7 +582,7 @@ def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
                     encNamespace.addValueArgument(name, encType, location)
                 except NameExistsError as ex:
                     logger.error(
-                        'bad placeholder: %s', ex, location=ex.location
+                        'bad placeholder: %s', ex, location=ex.locations
                         )
 
     # Collect the names of all identifiers used in the encoding.
@@ -608,7 +607,7 @@ def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
                     encNode, encNamespace, placeholderSpecs
                     )
         except BadInput as ex:
-            logger.error('%s', ex, location=ex.location)
+            logger.error('%s', ex, location=ex.locations)
 
 def _checkEmptyMultiMatches(encItems, placeholderSpecs, logger):
     '''Warn about multi-matches that always match zero elements.
@@ -825,7 +824,7 @@ def _parseModeDecoding(encoding, placeholderSpecs, reader):
         # Decompose the encoding expressions.
         fixedMatcher, decodeMap = decomposeEncoding(encoding)
     except BadInput as ex:
-        reader.error('%s', ex, location=ex.location)
+        reader.error('%s', ex, location=ex.locations)
         return None
     try:
         with reader.checkErrors():
@@ -852,8 +851,7 @@ def _parseModeSemantics(reader, semLoc, semNamespace, modeType):
             if ref.type != modeType.type:
                 raise BadInput(
                     f'semantics type {ref.type} does not match '
-                    f'mode type {modeType.type}',
-                    location=semLoc
+                    f'mode type {modeType.type}', semLoc
                     )
         semNamespace.define('ret', ref, semLoc)
     else:
@@ -940,7 +938,7 @@ def _parseModeEntries(
                         encNodes = parseExprList(encLoc)
                     except BadInput as ex:
                         reader.error(
-                            'error in encoding: %s', ex, location=ex.location
+                            'error in encoding: %s', ex, location=ex.locations
                             )
                         encNodes = None
                 else:
@@ -1008,7 +1006,7 @@ def _parseModeEntries(
                         parseSem(reader, semLoc, semNamespace, modeType)
                     except BadInput as ex:
                         reader.error(
-                            'error in semantics: %s', ex, location=ex.location
+                            'error in semantics: %s', ex, location=ex.locations
                             )
                         # This is the last field.
                         continue

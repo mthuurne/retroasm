@@ -66,7 +66,7 @@ def declareVariable(node: DeclarationNode,
     except NameExistsError as ex:
         raise BadExpression(
             f'failed to declare variable "{typ} {name}": {ex}',
-            ex.location
+            *ex.locations
             )
 
 def convertDefinition(kind: DeclarationKind,
@@ -87,7 +87,7 @@ def convertDefinition(kind: DeclarationKind,
             #       could throw IllegalStateAccess.
             raise BadExpression(
                 f'bad value for constant "{typ} {name}": {ex}',
-                ex.location
+                *ex.locations
                 )
         assert isinstance(typ, IntType), typ
         declWidth = typ.width
@@ -99,7 +99,7 @@ def convertDefinition(kind: DeclarationKind,
         except BadExpression as ex:
             raise BadExpression(
                 f'bad value for reference "{typ} {name}": {ex}',
-                ex.location
+                *ex.locations
                 )
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
@@ -471,7 +471,7 @@ def buildStatementEval(reader: LineReader,
         except BadExpression as ex:
             reader.error(
                 'bad expression on left hand side of assignment in %s: %s',
-                whereDesc, ex, location=ex.location
+                whereDesc, ex, location=ex.locations
                 )
             return
 
@@ -480,7 +480,7 @@ def buildStatementEval(reader: LineReader,
         except BadExpression as ex:
             reader.error(
                 'bad expression on right hand side of assignment in %s: %s',
-                whereDesc, ex, location=ex.location
+                whereDesc, ex, location=ex.locations
                 )
             return
 
@@ -505,7 +505,7 @@ def buildStatementEval(reader: LineReader,
         except BadExpression as ex:
             reader.error(
                 'bad expression in statement in %s: %s',
-                whereDesc, ex, location=ex.location
+                whereDesc, ex, location=ex.locations
                 )
             return
 
@@ -566,7 +566,7 @@ def emitCodeFromStatements(reader: LineReader,
             try:
                 ref = convertDefinition(kind, name, typ, node.value, namespace)
             except BadExpression as ex:
-                reader.error(str(ex), location=ex.location)
+                reader.error(str(ex), location=ex.locations)
                 ref = badReference(typ)
             # Add definition to namespace.
             try:
@@ -574,7 +574,7 @@ def emitCodeFromStatements(reader: LineReader,
             except NameExistsError as ex:
                 reader.error(
                     'failed to define %s "%s %s": %s', kind.name, typ, name, ex,
-                    location=ex.location
+                    location=ex.locations
                     )
 
         elif isinstance(node, DeclarationNode):
@@ -582,7 +582,7 @@ def emitCodeFromStatements(reader: LineReader,
             try:
                 declareVariable(node, namespace)
             except BadExpression as ex:
-                reader.error(str(ex), location=ex.location)
+                reader.error(str(ex), location=ex.locations)
 
         elif isinstance(node, BranchNode):
             # TODO: Add support.

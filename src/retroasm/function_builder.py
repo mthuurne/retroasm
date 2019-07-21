@@ -19,7 +19,7 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
             yield parseStatement(line)
         except ParseError as ex:
             reader.error(
-                'failed to parse statement: %s', ex, location=ex.location
+                'failed to parse statement: %s', ex, location=ex.locations
                 )
 
 def createFunc(reader: DefLineReader,

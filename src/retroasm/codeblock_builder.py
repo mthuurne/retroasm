@@ -1,5 +1,5 @@
 from typing import (
-    Callable, Dict, Iterable, List, Mapping, Optional, Set, Union
+    Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Union
 )
 
 from .codeblock import AccessNode, CodeBlock, Load, LoadedValue, Store
@@ -55,6 +55,14 @@ class IllegalStateAccess(BadInput):
     '''Raised when an operation is attempted that reads or writes state
     in a situation where that is not allowed.
     '''
+
+    def __init__(self, msg: str, location: Optional[InputLocation]):
+        locations: Sequence[InputLocation]
+        if location is None:
+            locations = ()
+        else:
+            locations = (location,)
+        super().__init__(msg, *locations)
 
 class StatelessCodeBlockBuilder(CodeBlockBuilder):
     '''A CodeBlockBuilder that raises IllegalStateAccess when its users attempt

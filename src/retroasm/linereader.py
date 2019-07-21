@@ -227,13 +227,9 @@ class BadInput(Exception):
         '''
         return cls(f'{msg}: {location.text}', location)
 
-    def __init__(self,
-                 msg: str,
-                 location: Union[None, InputLocation, Sequence[InputLocation]]
-                     = None
-                 ):
+    def __init__(self, msg: str, *locations: InputLocation):
         Exception.__init__(self, msg)
-        self.location = location
+        self.locations = locations
 
 LineReaderT = TypeVar('LineReaderT', bound='LineReader')
 

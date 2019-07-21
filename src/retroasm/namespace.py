@@ -84,7 +84,7 @@ class Namespace:
             if location is not None:
                 oldLocation = self.locations[name]
                 if oldLocation is not None:
-                    raise NameExistsError(msg, (location, oldLocation))
+                    raise NameExistsError(msg, location, oldLocation)
             raise NameExistsError(msg, location)
         self.locations[name] = location
         self.elements[name] = value

@@ -140,7 +140,7 @@ def decomposeEncoding(encoding):
             #       expression.
             #       We could store locations in non-simplified expressions
             #       or decompose parse trees instead of references.
-            raise BadInput(str(ex), location=encElem.location)
+            raise BadInput(str(ex), encElem.location)
         else:
             if fixedMask != 0:
                 fixedMatcher.append((encIdx, fixedMask, fixedValue))
