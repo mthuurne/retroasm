@@ -292,9 +292,11 @@ def _parsePrefix(reader: DefLineReader,
                             )
                     else:
                         try:
-                            semantics = semNamespace.createCodeBlock(log=reader)
+                            semantics = semNamespace.createCodeBlock(
+                                retName=None, log=reader
+                                )
                         except ValueError:
-                            # Error was already logged inside createCodeBlock().
+                            # Error was logged inside createCodeBlock().
                             pass
         except DelayedError:
             semantics = None
@@ -1138,7 +1140,10 @@ def _parseModeEntries(
                         continue
                     try:
                         semantics: Optional[CodeBlock]
-                        semantics = semNamespace.createCodeBlock(log=reader)
+                        semantics = semNamespace.createCodeBlock(
+                            retName=None if modeType is None else 'ret',
+                            log=reader
+                            )
                     except ValueError:
                         # Error was already logged inside createCodeBlock().
                         pass

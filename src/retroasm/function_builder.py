@@ -54,6 +54,7 @@ def createFunc(reader: DefLineReader,
     else:
         try:
             code = namespace.createCodeBlock(
+                retName=None if retType is None else 'ret',
                 log=reader, location=funcNameLocation
                 )
         except ValueError:

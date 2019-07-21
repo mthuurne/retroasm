@@ -12,11 +12,12 @@ import unittest
 
 verbose = False
 
-def createSimplifiedCode(builder):
+def createSimplifiedCode(namespace):
     if verbose:
         print('=' * 40)
-        builder.dump()
-    code = builder.createCodeBlock()
+        namespace.dump()
+    retName = 'ret' if 'ret' in namespace else None
+    code = namespace.createCodeBlock(retName)
     if verbose:
         print('-' * 40)
         code.dump()
@@ -42,7 +43,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         outerA = outer.addRegister('a', IntType.u(16))
         zero = IntLiteral(0)
         outer.emitStore(outerA, zero)
-        outer.inlineBlock(inner.createCodeBlock(), args())
+        outer.inlineBlock(inner.createCodeBlock(None), args())
         loadA = outer.emitLoad(outerA)
         outerRet = outer.addVariable('ret', IntType.u(16))
         outer.emitStore(outerRet, loadA)
@@ -64,7 +65,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incAdd = AddOperator(incArgVal, IntLiteral(1))
         incRet = inc.addVariable('ret')
         inc.emitStore(incRet, incAdd)
-        incCode = inc.createCodeBlock()
+        incCode = inc.createCodeBlock('ret')
 
         outer = TestNamespace()
         argsV = lambda value: args(V=FixedValue(value, 8))
@@ -96,7 +97,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner.emitStore(innerRet, val0)
         inner.emitStore(innerRet, val1)
         inner.emitStore(innerRet, val2)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
 
         outer = TestNamespace()
         innerRet, = outer.inlineBlock(innerCode, args())
@@ -118,7 +119,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerVal = IntLiteral(0x8472)
         innerRet = inner.addVariable('ret')
         inner.emitStore(innerRet, innerVal)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
         func = Function(IntType.u(8), {}, innerCode)
 
         outer = TestNamespace()
@@ -141,7 +142,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
         inc.emitStore(incArgRef, incAdd)
-        incCode = inc.createCodeBlock()
+        incCode = inc.createCodeBlock(None)
 
         outer = TestNamespace()
         outerA = outer.addRegister('a')
@@ -170,7 +171,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
-        incCode = inc.createCodeBlock()
+        incCode = inc.createCodeBlock(None)
 
         outer = TestNamespace()
         outerH = outer.addRegister('h')
@@ -206,7 +207,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
-        incCode = inc.createCodeBlock()
+        incCode = inc.createCodeBlock(None)
 
         outer = TestNamespace()
         outerH = outer.addRegister('h')
@@ -239,7 +240,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x12))
         inc.emitStore(incArgRef, incAdd)
-        incCode = inc.createCodeBlock()
+        incCode = inc.createCodeBlock(None)
 
         outer = TestNamespace()
         outerR = outer.addRegister('r', IntType.u(16))
@@ -270,7 +271,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerLoad = inner.emitLoad(innerA)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, innerLoad)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
 
         outer = TestNamespace(inner)
         outerA = outer.addRegister('a')
@@ -296,7 +297,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         innerLoad = inner.emitLoad(innerA)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, innerLoad)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
 
         outer = TestNamespace(inner)
         outerA = outer.addRegister('a', IntType.s(8))
@@ -324,7 +325,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
 
         outer = TestNamespace()
         fixedVal = FixedValue(IntLiteral(0xa4), 8)
@@ -348,7 +349,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
 
         outer = TestNamespace()
         fixedVal = FixedValue(IntLiteral(0xa4), 8)
@@ -370,7 +371,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         inner = TestNamespace()
         innerA = inner.addRegister('a')
         inner.addRetReference(innerA)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
         self.assertEqual(len(innerCode.returned), 1)
 
         outer = TestNamespace(inner)
@@ -400,7 +401,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         addrVal = inner.emitLoad(addrArg)
         memByte = inner.addIOStorage('mem', addrVal)
         inner.addRetReference(memByte)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
         self.assertEqual(len(innerCode.returned), 1)
 
         outer = TestNamespace()
@@ -433,7 +434,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
         loadR = inner.emitLoad(memByte)
         innerRet = inner.addVariable('ret')
         inner.emitStore(innerRet, loadR)
-        innerCode = inner.createCodeBlock()
+        innerCode = inner.createCodeBlock('ret')
         self.assertEqual(len(innerCode.returned), 1)
 
         outer = TestNamespace()

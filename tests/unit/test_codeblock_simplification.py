@@ -26,7 +26,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         if verbose:
             print('=' * 40)
             self.namespace.dump()
-        code = self.namespace.createCodeBlock()
+        retName = 'ret' if 'ret' in self.namespace else None
+        code = self.namespace.createCodeBlock(retName)
         if verbose:
             print('-' * 40)
             code.dump()
@@ -48,7 +49,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             self.assertEqual(store.storage, refB.bits.storage)
             self.assertIs(store.expr, load.expr)
 
-        code = self.namespace.createCodeBlock()
+        code = self.namespace.createCodeBlock(None)
         checkNodes(code)
         code = self.createSimplifiedCode()
         checkNodes(code)
