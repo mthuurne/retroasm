@@ -377,6 +377,7 @@ def _parseFunc(reader: DefLineReader,
 
     # Parse return type.
     retType: Optional[Union[IntType, ReferenceType]]
+    retTypeLoc: Optional[InputLocation]
     if match.hasGroup(1):
         retTypeLoc = match.group(1)
         try:
@@ -386,6 +387,7 @@ def _parseFunc(reader: DefLineReader,
             reader.skipBlock()
             return
     else:
+        retTypeLoc = None
         retType = None
 
     # Parse arguments.
@@ -422,7 +424,8 @@ def _parseFunc(reader: DefLineReader,
         funcName = funcNameLoc.text
 
         # Parse body lines.
-        func = createFunc(reader, funcName, retType, args, namespace)
+        func = createFunc(reader, funcNameLoc, retType, retTypeLoc,
+                          args, nameLocations, namespace)
 
         # Store function in namespace.
         try:

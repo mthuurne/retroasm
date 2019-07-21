@@ -1,10 +1,10 @@
-from typing import Iterator, Mapping, Union
+from typing import Iterator, Mapping, Optional, Union
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
 from .expression_parser import ParseError, ParseNode, parseStatement
 from .function import Function
-from .linereader import DefLineReader, DelayedError
+from .linereader import DefLineReader, DelayedError, InputLocation
 from .namespace import GlobalNamespace, LocalNamespace
 from .types import IntType, ReferenceType
 
@@ -23,24 +23,25 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
                 )
 
 def createFunc(reader: DefLineReader,
-               funcName: str,
+               funcNameLocation: InputLocation,
                retType: Union[None, IntType, ReferenceType],
+               retTypeLocation: Optional[InputLocation],
                args: Mapping[str, Union[IntType, ReferenceType]],
+               argNameLocations: Mapping[str, InputLocation],
                globalNamespace: GlobalNamespace
                ) -> Function:
-    headerLocation = reader.location
 
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(globalNamespace, builder)
     for argName, argDecl in args.items():
+        argLoc = argNameLocations[argName]
         if isinstance(argDecl, ReferenceType):
-            namespace.addReferenceArgument(
-                argName, argDecl.type, headerLocation
-                )
+            namespace.addReferenceArgument(argName, argDecl.type, argLoc)
         else:
-            namespace.addValueArgument(argName, argDecl, headerLocation)
+            namespace.addValueArgument(argName, argDecl, argLoc)
     if retType is not None and not isinstance(retType, ReferenceType):
-        namespace.addVariable('ret', retType, headerLocation)
+        assert retTypeLocation is not None, retType
+        namespace.addVariable('ret', retType, retTypeLocation)
 
     try:
         with reader.checkErrors():
@@ -53,7 +54,7 @@ def createFunc(reader: DefLineReader,
     else:
         try:
             code = namespace.createCodeBlock(
-                log=reader, location=headerLocation
+                log=reader, location=funcNameLocation
                 )
         except ValueError:
             code = None
@@ -62,7 +63,8 @@ def createFunc(reader: DefLineReader,
         func = Function(retType, args, code)
     except ValueError as ex:
         reader.error(
-            'error in function "%s": %s', funcName, ex, location=headerLocation
+            'error in function "%s": %s', funcNameLocation.text, ex,
+            location=funcNameLocation
             )
         code = None
         func = Function(retType, args, code)
@@ -76,7 +78,8 @@ def createFunc(reader: DefLineReader,
             if argName not in codeArgs:
                 reader.warning(
                     'unused argument "%s" in function "%s"',
-                    argName, funcName, location=headerLocation
+                    argName, funcNameLocation.text,
+                    location=argNameLocations[argName]
                     )
 
     return func
