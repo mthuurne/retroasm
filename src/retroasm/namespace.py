@@ -5,7 +5,7 @@ from typing import (
 )
 
 from .codeblock import CodeBlock
-from .codeblock_builder import SemanticsCodeBlockBuilder
+from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, optSlice
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
@@ -158,7 +158,7 @@ class BuilderNamespace(Namespace):
 
     def __init__(self,
                  parent: Optional[Namespace],
-                 builder: SemanticsCodeBlockBuilder
+                 builder: CodeBlockBuilder
                  ):
         Namespace.__init__(self, parent)
         self.builder = builder
@@ -216,7 +216,7 @@ class GlobalNamespace(BuilderNamespace):
     def scope(self) -> int:
         return 0
 
-    def __init__(self, builder: SemanticsCodeBlockBuilder):
+    def __init__(self, builder: CodeBlockBuilder):
         BuilderNamespace.__init__(self, None, builder)
 
     def _checkName(self,
@@ -236,6 +236,13 @@ class LocalNamespace(BuilderNamespace):
     @property
     def scope(self) -> int:
         return 1
+
+    def __init__(self,
+                 parent: Optional[Namespace],
+                 builder: SemanticsCodeBlockBuilder
+                 ):
+        super().__init__(parent, builder)
+        self.builder: SemanticsCodeBlockBuilder
 
     def _checkName(self,
                    name: str,

@@ -655,8 +655,8 @@ class Mode(ModeTable):
 
     def __init__(self,
                  name: str,
-                 encWidth: int,
-                 auxEncWidth: int,
+                 encWidth: Optional[int],
+                 auxEncWidth: Optional[int],
                  semType: Union[None, IntType, ReferenceType],
                  location: InputLocation,
                  entries: Iterable[ModeEntry]

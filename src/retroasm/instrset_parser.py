@@ -1,12 +1,19 @@
 from collections import OrderedDict, defaultdict
-from logging import WARNING, getLogger
+from logging import WARNING, Logger, getLogger
+from typing import (
+    AbstractSet, Callable, DefaultDict, Dict, Iterable, Iterator, List,
+    Mapping, Optional, Sequence, Set, Tuple, Union, cast
+)
 import re
 
 from .analysis import CodeTemplate
+from .codeblock import CodeBlock
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
 )
-from .context_parser import MatchPlaceholderSpec, ValuePlaceholderSpec
+from .context_parser import (
+    MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
+)
 from .decode import ParsedModeEntry, decomposeEncoding
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
@@ -14,22 +21,25 @@ from .expression_builder import (
 )
 from .expression_parser import (
     DeclarationNode, DefinitionNode, FlagTestNode, IdentifierNode,
-    MultiMatchNode, parseContext, parseExpr, parseExprList, parseInt,
-    parseRegs, parseStatement
+    MultiMatchNode, ParseNode, parseContext, parseExpr, parseExprList,
+    parseInt, parseRegs, parseStatement
 )
 from .function_builder import createFunc
 from .instrset import InstructionSet, Prefix, PrefixMappingFactory
-from .linereader import BadInput, DefLineReader, DelayedError, mergeSpan
+from .linereader import (
+    BadInput, DefLineReader, DelayedError, InputLocation, mergeSpan
+)
 from .mode import (
-    Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, Mnemonic,
-    Mode, ModeEntry, ValuePlaceholder
+    Encoding, EncodingExpr, EncodingItem, EncodingMultiMatch, MatchPlaceholder,
+    MnemItem, Mnemonic, Mode, ModeEntry, Placeholder, ValuePlaceholder
 )
 from .namespace import (
-    ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError
+    ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError,
+    Namespace
 )
-from .reference import badReference
+from .reference import BitString, Reference, badReference
 from .storage import IOChannel, IOStorage, ValArgStorage, Variable
-from .types import IntType, ReferenceType, parseType, parseTypeDecl
+from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _nameTok = r'\s*(' + _namePat + r')\s*'
@@ -37,7 +47,10 @@ _typeTok = r'\s*(' + _namePat + r'&?)\s*'
 
 _reDotSep = re.compile(r'\s*\.\s*')
 
-def _parseRegs(reader, args, globalNamespace):
+def _parseRegs(reader: DefLineReader,
+               args: InputLocation,
+               globalNamespace: GlobalNamespace
+               ) -> Optional[BitString]:
     headerLocation = reader.location
     if args:
         reader.error(
@@ -57,9 +70,11 @@ def _parseRegs(reader, args, globalNamespace):
         for node in nodes:
             # Parse type declaration.
             decl = node if isinstance(node, DeclarationNode) else node.decl
-            typeLocation = decl.type.location
+            declType = decl.type
+            assert declType is not None
+            typeLocation = declType.location
             try:
-                regType = parseTypeDecl(decl.type.name)
+                regType = parseTypeDecl(declType.name)
             except ValueError as ex:
                 # Avoid reporting the same error twice.
                 if typeLocation != lastTypeLocation:
@@ -107,7 +122,7 @@ def _parseRegs(reader, args, globalNamespace):
 
     # Check the program counter.
     try:
-        return globalNamespace['pc'].bits
+        pc = globalNamespace['pc']
     except KeyError:
         reader.error(
             'no program counter defined: '
@@ -115,11 +130,20 @@ def _parseRegs(reader, args, globalNamespace):
             location=headerLocation
             )
         return None
+    else:
+        assert isinstance(pc, Reference), pc
+        return pc.bits
 
 _reCommaSep = re.compile(r'\s*,\s*')
 _reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
 
-def _parseTypedArgs(reader, args, description):
+def _parseTypedArgs(reader: DefLineReader,
+                    args: InputLocation,
+                    description: str
+                    ) -> Iterator[Tuple[
+                        Union[IntType, ReferenceType],
+                        InputLocation, InputLocation
+                        ]]:
     '''Parses a typed arguments list, yielding a triple for each argument,
     containing the argument type and InputLocations for the type and name.
     Errors are logged on the given reader as they are discovered.
@@ -150,7 +174,11 @@ def _parseTypedArgs(reader, args, description):
         else:
             yield argType, typeLoc, nameLoc
 
-def _parsePrefix(reader, args, namespace, factory):
+def _parsePrefix(reader: DefLineReader,
+                 args: InputLocation,
+                 namespace: GlobalNamespace,
+                 factory: PrefixMappingFactory
+                 ) -> None:
     headerLocation = reader.location
 
     # Parse header line.
@@ -244,6 +272,7 @@ def _parsePrefix(reader, args, namespace, factory):
                 )
 
         # Parse semantics.
+        semantics: Optional[CodeBlock]
         try:
             with reader.checkErrors():
                 if len(semLoc) == 0:
@@ -288,7 +317,10 @@ def _parsePrefix(reader, args, namespace, factory):
 
 _reIOLine = re.compile(_nameTok + r'\s' + _nameTok + r'\[' + _nameTok + r'\]$')
 
-def _parseIO(reader, args, namespace):
+def _parseIO(reader: DefLineReader,
+             args: InputLocation,
+             namespace: GlobalNamespace
+             ) -> None:
     if args:
         reader.error('I/O definition must have no arguments', location=args)
 
@@ -300,7 +332,7 @@ def _parseIO(reader, args, namespace):
             elemTypeLoc, nameLoc, addrTypeLoc = match.groups
 
             try:
-                elemType = parseType(elemTypeLoc.text)
+                elemType: Optional[IntType] = parseType(elemTypeLoc.text)
             except ValueError as ex:
                 reader.error(
                     'bad I/O element type: %s', ex, location=elemTypeLoc
@@ -308,7 +340,7 @@ def _parseIO(reader, args, namespace):
                 elemType = None
 
             try:
-                addrType = parseType(addrTypeLoc.text)
+                addrType: Optional[IntType] = parseType(addrTypeLoc.text)
             except ValueError as ex:
                 reader.error(
                     'bad I/O address type: %s', ex, location=addrTypeLoc
@@ -331,7 +363,11 @@ _reFuncHeader = re.compile(
     r'(?:' + _typeTok + r'\s)?' + _nameTok + r'\((.*)\)$'
     )
 
-def _parseFunc(reader, headerArgs, namespace, wantSemantics):
+def _parseFunc(reader: DefLineReader,
+               headerArgs: InputLocation,
+               namespace: GlobalNamespace,
+               wantSemantics: bool
+               ) -> None:
     # Parse header line.
     match = headerArgs.match(_reFuncHeader)
     if match is None:
@@ -340,6 +376,7 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
         return
 
     # Parse return type.
+    retType: Optional[Union[IntType, ReferenceType]]
     if match.hasGroup(1):
         retTypeLoc = match.group(1)
         try:
@@ -352,10 +389,10 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
         retType = None
 
     # Parse arguments.
-    args = OrderedDict()
+    args: OrderedDict[str, Union[IntType, ReferenceType]] = OrderedDict()
     try:
         with reader.checkErrors():
-            nameLocations = {}
+            nameLocations: Dict[str, InputLocation] = {}
             for i, (argType, argTypeLoc_, argNameLoc) in enumerate(
                     _parseTypedArgs(reader, match.group(3),
                                     'function argument'),
@@ -397,17 +434,24 @@ def _parseFunc(reader, headerArgs, namespace, wantSemantics):
     else:
         reader.skipBlock()
 
-def _parseModeContext(ctxLoc, prefixes, modes, reader):
-    placeholderSpecs = OrderedDict()
+def _parseModeContext(ctxLoc: InputLocation,
+                      prefixes: PrefixMappingFactory,
+                      modes: Mapping[str, Mode],
+                      reader: DefLineReader
+                      ) -> Tuple[Mapping[str, PlaceholderSpec], Set[str]]:
+    placeholderSpecs: OrderedDict[str, PlaceholderSpec] = OrderedDict()
     flagsRequired = set()
     for node in parseContext(ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
             decl = node if isinstance(node, DeclarationNode) else node.decl
             name = decl.name.name
-            typeName = decl.type.name
+            declType = decl.type
+            assert declType is not None
+            typeName = declType.name
 
             # Figure out whether the name is a mode or type.
             mode = modes.get(typeName)
+            placeholder: PlaceholderSpec
             if mode is not None:
                 placeholder = MatchPlaceholderSpec(decl, mode)
                 if isinstance(node, DefinitionNode):
@@ -427,7 +471,7 @@ def _parseModeContext(ctxLoc, prefixes, modes, reader):
                 except ValueError:
                     reader.error(
                         'there is no type or mode named "%s"', typeName,
-                        location=decl.type.location
+                        location=declType.location
                         )
                     continue
                 value = node.value if isinstance(node, DefinitionNode) else None
@@ -453,7 +497,10 @@ def _parseModeContext(ctxLoc, prefixes, modes, reader):
 
     return placeholderSpecs, flagsRequired
 
-def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
+def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
+                       globalNamespace: GlobalNamespace,
+                       reader: DefLineReader
+                       ) -> Iterator[Tuple[str, Placeholder]]:
     '''Yields pairs of name and Placeholder object.
     '''
     semNamespace = ContextNamespace(globalNamespace)
@@ -464,13 +511,14 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
         value = spec.value
 
         code = None
-        if value is not None:
+        if semType is not None and value is not None:
             placeholderNamespace = LocalNamespace(
                 semNamespace, SemanticsCodeBlockBuilder()
                 )
             try:
                 convertDefinition(
-                    decl.kind, decl.name, semType, value, placeholderNamespace
+                    decl.kind, decl.name.name, semType, value,
+                    placeholderNamespace
                     )
             except BadExpression as ex:
                 reader.error('%s', ex, location=ex.locations)
@@ -481,20 +529,29 @@ def _buildPlaceholders(placeholderSpecs, globalNamespace, reader):
         try:
             if isinstance(semType, ReferenceType):
                 semNamespace.addReferenceArgument(name, semType.type, location)
-            else:
+            elif isinstance(semType, IntType):
                 semNamespace.addValueArgument(name, semType, location)
+            else:
+                assert semType is None, semType
         except NameExistsError as ex:
             reader.error('%s', ex, location=ex.locations)
             continue
 
         if isinstance(spec, ValuePlaceholderSpec):
-            yield name, ValuePlaceholder(name, semType, code)
+            if semType is not None:
+                # TODO: We don't actually support references types yet.
+                #       See TODO in _parseModeContext().
+                assert isinstance(semType, IntType), semType
+                yield name, ValuePlaceholder(name, semType, code)
         elif isinstance(spec, MatchPlaceholderSpec):
             yield name, MatchPlaceholder(name, spec.mode)
         else:
             assert False, spec
 
-def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
+def _parseEncodingExpr(encNode: ParseNode,
+                       encNamespace: Namespace,
+                       placeholderSpecs: Mapping[str, PlaceholderSpec]
+                       ) -> EncodingExpr:
     '''Parse encoding node that is not a MultiMatchNode.
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
@@ -507,6 +564,8 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
             spec = placeholderSpecs.get(ex.name)
             if spec is not None:
                 if spec.encodingWidth is None:
+                    # Only MatchPlaceholderSpec.encodingWidth can return None.
+                    assert isinstance(spec, MatchPlaceholderSpec), spec
                     raise BadInput(
                         f'cannot use placeholder "{ex.name}" '
                         f'in encoding field, since mode "{spec.mode.name}" '
@@ -546,7 +605,10 @@ def _parseEncodingExpr(encNode, encNamespace, placeholderSpecs):
                 )
     return EncodingExpr(encBits, encNode.treeLocation)
 
-def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
+def _parseMultiMatch(encNode: MultiMatchNode,
+                     identifiers: AbstractSet[str],
+                     placeholderSpecs: Mapping[str, PlaceholderSpec]
+                     ) -> EncodingMultiMatch:
     '''Parse an encoding node of type MultiMatchNode.
     Returns the parse result as an EncodingMultiMatch.
     Raises BadInput if the node is invalid.
@@ -569,7 +631,11 @@ def _parseMultiMatch(encNode, identifiers, placeholderSpecs):
     start = 1 if name in identifiers else 0
     return EncodingMultiMatch(name, mode, start, encNode.treeLocation)
 
-def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
+def _parseModeEncoding(encNodes: Iterable[ParseNode],
+                       placeholderSpecs: Mapping[str, PlaceholderSpec],
+                       globalNamespace: GlobalNamespace,
+                       logger: DefLineReader
+                       ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
     encNamespace = ContextNamespace(globalNamespace)
     for name, spec in placeholderSpecs.items():
@@ -609,7 +675,10 @@ def _parseModeEncoding(encNodes, placeholderSpecs, globalNamespace, logger):
         except BadInput as ex:
             logger.error('%s', ex, location=ex.locations)
 
-def _checkEmptyMultiMatches(encItems, placeholderSpecs, logger):
+def _checkEmptyMultiMatches(encItems: Iterable[EncodingItem],
+                            placeholderSpecs: Mapping[str, PlaceholderSpec],
+                            logger: DefLineReader
+                            ) -> None:
     '''Warn about multi-matches that always match zero elements.
     Technically there is nothing wrong with those, but it is probably not what
     the user intended.
@@ -634,7 +703,11 @@ def _checkEmptyMultiMatches(encItems, placeholderSpecs, logger):
                         )
                     )
 
-def _checkMissingPlaceholders(encItems, placeholderSpecs, location, logger):
+def _checkMissingPlaceholders(encItems: Iterable[EncodingItem],
+                              placeholderSpecs: Mapping[str, PlaceholderSpec],
+                              location: InputLocation,
+                              logger: DefLineReader
+                              ) -> None:
     '''Check that our encoding field contains sufficient placeholders to be able
     to make matches in all included mode tables.
     '''
@@ -686,13 +759,15 @@ def _checkMissingPlaceholders(encItems, placeholderSpecs, location, logger):
         else:
             assert False, spec
 
-def _checkAuxEncodingWidth(encItems, logger):
+def _checkAuxEncodingWidth(encItems: Iterable[EncodingItem],
+                           logger: DefLineReader
+                           ) -> None:
     '''Check whether the encoding widths in the given encoding are the same
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
     '''
-    firstAux = [None, None]
-    def checkAux(width, location):
+    firstAux: List[object] = [None, None]
+    def checkAux(width: Optional[int], location: InputLocation) -> None:
         auxWidth, auxLoc = firstAux
         if auxWidth is None:
             firstAux[0] = width
@@ -727,11 +802,13 @@ def _checkAuxEncodingWidth(encItems, logger):
         else:
             assert False, encItem
 
-def _checkDuplicateMultiMatches(encItems, logger):
+def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
+                                logger: DefLineReader
+                                ) -> None:
     '''Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
     '''
-    claimedMultiMatches = {}
+    claimedMultiMatches: Dict[str, InputLocation] = {}
     for encItem in encItems:
         if isinstance(encItem, EncodingMultiMatch):
             name = encItem.name
@@ -743,7 +820,11 @@ def _checkDuplicateMultiMatches(encItems, logger):
             else:
                 claimedMultiMatches[name] = encItem.location
 
-def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
+def _combinePlaceholderEncodings(
+        decodeMap: Mapping[str, Sequence[Tuple[int, int, int, Width]]],
+        placeholderSpecs: Mapping[str, PlaceholderSpec],
+        reader: DefLineReader
+        ) -> Iterator[Tuple[str, Sequence[Tuple[int, int, int]]]]:
     '''Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
@@ -752,10 +833,15 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
     for name, slices in decodeMap.items():
         placeholderSpec = placeholderSpecs[name]
         immWidth = placeholderSpec.encodingWidth
+        # TODO: Can this actually never happen?
+        assert immWidth is not None, placeholderSpec
         decoding = []
         problems = []
         prev = 0
         for immIdx, encIdx, refIdx, width in sorted(slices):
+            # TODO: Does it make sense to support unlimited width?
+            #       If not, at which point should we exclude it from the type?
+            assert isinstance(width, int), width
             if prev < immIdx:
                 problems.append(f'gap at [{prev:d}:{immIdx:d}]')
             elif prev > immIdx:
@@ -776,7 +862,12 @@ def _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader):
         else:
             yield name, tuple(decoding)
 
-def _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader):
+def _checkDecodingOrder(
+        encoding: Encoding,
+        sequentialMap: Mapping[str, Sequence[Tuple[int, int, int]]],
+        placeholderSpecs: Mapping[str, PlaceholderSpec],
+        reader: DefLineReader
+        ) -> None:
     '''Verifies that there is an order in which placeholders can be decoded.
     Such an order might not exist because of circular dependencies.
     '''
@@ -816,7 +907,11 @@ def _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader):
                     + [encoding[idx].location for idx in badIdx]
                 )
 
-def _parseModeDecoding(encoding, placeholderSpecs, reader):
+def _parseModeDecoding(
+        encoding: Encoding,
+        placeholderSpecs: Mapping[str, PlaceholderSpec],
+        reader: DefLineReader
+        ) -> Optional[Mapping[Optional[str], Sequence[Tuple[int, int, int]]]]:
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
@@ -840,19 +935,26 @@ def _parseModeDecoding(encoding, placeholderSpecs, reader):
     except DelayedError:
         return None
     else:
-        sequentialMap[None] = fixedMatcher
-        return sequentialMap
+        modeDecodeMap = cast(
+            Dict[Optional[str], Sequence[Tuple[int, int, int]]],
+            sequentialMap
+            )
+        modeDecodeMap[None] = fixedMatcher
+        return modeDecodeMap
 
-def _parseModeSemantics(reader, semLoc, semNamespace, modeType):
+def _parseModeSemantics(reader: DefLineReader,
+                        semLoc: InputLocation,
+                        semNamespace: LocalNamespace,
+                        modeType: Union[None, IntType, ReferenceType]
+                        ) -> None:
     semantics = parseExpr(semLoc)
     if isinstance(modeType, ReferenceType):
         ref = buildReference(semantics, semNamespace)
-        if modeType is not None:
-            if ref.type != modeType.type:
-                raise BadInput(
-                    f'semantics type {ref.type} does not match '
-                    f'mode type {modeType.type}', semLoc
-                    )
+        if ref.type != modeType.type:
+            raise BadInput(
+                f'semantics type {ref.type} does not match '
+                f'mode type {modeType.type}', semLoc
+                )
         semNamespace.define('ret', ref, semLoc)
     else:
         expr = buildExpression(semantics, semNamespace)
@@ -861,15 +963,22 @@ def _parseModeSemantics(reader, semLoc, semNamespace, modeType):
             ref = semNamespace.addVariable('ret', modeType, semLoc)
             ref.emitStore(semNamespace.builder, expr, semLoc)
 
-def _parseInstrSemantics(reader, semLoc, namespace, modeType=None):
+def _parseInstrSemantics(reader: DefLineReader,
+                         semLoc: InputLocation,
+                         namespace: LocalNamespace,
+                         modeType: Union[None, IntType, ReferenceType] = None
+                         ) -> None:
     assert modeType is None, modeType
     node = parseStatement(semLoc)
     buildStatementEval(reader, 'semantics field', namespace, node)
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
-def _parseMnemonic(mnemLoc, placeholders, reader):
-    seenPlaceholders = {}
+def _parseMnemonic(mnemLoc: InputLocation,
+                   placeholders: Mapping[str, Placeholder],
+                   reader: DefLineReader
+                   ) -> Iterator[MnemItem]:
+    seenPlaceholders: Dict[str, InputLocation] = {}
     for mnemElem in mnemLoc.findLocations(_reMnemonic):
         text = mnemElem.text
         placeholder = placeholders.get(text)
@@ -897,9 +1006,20 @@ def _parseMnemonic(mnemLoc, placeholders, reader):
             seenPlaceholders[text] = mnemElem
 
 def _parseModeEntries(
-        reader, globalNamespace, pc, prefixes, modes, modeType, mnemBase,
-        parseSem, wantSemantics
-        ):
+        reader: DefLineReader,
+        globalNamespace: GlobalNamespace,
+        pc: Optional[BitString],
+        prefixes: PrefixMappingFactory,
+        modes: Dict[str, Mode],
+        modeType: Union[None, IntType, ReferenceType],
+        mnemBase: Tuple[MnemItem, ...],
+        parseSem: Callable[
+            [DefLineReader, InputLocation, LocalNamespace,
+                            Union[None, IntType, ReferenceType]],
+            None
+            ],
+        wantSemantics: bool
+        ) -> Iterator[ParsedModeEntry]:
     for line in reader.iterBlock():
         # Split mode line into 4 fields.
         fields = list(line.split(_reDotSep))
@@ -932,6 +1052,7 @@ def _parseModeEntries(
                     placeholders = OrderedDict()
 
                 # Parse encoding.
+                encNodes: Optional[Iterable[ParseNode]]
                 if len(encLoc) != 0:
                     try:
                         # Parse encoding field.
@@ -995,6 +1116,8 @@ def _parseModeEntries(
                                     name, semType.type, location
                                     )
                             else:
+                                # TODO: Is this guaranteed not None?
+                                assert semType is not None
                                 semNamespace.addValueArgument(
                                     name, semType, location
                                     )
@@ -1011,6 +1134,7 @@ def _parseModeEntries(
                         # This is the last field.
                         continue
                     try:
+                        semantics: Optional[CodeBlock]
                         semantics = semNamespace.createCodeBlock(log=reader)
                     except ValueError:
                         # Error was already logged inside createCodeBlock().
@@ -1021,13 +1145,20 @@ def _parseModeEntries(
             pass
         else:
             template = CodeTemplate(semantics, placeholders, pc)
-            entry = ModeEntry(encoding, mnemonic, template, placeholders)
-            yield ParsedModeEntry(entry, decoding, flagsRequired)
+            # TODO: An older version of this code created the ModeEntry
+            #       with a None encoding; was that better or incorrect?
+            if encoding is not None:
+                entry = ModeEntry(encoding, mnemonic, template, placeholders)
+                yield ParsedModeEntry(entry, decoding, flagsRequired)
 
-def _formatEncodingWidth(width):
+def _formatEncodingWidth(width: Optional[Width]) -> str:
     return 'empty' if width is None else f'{width} bits wide'
 
-def _determineEncodingWidth(entries, aux, modeName, logger):
+def _determineEncodingWidth(entries: List[ParsedModeEntry],
+                            aux: bool,
+                            modeName: Optional[str],
+                            logger: DefLineReader
+                            ) -> Optional[int]:
     '''Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
@@ -1038,7 +1169,7 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 
     widthAttr = 'auxEncodingWidth' if aux else 'encodingWidth'
 
-    widthFreqs = defaultdict(int)
+    widthFreqs: DefaultDict[Optional[int], int] = defaultdict(int)
     for entry in entries:
         widthFreqs[getattr(entry.entry.encoding, widthAttr)] += 1
     if aux:
@@ -1053,11 +1184,15 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
     else:
         # Multiple widths; use one with the maximum frequency.
         encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
-        validWidths = (encWidth, None) if aux else (encWidth, )
+        validWidths: Iterable[Optional[Width]]
+        if aux:
+            validWidths = (encWidth, None)
+        else:
+            validWidths = (encWidth, )
         badEntryIndices = []
         for idx, entry in enumerate(entries):
             encDef = entry.entry.encoding
-            if getattr(encDef, widthAttr) not in validWidths:
+            if cast(Width, getattr(encDef, widthAttr)) not in validWidths:
                 logger.error(
                     '%sencoding match is %s, while %s is dominant %s',
                     ('auxiliary ' if aux else ''),
@@ -1077,9 +1212,15 @@ def _determineEncodingWidth(entries, aux, modeName, logger):
 _reModeArgs = re.compile(_typeTok + r'\s' + _nameTok + r'$')
 
 def _parseMode(
-        reader, args, globalNamespace, pc, prefixes, modes, modeEntries,
-        wantSemantics
-        ):
+        reader: DefLineReader,
+        args: InputLocation,
+        globalNamespace: GlobalNamespace,
+        pc: Optional[BitString],
+        prefixes: PrefixMappingFactory,
+        modes: Dict[str, Mode],
+        modeEntries: Dict[Optional[str], List[ParsedModeEntry]],
+        wantSemantics: bool
+        ) -> None:
     # Parse header line.
     match = args.match(_reModeArgs)
     if match is None:
@@ -1090,6 +1231,7 @@ def _parseMode(
         reader.skipBlock()
         return
     modeTypeLoc, modeNameLoc = match.groups
+    semType: Union[None, IntType, ReferenceType]
     try:
         semType = parseTypeDecl(modeTypeLoc.text)
     except ValueError as ex:
@@ -1132,8 +1274,14 @@ def _parseMode(
         modeEntries[modeName] = parsedEntries
 
 def _parseInstr(
-        reader, args, globalNamespace, pc, prefixes, modes, wantSemantics
-        ):
+        reader: DefLineReader,
+        args: InputLocation,
+        globalNamespace: GlobalNamespace,
+        pc: Optional[BitString],
+        prefixes: PrefixMappingFactory,
+        modes: Dict[str, Mode],
+        wantSemantics: bool
+        ) -> Iterator[ParsedModeEntry]:
     mnemBase = tuple(_parseMnemonic(args, {}, reader))
 
     for instr in _parseModeEntries(
@@ -1161,7 +1309,10 @@ def _parseInstr(
 
 _reHeader = re.compile(_nameTok + r'(?:\s+(.*\S)\s*)?$')
 
-def parseInstrSet(pathname, logger=None, wantSemantics=True):
+def parseInstrSet(pathname: str,
+                  logger: Optional[Logger] = None,
+                  wantSemantics: bool = True
+                  ) -> Optional[InstructionSet]:
     if logger is None:
         logger = getLogger('parse-instr')
         logger.setLevel(WARNING)
@@ -1169,8 +1320,8 @@ def parseInstrSet(pathname, logger=None, wantSemantics=True):
     globalBuilder = StatelessCodeBlockBuilder()
     globalNamespace = GlobalNamespace(globalBuilder)
     prefixes = PrefixMappingFactory(globalNamespace)
-    modes = {}
-    modeEntries = {}
+    modes: Dict[str, Mode] = {}
+    modeEntries: Dict[Optional[str], List[ParsedModeEntry]] = {}
     instructions = modeEntries.setdefault(None, [])
     pc = None
 

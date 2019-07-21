@@ -13,7 +13,9 @@ from .expression_parser import (
 from .expression_simplifier import simplifyExpression
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
-from .namespace import BuilderNamespace, NameExistsError, createIOReference
+from .namespace import (
+    BuilderNamespace, LocalNamespace, NameExistsError, createIOReference
+)
 from .reference import (
     ConcatenatedBits, FixedValue, Reference, SlicedBits, badReference
 )
@@ -454,7 +456,7 @@ def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
 
 def buildStatementEval(reader: LineReader,
                        whereDesc: str,
-                       namespace: BuilderNamespace,
+                       namespace: LocalNamespace,
                        node: ParseNode
                        ) -> None:
     '''Emits loads and stores on the given namespace that produce the (side)
@@ -523,7 +525,7 @@ def buildStatementEval(reader: LineReader,
 
 def emitCodeFromStatements(reader: LineReader,
                            whereDesc: str,
-                           namespace: BuilderNamespace,
+                           namespace: LocalNamespace,
                            statements: Iterable[ParseNode],
                            retType: Union[None, IntType, ReferenceType]
                            ) -> None:
