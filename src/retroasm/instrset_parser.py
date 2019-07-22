@@ -293,7 +293,7 @@ def _parsePrefix(reader: DefLineReader,
                     else:
                         try:
                             semantics = semNamespace.createCodeBlock(
-                                retName=None, log=reader
+                                retRef=None, log=reader
                                 )
                         except ValueError:
                             # Error was logged inside createCodeBlock().
@@ -521,14 +521,14 @@ def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
                 semNamespace, SemanticsCodeBlockBuilder()
                 )
             try:
-                convertDefinition(
+                ref = convertDefinition(
                     decl.kind, decl.name.name, semType, value,
                     placeholderNamespace
                     )
             except BadExpression as ex:
                 reader.error('%s', ex, location=ex.locations)
             else:
-                code = placeholderNamespace.createCodeBlock(name)
+                code = placeholderNamespace.createCodeBlock(ref)
 
         location = decl.name.location
         try:
@@ -951,7 +951,7 @@ def _parseModeSemantics(reader: DefLineReader,
                         semLoc: InputLocation,
                         semNamespace: LocalNamespace,
                         modeType: Union[None, IntType, ReferenceType]
-                        ) -> None:
+                        ) -> Optional[Reference]:
     semantics = parseExpr(semLoc)
     if isinstance(modeType, ReferenceType):
         ref = buildReference(semantics, semNamespace)
@@ -961,12 +961,15 @@ def _parseModeSemantics(reader: DefLineReader,
                 f'mode type {modeType.type}', semLoc
                 )
         semNamespace.define('ret', ref, semLoc)
+        return ref
     else:
         expr = buildExpression(semantics, semNamespace)
         # Note that modeType can be None because of earlier errors.
-        if modeType is not None:
-            ref = semNamespace.addVariable('ret', modeType, semLoc)
-            ref.emitStore(semNamespace.builder, expr, semLoc)
+        if modeType is None:
+            return None
+        ref = semNamespace.addVariable('ret', modeType, semLoc)
+        ref.emitStore(semNamespace.builder, expr, semLoc)
+        return ref
 
 def _parseInstrSemantics(reader: DefLineReader,
                          semLoc: InputLocation,
@@ -976,6 +979,7 @@ def _parseInstrSemantics(reader: DefLineReader,
     assert modeType is None, modeType
     node = parseStatement(semLoc)
     buildStatementEval(reader, 'semantics field', namespace, node)
+    return None
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
@@ -1021,7 +1025,7 @@ def _parseModeEntries(
         parseSem: Callable[
             [DefLineReader, InputLocation, LocalNamespace,
                             Union[None, IntType, ReferenceType]],
-            None
+            Optional[Reference]
             ],
         wantSemantics: bool
         ) -> Iterator[ParsedModeEntry]:
@@ -1131,7 +1135,8 @@ def _parseModeEntries(
                             # Parse mnemonic field as semantics.
                             semLoc = mnemLoc
 
-                        parseSem(reader, semLoc, semNamespace, modeType)
+                        semRef = parseSem(reader, semLoc, semNamespace,
+                                          modeType)
                     except BadInput as ex:
                         reader.error(
                             'error in semantics: %s', ex, location=ex.locations
@@ -1141,8 +1146,7 @@ def _parseModeEntries(
                     try:
                         semantics: Optional[CodeBlock]
                         semantics = semNamespace.createCodeBlock(
-                            retName=None if modeType is None else 'ret',
-                            log=reader
+                            retRef=semRef, log=reader
                             )
                     except ValueError:
                         # Error was already logged inside createCodeBlock().

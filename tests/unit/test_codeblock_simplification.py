@@ -23,11 +23,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace = TestNamespace()
 
     def createSimplifiedCode(self):
+        namespace = self.namespace
         if verbose:
             print('=' * 40)
-            self.namespace.dump()
-        retName = 'ret' if 'ret' in self.namespace else None
-        code = self.namespace.createCodeBlock(retName)
+            namespace.dump()
+        retRef = namespace.elements['ret'] if 'ret' in namespace else None
+        code = namespace.createCodeBlock(retRef)
         if verbose:
             print('-' * 40)
             code.dump()
@@ -292,7 +293,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         value = IntLiteral(604)
         self.namespace.emitStore(refV, value)
 
-        code = self.namespace.createCodeBlock('V')
+        code = self.namespace.createCodeBlock(refV)
         self.assertEqual(len(code.returned), 1)
         retBits,= code.returned
         self.assertEqual(retBits.width, 20)

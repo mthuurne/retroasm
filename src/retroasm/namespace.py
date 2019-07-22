@@ -252,25 +252,22 @@ class LocalNamespace(BuilderNamespace):
         _rejectPC(name, location)
 
     def createCodeBlock(self,
-                        retName: Optional[str],
+                        retRef: Optional[Reference],
                         log: Optional[LineReader] = None,
                         location: Optional[InputLocation] = None
                         ) -> CodeBlock:
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If `retName` contains an existing name in this namespace, the reference
-        with that name will be used for the returned bit string.
-        If `retName` is None, the created code block will not return anything.
-        Raises KeyError if `retName` does not exist in this namespace.
+        If `retRef` is None, the created code block will not return anything,
+        otherwise it returns that reference.
         Raises ValueError if our builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
         '''
-        retRef = None if retName is None else self.elements[retName]
         if retRef is None:
             returned: Sequence[BitString] = ()
         else:
-            returned = (cast(Reference, retRef).bits,)
+            returned = (retRef.bits,)
         return self.builder.createCodeBlock(returned, log, location)
 
 class NameExistsError(BadInput):

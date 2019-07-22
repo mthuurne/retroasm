@@ -1,4 +1,4 @@
-from typing import Iterator, Mapping, Optional, Union
+from typing import Iterator, Mapping, Optional, Union, cast
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
@@ -6,6 +6,7 @@ from .expression_parser import ParseError, ParseNode, parseStatement
 from .function import Function
 from .linereader import DefLineReader, DelayedError, InputLocation
 from .namespace import GlobalNamespace, LocalNamespace
+from .reference import Reference
 from .types import IntType, ReferenceType
 
 
@@ -39,9 +40,10 @@ def createFunc(reader: DefLineReader,
             namespace.addReferenceArgument(argName, argDecl.type, argLoc)
         else:
             namespace.addValueArgument(argName, argDecl, argLoc)
+    retRef: Optional[Reference]
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType
-        namespace.addVariable('ret', retType, retTypeLocation)
+        retRef = namespace.addVariable('ret', retType, retTypeLocation)
 
     try:
         with reader.checkErrors():
@@ -52,10 +54,14 @@ def createFunc(reader: DefLineReader,
     except DelayedError:
         code = None
     else:
+        if retType is None:
+            retRef = None
+        elif isinstance(retType, ReferenceType):
+            retRef = cast(Reference, namespace.elements['ret'])
+
         try:
             code = namespace.createCodeBlock(
-                retName=None if retType is None else 'ret',
-                log=reader, location=funcNameLocation
+                retRef, log=reader, location=funcNameLocation
                 )
         except ValueError:
             code = None
