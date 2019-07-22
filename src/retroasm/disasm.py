@@ -1,6 +1,11 @@
+from typing import AbstractSet, Dict, MutableSet, Union
+
+from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
+from .decode import EncodeMatch
 from .expression import IntLiteral
-from .instrset import flagsSetByCode
+from .fetch import ImageFetcher
+from .instrset import InstructionSet, flagsSetByCode
 from .mode import ModeMatch
 from .reference import FixedValue, Reference
 from .types import IntType, unlimited
@@ -8,13 +13,13 @@ from .types import IntType, unlimited
 
 class Disassembler:
 
-    def __init__(self, instrSet):
+    def __init__(self, instrSet: InstructionSet):
         self._instrSet = instrSet
-        self._decoded = {}
-        self._codeAddrs = set()
-        self._dataAddrs = set()
+        self._decoded: Dict[int, Union[Reference, ModeMatch]] = {}
+        self._codeAddrs: MutableSet[int] = set()
+        self._dataAddrs: MutableSet[int] = set()
 
-    def disassemble(self, fetcher, startAddr):
+    def disassemble(self, fetcher: ImageFetcher, startAddr: int) -> None:
         '''Disassemble instructions from the given fetcher.
         The fetched data is assumed to be code for the given instruction set,
         to be executed at the given address.
@@ -26,6 +31,7 @@ class Disassembler:
         flagForVar = prefixMapping.flagForVar
         numBytes = fetcher.numBytes
         encWidth = instrSet.encodingWidth
+        assert encWidth is not None
         encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
         decoded = self._decoded
@@ -43,9 +49,11 @@ class Disassembler:
                     prefixBuilder = SemanticsCodeBlockBuilder()
                     prefixBuilder.inlineBlock(prefixInitCode)
                 prefixBuilder.inlineBlock(prefix.semantics)
-                fetcher = fetcher.advance(prefix.encoding.encodedLength)
+                encLen = prefix.encoding.encodedLength
+                assert encLen is not None, prefix
+                fetcher = fetcher.advance(encLen)
             if prefixBuilder is None:
-                flags = frozenset()
+                flags: AbstractSet[str] = frozenset()
             else:
                 prefixCode = prefixBuilder.createCodeBlock(())
                 flags = frozenset(
@@ -56,10 +64,14 @@ class Disassembler:
             # Decode instruction.
             decoder = instrSet.getDecoder(flags)
             encMatch = decoder.tryDecode(fetcher)
+            assert encMatch is None or isinstance(encMatch, EncodeMatch)
             encodedLength = 1 if encMatch is None else encMatch.encodedLength
             postAddr = addr + encodedLength * numBytes
             if encMatch is None:
-                bits = FixedValue(IntLiteral(fetcher[0]), encWidth)
+                value = fetcher[0]
+                if value is None:
+                    break
+                bits = FixedValue(IntLiteral(value), encWidth)
                 decoded[addr] = Reference(bits, encType)
             else:
                 pcVal = IntLiteral(postAddr)
@@ -68,11 +80,12 @@ class Disassembler:
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 
-    def formatAsm(self, formatter):
+    def formatAsm(self, formatter: Formatter) -> None:
         decoded = self._decoded
         codeAddrs = self._codeAddrs
         dataAddrs = self._dataAddrs
         instrSet = self._instrSet
+        assert isinstance(instrSet.addrWidth, int)
         addrDigits = (instrSet.addrWidth + 3) // 4
 
         labels = {}
