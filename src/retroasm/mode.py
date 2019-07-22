@@ -19,7 +19,7 @@ from .reference import (
 )
 from .storage import Storage, ValArgStorage
 from .types import IntType, ReferenceType, Width, unlimited
-from .utils import checkType, const_property
+from .utils import const_property
 
 if TYPE_CHECKING:
     from .decode import EncodeMatch
@@ -205,11 +205,7 @@ class Encoding:
         # There is no good reason to ban them, but keeping them around would
         # unnecessarily complicate the code.
         nonEmptyItems: Sequence[EncodingItem] = tuple(
-            item
-            for item in items
-            if checkType(
-                item, (EncodingExpr, EncodingMultiMatch), 'encoding element'
-                ).encodedLength != 0
+            item for item in items if item.encodedLength != 0
             )
         self._items = nonEmptyItems
         self._firstAuxIndex = firstAuxIndex = _findFirstAuxIndex(nonEmptyItems)
@@ -553,7 +549,6 @@ class ModeTable:
         self._entries = entries = tuple(entries)
 
         for entry in entries:
-            assert isinstance(entry, ModeEntry), entry
             encDef = entry.encoding
             if encDef.encodingWidth != encWidth:
                 raise ValueError(
@@ -707,7 +702,7 @@ class ValuePlaceholder(Placeholder):
     def __init__(self, name: str, typ: IntType, code: Optional[CodeBlock]):
         Placeholder.__init__(self, name)
         self._type = typ
-        self._code = checkType(code, (CodeBlock, type(None)), 'code block')
+        self._code = code
 
     def __repr__(self) -> str:
         return f'ValuePlaceholder({self._name!r}, {self._type!r}, ' \

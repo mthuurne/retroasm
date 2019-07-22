@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Iterable, Iterator, Optional
 
-from .utils import checkType, search
+from .utils import search
 
 ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
     'undefined', 'little', 'big'
@@ -26,8 +26,8 @@ class Section:
         return self._end - self._start
 
     def __init__(self, start: int, end: int):
-        self._start = checkType(start, int, 'start offset')
-        self._end = checkType(end, int, 'end offset')
+        self._start = start
+        self._end = end
 
         if start < 0:
             raise ValueError(f'negative start: {start:d}')
@@ -66,11 +66,9 @@ class CodeSection(Section):
                  byteOrder: ByteOrder
                  ):
         Section.__init__(self, start, end)
-        self._instrSetName = checkType(
-            instrSetName, str, 'instruction set name'
-            )
-        self._byteOrder = checkType(byteOrder, ByteOrder, 'byte order')
-        self._base = checkType(base, int, 'base address')
+        self._instrSetName = instrSetName
+        self._byteOrder = byteOrder
+        self._base = base
 
         if base < 0:
             raise ValueError(f'negative base: {base:d}')
@@ -97,10 +95,7 @@ class SectionMap:
     '''
 
     def __init__(self, sections: Iterable[Section]):
-        sections = list(sections)
-        for section in sections:
-            checkType(section, Section, 'section')
-        sections.sort(key=lambda section: section.start)
+        sections = sorted(sections, key=lambda section: section.start)
         prev: Optional[Section] = None
         for section in sections:
             if prev is not None and section.start < prev.end:

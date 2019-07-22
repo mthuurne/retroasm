@@ -3,7 +3,6 @@ from typing import Optional, Union
 from .expression_parser import DeclarationNode, ParseNode
 from .mode import Mode
 from .types import IntType, ReferenceType, Width
-from .utils import checkType
 
 
 class PlaceholderSpec:
@@ -29,7 +28,7 @@ class PlaceholderSpec:
         raise NotImplementedError
 
     def __init__(self, decl: DeclarationNode):
-        self._decl = checkType(decl, DeclarationNode, 'placeholder declaration')
+        self._decl = decl
 
 class ValuePlaceholderSpec(PlaceholderSpec):
 
@@ -52,9 +51,7 @@ class ValuePlaceholderSpec(PlaceholderSpec):
                  ):
         PlaceholderSpec.__init__(self, decl)
         self._type = typ
-        self._value = checkType(
-            value, (type(None), ParseNode), 'placeholder value'
-            )
+        self._value = value
 
     def __repr__(self) -> str:
         return f'ValuePlaceholderSpec({self._decl!r}, {self._type!r}, ' \

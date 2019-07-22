@@ -15,7 +15,6 @@ from .storage import Storage
 from .types import (
     IntType, ReferenceType, Width, maskForWidth, unlimited, widthForMask
 )
-from .utils import checkType
 
 if TYPE_CHECKING:
     from .codeblock_builder import CodeBlockBuilder
@@ -33,7 +32,7 @@ class BitString:
         return self._width
 
     def __init__(self, width: Width):
-        self._width = checkType(width, (int, type(unlimited)), 'width')
+        self._width = width
 
     def iterExpressions(self) -> Iterator[Expression]:
         '''Iterates through the expressions contained in this bit string.
@@ -97,7 +96,7 @@ class FixedValue(BitString):
         The mask of the value Expression must fit within the given width.
         '''
         BitString.__init__(self, width)
-        self._expr = checkType(expr, Expression, 'value')
+        self._expr = expr
         assert widthForMask(expr.mask) <= width, expr
 
     def __repr__(self) -> str:
@@ -149,7 +148,7 @@ class SingleStorage(BitString):
         return self._storage
 
     def __init__(self, storage: Storage):
-        self._storage = checkType(storage, Storage, 'storage')
+        self._storage = storage
         BitString.__init__(self, storage.width)
 
     def __repr__(self) -> str:
@@ -218,7 +217,6 @@ class ConcatenatedBits(BitString):
                     'unlimited width is only allowed on most significant '
                     'bit string'
                     )
-            checkType(sub, BitString, 'bit string')
             width += cast(int, sub.width)
         BitString.__init__(self, width)
         self._subs: Sequence[BitString] = subs
@@ -297,9 +295,9 @@ class SlicedBits(BitString):
     def __init__(self, bits: BitString, offset: Expression, width: Width):
         '''Creates a slice of the given bit string.
         '''
-        self._bits = checkType(bits, BitString, 'bit string')
+        self._bits = bits
 
-        offset = simplifyExpression(checkType(offset, Expression, 'offset'))
+        offset = simplifyExpression(offset)
         # Some invalid offsets can only be detected upon use, but others we
         # can detect on definition and rejecting them early is likely helpful
         # towards the user.
@@ -462,8 +460,8 @@ class Reference:
         return self._type.width
 
     def __init__(self, bits: BitString, typ: IntType):
-        self._bits = checkType(bits, BitString, 'bit string')
-        self._type = checkType(typ, IntType, 'value type')
+        self._bits = bits
+        self._type = typ
         if bits.width != typ.width:
             raise ValueError(f'bit string of {bits.width} bits '
                              f'used for reference of type {typ}')

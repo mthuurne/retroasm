@@ -4,7 +4,6 @@ from typing import Callable, Iterator, Optional, cast
 
 from .expression import Expression
 from .types import IntType, Width, unlimited
-from .utils import checkType
 
 
 class IOChannel:
@@ -33,9 +32,9 @@ class IOChannel:
         return channel
 
     def __init__(self, name: str, elemType: IntType, addrType: IntType):
-        self._name = checkType(name, str, 'channel name')
-        self._elemType = checkType(elemType, IntType, 'element type')
-        self._addrType = checkType(addrType, IntType, 'address type')
+        self._name = name
+        self._elemType = elemType
+        self._addrType = addrType
 
     def __repr__(self) -> str:
         return f'IOChannel({self._name!r}, {self._elemType!r}, ' \
@@ -102,7 +101,7 @@ class Storage:
         return self._width
 
     def __init__(self, width: Width):
-        self._width = checkType(width, (int, type(unlimited)), 'storage width')
+        self._width = width
         if width < 0:
             raise ValueError(
                 f'storage width must not be negative: {cast(int, width):d}'
@@ -170,7 +169,7 @@ class Variable(Storage):
 
     def __init__(self, width: Width, scope: int):
         Storage.__init__(self, width)
-        self._scope = checkType(scope, int, 'scope level')
+        self._scope = scope
 
     def __repr__(self) -> str:
         return f'Variable({self._width}, {self._scope:d})'
@@ -208,7 +207,7 @@ class ArgStorage(Storage):
         return self._name
 
     def __init__(self, name: str, width: Width):
-        self._name = checkType(name, str, 'storage name')
+        self._name = name
         Storage.__init__(self, width)
 
     def __repr__(self) -> str:
@@ -291,7 +290,7 @@ class IOStorage(Storage):
 
     def __init__(self, channel: IOChannel, index: Expression):
         self._channel = IOChannel.checkInstance(channel)
-        self._index = checkType(index, Expression, 'index')
+        self._index = index
         Storage.__init__(self, channel.elemType.width)
 
     def __repr__(self) -> str:

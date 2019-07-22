@@ -10,7 +10,7 @@ from .linereader import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
 from .types import maskForWidth
-from .utils import checkType, const_property
+from .utils import const_property
 
 
 class Node:
@@ -30,9 +30,7 @@ class AccessNode(Node):
                  ):
         self._expr = expr
         self._storage = storage
-        self._location = None if location is None else checkType(
-            location, InputLocation, 'location'
-            )
+        self._location = location
 
     @property
     def expr(self) -> Expression:
@@ -40,7 +38,7 @@ class AccessNode(Node):
 
     @expr.setter
     def expr(self, expr: Expression) -> None:
-        self._expr = checkType(expr, Expression, 'value')
+        self._expr = expr
 
     @property
     def storage(self) -> Storage:
@@ -48,7 +46,7 @@ class AccessNode(Node):
 
     @storage.setter
     def storage(self, storage: Storage) -> None:
-        self._storage = checkType(storage, Storage, 'storage')
+        self._storage = storage
 
     @property
     def location(self) -> Optional[InputLocation]:
@@ -68,7 +66,6 @@ class Load(AccessNode):
                  storage: Storage,
                  location: Optional[InputLocation] = None
                  ):
-        checkType(storage, Storage, 'storage')
         expr = LoadedValue(self, maskForWidth(storage.width))
         AccessNode.__init__(self, expr, storage, location)
 
@@ -99,12 +96,7 @@ class Store(AccessNode):
                  storage: Storage,
                  location: Optional[InputLocation] = None
                  ):
-        AccessNode.__init__(
-            self,
-            checkType(expr, Expression, 'value'),
-            checkType(storage, Storage, 'storage'),
-            location
-            )
+        AccessNode.__init__(self, expr, storage, location)
 
     def __repr__(self) -> str:
         return f'Store({self._expr!r}, {self._storage!r}, {self._location!r})'
@@ -130,8 +122,8 @@ class LoadedValue(Expression):
 
     def __init__(self, load: Load, mask: int):
         Expression.__init__(self)
-        self._load = checkType(load, Load, 'load node')
-        self._mask = checkType(mask, int, 'mask')
+        self._load = load
+        self._mask = mask
 
     def _ctorargs(self) -> Tuple[Load, int]:
         return self._load, self._mask
@@ -195,8 +187,6 @@ class CodeBlock:
                 valueMapping[node.expr] = clone.expr
         self.nodes = clonedNodes
         self.returned = list(returned)
-        assert all(isinstance(ret, BitString) for ret in self.returned), \
-            self.returned
         self._updateExpressions(valueMapping.get)
         assert self.verify()
 

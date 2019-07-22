@@ -14,7 +14,6 @@ from .storage import (
     IOChannel, IOStorage, RefArgStorage, Storage, ValArgStorage, Variable
 )
 from .types import IntType, maskForWidth
-from .utils import checkType
 
 NamespaceValue = Union[Reference, IOChannel, Function]
 
@@ -26,9 +25,7 @@ class Namespace:
     '''
 
     def __init__(self, parent: Optional[Namespace]):
-        self.parent = checkType(
-            parent, (Namespace, type(None)), 'parent namespace'
-            )
+        self.parent = parent
         self.elements: Dict[str, NamespaceValue] = {}
         self.locations: Dict[str, Optional[InputLocation]] = {}
 
@@ -77,7 +74,6 @@ class Namespace:
         '''Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
         '''
-        checkType(name, str, 'name')
         self._checkName(name, value, location)
         if name in self.elements:
             msg = f'name "{name}" redefined'
@@ -119,7 +115,6 @@ class Namespace:
         '''Adds a passed-by-value argument to this namespace.
         Returns a reference to the argument constant.
         '''
-        checkType(typ, IntType, 'value argument type')
         storage = ValArgStorage(name, typ.width)
         return self._addNamedStorage(name, storage, typ, location)
 
@@ -132,7 +127,6 @@ class Namespace:
         this namespace.
         Returns a reference to the argument.
         '''
-        checkType(typ, IntType, 'reference argument type')
         storage = RefArgStorage(name, typ.width)
         return self._addNamedStorage(name, storage, typ, location)
 
@@ -179,7 +173,6 @@ class BuilderNamespace(Namespace):
         '''Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
         '''
-        checkType(typ, IntType, 'variable type')
         storage = Variable(typ.width, self.scope)
         return self._addNamedStorage(name, storage, typ, location)
 
@@ -194,7 +187,6 @@ class BuilderNamespace(Namespace):
         value of the variable.
         Returns a reference to the corresponding variable.
         '''
-        checkType(typ, IntType, 'value argument type')
         storage = ValArgStorage(name, typ.width)
         argRef = Reference(SingleStorage(storage), typ)
 

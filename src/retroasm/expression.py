@@ -11,7 +11,7 @@ from .types import (
     Width, maskForWidth, maskToSegments, trailingZeroes, unlimited,
     widthForMask
 )
-from .utils import checkType, const_property
+from .utils import const_property
 
 # pylint: disable=protected-access
 
@@ -133,7 +133,7 @@ class BadValue(Expression):
         return maskForWidth(self._width)
 
     def __init__(self, width: Width):
-        self._width = checkType(width, (int, type(unlimited)), 'width')
+        self._width = width
         Expression.__init__(self)
 
     def _ctorargs(self) -> Tuple[Width]:
@@ -163,7 +163,7 @@ class IntLiteral(Expression):
         return self._value
 
     def __init__(self, value: int):
-        self._value = checkType(value, int, 'value')
+        self._value = value
         Expression.__init__(self)
 
     def _ctorargs(self) -> Tuple[int]:
@@ -204,8 +204,6 @@ class MultiExpression(Expression):
     def __init__(self, *exprs: Expression):
         if not exprs:
             raise TypeError('one or more subexpressions must be provided')
-        for expr in exprs:
-            checkType(expr, Expression, 'subexpression')
         Expression.__init__(self)
         self._exprs = exprs
 
@@ -389,7 +387,7 @@ class SingleExpression(Expression):
 
     def __init__(self, expr: Expression):
         Expression.__init__(self)
-        self._expr = checkType(expr, Expression, 'subexpression')
+        self._expr = expr
 
     def _ctorargs(self) -> Tuple[object, ...]:
         return self._expr,
@@ -449,7 +447,7 @@ class SignExtension(SingleExpression):
 
     def __init__(self, expr: Expression, width: int):
         SingleExpression.__init__(self, expr)
-        self._width = checkType(width, int, 'width')
+        self._width = width
 
     def _ctorargs(self) -> Tuple[Expression, int]:
         return self._expr, self._width
@@ -482,7 +480,7 @@ class LShift(SingleExpression):
 
     def __init__(self, expr: Expression, offset: int):
         SingleExpression.__init__(self, expr)
-        self._offset = checkType(offset, int, 'shift offset')
+        self._offset = offset
         if offset < 0:
             raise ValueError('negative shift count')
 
@@ -517,7 +515,7 @@ class RShift(SingleExpression):
 
     def __init__(self, expr: Expression, offset: int):
         SingleExpression.__init__(self, expr)
-        self._offset = checkType(offset, int, 'shift offset')
+        self._offset = offset
         if offset < 0:
             raise ValueError('negative shift count')
 
@@ -557,8 +555,8 @@ class LVShift(Expression):
 
     def __init__(self, expr: Expression, offset: Expression):
         Expression.__init__(self)
-        self._expr = checkType(expr, Expression, 'subexpression')
-        self._offset = checkType(offset, Expression, 'offset')
+        self._expr = expr
+        self._offset = offset
 
     @property
     def complexity(self) -> int:
@@ -609,8 +607,8 @@ class RVShift(Expression):
 
     def __init__(self, expr: Expression, offset: Expression):
         Expression.__init__(self)
-        self._expr = checkType(expr, Expression, 'subexpression')
-        self._offset = checkType(offset, Expression, 'offset')
+        self._expr = expr
+        self._offset = offset
 
     @property
     def complexity(self) -> int:

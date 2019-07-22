@@ -7,7 +7,6 @@ from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .reference import BitString, SingleStorage
 from .storage import ArgStorage
-from .utils import checkType
 
 if TYPE_CHECKING:
     from .mode import Placeholder, ModeEntry
@@ -23,9 +22,9 @@ class CodeTemplate:
                  placeholders: OrderedDict[str, Placeholder],
                  pcBits: BitString
                  ):
-        self.code = checkType(code, (CodeBlock, type(None)), 'code block')
+        self.code = code
         self.placeholders = placeholders
-        self.pcBits = checkType(pcBits, BitString, 'program counter')
+        self.pcBits = pcBits
 
     def fillPlaceholder(self, name: str, entry: ModeEntry) -> CodeTemplate:
         '''Returns a new CodeTemplate, which is a copy of this one but with

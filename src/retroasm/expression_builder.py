@@ -24,7 +24,6 @@ from .types import (
     IntType, ReferenceType, Width, parseType, parseTypeDecl, unlimited,
     widthForMask
 )
-from .utils import checkType
 
 
 class BadExpression(BadInput):

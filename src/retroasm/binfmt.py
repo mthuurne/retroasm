@@ -8,7 +8,6 @@ from typing import (
 )
 
 from .section import ByteOrder, CodeSection, Section
-from .utils import checkType
 
 logger = getLogger('binfmt')
 
@@ -25,8 +24,8 @@ class EntryPoint:
         return self._label
 
     def __init__(self, offset: int, label: Optional[str] = None):
-        self._offset = checkType(offset, int, 'offset')
-        self._label = checkType(label, (str, type(None)), 'label')
+        self._offset = offset
+        self._label = label
 
         if offset < 0:
             raise ValueError(f'negative offset: {offset:d}')

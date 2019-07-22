@@ -5,12 +5,9 @@ from collections.abc import (
 )
 from functools import update_wrapper
 from types import MappingProxyType
-from typing import (
-    TYPE_CHECKING, Callable, Tuple, Type, TypeVar, Union, cast, overload
-)
+from typing import TYPE_CHECKING, Callable
 from weakref import WeakValueDictionary
 
-T = TypeVar('T')
 
 class Unique(type):
     '''Metaclass that enforces that for each combination of arguments there
@@ -94,21 +91,6 @@ else:
 
         def __delete__(self, obj):
             raise AttributeError('const_property cannot be deleted')
-
-def checkType(obj: T, typ: Union[Type[T], Tuple[Type, ...]], desc: str) -> T:
-    '''Checks whether the given object is of the given type(s).
-    If it is, the object is returned unchanged, otherwise TypeError is raised,
-    with the "desc" argument used to describe the object in the error message.
-    '''
-    if isinstance(obj, typ):
-        return obj
-    else:
-        if isinstance(typ, type):
-            good = typ.__name__
-        else:
-            good = ' or '.join(goodType.__name__ for goodType in typ)
-        actual = type(obj).__name__
-        raise TypeError(f'{desc} must be {good}, got {actual}')
 
 def search(low: int, high: int, test: Callable[[int], bool]) -> int:
     '''Binary search: [low..high) is the range to search; function "test"

@@ -229,7 +229,6 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             if isinstance(storage, ArgStorage):
                 bits = argFetcher(storage.name)
                 if bits is not None:
-                    assert isinstance(bits, BitString), repr(bits)
                     assert storage.width == bits.width, \
                         (storage.width, bits.width)
                     return bits
@@ -250,14 +249,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Copy nodes.
         for node in code.nodes:
-            expr = node.expr
             bits = importStorage(node.storage)
             if isinstance(node, Load):
-                assert isinstance(expr, LoadedValue), expr
                 value = bits.emitLoad(self, node.location)
-                loadResults[expr] = value
+                loadResults[node.expr] = value
             elif isinstance(node, Store):
-                newExpr = importExpr(expr)
+                newExpr = importExpr(node.expr)
                 bits.emitStore(self, newExpr, node.location)
             else:
                 assert False, node
