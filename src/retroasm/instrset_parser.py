@@ -1156,10 +1156,10 @@ def _parseModeEntries(
         except DelayedError:
             pass
         else:
-            template = CodeTemplate(semantics, placeholders, pc)
             # TODO: An older version of this code created the ModeEntry
             #       with a None encoding; was that better or incorrect?
-            if encoding is not None:
+            if encoding is not None and pc is not None:
+                template = CodeTemplate(semantics, placeholders, pc)
                 entry = ModeEntry(encoding, mnemonic, template, placeholders)
                 yield ParsedModeEntry(entry, decoding, flagsRequired)
 

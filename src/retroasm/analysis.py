@@ -21,13 +21,11 @@ class CodeTemplate:
     def __init__(self,
                  code: Optional[CodeBlock],
                  placeholders: OrderedDict[str, Placeholder],
-                 pcBits: Optional[BitString] = None
+                 pcBits: BitString
                  ):
         self.code = checkType(code, (CodeBlock, type(None)), 'code block')
         self.placeholders = placeholders
-        self.pcBits = checkType(
-            pcBits, (BitString, type(None)), 'program counter'
-            )
+        self.pcBits = checkType(pcBits, BitString, 'program counter')
 
     def fillPlaceholder(self, name: str, entry: ModeEntry) -> CodeTemplate:
         '''Returns a new CodeTemplate, which is a copy of this one but with
