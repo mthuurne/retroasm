@@ -14,7 +14,7 @@ from .codeblock_builder import (
 from .context_parser import (
     MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
 )
-from .decode import ParsedModeEntry, decomposeEncoding
+from .decode import FixedEncoding, ParsedModeEntry, Prefix, decomposeEncoding
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
     buildStatementEval, convertDefinition
@@ -25,7 +25,7 @@ from .expression_parser import (
     parseInt, parseRegs, parseStatement
 )
 from .function_builder import createFunc
-from .instrset import InstructionSet, Prefix, PrefixMappingFactory
+from .instrset import InstructionSet, PrefixMappingFactory
 from .linereader import (
     BadInput, DefLineReader, DelayedError, InputLocation, mergeSpan
 )
@@ -829,7 +829,7 @@ def _combinePlaceholderEncodings(
         decodeMap: Mapping[str, Sequence[Tuple[int, int, int, Width]]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Iterator[Tuple[str, Sequence[Tuple[int, int, int]]]]:
+        ) -> Iterator[Tuple[str, Sequence[FixedEncoding]]]:
     '''Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
@@ -854,7 +854,7 @@ def _combinePlaceholderEncodings(
                     f'overlap at [{immIdx:d}:{min(immIdx + width, prev):d}]'
                     )
             prev = max(immIdx + width, prev)
-            decoding.append((encIdx, refIdx, width))
+            decoding.append(FixedEncoding(encIdx, refIdx, width))
         if prev < immWidth:
             problems.append(f'gap at [{prev:d}:{immWidth:d}]')
         elif prev > immWidth:
@@ -869,7 +869,7 @@ def _combinePlaceholderEncodings(
 
 def _checkDecodingOrder(
         encoding: Encoding,
-        sequentialMap: Mapping[str, Sequence[Tuple[int, int, int]]],
+        sequentialMap: Mapping[str, Sequence[FixedEncoding]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> None:
@@ -916,7 +916,7 @@ def _parseModeDecoding(
         encoding: Encoding,
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Optional[Mapping[Optional[str], Sequence[Tuple[int, int, int]]]]:
+        ) -> Optional[Mapping[Optional[str], Sequence[FixedEncoding]]]:
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
@@ -941,7 +941,7 @@ def _parseModeDecoding(
         return None
     else:
         modeDecodeMap = cast(
-            Dict[Optional[str], Sequence[Tuple[int, int, int]]],
+            Dict[Optional[str], Sequence[FixedEncoding]],
             sequentialMap
             )
         modeDecodeMap[None] = fixedMatcher
@@ -1157,8 +1157,10 @@ def _parseModeEntries(
             pass
         else:
             # TODO: An older version of this code created the ModeEntry
-            #       with a None encoding; was that better or incorrect?
-            if encoding is not None and pc is not None:
+            #       with a None encoding or decoding; was that better or
+            #       incorrect?
+            if encoding is not None and decoding is not None \
+                                    and pc is not None:
                 template = CodeTemplate(semantics, placeholders, pc)
                 entry = ModeEntry(encoding, mnemonic, template, placeholders)
                 yield ParsedModeEntry(entry, decoding, flagsRequired)

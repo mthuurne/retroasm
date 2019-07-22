@@ -4,7 +4,7 @@ from collections import OrderedDict
 from enum import Enum
 from typing import (
     TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional,
-    Sequence, Tuple, Type, Union, overload
+    Sequence, Tuple, Type, Union, cast, overload
 )
 
 from .analysis import CodeTemplate
@@ -459,13 +459,15 @@ class ModeMatch:
         subs = {}
         for name, placeholder in placeholders.items():
             if isinstance(placeholder, MatchPlaceholder):
-                subs[name] = cls.fromEncodeMatch(match[name], pcVal)
+                subs[name] = cls.fromEncodeMatch(
+                    cast(EncodeMatch, match[name]), pcVal
+                    )
             elif isinstance(placeholder, ValuePlaceholder):
                 typ = placeholder.type
                 code = placeholder.code
                 if code is None:
                     # Value was decoded.
-                    value: Expression = IntLiteral(match[name])
+                    value: Expression = IntLiteral(cast(int, match[name]))
                 else:
                     # Value is computed.
                     returned = builder.inlineBlock(code, values.__getitem__)

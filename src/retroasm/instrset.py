@@ -5,21 +5,19 @@ from typing import (
 
 from .codeblock import CodeBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import Decoder, DecoderFactory, ParsedModeEntry, PrefixDecoder
+from .decode import (
+    Decoder, DecoderFactory, ParsedModeEntry, Prefix, PrefixDecoder
+)
 from .expression import IntLiteral
-from .fetch import ModeFetcher
+from .fetch import Fetcher
 from .linereader import BadInput
-from .mode import Encoding, ModeEntry, ModeTable
+from .mode import ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import Width
 from .utils import const_property
 
-
-class Prefix(NamedTuple):
-    encoding: Encoding
-    semantics: CodeBlock
 
 class PrefixMapping(NamedTuple):
     prefixes: Sequence[Prefix]
@@ -177,7 +175,7 @@ class InstructionSet(ModeTable):
         self._decoders: Dict[AbstractSet[str], Decoder] = {}
 
     @const_property
-    def prefixDecodeFunc(self) -> Callable[[ModeFetcher], Optional[Prefix]]:
+    def prefixDecodeFunc(self) -> Callable[[Fetcher], Optional[Prefix]]:
         prefixes = self._prefixMapping.prefixes
         if len(prefixes) == 0:
             return lambda fetcher: None
