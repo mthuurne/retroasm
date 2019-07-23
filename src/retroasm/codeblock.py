@@ -18,6 +18,9 @@ class Node:
     '''
     __slots__ = ()
 
+    def dump(self) -> None:
+        raise NotImplementedError
+
 class AccessNode(Node):
     '''Base class for Load and Store.
     '''
@@ -51,6 +54,9 @@ class AccessNode(Node):
     @property
     def location(self) -> Optional[InputLocation]:
         return self._location
+
+    def dump(self) -> None:
+        print(f'    {self} ({self._storage.width}-bit)')
 
     def clone(self) -> AccessNode:
         '''Create a clone of this node.
@@ -202,7 +208,7 @@ class CodeBlock:
         '''Prints this code block on stdout.
         '''
         for node in self.nodes:
-            print(f'    {node} ({node.storage.width}-bit)')
+            node.dump()
         for retBits in self.returned:
             print(f'    return {retBits}')
 

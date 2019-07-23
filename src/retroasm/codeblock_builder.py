@@ -107,7 +107,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def dump(self) -> None:
         for node in self.nodes:
-            print(f'    {node} ({node.storage.width}-bit)')
+            node.dump()
         super().dump()
 
     def createCodeBlock(self,
