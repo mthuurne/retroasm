@@ -342,3 +342,30 @@ class IOStorage(Storage):
             return self
         else:
             return IOStorage(self._channel, newIndex)
+
+class Keeper(Storage):
+    '''Storage location used to artificially force a load or store
+    to not be optimized out.
+    '''
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return f'Keeper({self._width})'
+
+    def __str__(self) -> str:
+        return f'keep{self._width}'
+
+    def canLoadHaveSideEffect(self) -> bool:
+        return True
+
+    def canStoreHaveSideEffect(self) -> bool:
+        return True
+
+    def isLoadConsistent(self) -> bool:
+        return False
+
+    def isSticky(self) -> bool:
+        return False
+
+    def mightBeSame(self, other: Storage) -> bool:
+        return self is other

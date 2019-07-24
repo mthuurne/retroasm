@@ -17,9 +17,10 @@ from .namespace import (
     BuilderNamespace, LocalNamespace, NameExistsError, createIOReference
 )
 from .reference import (
-    ConcatenatedBits, FixedValue, Reference, SlicedBits, badReference
+    ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits,
+    badReference
 )
-from .storage import IOChannel
+from .storage import IOChannel, Keeper
 from .types import (
     IntType, ReferenceType, Width, parseType, parseTypeDecl, unlimited,
     widthForMask
@@ -586,8 +587,12 @@ def emitCodeFromStatements(reader: LineReader,
                 reader.error(str(ex), location=ex.locations)
 
         elif isinstance(node, BranchNode):
-            # TODO: Add support.
-            pass
+            # Conditional branch.
+            # We don't have actual branching support yet, but we can force
+            # the condition to be computed.
+            value = Negation(buildExpression(node.cond, namespace))
+            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
+            ref.emitStore(namespace.builder, value, node.cond.treeLocation)
 
         elif isinstance(node, LabelNode):
             # TODO: Add support.
