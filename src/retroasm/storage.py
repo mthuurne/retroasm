@@ -250,8 +250,9 @@ class RefArgStorage(ArgStorage):
         return False
 
     def mightBeSame(self, other: Storage) -> bool:
-        # A variable can only be referenced via arguments if it exists in
-        # the global scope.
+        # We don't have nested function scopes, so a variable that is known
+        # in our scope can only be referenced via arguments if it is defined
+        # in the global scope.
         return not isinstance(other, Variable) or other._scope == 0
 
 class ValArgStorage(ArgStorage):
