@@ -27,7 +27,7 @@ class Namespace:
     def __init__(self, parent: Optional[Namespace]):
         self.parent = parent
         self.elements: Dict[str, NamespaceValue] = {}
-        self.locations: Dict[str, Optional[InputLocation]] = {}
+        self.locations: Dict[str, InputLocation] = {}
 
     def __str__(self) -> str:
         return '%s(%s)' % (
@@ -51,7 +51,6 @@ class Namespace:
                 raise
             value = parent[key]
             self.elements[key] = value
-            self.locations[key] = None
             return value
 
     def get(self, key: str) -> Optional[NamespaceValue]:
@@ -76,12 +75,17 @@ class Namespace:
         '''
         self._checkName(name, value, location)
         if name in self.elements:
-            msg = f'name "{name}" redefined'
-            if location is not None:
-                oldLocation = self.locations[name]
-                if oldLocation is not None:
-                    raise NameExistsError(msg, location, oldLocation)
-            raise NameExistsError(msg, location)
+            oldLocation = self.locations.get(name)
+            if oldLocation is None:
+                # No stored location implies this is an imported name.
+                # TODO: Showing the import location would be nice,
+                #       but we'd have to change the interface to pass
+                #       a location for lookups.
+                raise NameExistsError(f'imported name "{name}" redefined',
+                                      location)
+            else:
+                raise NameExistsError(f'name "{name}" redefined',
+                                      location, oldLocation)
         self.locations[name] = location
         self.elements[name] = value
 
