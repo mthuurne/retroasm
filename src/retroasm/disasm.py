@@ -74,9 +74,8 @@ class Disassembler:
                 bits = FixedValue(IntLiteral(value), encWidth)
                 decoded[addr] = Reference(bits, encType)
             else:
-                pcVal = IntLiteral(postAddr)
-                match = ModeMatch.fromEncodeMatch(encMatch, pcVal)
-                decoded[addr] = match
+                match = ModeMatch.fromEncodeMatch(encMatch)
+                decoded[addr] = match.substPC(IntLiteral(postAddr))
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 

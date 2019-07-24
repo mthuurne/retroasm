@@ -8,7 +8,7 @@ from typing import (
 )
 
 from .analysis import CodeTemplate
-from .codeblock import CodeBlock
+from .codeblock import CodeBlock, LoadedValue
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression, IntLiteral
@@ -438,26 +438,20 @@ class ModeMatch:
         )
 
     @classmethod
-    def fromEncodeMatch(cls,
-                        match: EncodeMatch,
-                        pcVal: Expression
-                        ) -> ModeMatch:
+    def fromEncodeMatch(cls, match: EncodeMatch) -> ModeMatch:
         '''Construct a ModeMatch using the data captured in an EncodeMatch.
         '''
         entry = match.entry
         placeholders = entry.placeholders
-        pcBits = entry.semantics.pcBits
 
         builder = SemanticsCodeBlockBuilder()
-        pcBits.emitStore(builder, pcVal, None)
 
         values: Dict[str, BitString] = {}
         subs = {}
         for name, placeholder in placeholders.items():
             if isinstance(placeholder, MatchPlaceholder):
-                subs[name] = cls.fromEncodeMatch(
-                    cast(EncodeMatch, match[name]), pcVal
-                    )
+                subMatch = cast(EncodeMatch, match[name])
+                subs[name] = cls.fromEncodeMatch(subMatch)
             elif isinstance(placeholder, ValuePlaceholder):
                 typ = placeholder.type
                 code = placeholder.code
@@ -490,6 +484,35 @@ class ModeMatch:
 
     def __repr__(self) -> str:
         return f'ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})'
+
+    def substPC(self, pcVal: Expression) -> ModeMatch:
+        entry = self._entry
+
+        pcBits = entry.semantics.pcBits
+        # TODO: For currently supported systems PC is a single storage,
+        #       but in general this need not be true.
+        assert isinstance(pcBits, SingleStorage), pcBits
+        pcStorage = pcBits.storage
+        def substPCVal(expr: Expression) -> Optional[Expression]:
+            if isinstance(expr, LoadedValue) and expr.load.storage is pcStorage:
+                return pcVal
+            return None
+
+        values = {
+            name: value.substitute(
+                expressionFunc=substPCVal
+                ).substitute(
+                expressionFunc=simplifyExpression
+                )
+            for name, value in self._values.items()
+            }
+
+        subs = {
+            subName: subMatch.substPC(pcVal)
+            for subName, subMatch in self._subs.items()
+            }
+
+        return ModeMatch(entry, values, subs)
 
     @const_property
     def mnemonic(self) -> Iterator[Union[str, Reference]]:
