@@ -397,22 +397,6 @@ class ModeEntry:
         return f'ModeEntry({self.encoding!r}, {self.mnemonic!r}, ' \
                          f'{self.semantics!r}, {self.placeholders!r})'
 
-    def fillPlaceholder(self, name: str, entry: ModeEntry) -> ModeEntry:
-        '''Returns a new entry, in which the match placeholder with the given
-        name is replaced by the given mode entry.
-        '''
-        placeholders = self.placeholders.copy()
-        placeholders.pop(name)
-        # TODO: Implement merge.
-        assert len(entry.placeholders) == 0, entry.placeholders
-
-        return ModeEntry(
-            self.encoding.fillPlaceholder(name, entry),
-            self.mnemonic.fillPlaceholder(name, entry),
-            self.semantics.fillPlaceholder(name, entry),
-            placeholders
-            )
-
     def rename(self, nameMap: Mapping[str, str]) -> ModeEntry:
         '''Returns a new ModeEntry, in which all placeholder names are
         substituted by their value in the given mapping.

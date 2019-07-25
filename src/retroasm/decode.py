@@ -51,17 +51,36 @@ class EncodeMatch:
         It is not necessary for the match to provide modes/values for every
         placeholder: whatever is not matched is left untouched.
         '''
+
         entry = self._entry
         mapping = self._mapping
+        if not mapping:
+            # Skip no-op substitution for efficiency's sake.
+            return entry
+
+        encoding = entry.encoding
+        mnemonic = entry.mnemonic
+        semantics = entry.semantics
+        placeholders = entry.placeholders.copy()
+
+        # Apply substitutions in placeholder order, since a value
+        # placeholder can depend on an earlier value placeholder.
         for name, placeholder in entry.placeholders.items():
             value = mapping.get(name)
             if isinstance(value, EncodeMatch):
-                entry = entry.fillPlaceholder(name, value.entry)
+                subEntry = value.entry
+                encoding = encoding.fillPlaceholder(name, subEntry)
+                mnemonic = mnemonic.fillPlaceholder(name, subEntry)
+                semantics = semantics.fillPlaceholder(name, subEntry)
+                placeholders.pop(name)
+                # TODO: Implement merge.
+                assert len(subEntry.placeholders) == 0, subEntry.placeholders
             elif isinstance(value, int):
                 assert False, 'not implemented yet'
             else:
                 assert value is None, value
-        return entry
+
+        return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
     @const_property
     def encodedLength(self) -> int:
