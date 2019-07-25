@@ -353,20 +353,36 @@ class Mnemonic:
     def __getitem__(self, index: int) -> MnemItem:
         return self._items[index]
 
-    def fillPlaceholder(self, name: str, entry: ModeEntry) -> Mnemonic:
-        '''Returns a new Mnemonic, in which the match placeholder of the given
-        name is replaced by the given mode entry.
-        If no placeholder with the given name exists, this Mnemonic is returned.
+    def fillPlaceholders(self, match: EncodeMatch) -> Mnemonic:
+        '''Return a new mnemonic, in which placeholders are replaced by
+        match results, if available.
         '''
         items: List[MnemItem] = []
-        changed = False
         for item in self._items:
-            if isinstance(item, MatchPlaceholder) and item.name == name:
-                items += entry.mnemonic
-                changed = True
+            if isinstance(item, MatchPlaceholder):
+                # Submode match.
+                try:
+                    subMatch = cast(EncodeMatch, match[item.name])
+                except KeyError:
+                    items.append(item)
+                else:
+                    items += subMatch.entry.mnemonic.fillPlaceholders(subMatch)
+            elif isinstance(item, ValuePlaceholder):
+                # Immediate value.
+                try:
+                    value = cast(int, match[item.name])
+                except KeyError:
+                    # TODO: Apply substitutions inside computed values.
+                    #       See ModeMatch.fromEncodeMatch() for a blueprint.
+                    items.append(item)
+                else:
+                    # TODO: This loses type information; ModeMatch.mnemonic
+                    #       use Reference instead of plain integers.
+                    items.append(value)
             else:
+                # Fixed item.
                 items.append(item)
-        return Mnemonic(items) if changed else self
+        return Mnemonic(items)
 
     def rename(self, nameMap: Mapping[str, str]) -> Mnemonic:
         '''Returns a new Mnemonic, in which all placeholder names are

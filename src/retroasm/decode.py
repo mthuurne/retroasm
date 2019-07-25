@@ -59,7 +59,6 @@ class EncodeMatch:
             return entry
 
         encoding = entry.encoding
-        mnemonic = entry.mnemonic
         semantics = entry.semantics
         placeholders = entry.placeholders.copy()
 
@@ -70,7 +69,6 @@ class EncodeMatch:
             if isinstance(value, EncodeMatch):
                 subEntry = value.entry
                 encoding = encoding.fillPlaceholder(name, subEntry)
-                mnemonic = mnemonic.fillPlaceholder(name, subEntry)
                 semantics = semantics.fillPlaceholder(name, subEntry)
                 placeholders.pop(name)
                 # TODO: Implement merge.
@@ -80,6 +78,7 @@ class EncodeMatch:
             else:
                 assert value is None, value
 
+        mnemonic = entry.mnemonic.fillPlaceholders(self)
         return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
     @const_property
