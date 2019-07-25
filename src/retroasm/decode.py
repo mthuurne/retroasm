@@ -45,6 +45,24 @@ class EncodeMatch:
         assert key not in self._mapping, key
         self._mapping[key] = value
 
+    def fillPlaceholders(self) -> ModeEntry:
+        '''Return a new entry, in which those placeholders that are present
+        in this match are replaced by the mode/value they are mapped to.
+        It is not necessary for the match to provide modes/values for every
+        placeholder: whatever is not matched is left untouched.
+        '''
+        entry = self._entry
+        mapping = self._mapping
+        for name, placeholder in entry.placeholders.items():
+            value = mapping.get(name)
+            if isinstance(value, EncodeMatch):
+                entry = entry.fillPlaceholder(name, value.entry)
+            elif isinstance(value, int):
+                assert False, 'not implemented yet'
+            else:
+                assert value is None, value
+        return entry
+
     @const_property
     def encodedLength(self) -> int:
         encDef = self._entry.encoding
@@ -419,6 +437,10 @@ class MatchFoundDecoder(Decoder):
     def entry(self) -> ModeEntry:
         return self._entry
 
+    @property
+    def match(self) -> EncodeMatch:
+        return EncodeMatch(self._entry)
+
     def __init__(self, entry: ModeEntry):
         self._entry = entry
 
@@ -448,7 +470,6 @@ def _createEntryDecoder(
         ) -> Decoder:
     '''Returns a Decoder instance that decodes this entry.
     '''
-    placeholders = entry.placeholders
     name: Optional[str]
     matcher: EncodingMatcher
     slices: Optional[Sequence[FixedEncoding]]
@@ -460,8 +481,10 @@ def _createEntryDecoder(
         if isinstance(encItem, EncodingMultiMatch)
         }
 
-    # Look for match placeholders that are not represented in the encoding.
-    for name, placeholder in placeholders.items():
+    # Match placeholders that are not represented in the encoding.
+    # Typically these are matched on decode flags.
+    match = EncodeMatch(entry)
+    for name, placeholder in entry.placeholders.items():
         if isinstance(placeholder, MatchPlaceholder):
             if name not in decoding and name not in multiMatches:
                 # A submode match that is not represented in the encoding
@@ -472,13 +495,14 @@ def _createEntryDecoder(
                 if isinstance(sub, NoMatchDecoder):
                     return sub
                 elif isinstance(sub, MatchFoundDecoder):
-                    entry = entry.fillPlaceholder(name, sub.entry)
-                    placeholders = entry.placeholders
+                    match[name] = sub.match
                 else:
                     assert False, sub
+    entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
     # Gather value placeholders them.
+    placeholders = entry.placeholders
     encoding = entry.encoding
     matchersByIndex: List[List[EncodingMatcher]] = [
         [] for _ in range(len(encoding))
