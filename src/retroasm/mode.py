@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections import OrderedDict
 from enum import Enum
 from typing import (
-    TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Mapping, Optional,
-    Sequence, Tuple, Type, Union, cast, overload
+    TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Mapping,
+    Optional, Sequence, Tuple, Type, Union, cast, overload
 )
 
 from .analysis import CodeTemplate
@@ -62,21 +62,21 @@ class EncodingExpr:
     def __repr__(self) -> str:
         return f'EncodingExpr({self._bits!r}, {self._location!r})'
 
-    def fillPlaceholder(self, name: str, entry: ModeEntry) -> EncodingExpr:
-        '''Returns a new EncodingExpr, in which the match placeholder with the
-        given name replaced by the first encoding element of the given mode
-        entry.
-        If no placeholder with the given name exists, this EncodingExpr is
-        returned.
+    def substitute(self,
+                   func: Callable[[str], Optional[BitString]],
+                   ) -> EncodingExpr:
+        '''Apply the given substitution function to each placeholder.
+        The function is passed a placeholder name and should either return
+        a bit string containing the value for that placeholder, or None
+        to preserve the placeholder.
         '''
-        # TODO: Annotate this.
-        #       I tried, but I got a non-trivial type mismatch.
-        #def substPlaceholder(storage: Storage) -> Optional[BitString]:
-        def substPlaceholder(storage):
-            if isinstance(storage, ValArgStorage) and storage.name == name:
-                return entry.encoding[0]
+
+        def substPlaceholder(storage: Storage) -> Optional[BitString]:
+            if isinstance(storage, ValArgStorage):
+                return func(storage.name)
             else:
                 return None
+
         bits = self._bits
         newBits = bits.substitute(storageFunc=substPlaceholder)
         if bits is newBits:
@@ -241,27 +241,66 @@ class Encoding:
     def __getitem__(self, index: Union[int, slice]) -> Any:
         return self._items[index]
 
-    def fillPlaceholder(self, name: str, entry: ModeEntry) -> Encoding:
-        '''Returns a new Encoding, in which the match placeholder with the
-        given name is replaced by the given mode entry.
-        If no placeholder with the given name exists, this Encoding is returned.
+    def fillPlaceholders(self, match: EncodeMatch) -> Encoding:
+        '''Return a new encoding, in which placeholders are replaced by
+        match results, if available.
         '''
+
+        # In the case of multi-matches, we might need a filled submode encoding
+        # multiple times, so cache them.
+        subEncodings: Dict[str, Encoding] = {}
+        def getSubEncoding(name: str, subMatch: EncodeMatch) -> Encoding:
+            try:
+                return subEncodings[name]
+            except KeyError:
+                subEnc = subMatch.entry.encoding.fillPlaceholders(subMatch)
+                subEncodings[name] = subEnc
+                return subEnc
+
+        def substPlaceholder(name: str) -> Optional[BitString]:
+            try:
+                value = match[name]
+            except KeyError:
+                return None
+            if isinstance(value, EncodeMatch):
+                # We're called to substitute into an EncodingExpr and those
+                # always match the first encoding item of the submode.
+                firstItem = getSubEncoding(name, value)[0]
+                if isinstance(firstItem, EncodingExpr):
+                    return firstItem.bits
+                elif isinstance(firstItem, EncodingMultiMatch):
+                    # TODO: Add support.
+                    #       I think this will happen in practice, for example
+                    #       when the entire encoding field is one multi-match
+                    #       (full delegation to submode, possibly selected by
+                    #       decode flag).
+                    #       Note that this can only happen when the submode
+                    #       still has unresolved match placeholders, so it
+                    #       will only break in the case of partial fills,
+                    #       which we don't use yet.
+                    assert False, firstItem
+                else:
+                    assert False, firstItem
+            elif isinstance(value, int):
+                assert False, value
+            else:
+                assert False, value
+
         items: List[EncodingItem] = []
-        changed = False
         for item in self._items:
             if isinstance(item, EncodingExpr):
-                filledItem = item.fillPlaceholder(name, entry)
-                items.append(filledItem)
-                changed |= filledItem is not item
+                items.append(item.substitute(substPlaceholder))
             elif isinstance(item, EncodingMultiMatch):
-                if item.name == name:
-                    items += entry.encoding[item.start:]
-                    changed = True
-                else:
+                name = item.name
+                try:
+                    subMatch = cast(EncodeMatch, match[name])
+                except KeyError:
                     items.append(item)
+                else:
+                    items += getSubEncoding(name, subMatch)[item.start:]
             else:
                 assert False, item
-        return Encoding(items, self._location) if changed else self
+        return Encoding(items, self._location)
 
     def rename(self, nameMap: Mapping[str, str]) -> Encoding:
         '''Returns a new Encoding, in which all placeholder names are

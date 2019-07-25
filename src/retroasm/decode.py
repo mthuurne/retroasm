@@ -58,7 +58,6 @@ class EncodeMatch:
             # Skip no-op substitution for efficiency's sake.
             return entry
 
-        encoding = entry.encoding
         semantics = entry.semantics
         placeholders = entry.placeholders.copy()
 
@@ -68,7 +67,6 @@ class EncodeMatch:
             value = mapping.get(name)
             if isinstance(value, EncodeMatch):
                 subEntry = value.entry
-                encoding = encoding.fillPlaceholder(name, subEntry)
                 semantics = semantics.fillPlaceholder(name, subEntry)
                 placeholders.pop(name)
                 # TODO: Implement merge.
@@ -78,6 +76,7 @@ class EncodeMatch:
             else:
                 assert value is None, value
 
+        encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
         return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
