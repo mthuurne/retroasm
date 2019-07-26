@@ -919,25 +919,14 @@ class EncodeMatch:
             # Skip no-op substitution for efficiency's sake.
             return entry
 
-        placeholders = entry.placeholders.copy()
-
-        # Apply substitutions in placeholder order, since a value
-        # placeholder can depend on an earlier value placeholder.
-        for name, placeholder in entry.placeholders.items():
-            value = mapping.get(name)
-            if isinstance(value, EncodeMatch):
-                subEntry = value.entry
-                placeholders.pop(name)
-                # TODO: Implement merge.
-                assert len(subEntry.placeholders) == 0, subEntry.placeholders
-            elif isinstance(value, int):
-                assert False, 'not implemented yet'
-            else:
-                assert value is None, value
-
         encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
         semantics = entry.semantics.fillPlaceholders(self)
+        placeholders = OrderedDict(
+            (name, placeholder)
+            for name, placeholder in entry.placeholders.items()
+            if name not in mapping
+            )
         return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
     @const_property
