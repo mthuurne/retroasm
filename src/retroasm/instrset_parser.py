@@ -1122,15 +1122,12 @@ def _parseModeEntries(
                             location = spec.decl.name.location
                             semType = spec.semanticsType
                             if isinstance(semType, ReferenceType):
-                                semNamespace.addArgument(
-                                    name, semType.type, location
-                                    )
+                                argType = semType.type
                             else:
                                 # TODO: Is this guaranteed not None?
                                 assert semType is not None
-                                semNamespace.addValueArgument(
-                                    name, semType, location
-                                    )
+                                argType = semType
+                            semNamespace.addArgument(name, argType, location)
 
                         if len(semLoc) == 0:
                             # Parse mnemonic field as semantics.
