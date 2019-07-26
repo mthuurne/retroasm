@@ -441,22 +441,35 @@ class CodeTemplate:
         self.placeholders = placeholders
         self.pcBits = pcBits
 
-    def fillPlaceholder(self, name: str, entry: ModeEntry) -> CodeTemplate:
-        '''Returns a new CodeTemplate, which is a copy of this one but with
-        the match placeholder of the given name replaced by the semantics
-        of the given mode entry.
+    def fillPlaceholders(self, match: EncodeMatch) -> CodeTemplate:
+        '''Return a new code template, in which placeholders are replaced by
+        match results, if available.
         '''
-        placeholders = self.placeholders.copy()
-        placeholders.pop(name)
 
-        fillCode = entry.semantics.code
-        # TODO: Support fillCode semantics with side effects.
-        assert len(fillCode.nodes) == 0, entry
+        placeholders: OrderedDict[str, Placeholder] = OrderedDict()
+        values = {}
+        for name, placeholder in self.placeholders.items():
+            try:
+                value = match[name]
+            except KeyError:
+                placeholders[name] = placeholder
+            else:
+                if isinstance(value, EncodeMatch):
+                    subSem = value.entry.semantics.fillPlaceholders(value)
+                    fillCode = subSem.code
+                    # TODO: Support submode semantics with side effects.
+                    assert len(fillCode.nodes) == 0, name
+                    values[name] = fillCode.returned[0]
+                elif isinstance(value, int):
+                    values[name] = FixedValue(
+                        IntLiteral(value),
+                        cast(ValuePlaceholder, placeholder).type.width
+                        )
+                else:
+                    assert False, value
 
-        def argFetcher(argName: str) -> Optional[BitString]:
-            return fillCode.returned[0] if argName == name else None
         builder = SemanticsCodeBlockBuilder()
-        returned = builder.inlineBlock(self.code, argFetcher)
+        returned = builder.inlineBlock(self.code, values.get)
         newCode = builder.createCodeBlock(returned)
 
         return CodeTemplate(newCode, placeholders, self.pcBits)
@@ -906,7 +919,6 @@ class EncodeMatch:
             # Skip no-op substitution for efficiency's sake.
             return entry
 
-        semantics = entry.semantics
         placeholders = entry.placeholders.copy()
 
         # Apply substitutions in placeholder order, since a value
@@ -915,7 +927,6 @@ class EncodeMatch:
             value = mapping.get(name)
             if isinstance(value, EncodeMatch):
                 subEntry = value.entry
-                semantics = semantics.fillPlaceholder(name, subEntry)
                 placeholders.pop(name)
                 # TODO: Implement merge.
                 assert len(subEntry.placeholders) == 0, subEntry.placeholders
@@ -926,6 +937,7 @@ class EncodeMatch:
 
         encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
+        semantics = entry.semantics.fillPlaceholders(self)
         return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
     @const_property
