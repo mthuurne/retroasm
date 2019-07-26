@@ -97,9 +97,6 @@ class TestNamespace(LocalNamespace):
         # Create I/O storage.
         return createIOReference(localChannel, index)
 
-    def addValueArgument(self, name, typ=IntType.u(8), location=None):
-        return super().addValueArgument(name, typ, location)
-
     def addArgument(self, name, typ=IntType.u(8), location=None):
         return super().addArgument(name, typ, location)
 

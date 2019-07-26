@@ -60,7 +60,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_arg_ret(self):
         '''Test whether inlining works with an argument and return value.'''
         inc = TestNamespace()
-        incArgRef = inc.addValueArgument('V')
+        incArgRef = inc.addArgument('V')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
         incRet = inc.addVariable('ret')
@@ -397,7 +397,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_return_io_reference(self):
         '''Test returning a reference to an index in an I/O channel.'''
         inner = TestNamespace()
-        addrArg = inner.addValueArgument('A', IntType.u(16))
+        addrArg = inner.addArgument('A', IntType.u(16))
         addrVal = inner.emitLoad(addrArg)
         memByte = inner.addIOStorage('mem', addrVal)
         inner.addRetReference(memByte)

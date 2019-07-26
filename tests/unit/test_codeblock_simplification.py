@@ -257,12 +257,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
 
     def test_return_value(self):
         '''Test whether a return value is stored correctly.'''
-        refV = self.namespace.addValueArgument('V')
-        self.assertEqual(len(self.namespace.builder.nodes), 2)
-        self.assertIsInstance(self.namespace.builder.nodes[0], Load)
-        self.assertIsInstance(self.namespace.builder.nodes[1], Store)
-        argV = self.namespace.builder.nodes[0].storage
-
+        refV = self.namespace.addArgument('V')
         refA = self.namespace.addRegister('a')
         refRet = self.namespace.addVariable('ret')
         loadA = self.namespace.emitLoad(refA)
@@ -271,8 +266,8 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refRet, combined)
 
         correct = (
-            Load(argV),
             Load(refA.bits.storage),
+            Load(refV.bits.storage),
             )
 
         code = self.createSimplifiedCode()

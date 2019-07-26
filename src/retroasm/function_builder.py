@@ -6,7 +6,8 @@ from .expression_parser import ParseError, ParseNode, parseStatement
 from .function import Function
 from .linereader import DefLineReader, DelayedError, InputLocation
 from .namespace import GlobalNamespace, LocalNamespace
-from .reference import Reference
+from .reference import Reference, SingleStorage
+from .storage import ArgStorage
 from .types import IntType, ReferenceType
 
 
@@ -37,9 +38,18 @@ def createFunc(reader: DefLineReader,
     for argName, argDecl in args.items():
         argLoc = argNameLocations[argName]
         if isinstance(argDecl, ReferenceType):
+            # Pass-by-reference.
             namespace.addArgument(argName, argDecl.type, argLoc)
         else:
-            namespace.addValueArgument(argName, argDecl, argLoc)
+            # Pass-by-value.
+            # Create reference to passed argument.
+            storage = ArgStorage(argName, argDecl.width)
+            argRef = Reference(SingleStorage(storage), argDecl)
+            # Add local variable.
+            varRef = namespace.addVariable(argName, argDecl, argLoc)
+            # Store initial value.
+            value = argRef.emitLoad(builder, argLoc)
+            varRef.emitStore(builder, value, argLoc)
     retRef: Optional[Reference]
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType

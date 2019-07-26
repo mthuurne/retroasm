@@ -284,7 +284,7 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
     def assertDecomposed(self, bits, expected):
         # Check that emitStore only emits Load and Store nodes.
         nodes = self.namespace.builder.nodes
-        valueRef = self.namespace.addValueArgument('V', IntType.int)
+        valueRef = self.namespace.addArgument('V', IntType.int)
         value = self.namespace.emitLoad(valueRef)
         initIdx = len(nodes)
         self.namespace.emitStore(bits, value)

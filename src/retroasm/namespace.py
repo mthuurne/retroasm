@@ -166,30 +166,6 @@ class BuilderNamespace(Namespace):
         storage = Variable(typ.width, self.scope)
         return self._addNamedStorage(name, storage, typ, location)
 
-    def addValueArgument(self,
-                         name: str,
-                         typ: IntType,
-                         location: InputLocation
-                         ) -> Reference:
-        '''Adds a passed-by-value argument to this namespace.
-        A variable is created with the same name as the argument. The passed
-        value is loaded from an ArgStorage and then stored as the initial
-        value of the variable.
-        Returns a reference to the corresponding variable.
-        '''
-        storage = ArgStorage(name, typ.width)
-        argRef = Reference(SingleStorage(storage), typ)
-
-        # Add Variable.
-        varRef = self.addVariable(name, typ, location)
-
-        # Store initial value.
-        builder = self.builder
-        value = argRef.emitLoad(builder, location)
-        varRef.emitStore(builder, value, location)
-
-        return varRef
-
 class GlobalNamespace(BuilderNamespace):
     '''Namespace for the global scope.
     '''
