@@ -12,94 +12,16 @@ from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
 from .linereader import BadInput
 from .mode import (
-    Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder, ModeEntry,
-    Placeholder, ValuePlaceholder
+    EncodeMatch, Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder,
+    ModeEntry, Placeholder, ValuePlaceholder
 )
 from .reference import (
     BitString, ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 )
 from .storage import ValArgStorage
 from .types import Width, maskForWidth, maskToSegments, segmentsToMask
-from .utils import Singleton, const_property
+from .utils import Singleton
 
-
-class EncodeMatch:
-    '''A match on the encoding field of a mode entry.
-    '''
-
-    @property
-    def entry(self) -> ModeEntry:
-        return self._entry
-
-    def __init__(self, entry: ModeEntry):
-        self._entry = entry
-        self._mapping: Dict[str, Union[EncodeMatch, int]] = {}
-
-    def __repr__(self) -> str:
-        return f'EncodeMatch({self._entry!r}, {self._mapping!r})'
-
-    def __getitem__(self, key: str) -> Union[EncodeMatch, int]:
-        return self._mapping[key]
-
-    def __setitem__(self, key: str, value: Union[EncodeMatch, int]) -> None:
-        assert key not in self._mapping, key
-        self._mapping[key] = value
-
-    def fillPlaceholders(self) -> ModeEntry:
-        '''Return a new entry, in which those placeholders that are present
-        in this match are replaced by the mode/value they are mapped to.
-        It is not necessary for the match to provide modes/values for every
-        placeholder: whatever is not matched is left untouched.
-        '''
-
-        entry = self._entry
-        mapping = self._mapping
-        if not mapping:
-            # Skip no-op substitution for efficiency's sake.
-            return entry
-
-        semantics = entry.semantics
-        placeholders = entry.placeholders.copy()
-
-        # Apply substitutions in placeholder order, since a value
-        # placeholder can depend on an earlier value placeholder.
-        for name, placeholder in entry.placeholders.items():
-            value = mapping.get(name)
-            if isinstance(value, EncodeMatch):
-                subEntry = value.entry
-                semantics = semantics.fillPlaceholder(name, subEntry)
-                placeholders.pop(name)
-                # TODO: Implement merge.
-                assert len(subEntry.placeholders) == 0, subEntry.placeholders
-            elif isinstance(value, int):
-                assert False, 'not implemented yet'
-            else:
-                assert value is None, value
-
-        encoding = entry.encoding.fillPlaceholders(self)
-        mnemonic = entry.mnemonic.fillPlaceholders(self)
-        return ModeEntry(encoding, mnemonic, semantics, placeholders)
-
-    @const_property
-    def encodedLength(self) -> int:
-        encDef = self._entry.encoding
-        length = encDef.encodedLength
-        if length is not None:
-            # Mode entry has fixed encoded length.
-            return length
-
-        # Mode entry has variable encoded length.
-        mapping = self._mapping
-        length = 0
-        for encItem in encDef:
-            if isinstance(encItem, EncodingExpr):
-                length += 1
-            elif isinstance(encItem, EncodingMultiMatch):
-                match = cast(EncodeMatch, mapping[encItem.name])
-                length += match.encodedLength - encItem.start
-            else:
-                assert False, encItem
-        return length
 
 def _decomposeBitString(bits: BitString
                         ) -> Iterator[Tuple[BitString, int, int, Width]]:
