@@ -38,7 +38,7 @@ from .namespace import (
     Namespace
 )
 from .reference import BitString, Reference, badReference
-from .storage import IOChannel, IOStorage, ValArgStorage, Variable
+from .storage import ArgStorage, IOChannel, IOStorage, Variable
 from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
@@ -530,17 +530,18 @@ def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
             else:
                 code = placeholderNamespace.createCodeBlock(ref)
 
-        location = decl.name.location
-        try:
+        if semType is not None:
             if isinstance(semType, ReferenceType):
-                semNamespace.addReferenceArgument(name, semType.type, location)
+                argType = semType.type
             elif isinstance(semType, IntType):
-                semNamespace.addValueArgument(name, semType, location)
+                argType = semType
             else:
-                assert semType is None, semType
-        except NameExistsError as ex:
-            reader.error('%s', ex, location=ex.locations)
-            continue
+                assert False, semType
+            try:
+                semNamespace.addArgument(name, argType, decl.name.location)
+            except NameExistsError as ex:
+                reader.error('%s', ex, location=ex.locations)
+                continue
 
         if isinstance(spec, ValuePlaceholderSpec):
             if semType is not None:
@@ -650,7 +651,7 @@ def _parseModeEncoding(encNodes: Iterable[ParseNode],
                 encType = IntType.u(encWidth)
                 location = spec.decl.name.location
                 try:
-                    encNamespace.addValueArgument(name, encType, location)
+                    encNamespace.addArgument(name, encType, location)
                 except NameExistsError as ex:
                     logger.error(
                         'bad placeholder: %s', ex, location=ex.locations
@@ -722,7 +723,7 @@ def _checkMissingPlaceholders(encItems: Iterable[EncodingItem],
     for encItem in encItems:
         if isinstance(encItem, EncodingExpr):
             for storage in encItem.bits.iterStorages():
-                if isinstance(storage, ValArgStorage):
+                if isinstance(storage, ArgStorage):
                     identifiers.add(storage.name)
         elif isinstance(encItem, EncodingMultiMatch):
             multiMatches.add(encItem.name)
@@ -1121,7 +1122,7 @@ def _parseModeEntries(
                             location = spec.decl.name.location
                             semType = spec.semanticsType
                             if isinstance(semType, ReferenceType):
-                                semNamespace.addReferenceArgument(
+                                semNamespace.addArgument(
                                     name, semType.type, location
                                     )
                             else:

@@ -192,7 +192,7 @@ class Variable(Storage):
     def mightBeSame(self, other: Storage) -> bool:
         return self is other or (
             # Global variable might be passed by reference.
-            self._scope == 0 and isinstance(other, RefArgStorage)
+            self._scope == 0 and isinstance(other, ArgStorage)
             )
 
 class ArgStorage(Storage):
@@ -217,27 +217,6 @@ class ArgStorage(Storage):
         return self._name
 
     def canLoadHaveSideEffect(self) -> bool:
-        raise NotImplementedError
-
-    def canStoreHaveSideEffect(self) -> bool:
-        raise NotImplementedError
-
-    def isLoadConsistent(self) -> bool:
-        raise NotImplementedError
-
-    def isSticky(self) -> bool:
-        raise NotImplementedError
-
-    def mightBeSame(self, other: Storage) -> bool:
-        raise NotImplementedError
-
-class RefArgStorage(ArgStorage):
-    '''A placeholder storage location for a storage passed to a function by
-    reference.
-    '''
-    __slots__ = ()
-
-    def canLoadHaveSideEffect(self) -> bool:
         return True
 
     def canStoreHaveSideEffect(self) -> bool:
@@ -254,27 +233,6 @@ class RefArgStorage(ArgStorage):
         # in our scope can only be referenced via arguments if it is defined
         # in the global scope.
         return not isinstance(other, Variable) or other._scope == 0
-
-class ValArgStorage(ArgStorage):
-    '''A placeholder storage location for a storage passed to a function by
-    value.
-    '''
-    __slots__ = ()
-
-    def canLoadHaveSideEffect(self) -> bool:
-        return False
-
-    def canStoreHaveSideEffect(self) -> bool:
-        return False
-
-    def isLoadConsistent(self) -> bool:
-        return True
-
-    def isSticky(self) -> bool:
-        return False
-
-    def mightBeSame(self, other: Storage) -> bool:
-        return False
 
 class IOStorage(Storage):
     '''Storage location accessed via an I/O channel at a particular index.
@@ -328,7 +286,7 @@ class IOStorage(Storage):
             return self._channel == other._channel \
                 and self._channel.mightBeSame(self._index, other._index)
         else:
-            return isinstance(other, RefArgStorage)
+            return isinstance(other, ArgStorage)
 
     def iterExpressions(self) -> Iterator[Expression]:
         yield self._index

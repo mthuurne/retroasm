@@ -138,7 +138,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_by_reference(self):
         '''Test whether pass-by-reference arguments work correctly.'''
         inc = TestNamespace()
-        incArgRef = inc.addReferenceArgument('R')
+        incArgRef = inc.addArgument('R')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(1))
         inc.emitStore(incArgRef, incAdd)
@@ -167,7 +167,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_by_reference(self):
         '''Test concatenated storages as pass-by-reference arguments.'''
         inc = TestNamespace()
-        incArgRef = inc.addReferenceArgument('R', IntType.u(16))
+        incArgRef = inc.addArgument('R', IntType.u(16))
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
@@ -203,7 +203,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_concat_fixed_by_reference(self):
         '''Test concatenated storages arguments containing FixedValues.'''
         inc = TestNamespace()
-        incArgRef = inc.addReferenceArgument('R', IntType.u(16))
+        incArgRef = inc.addArgument('R', IntType.u(16))
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
         inc.emitStore(incArgRef, incAdd)
@@ -236,7 +236,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_pass_slice_by_reference(self):
         '''Test sliced storages as pass-by-reference arguments.'''
         inc = TestNamespace()
-        incArgRef = inc.addReferenceArgument('R')
+        incArgRef = inc.addArgument('R')
         incArgVal = inc.emitLoad(incArgRef)
         incAdd = AddOperator(incArgVal, IntLiteral(0x12))
         inc.emitStore(incArgRef, incAdd)
@@ -321,7 +321,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_load_from_unsigned_reference_arg(self):
         '''Test reading of a value passed via an unsigned reference.'''
         inner = TestNamespace()
-        argRef = inner.addReferenceArgument('R')
+        argRef = inner.addArgument('R')
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)
@@ -345,7 +345,7 @@ class CodeBlockInlineTests(NodeChecker, unittest.TestCase):
     def test_load_from_signed_reference_arg(self):
         '''Test reading of a value passed via a signed reference.'''
         inner = TestNamespace()
-        argRef = inner.addReferenceArgument('R', IntType.s(8))
+        argRef = inner.addArgument('R', IntType.s(8))
         argVal = inner.emitLoad(argRef)
         innerRet = inner.addVariable('ret', IntType.u(16))
         inner.emitStore(innerRet, argVal)

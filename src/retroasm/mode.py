@@ -16,7 +16,7 @@ from .linereader import InputLocation, mergeSpan
 from .reference import (
     BitString, FixedValue, Reference, SingleStorage, decodeInt
 )
-from .storage import ArgStorage, Storage, ValArgStorage
+from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, Width, unlimited
 from .utils import const_property
 
@@ -66,7 +66,7 @@ class EncodingExpr:
         '''
 
         def substPlaceholder(storage: Storage) -> Optional[BitString]:
-            if isinstance(storage, ValArgStorage):
+            if isinstance(storage, ArgStorage):
                 return func(storage.name)
             else:
                 return None
@@ -83,9 +83,9 @@ class EncodingExpr:
         their value in the given mapping.
         '''
         def renameValArg(storage: Storage) -> Optional[SingleStorage]:
-            if isinstance(storage, ValArgStorage):
+            if isinstance(storage, ArgStorage):
                 return SingleStorage(
-                    ValArgStorage(nameMap[storage.name], storage.width)
+                    ArgStorage(nameMap[storage.name], storage.width)
                     )
             else:
                 return None

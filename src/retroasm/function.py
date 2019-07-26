@@ -2,7 +2,7 @@ from typing import Mapping, Optional, Sequence, Union
 
 from .codeblock import CodeBlock
 from .reference import BitString
-from .storage import RefArgStorage, Storage, ValArgStorage
+from .storage import Storage
 from .types import IntType, ReferenceType
 
 
@@ -53,17 +53,7 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
             raise ValueError(f'code block uses undeclared argument "{name}"')
 
         if isinstance(typ, ReferenceType):
-            if not isinstance(arg, RefArgStorage):
-                raise ValueError(
-                    f'reference argument "{name}" is not a reference '
-                    f'in code block'
-                    )
             typ = typ.type
-        else:
-            if not isinstance(arg, ValArgStorage):
-                raise ValueError(
-                    f'value argument "{name}" is not a value in code block'
-                    )
         if typ.width != arg.width:
             raise ValueError(
                 f'argument "{name}" is declared with width {typ.width} '

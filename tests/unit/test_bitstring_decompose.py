@@ -61,7 +61,7 @@ class DecomposeTests:
 
     def test_single(self):
         '''Test construction of SingleStorage.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
+        ref0 = self.namespace.addArgument('R0')
         expected = (
             (ref0.bits.storage, 0, 8),
             )
@@ -69,9 +69,9 @@ class DecomposeTests:
 
     def test_basic_concat(self):
         '''Checks construction of ConcatenatedBits.'''
-        ref0 = self.namespace.addReferenceArgument('R0', IntType.u(7))
-        ref1 = self.namespace.addReferenceArgument('R1', IntType.u(3))
-        ref2 = self.namespace.addReferenceArgument('R2', IntType.u(13))
+        ref0 = self.namespace.addArgument('R0', IntType.u(7))
+        ref1 = self.namespace.addArgument('R1', IntType.u(3))
+        ref2 = self.namespace.addArgument('R2', IntType.u(13))
         concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
         expected = (
             (ref2.bits.storage, 0, 13),
@@ -82,7 +82,7 @@ class DecomposeTests:
 
     def test_self_concat(self):
         '''Checks concatenation of a bit string to itself.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
+        ref0 = self.namespace.addArgument('R0')
         concat = ConcatenatedBits(ref0.bits, ref0.bits)
         expected = (
             (ref0.bits.storage, 0, 8),
@@ -92,7 +92,7 @@ class DecomposeTests:
 
     def test_basic_slice(self):
         '''Checks construction of SlicedBits.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
+        ref0 = self.namespace.addArgument('R0')
         sliced = sliceBits(ref0.bits, 2, 3)
         expected = (
             (ref0.bits.storage, 2, 3),
@@ -101,7 +101,7 @@ class DecomposeTests:
 
     def test_slice_past_end(self):
         '''Checks clipping of slice width against parent width.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
+        ref0 = self.namespace.addArgument('R0')
         sliced = sliceBits(ref0.bits, 2, 30)
         expected = (
             (ref0.bits.storage, 2, 6),
@@ -110,7 +110,7 @@ class DecomposeTests:
 
     def test_slice_outside(self):
         '''Checks handling of slice index outside parent width.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
+        ref0 = self.namespace.addArgument('R0')
         sliced = sliceBits(ref0.bits, 12, 30)
         expected = (
             )
@@ -118,9 +118,9 @@ class DecomposeTests:
 
     def test_slice_concat(self):
         '''Checks slicing concatenated values.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
-        ref1 = self.namespace.addReferenceArgument('R1')
-        ref2 = self.namespace.addReferenceArgument('R2')
+        ref0 = self.namespace.addArgument('R0')
+        ref1 = self.namespace.addArgument('R1')
+        ref2 = self.namespace.addArgument('R2')
         concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
         sliced = sliceBits(concat, 5, 13)
         expected = (
@@ -132,11 +132,11 @@ class DecomposeTests:
 
     def test_combined(self):
         '''Checks combinations of slicing and concatenation.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
-        ref1 = self.namespace.addReferenceArgument('R1')
+        ref0 = self.namespace.addArgument('R0')
+        ref1 = self.namespace.addArgument('R1')
         concatA = ConcatenatedBits(ref0.bits, ref1.bits)
         sliceA = sliceBits(concatA, 5, 6)
-        ref2 = self.namespace.addReferenceArgument('R2')
+        ref2 = self.namespace.addArgument('R2')
         concatB = ConcatenatedBits(sliceA, ref2.bits)
         storage = sliceBits(concatB, 4, 7)
         expected = (
@@ -147,8 +147,8 @@ class DecomposeTests:
 
     def test_nested_slice(self):
         '''Checks taking a slice from sliced bit strings.'''
-        ref0 = self.namespace.addReferenceArgument('R0')
-        ref1 = self.namespace.addReferenceArgument('R1')
+        ref0 = self.namespace.addArgument('R0')
+        ref1 = self.namespace.addArgument('R1')
         slice0 = sliceBits(ref0.bits, 2, 5)
         slice1 = sliceBits(ref1.bits, 1, 4)
         concat = ConcatenatedBits(slice0, slice1)

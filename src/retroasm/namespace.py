@@ -10,9 +10,7 @@ from .expression import Expression, optSlice
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, FixedValue, Reference, SingleStorage
-from .storage import (
-    IOChannel, IOStorage, RefArgStorage, Storage, ValArgStorage, Variable
-)
+from .storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
 from .types import IntType, maskForWidth
 
 NamespaceValue = Union[Reference, IOChannel, Function]
@@ -111,27 +109,15 @@ class Namespace:
         self.define(name, ref, location)
         return ref
 
-    def addValueArgument(self,
-                         name: str,
-                         typ: IntType,
-                         location: InputLocation
-                         ) -> Reference:
-        '''Adds a passed-by-value argument to this namespace.
-        Returns a reference to the argument constant.
+    def addArgument(self,
+                    name: str,
+                    typ: IntType,
+                    location: InputLocation
+                    ) -> Reference:
+        '''Add an pass-by-reference argument to this namespace.
+        Returns a reference to the argument's storage.
         '''
-        storage = ValArgStorage(name, typ.width)
-        return self._addNamedStorage(name, storage, typ, location)
-
-    def addReferenceArgument(self,
-                             name: str,
-                             typ: IntType,
-                             location: InputLocation
-                             ) -> Reference:
-        '''Adds a pass-by-reference argument with the given name and type to
-        this namespace.
-        Returns a reference to the argument.
-        '''
-        storage = RefArgStorage(name, typ.width)
+        storage = ArgStorage(name, typ.width)
         return self._addNamedStorage(name, storage, typ, location)
 
 class ContextNamespace(Namespace):
@@ -187,11 +173,11 @@ class BuilderNamespace(Namespace):
                          ) -> Reference:
         '''Adds a passed-by-value argument to this namespace.
         A variable is created with the same name as the argument. The passed
-        value is loaded from an ValArgStorage and then stored as the initial
+        value is loaded from an ArgStorage and then stored as the initial
         value of the variable.
         Returns a reference to the corresponding variable.
         '''
-        storage = ValArgStorage(name, typ.width)
+        storage = ArgStorage(name, typ.width)
         argRef = Reference(SingleStorage(storage), typ)
 
         # Add Variable.

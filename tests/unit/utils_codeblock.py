@@ -100,8 +100,8 @@ class TestNamespace(LocalNamespace):
     def addValueArgument(self, name, typ=IntType.u(8), location=None):
         return super().addValueArgument(name, typ, location)
 
-    def addReferenceArgument(self, name, typ=IntType.u(8), location=None):
-        return super().addReferenceArgument(name, typ, location)
+    def addArgument(self, name, typ=IntType.u(8), location=None):
+        return super().addArgument(name, typ, location)
 
     def addVariable(self, name, typ=IntType.u(8), location=None):
         return super().addVariable(name, typ, location)

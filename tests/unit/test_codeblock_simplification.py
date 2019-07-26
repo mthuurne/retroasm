@@ -187,7 +187,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         refA = self.namespace.addRegister('a')
         refB = self.namespace.addRegister('b')
         refC = self.namespace.addRegister('c')
-        refX = self.namespace.addReferenceArgument('X')
+        refX = self.namespace.addArgument('X')
         loadA1 = self.namespace.emitLoad(refA)
         self.namespace.emitStore(refX, const)
         loadA2 = self.namespace.emitLoad(refA)
@@ -210,7 +210,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         '''Test handling of writing the same value to a potential alias.'''
         refA = self.namespace.addRegister('a')
         refB = self.namespace.addRegister('b')
-        refX = self.namespace.addReferenceArgument('X')
+        refX = self.namespace.addArgument('X')
         loadA1 = self.namespace.emitLoad(refA)
         self.namespace.emitStore(refX, loadA1)
         loadA2 = self.namespace.emitLoad(refA)
@@ -438,7 +438,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
     def test_6502_pull(self):
         '''Test simplification of the 6502 PULL instructions.'''
 
-        refD = self.namespace.addReferenceArgument('D')
+        refD = self.namespace.addArgument('D')
         refS = self.namespace.addRegister('s')
         loadS1 = self.namespace.emitLoad(refS)
         incS = AddOperator(loadS1, IntLiteral(1))

@@ -37,7 +37,7 @@ def createFunc(reader: DefLineReader,
     for argName, argDecl in args.items():
         argLoc = argNameLocations[argName]
         if isinstance(argDecl, ReferenceType):
-            namespace.addReferenceArgument(argName, argDecl.type, argLoc)
+            namespace.addArgument(argName, argDecl.type, argLoc)
         else:
             namespace.addValueArgument(argName, argDecl, argLoc)
     retRef: Optional[Reference]

@@ -18,7 +18,7 @@ from .mode import (
 from .reference import (
     BitString, ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 )
-from .storage import ValArgStorage
+from .storage import ArgStorage
 from .types import Width, maskForWidth, maskToSegments, segmentsToMask
 from .utils import Singleton
 
@@ -100,7 +100,7 @@ def decomposeEncoding(
                     ):
                 if isinstance(base, SingleStorage):
                     storage = base.storage
-                    if isinstance(storage, ValArgStorage):
+                    if isinstance(storage, ArgStorage):
                         decodeMap[storage.name].append(
                             (baseIdx, encIdx, compIdx, width)
                             )
