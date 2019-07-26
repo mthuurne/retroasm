@@ -440,17 +440,33 @@ class ModeEntry:
     def __init__(self,
                  encoding: Encoding,
                  mnemonic: Mnemonic,
-                 semantics: CodeTemplate,
+                 semantics: Optional[CodeTemplate],
                  placeholders: OrderedDict[str, Placeholder]
                  ):
         self.encoding = encoding
         self.mnemonic = mnemonic
-        self.semantics = semantics
+        self._semantics = semantics
         self.placeholders = placeholders
 
     def __repr__(self) -> str:
         return f'ModeEntry({self.encoding!r}, {self.mnemonic!r}, ' \
                          f'{self.semantics!r}, {self.placeholders!r})'
+
+    @property
+    def semantics(self) -> CodeTemplate:
+        '''The semantics of this mode entry.
+        It is an error to access this property for instruction sets that were
+        loaded with the `wantSemantics=False` option.
+        '''
+        semantics = self._semantics
+        if semantics is None:
+            # In theory this can also occur if semantics are accessed after
+            # there were errors reading the instruction set definition,
+            # but that would be an internal error: the user shouldn't be
+            # able to trigger it since no InstructionSet object is created
+            # if there were errors.
+            raise RuntimeError('Missing semantics')
+        return semantics
 
     def rename(self, nameMap: Mapping[str, str]) -> ModeEntry:
         '''Returns a new ModeEntry, in which all placeholder names are
@@ -460,10 +476,11 @@ class ModeEntry:
             for name, placeholder in self.placeholders.items():
                 newName = nameMap[name]
                 yield newName, placeholder.rename(newName)
+        semantics = self._semantics
         return ModeEntry(
             self.encoding.rename(nameMap),
             self.mnemonic.rename(nameMap),
-            self.semantics.rename(nameMap),
+            None if semantics is None else semantics.rename(nameMap),
             OrderedDict(renamePlaceholders())
             )
 
