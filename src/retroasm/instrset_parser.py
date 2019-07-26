@@ -6,7 +6,6 @@ from typing import (
 )
 import re
 
-from .analysis import CodeTemplate
 from .codeblock import CodeBlock
 from .codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
@@ -30,8 +29,9 @@ from .linereader import (
     BadInput, DefLineReader, DelayedError, InputLocation, mergeSpan
 )
 from .mode import (
-    Encoding, EncodingExpr, EncodingItem, EncodingMultiMatch, MatchPlaceholder,
-    MnemItem, Mnemonic, Mode, ModeEntry, Placeholder, ValuePlaceholder
+    CodeTemplate, Encoding, EncodingExpr, EncodingItem, EncodingMultiMatch,
+    MatchPlaceholder, MnemItem, Mnemonic, Mode, ModeEntry, Placeholder,
+    ValuePlaceholder
 )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError,
