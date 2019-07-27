@@ -11,6 +11,7 @@ OUT_DIR = TOP_DIR / 'output'
 @task
 def docs(c):
     """Build documentation."""
+    (OUT_DIR / 'docs').mkdir(parents=True, exist_ok=True)
     renderFile(TOP_DIR / 'README.md', OUT_DIR / 'docs' / 'README.html')
     renderDir(TOP_DIR / 'docs', OUT_DIR / 'docs')
 
