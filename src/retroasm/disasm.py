@@ -26,7 +26,6 @@ class Disassembler:
         '''
         instrSet = self._instrSet
         pc = cast(Reference, instrSet.globalNamespace['pc'])
-        pcBits = pc.bits
         decodePrefix = instrSet.prefixDecodeFunc
         prefixMapping = instrSet.prefixMapping
         prefixInitCode = prefixMapping.initCode
@@ -77,7 +76,7 @@ class Disassembler:
                 decoded[addr] = Reference(bits, encType)
             else:
                 match = ModeMatch.fromEncodeMatch(encMatch)
-                decoded[addr] = match.substPC(pcBits, IntLiteral(postAddr))
+                decoded[addr] = match.substPC(pc, IntLiteral(postAddr))
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 

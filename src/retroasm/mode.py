@@ -572,21 +572,16 @@ class ModeMatch:
                 subMatch = cast(EncodeMatch, match[name])
                 subs[name] = cls.fromEncodeMatch(subMatch)
             elif isinstance(placeholder, ValuePlaceholder):
-                typ = placeholder.type
-                code = placeholder.code
-                if code is None:
+                if placeholder.code is None:
                     # Value was decoded.
-                    value: Expression = IntLiteral(cast(int, match[name]))
+                    values[name] = FixedValue(
+                        IntLiteral(cast(int, match[name])),
+                        placeholder.type.width
+                        )
                 else:
                     # Value is computed.
-                    returned = builder.inlineBlock(code, values.__getitem__)
-                    matchCode = CodeBlockSimplifier(builder.nodes, returned)
-                    matchCode.simplify()
-                    valBits, = matchCode.returned
-                    assert isinstance(valBits, FixedValue), valBits
-                    valExpr = decodeInt(valBits.expr, typ)
-                    value = simplifyExpression(valExpr)
-                values[name] = FixedValue(value, typ.width)
+                    values[name] = placeholder.computeValue(builder,
+                                                            values.__getitem__)
             else:
                 assert False, placeholder
 
@@ -604,29 +599,26 @@ class ModeMatch:
     def __repr__(self) -> str:
         return f'ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})'
 
-    def substPC(self, pcBits: BitString, pcVal: Expression) -> ModeMatch:
+    def substPC(self, pc: Reference, pcVal: Expression) -> ModeMatch:
+        '''Return a new mode match with the value `pcVal` substituted for
+        the program counter `pc`.
+        '''
+
         entry = self._entry
+        placeholders = entry.placeholders
 
-        # TODO: For currently supported systems PC is a single storage,
-        #       but in general this need not be true.
-        assert isinstance(pcBits, SingleStorage), pcBits
-        pcStorage = pcBits.storage
-        def substPCVal(expr: Expression) -> Optional[Expression]:
-            if isinstance(expr, LoadedValue) and expr.load.storage is pcStorage:
-                return pcVal
-            return None
-
-        values = {
-            name: value.substitute(
-                expressionFunc=substPCVal
-                ).substitute(
-                expressionFunc=simplifyExpression
-                )
-            for name, value in self._values.items()
-            }
+        values: Dict[str, BitString] = {}
+        for name, value in self._values.items():
+            placeholder = placeholders[name]
+            assert isinstance(placeholder, ValuePlaceholder), placeholder
+            if placeholder.code is not None:
+                builder = SemanticsCodeBlockBuilder()
+                pc.emitStore(builder, pcVal, None)
+                value = placeholder.computeValue(builder, values.__getitem__)
+            values[name] = value
 
         subs = {
-            subName: subMatch.substPC(pcBits, pcVal)
+            subName: subMatch.substPC(pc, pcVal)
             for subName, subMatch in self._subs.items()
             }
 
@@ -857,6 +849,30 @@ class ValuePlaceholder(Placeholder):
 
     def rename(self, name: str) -> ValuePlaceholder:
         return ValuePlaceholder(name, self._type, self._code)
+
+    def computeValue(self,
+                     builder: SemanticsCodeBlockBuilder,
+                     argFetcher: Callable[[str], Optional[BitString]]
+                     ) -> FixedValue:
+        '''Computes the value of this placeholder.
+        The builder can already contain nodes, for example to initialize
+        registers like the program counter. This placeholder's code will
+        be inlined on the builder.
+        See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
+        fetching works.
+        '''
+        code = self._code
+        if code is None:
+            # TODO: Make a separate subclass for computed placeholders?
+            raise ValueError(f'placeholder {self._name} is not computed')
+        returned = builder.inlineBlock(code, argFetcher)
+        computeCode = CodeBlockSimplifier(builder.nodes, returned)
+        computeCode.simplify()
+        valBits, = computeCode.returned
+        assert isinstance(valBits, FixedValue), valBits
+        valType = self._type
+        valExpr = decodeInt(valBits.expr, valType)
+        return FixedValue(simplifyExpression(valExpr), valType.width)
 
 class MatchPlaceholder(Placeholder):
     '''An element from a mode context that will be filled in by a match made
