@@ -286,8 +286,10 @@ class LineReader:
         '''
         lastline = self._lastline
         if lastline is None:
-            raise ValueError('Location requested for EOF')
-        span = (0, len(lastline))
+            lastline = '[end of file]'
+            span = (0, 0)
+        else:
+            span = (0, len(lastline))
         return InputLocation(self._pathname, self._lineno, lastline, span)
 
     def debug(self, msg: str, *args: object, **kwargs: object) -> None:
@@ -331,16 +333,17 @@ class LineReader:
             )
         msg = f"{_pluralize(self.errors, 'error')} and " \
               f"{_pluralize(self.warnings, 'warning')}"
-        self.__log(level, msg)
+        self.__log(level, msg, location=None)
 
     def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
         logger = self.logger
         if logger.isEnabledFor(level):
-            location = cast(
-                Union[None, InputLocation, Sequence[InputLocation]],
-                kwargs.pop('location', None)
-                )
-            if location is None and self._lastline is not None:
+            try:
+                location = cast(
+                    Union[None, InputLocation, Sequence[InputLocation]],
+                    kwargs.pop('location')
+                    )
+            except KeyError:
                 location = self.location
             extra = dict(location=location)
             logger.log(level, msg, *args, extra=extra, **kwargs)
