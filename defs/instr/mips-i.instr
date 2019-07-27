@@ -244,7 +244,7 @@ instr
 %000000;RS;RT;RD;%00000;%101010 . slt   RD,RS,RT    . RD := s32(RS) < s32(RT)   . reg RS, reg RT, reg RD
 %000000;RS;RT;RD;%00000;%101011 . sltu  RD,RS,RT    . RD := RS < RT             . reg RS, reg RT, reg RD
 %001010;RS;RT;N                 . slti  RT,RS,N     . RT := s32(RS) < N         . reg RS, reg RT, s16 N
-%001011;RS;RT;N                 . sltiu RT,RS,N     . RT := RS < N              . reg RS, reg RT, u16 N
+%001011;RS;RT;N                 . sltiu RT,RS,N     . RT := RS < N              . reg RS, reg RT, s16 N
 
 
 ### Branching
