@@ -42,12 +42,10 @@ extensions = (
 def renderFile(inFileName, outFileName):
     print(inFileName, '->', outFileName)
     markdownFromFile(
-        input=inFileName, output=outFileName, extensions=extensions
+        input=str(inFileName), output=str(outFileName), extensions=extensions
         )
 
 def renderDir(inBase, outBase):
-    if isdir(outBase):
-        rmtree(outBase)
     inPrefix = str(inBase) + '/'
     outPrefix = str(outBase) + '/'
     for dirPath, subdirList, fileList in walk(inBase):

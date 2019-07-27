@@ -2,15 +2,17 @@ from pathlib import Path
 
 from invoke import UnexpectedExit, task
 
-from utils.markdown import renderDir
+from utils.markdown import renderDir, renderFile
 
 TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / 'src'
+OUT_DIR = TOP_DIR / 'output'
 
 @task
 def docs(c):
     """Build documentation."""
-    renderDir(TOP_DIR / 'docs', TOP_DIR / 'output' / 'docs')
+    renderFile(TOP_DIR / 'README.md', OUT_DIR / 'docs' / 'README.html')
+    renderDir(TOP_DIR / 'docs', OUT_DIR / 'docs')
 
 @task
 def test(c):
