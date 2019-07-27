@@ -120,18 +120,6 @@ def _parseRegs(reader: DefLineReader,
                         location=ex.locations
                         )
 
-    # Check the program counter.
-    try:
-        pc = globalNamespace['pc']
-    except KeyError:
-        reader.error(
-            'no program counter defined: '
-            'a register or alias named "pc" is required',
-            location=headerLocation
-            )
-    else:
-        assert isinstance(pc, Reference), pc
-
 _reCommaSep = re.compile(r'\s*,\s*')
 _reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
 
@@ -1367,6 +1355,17 @@ def parseInstrSet(pathname: str,
                     'unknown definition type "%s"', defType, location=keyword
                     )
                 reader.skipBlock()
+
+        # Check that the program counter was defined.
+        try:
+            pc = globalNamespace['pc']
+        except KeyError:
+            reader.error(
+                'no program counter defined: '
+                'a register or alias named "pc" is required'
+                )
+        else:
+            assert isinstance(pc, Reference), pc
 
         encWidth = _determineEncodingWidth(instructions, False, None, reader)
         anyAux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
