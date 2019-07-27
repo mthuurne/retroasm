@@ -37,7 +37,7 @@ from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError,
     Namespace
 )
-from .reference import BitString, Reference, badReference
+from .reference import Reference, badReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
 from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
 
@@ -50,7 +50,7 @@ _reDotSep = re.compile(r'\s*\.\s*')
 def _parseRegs(reader: DefLineReader,
                args: InputLocation,
                globalNamespace: GlobalNamespace
-               ) -> Optional[BitString]:
+               ) -> None:
     headerLocation = reader.location
     if args:
         reader.error(
@@ -129,10 +129,8 @@ def _parseRegs(reader: DefLineReader,
             'a register or alias named "pc" is required',
             location=headerLocation
             )
-        return None
     else:
         assert isinstance(pc, Reference), pc
-        return pc.bits
 
 _reCommaSep = re.compile(r'\s*,\s*')
 _reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
@@ -1018,7 +1016,6 @@ def _parseMnemonic(mnemLoc: InputLocation,
 def _parseModeEntries(
         reader: DefLineReader,
         globalNamespace: GlobalNamespace,
-        pc: Optional[BitString],
         prefixes: PrefixMappingFactory,
         modes: Dict[str, Mode],
         modeType: Union[None, IntType, ReferenceType],
@@ -1158,10 +1155,10 @@ def _parseModeEntries(
             #       with a None encoding or decoding; was that better or
             #       incorrect?
             if encoding is not None and decoding is not None:
-                if semantics is None or pc is None:
+                if semantics is None:
                     template = None
                 else:
-                    template = CodeTemplate(semantics, placeholders, pc)
+                    template = CodeTemplate(semantics, placeholders)
                 entry = ModeEntry(encoding, mnemonic, template, placeholders)
                 yield ParsedModeEntry(entry, decoding, flagsRequired)
 
@@ -1229,7 +1226,6 @@ def _parseMode(
         reader: DefLineReader,
         args: InputLocation,
         globalNamespace: GlobalNamespace,
-        pc: Optional[BitString],
         prefixes: PrefixMappingFactory,
         modes: Dict[str, Mode],
         modeEntries: Dict[Optional[str], List[ParsedModeEntry]],
@@ -1274,7 +1270,7 @@ def _parseMode(
 
     # Parse entries.
     parsedEntries = list(_parseModeEntries(
-        reader, globalNamespace, pc, prefixes, modes, semType, (),
+        reader, globalNamespace, prefixes, modes, semType, (),
         _parseModeSemantics, wantSemantics
         ))
 
@@ -1291,7 +1287,6 @@ def _parseInstr(
         reader: DefLineReader,
         args: InputLocation,
         globalNamespace: GlobalNamespace,
-        pc: Optional[BitString],
         prefixes: PrefixMappingFactory,
         modes: Dict[str, Mode],
         wantSemantics: bool
@@ -1299,7 +1294,7 @@ def _parseInstr(
     mnemBase = tuple(_parseMnemonic(args, {}, reader))
 
     for instr in _parseModeEntries(
-            reader, globalNamespace, pc, prefixes, modes, None, mnemBase,
+            reader, globalNamespace, prefixes, modes, None, mnemBase,
             _parseInstrSemantics, wantSemantics
             ):
         encDef = instr.entry.encoding
@@ -1337,7 +1332,6 @@ def parseInstrSet(pathname: str,
     modes: Dict[str, Mode] = {}
     modeEntries: Dict[Optional[str], List[ParsedModeEntry]] = {}
     instructions = modeEntries.setdefault(None, [])
-    pc = None
 
     with DefLineReader.open(pathname, logger) as reader:
         for header in reader:
@@ -1351,7 +1345,7 @@ def parseInstrSet(pathname: str,
             args = match.group(2) if match.hasGroup(2) else header.endLocation
             defType = keyword.text
             if defType == 'reg':
-                pc = _parseRegs(reader, args, globalNamespace)
+                _parseRegs(reader, args, globalNamespace)
             elif defType == 'io':
                 _parseIO(reader, args, globalNamespace)
             elif defType == 'prefix':
@@ -1360,12 +1354,12 @@ def parseInstrSet(pathname: str,
                 _parseFunc(reader, args, globalNamespace, wantSemantics)
             elif defType == 'mode':
                 _parseMode(
-                    reader, args, globalNamespace, pc, prefixes, modes,
+                    reader, args, globalNamespace, prefixes, modes,
                     modeEntries, wantSemantics
                     )
             elif defType == 'instr':
                 instructions += _parseInstr(
-                    reader, args, globalNamespace, pc, prefixes, modes,
+                    reader, args, globalNamespace, prefixes, modes,
                     wantSemantics
                     )
             else:

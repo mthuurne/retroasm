@@ -434,12 +434,10 @@ class CodeTemplate:
 
     def __init__(self,
                  code: CodeBlock,
-                 placeholders: OrderedDict[str, Placeholder],
-                 pcBits: BitString
+                 placeholders: OrderedDict[str, Placeholder]
                  ):
         self.code = code
         self.placeholders = placeholders
-        self.pcBits = pcBits
 
     def fillPlaceholders(self, match: EncodeMatch) -> CodeTemplate:
         '''Return a new code template, in which placeholders are replaced by
@@ -472,7 +470,7 @@ class CodeTemplate:
         returned = builder.inlineBlock(self.code, values.get)
         newCode = builder.createCodeBlock(returned)
 
-        return CodeTemplate(newCode, placeholders, self.pcBits)
+        return CodeTemplate(newCode, placeholders)
 
     def rename(self, nameMap: Mapping[str, str]) -> CodeTemplate:
         '''Returns a new CodeTemplate, in which all placeholder names are
@@ -495,8 +493,7 @@ class CodeTemplate:
             OrderedDict(
                 (nameMap[name], value)
                 for name, value in self.placeholders.items()
-                ),
-            self.pcBits
+                )
             )
 
 class ModeEntry:
@@ -607,10 +604,9 @@ class ModeMatch:
     def __repr__(self) -> str:
         return f'ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})'
 
-    def substPC(self, pcVal: Expression) -> ModeMatch:
+    def substPC(self, pcBits: BitString, pcVal: Expression) -> ModeMatch:
         entry = self._entry
 
-        pcBits = entry.semantics.pcBits
         # TODO: For currently supported systems PC is a single storage,
         #       but in general this need not be true.
         assert isinstance(pcBits, SingleStorage), pcBits
@@ -630,7 +626,7 @@ class ModeMatch:
             }
 
         subs = {
-            subName: subMatch.substPC(pcVal)
+            subName: subMatch.substPC(pcBits, pcVal)
             for subName, subMatch in self._subs.items()
             }
 

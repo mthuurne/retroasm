@@ -1,4 +1,4 @@
-from typing import AbstractSet, Dict, MutableSet, Union
+from typing import AbstractSet, Dict, MutableSet, Union, cast
 
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -25,6 +25,8 @@ class Disassembler:
         to be executed at the given address.
         '''
         instrSet = self._instrSet
+        pc = cast(Reference, instrSet.globalNamespace['pc'])
+        pcBits = pc.bits
         decodePrefix = instrSet.prefixDecodeFunc
         prefixMapping = instrSet.prefixMapping
         prefixInitCode = prefixMapping.initCode
@@ -75,7 +77,7 @@ class Disassembler:
                 decoded[addr] = Reference(bits, encType)
             else:
                 match = ModeMatch.fromEncodeMatch(encMatch)
-                decoded[addr] = match.substPC(IntLiteral(postAddr))
+                decoded[addr] = match.substPC(pcBits, IntLiteral(postAddr))
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 
