@@ -571,17 +571,14 @@ class ModeMatch:
             if isinstance(placeholder, MatchPlaceholder):
                 subMatch = cast(EncodeMatch, match[name])
                 subs[name] = cls.fromEncodeMatch(subMatch)
+            elif isinstance(placeholder, ComputedPlaceholder):
+                values[name] = placeholder.computeValue(builder,
+                                                        values.__getitem__)
             elif isinstance(placeholder, ValuePlaceholder):
-                if placeholder.code is None:
-                    # Value was decoded.
-                    values[name] = FixedValue(
-                        IntLiteral(cast(int, match[name])),
-                        placeholder.type.width
-                        )
-                else:
-                    # Value is computed.
-                    values[name] = placeholder.computeValue(builder,
-                                                            values.__getitem__)
+                values[name] = FixedValue(
+                    IntLiteral(cast(int, match[name])),
+                    placeholder.type.width
+                    )
             else:
                 assert False, placeholder
 
@@ -610,8 +607,7 @@ class ModeMatch:
         values: Dict[str, BitString] = {}
         for name, value in self._values.items():
             placeholder = placeholders[name]
-            assert isinstance(placeholder, ValuePlaceholder), placeholder
-            if placeholder.code is not None:
+            if isinstance(placeholder, ComputedPlaceholder):
                 builder = SemanticsCodeBlockBuilder()
                 pc.emitStore(builder, pcVal, None)
                 value = placeholder.computeValue(builder, values.__getitem__)
@@ -828,27 +824,40 @@ class ValuePlaceholder(Placeholder):
     def type(self) -> IntType:
         return self._type
 
-    @property
-    def code(self) -> Optional[CodeBlock]:
-        return self._code
-
-    def __init__(self, name: str, typ: IntType, code: Optional[CodeBlock]):
+    def __init__(self, name: str, typ: IntType):
         Placeholder.__init__(self, name)
         self._type = typ
+
+    def __repr__(self) -> str:
+        return f'ValuePlaceholder({self._name!r}, {self._type!r})'
+
+    def __str__(self) -> str:
+        return f'{{{self._type} {self._name}}}'
+
+    def rename(self, name: str) -> ValuePlaceholder:
+        return ValuePlaceholder(name, self._type)
+
+class ComputedPlaceholder(ValuePlaceholder):
+    '''An element from a mode context that represents a computed numeric value.
+    '''
+
+    @property
+    def code(self) -> CodeBlock:
+        return self._code
+
+    def __init__(self, name: str, typ: IntType, code: CodeBlock):
+        ValuePlaceholder.__init__(self, name, typ)
         self._code = code
 
     def __repr__(self) -> str:
-        return f'ValuePlaceholder({self._name!r}, {self._type!r}, ' \
-                                f'{self._code!r})'
+        return f'ComputedPlaceholder({self._name!r}, {self._type!r}, ' \
+                                   f'{self._code!r})'
 
     def __str__(self) -> str:
-        if self._code is None:
-            return f'{{{self._type} {self._name}}}'
-        else:
-            return f'{{{self._type} {self._name} = ...}}'
+        return f'{{{self._type} {self._name} = ...}}'
 
-    def rename(self, name: str) -> ValuePlaceholder:
-        return ValuePlaceholder(name, self._type, self._code)
+    def rename(self, name: str) -> ComputedPlaceholder:
+        return ComputedPlaceholder(name, self._type, self._code)
 
     def computeValue(self,
                      builder: SemanticsCodeBlockBuilder,
@@ -861,11 +870,7 @@ class ValuePlaceholder(Placeholder):
         See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
         fetching works.
         '''
-        code = self._code
-        if code is None:
-            # TODO: Make a separate subclass for computed placeholders?
-            raise ValueError(f'placeholder {self._name} is not computed')
-        returned = builder.inlineBlock(code, argFetcher)
+        returned = builder.inlineBlock(self._code, argFetcher)
         computeCode = CodeBlockSimplifier(builder.nodes, returned)
         computeCode.simplify()
         valBits, = computeCode.returned

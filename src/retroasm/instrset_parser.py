@@ -29,9 +29,9 @@ from .linereader import (
     BadInput, DefLineReader, DelayedError, InputLocation, mergeSpan
 )
 from .mode import (
-    CodeTemplate, Encoding, EncodingExpr, EncodingItem, EncodingMultiMatch,
-    MatchPlaceholder, MnemItem, Mnemonic, Mode, ModeEntry, Placeholder,
-    ValuePlaceholder
+    CodeTemplate, ComputedPlaceholder, Encoding, EncodingExpr, EncodingItem,
+    EncodingMultiMatch, MatchPlaceholder, MnemItem, Mnemonic, Mode, ModeEntry,
+    Placeholder, ValuePlaceholder
 )
 from .namespace import (
     ContextNamespace, GlobalNamespace, LocalNamespace, NameExistsError,
@@ -534,7 +534,10 @@ def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
                 # TODO: We don't actually support references types yet.
                 #       See TODO in _parseModeContext().
                 assert isinstance(semType, IntType), semType
-                yield name, ValuePlaceholder(name, semType, code)
+                if code is None:
+                    yield name, ValuePlaceholder(name, semType)
+                else:
+                    yield name, ComputedPlaceholder(name, semType, code)
         elif isinstance(spec, MatchPlaceholderSpec):
             yield name, MatchPlaceholder(name, spec.mode)
         else:
