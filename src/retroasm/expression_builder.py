@@ -165,7 +165,13 @@ def _convertFunctionCall(callNode: OperatorNode,
     argMap = {}
     for (name, decl), argNode in zip(func.args.items(), argNodes):
         assert argNode is not None, callNode
-        ref = buildReference(argNode, namespace)
+        try:
+            ref = buildReference(argNode, namespace)
+        except BadExpression as ex:
+            raise BadExpression(
+                f'in call to function "{funcName}", argument "{name}": {ex}',
+                *ex.locations
+                ) from ex
         if isinstance(decl, ReferenceType):
             # For reference arguments, we demand the passed width to match the
             # argument width, so truncation is never required.
