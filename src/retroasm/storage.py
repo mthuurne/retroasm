@@ -92,7 +92,7 @@ class IOChannel:
         return True
 
 class Storage:
-    '''A location in which a typed value can be stored.
+    '''A location in which bits can be stored.
     '''
     __slots__ = ('_width',)
 
