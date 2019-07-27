@@ -98,36 +98,36 @@ Operators
 
 The following operators can be used in expressions:
 
-Name                |Notation           |Types
-:------------------ |:----------------- |:------
-bitwise and         | *A* & *B*         | int &times; int &rarr; int
-bitwise or          | *A* &#124; *B*    | int &times; int &rarr; int
-bitwise xor         | *A* ^ *B*         | int &times; int &rarr; int
-shift left          | *A* << *B*        | int &times; int &rarr; int
-shift right         | *A* >> *B*        | int &times; int &rarr; int
-addition            | *A* + *B*         | int &times; int &rarr; int
-subtraction         | *A* - *B*         | int &times; int &rarr; int
-type conversion     | to_s(*A*)         | u*N* &rarr; s*N*
-                    | to_u(*A*)         | s*N* &rarr; u*N*
-complement          | -*A*              | int &rarr; int
-bitwise complement  | ~*A*              | int &rarr; int
-logical negation    | !*A*              | int &rarr; u1
-equality            | *A* == *B*        | int &times; int &rarr; u1
-inequality          | *A* != *B*        | int &times; int &rarr; u1
-lesser than         | *A* < *B*         | int &times; int &rarr; u1
-lesser or equal     | *A* <= *B*        | int &times; int &rarr; u1
-greater than        | *A* > *B*         | int &times; int &rarr; u1
-greater or equal    | *A* >= *B*        | int &times; int &rarr; u1
-concatenation       | *A* ; *B*         | int& &times; (u&#124;s)*N*& &rarr; int&
-                    |                   | u*M*& &times; (u&#124;s)*N*& &rarr; u(*M*+*N*)&
-                    |                   | s*M*& &times; (u&#124;s)*N*& &rarr; s(*M*+*N*)&
-slicing             | *A*[*K*:*L*]      | int& &rarr; u(*L*-*K*)&
-                    | *A*[:*L*]         | int& &rarr; u*L*&
-                    | *A*[*K*:]         | int& &rarr; int&
-                    |                   | u*N*& &rarr; u(*N*-*K*)&
-                    |                   | s*N*& &rarr; s(*N*-*K*)&
-bitwise lookup      | *A*[*K*]          | int& &rarr; u1&
-I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*&
+Name                  |Notation           |Types
+:-------------------- |:----------------- |:------
+| bitwise and         | *A* & *B*         | int &times; int &rarr; int
+| bitwise or          | *A* &#124; *B*    | int &times; int &rarr; int
+| bitwise xor         | *A* ^ *B*         | int &times; int &rarr; int
+| shift left          | *A* << *B*        | int &times; int &rarr; int
+| shift right         | *A* >> *B*        | int &times; int &rarr; int
+| addition            | *A* + *B*         | int &times; int &rarr; int
+| subtraction         | *A* - *B*         | int &times; int &rarr; int
+| type conversion     | to_s(*A*)         | u*N* &rarr; s*N*
+|                     | to_u(*A*)         | s*N* &rarr; u*N*
+| complement          | -*A*              | int &rarr; int
+| bitwise complement  | ~*A*              | int &rarr; int
+| logical negation    | !*A*              | int &rarr; u1
+| equality            | *A* == *B*        | int &times; int &rarr; u1
+| inequality          | *A* != *B*        | int &times; int &rarr; u1
+| lesser than         | *A* < *B*         | int &times; int &rarr; u1
+| lesser or equal     | *A* <= *B*        | int &times; int &rarr; u1
+| greater than        | *A* > *B*         | int &times; int &rarr; u1
+| greater or equal    | *A* >= *B*        | int &times; int &rarr; u1
+| concatenation       | *A* ; *B*         | int& &times; (u&#124;s)*N*& &rarr; int&
+|                     |                   | u*M*& &times; (u&#124;s)*N*& &rarr; u(*M*+*N*)&
+|                     |                   | s*M*& &times; (u&#124;s)*N*& &rarr; s(*M*+*N*)&
+| slicing             | *A*[*K*:*L*]      | int& &rarr; u(*L*-*K*)&
+|                     | *A*[:*L*]         | int& &rarr; u*L*&
+|                     | *A*[*K*:]         | int& &rarr; int&
+|                     |                   | u*N*& &rarr; u(*N*-*K*)&
+|                     |                   | s*N*& &rarr; s(*N*-*K*)&
+| bitwise lookup      | *A*[*K*]          | int& &rarr; u1&
+| I/O reference       | *C*[*X*]          | u*M* &rarr; u*N*&
 
 Most of these operators should be familiar to the reader, but a few may require a more detailed explanation.
 
