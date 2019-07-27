@@ -298,10 +298,10 @@ instr
 ### Coprocessors
 
 instr
-%0100;%00;%00000;RT;RD;%00000;%000000   . mfc0 RT,RD    . RD := cpr0[RT]            . u5 RT, reg RD
-%0100;%01;%00000;RT;RD;%00000;%000000   . mfc1 RT,RD    . RD := cpr1[RT]            . u5 RT, reg RD
-%0100;%10;%00000;RT;RD;%00000;%000000   . mfc2 RT,RD    . RD := cpr2[RT]            . u5 RT, reg RD
-%0100;%11;%00000;RT;RD;%00000;%000000   . mfc3 RT,RD    . RD := cpr3[RT]            . u5 RT, reg RD
+%0100;%00;%00000;RT;RD;%00000;%000000   . mfc0 RT,RD    . RT := cpr0[RD]            . reg RT, u5 RD
+%0100;%01;%00000;RT;RD;%00000;%000000   . mfc1 RT,RD    . RT := cpr1[RD]            . reg RT, u5 RD
+%0100;%10;%00000;RT;RD;%00000;%000000   . mfc2 RT,RD    . RT := cpr2[RD]            . reg RT, u5 RD
+%0100;%11;%00000;RT;RD;%00000;%000000   . mfc3 RT,RD    . RT := cpr3[RD]            . reg RT, u5 RD
 %0100;%01;%00010;RT;RD;%00000;%000000   . cfc1 RT,RD    . RT := ccr1[RD]            . reg RT, u5 RD
 %0100;%10;%00010;RT;RD;%00000;%000000   . cfc2 RT,RD    . RT := ccr2[RD]            . reg RT, u5 RD
 %0100;%11;%00010;RT;RD;%00000;%000000   . cfc3 RT,RD    . RT := ccr3[RD]            . reg RT, u5 RD
