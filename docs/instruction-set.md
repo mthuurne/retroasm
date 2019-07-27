@@ -98,8 +98,8 @@ Operators
 
 The following operators can be used in expressions:
 
-Name                  |Notation           |Types
-:-------------------- |:----------------- |:------
+|Name                 |Notation           |Types
+|:------------------- |:----------------- |:------
 | bitwise and         | *A* & *B*         | int &times; int &rarr; int
 | bitwise or          | *A* &#124; *B*    | int &times; int &rarr; int
 | bitwise xor         | *A* ^ *B*         | int &times; int &rarr; int
