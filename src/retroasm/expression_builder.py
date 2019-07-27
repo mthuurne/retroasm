@@ -495,7 +495,10 @@ def buildStatementEval(reader: LineReader,
 
     elif isinstance(node, OperatorNode) and node.operator is Operator.call:
         # Function call.
-        ref_ = _convertFunctionCall(node, namespace)
+        try:
+            ref_ = _convertFunctionCall(node, namespace)
+        except BadExpression as ex:
+            reader.error('%s', ex, location=ex.locations)
         # Skip no-effect check: if a function does nothing, it likely either
         # does so on purpose or a warning will already have been issued there.
         return
