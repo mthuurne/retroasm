@@ -176,7 +176,7 @@ class Decoder:
     def dump(self, indent: str = '', submodes: bool = True) -> None:
         raise NotImplementedError
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Union[EncodeMatch, int]]:
+    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
         '''Attempts to decode an instruction from the given fetcher.
         Returns an encode match, or None if no match could be made.
         '''
@@ -194,7 +194,7 @@ class SequentialDecoder(Decoder):
             decoder.dump(indent + '+ ', submodes)
             indent = ' ' * len(indent)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Union[EncodeMatch, int]]:
+    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
         for decoder in self._decoders:
             match = decoder.tryDecode(fetcher)
             if match is not None:
@@ -223,7 +223,7 @@ class TableDecoder(Decoder):
         for idx, decoder in enumerate(self._table):
             decoder.dump(' ' * len(indent) + f'${idx:02x}: ', submodes)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Union[EncodeMatch, int]]:
+    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
         encoded = fetcher[self._index]
         if encoded is None:
             return None
@@ -277,7 +277,7 @@ class FixedPatternDecoder(Decoder):
         maskStr = _formatMask(f'enc{self._index:d}', self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Union[EncodeMatch, int]]:
+    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
         encoded = fetcher[self._index]
         if encoded is None or encoded & self._mask != self._value:
             return None
@@ -326,7 +326,7 @@ class PlaceholderDecoder(Decoder):
         if submodes and sub is not None:
             sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Union[EncodeMatch, int]]:
+    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
         slices = self._slices
         if slices is None:
             value = None
@@ -354,7 +354,6 @@ class PlaceholderDecoder(Decoder):
                 # Note: When there are slices, the multi-matcher won't match
                 #       the first unit, since they have been matched by single
                 #       matcher(s) already.
-                assert isinstance(decoded, EncodeMatch), decoded
                 delta = decoded.encodedLength - (1 if slices is None else 2)
                 if delta != 0:
                     fetcher = AfterModeFetcher(fetcher, auxIdx, delta)
@@ -362,7 +361,6 @@ class PlaceholderDecoder(Decoder):
         # Decode remainder.
         match = self._next.tryDecode(fetcher)
         if match is not None:
-            assert isinstance(match, EncodeMatch), match
             assert decoded is not None
             match[self._name] = decoded
         return match

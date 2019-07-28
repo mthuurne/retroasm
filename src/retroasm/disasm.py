@@ -65,7 +65,6 @@ class Disassembler:
             # Decode instruction.
             decoder = instrSet.getDecoder(flags)
             encMatch = decoder.tryDecode(fetcher)
-            assert encMatch is None or isinstance(encMatch, EncodeMatch)
             encodedLength = 1 if encMatch is None else encMatch.encodedLength
             postAddr = addr + encodedLength * numBytes
             if encMatch is None:
