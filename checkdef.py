@@ -31,20 +31,26 @@ def dumpDecoders(instrSet, submodes):
             print()
         instrSet.getDecoder(flags).dump(submodes=submodes)
 
-def checkInstrSet(pathname, dumpNoSubs, dumpSubs, logger):
-    logger.info('checking: %s', pathname)
-    instrSet = parseInstrSet(pathname, logger)
+def checkInstrSet(path, dumpNoSubs, dumpSubs, logger):
+    logger.info('checking: %s', path)
+    try:
+        instrSet = parseInstrSet(path, logger)
+    except OSError as ex:
+        logger.error('Could not load instruction set: %s', ex)
+        return 1
 
-    if instrSet is not None:
-        if dumpNoSubs:
-            dumpDecoders(instrSet, False)
-        if dumpSubs:
-            dumpDecoders(instrSet, True)
+    if instrSet is None:
+        return 1
+
+    if dumpNoSubs:
+        dumpDecoders(instrSet, False)
+    if dumpSubs:
+        dumpDecoders(instrSet, True)
+    return 0
 
 def main():
     from argparse import ArgumentParser
-    from os import walk
-    from os.path import exists, isdir, isfile
+    from pathlib import Path
     from sys import stderr
 
     parser = ArgumentParser(
@@ -65,32 +71,21 @@ def main():
     args = parser.parse_args()
 
     files = []
-    dirs = []
-    for path in args.instr:
-        if not exists(path):
-            print('No such file or directory:', path, file=stderr)
-            exit(1)
-        elif isdir(path):
-            dirs.append(path)
-        elif isfile(path):
-            files.append(path)
+    for pathName in args.instr:
+        path = Path(pathName)
+        if path.is_dir():
+            files += path.glob('**/*.instr')
         else:
-            print('Not a regular file or directory:', path, file=stderr)
-            exit(1)
-    if dirs:
-        for dirName in dirs:
-            for dirPath, subdirList, fileList in walk(dirName):
-                for fileName in fileList:
-                    if fileName.endswith('.instr'):
-                        files.append(dirPath + '/' + fileName)
+            files.append(path)
     if not files:
         print('No definition files found (*.instr)', file=stderr)
         exit(1)
 
     logger = setupLogging()
-
-    for path in files:
+    exit(max(
         checkInstrSet(path, args.dump_decoders, args.dump_decoders_subs, logger)
+        for path in files
+        ))
 
 if __name__ == '__main__':
     main()
