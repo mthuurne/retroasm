@@ -118,7 +118,7 @@ class Expression:
                     changed = True
             args.append(value)
         if changed:
-            return self.__class__(*args) # type: ignore
+            return self.__class__(*args)
         else:
             return self
 
