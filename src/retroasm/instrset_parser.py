@@ -1,5 +1,6 @@
 from collections import OrderedDict, defaultdict
 from logging import WARNING, Logger, getLogger
+from pathlib import Path
 from typing import (
     AbstractSet, Callable, DefaultDict, Dict, Iterable, Iterator, List,
     Mapping, Optional, Sequence, Set, Tuple, Union, cast
@@ -1309,7 +1310,7 @@ def _parseInstr(
 
 _reHeader = re.compile(_nameTok + r'(?:\s+(.*\S)\s*)?$')
 
-def parseInstrSet(pathname: str,
+def parseInstrSet(path: Path,
                   logger: Optional[Logger] = None,
                   wantSemantics: bool = True
                   ) -> Optional[InstructionSet]:
@@ -1324,7 +1325,7 @@ def parseInstrSet(pathname: str,
     modeEntries: Dict[Optional[str], List[ParsedModeEntry]] = {}
     instructions = modeEntries.setdefault(None, [])
 
-    with DefLineReader.open(pathname, logger) as reader:
+    with DefLineReader.open(path, logger) as reader:
         for header in reader:
             if not header:
                 continue

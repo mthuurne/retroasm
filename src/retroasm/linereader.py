@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
+from pathlib import Path
 from typing import (
     IO, Any, Iterable, Iterator, Match, Optional, Pattern, Sequence, Tuple,
     Type, TypeVar, Union, cast
@@ -14,12 +15,12 @@ class InputLocation:
     This can be used to provide context in error reporting, by passing it as
     the value of the 'location' argument to the log methods of LineReader.
     '''
-    __slots__ = ('_pathname', '_lineno', '_line', '_span')
+    __slots__ = ('_path', '_lineno', '_line', '_span')
 
     @property
-    def pathname(self) -> str:
+    def path(self) -> Path:
         '''The file system path to the input text file.'''
-        return self._pathname
+        return self._path
 
     @property
     def line(self) -> str:
@@ -40,24 +41,24 @@ class InputLocation:
         return self._span
 
     def __init__(self,
-                 pathname: str,
+                 path: Path,
                  lineno: int,
                  line: str,
                  span: Tuple[int, int]
                  ):
-        self._pathname = pathname
+        self._path = path
         self._lineno = lineno
         self._line = line
         self._span = span
 
     def __repr__(self) -> str:
-        return f'InputLocation({self._pathname!r}, {self._lineno!r}, ' \
+        return f'InputLocation({self._path!r}, {self._lineno!r}, ' \
                              f'{self._line!r}, {self._span!r})'
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, InputLocation):
             # pylint: disable=protected-access
-            return (self._pathname == other._pathname
+            return (self._path == other._path
                 and self._lineno == other._lineno
                 and self._line == other._line
                 and self._span == other._span
@@ -68,7 +69,7 @@ class InputLocation:
     def __ne__(self, other: object) -> bool:
         if isinstance(other, InputLocation):
             # pylint: disable=protected-access
-            return (self._pathname != other._pathname
+            return (self._path != other._path
                  or self._lineno != other._lineno
                  or self._line != other._line
                  or self._span != other._span
@@ -84,7 +85,7 @@ class InputLocation:
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
-        return InputLocation(self._pathname, self._lineno, self._line, span)
+        return InputLocation(self._path, self._lineno, self._line, span)
 
     @property
     def endLocation(self) -> InputLocation:
@@ -246,17 +247,17 @@ class LineReader:
     @classmethod
     @contextmanager
     def open(cls: Type[LineReaderT],
-             pathname: str,
+             path: Path,
              logger: Logger
              ) -> Iterator[LineReaderT]:
-        with open(pathname, 'r') as lines:
-            reader = cls(pathname, lines, logger)
+        with open(path, 'r') as lines:
+            reader = cls(path, lines, logger)
             reader.debug('start reading')
             yield reader
             reader.debug('done reading')
 
-    def __init__(self, pathname: str, lines: IO[str], logger: Logger):
-        self._pathname = pathname
+    def __init__(self, path: Path, lines: IO[str], logger: Logger):
+        self._path = path
         self._lines = lines
         self.logger = logger
 
@@ -290,7 +291,7 @@ class LineReader:
             span = (0, 0)
         else:
             span = (0, len(lastline))
-        return InputLocation(self._pathname, self._lineno, lastline, span)
+        return InputLocation(self._path, self._lineno, lastline, span)
 
     def debug(self, msg: str, *args: object, **kwargs: object) -> None:
         '''Log a message at the DEBUG level.
@@ -373,7 +374,7 @@ class DefLineReader(LineReader):
                     # lines, such that they don't terminate blocks.
                     continue
                 span = (0, end)
-            return InputLocation(self._pathname, self._lineno, line, span)
+            return InputLocation(self._path, self._lineno, line, span)
 
     def iterBlock(self) -> Iterator[InputLocation]:
         '''Iterates through the lines of the current block.
@@ -408,18 +409,18 @@ class LineReaderFormatter(Formatter):
 
     def _formatParts(self,
                      parts: Iterable[Tuple[
-                         Optional[str], Optional[str], int, Optional[str],
+                         Optional[str], Optional[Path], int, Optional[str],
                          Sequence[Tuple[int, int]]
                          ]]
                      ) -> Iterator[str]:
-        for msg, pathname, lineno, line, spans in parts:
-            if pathname is None:
+        for msg, path, lineno, line, spans in parts:
+            if path is None:
                 assert msg is not None
                 yield msg
             elif msg is None:
-                yield f'{pathname}:{lineno:d}:'
+                yield f'{path}:{lineno:d}:'
             else:
-                yield f'{pathname}:{lineno:d}: {msg}'
+                yield f'{path}:{lineno:d}: {msg}'
 
             if line is not None:
                 yield line
@@ -446,14 +447,14 @@ class LineReaderFormatter(Formatter):
                    msg: str,
                    location: Union[None, InputLocation, Sequence[InputLocation]]
                    ) -> Iterator[Tuple[
-                         Optional[str], Optional[str], int, Optional[str],
+                         Optional[str], Optional[Path], int, Optional[str],
                          Sequence[Tuple[int, int]]
                          ]]:
         if location is None:
             yield msg, None, -1, None, []
         elif isinstance(location, InputLocation):
             loc = location
-            yield msg, loc.pathname, loc.lineno, loc.line, [loc.span]
+            yield msg, loc.path, loc.lineno, loc.line, [loc.span]
         else:
             multiMsg: Optional[str] = msg
             i = 0
@@ -465,8 +466,8 @@ class LineReaderFormatter(Formatter):
                 i += 1
                 while i < len(location) and \
                         location[i].lineno == lineno and \
-                        location[i].pathname == loc.pathname:
+                        location[i].path == loc.path:
                     spans.append(location[i].span)
                     i += 1
-                yield multiMsg, loc.pathname, lineno, loc.line, spans
+                yield multiMsg, loc.path, lineno, loc.line, spans
                 multiMsg = None

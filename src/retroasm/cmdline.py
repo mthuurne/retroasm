@@ -1,6 +1,7 @@
 from logging import INFO, Logger, StreamHandler, getLogger
+from pathlib import Path
 
-from click import Path, argument, command, group, option
+from click import Path as PathArg, argument, command, group, option
 
 from .asm_parser import readSource
 from .instrset_parser import parseInstrSet
@@ -18,13 +19,13 @@ def setupLogging() -> Logger:
 
 @command()
 @option('-i', '--instr', required=True, help='Instruction set.')
-@argument('source', type=Path(exists=True))
+@argument('source', type=PathArg(exists=True))
 def asm(instr: str, source: str) -> None:
     """Assembler using the RetroAsm toolkit."""
 
     logger = setupLogging()
 
-    instrPath = f'defs/instr/{instr}.instr'
+    instrPath = Path(f'defs/instr/{instr}.instr')
     try:
         instrSet = parseInstrSet(instrPath, wantSemantics=False)
     except OSError as ex:
@@ -35,8 +36,9 @@ def asm(instr: str, source: str) -> None:
     if instrSet is None:
         exit(1)
 
+    sourcePath = Path(source)
     try:
-        readSource(source, instrSet)
+        readSource(sourcePath, instrSet)
     except OSError as ex:
         logger.error(
             'Failed to read source "%s": %s', ex.filename, ex.strerror

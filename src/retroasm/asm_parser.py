@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from logging import getLogger
+from pathlib import Path
 from typing import Iterable, Iterator, Tuple, Type, Union
 
 from .expression_parser import NumberNode, parseDigits
@@ -163,7 +164,7 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
                 location=tokens.location
                 )
 
-def readSource(path: str, instrSet: InstructionSet) -> None:
+def readSource(path: Path, instrSet: InstructionSet) -> None:
     with LineReader.open(path, logger) as reader:
         with reader.checkErrors():
             parseAsm(reader, instrSet)
