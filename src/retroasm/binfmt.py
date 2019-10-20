@@ -3,7 +3,7 @@ from pathlib import PurePath
 from struct import Struct
 from typing import (
     Any, ClassVar, Collection, Iterable, Iterator, NamedTuple, Optional,
-    Sequence, Tuple, Type, cast
+    Sequence, Type
 )
 
 from .section import ByteOrder, CodeSection, Section
@@ -329,13 +329,12 @@ class RawBinary(BinaryFormat):
         return iter(())
 
 # Build a dictionary of binary formats using introspection.
-def _discoverBinaryFormats(localObjects: Iterable[object]
-                           ) -> Iterator[Tuple[str, BinaryFormat]]:
-    for obj in localObjects:
-        if isinstance(obj, type) and issubclass(obj, BinaryFormat):
-            if obj is not BinaryFormat:
-                yield cast(Type[BinaryFormat], obj).name, obj
-_formatsByName = dict(_discoverBinaryFormats(locals().values()))
+_formatsByName = {
+    obj.name: obj
+    for obj in locals().values()
+    if isinstance(obj, type) and issubclass(obj, BinaryFormat)
+                             and obj is not BinaryFormat
+    }
 
 def iterBinaryFormatNames() -> Iterable[str]:
     '''Iterates through the names of supported binary formats, in no particular
@@ -343,9 +342,9 @@ def iterBinaryFormatNames() -> Iterable[str]:
     '''
     return _formatsByName.keys()
 
-def getBinaryFormat(name: str) -> BinaryFormat:
+def getBinaryFormat(name: str) -> Type[BinaryFormat]:
     '''Looks up a binary format by its name attribute.
-    Returns the BinaryFormat with the given value for its name attribute.
+    Returns the binary format with the given value for its name attribute.
     Raises KeyError if there is no match.
     '''
     return _formatsByName[name]
@@ -353,7 +352,7 @@ def getBinaryFormat(name: str) -> BinaryFormat:
 def _detectBinaryFormats(image: bytes,
                          names: Collection[str],
                          extMatches: bool
-                         ) -> Optional[BinaryFormat]:
+                         ) -> Optional[Type[BinaryFormat]]:
     logger.debug(
         'Binary format autodetection, extension %s:',
         'matches' if extMatches else 'does not match'
@@ -380,12 +379,12 @@ def _detectBinaryFormats(image: bytes,
 
 def detectBinaryFormat(image: bytes,
                        fileName: Optional[str] = None
-                       ) -> Optional[BinaryFormat]:
+                       ) -> Optional[Type[BinaryFormat]]:
     '''Attempts to autodetect the binary format of the given image.
     If a file name is given, its extension will be used to first test the
     formats matching that extension, as well as considering those formats
     to be more likely matches.
-    Returns a BinaryFormat instance on success, None on failure.
+    Returns a binary format on success, None on failure.
     '''
     names = set(_formatsByName.keys())
 
