@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Iterable, Iterator, Optional
+from typing import Iterable, Iterator, Optional, Union
 
+from .types import Unlimited, Width, unlimited
 from .utils import search
 
 ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
@@ -18,14 +19,14 @@ class Section:
         return self._start
 
     @property
-    def end(self) -> int:
+    def end(self) -> Union[int, Unlimited]:
         return self._end
 
     @property
-    def size(self) -> int:
+    def size(self) -> Width:
         return self._end - self._start
 
-    def __init__(self, start: int, end: int):
+    def __init__(self, start: int, end: Union[int, Unlimited]):
         self._start = start
         self._end = end
 
@@ -37,10 +38,18 @@ class Section:
             raise ValueError(f'end ({end:#x}) before start ({start:#x})')
 
     def __repr__(self) -> str:
-        return f'Section({self._start:#x}, {self._end:#x})'
+        end = self._end
+        if end is unlimited:
+            return f'Section({self._start:#x}, unlimited)'
+        else:
+            return f'Section({self._start:#x}, {end:#x})'
 
     def __str__(self) -> str:
-        return f'[{self._start:#x}..{self._end:#x})'
+        end = self._end
+        if isinstance(end, Unlimited):
+            return f'[{self._start:#x}..)'
+        else:
+            return f'[{self._start:#x}..{end:#x})'
 
 class CodeSection(Section):
     '''Section that contains code and possibly also data.
@@ -60,7 +69,7 @@ class CodeSection(Section):
 
     def __init__(self,
                  start: int,
-                 end: int,
+                 end: Union[int, Unlimited],
                  base: int,
                  instrSetName: str,
                  byteOrder: ByteOrder
@@ -74,7 +83,9 @@ class CodeSection(Section):
             raise ValueError(f'negative base: {base:d}')
 
     def __repr__(self) -> str:
-        return f'CodeSection({self._start:#x}, {self._end:#x}, ' \
+        end = self._end
+        endRepr = 'unlimited' if end is unlimited else f'{end:#x}'
+        return f'CodeSection({self._start:#x}, {endRepr}, ' \
                            f'{self._base:#x}, {self._instrSetName!r}, ' \
                            f'ByteOrder.{self._byteOrder.name})'
 
