@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Sequence, Union, cast, overload
+from typing import Iterable, Optional, Sequence, Union, cast
 
 from .codeblock import Load, Store
 from .expression import (

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable, Iterator, Optional, cast
 
 from .expression import Expression
-from .types import IntType, Width, unlimited
+from .types import IntType, Width
 
 
 class IOChannel:

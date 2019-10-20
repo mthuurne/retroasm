@@ -2,7 +2,7 @@ from typing import (
     Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Union
 )
 
-from .codeblock import AccessNode, CodeBlock, Load, LoadedValue, Store
+from .codeblock import AccessNode, CodeBlock, Load, Store
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression
 from .function import Function

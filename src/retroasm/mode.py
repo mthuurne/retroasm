@@ -7,7 +7,7 @@ from typing import (
     Tuple, Type, Union, cast, overload
 )
 
-from .codeblock import CodeBlock, LoadedValue
+from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression, IntLiteral
@@ -17,7 +17,7 @@ from .reference import (
     BitString, FixedValue, Reference, SingleStorage, decodeInt
 )
 from .storage import ArgStorage, Storage
-from .types import IntType, ReferenceType, Width, unlimited
+from .types import IntType, ReferenceType, unlimited
 from .utils import const_property
 
 

@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import AbstractSet, DefaultDict, Dict, Optional
 
 from .codeblock import CodeBlock, Load, LoadedValue, Store

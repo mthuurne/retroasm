@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import (
-    Dict, ItemsView, KeysView, Optional, Sequence, Union, ValuesView, cast
+    Dict, ItemsView, KeysView, Optional, Sequence, Union, ValuesView
 )
 
 from .codeblock import CodeBlock
@@ -9,9 +9,9 @@ from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, optSlice
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
-from .reference import BitString, FixedValue, Reference, SingleStorage
+from .reference import BitString, Reference, SingleStorage
 from .storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
-from .types import IntType, maskForWidth
+from .types import IntType
 
 NamespaceValue = Union[Reference, IOChannel, Function]
 

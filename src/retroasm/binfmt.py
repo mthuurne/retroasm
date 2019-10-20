@@ -1,10 +1,9 @@
-from collections import namedtuple
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 from typing import (
     Any, ClassVar, Collection, Iterable, Iterator, NamedTuple, Optional,
-    Sequence, Tuple, Type, Union, cast
+    Sequence, Tuple, Type, cast
 )
 
 from .section import ByteOrder, CodeSection, Section

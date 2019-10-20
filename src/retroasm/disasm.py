@@ -2,7 +2,6 @@ from typing import AbstractSet, Dict, MutableSet, Union, cast
 
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import EncodeMatch
 from .expression import IntLiteral
 from .fetch import ImageFetcher
 from .instrset import InstructionSet, flagsSetByCode

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from typing import (
-    AbstractSet, Callable, Dict, Iterable, Mapping, Optional, Set, Tuple,
-    TypeVar, cast
+    AbstractSet, Callable, Dict, Iterable, Mapping, Optional, Set, Tuple, cast
 )
 
 from .expression import Expression
