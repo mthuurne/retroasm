@@ -3,12 +3,25 @@ from pathlib import PurePath
 from struct import Struct
 from typing import (
     Any, ClassVar, Collection, Iterable, Iterator, NamedTuple, Optional,
-    Sequence, Type
+    Protocol, Sequence, Type, overload
 )
 
 from .section import ByteOrder, CodeSection, Section
 
 logger = getLogger('binfmt')
+
+class Image(Protocol):
+    """A binary image.
+
+    `mmap.mmap` implements this interface, while it does not implement
+    `ByteString` because it doesn't provide `__contains__`.
+    """
+
+    @overload
+    def __getitem__(self, index: int) -> int: ...
+    @overload
+    def __getitem__(self, index: slice) -> bytes: ...
+    def __len__(self) -> int: ...
 
 class EntryPoint:
     '''A point at which execution can start.
@@ -67,11 +80,11 @@ class BinaryFormat:
     '''Sequence of file name extensions, lower case, excluding the dot.'''
 
     @property
-    def image(self) -> bytes:
+    def image(self) -> Image:
         return self._image
 
     @classmethod
-    def checkImage(cls, image: bytes) -> int:
+    def checkImage(cls, image: Image) -> int:
         '''Checks whether the given image (read-only buffer) might be an
         instance of this binary format.
         Returns a positive number for likely matches, zero for undecided and
@@ -82,7 +95,7 @@ class BinaryFormat:
         '''
         raise NotImplementedError
 
-    def __init__(self, image: bytes):
+    def __init__(self, image: Image):
         self._image = image
 
     def iterSections(self) -> Iterator[Section]:
@@ -112,7 +125,7 @@ class GameBoyROM(BinaryFormat):
         ))
 
     @classmethod
-    def checkImage(cls, image: bytes) -> int:
+    def checkImage(cls, image: Image) -> int:
         header = _unpackStruct(image, 0x100, cls.header)
         if header is None:
             return -1000
@@ -161,7 +174,7 @@ class MSXROM(BinaryFormat):
     _headerStruct = Struct('<2sHHHH6s')
 
     @classmethod
-    def checkImage(cls, image: bytes) -> int:
+    def checkImage(cls, image: Image) -> int:
         headerItems = _unpackStruct(image, 0, cls._headerStruct)
         if headerItems is None:
             return -1000
@@ -202,7 +215,7 @@ class MSXROM(BinaryFormat):
 
         return score
 
-    def __init__(self, image: bytes):
+    def __init__(self, image: Image):
         BinaryFormat.__init__(self, image)
 
         headerItems = _unpackStruct(image, 0, self._headerStruct)
@@ -277,7 +290,7 @@ class PSXExecutable(BinaryFormat):
     _headerStruct = Struct('<8sIIIIIIIIIIII')
 
     @classmethod
-    def checkImage(cls, image: bytes) -> int:
+    def checkImage(cls, image: Image) -> int:
         return 1000 if image[:8] == b'PS-X EXE' else -1000
 
     def __init__(self, image: bytes):
@@ -319,7 +332,7 @@ class RawBinary(BinaryFormat):
     extensions = ('raw', 'bin')
 
     @classmethod
-    def checkImage(cls, image: bytes) -> int:
+    def checkImage(cls, image: Image) -> int:
         return 0
 
     def iterSections(self) -> Iterator[Section]:
@@ -349,7 +362,7 @@ def getBinaryFormat(name: str) -> Type[BinaryFormat]:
     '''
     return _formatsByName[name]
 
-def _detectBinaryFormats(image: bytes,
+def _detectBinaryFormats(image: Image,
                          names: Collection[str],
                          extMatches: bool
                          ) -> Optional[Type[BinaryFormat]]:
@@ -377,7 +390,7 @@ def _detectBinaryFormats(image: bytes,
         logger.debug('No match')
         return None
 
-def detectBinaryFormat(image: bytes,
+def detectBinaryFormat(image: Image,
                        fileName: Optional[str] = None
                        ) -> Optional[Type[BinaryFormat]]:
     '''Attempts to autodetect the binary format of the given image.
@@ -405,7 +418,7 @@ def detectBinaryFormat(image: bytes,
     # Try other formats.
     return _detectBinaryFormats(image, names, False)
 
-def _unpackStruct(image: bytes,
+def _unpackStruct(image: Image,
                   offset: int,
                   struct: Struct
                   ) -> Optional[Sequence[Any]]:

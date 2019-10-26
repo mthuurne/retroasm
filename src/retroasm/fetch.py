@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Optional
+
+from .binfmt import Image
 
 
 class Fetcher:
@@ -37,7 +39,7 @@ class ImageFetcher(Fetcher):
     __slots__ = ('_image', '_offset', '_end', '_numBytes')
 
     def __init__(self,
-                 image: Sequence[int],
+                 image: Image,
                  start: int,
                  end: int,
                  numBytes: int
@@ -55,7 +57,7 @@ class ImageFetcher(Fetcher):
                                          f'{self._numBytes:d})'
 
     @property
-    def image(self) -> Sequence[int]:
+    def image(self) -> Image:
         return self._image
 
     @property
@@ -90,7 +92,7 @@ class ByteFetcher(ImageFetcher):
     __slots__ = ()
 
     def __init__(self,
-                 image: Sequence[int],
+                 image: Image,
                  start: int,
                  end: int,
                  numBytes: int = 1
