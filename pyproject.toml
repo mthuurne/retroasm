@@ -24,6 +24,7 @@ pytest-pythonpath = "^0.7.3"
 pylint = "^2.3"
 mypy = ">=0.720"
 lxml = "^4.3.5"
+pyflakes = "^2.1.1"
 
 [tool.poetry.scripts]
 retro = 'retroasm.cmdline:main'
