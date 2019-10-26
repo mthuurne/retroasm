@@ -1,7 +1,7 @@
 from logging import INFO, Logger, StreamHandler, getLogger
 from pathlib import Path
-from sys import stderr
 from typing import Iterable, List, NoReturn
+import sys
 
 from click import Path as PathArg, argument, command, group, option
 
@@ -35,9 +35,9 @@ def asm(instr: str, source: str) -> None:
         logger.error(
             'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
             )
-        exit(1)
+        sys.exit(1)
     if instrSet is None:
-        exit(1)
+        sys.exit(1)
 
     sourcePath = Path(source)
     try:
@@ -46,9 +46,9 @@ def asm(instr: str, source: str) -> None:
         logger.error(
             'Failed to read source "%s": %s', ex.filename, ex.strerror
             )
-        exit(1)
+        sys.exit(1)
     except DelayedError:
-        exit(1)
+        sys.exit(1)
 
 def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
 
@@ -109,11 +109,11 @@ def checkdef(
         else:
             files.append(path)
     if not files:
-        print('No definition files found (*.instr)', file=stderr)
-        exit(1)
+        print('No definition files found (*.instr)', file=sys.stderr)
+        sys.exit(1)
 
     logger = setupLogging()
-    exit(max(
+    sys.exit(max(
         checkInstrSet(path, dump_decoders, dump_decoders_subs, logger)
         for path in files
         ))
