@@ -12,7 +12,7 @@ authors = ["Maarten ter Huurne <maarten@treewalker.org>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 click = "^7.0"
 
 [tool.poetry.dev-dependencies]
@@ -23,7 +23,7 @@ pytest = "^4.5"
 pytest-pythonpath = "^0.7.3"
 pylint = "^2.3"
 mypy = ">=0.720"
-lxml = "^4.3"
+lxml = "^4.3.5"
 
 [tool.poetry.scripts]
 retro = 'retroasm.cmdline:main'
