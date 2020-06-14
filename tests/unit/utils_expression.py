@@ -4,6 +4,7 @@ from retroasm.expression import (
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 
+
 def makeConcat(exprH, exprL, widthL):
     return OrOperator(exprL, LShift(exprH, widthL))
 
@@ -38,84 +39,81 @@ class TestValue(Expression):
     def complexity(self):
         return 3
 
-class TestExprMixin:
+def assertIntLiteral(expr, value):
+    '''Asserts that the given expression is an unlimited-width int literal
+    with the given value.
+    '''
+    assert isinstance(expr, IntLiteral)
+    assert expr.value == value
 
-    def assertIntLiteral(self, expr, value):
-        '''Asserts that the given expression is an unlimited-width int literal
-        with the given value.
-        '''
-        comparison = IntLiteral(value)
-        assert isinstance(expr, IntLiteral)
-        assert expr.value == value
-
-    def assertAnd(self, expr, *args):
-        assert isinstance(expr, AndOperator)
-        exprs = expr.exprs
-        assert len(exprs) == len(args)
-        found = [False] * len(exprs)
-        missing = []
-        for arg in args:
-            try:
-                found[exprs.index(arg)] = True
-            except ValueError:
-                missing.append(arg)
-        if missing:
-            raise AssertionError(
-                'mismatch on AND arguments: expected %s, got %s' % (
-                    ', '.join("'%s'" % e for e in missing),
-                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                    )
+def assertAnd(expr, *args):
+    assert isinstance(expr, AndOperator)
+    exprs = expr.exprs
+    assert len(exprs) == len(args)
+    found = [False] * len(exprs)
+    missing = []
+    for arg in args:
+        try:
+            found[exprs.index(arg)] = True
+        except ValueError:
+            missing.append(arg)
+    if missing:
+        raise AssertionError(
+            'mismatch on AND arguments: expected %s, got %s' % (
+                ', '.join("'%s'" % e for e in missing),
+                ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
                 )
+            )
 
-    def assertOr(self, expr, *args):
-        assert isinstance(expr, OrOperator)
-        exprs = expr.exprs
-        assert len(exprs) == len(args)
-        found = [False] * len(exprs)
-        missing = []
-        for arg in args:
-            try:
-                found[exprs.index(arg)] = True
-            except ValueError:
-                missing.append(arg)
-        if missing:
-            raise AssertionError(
-                'mismatch on OR arguments: expected %s, got %s' % (
-                    ', '.join("'%s'" % e for e in missing),
-                    ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                    )
+def assertOr(expr, *args):
+    assert isinstance(expr, OrOperator)
+    exprs = expr.exprs
+    assert len(exprs) == len(args)
+    found = [False] * len(exprs)
+    missing = []
+    for arg in args:
+        try:
+            found[exprs.index(arg)] = True
+        except ValueError:
+            missing.append(arg)
+    if missing:
+        raise AssertionError(
+            'mismatch on OR arguments: expected %s, got %s' % (
+                ', '.join("'%s'" % e for e in missing),
+                ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
                 )
+            )
 
-    def assertConcat(self, expr, subExprs):
-        compExprs = []
-        offset = 0
-        for term, width in reversed(subExprs):
-            shifted = simplifyExpression(LShift(term, offset))
-            if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
-                compExprs.append(shifted)
-            if width is unlimited:
-                offset = None
-            else:
-                offset += width
-        self.assertOr(expr, *compExprs)
-
-    def assertSlice(self, expr, subExpr, subWidth, index, width):
-        needsShift = index != 0
-        shift = RShift(subExpr, index) if needsShift else subExpr
-        needsTrunc = subWidth > index + width
-        trunc = truncate(shift, width) if needsTrunc else shift
-        assert str(expr) == str(trunc)
-        assert expr == trunc
-        assert isinstance(expr, type(trunc))
-        shiftExpr = expr.exprs[0] if needsTrunc else expr
-        if needsShift:
-            assert str(shiftExpr) == str(shift)
-            assert shiftExpr == shift
-            assert isinstance(shiftExpr, RShift)
-            assert shiftExpr.offset == index
-            assert shiftExpr.expr == subExpr
+def assertConcat(expr, subExprs):
+    compExprs = []
+    offset = 0
+    for term, width in reversed(subExprs):
+        shifted = simplifyExpression(LShift(term, offset))
+        if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
+            compExprs.append(shifted)
+        if width is unlimited:
+            offset = None
         else:
-            assert shiftExpr == subExpr
+            offset += width
+    assertOr(expr, *compExprs)
 
-    def assertTrunc(self, expr, subExpr, subWidth, width):
-        self.assertSlice(expr, subExpr, subWidth, 0, width)
+def assertSlice(expr, subExpr, subWidth, index, width):
+    needsShift = index != 0
+    shift = RShift(subExpr, index) if needsShift else subExpr
+    needsTrunc = subWidth > index + width
+    trunc = truncate(shift, width) if needsTrunc else shift
+    assert str(expr) == str(trunc)
+    assert expr == trunc
+    assert isinstance(expr, type(trunc))
+    shiftExpr = expr.exprs[0] if needsTrunc else expr
+    if needsShift:
+        assert str(shiftExpr) == str(shift)
+        assert shiftExpr == shift
+        assert isinstance(shiftExpr, RShift)
+        assert shiftExpr.offset == index
+        assert shiftExpr.expr == subExpr
+    else:
+        assert shiftExpr == subExpr
+
+def assertTrunc(expr, subExpr, subWidth, width):
+    assertSlice(expr, subExpr, subWidth, 0, width)

@@ -11,6 +11,7 @@ from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
 
 import unittest
 
+
 def sliceBits(ref, offset, width):
     return SlicedBits(ref, IntLiteral(offset), width)
 
@@ -310,6 +311,3 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
         # Note: Verifying that the right values are being stored based on the
         #       expectation list is quite complex.
         #       We're better off writing a separate test for that.
-
-if __name__ == '__main__':
-    unittest.main()

@@ -1,5 +1,5 @@
-from utils_codeblock import NodeChecker, TestNamespace
-from utils_expression import TestExprMixin, makeConcat
+from utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
+from utils_expression import assertIntLiteral, assertOr, assertTrunc, makeConcat
 
 from retroasm.codeblock import Load, Store
 from retroasm.codeblock_simplifier import CodeBlockSimplifier
@@ -15,9 +15,10 @@ from retroasm.types import IntType
 
 import unittest
 
+
 verbose = False
 
-class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
+class CodeBlockTests(unittest.TestCase):
 
     def setUp(self):
         self.namespace = TestNamespace()
@@ -70,7 +71,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        assertNodes(code.nodes, correct)
 
     def test_unused_load(self):
         '''Test whether unused loads are removed.'''
@@ -84,7 +85,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         node = code.nodes[0]
         assert isinstance(node, Store)
         assert node.storage is refA.bits.storage
-        self.assertIntLiteral(node.expr, 0)
+        assertIntLiteral(node.expr, 0)
 
     def test_unused_load_nonremoval(self):
         '''Test whether unused loads are kept for possible side effects.'''
@@ -97,7 +98,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        assertNodes(code.nodes, correct)
 
     def test_redundant_load_after_load(self):
         '''Test whether redundant successive loads are removed.'''
@@ -116,7 +117,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadA.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_redundant_load_after_store(self):
         '''Test whether a redundant load after a store is removed.'''
@@ -138,7 +139,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         assert store1.storage == refA.bits.storage
         assert store2.storage == refB.bits.storage
         assert store1.expr == store2.expr
-        self.assertTrunc(
+        assertTrunc(
             simplifyExpression(store1.expr),
             simplifyExpression(incA).substitute(
                 lambda expr: load.expr if expr is loadA1 else None
@@ -161,7 +162,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_redundant_other_value_store(self):
         '''Test removal of storing a different value in the same storage.'''
@@ -179,7 +180,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadB.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_uncertain_redundant_load(self):
         '''Test whether aliasing prevents loads from being removed.'''
@@ -204,7 +205,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadA2.expr, refC.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_same_value_redundant_load(self):
         '''Test handling of writing the same value to a potential alias.'''
@@ -223,7 +224,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_local_value(self):
         '''Test whether load and stores of variables are removed.'''
@@ -241,7 +242,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             yield Store(loadA.expr, refB.bits.storage)
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct())
+        assertNodes(code.nodes, correct())
 
     def test_unused_storage_removal(self):
         '''Test whether unused storages are removed.'''
@@ -253,7 +254,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
+        assertNodes(code.nodes, correct)
 
     def test_return_value(self):
         '''Test whether a return value is stored correctly.'''
@@ -271,12 +272,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             )
 
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, correct)
-        retVal, retWidth = self.getRetVal(code)
+        assertNodes(code.nodes, correct)
+        retVal, retWidth = getRetVal(code)
         valueV = code.nodes[0].expr
         valueA = code.nodes[1].expr
         assert retWidth == 8
-        self.assertOr(
+        assertOr(
             retVal,
             simplifyExpression(valueA),
             simplifyExpression(valueV)
@@ -292,7 +293,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         assert len(code.returned) == 1
         retBits,= code.returned
         assert retBits.width == 20
-        self.assertRetVal(code, 604)
+        assertRetVal(code, 604)
 
     def test_return_io_index(self):
         '''Test returning an I/O reference with a simplifiable index.'''
@@ -307,7 +308,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         assert retBits.width == 8
         storage = retBits.storage
         assert isinstance(storage, IOStorage)
-        self.assertIntLiteral(storage.index, 2)
+        assertIntLiteral(storage.index, 2)
 
     def test_return_redundant_load_index(self):
         '''Test returning a redundant loaded value.'''
@@ -324,7 +325,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         assert retBits.width == 8
         storage = retBits.storage
         assert isinstance(storage, IOStorage)
-        self.assertIntLiteral(storage.index, 0x4120)
+        assertIntLiteral(storage.index, 0x4120)
 
     def test_return_fixed_value_ref(self):
         '''Test returning a reference to a fixed value.'''
@@ -332,12 +333,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         value = FixedValue(add, 8)
         self.namespace.addRetReference(Reference(value, IntType.u(8)))
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, ())
+        assertNodes(code.nodes, ())
         assert len(code.returned) == 1
         retBits,= code.returned
         assert isinstance(retBits, FixedValue)
         assert retBits.width == 8
-        self.assertIntLiteral(retBits.expr, 3)
+        assertIntLiteral(retBits.expr, 3)
 
     def test_return_complex_ref(self):
         '''Test returning a non-trivial reference.'''
@@ -347,7 +348,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         slicedBits = SlicedBits(bitsHL, IntLiteral(0), 8)
         self.namespace.addRetReference(Reference(slicedBits, IntType.u(8)))
         code = self.createSimplifiedCode()
-        self.assertNodes(code.nodes, ())
+        assertNodes(code.nodes, ())
         assert len(code.returned) == 1
         retBits,= code.returned
         assert retBits.width == 8
@@ -373,12 +374,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(ret, finalCounter)
 
         code = self.createSimplifiedCode()
-        retVal, retWidth = self.getRetVal(code)
+        retVal, retWidth = getRetVal(code)
         correct = []
         if counterRemains:
             correct.insert(0, Store(retVal, counterRef.bits.storage))
-        self.assertNodes(code.nodes, correct)
-        self.assertRetVal(code, 26)
+        assertNodes(code.nodes, correct)
+        assertRetVal(code, 26)
         assert retWidth == 8
 
     def test_repeated_increase_reg(self):
@@ -400,7 +401,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(ret, loaded)
 
         code = self.createSimplifiedCode()
-        self.assertRetVal(code, compare)
+        assertRetVal(code, compare)
 
     def test_signed_load_positive(self):
         '''Test loading of a positive signed integer.'''
@@ -428,7 +429,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(ret, loaded)
 
         code = self.createSimplifiedCode()
-        self.assertRetVal(code, 987654321)
+        assertRetVal(code, 987654321)
 
     def test_6502_pull(self):
         '''Test simplification of the 6502 PULL instructions.'''
@@ -460,8 +461,4 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             loadM = Load(ioStorage)
             yield loadM
             yield Store(loadM.expr, refD.bits.storage)
-        self.assertNodes(code.nodes, correct())
-
-if __name__ == '__main__':
-    verbose = True
-    unittest.main()
+        assertNodes(code.nodes, correct())

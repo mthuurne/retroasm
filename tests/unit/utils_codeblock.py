@@ -11,38 +11,35 @@ from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Variable
 from retroasm.types import IntType, unlimited
 
-class NodeChecker:
 
-    def assertNodes(self, actualNodes, correctNodes):
-        correctNodes = tuple(correctNodes)
-        loadMap = {}
-        assert len(actualNodes) == len(correctNodes)
-        for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
-            msg = 'node %d of %d' % (i + 1, len(actualNodes))
-            assert isinstance(actual, type(correct)), msg
-            assert actual.storage == correct.storage, msg
-            if isinstance(correct, Load):
-                loadMap[actual.expr] = correct.expr
-            elif isinstance(correct, Store):
-                expr = actual.expr.substitute(loadMap.get)
-                assert expr == correct.expr, msg
-            else:
-                self.fail('unknown node type: %s' % correct.__class__.__name__)
+def assertNodes(actualNodes, correctNodes):
+    correctNodes = tuple(correctNodes)
+    loadMap = {}
+    assert len(actualNodes) == len(correctNodes)
+    for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
+        msg = 'node %d of %d' % (i + 1, len(actualNodes))
+        assert isinstance(actual, type(correct)), msg
+        assert actual.storage == correct.storage, msg
+        if isinstance(correct, Load):
+            loadMap[actual.expr] = correct.expr
+        elif isinstance(correct, Store):
+            expr = actual.expr.substitute(loadMap.get)
+            assert expr == correct.expr, msg
+        else:
+            raise AssertionError(
+                f'unknown node type: {correct.__class__.__name__}'
+                )
 
-    def assertIntLiteral(self, expr, value):
-        assert isinstance(expr, IntLiteral)
-        assert expr.value == value
+def getRetVal(code):
+    retBits, = code.returned
+    assert isinstance(retBits, FixedValue)
+    return retBits.expr, retBits.width
 
-    def getRetVal(self, code):
-        retBits, = code.returned
-        assert isinstance(retBits, FixedValue)
-        return retBits.expr, retBits.width
-
-    def assertRetVal(self, code, value):
-        expr, width = self.getRetVal(code)
-        assert isinstance(expr, IntLiteral)
-        mask = -1 if width is unlimited else ((1 << width) - 1)
-        assert expr.value & mask == value
+def assertRetVal(code, value):
+    expr, width = getRetVal(code)
+    assert isinstance(expr, IntLiteral)
+    mask = -1 if width is unlimited else ((1 << width) - 1)
+    assert expr.value & mask == value
 
 class TestNamespace(LocalNamespace):
 
