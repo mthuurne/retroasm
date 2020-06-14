@@ -6,7 +6,7 @@ import sys
 
 from click import (
     BadParameter, Context, Option, ParamType, Parameter, Path as PathArg,
-    argument, command, group, option
+    argument, command, get_current_context, group, option
 )
 
 from .asm_formatter import Formatter
@@ -50,9 +50,9 @@ def asm(instr: str, source: str) -> None:
         logger.error(
             'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
             )
-        sys.exit(1)
+        get_current_context().exit(1)
     if instrSet is None:
-        sys.exit(1)
+        get_current_context().exit(1)
 
     sourcePath = Path(source)
     try:
@@ -61,9 +61,9 @@ def asm(instr: str, source: str) -> None:
         logger.error(
             'Failed to read source "%s": %s', ex.filename, ex.strerror
             )
-        sys.exit(1)
+        get_current_context().exit(1)
     except DelayedError:
-        sys.exit(1)
+        get_current_context().exit(1)
 
 def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
 
@@ -125,10 +125,10 @@ def checkdef(
             files.append(path)
     if not files:
         print('No definition files found (*.instr)', file=sys.stderr)
-        sys.exit(1)
+        get_current_context().exit(1)
 
     logger = setupLogging(INFO)
-    sys.exit(max(
+    get_current_context().exit(max(
         checkInstrSet(path, dump_decoders, dump_decoders_subs, logger)
         for path in files
         ))
@@ -487,7 +487,7 @@ def disasm(
             with mmap(binFile.fileno(), 0, access=ACCESS_READ) as image:
                 factory = determineBinaryFormat(image, binary, binfmt, logger)
                 if factory is None:
-                    sys.exit(1)
+                    get_current_context().exit(1)
                 binaryFormat = factory(image)
                 disassembleBinary(binaryFormat, sections, entries, logger)
     except OSError as ex:
@@ -495,7 +495,7 @@ def disasm(
             logger.error('Failed to read binary "%s": %s', binary, ex.strerror)
         else:
             logger.error('OS error: %s', ex.strerror)
-        sys.exit(1)
+        get_current_context().exit(1)
 
 @group()
 def main() -> None:
