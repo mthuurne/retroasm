@@ -115,7 +115,7 @@ class ConstPropertyTests(unittest.TestCase):
 
     def test_readonly_iter_value(self):
         '''Test that the returned value is converted to a read-only type.'''
-        data = range(10)
+        data = tuple(range(10))
         obj = DataType(iter(data))
         assert obj.prop == data
         with pytest.raises(AttributeError):

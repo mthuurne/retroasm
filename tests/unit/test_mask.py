@@ -31,13 +31,13 @@ class MaskTests(unittest.TestCase):
 
     def test_maskToSegments(self):
         '''Test maskToSegments function.'''
-        assert list(maskToSegments(0x0000)) == ()
-        assert list(maskToSegments(0x0003)) == ((0, 2),)
-        assert list(maskToSegments(0x0078)) == ((3, 7),)
-        assert list(maskToSegments(0xF7DE)) == ((1, 5), (6, 11), (12, 16))
-        assert list(maskToSegments(-1)) == ((0, unlimited),)
-        assert list(maskToSegments(-16)) == ((4, unlimited),)
-        assert list(maskToSegments(-64 ^ 0x1C00)) == ((6, 10), (13, unlimited))
+        assert list(maskToSegments(0x0000)) == []
+        assert list(maskToSegments(0x0003)) == [(0, 2)]
+        assert list(maskToSegments(0x0078)) == [(3, 7)]
+        assert list(maskToSegments(0xF7DE)) == [(1, 5), (6, 11), (12, 16)]
+        assert list(maskToSegments(-1)) == [(0, unlimited)]
+        assert list(maskToSegments(-16)) == [(4, unlimited)]
+        assert list(maskToSegments(-64 ^ 0x1C00)) == [(6, 10), (13, unlimited)]
 
     def test_segmentsToMask(self):
         '''Test segmentsToMask function.'''
