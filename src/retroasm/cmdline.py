@@ -6,7 +6,7 @@ import sys
 
 from click import (
     BadParameter, Context, Option, ParamType, Parameter, Path as PathArg,
-    argument, command, get_current_context, group, option
+    argument, command, get_current_context, group, option, version_option
 )
 
 from .asm_formatter import Formatter
@@ -498,6 +498,7 @@ def disasm(
         get_current_context().exit(1)
 
 @group()
+@version_option(prog_name='RetroAsm', message='%(prog)s version %(version)s')
 def main() -> None:
     """Command line interface to the RetroAsm assembly toolkit."""
     pass
