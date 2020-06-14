@@ -5,8 +5,8 @@ from typing import Dict, Iterable, List, NoReturn, Optional, Type, Union
 import sys
 
 from click import (
-    BadParameter, Context, Option, Parameter, Path as PathArg, argument,
-    command, group, option, ParamType
+    BadParameter, Context, Option, ParamType, Parameter, Path as PathArg,
+    argument, command, group, option
 )
 
 from .asm_formatter import Formatter
