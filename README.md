@@ -32,6 +32,18 @@ RetroAsm isn't ready for any kind of practical use. It does a lot of cool things
 
 Until the 1.0 release, expect backwards incompatible changes everywhere: in the instruction set definition language, in the API, in the tools command line syntax etc.
 
+Shell Completion
+----------------
+
+If you're using Bash:
+
+    $ mkdir -p ~/.local/share/bash-completion/completions
+    $ _RETRO_COMPLETE=source_bash retro > ~/.local/share/bash-completion/completions/retroasm
+
+On every new shell you start, command lines that start with `retro` should now be completed in a meaningful way when you press Tab.
+
+If you're using a different shell, please consult the [Click documentation](https://click.palletsprojects.com/en/7.x/bashcomplete/).
+
 Development
 -----------
 
