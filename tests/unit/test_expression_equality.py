@@ -8,20 +8,20 @@ import unittest
 class EqualsTests(unittest.TestCase):
 
     def assertExprEqual(self, expr1, expr2):
-        self.assertEqual(expr1, expr2)
-        self.assertEqual(expr2, expr1)
-        self.assertIs(expr1 == expr2, True)
-        self.assertIs(expr2 == expr1, True)
-        self.assertIs(expr1 != expr2, False)
-        self.assertIs(expr2 != expr1, False)
+        assert expr1 == expr2
+        assert expr2 == expr1
+        assert (expr1 == expr2) is True
+        assert (expr2 == expr1) is True
+        assert (expr1 != expr2) is False
+        assert (expr2 != expr1) is False
 
     def assertExprNotEqual(self, expr1, expr2):
-        self.assertNotEqual(expr1, expr2)
-        self.assertNotEqual(expr2, expr1)
-        self.assertIs(expr1 == expr2, False)
-        self.assertIs(expr2 == expr1, False)
-        self.assertIs(expr1 != expr2, True)
-        self.assertIs(expr2 != expr1, True)
+        assert expr1 != expr2
+        assert expr2 != expr1
+        assert (expr1 == expr2) is False
+        assert (expr2 == expr1) is False
+        assert (expr1 != expr2) is True
+        assert (expr2 != expr1) is True
 
     def test_int(self):
         '''Checks integer literals for equality.'''

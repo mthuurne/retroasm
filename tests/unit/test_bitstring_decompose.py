@@ -21,14 +21,14 @@ class DecomposeTests:
         self.namespace = TestNamespace()
 
     def decomposeExpr(self, expr):
-        self.assertIsInstance(expr, Expression)
+        assert isinstance(expr, Expression)
         if isinstance(expr, AndOperator):
-            self.assertEqual(len(expr.exprs), 2)
+            assert len(expr.exprs) == 2
             subExpr, maskExpr = expr.exprs
-            self.assertIsInstance(maskExpr, IntLiteral)
+            assert isinstance(maskExpr, IntLiteral)
             mask = maskExpr.value
             maskWidth = widthForMask(mask)
-            self.assertEqual(maskForWidth(maskWidth), mask)
+            assert maskForWidth(maskWidth) == mask
             for dex, offset, width, shift in self.decomposeExpr(subExpr):
                 width = min(width, maskWidth - shift)
                 if width > 0:
@@ -40,7 +40,7 @@ class DecomposeTests:
             for dex, offset, width, shift in self.decomposeExpr(expr.expr):
                 yield dex, offset, width, shift + expr.offset
         elif isinstance(expr, RVShift):
-            self.assertIsInstance(expr.offset, IntLiteral)
+            assert isinstance(expr.offset, IntLiteral)
             rvOffset = expr.offset.value
             for dex, offset, width, shift in self.decomposeExpr(expr.expr):
                 shift -= rvOffset
@@ -167,14 +167,14 @@ class DecomposeFlattenTests: #(DecomposeTests, unittest.TestCase):
     '''
 
     def flattenBits(self, bits):
-        self.assertIsInstance(bits, BitString)
+        assert isinstance(bits, BitString)
         if isinstance(bits, SingleStorage):
             yield bits.storage, 0, bits.width
         elif isinstance(bits, ConcatenatedBits):
             for sub in bits:
                 yield from self.flattenBits(sub)
         elif isinstance(bits, SlicedBits):
-            self.assertIsInstance(bits.offset, IntLiteral)
+            assert isinstance(bits.offset, IntLiteral)
             offset = bits.offset.value
             width = bits.width
             for storage, subOffset, subWidth in self.flattenBits(bits.bits):
@@ -200,14 +200,14 @@ class DecomposeFlattenTests: #(DecomposeTests, unittest.TestCase):
                     )
             else:
                 i += 1
-            self.assertEqual(actualItem, expectedItem)
+            assert actualItem == expectedItem
             width += actualItem[2]
         if i < len(expected):
             self.fail(
                 'Bit string produced only %d of the %d expected items'
                 % (i, len(expected))
                 )
-        self.assertLessEqual(width, bits.width)
+        assert width <= bits.width
 
 class DecomposeLoadTests: #(DecomposeTests, unittest.TestCase):
     '''Tests loading from bit strings.'''
@@ -217,7 +217,7 @@ class DecomposeLoadTests: #(DecomposeTests, unittest.TestCase):
         value = self.namespace.emitLoad(bits)
         nodes = self.namespace.nodes
         for node in nodes:
-            self.assertIsInstance(node, Load)
+            assert isinstance(node, Load)
 
         # Check that all underlying storages are loaded from.
         # Also check that the load order matches the depth-first tree walk.
@@ -225,30 +225,30 @@ class DecomposeLoadTests: #(DecomposeTests, unittest.TestCase):
         # loaded from since loading might trigger side effects.
         allStorages = tuple(bits.iterStorages())
         loadedStorages = tuple(node.storage for node in nodes)
-        self.assertEqual(allStorages, loadedStorages)
+        assert allStorages == loadedStorages
 
         # Check the loaded value expression's bit mask.
-        self.assertLessEqual(widthForMask(value.mask), bits.width,
-            'loaded value is wider than bit string')
+        assert widthForMask(value.mask) <= bits.width, \
+            'loaded value is wider than bit string'
 
         # Check that the loaded expression's terms don't overlap.
         decomposedVal = tuple(self.decomposeExpr(value))
         mask = 0
         for dex, offset, width, shift in decomposedVal:
             termMask = maskForWidth(width) << shift
-            self.assertEqual(mask & termMask, 0, 'loaded terms overlap')
+            assert mask & termMask == 0, 'loaded terms overlap'
 
         # Check loaded value.
-        self.assertEqual(len(decomposedVal), len(expected))
+        assert len(decomposedVal) == len(expected)
         offset = 0
         for actualItem, expectedItem in zip(decomposedVal, expected):
             valExpr, valOffset, valWidth, valShift = actualItem
             expStorage, expOffset, expWidth = expectedItem
-            self.assertIsInstance(valExpr, LoadedValue)
-            self.assertEqual(valExpr.load.storage, expStorage)
-            self.assertEqual(valShift, offset)
-            self.assertEqual(valOffset, expOffset)
-            self.assertEqual(valWidth, expWidth)
+            assert isinstance(valExpr, LoadedValue)
+            assert valExpr.load.storage == expStorage
+            assert valShift == offset
+            assert valOffset == expOffset
+            assert valWidth == expWidth
             offset += valWidth
 
 class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
@@ -257,7 +257,7 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
     def iterSlices(self, bits):
         '''Iterates through the SlicedBits contained in the given bit string.
         '''
-        self.assertIsInstance(bits, BitString)
+        assert isinstance(bits, BitString)
         if isinstance(bits, SingleStorage):
             pass
         elif isinstance(bits, ConcatenatedBits):
@@ -291,7 +291,7 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
         loadNodes = []
         storeNodes = []
         for node in nodes[initIdx:]:
-            self.assertIsInstance(node, (Load, Store), 'unexpected node type')
+            assert isinstance(node, (Load, Store)), 'unexpected node type'
             (loadNodes if isinstance(node, Load) else storeNodes).append(node)
 
         # Check that all storages reachable through slicing are loaded from.
@@ -299,13 +299,13 @@ class DecomposeStoreTests(DecomposeTests, unittest.TestCase):
         # docstring).
         slicedStorages = tuple(self.iterSliceLoads(bits))
         loadedStorages = tuple(node.storage for node in loadNodes)
-        self.assertEqual(slicedStorages, loadedStorages)
+        assert slicedStorages == loadedStorages
 
         # Check that all underlying storages are stored to.
         # Also check that the store order matches the depth-first tree walk.
         allStorages = tuple(bits.iterStorages())
         storedStorages = tuple(node.storage for node in storeNodes)
-        self.assertEqual(allStorages, storedStorages)
+        assert allStorages == storedStorages
 
         # Note: Verifying that the right values are being stored based on the
         #       expectation list is quite complex.

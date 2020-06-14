@@ -42,13 +42,13 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refB, loadA)
 
         def checkNodes(code):
-            self.assertEqual(len(code.nodes), 2)
+            assert len(code.nodes) == 2
             load, store = code.nodes
-            self.assertIsInstance(load, Load)
-            self.assertIsInstance(store, Store)
-            self.assertEqual(load.storage, refA.bits.storage)
-            self.assertEqual(store.storage, refB.bits.storage)
-            self.assertIs(store.expr, load.expr)
+            assert isinstance(load, Load)
+            assert isinstance(store, Store)
+            assert load.storage == refA.bits.storage
+            assert store.storage == refB.bits.storage
+            assert store.expr is load.expr
 
         code = self.namespace.createCodeBlock(None)
         checkNodes(code)
@@ -80,10 +80,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refA, andA)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.nodes), 1)
+        assert len(code.nodes) == 1
         node = code.nodes[0]
-        self.assertIsInstance(node, Store)
-        self.assertIs(node.storage, refA.bits.storage)
+        assert isinstance(node, Store)
+        assert node.storage is refA.bits.storage
         self.assertIntLiteral(node.expr, 0)
 
     def test_unused_load_nonremoval(self):
@@ -129,15 +129,15 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refB, loadA2)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.nodes), 3)
+        assert len(code.nodes) == 3
         load, store1, store2 = code.nodes
-        self.assertIsInstance(load, Load)
-        self.assertIsInstance(store1, Store)
-        self.assertIsInstance(store2, Store)
-        self.assertEqual(load.storage, refA.bits.storage)
-        self.assertEqual(store1.storage, refA.bits.storage)
-        self.assertEqual(store2.storage, refB.bits.storage)
-        self.assertEqual(store1.expr, store2.expr)
+        assert isinstance(load, Load)
+        assert isinstance(store1, Store)
+        assert isinstance(store2, Store)
+        assert load.storage == refA.bits.storage
+        assert store1.storage == refA.bits.storage
+        assert store2.storage == refB.bits.storage
+        assert store1.expr == store2.expr
         self.assertTrunc(
             simplifyExpression(store1.expr),
             simplifyExpression(incA).substitute(
@@ -275,7 +275,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         retVal, retWidth = self.getRetVal(code)
         valueV = code.nodes[0].expr
         valueA = code.nodes[1].expr
-        self.assertEqual(retWidth, 8)
+        assert retWidth == 8
         self.assertOr(
             retVal,
             simplifyExpression(valueA),
@@ -289,9 +289,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.emitStore(refV, value)
 
         code = self.namespace.createCodeBlock(refV)
-        self.assertEqual(len(code.returned), 1)
+        assert len(code.returned) == 1
         retBits,= code.returned
-        self.assertEqual(retBits.width, 20)
+        assert retBits.width == 20
         self.assertRetVal(code, 604)
 
     def test_return_io_index(self):
@@ -301,12 +301,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.returned), 1)
+        assert len(code.returned) == 1
         retBits,= code.returned
-        self.assertIsInstance(retBits, SingleStorage)
-        self.assertEqual(retBits.width, 8)
+        assert isinstance(retBits, SingleStorage)
+        assert retBits.width == 8
         storage = retBits.storage
-        self.assertIsInstance(storage, IOStorage)
+        assert isinstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 2)
 
     def test_return_redundant_load_index(self):
@@ -318,12 +318,12 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(memByte)
 
         code = self.createSimplifiedCode()
-        self.assertEqual(len(code.returned), 1)
+        assert len(code.returned) == 1
         retBits,= code.returned
-        self.assertIsInstance(retBits, SingleStorage)
-        self.assertEqual(retBits.width, 8)
+        assert isinstance(retBits, SingleStorage)
+        assert retBits.width == 8
         storage = retBits.storage
-        self.assertIsInstance(storage, IOStorage)
+        assert isinstance(storage, IOStorage)
         self.assertIntLiteral(storage.index, 0x4120)
 
     def test_return_fixed_value_ref(self):
@@ -333,10 +333,10 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(Reference(value, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertEqual(len(code.returned), 1)
+        assert len(code.returned) == 1
         retBits,= code.returned
-        self.assertIsInstance(retBits, FixedValue)
-        self.assertEqual(retBits.width, 8)
+        assert isinstance(retBits, FixedValue)
+        assert retBits.width == 8
         self.assertIntLiteral(retBits.expr, 3)
 
     def test_return_complex_ref(self):
@@ -348,9 +348,9 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
         self.namespace.addRetReference(Reference(slicedBits, IntType.u(8)))
         code = self.createSimplifiedCode()
         self.assertNodes(code.nodes, ())
-        self.assertEqual(len(code.returned), 1)
+        assert len(code.returned) == 1
         retBits,= code.returned
-        self.assertEqual(retBits.width, 8)
+        assert retBits.width == 8
         # Note that we only simplify expressions, not references, so the
         # reference itself is still complex. All we really check here is
         # that code block creation doesn't break, but that is worthwhile
@@ -379,7 +379,7 @@ class CodeBlockTests(NodeChecker, TestExprMixin, unittest.TestCase):
             correct.insert(0, Store(retVal, counterRef.bits.storage))
         self.assertNodes(code.nodes, correct)
         self.assertRetVal(code, 26)
-        self.assertEqual(retWidth, 8)
+        assert retWidth == 8
 
     def test_repeated_increase_reg(self):
         '''Test removal of redundant loads and stores to a register.'''

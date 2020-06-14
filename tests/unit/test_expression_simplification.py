@@ -14,7 +14,7 @@ class ZeroMaskTests(TestExprMixin, unittest.TestCase):
     def test_literal(self):
         '''Verify that the same object is returned.'''
         zero = IntLiteral(0)
-        self.assertIs(simplifyExpression(zero), zero)
+        assert simplifyExpression(zero) is zero
 
     def test_variable(self):
         '''Verify that a value with width 0 is simplified to the literal 0.'''
@@ -37,9 +37,9 @@ class AndTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         ones = IntLiteral(-1)
         # Check whether identity values are filtered out.
-        self.assertIs(simplifyExpression(AndOperator(ones, addr)), addr)
-        self.assertIs(simplifyExpression(AndOperator(addr, ones)), addr)
-        self.assertIs(simplifyExpression(AndOperator(ones, addr, ones)), addr)
+        assert simplifyExpression(AndOperator(ones, addr)) is addr
+        assert simplifyExpression(AndOperator(addr, ones)) is addr
+        assert simplifyExpression(AndOperator(ones, addr, ones)) is addr
         # Check graceful handling when zero subexpressions remain.
         self.assertIntLiteral(
             simplifyExpression(AndOperator(ones, ones, ones)), -1
@@ -58,8 +58,8 @@ class AndTests(TestExprMixin, unittest.TestCase):
     def test_idempotence(self):
         '''Simplifies logical AND expressions containing duplicates.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifyExpression(AndOperator(addr, addr)), addr)
-        self.assertIs(simplifyExpression(AndOperator(addr, addr, addr)), addr)
+        assert simplifyExpression(AndOperator(addr, addr)) is addr
+        assert simplifyExpression(AndOperator(addr, addr, addr)) is addr
         mask = TestValue('M', IntType.u(16))
         self.assertAnd(
             simplifyExpression(AndOperator(mask, addr, mask)), addr, mask
@@ -73,8 +73,8 @@ class AndTests(TestExprMixin, unittest.TestCase):
         expr1 = OrOperator(a, IntLiteral(0x5500))
         expr2 = AndOperator(expr1, IntLiteral(0xAAFF))
         expr3 = simplifyExpression(expr2)
-        self.assertEqual(str(expr3), str(a))
-        self.assertIs(expr3, a)
+        assert str(expr3) == str(a)
+        assert expr3 is a
 
     def test_width(self):
         '''Simplifies logical AND expressions using the subexpression widths.'''
@@ -88,7 +88,7 @@ class AndTests(TestExprMixin, unittest.TestCase):
         # Test whether (HL & H) cuts off H.
         self.assertAnd(simplifyExpression(AndOperator(hl, h)), h, l)
         # Test whether (HL & L) simplifies to L.
-        self.assertIs(simplifyExpression(AndOperator(hl, l)), l)
+        assert simplifyExpression(AndOperator(hl, l)) is l
         # Test whether ($F000 & L) simplifies to 0.
         self.assertIntLiteral(simplifyExpression(AndOperator(maskHi, l)), 0)
 
@@ -102,7 +102,7 @@ class AndTests(TestExprMixin, unittest.TestCase):
         self.assertSlice(simplifyExpression(AndOperator(hl, mask6)), l, 8, 0, 6)
         # Test whether (HL & $00FF) simplifies to L.
         mask8 = IntLiteral(0x00FF)
-        self.assertIs(simplifyExpression(AndOperator(hl, mask8)), l)
+        assert simplifyExpression(AndOperator(hl, mask8)) is l
 
     def test_mask_concat(self):
         '''Simplifies logical AND expressions that mask concatenated terms.'''
@@ -113,9 +113,9 @@ class AndTests(TestExprMixin, unittest.TestCase):
         expr = simplifyExpression(
             AndOperator(hl, IntLiteral(0xFF00))
             )
-        self.assertIsInstance(expr, LShift)
-        self.assertIs(expr.expr, h)
-        self.assertEqual(expr.offset, 8)
+        assert isinstance(expr, LShift)
+        assert expr.expr is h
+        assert expr.offset == 8
 
     def test_mask_literal(self):
         '''Tests elimination of redundant literals from AND expressions.'''
@@ -143,9 +143,9 @@ class OrTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         zero = IntLiteral(0)
         # Check whether identity values are filtered out.
-        self.assertIs(simplifyExpression(OrOperator(zero, addr)), addr)
-        self.assertIs(simplifyExpression(OrOperator(addr, zero)), addr)
-        self.assertIs(simplifyExpression(OrOperator(zero, addr, zero)), addr)
+        assert simplifyExpression(OrOperator(zero, addr)) is addr
+        assert simplifyExpression(OrOperator(addr, zero)) is addr
+        assert simplifyExpression(OrOperator(zero, addr, zero)) is addr
         # Check graceful handling when zero subexpressions remain.
         self.assertIntLiteral(
             simplifyExpression(OrOperator(zero, zero, zero)), 0
@@ -164,8 +164,8 @@ class OrTests(TestExprMixin, unittest.TestCase):
     def test_idempotence(self):
         '''Simplifies logical OR expressions containing duplicates.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifyExpression(OrOperator(addr, addr)), addr)
-        self.assertIs(simplifyExpression(OrOperator(addr, addr, addr)), addr)
+        assert simplifyExpression(OrOperator(addr, addr)) is addr
+        assert simplifyExpression(OrOperator(addr, addr, addr)) is addr
         mask = TestValue('M', IntType.u(16))
         self.assertOr(
             simplifyExpression(OrOperator(mask, addr, mask)), addr, mask
@@ -184,12 +184,12 @@ class OrTests(TestExprMixin, unittest.TestCase):
     def test_mask_literal(self):
         '''Tests elimination of masked OR expressions.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifyExpression(
+        assert simplifyExpression(
             AndOperator(
                 OrOperator(LShift(addr, 8), IntLiteral(0xFFFF)),
                 addr
                 )
-            ), addr)
+            ) is addr
 
 class XorTests(TestExprMixin, unittest.TestCase):
 
@@ -207,9 +207,9 @@ class XorTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         zero = IntLiteral(0)
         # Check whether identity values are filtered out.
-        self.assertIs(simplifyExpression(XorOperator(zero, addr)), addr)
-        self.assertIs(simplifyExpression(XorOperator(addr, zero)), addr)
-        self.assertIs(simplifyExpression(XorOperator(zero, addr, zero)), addr)
+        assert simplifyExpression(XorOperator(zero, addr)) is addr
+        assert simplifyExpression(XorOperator(addr, zero)) is addr
+        assert simplifyExpression(XorOperator(zero, addr, zero)) is addr
         # Check graceful handling when zero subexpressions remain.
         self.assertIntLiteral(
             simplifyExpression(XorOperator(zero, zero, zero)), 0
@@ -221,20 +221,20 @@ class XorTests(TestExprMixin, unittest.TestCase):
         b = TestValue('B', IntType.u(8))
         zero = IntLiteral(0)
         # Check that duplicate values are filtered out.
-        self.assertIs(simplifyExpression(XorOperator(a)), a)
-        self.assertEqual(simplifyExpression(XorOperator(a, a)), zero)
-        self.assertIs(simplifyExpression(XorOperator(a, a, a)), a)
-        self.assertEqual(simplifyExpression(XorOperator(a, a, a, a)), zero)
+        assert simplifyExpression(XorOperator(a)) is a
+        assert simplifyExpression(XorOperator(a, a)) == zero
+        assert simplifyExpression(XorOperator(a, a, a)) is a
+        assert simplifyExpression(XorOperator(a, a, a, a)) == zero
         # Check with different subexpressions.
-        self.assertIs(simplifyExpression(XorOperator(b, a, b)), a)
-        self.assertEqual(simplifyExpression(XorOperator(a, b, b, a)), zero)
+        assert simplifyExpression(XorOperator(b, a, b)) is a
+        assert simplifyExpression(XorOperator(a, b, b, a)) == zero
 
     def test_bitwise_complement(self):
         '''Simplifies XOR expressions used for bitwise complement.'''
         a = TestValue('A', IntType.u(8))
         compl1 = XorOperator(IntLiteral(-1), a)
         compl2 = XorOperator(IntLiteral(-1), compl1)
-        self.assertIs(simplifyExpression(compl2), a)
+        assert simplifyExpression(compl2) is a
 
 class AddTests(TestExprMixin, unittest.TestCase):
 
@@ -263,8 +263,8 @@ class AddTests(TestExprMixin, unittest.TestCase):
         '''Test simplification of zero literal terms.'''
         zero = IntLiteral(0)
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifyExpression(AddOperator(zero, addr)), addr)
-        self.assertIs(simplifyExpression(AddOperator(addr, zero)), addr)
+        assert simplifyExpression(AddOperator(zero, addr)) is addr
+        assert simplifyExpression(AddOperator(addr, zero)) is addr
         self.assertIntLiteral(simplifyExpression(AddOperator(zero, zero)), 0)
 
     def test_associative(self):
@@ -272,14 +272,14 @@ class AddTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         arg1 = AddOperator(addr, IntLiteral(1))
         arg2 = AddOperator(IntLiteral(2), IntLiteral(-3))
-        self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
+        assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
     def test_commutative(self):
         '''Test simplification using the commutativity of addition.'''
         addr = TestValue('A', IntType.u(16))
         arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
         arg2 = AddOperator(addr, IntLiteral(-3))
-        self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
+        assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
 class ComplementTests(TestExprMixin, unittest.TestCase):
 
@@ -291,7 +291,7 @@ class ComplementTests(TestExprMixin, unittest.TestCase):
     def test_twice(self):
         '''Takes the complement of a complement.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifyExpression(Complement(Complement(addr))), addr)
+        assert simplifyExpression(Complement(Complement(addr))) is addr
 
     def test_subexpr(self):
         '''Takes the complement of a simplifiable subexpression.'''
@@ -302,7 +302,7 @@ class ComplementTests(TestExprMixin, unittest.TestCase):
                 addr, 16
                 )
             ))
-        self.assertIsInstance(expr, Complement)
+        assert isinstance(expr, Complement)
         self.assertConcat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
 
 class NegationTests(TestExprMixin, unittest.TestCase):
@@ -369,11 +369,11 @@ class NegationTests(TestExprMixin, unittest.TestCase):
         '''Negates a negation.'''
         boolVal = TestValue('B', IntType.u(1))
         intVal = TestValue('I', IntType.u(16))
-        self.assertIs(simplifyExpression(Negation(Negation(boolVal))), boolVal)
+        assert simplifyExpression(Negation(Negation(boolVal))) is boolVal
         notNotInt = Negation(Negation(intVal))
-        self.assertIs(simplifyExpression(notNotInt), notNotInt)
+        assert simplifyExpression(notNotInt) is notNotInt
         combi = AndOperator(boolVal, intVal)
-        self.assertIs(simplifyExpression(Negation(Negation(combi))), combi)
+        assert simplifyExpression(Negation(Negation(combi))) is combi
 
     def test_lshift(self):
         '''Negates a left-shifted expression.'''
@@ -409,7 +409,7 @@ class SignTestTests(TestExprMixin, unittest.TestCase):
         u = SignTest(TestValue('U', IntType.u(8)))
         self.assertIntLiteral(simplifyExpression(u), 0)
         s = SignTest(TestValue('S', IntType.s(8)))
-        self.assertIs(simplifyExpression(s), s)
+        assert simplifyExpression(s) is s
 
     def test_sign_extended(self):
         '''Test sign of sign extended values.'''
@@ -448,30 +448,24 @@ class SignExtensionTests(TestExprMixin, unittest.TestCase):
         h = TestValue('H', IntType.u(8))
         l = TestValue('L', IntType.u(8))
         hl = makeConcat(h, l, 8)
-        self.assertEqual(
-            simplifyExpression(SignExtension(hl, 8)),
+        assert simplifyExpression(SignExtension(hl, 8)) == \
             SignExtension(l, 8)
-            )
 
     def test_sign_clear(self):
         '''Removes sign extension when sign bit is known to be zero.'''
         h = TestValue('H', IntType.u(8))
         l = TestValue('L', IntType.u(8))
         hgapl = makeConcat(h, l, 9)
-        self.assertIs(
-            simplifyExpression(SignExtension(hgapl, 9)),
+        assert simplifyExpression(SignExtension(hgapl, 9)) is \
             l
-            )
 
     def test_sign_set(self):
         '''Removes sign extension when sign bit is known to be one.'''
         a = TestValue('A', IntType.u(8))
         b = IntLiteral(0x80)
         combi = OrOperator(a, b)
-        self.assertEqual(
-            simplifyExpression(SignExtension(combi, 8)),
+        assert simplifyExpression(SignExtension(combi, 8)) == \
             OrOperator(a, IntLiteral(~0x7F))
-            )
 
 class ArithmeticTests(TestExprMixin, unittest.TestCase):
 
@@ -491,7 +485,7 @@ class ArithmeticTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         arg1 = AddOperator(addr, Complement(IntLiteral(1)))
         arg2 = AddOperator(IntLiteral(-2), IntLiteral(3))
-        self.assertIs(simplifyExpression(AddOperator(arg1, arg2)), addr)
+        assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
     def test_commutative(self):
         '''Test simplification using the commutativity of addition.
@@ -501,9 +495,7 @@ class ArithmeticTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
         arg2 = AddOperator(Complement(addr), IntLiteral(3))
-        self.assertIs(
-            simplifyExpression(AddOperator(arg1, Complement(arg2))), addr
-            )
+        assert simplifyExpression(AddOperator(arg1, Complement(arg2))) is addr
 
     def test_add_complement(self):
         '''Test simplification of subtracting an expression from itself.'''
@@ -535,15 +527,15 @@ class ArithmeticTests(TestExprMixin, unittest.TestCase):
                 ),
             16
             )
-        self.assertIs(str(simplifyExpression(expr)), str(a))
-        self.assertIs(simplifyExpression(expr), a)
+        assert str(simplifyExpression(expr)) is str(a)
+        assert simplifyExpression(expr) is a
 
     def test_add_truncate_literal(self):
         '''Test simplification of truncation of added literal.'''
         a = TestValue('A', IntType.u(16))
         expr = truncate(AddOperator(a, IntLiteral(0x10001)), 16)
         expected = truncate(AddOperator(a, IntLiteral(1)), 16)
-        self.assertEqual(simplifyExpression(expr), expected)
+        assert simplifyExpression(expr) == expected
 
 class LShiftTests(TestExprMixin, unittest.TestCase):
 
@@ -562,9 +554,9 @@ class LShiftTests(TestExprMixin, unittest.TestCase):
         '''Shifts a value to the left twice.'''
         addr = TestValue('A', IntType.u(16))
         expr = simplifyExpression(LShift(LShift(addr, 3), 5))
-        self.assertIsInstance(expr, LShift)
-        self.assertIs(expr.expr, addr)
-        self.assertEqual(expr.offset, 8)
+        assert isinstance(expr, LShift)
+        assert expr.expr is addr
+        assert expr.offset == 8
 
     def test_rshift(self):
         '''Tests left-shifting after right-shifting.'''
@@ -589,9 +581,9 @@ class LShiftTests(TestExprMixin, unittest.TestCase):
         self.assertIntLiteral(expr1, 0)
         # Shift only H out of the truncation range.
         expr2 = simplifyExpression(truncate(LShift(hl, 8), 16))
-        self.assertIsInstance(expr2, LShift)
-        self.assertIs(expr2.expr, l)
-        self.assertEqual(expr2.offset, 8)
+        assert isinstance(expr2, LShift)
+        assert expr2.expr is l
+        assert expr2.offset == 8
 
 class RShiftTests(TestExprMixin, unittest.TestCase):
 
@@ -600,17 +592,17 @@ class RShiftTests(TestExprMixin, unittest.TestCase):
         addr = TestValue('A', IntType.u(16))
         # Shift less to the left than to the right.
         rwin = simplifyExpression(RShift(LShift(addr, 3), 5))
-        self.assertIsInstance(rwin, RShift)
-        self.assertEqual(rwin.offset, 2)
-        self.assertIs(rwin.expr, addr)
+        assert isinstance(rwin, RShift)
+        assert rwin.offset == 2
+        assert rwin.expr is addr
         # Shift equal amounts to the left and to the right.
         draw = simplifyExpression(RShift(LShift(addr, 4), 4))
-        self.assertIs(draw, addr)
+        assert draw is addr
         # Shift more to the left than to the right.
         lwin = simplifyExpression(RShift(LShift(addr, 5), 3))
-        self.assertIsInstance(lwin, LShift)
-        self.assertEqual(lwin.offset, 2)
-        self.assertIs(lwin.expr, addr)
+        assert isinstance(lwin, LShift)
+        assert lwin.offset == 2
+        assert lwin.expr is addr
 
 class LVShiftTests(TestExprMixin, unittest.TestCase):
 
@@ -621,14 +613,10 @@ class LVShiftTests(TestExprMixin, unittest.TestCase):
             0x123400
             )
         v8 = TestValue('A', IntType.u(8))
-        self.assertEqual(
-            simplifyExpression(LVShift(v8, IntLiteral(3))),
-            LShift(v8, 3),
-            )
-        self.assertEqual(
-            simplifyExpression(LVShift(v8, TestValue('Z', IntType.u(0)))),
+        assert simplifyExpression(LVShift(v8, IntLiteral(3))) == \
+            LShift(v8, 3)
+        assert simplifyExpression(LVShift(v8, TestValue('Z', IntType.u(0)))) == \
             v8
-            )
 
 class RVShiftTests(TestExprMixin, unittest.TestCase):
 
@@ -639,14 +627,10 @@ class RVShiftTests(TestExprMixin, unittest.TestCase):
             0x12
             )
         v8 = TestValue('A', IntType.u(8))
-        self.assertEqual(
-            simplifyExpression(RVShift(v8, IntLiteral(3))),
-            RShift(v8, 3),
-            )
-        self.assertEqual(
-            simplifyExpression(RVShift(v8, TestValue('Z', IntType.u(0)))),
+        assert simplifyExpression(RVShift(v8, IntLiteral(3))) == \
+            RShift(v8, 3)
+        assert simplifyExpression(RVShift(v8, TestValue('Z', IntType.u(0)))) == \
             v8
-            )
 
 class ConcatTests(TestExprMixin, unittest.TestCase):
 
@@ -769,7 +753,7 @@ class SliceTests(TestExprMixin, unittest.TestCase):
     def test_full_range(self):
         '''Slices a range that exactly matches a value's type.'''
         addr = TestValue('A', IntType.u(16))
-        self.assertIs(simplifySlice(addr, 0, 16), addr)
+        assert simplifySlice(addr, 0, 16) is addr
 
     def test_out_of_range(self):
         '''Slices a range that is fully outside a value's type.'''
@@ -780,7 +764,7 @@ class SliceTests(TestExprMixin, unittest.TestCase):
         '''Slices a range that is partially outside a value's type.'''
         addr = TestValue('A', IntType.u(16))
         expr = simplifySlice(addr, 0, 20) # $0xxxx
-        self.assertIs(expr, addr)
+        assert expr is addr
         expr = simplifySlice(addr, 8, 12) # $0xx
         self.assertSlice(expr, addr, 16, 8, 8)
 
@@ -798,10 +782,10 @@ class SliceTests(TestExprMixin, unittest.TestCase):
         d = TestValue('D', IntType.u(8))
         abcd = makeConcat(makeConcat(makeConcat(a, b, 8), c, 8), d, 8)
         # Test slicing out individual values.
-        self.assertIs(simplifySlice(abcd, 0, 8), d)
-        self.assertIs(simplifySlice(abcd, 8, 8), c)
-        self.assertIs(simplifySlice(abcd, 16, 8), b)
-        self.assertIs(simplifySlice(abcd, 24, 8), a)
+        assert simplifySlice(abcd, 0, 8) is d
+        assert simplifySlice(abcd, 8, 8) is c
+        assert simplifySlice(abcd, 16, 8) is b
+        assert simplifySlice(abcd, 24, 8) is a
         # Test slice edges at subexpression boundaries.
         bc = simplifySlice(abcd, 8, 16)
         self.assertConcat(bc, ((b, 8), (c, 8)))
@@ -848,16 +832,16 @@ class SliceTests(TestExprMixin, unittest.TestCase):
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
         add8 = truncate(AddOperator(l, IntLiteral(2)), 8)
-        self.assertEqual(low8, add8)
+        assert low8 == add8
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
         add6 = truncate(AddOperator(l, IntLiteral(2)), 6)
-        self.assertEqual(low6, add6)
+        assert low6 == add6
         # Simplification fails because expression becomes more complex.
         low12 = truncate(simplifyExpression(expr), 12)
         low12s = simplifyExpression(low12)
-        self.assertEqual(str(low12s), str(low12))
-        self.assertEqual(low12s, low12)
+        assert str(low12s) == str(low12)
+        assert low12s == low12
 
     def test_complement(self):
         '''Tests simplification of slicing a complement.'''
@@ -873,13 +857,13 @@ class SliceTests(TestExprMixin, unittest.TestCase):
         # Successful simplification: slice lowest 8 bits.
         low8 = simplifySlice(expr, 0, 8)
         cpl8 = truncate(Complement(l), 8)
-        self.assertEqual(str(low8), str(cpl8))
-        self.assertEqual(low8, cpl8)
+        assert str(low8) == str(cpl8)
+        assert low8 == cpl8
         # Successful simplification: slice lowest 6 bits.
         low6 = simplifySlice(expr, 0, 6)
         cpl6 = truncate(Complement(l), 6)
-        self.assertEqual(str(low6), str(cpl6))
-        self.assertEqual(low6, cpl6)
+        assert str(low6) == str(cpl6)
+        assert low6 == cpl6
         # Simplification fails because expression becomes more complex.
         low12 = simplifyExpression(truncate(expr, 12))
         self.assertSlice(low12, simplifyExpression(expr), unlimited, 0, 12)

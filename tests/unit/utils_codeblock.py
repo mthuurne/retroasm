@@ -16,33 +16,33 @@ class NodeChecker:
     def assertNodes(self, actualNodes, correctNodes):
         correctNodes = tuple(correctNodes)
         loadMap = {}
-        self.assertEqual(len(actualNodes), len(correctNodes))
+        assert len(actualNodes) == len(correctNodes)
         for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
             msg = 'node %d of %d' % (i + 1, len(actualNodes))
-            self.assertIsInstance(actual, type(correct), msg)
-            self.assertEqual(actual.storage, correct.storage, msg)
+            assert isinstance(actual, type(correct)), msg
+            assert actual.storage == correct.storage, msg
             if isinstance(correct, Load):
                 loadMap[actual.expr] = correct.expr
             elif isinstance(correct, Store):
                 expr = actual.expr.substitute(loadMap.get)
-                self.assertEqual(expr, correct.expr, msg)
+                assert expr == correct.expr, msg
             else:
                 self.fail('unknown node type: %s' % correct.__class__.__name__)
 
     def assertIntLiteral(self, expr, value):
-        self.assertIsInstance(expr, IntLiteral)
-        self.assertEqual(expr.value, value)
+        assert isinstance(expr, IntLiteral)
+        assert expr.value == value
 
     def getRetVal(self, code):
         retBits, = code.returned
-        self.assertIsInstance(retBits, FixedValue)
+        assert isinstance(retBits, FixedValue)
         return retBits.expr, retBits.width
 
     def assertRetVal(self, code, value):
         expr, width = self.getRetVal(code)
-        self.assertIsInstance(expr, IntLiteral)
+        assert isinstance(expr, IntLiteral)
         mask = -1 if width is unlimited else ((1 << width) - 1)
-        self.assertEqual(expr.value & mask, value)
+        assert expr.value & mask == value
 
 class TestNamespace(LocalNamespace):
 

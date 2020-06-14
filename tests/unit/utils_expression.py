@@ -45,13 +45,13 @@ class TestExprMixin:
         with the given value.
         '''
         comparison = IntLiteral(value)
-        self.assertIsInstance(expr, IntLiteral)
-        self.assertEqual(expr.value, value)
+        assert isinstance(expr, IntLiteral)
+        assert expr.value == value
 
     def assertAnd(self, expr, *args):
-        self.assertIsInstance(expr, AndOperator)
+        assert isinstance(expr, AndOperator)
         exprs = expr.exprs
-        self.assertEqual(len(exprs), len(args))
+        assert len(exprs) == len(args)
         found = [False] * len(exprs)
         missing = []
         for arg in args:
@@ -68,9 +68,9 @@ class TestExprMixin:
                 )
 
     def assertOr(self, expr, *args):
-        self.assertIsInstance(expr, OrOperator)
+        assert isinstance(expr, OrOperator)
         exprs = expr.exprs
-        self.assertEqual(len(exprs), len(args))
+        assert len(exprs) == len(args)
         found = [False] * len(exprs)
         missing = []
         for arg in args:
@@ -104,18 +104,18 @@ class TestExprMixin:
         shift = RShift(subExpr, index) if needsShift else subExpr
         needsTrunc = subWidth > index + width
         trunc = truncate(shift, width) if needsTrunc else shift
-        self.assertEqual(str(expr), str(trunc))
-        self.assertEqual(expr, trunc)
-        self.assertIsInstance(expr, type(trunc))
+        assert str(expr) == str(trunc)
+        assert expr == trunc
+        assert isinstance(expr, type(trunc))
         shiftExpr = expr.exprs[0] if needsTrunc else expr
         if needsShift:
-            self.assertEqual(str(shiftExpr), str(shift))
-            self.assertEqual(shiftExpr, shift)
-            self.assertIsInstance(shiftExpr, RShift)
-            self.assertEqual(shiftExpr.offset, index)
-            self.assertEqual(shiftExpr.expr, subExpr)
+            assert str(shiftExpr) == str(shift)
+            assert shiftExpr == shift
+            assert isinstance(shiftExpr, RShift)
+            assert shiftExpr.offset == index
+            assert shiftExpr.expr == subExpr
         else:
-            self.assertEqual(shiftExpr, subExpr)
+            assert shiftExpr == subExpr
 
     def assertTrunc(self, expr, subExpr, subWidth, width):
         self.assertSlice(expr, subExpr, subWidth, 0, width)

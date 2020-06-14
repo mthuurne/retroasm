@@ -10,8 +10,8 @@ class DataType(metaclass=Unique):
 class UniqueTests(unittest.TestCase):
 
     def assertData(self, data, a):
-        self.assertIsInstance(data, DataType)
-        self.assertEqual(data.a, a)
+        assert isinstance(data, DataType)
+        assert data.a == a
 
     def test_create(self):
         '''Test that construction creates correct objects.'''
@@ -27,11 +27,11 @@ class UniqueTests(unittest.TestCase):
         d3 = DataType(120 + 3)
         d4 = DataType(None)
         d5 = DataType('f' + 'oo')
-        self.assertIs(d1, d3)
-        self.assertIs(d2, d5)
-        self.assertIsNot(d1, d2)
-        self.assertIsNot(d1, d4)
-        self.assertIsNot(d2, d4)
+        assert d1 is d3
+        assert d2 is d5
+        assert d1 is not d2
+        assert d1 is not d4
+        assert d2 is not d4
 
     def test_star(self):
         '''Test passing arguments using the '*' operator.'''
@@ -40,11 +40,11 @@ class UniqueTests(unittest.TestCase):
         d3 = DataType(*(120 + 3,))
         d4 = DataType(*(None,))
         d5 = DataType(*('f' + 'oo',))
-        self.assertIs(d1, d3)
-        self.assertIs(d2, d5)
-        self.assertIsNot(d1, d2)
-        self.assertIsNot(d1, d4)
-        self.assertIsNot(d2, d4)
+        assert d1 is d3
+        assert d2 is d5
+        assert d1 is not d2
+        assert d1 is not d4
+        assert d2 is not d4
 
 if __name__ == '__main__':
     unittest.main()
