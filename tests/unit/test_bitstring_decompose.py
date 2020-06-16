@@ -160,7 +160,7 @@ class DecomposeTests:
             )
         self.assertDecomposed(sliceC, expected)
 
-class DecomposeFlattenTests: #(DecomposeTests, unittest.TestCase):
+class DecomposeFlattenTests(DecomposeTests, unittest.TestCase):
     '''Tests whether the data structure that contains the bit string matches
     our expected output. This is more likely to find errors in the test
     cases rather than the code under test, but it is valuable anyway as
@@ -210,13 +210,13 @@ class DecomposeFlattenTests: #(DecomposeTests, unittest.TestCase):
                 )
         assert width <= bits.width
 
-class DecomposeLoadTests: #(DecomposeTests, unittest.TestCase):
+class DecomposeLoadTests(DecomposeTests, unittest.TestCase):
     '''Tests loading from bit strings.'''
 
     def assertDecomposed(self, bits, expected):
         # Check that emitLoad only emits Load nodes.
         value = self.namespace.emitLoad(bits)
-        nodes = self.namespace.nodes
+        nodes = self.namespace.builder.nodes
         for node in nodes:
             assert isinstance(node, Load)
 
