@@ -7,7 +7,7 @@ from retroasm.expression import (
 from retroasm.reference import (
     BitString, ConcatenatedBits, SingleStorage, SlicedBits
     )
-from retroasm.types import IntType, maskForWidth, unlimited, widthForMask
+from retroasm.types import IntType, maskForWidth, widthForMask
 
 from pytest import fixture, mark
 

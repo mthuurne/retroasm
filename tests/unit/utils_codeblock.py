@@ -2,13 +2,12 @@ from retroasm.codeblock import Load, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
     )
-from retroasm.expression import Expression, IntLiteral
-from retroasm.expression_simplifier import simplifyExpression
+from retroasm.expression import IntLiteral
 from retroasm.namespace import (
     GlobalNamespace, LocalNamespace, createIOReference
     )
 from retroasm.reference import FixedValue, Reference, SingleStorage
-from retroasm.storage import IOChannel, Variable
+from retroasm.storage import IOChannel
 from retroasm.types import IntType, unlimited
 
 
