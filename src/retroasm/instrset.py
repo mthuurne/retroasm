@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from typing import (
     AbstractSet, Callable, Collection, Dict, Iterable, Iterator, List, Mapping,
-    MutableSet, NamedTuple, Optional, Sequence, cast
+    MutableSet, Optional, Sequence, cast
 )
 
 from .codeblock import CodeBlock, Store
@@ -19,7 +20,8 @@ from .types import Width
 from .utils import const_property
 
 
-class PrefixMapping(NamedTuple):
+@dataclass(frozen=True)
+class PrefixMapping:
     prefixes: Sequence[Prefix]
     initCode: CodeBlock
     flagForVar: Mapping[Storage, str]
