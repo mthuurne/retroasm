@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Iterator, Tuple, Union, cast
+from typing import TYPE_CHECKING, Iterable, Iterator, NoReturn, Tuple, Union, cast
 
 from .utils import Singleton, Unique
 
@@ -70,8 +70,8 @@ class Unlimited(metaclass=Singleton):
         else:
             return NotImplemented
 
-    def __rsub__(self, other: int) -> None:
-        return NotImplemented
+    def __rsub__(self, other: object) -> NoReturn:
+        raise ArithmeticError('Cannot subtract "unlimited"')
 
 unlimited = Unlimited()
 
