@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 from typing import (
-    Any, ClassVar, Collection, Iterable, Iterator, NamedTuple, Optional,
-    Protocol, Sequence, Type, overload
+    Any, ClassVar, Collection, Iterable, Iterator, Optional, Protocol,
+    Sequence, Type, overload
 )
 
 from .section import ByteOrder, CodeSection, Section
@@ -157,7 +158,8 @@ class GameBoyROM(BinaryFormat):
         # TODO: Once we can properly trace, we don't need this one anymore.
         yield EntryPoint(0x150)
 
-class MSXROMHeader(NamedTuple):
+@dataclass(frozen=True)
+class MSXROMHeader:
     cartID: bytes
     init: int
     statement: int
@@ -266,7 +268,8 @@ class MSXROM(BinaryFormat):
             if addr != 0:
                 yield from _yieldEntryPoint(section, addr, name)
 
-class PSXEXEHeader(NamedTuple):
+@dataclass(frozen=True)
+class PSXEXEHeader:
     id: bytes
     textOffset: int
     dataOffset: int
