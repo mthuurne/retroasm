@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import (
-    AbstractSet, Callable, Dict, Iterable, Mapping, Optional, Set, Tuple, cast
-)
+from typing import AbstractSet, Callable, Iterable, Mapping, cast
 
 from .expression import Expression
 from .linereader import InputLocation
@@ -28,7 +26,7 @@ class AccessNode(Node):
     def __init__(self,
                  expr: Expression,
                  storage: Storage,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ):
         self._expr = expr
         self._storage = storage
@@ -51,7 +49,7 @@ class AccessNode(Node):
         self._storage = storage
 
     @property
-    def location(self) -> Optional[InputLocation]:
+    def location(self) -> InputLocation | None:
         return self._location
 
     def dump(self) -> None:
@@ -69,7 +67,7 @@ class Load(AccessNode):
 
     def __init__(self,
                  storage: Storage,
-                 location: Optional[InputLocation] = None
+                 location: InputLocation | None = None
                  ):
         expr = LoadedValue(self, maskForWidth(storage.width))
         AccessNode.__init__(self, expr, storage, location)
@@ -99,7 +97,7 @@ class Store(AccessNode):
     def __init__(self,
                  expr: Expression,
                  storage: Storage,
-                 location: Optional[InputLocation] = None
+                 location: InputLocation | None = None
                  ):
         AccessNode.__init__(self, expr, storage, location)
 
@@ -130,7 +128,7 @@ class LoadedValue(Expression):
         self._load = load
         self._mask = mask
 
-    def _ctorargs(self) -> Tuple[Load, int]:
+    def _ctorargs(self) -> tuple[Load, int]:
         return self._load, self._mask
 
     def __repr__(self) -> str:
@@ -158,7 +156,7 @@ def verifyLoads(nodes: Iterable[AccessNode],
     '''
     # Check that every LoadedValue has an associated Load node, which must
     # execute before the LoadedValue is used.
-    loads: Set[Load] = set()
+    loads: set[Load] = set()
     for node in nodes:
         # Check that all expected loads have occurred.
         if isinstance(node, Store):
@@ -184,7 +182,7 @@ class CodeBlock:
                  returned: Iterable[BitString]
                  ):
         clonedNodes = []
-        valueMapping: Dict[Expression, Expression] = {}
+        valueMapping: dict[Expression, Expression] = {}
         for node in nodes:
             clone = node.clone()
             clonedNodes.append(clone)
@@ -211,7 +209,7 @@ class CodeBlock:
         for retBits in self.returned:
             print(f'    return {retBits}')
 
-    def _gatherExpressions(self) -> Set[Expression]:
+    def _gatherExpressions(self) -> set[Expression]:
         expressions = set()
         for node in self.nodes:
             if isinstance(node, Store):
@@ -229,7 +227,7 @@ class CodeBlock:
         '''
         return self._gatherExpressions()
 
-    def _gatherStorages(self) -> Set[Storage]:
+    def _gatherStorages(self) -> set[Storage]:
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
@@ -244,7 +242,7 @@ class CodeBlock:
         return self._gatherStorages()
 
     def _gatherArguments(self) -> Mapping[str, ArgStorage]:
-        args: Dict[str, ArgStorage] = {}
+        args: dict[str, ArgStorage] = {}
         for storage in self.storages:
             if isinstance(storage, ArgStorage):
                 name = storage.name
@@ -264,7 +262,7 @@ class CodeBlock:
 
     def _updateExpressions(self,
                            substFunc: Callable[[Expression],
-                                               Optional[Expression]]
+                                               Expression | None]
                            ) -> None:
         '''Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that

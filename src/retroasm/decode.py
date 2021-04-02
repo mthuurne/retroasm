@@ -4,8 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import reduce
 from typing import (
-    AbstractSet, Any, DefaultDict, Dict, Iterable, Iterator, List, Mapping,
-    NamedTuple, Optional, Sequence, Tuple, Union, cast
+    AbstractSet, Any, DefaultDict, Iterable, Iterator, Mapping, NamedTuple,
+    Sequence, Union, cast
 )
 
 from .codeblock import CodeBlock
@@ -25,7 +25,7 @@ from .utils import Singleton
 
 
 def _decomposeBitString(bits: BitString
-                        ) -> Iterator[Tuple[BitString, int, int, Width]]:
+                        ) -> Iterator[tuple[BitString, int, int, Width]]:
     '''Decomposes the given bit string into its base strings (FixedValue and
     SingleStorage).
     Yields a series of tuples, containing base string, index in the base
@@ -72,9 +72,9 @@ class FixedEncoding(NamedTuple):
 
 def decomposeEncoding(
         encoding: Encoding
-        ) -> Tuple[
+        ) -> tuple[
             Sequence[FixedEncoding],
-            Mapping[str, Sequence[Tuple[int, int, int, Width]]]
+            Mapping[str, Sequence[tuple[int, int, int, Width]]]
             ]:
     '''Decomposes the given Encoding into a matcher for the fixed bit strings
     and a decode map describing where the placeholders values can be found.
@@ -87,8 +87,8 @@ def decomposeEncoding(
     the encoding item, the index within the encoding item and the width.
     Raises BadInput if the given encoding cannot be decomposed.
     '''
-    fixedMatcher: List[FixedEncoding] = []
-    decodeMap: DefaultDict[str, List[Tuple[int, int, int, Width]]] = \
+    fixedMatcher: list[FixedEncoding] = []
+    decodeMap: DefaultDict[str, list[tuple[int, int, int, Width]]] = \
                                                             defaultdict(list)
     for encIdx, encElem in enumerate(encoding):
         if not isinstance(encElem, EncodingExpr):
@@ -143,7 +143,7 @@ def _formatSlice(start: int, end: int) -> str:
     else:
         return f'[{start:d}:{end:d}]'
 
-def _formatMask(name: str, mask: int, value: Optional[int] = None) -> str:
+def _formatMask(name: str, mask: int, value: int | None = None) -> str:
     segments = list(maskToSegments(mask))
     if len(segments) == 1:
         (start, end), = segments
@@ -177,7 +177,7 @@ class Decoder:
     def dump(self, indent: str = '', submodes: bool = True) -> None:
         raise NotImplementedError
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
+    def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
         '''Attempts to decode an instruction from the given fetcher.
         Returns an encode match, or None if no match could be made.
         '''
@@ -195,7 +195,7 @@ class SequentialDecoder(Decoder):
             decoder.dump(indent + '+ ', submodes)
             indent = ' ' * len(indent)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
+    def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
         for decoder in self._decoders:
             match = decoder.tryDecode(fetcher)
             if match is not None:
@@ -224,7 +224,7 @@ class TableDecoder(Decoder):
         for idx, decoder in enumerate(self._table):
             decoder.dump(' ' * len(indent) + f'${idx:02x}: ', submodes)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
+    def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
         encoded = fetcher[self._index]
         if encoded is None:
             return None
@@ -278,7 +278,7 @@ class FixedPatternDecoder(Decoder):
         maskStr = _formatMask(f'enc{self._index:d}', self._mask, self._value)
         self._next.dump(indent + maskStr + ' -> ', submodes)
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
+    def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
         encoded = fetcher[self._index]
         if encoded is None or encoded & self._mask != self._value:
             return None
@@ -291,10 +291,10 @@ class PlaceholderDecoder(Decoder):
 
     def __init__(self,
                  name: str,
-                 slices: Optional[Sequence[FixedEncoding]],
+                 slices: Sequence[FixedEncoding] | None,
                  nxt: Decoder,
-                 sub: Optional[Decoder],
-                 auxIdx: Optional[int]
+                 sub: Decoder | None,
+                 auxIdx: int | None
                  ):
         self._name = name
         self._slices = slices
@@ -327,7 +327,7 @@ class PlaceholderDecoder(Decoder):
         if submodes and sub is not None:
             sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[EncodeMatch]:
+    def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
         slices = self._slices
         if slices is None:
             value = None
@@ -345,7 +345,7 @@ class PlaceholderDecoder(Decoder):
         # Decode placeholder.
         sub = self._sub
         if sub is None:
-            decoded: Optional[Union[EncodeMatch, int]] = value
+            decoded: EncodeMatch | int | None = value
         else:
             auxIdx = self._auxIdx
             decoded = sub.tryDecode(ModeFetcher(value, fetcher, auxIdx))
@@ -403,14 +403,14 @@ EncodingMatcher = Union[MatchPlaceholder, EncodingMultiMatch, FixedEncoding]
 
 def _createEntryDecoder(
         entry: ModeEntry,
-        decoding: Mapping[Optional[str], Sequence[FixedEncoding]],
+        decoding: Mapping[str | None, Sequence[FixedEncoding]],
         factory: DecoderFactory
         ) -> Decoder:
     '''Returns a Decoder instance that decodes this entry.
     '''
-    name: Optional[str]
+    name: str | None
     matcher: EncodingMatcher
-    slices: Optional[Sequence[FixedEncoding]]
+    slices: Sequence[FixedEncoding] | None
 
     # Find all indices that contain multi-matches.
     multiMatches = {
@@ -442,7 +442,7 @@ def _createEntryDecoder(
     # Gather value placeholders them.
     placeholders = entry.placeholders
     encoding = entry.encoding
-    matchersByIndex: List[List[EncodingMatcher]] = [
+    matchersByIndex: list[list[EncodingMatcher]] = [
         [] for _ in range(len(encoding))
         ]
     valuePlaceholders = []
@@ -477,12 +477,12 @@ def _createEntryDecoder(
     # Sort matchers and value placeholders.
     # The sorting is just to make dumps more readable and consistent between
     # runs, it doesn't impact correctness.
-    def slicesKey(placeholder: Placeholder) -> Tuple[Tuple[int, int], ...]:
+    def slicesKey(placeholder: Placeholder) -> tuple[tuple[int, int], ...]:
         return tuple(
             (encIdx, -refIdx)
             for encIdx, refIdx, width in decoding[placeholder.name]
             )
-    def matcherKey(matcher: EncodingMatcher) -> Tuple[Tuple[int, ...], ...]:
+    def matcherKey(matcher: EncodingMatcher) -> tuple[tuple[int, ...], ...]:
         if isinstance(matcher, MatchPlaceholder):
             return slicesKey(matcher)
         elif isinstance(matcher, EncodingMultiMatch):
@@ -572,7 +572,7 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
     '''Returns a decoder that will decode using the last matching decoder among
     the given decoders.
     '''
-    decoders: List[Decoder] = []
+    decoders: list[Decoder] = []
     for decoder in orgDecoders:
         if isinstance(decoder, NoMatchDecoder):
             # Drop decoder that will never match.
@@ -624,7 +624,7 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
         end = min(end, start + 8)
 
         # Group decoders in buckets determined by the selected segment.
-        table: List[List[Decoder]] = [
+        table: list[list[Decoder]] = [
             [] for index in range(1 << (end - start))
             ]
         for decoder in decoders:
@@ -662,14 +662,14 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
 @dataclass(frozen=True)
 class ParsedModeEntry:
     entry: ModeEntry
-    decoding: Mapping[Optional[str], Sequence[FixedEncoding]]
+    decoding: Mapping[str | None, Sequence[FixedEncoding]]
     flagsRequired: AbstractSet[str]
 
 def _qualifyNames(parsedEntry: ParsedModeEntry,
-                  branchName: Optional[str]
-                  ) -> Tuple[
+                  branchName: str | None
+                  ) -> tuple[
                       ModeEntry,
-                      Mapping[Optional[str], Sequence[FixedEncoding]]
+                      Mapping[str | None, Sequence[FixedEncoding]]
                       ]:
     '''Returns a pair containing a ModeEntry and decode mapping, where each
     name starts with the given branch name.
@@ -699,16 +699,16 @@ def _qualifyNames(parsedEntry: ParsedModeEntry,
 class DecoderFactory:
 
     def __init__(self,
-                 modeEntries: Mapping[Optional[str], Iterable[ParsedModeEntry]],
+                 modeEntries: Mapping[str | None, Iterable[ParsedModeEntry]],
                  flags: Iterable[str]
                  ):
         self._modeEntries = modeEntries
         self._flags = frozenset(flags)
-        self._cache: Dict[Tuple[Optional[str], Optional[str]], Decoder] = {}
+        self._cache: dict[tuple[str | None, str | None], Decoder] = {}
 
     def createDecoder(self,
-                      modeName: Optional[str],
-                      branchName: Optional[str]
+                      modeName: str | None,
+                      branchName: str | None
                       ) -> Decoder:
         cache = self._cache
         key = (modeName, branchName)
@@ -734,8 +734,8 @@ class Prefix:
 class PrefixDecoder:
 
     def __init__(self, prefixes: Iterable[Prefix]):
-        tree: Dict[Optional[int], Any] = {}
-        def addPrefix(node: Dict[Optional[int], Any],
+        tree: dict[int | None, Any] = {}
+        def addPrefix(node: dict[int | None, Any],
                       values: Sequence[int],
                       prefix: Prefix
                       ) -> None:
@@ -750,7 +750,7 @@ class PrefixDecoder:
             encoding = prefix.encoding
             fixedMatcher, decodeMap = decomposeEncoding(encoding)
             assert len(decodeMap) == 0, decodeMap
-            values: List[int] = []
+            values: list[int] = []
             for idx, (encIdx, fixedMask, fixedValue) \
                     in enumerate(sorted(fixedMatcher)):
                 assert idx == encIdx, (idx, encIdx)
@@ -761,16 +761,16 @@ class PrefixDecoder:
             addPrefix(tree, values, prefix)
         self._tree = tree
 
-    def tryDecode(self, fetcher: Fetcher) -> Optional[Prefix]:
+    def tryDecode(self, fetcher: Fetcher) -> Prefix | None:
         '''Attempts to decode an instruction prefix from the encoded data
         provided by the given fetcher.
         Returns the decoded prefix, or None if no prefix was found.
         '''
         idx = 0
-        node: Optional[Dict[Optional[int], Any]] = self._tree
+        node: dict[int | None, Any] | None = self._tree
         assert node is not None
         while True:
-            prefix: Optional[Prefix] = node.get(None)
+            prefix: Prefix | None = node.get(None)
             if prefix is None:
                 encoded = fetcher[idx]
                 idx += 1

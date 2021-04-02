@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-from typing import Dict, Iterable, List, NoReturn, Optional, Type, Union
+from typing import Iterable, NoReturn
 import sys
 
 from click import (
@@ -116,7 +118,7 @@ def checkdef(
         ) -> NoReturn:
     """Check instruction set definition files."""
 
-    files: List[Path] = []
+    files: list[Path] = []
     for pathName in instr:
         path = Path(pathName)
         if path.is_dir():
@@ -136,9 +138,9 @@ def checkdef(
 def determineBinaryFormat(
         image: Image,
         fileName: str,
-        formatName: Optional[str],
+        formatName: str | None,
         logger: Logger
-        ) -> Optional[Type[BinaryFormat]]:
+        ) -> type[BinaryFormat] | None:
     """Determines the right binary format for the given open file object.
     If the given format name is None, autodetection will be used.
     Returns a binary format subclass on success, or None if the format could
@@ -200,7 +202,7 @@ def disassembleBinary(
         return
 
     # Load instruction set definitions.
-    instrSets: Dict[str, Optional[InstructionSet]] = {}
+    instrSets: dict[str, InstructionSet | None] = {}
     for section in sectionMap:
         instrSetName = getattr(section, 'instrSetName', None)
         if instrSetName is not None and instrSetName not in instrSets:
@@ -329,11 +331,11 @@ class EntryPointParamType(ParamType):
     def convert(
             self,
             value: str,
-            param: Optional[Parameter],
-            ctx: Optional[Context]
+            param: Parameter | None,
+            ctx: Context | None
             ) -> EntryPoint:
 
-        label: Optional[str]
+        label: str | None
         if ',' in value:
             offsetStr, label = value.split(',')
         else:
@@ -359,14 +361,14 @@ class SectionParamType(ParamType):
     def convert(
             self,
             value: str,
-            param: Optional[Parameter],
-            ctx: Optional[Context]
+            param: Parameter | None,
+            ctx: Context | None
             ) -> Section:
 
-        instrSetName: Optional[str] = None
+        instrSetName: str | None = None
         byteorder = ByteOrder.undefined
         start = 0
-        end: Union[int, Unlimited] = unlimited
+        end: int | Unlimited = unlimited
         base = 0
         for opt in value.split(':'):
             if not opt:
@@ -411,7 +413,7 @@ SECTION = SectionParamType()
 
 def listSupported(
         ctx: Context,
-        param: Union[Parameter, Option], # pylint: disable=unused-argument
+        param: Parameter | Option, # pylint: disable=unused-argument
         value: bool
         ) -> None:
 
@@ -470,7 +472,7 @@ def disasm(
         entries: Iterable[EntryPoint],
         sections: Iterable[Section],
         verbose: int,
-        binfmt: Optional[str] = None
+        binfmt: str | None = None
         ) -> None:
     """Disassembler using the RetroAsm toolkit."""
 

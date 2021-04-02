@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from collections import OrderedDict, defaultdict
 from logging import WARNING, Logger, getLogger
 from pathlib import Path
 from typing import (
-    AbstractSet, Callable, DefaultDict, Dict, Iterable, Iterator, List,
-    Mapping, Optional, Sequence, Set, Tuple, Union, cast
+    AbstractSet, Callable, DefaultDict, Iterable, Iterator, Mapping, Optional,
+    Sequence, cast
 )
 import re
 
@@ -127,8 +129,8 @@ _reArgDecl = re.compile(_typeTok + r'\s' + _nameTok + r'$')
 def _parseTypedArgs(reader: DefLineReader,
                     args: InputLocation,
                     description: str
-                    ) -> Iterator[Tuple[
-                        Union[IntType, ReferenceType],
+                    ) -> Iterator[tuple[
+                        IntType | ReferenceType,
                         InputLocation, InputLocation
                         ]]:
     '''Parses a typed arguments list, yielding a triple for each argument,
@@ -259,7 +261,7 @@ def _parsePrefix(reader: DefLineReader,
                 )
 
         # Parse semantics.
-        semantics: Optional[CodeBlock]
+        semantics: CodeBlock | None
         try:
             with reader.checkErrors():
                 if len(semLoc) == 0:
@@ -321,7 +323,7 @@ def _parseIO(reader: DefLineReader,
             elemTypeLoc, nameLoc, addrTypeLoc = match.groups
 
             try:
-                elemType: Optional[IntType] = parseType(elemTypeLoc.text)
+                elemType: IntType | None = parseType(elemTypeLoc.text)
             except ValueError as ex:
                 reader.error(
                     'bad I/O element type: %s', ex, location=elemTypeLoc
@@ -329,7 +331,7 @@ def _parseIO(reader: DefLineReader,
                 elemType = None
 
             try:
-                addrType: Optional[IntType] = parseType(addrTypeLoc.text)
+                addrType: IntType | None = parseType(addrTypeLoc.text)
             except ValueError as ex:
                 reader.error(
                     'bad I/O address type: %s', ex, location=addrTypeLoc
@@ -365,8 +367,8 @@ def _parseFunc(reader: DefLineReader,
         return
 
     # Parse return type.
-    retType: Optional[Union[IntType, ReferenceType]]
-    retTypeLoc: Optional[InputLocation]
+    retType: IntType | ReferenceType | None
+    retTypeLoc: InputLocation | None
     if match.hasGroup(1):
         retTypeLoc = match.group(1)
         try:
@@ -380,10 +382,10 @@ def _parseFunc(reader: DefLineReader,
         retType = None
 
     # Parse arguments.
-    args: OrderedDict[str, Union[IntType, ReferenceType]] = OrderedDict()
+    args: OrderedDict[str, IntType | ReferenceType] = OrderedDict()
     try:
         with reader.checkErrors():
-            nameLocations: Dict[str, InputLocation] = {}
+            nameLocations: dict[str, InputLocation] = {}
             for i, (argType, argTypeLoc_, argNameLoc) in enumerate(
                     _parseTypedArgs(reader, match.group(3),
                                     'function argument'),
@@ -430,7 +432,7 @@ def _parseModeContext(ctxLoc: InputLocation,
                       prefixes: PrefixMappingFactory,
                       modes: Mapping[str, Mode],
                       reader: DefLineReader
-                      ) -> Tuple[Mapping[str, PlaceholderSpec], Set[str]]:
+                      ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
     placeholderSpecs: OrderedDict[str, PlaceholderSpec] = OrderedDict()
     flagsRequired = set()
     for node in parseContext(ctxLoc):
@@ -492,7 +494,7 @@ def _parseModeContext(ctxLoc: InputLocation,
 def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
                        globalNamespace: GlobalNamespace,
                        reader: DefLineReader
-                       ) -> Iterator[Tuple[str, Placeholder]]:
+                       ) -> Iterator[tuple[str, Placeholder]]:
     '''Yields pairs of name and Placeholder object.
     '''
     semNamespace = ContextNamespace(globalNamespace)
@@ -762,8 +764,8 @@ def _checkAuxEncodingWidth(encItems: Iterable[EncodingItem],
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
     '''
-    firstAux: List[object] = [None, None]
-    def checkAux(width: Optional[int], location: InputLocation) -> None:
+    firstAux: list[object] = [None, None]
+    def checkAux(width: int | None, location: InputLocation) -> None:
         auxWidth, auxLoc = firstAux
         if auxWidth is None:
             firstAux[0] = width
@@ -804,7 +806,7 @@ def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
     '''Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
     '''
-    claimedMultiMatches: Dict[str, InputLocation] = {}
+    claimedMultiMatches: dict[str, InputLocation] = {}
     for encItem in encItems:
         if isinstance(encItem, EncodingMultiMatch):
             name = encItem.name
@@ -817,10 +819,10 @@ def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
                 claimedMultiMatches[name] = encItem.location
 
 def _combinePlaceholderEncodings(
-        decodeMap: Mapping[str, Sequence[Tuple[int, int, int, Width]]],
+        decodeMap: Mapping[str, Sequence[tuple[int, int, int, Width]]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Iterator[Tuple[str, Sequence[FixedEncoding]]]:
+        ) -> Iterator[tuple[str, Sequence[FixedEncoding]]]:
     '''Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
@@ -907,7 +909,7 @@ def _parseModeDecoding(
         encoding: Encoding,
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Optional[Mapping[Optional[str], Sequence[FixedEncoding]]]:
+        ) -> Mapping[str | None, Sequence[FixedEncoding]] | None:
     '''Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     '''
@@ -932,7 +934,7 @@ def _parseModeDecoding(
         return None
     else:
         modeDecodeMap = cast(
-            Dict[Optional[str], Sequence[FixedEncoding]],
+            dict[Optional[str], Sequence[FixedEncoding]],
             sequentialMap
             )
         modeDecodeMap[None] = fixedMatcher
@@ -941,8 +943,8 @@ def _parseModeDecoding(
 def _parseModeSemantics(reader: DefLineReader,
                         semLoc: InputLocation,
                         semNamespace: LocalNamespace,
-                        modeType: Union[None, IntType, ReferenceType]
-                        ) -> Optional[Reference]:
+                        modeType: None | IntType | ReferenceType
+                        ) -> Reference | None:
     semantics = parseExpr(semLoc)
     if isinstance(modeType, ReferenceType):
         ref = buildReference(semantics, semNamespace)
@@ -965,7 +967,7 @@ def _parseModeSemantics(reader: DefLineReader,
 def _parseInstrSemantics(reader: DefLineReader,
                          semLoc: InputLocation,
                          namespace: LocalNamespace,
-                         modeType: Union[None, IntType, ReferenceType] = None
+                         modeType: None | IntType | ReferenceType = None
                          ) -> None:
     assert modeType is None, modeType
     node = parseStatement(semLoc)
@@ -978,7 +980,7 @@ def _parseMnemonic(mnemLoc: InputLocation,
                    placeholders: Mapping[str, Placeholder],
                    reader: DefLineReader
                    ) -> Iterator[MnemItem]:
-    seenPlaceholders: Dict[str, InputLocation] = {}
+    seenPlaceholders: dict[str, InputLocation] = {}
     for mnemElem in mnemLoc.findLocations(_reMnemonic):
         text = mnemElem.text
         placeholder = placeholders.get(text)
@@ -1009,13 +1011,13 @@ def _parseModeEntries(
         reader: DefLineReader,
         globalNamespace: GlobalNamespace,
         prefixes: PrefixMappingFactory,
-        modes: Dict[str, Mode],
-        modeType: Union[None, IntType, ReferenceType],
-        mnemBase: Tuple[MnemItem, ...],
+        modes: dict[str, Mode],
+        modeType: None | IntType | ReferenceType,
+        mnemBase: tuple[MnemItem, ...],
         parseSem: Callable[
             [DefLineReader, InputLocation, LocalNamespace,
-                            Union[None, IntType, ReferenceType]],
-            Optional[Reference]
+                            None | IntType | ReferenceType],
+            Reference | None
             ],
         wantSemantics: bool
         ) -> Iterator[ParsedModeEntry]:
@@ -1051,7 +1053,7 @@ def _parseModeEntries(
                     placeholders = OrderedDict()
 
                 # Parse encoding.
-                encNodes: Optional[Iterable[ParseNode]]
+                encNodes: Iterable[ParseNode] | None
                 if len(encLoc) != 0:
                     try:
                         # Parse encoding field.
@@ -1131,7 +1133,7 @@ def _parseModeEntries(
                         # This is the last field.
                         continue
                     try:
-                        semantics: Optional[CodeBlock]
+                        semantics: CodeBlock | None
                         semantics = semNamespace.createCodeBlock(
                             retRef=semRef, log=reader
                             )
@@ -1154,14 +1156,14 @@ def _parseModeEntries(
                 entry = ModeEntry(encoding, mnemonic, template, placeholders)
                 yield ParsedModeEntry(entry, decoding, flagsRequired)
 
-def _formatEncodingWidth(width: Optional[Width]) -> str:
+def _formatEncodingWidth(width: Width | None) -> str:
     return 'empty' if width is None else f'{width} bits wide'
 
-def _determineEncodingWidth(entries: List[ParsedModeEntry],
+def _determineEncodingWidth(entries: list[ParsedModeEntry],
                             aux: bool,
-                            modeName: Optional[str],
+                            modeName: str | None,
                             logger: DefLineReader
-                            ) -> Optional[int]:
+                            ) -> int | None:
     '''Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
@@ -1172,7 +1174,7 @@ def _determineEncodingWidth(entries: List[ParsedModeEntry],
 
     widthAttr = 'auxEncodingWidth' if aux else 'encodingWidth'
 
-    widthFreqs: DefaultDict[Optional[int], int] = defaultdict(int)
+    widthFreqs: DefaultDict[int | None, int] = defaultdict(int)
     for entry in entries:
         widthFreqs[getattr(entry.entry.encoding, widthAttr)] += 1
     if aux:
@@ -1187,7 +1189,7 @@ def _determineEncodingWidth(entries: List[ParsedModeEntry],
     else:
         # Multiple widths; use one with the maximum frequency.
         encWidth, _ = max(widthFreqs.items(), key=lambda item: item[1])
-        validWidths: Iterable[Optional[Width]]
+        validWidths: Iterable[Width | None]
         if aux:
             validWidths = (encWidth, None)
         else:
@@ -1219,8 +1221,8 @@ def _parseMode(
         args: InputLocation,
         globalNamespace: GlobalNamespace,
         prefixes: PrefixMappingFactory,
-        modes: Dict[str, Mode],
-        modeEntries: Dict[Optional[str], List[ParsedModeEntry]],
+        modes: dict[str, Mode],
+        modeEntries: dict[str | None, list[ParsedModeEntry]],
         wantSemantics: bool
         ) -> None:
     # Parse header line.
@@ -1233,7 +1235,7 @@ def _parseMode(
         reader.skipBlock()
         return
     modeTypeLoc, modeNameLoc = match.groups
-    semType: Union[None, IntType, ReferenceType]
+    semType: None | IntType | ReferenceType
     try:
         semType = parseTypeDecl(modeTypeLoc.text)
     except ValueError as ex:
@@ -1280,7 +1282,7 @@ def _parseInstr(
         args: InputLocation,
         globalNamespace: GlobalNamespace,
         prefixes: PrefixMappingFactory,
-        modes: Dict[str, Mode],
+        modes: dict[str, Mode],
         wantSemantics: bool
         ) -> Iterator[ParsedModeEntry]:
     mnemBase = tuple(_parseMnemonic(args, {}, reader))
@@ -1311,9 +1313,9 @@ def _parseInstr(
 _reHeader = re.compile(_nameTok + r'(?:\s+(.*\S)\s*)?$')
 
 def parseInstrSet(path: Path,
-                  logger: Optional[Logger] = None,
+                  logger: Logger | None = None,
                   wantSemantics: bool = True
-                  ) -> Optional[InstructionSet]:
+                  ) -> InstructionSet | None:
     if logger is None:
         logger = getLogger('parse-instr')
         logger.setLevel(WARNING)
@@ -1321,8 +1323,8 @@ def parseInstrSet(path: Path,
     globalBuilder = StatelessCodeBlockBuilder()
     globalNamespace = GlobalNamespace(globalBuilder)
     prefixes = PrefixMappingFactory(globalNamespace)
-    modes: Dict[str, Mode] = {}
-    modeEntries: Dict[Optional[str], List[ParsedModeEntry]] = {}
+    modes: dict[str, Mode] = {}
+    modeEntries: dict[str | None, list[ParsedModeEntry]] = {}
     instructions = modeEntries.setdefault(None, [])
 
     with DefLineReader.open(path, logger) as reader:

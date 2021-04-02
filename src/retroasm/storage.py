@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, Optional, cast
+from typing import Callable, Iterator, cast
 
 from .expression import Expression
 from .types import IntType, Width
@@ -147,7 +147,7 @@ class Storage:
 
     def substituteExpressions(
             self,
-            func: Callable[[Expression], Optional[Expression]]
+            func: Callable[[Expression], Expression | None]
             ) -> Storage:
         '''Applies the given substitution function to the expressions in this
         storage, if any.
@@ -293,7 +293,7 @@ class IOStorage(Storage):
 
     def substituteExpressions(
             self,
-            func: Callable[[Expression], Optional[Expression]]
+            func: Callable[[Expression], Expression | None]
             ) -> IOStorage:
         index = self._index
         newIndex = index.substitute(func)

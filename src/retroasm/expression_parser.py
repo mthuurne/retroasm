@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import (
-    Any, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
-)
+from typing import Any, Iterable, Iterator, Sequence, Union
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .tokens import TokenEnum
@@ -122,12 +120,12 @@ class OperatorNode(ParseNode):
 
     def __init__(self,
                  operator: Operator,
-                 operands: Iterable[Optional[ParseNode]],
+                 operands: Iterable[ParseNode | None],
                  location: InputLocation
                  ):
         ParseNode.__init__(self, location)
         self.operator = operator
-        self.operands: Sequence[Optional[ParseNode]] = tuple(operands)
+        self.operands: Sequence[ParseNode | None] = tuple(operands)
         self.treeLocation = self._treeLocation()
 
     def __iter__(self) -> Iterator[ParseNode]:
@@ -174,7 +172,7 @@ class DeclarationNode(ParseNode):
 
     def __init__(self,
                  kind: DeclarationKind,
-                 typ: Optional[IdentifierNode],
+                 typ: IdentifierNode | None,
                  name: IdentifierNode,
                  location: InputLocation
                  ):
@@ -363,7 +361,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 )
         return expr
 
-    def parseAddSub(expr: Optional[ParseNode] = None) -> ParseNode:
+    def parseAddSub(expr: ParseNode | None = None) -> ParseNode:
         if expr is None:
             expr = parseConcat()
         location = tokens.eat(ExprToken.operator, '+')
@@ -408,7 +406,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if openLocation is None:
                 return expr
 
-            start: Optional[ParseNode]
+            start: ParseNode | None
             sepLocation = tokens.eat(ExprToken.separator, ':')
             if sepLocation is None:
                 start = parseExprTop()
@@ -416,7 +414,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             else:
                 start = None
 
-            end: Optional[ParseNode]
+            end: ParseNode | None
             closeLocation = tokens.eat(ExprToken.bracket, ']')
             if sepLocation is None:
                 if closeLocation is None:
@@ -497,8 +495,8 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             return DefinitionNode(declNode, parseExprTop(), defLocation)
 
     def parseRegs() -> Iterable[DefDeclNode]:
-        defs: List[DefDeclNode] = []
-        typeNode: Optional[IdentifierNode] = None
+        defs: list[DefDeclNode] = []
+        typeNode: IdentifierNode | None = None
         while True:
             startLocation = tokens.location
 
@@ -598,7 +596,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
 
         return DeclarationNode(kind, typeNode, nameNode, startLocation)
 
-    def parseIdent() -> Union[IdentifierNode, OperatorNode]:
+    def parseIdent() -> IdentifierNode | OperatorNode:
         location = tokens.eat(ExprToken.identifier)
         assert location is not None, tokens.location
 
@@ -612,7 +610,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         openLocation = tokens.eat(ExprToken.bracket, '(')
         assert openLocation is not None, tokens.location
 
-        exprs: List[ParseNode] = [name]
+        exprs: list[ParseNode] = [name]
         closeLocation = tokens.eat(ExprToken.bracket, ')')
         while closeLocation is None:
             exprs.append(parseExprTop())
@@ -671,7 +669,7 @@ def parseContext(location: InputLocation) -> Iterable[ContextNode]:
 def parseStatement(location: InputLocation) -> ParseNode:
     return cast(ParseNode, _parse(location, _ParseMode.statement))
 
-def parseInt(valueStr: str) -> Tuple[int, Width]:
+def parseInt(valueStr: str) -> tuple[int, Width]:
     '''Parse the given string as a binary, decimal or hexadecimal integer.
     Returns a pair containing the value and the width of the literal in bits.
     Raises ValueError if the given string does not represent an integer.

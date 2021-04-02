@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import (
-    AbstractSet, Callable, Collection, Dict, Iterable, Iterator, List, Mapping,
-    MutableSet, Optional, Sequence, cast
+    AbstractSet, Callable, Collection, Iterable, Iterator, Mapping, MutableSet,
+    Sequence, cast
 )
 
 from .codeblock import CodeBlock, Store
@@ -26,7 +28,7 @@ class PrefixMapping:
     initCode: CodeBlock
     flagForVar: Mapping[Storage, str]
     prefixForFlag: Mapping[str, Prefix]
-    encodingWidth: Optional[int]
+    encodingWidth: int | None
 
 def flagsSetByCode(code: CodeBlock) -> Iterator[Storage]:
     '''Yields those storages to which the value 1 is assigned by the given code
@@ -47,11 +49,11 @@ class PrefixMappingFactory:
 
     def __init__(self, namespace: Namespace):
         self._namespace = namespace
-        self._prefixes: List[Prefix] = []
+        self._prefixes: list[Prefix] = []
         self._initBuilder = SemanticsCodeBlockBuilder()
-        self._flagForVar: Dict[Storage, str] = {}
-        self._prefixForFlag: Dict[str, Prefix] = {}
-        self._encodingWidth: Optional[int] = None
+        self._flagForVar: dict[Storage, str] = {}
+        self._prefixForFlag: dict[str, Prefix] = {}
+        self._encodingWidth: int | None = None
 
     def hasFlag(self, name: str) -> bool:
         '''Return True iff a decode flag with the given name was added to
@@ -150,11 +152,11 @@ class InstructionSet(ModeTable):
         return self._prefixMapping
 
     def __init__(self,
-                 encWidth: Optional[int],
-                 auxEncWidth: Optional[int],
+                 encWidth: int | None,
+                 auxEncWidth: int | None,
                  globalNamespace: GlobalNamespace,
                  prefixMapping: PrefixMapping,
-                 modeEntries: Mapping[Optional[str], List[ParsedModeEntry]]
+                 modeEntries: Mapping[str | None, list[ParsedModeEntry]]
                  ):
         if auxEncWidth not in (encWidth, None):
             raise ValueError(
@@ -174,10 +176,10 @@ class InstructionSet(ModeTable):
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
         self._modeEntries = modeEntries
-        self._decoders: Dict[AbstractSet[str], Decoder] = {}
+        self._decoders: dict[AbstractSet[str], Decoder] = {}
 
     @const_property
-    def prefixDecodeFunc(self) -> Callable[[Fetcher], Optional[Prefix]]:
+    def prefixDecodeFunc(self) -> Callable[[Fetcher], Prefix | None]:
         prefixes = self._prefixMapping.prefixes
         if len(prefixes) == 0:
             return lambda fetcher: None

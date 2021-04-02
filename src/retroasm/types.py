@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Iterator, NoReturn, Tuple, Union, cast
+from typing import TYPE_CHECKING, Iterable, Iterator, NoReturn, Union, cast
 
 from .utils import Singleton, Unique
 
@@ -91,7 +91,7 @@ def trailingZeroes(n: int) -> Width:
         count += 1
     return count
 
-Segment = Tuple[int, Width]
+Segment = tuple[int, Width]
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
     '''Iterates through pairs of start and end indices of maximally long
@@ -212,7 +212,7 @@ def parseType(typeName: str) -> IntType:
             return IntType(int(widthStr), typeName.startswith('s'))
     raise ValueError(f'"{typeName}" is not a valid type name')
 
-def parseTypeDecl(typeDecl: str) -> Union[IntType, ReferenceType]:
+def parseTypeDecl(typeDecl: str) -> IntType | ReferenceType:
     if typeDecl.endswith('&'):
         return ReferenceType(parseType(typeDecl[:-1]))
     else:

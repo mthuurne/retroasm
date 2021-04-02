@@ -1,4 +1,6 @@
-from typing import Mapping, Optional, Sequence, Union
+from __future__ import annotations
+
+from typing import Mapping, Sequence
 
 from .codeblock import CodeBlock
 from .reference import BitString
@@ -9,9 +11,9 @@ from .types import IntType, ReferenceType
 class Function:
 
     def __init__(self,
-                 retType: Union[None, IntType, ReferenceType],
-                 args: Mapping[str, Union[IntType, ReferenceType]],
-                 code: Optional[CodeBlock]
+                 retType: None | IntType | ReferenceType,
+                 args: Mapping[str, IntType | ReferenceType],
+                 code: CodeBlock | None
                  ):
         if code is not None:
             _checkArgs(args, code.arguments)
@@ -40,7 +42,7 @@ class Function:
         else:
             self.code.dump()
 
-def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
+def _checkArgs(declArgs: Mapping[str, IntType | ReferenceType],
                codeArgs: Mapping[str, Storage]
                ) -> None:
     '''Check consistency between declared argument types and code block.
@@ -60,7 +62,7 @@ def _checkArgs(declArgs: Mapping[str, Union[IntType, ReferenceType]],
                 f'but has width {arg.width} in code block'
                 )
 
-def _checkReturn(retType: Union[None, IntType, ReferenceType],
+def _checkReturn(retType: None | IntType | ReferenceType,
                  returned: Sequence[BitString]
                  ) -> None:
     '''Check consistency between declared return type and code block.

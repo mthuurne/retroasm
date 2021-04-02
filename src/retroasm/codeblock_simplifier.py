@@ -1,4 +1,6 @@
-from typing import AbstractSet, DefaultDict, Dict, Optional
+from __future__ import annotations
+
+from typing import AbstractSet, DefaultDict
 
 from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression import Expression
@@ -45,7 +47,7 @@ class CodeBlockSimplifier(CodeBlock):
     def removeRedundantNodes(self) -> None:
         nodes = self.nodes
 
-        loadReplacements: Dict[Expression, Expression] = {}
+        loadReplacements: dict[Expression, Expression] = {}
         def replaceLoadedValues(expr: Expression) -> Expression:
             newExpr = expr.substitute(loadReplacements.get)
             if newExpr is not expr:
@@ -54,7 +56,7 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
-        currentValues: Dict[Storage, Expression] = {}
+        currentValues: dict[Storage, Expression] = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
@@ -107,7 +109,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Fixate variables and apply load replacements in returned bit strings.
         returned = self.returned
         for i, retBits in enumerate(returned):
-            def fixateVariables(storage: Storage) -> Optional[FixedValue]:
+            def fixateVariables(storage: Storage) -> FixedValue | None:
                 if isinstance(storage, Variable) and storage.scope == 1:
                     return FixedValue(currentValues[storage], storage.width)
                 else:

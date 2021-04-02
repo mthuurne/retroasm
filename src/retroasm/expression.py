@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from functools import reduce
 from itertools import chain
-from typing import (
-    Callable, Iterable, Iterator, Optional, Sequence, Tuple, Type, TypeVar,
-    cast
-)
+from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
 
 from .types import (
     Width, maskForWidth, maskToSegments, trailingZeroes, unlimited,
@@ -36,7 +33,7 @@ class Expression:
         '''
         raise NotImplementedError
 
-    def _ctorargs(self) -> Tuple[object, ...]:
+    def _ctorargs(self) -> tuple[object, ...]:
         '''Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
         '''
@@ -84,7 +81,7 @@ class Expression:
         '''
         raise NotImplementedError
 
-    def iterInstances(self, cls: Type[ExprT]) -> Iterator[ExprT]:
+    def iterInstances(self, cls: type[ExprT]) -> Iterator[ExprT]:
         '''Yields the subexpressions of this expression that are instances of
         the given Python type.
         '''
@@ -95,7 +92,7 @@ class Expression:
                 yield from value.iterInstances(cls)
 
     def substitute(self,
-                   func: Callable[[Expression], Optional[Expression]]
+                   func: Callable[[Expression], Expression | None]
                    ) -> Expression:
         '''Applies the given substitution function to this expression and
         returns the resulting expression.
@@ -136,7 +133,7 @@ class BadValue(Expression):
         self._width = width
         Expression.__init__(self)
 
-    def _ctorargs(self) -> Tuple[Width]:
+    def _ctorargs(self) -> tuple[Width]:
         return self._width,
 
     def __str__(self) -> str:
@@ -166,7 +163,7 @@ class IntLiteral(Expression):
         self._value = value
         Expression.__init__(self)
 
-    def _ctorargs(self) -> Tuple[int]:
+    def _ctorargs(self) -> tuple[int]:
         return self._value,
 
     def __str__(self) -> str:
@@ -192,7 +189,7 @@ class MultiExpression(Expression):
     operator: str
     idempotent: bool
     identity: int
-    absorber: Optional[int]
+    absorber: int | None
 
     nodeComplexity = 1
     '''Contribution of the expression node itself to expression complexity.'''
@@ -207,7 +204,7 @@ class MultiExpression(Expression):
         Expression.__init__(self)
         self._exprs = exprs
 
-    def _ctorargs(self) -> Tuple[Expression, ...]:
+    def _ctorargs(self) -> tuple[Expression, ...]:
         return self._exprs
 
     @const_property
@@ -389,7 +386,7 @@ class SingleExpression(Expression):
         Expression.__init__(self)
         self._expr = expr
 
-    def _ctorargs(self) -> Tuple[object, ...]:
+    def _ctorargs(self) -> tuple[object, ...]:
         return self._expr,
 
     def _equals(self: SingleExprT, other: SingleExprT) -> bool:
@@ -449,7 +446,7 @@ class SignExtension(SingleExpression):
         SingleExpression.__init__(self, expr)
         self._width = width
 
-    def _ctorargs(self) -> Tuple[Expression, int]:
+    def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._width
 
     def __str__(self) -> str:
@@ -484,7 +481,7 @@ class LShift(SingleExpression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self) -> Tuple[Expression, int]:
+    def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -519,7 +516,7 @@ class RShift(SingleExpression):
         if offset < 0:
             raise ValueError('negative shift count')
 
-    def _ctorargs(self) -> Tuple[Expression, int]:
+    def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -582,7 +579,7 @@ class LVShift(Expression):
             -1 << ((1 << width) + cast(int, trailingZeroes(exprMask)))
             )
 
-    def _ctorargs(self) -> Tuple[Expression, Expression]:
+    def _ctorargs(self) -> tuple[Expression, Expression]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
@@ -636,7 +633,7 @@ class RVShift(Expression):
                 mask |= mask >> (1 << i)
         return mask
 
-    def _ctorargs(self) -> Tuple[Expression, Expression]:
+    def _ctorargs(self) -> tuple[Expression, Expression]:
         return self._expr, self._offset
 
     def __str__(self) -> str:

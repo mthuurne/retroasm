@@ -1,4 +1,6 @@
-from typing import Any, Callable, Dict, List, Optional, Type, cast
+from __future__ import annotations
+
+from typing import Any, Callable, cast
 
 from .expression import (
     AddOperator, AndOperator, Complement, Expression, IntLiteral, LShift,
@@ -8,8 +10,8 @@ from .expression import (
 from .types import maskForWidth, widthForMask
 
 
-def _simplifyAlgebraic(cls: Type[MultiExpression],
-                       exprs: List[Expression]
+def _simplifyAlgebraic(cls: type[MultiExpression],
+                       exprs: list[Expression]
                        ) -> bool:
     '''Simplify the given list of expressions using algebraic properties of the
     given MultiExpression subclass.
@@ -87,7 +89,7 @@ def _simplifyAlgebraic(cls: Type[MultiExpression],
 
     return changed
 
-def _simplifyList(exprs: List[Expression]) -> bool:
+def _simplifyList(exprs: list[Expression]) -> bool:
     '''Simplify the given list of expressions individually.
     Returns True if any of the expressions was replaced by a simpler equivalent,
     False otherwise.
@@ -123,7 +125,7 @@ def _simplifyComposed(composed: MultiExpression) -> Expression:
     else:
         return composed
 
-def _customSimplifyAnd(node: AndOperator, exprs: List[Expression]) -> bool:
+def _customSimplifyAnd(node: AndOperator, exprs: list[Expression]) -> bool:
     # pylint: disable=protected-access
     if len(exprs) < 2:
         return False
@@ -133,7 +135,7 @@ def _customSimplifyAnd(node: AndOperator, exprs: List[Expression]) -> bool:
     if isinstance(last, IntLiteral):
         explicitMask = last.value
         del exprs[-1]
-        orgMaskLiteral: Optional[IntLiteral] = last
+        orgMaskLiteral: IntLiteral | None = last
     else:
         explicitMask = -1
         orgMaskLiteral = None
@@ -188,7 +190,7 @@ def _customSimplifyAnd(node: AndOperator, exprs: List[Expression]) -> bool:
 
     return maskChanged
 
-def _customSimplifyOr(node: OrOperator, exprs: List[Expression]) -> bool:
+def _customSimplifyOr(node: OrOperator, exprs: list[Expression]) -> bool:
     # pylint: disable=protected-access
     if not exprs:
         return False
@@ -213,7 +215,7 @@ def _customSimplifyOr(node: OrOperator, exprs: List[Expression]) -> bool:
     return False
 
 def _customSimplifyXor(node: XorOperator, # pylint: disable=unused-argument
-                       exprs: List[Expression]) -> bool:
+                       exprs: list[Expression]) -> bool:
     changed = False
 
     # Remove duplicate expression pairs: A ^ A == 0.
@@ -236,7 +238,7 @@ def _customSimplifyXor(node: XorOperator, # pylint: disable=unused-argument
     return changed
 
 def _customSimplifyAdd(node: AddOperator, # pylint: disable=unused-argument
-                       exprs: List[Expression]) -> bool:
+                       exprs: list[Expression]) -> bool:
     changed = False
 
     # Remove pairs of A and -A.
@@ -259,8 +261,8 @@ def _customSimplifyAdd(node: AddOperator, # pylint: disable=unused-argument
 
     return changed
 
-_customSimplifiers: Dict[Type[MultiExpression],
-                         Callable[[Any, List[Expression]], bool]
+_customSimplifiers: dict[type[MultiExpression],
+                         Callable[[Any, list[Expression]], bool]
                          ] = {
     AndOperator: _customSimplifyAnd,
     OrOperator: _customSimplifyOr,
@@ -561,7 +563,7 @@ def _simplifyMasked(expr: Expression, mask: int) -> Expression:
 
     return expr
 
-_simplifiers: Dict[Type[Expression], Callable[[Any], Expression]] = {
+_simplifiers: dict[type[Expression], Callable[[Any], Expression]] = {
     AndOperator: _simplifyComposed,
     OrOperator: _simplifyComposed,
     XorOperator: _simplifyComposed,

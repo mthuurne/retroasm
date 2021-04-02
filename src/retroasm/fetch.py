@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from .binfmt import Image
 
 
@@ -13,7 +11,7 @@ class Fetcher:
     def __init__(self) -> None:
         self._cached = self._fetch(0)
 
-    def __getitem__(self, key: int) -> Optional[int]:
+    def __getitem__(self, key: int) -> int | None:
         if key == 0:
             # Fast path for most frequently used index.
             return self._cached
@@ -27,7 +25,7 @@ class Fetcher:
                 f'fetcher index must be integer, not {type(key).__name__}'
                 )
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         '''Returns the data unit at the given index, or None if the index is
         out of range.
         '''
@@ -72,7 +70,7 @@ class ImageFetcher(Fetcher):
     def numBytes(self) -> int:
         return self._numBytes
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         raise NotImplementedError
 
     def advance(self, steps: int = 1) -> ImageFetcher:
@@ -99,7 +97,7 @@ class ByteFetcher(ImageFetcher):
                  ):
         ImageFetcher.__init__(self, image, start, end, numBytes)
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         offset = self._offset + index
         return self._image[offset] if offset < self._end else None
 
@@ -109,7 +107,7 @@ class MultiByteFetcher(ImageFetcher):
     '''
     __slots__ = ()
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         numBytes = self._numBytes
         offset = self._offset + index * numBytes
         after = offset + numBytes
@@ -158,16 +156,16 @@ class ModeFetcher(Fetcher):
     __slots__ = ('_first', '_auxFetcher', '_auxIndex')
 
     def __init__(self,
-                 first: Optional[int],
+                 first: int | None,
                  auxFetcher: Fetcher,
-                 auxIndex: Optional[int]
+                 auxIndex: int | None
                  ):
         self._first = first
         self._auxFetcher = auxFetcher
         self._auxIndex = auxIndex
         Fetcher.__init__(self)
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         first = self._first
         if first is not None:
             if index == 0:
@@ -196,7 +194,7 @@ class AfterModeFetcher(Fetcher):
         self._delta = delta
         Fetcher.__init__(self)
 
-    def _fetch(self, index: int) -> Optional[int]:
+    def _fetch(self, index: int) -> int | None:
         if index >= self._auxIndex:
             assert index > self._auxIndex
             index += self._delta

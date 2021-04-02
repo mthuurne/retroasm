@@ -1,4 +1,4 @@
-from typing import AbstractSet, Dict, MutableSet, Union, cast
+from typing import AbstractSet, MutableSet, Union, cast
 
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -14,7 +14,7 @@ class Disassembler:
 
     def __init__(self, instrSet: InstructionSet):
         self._instrSet = instrSet
-        self._decoded: Dict[int, Union[Reference, ModeMatch]] = {}
+        self._decoded: dict[int, Union[Reference, ModeMatch]] = {}
         self._codeAddrs: MutableSet[int] = set()
         self._dataAddrs: MutableSet[int] = set()
 

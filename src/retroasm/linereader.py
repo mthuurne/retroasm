@@ -4,8 +4,7 @@ from contextlib import contextmanager
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from pathlib import Path
 from typing import (
-    IO, Any, Iterable, Iterator, Match, Optional, Pattern, Sequence, Tuple,
-    Type, TypeVar, Union, cast
+    IO, Any, Iterable, Iterator, Match, Pattern, Sequence, TypeVar, Union, cast
 )
 import re
 
@@ -35,7 +34,7 @@ class InputLocation:
         return self._lineno
 
     @property
-    def span(self) -> Tuple[int, int]:
+    def span(self) -> tuple[int, int]:
         '''The column span information of this location.
         '''
         return self._span
@@ -44,7 +43,7 @@ class InputLocation:
                  path: Path,
                  lineno: int,
                  line: str,
-                 span: Tuple[int, int]
+                 span: tuple[int, int]
                  ):
         self._path = path
         self._lineno = lineno
@@ -81,7 +80,7 @@ class InputLocation:
         start, end = self._span
         return end - start
 
-    def updateSpan(self, span: Tuple[int, int]) -> InputLocation:
+    def updateSpan(self, span: tuple[int, int]) -> InputLocation:
         '''Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         '''
@@ -101,7 +100,7 @@ class InputLocation:
         '''
         return self._line[slice(*self._span)]
 
-    def match(self, pattern: Pattern[str]) -> Optional['InputMatch']:
+    def match(self, pattern: Pattern[str]) -> InputMatch | None:
         '''Matches the text in this location to the given compiled regular
         expression pattern.
         Returns an InputMatch object, or None if no match was found.
@@ -109,7 +108,7 @@ class InputLocation:
         match = pattern.match(self._line, *self._span)
         return None if match is None else InputMatch(self, match)
 
-    def findLocations(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
+    def findLocations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
         '''Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputLocation object for each
@@ -118,7 +117,7 @@ class InputLocation:
         for match in pattern.finditer(self._line, *self._span):
             yield self.updateSpan(match.span(0))
 
-    def findMatches(self, pattern: Pattern[str]) -> Iterator['InputMatch']:
+    def findMatches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
         '''Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputMatch object for each
@@ -127,7 +126,7 @@ class InputLocation:
         for match in pattern.finditer(self._line, *self._span):
             yield InputMatch(self, match)
 
-    def split(self, pattern: Pattern[str]) -> Iterator['InputLocation']:
+    def split(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
         '''Splits the text in this location using the given pattern as a
         separator.
         Returns an iterator yielding InputLocations representing the text
@@ -152,13 +151,13 @@ class InputMatch:
         self._location = location
         self._match = match
 
-    def hasGroup(self, index: Union[int, str]) -> bool:
+    def hasGroup(self, index: int | str) -> bool:
         '''Returns `True` iff a group matched at the given index,
         which can be name or a numeric index with the first group being 1.
         '''
         return self._match.span(index) != (-1, -1)
 
-    def group(self, index: Union[int, str]) -> InputLocation:
+    def group(self, index: int | str) -> InputLocation:
         '''Returns an InputLocation for the group matched at the given index,
         which can be name or a numeric index with the first group being 1.
         If 0 as passed as the index, an InputLocation for the entire matched
@@ -181,7 +180,7 @@ class InputMatch:
             yield self.group(i + 1)
 
     @property
-    def groupName(self) -> Optional[str]:
+    def groupName(self) -> str | None:
         '''The name of the last matched group, or None if last matched group
         was nameless or no groups were matched.
         '''
@@ -246,11 +245,11 @@ class LineReader:
 
     @classmethod
     @contextmanager
-    def open(cls: Type[LineReaderT],
+    def open(cls: type[LineReaderT],
              path: Path,
              logger: Logger
              ) -> Iterator[LineReaderT]:
-        with open(path, 'r') as lines:
+        with open(path) as lines:
             reader = cls(path, lines, logger)
             reader.debug('start reading')
             yield reader
@@ -261,7 +260,7 @@ class LineReader:
         self._lines = lines
         self.logger = logger
 
-        self._lastline: Optional[str] = None
+        self._lastline: str | None = None
         self._lineno = 0
         self.warnings = 0
         self.errors = 0
@@ -316,7 +315,7 @@ class LineReader:
         self.__log(ERROR, 'ERROR: ' + msg, *args, **kwargs)
 
     @contextmanager
-    def checkErrors(self) -> Iterator['LineReader']:
+    def checkErrors(self) -> Iterator[LineReader]:
         '''Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.
         '''
@@ -408,9 +407,9 @@ class LineReaderFormatter(Formatter):
         return '\n'.join(self._formatParts(self._iterParts(msg, location)))
 
     def _formatParts(self,
-                     parts: Iterable[Tuple[
-                         Optional[str], Optional[Path], int, Optional[str],
-                         Sequence[Tuple[int, int]]
+                     parts: Iterable[tuple[
+                         str | None, Path | None, int, str | None,
+                         Sequence[tuple[int, int]]
                          ]]
                      ) -> Iterator[str]:
         for msg, path, lineno, line, spans in parts:
@@ -445,10 +444,10 @@ class LineReaderFormatter(Formatter):
 
     def _iterParts(self,
                    msg: str,
-                   location: Union[None, InputLocation, Sequence[InputLocation]]
-                   ) -> Iterator[Tuple[
-                         Optional[str], Optional[Path], int, Optional[str],
-                         Sequence[Tuple[int, int]]
+                   location: None | InputLocation | Sequence[InputLocation]
+                   ) -> Iterator[tuple[
+                         str | None, Path | None, int, str | None,
+                         Sequence[tuple[int, int]]
                          ]]:
         if location is None:
             yield msg, None, -1, None, []
@@ -456,7 +455,7 @@ class LineReaderFormatter(Formatter):
             loc = location
             yield msg, loc.path, loc.lineno, loc.line, [loc.span]
         else:
-            multiMsg: Optional[str] = msg
+            multiMsg: str | None = msg
             i = 0
             while i < len(location):
                 # Merge spans of following locations on the same line.

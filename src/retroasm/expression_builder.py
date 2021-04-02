@@ -1,4 +1,6 @@
-from typing import Iterable, Optional, Sequence, Union, cast
+from __future__ import annotations
+
+from typing import Iterable, Sequence, cast
 
 from .codeblock import Load, Store
 from .expression import (
@@ -73,7 +75,7 @@ def declareVariable(node: DeclarationNode,
 
 def convertDefinition(kind: DeclarationKind,
                       name: str,
-                      typ: Union[IntType, ReferenceType],
+                      typ: IntType | ReferenceType,
                       value: ParseNode,
                       namespace: BuilderNamespace
                       ) -> Reference:
@@ -116,7 +118,7 @@ def convertDefinition(kind: DeclarationKind,
 
 def _convertIdentifier(node: IdentifierNode,
                        namespace: BuilderNamespace
-                       ) -> Union[IOChannel, Reference]:
+                       ) -> IOChannel | Reference:
     '''Looks up an identifier in a namespace.
     '''
     name = node.name
@@ -133,7 +135,7 @@ def _convertIdentifier(node: IdentifierNode,
 
 def _convertFunctionCall(callNode: OperatorNode,
                          namespace: BuilderNamespace
-                         ) -> Optional[Reference]:
+                         ) -> Reference | None:
     nameNode, *argNodes = callNode.operands
     builder = namespace.builder
 
@@ -349,12 +351,12 @@ def _convertReferenceSlice(node: OperatorNode,
     if endNode is None:
         refWidth = ref.width
         if refWidth is unlimited:
-            endExpr: Optional[Expression] = None
+            endExpr: Expression | None = None
         else:
             endExpr = IntLiteral(cast(int, refWidth))
     else:
         endExpr = buildExpression(endNode, namespace)
-    widthExpr: Optional[Expression] = (
+    widthExpr: Expression | None = (
         endExpr
         if startNode is None or endExpr is None
         else AddOperator(endExpr, Complement(startExpr))
@@ -536,7 +538,7 @@ def emitCodeFromStatements(reader: LineReader,
                            whereDesc: str,
                            namespace: LocalNamespace,
                            statements: Iterable[ParseNode],
-                           retType: Union[None, IntType, ReferenceType]
+                           retType: None | IntType | ReferenceType
                            ) -> None:
     '''Emits a code block from the given statements.
     Errors and warnings are logged on the given reader, using whereDesc as the
@@ -562,7 +564,7 @@ def emitCodeFromStatements(reader: LineReader,
                         location=decl.location
                         )
                     continue
-                typ: Union[IntType, ReferenceType] = retType
+                typ: IntType | ReferenceType = retType
             else:
                 # Determine type.
                 try:

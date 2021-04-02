@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, EnumMeta
-from typing import (
-    TYPE_CHECKING, Any, Dict, Iterator, Optional, Pattern, Tuple, Type,
-    TypeVar, cast
-)
+from typing import TYPE_CHECKING, Any, Iterator, Pattern, TypeVar, cast
 import re
 
 from .linereader import InputLocation
@@ -18,10 +15,10 @@ class TokenMeta(EnumMeta):
 
     def __new__(cls,
                 name: str,
-                bases: Tuple[type, ...],
-                namespace: Dict[str, Any]
+                bases: tuple[type, ...],
+                namespace: dict[str, Any]
                 ) -> TokenMeta:
-        newClass = cast(Type['TokenEnum'],
+        newClass = cast(type['TokenEnum'],
                         super().__new__(cls, name, bases, namespace))
         newClass.pattern = newClass.compilePattern()
         return newClass
@@ -46,15 +43,15 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         return re.compile('|'.join(patterns))
 
     @classmethod
-    def scan(cls: Type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
+    def scan(cls: type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
         """Splits an input string into tokens."""
         return Tokenizer(cls, location)
 
 TokenT = TypeVar('TokenT', bound=TokenEnum)
 
-class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
+class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
-    _kind: Optional[TokenT]
+    _kind: TokenT | None
     _location: InputLocation
 
     @property
@@ -82,13 +79,13 @@ class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
         """The input location of the current token."""
         return self._location
 
-    def __init__(self, tokenClass: Type[TokenT], location: InputLocation):
+    def __init__(self, tokenClass: type[TokenT], location: InputLocation):
         self._tokens = location.findMatches(tokenClass.pattern)
         self._tokenClass = tokenClass
         self._fullLocation = location
         self._advance()
 
-    def __next__(self) -> Tuple[TokenT, InputLocation]:
+    def __next__(self) -> tuple[TokenT, InputLocation]:
         kind = self._kind
         if kind is None:
             raise StopIteration
@@ -116,7 +113,7 @@ class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
         self._kind = kind
         self._location = location
 
-    def peek(self, kind: TokenT, value: Optional[str] = None) -> bool:
+    def peek(self, kind: TokenT, value: str | None = None) -> bool:
         """Check whether the current token matches the given kind and,
         if specified, also the given value.
         Return True for a match, False otherwise.
@@ -125,8 +122,8 @@ class Tokenizer(Iterator[Tuple[TokenT, InputLocation]]):
 
     def eat(self,
             kind: TokenT,
-            value: Optional[str] = None
-            ) -> Optional[InputLocation]:
+            value: str | None = None
+            ) -> InputLocation | None:
         """Consume the current token if it matches the given kind and,
         if specified, also the given value.
         Return the token's input location if the token was consumed,

@@ -1,4 +1,6 @@
-from typing import Iterator, Mapping, Optional, Union, cast
+from __future__ import annotations
+
+from typing import Iterator, Mapping, cast
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
@@ -26,9 +28,9 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
 
 def createFunc(reader: DefLineReader,
                funcNameLocation: InputLocation,
-               retType: Union[None, IntType, ReferenceType],
-               retTypeLocation: Optional[InputLocation],
-               args: Mapping[str, Union[IntType, ReferenceType]],
+               retType: None | IntType | ReferenceType,
+               retTypeLocation: InputLocation | None,
+               args: Mapping[str, IntType | ReferenceType],
                argNameLocations: Mapping[str, InputLocation],
                globalNamespace: GlobalNamespace
                ) -> Function:
@@ -50,7 +52,7 @@ def createFunc(reader: DefLineReader,
             # Store initial value.
             value = argRef.emitLoad(builder, argLoc)
             varRef.emitStore(builder, value, argLoc)
-    retRef: Optional[Reference]
+    retRef: Reference | None
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType
         retRef = namespace.addVariable('ret', retType, retTypeLocation)

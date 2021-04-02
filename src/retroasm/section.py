@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import Iterable, Iterator, Optional, Union
+from typing import Iterable, Iterator
 
 from .types import Unlimited, Width, unlimited
 from .utils import search
@@ -19,14 +21,14 @@ class Section:
         return self._start
 
     @property
-    def end(self) -> Union[int, Unlimited]:
+    def end(self) -> int | Unlimited:
         return self._end
 
     @property
     def size(self) -> Width:
         return self._end - self._start
 
-    def __init__(self, start: int, end: Union[int, Unlimited]):
+    def __init__(self, start: int, end: int | Unlimited):
         self._start = start
         self._end = end
 
@@ -69,7 +71,7 @@ class CodeSection(Section):
 
     def __init__(self,
                  start: int,
-                 end: Union[int, Unlimited],
+                 end: int | Unlimited,
                  base: int,
                  instrSetName: str,
                  byteOrder: ByteOrder
@@ -107,7 +109,7 @@ class SectionMap:
 
     def __init__(self, sections: Iterable[Section]):
         sections = sorted(sections, key=lambda section: section.start)
-        prev: Optional[Section] = None
+        prev: Section | None = None
         for section in sections:
             if prev is not None and section.start < prev.end:
                 raise ValueError(
@@ -125,7 +127,7 @@ class SectionMap:
     def __repr__(self) -> str:
         return f'SectionMap({self._sections!r})'
 
-    def sectionAt(self, offset: int) -> Optional[Section]:
+    def sectionAt(self, offset: int) -> Section | None:
         '''Returns the section at the given offset, or None if there is no
         section at that offset.
         '''

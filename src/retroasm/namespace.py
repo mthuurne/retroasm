@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import (
-    Dict, ItemsView, KeysView, Optional, Sequence, Union, ValuesView
-)
+from typing import ItemsView, KeysView, Sequence, Union, ValuesView
 
 from .codeblock import CodeBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -22,10 +20,10 @@ class Namespace:
     Storing elements is done by calling define().
     '''
 
-    def __init__(self, parent: Optional[Namespace]):
+    def __init__(self, parent: Namespace | None):
         self.parent = parent
-        self.elements: Dict[str, NamespaceValue] = {}
-        self.locations: Dict[str, InputLocation] = {}
+        self.elements: dict[str, NamespaceValue] = {}
+        self.locations: dict[str, InputLocation] = {}
 
     def __str__(self) -> str:
         return '%s(%s)' % (
@@ -51,7 +49,7 @@ class Namespace:
             self.elements[key] = value
             return value
 
-    def get(self, key: str) -> Optional[NamespaceValue]:
+    def get(self, key: str) -> NamespaceValue | None:
         return self.elements.get(key)
 
     def keys(self) -> KeysView[str]:
@@ -141,7 +139,7 @@ class BuilderNamespace(Namespace):
         raise NotImplementedError
 
     def __init__(self,
-                 parent: Optional[Namespace],
+                 parent: Namespace | None,
                  builder: CodeBlockBuilder
                  ):
         Namespace.__init__(self, parent)
@@ -196,7 +194,7 @@ class LocalNamespace(BuilderNamespace):
         return 1
 
     def __init__(self,
-                 parent: Optional[Namespace],
+                 parent: Namespace | None,
                  builder: SemanticsCodeBlockBuilder
                  ):
         super().__init__(parent, builder)
@@ -210,9 +208,9 @@ class LocalNamespace(BuilderNamespace):
         _rejectPC(name, location)
 
     def createCodeBlock(self,
-                        retRef: Optional[Reference],
-                        log: Optional[LineReader] = None,
-                        location: Optional[InputLocation] = None
+                        retRef: Reference | None,
+                        log: LineReader | None = None,
+                        location: InputLocation | None = None
                         ) -> CodeBlock:
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING, Callable, Iterator, Optional, Sequence, Union, cast
-)
+from typing import TYPE_CHECKING, Callable, Iterator, Sequence, cast
 
 from .expression import (
     AddOperator, AndOperator, BadValue, Expression, IntLiteral, LShift,
@@ -47,9 +45,9 @@ class BitString:
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> BitString:
         '''Applies the given substitution functions to each applicable
         term in this bit string and returns the resulting bit string.
@@ -64,7 +62,7 @@ class BitString:
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         '''Emits load nodes for loading a bit string from the underlying
         storage(s).
@@ -75,7 +73,7 @@ class BitString:
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         '''Emits store nodes for storing a bit string into the underlying
         storage(s).
@@ -114,9 +112,9 @@ class FixedValue(BitString):
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> FixedValue:
         if expressionFunc is None:
             return self
@@ -129,14 +127,14 @@ class FixedValue(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         return self._expr
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         pass
 
@@ -166,9 +164,9 @@ class SingleStorage(BitString):
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> BitString:
         storage = self._storage
         if storageFunc is not None:
@@ -190,14 +188,14 @@ class SingleStorage(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         return builder.emitLoadBits(self._storage, location)
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         builder.emitStoreBits(self._storage, value, location)
 
@@ -243,9 +241,9 @@ class ConcatenatedBits(BitString):
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> ConcatenatedBits:
         changed = False
         subs = []
@@ -257,7 +255,7 @@ class ConcatenatedBits(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         terms = []
         offset = 0
@@ -270,7 +268,7 @@ class ConcatenatedBits(BitString):
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         offset = 0
         for sub in self._subs:
@@ -336,9 +334,9 @@ class SlicedBits(BitString):
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> SlicedBits:
         bits = self._bits
         newBits = bits.substitute(storageFunc, expressionFunc)
@@ -349,7 +347,7 @@ class SlicedBits(BitString):
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         # Load value from our bit string.
         value = self._bits.emitLoad(builder, location)
@@ -360,7 +358,7 @@ class SlicedBits(BitString):
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         offset = self._offset
         width = self.width
@@ -406,26 +404,26 @@ class BadBits(BitString):
     def substitute(
             self,
             storageFunc:
-                Optional[Callable[[Storage], Optional[BitString]]] = None,
+                Callable[[Storage], BitString | None] | None = None,
             expressionFunc:
-                Optional[Callable[[Expression], Optional[Expression]]] = None
+                Callable[[Expression], Expression | None] | None = None
             ) -> BadBits:
         return self
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         return BadValue(self._width)
 
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         pass
 
-def badReference(decl: Union[ReferenceType, IntType]) -> Reference:
+def badReference(decl: ReferenceType | IntType) -> Reference:
     '''Returns a dummy reference to the given declared reference/value type,
     with a BadBits instance as the underlying bit string.
     '''
@@ -471,7 +469,7 @@ class Reference:
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
-                 location: Optional[InputLocation]
+                 location: InputLocation | None
                  ) -> Expression:
         '''Emits load nodes for loading a typed value from the referenced
         bit string.
@@ -483,7 +481,7 @@ class Reference:
     def emitStore(self,
                   builder: CodeBlockBuilder,
                   value: Expression,
-                  location: Optional[InputLocation]
+                  location: InputLocation | None
                   ) -> None:
         '''Emits store nodes for storing a value into the referenced bit string.
         '''

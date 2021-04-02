@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from logging import getLogger
 from pathlib import Path
-from typing import Iterable, Iterator, Tuple, Type, Union
+from typing import Iterable, Iterator
 
 from .expression_parser import NumberNode, parseDigits
 from .instrset import InstructionSet
@@ -21,7 +21,7 @@ class AsmToken(TokenEnum):
     comment = r';.*$'
     symbol  = r'.'
 
-Token = Tuple[AsmToken, InputLocation]
+Token = tuple[AsmToken, InputLocation]
 
 def parseNumber(location: InputLocation) -> NumberNode:
     """Parse a numeric literal in one of several formats.
@@ -56,7 +56,7 @@ def parseNumber(location: InputLocation) -> NumberNode:
 
 def createMatchSequence(name: InputLocation,
                         tokens: Iterable[Token]
-                        ) -> Iterator[Union[Type[int], int, str]]:
+                        ) -> Iterator[type[int] | int | str]:
     '''Convert tokens to a match sequence.
     '''
     yield name.text

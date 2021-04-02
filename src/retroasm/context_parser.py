@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from __future__ import annotations
 
 from .expression_parser import DeclarationNode, ParseNode
 from .mode import Mode
@@ -16,15 +16,15 @@ class PlaceholderSpec:
         return self._decl.name.name
 
     @property
-    def encodingWidth(self) -> Optional[Width]:
+    def encodingWidth(self) -> Width | None:
         raise NotImplementedError
 
     @property
-    def semanticsType(self) -> Union[None, IntType, ReferenceType]:
+    def semanticsType(self) -> None | IntType | ReferenceType:
         raise NotImplementedError
 
     @property
-    def value(self) -> Optional[ParseNode]:
+    def value(self) -> ParseNode | None:
         raise NotImplementedError
 
     def __init__(self, decl: DeclarationNode):
@@ -41,13 +41,13 @@ class ValuePlaceholderSpec(PlaceholderSpec):
         return self._type
 
     @property
-    def value(self) -> Optional[ParseNode]:
+    def value(self) -> ParseNode | None:
         return self._value
 
     def __init__(self,
                  decl: DeclarationNode,
                  typ: IntType,
-                 value: Optional[ParseNode]
+                 value: ParseNode | None
                  ):
         PlaceholderSpec.__init__(self, decl)
         self._type = typ
@@ -63,11 +63,11 @@ class ValuePlaceholderSpec(PlaceholderSpec):
 class MatchPlaceholderSpec(PlaceholderSpec):
 
     @property
-    def encodingWidth(self) -> Optional[int]:
+    def encodingWidth(self) -> int | None:
         return self._mode.encodingWidth
 
     @property
-    def semanticsType(self) -> Union[None, IntType, ReferenceType]:
+    def semanticsType(self) -> None | IntType | ReferenceType:
         return self._mode.semanticsType
 
     @property

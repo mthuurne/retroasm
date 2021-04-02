@@ -1,6 +1,6 @@
-from typing import (
-    Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Union
-)
+from __future__ import annotations
+
+from typing import Callable, Iterable, Mapping, Sequence
 
 from .codeblock import AccessNode, CodeBlock, Load, Store
 from .codeblock_simplifier import CodeBlockSimplifier
@@ -20,7 +20,7 @@ class CodeBlockBuilder:
 
     def emitLoadBits(self,
                      storage: Storage,
-                     location: Optional[InputLocation]
+                     location: InputLocation | None
                      ) -> Expression:
         '''Loads the value from the given storage by emitting a Load node on
         this builder.
@@ -31,7 +31,7 @@ class CodeBlockBuilder:
     def emitStoreBits(self,
                       storage: Storage,
                       value: Expression,
-                      location: Optional[InputLocation]
+                      location: InputLocation | None
                       ) -> None:
         '''Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
@@ -40,9 +40,9 @@ class CodeBlockBuilder:
 
     def inlineFunctionCall(self,
                            func: Function,
-                           argMap: Mapping[str, Optional[BitString]],
+                           argMap: Mapping[str, BitString | None],
                            location: InputLocation
-                           ) -> Optional[BitString]:
+                           ) -> BitString | None:
         '''Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
@@ -56,7 +56,7 @@ class IllegalStateAccess(BadInput):
     in a situation where that is not allowed.
     '''
 
-    def __init__(self, msg: str, location: Optional[InputLocation]):
+    def __init__(self, msg: str, location: InputLocation | None):
         locations: Sequence[InputLocation]
         if location is None:
             locations = ()
@@ -71,7 +71,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 
     def emitLoadBits(self,
                      storage: Storage,
-                     location: Optional[InputLocation]
+                     location: InputLocation | None
                      ) -> Expression:
         raise IllegalStateAccess(
             f'attempt to read state: {storage}',
@@ -81,7 +81,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
     def emitStoreBits(self,
                       storage: Storage,
                       value: Expression,
-                      location: Optional[InputLocation]
+                      location: InputLocation | None
                       ) -> None:
         raise IllegalStateAccess(
             f'attempt to write state: {storage}',
@@ -90,9 +90,9 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 
     def inlineFunctionCall(self,
                            func: Function,
-                           argMap: Mapping[str, Optional[BitString]],
+                           argMap: Mapping[str, BitString | None],
                            location: InputLocation
-                           ) -> Optional[BitString]:
+                           ) -> BitString | None:
         # TODO: This is probably overly strict: calling a function that does
         #       not touch state should be fine.
         raise IllegalStateAccess(
@@ -103,7 +103,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def __init__(self) -> None:
-        self.nodes: List[AccessNode] = []
+        self.nodes: list[AccessNode] = []
 
     def dump(self) -> None:
         for node in self.nodes:
@@ -112,8 +112,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def createCodeBlock(self,
                         returned: Iterable[BitString],
-                        log: Optional[LineReader] = None,
-                        location: Optional[InputLocation] = None
+                        log: LineReader | None = None,
+                        location: InputLocation | None = None
                         ) -> CodeBlock:
         '''Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
@@ -127,7 +127,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Check for reading of uninitialized variables.
         ununitializedLoads = []
-        initializedVariables: Set[Variable] = set()
+        initializedVariables: set[Variable] = set()
         for node in code.nodes:
             storage = node.storage
             if isinstance(storage, Variable) and storage.scope == 1:
@@ -165,7 +165,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def emitLoadBits(self,
                      storage: Storage,
-                     location: Optional[InputLocation]
+                     location: InputLocation | None
                      ) -> Expression:
         load = Load(storage, location)
         self.nodes.append(load)
@@ -174,15 +174,15 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def emitStoreBits(self,
                       storage: Storage,
                       value: Expression,
-                      location: Optional[InputLocation]
+                      location: InputLocation | None
                       ) -> None:
         self.nodes.append(Store(value, storage, location))
 
     def inlineFunctionCall(self,
                            func: Function,
-                           argMap: Mapping[str, Optional[BitString]],
+                           argMap: Mapping[str, BitString | None],
                            location: InputLocation
-                           ) -> Optional[BitString]:
+                           ) -> BitString | None:
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
@@ -209,9 +209,9 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def inlineBlock(self,
                     code: CodeBlock,
-                    argFetcher: Callable[[str], Optional[BitString]]
+                    argFetcher: Callable[[str], BitString | None]
                         = lambda name: None
-                    ) -> List[BitString]:
+                    ) -> list[BitString]:
         '''Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
@@ -220,12 +220,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         inlined block.
         '''
 
-        loadResults: Dict[Expression, Expression] = {}
+        loadResults: dict[Expression, Expression] = {}
         def importExpr(expr: Expression) -> Expression:
             return expr.substitute(loadResults.get)
 
         def importStorageUncached(storage: Storage
-                                  ) -> Union[BitString, SingleStorage]:
+                                  ) -> BitString | SingleStorage:
             if isinstance(storage, ArgStorage):
                 bits = argFetcher(storage.name)
                 if bits is not None:
@@ -236,7 +236,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             else:
                 newStorage = storage.substituteExpressions(importExpr)
             return SingleStorage(newStorage)
-        storageCache: Dict[Storage, BitString] = {}
+        storageCache: dict[Storage, BitString] = {}
         def importStorage(storage: Storage) -> BitString:
             '''Returns a bit string containing the imported version of the given
             storage.

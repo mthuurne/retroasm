@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 from typing import (
-    Any, ClassVar, Collection, Iterable, Iterator, Optional, Protocol,
-    Sequence, Type, overload
+    Any, ClassVar, Collection, Iterable, Iterator, Protocol, Sequence, overload
 )
 
 from .section import ByteOrder, CodeSection, Section
@@ -33,10 +34,10 @@ class EntryPoint:
         return self._offset
 
     @property
-    def label(self) -> Optional[str]:
+    def label(self) -> str | None:
         return self._label
 
-    def __init__(self, offset: int, label: Optional[str] = None):
+    def __init__(self, offset: int, label: str | None = None):
         self._offset = offset
         self._label = label
 
@@ -55,7 +56,7 @@ class EntryPoint:
 
 def _yieldEntryPoint(section: CodeSection,
                      addr: int,
-                     name: Optional[str] = None
+                     name: str | None = None
                      ) -> Iterator[EntryPoint]:
     try:
         offset = section.offsetForAddr(addr)
@@ -358,7 +359,7 @@ def iterBinaryFormatNames() -> Iterable[str]:
     '''
     return _formatsByName.keys()
 
-def getBinaryFormat(name: str) -> Type[BinaryFormat]:
+def getBinaryFormat(name: str) -> type[BinaryFormat]:
     '''Looks up a binary format by its name attribute.
     Returns the binary format with the given value for its name attribute.
     Raises KeyError if there is no match.
@@ -368,7 +369,7 @@ def getBinaryFormat(name: str) -> Type[BinaryFormat]:
 def _detectBinaryFormats(image: Image,
                          names: Collection[str],
                          extMatches: bool
-                         ) -> Optional[Type[BinaryFormat]]:
+                         ) -> type[BinaryFormat] | None:
     logger.debug(
         'Binary format autodetection, extension %s:',
         'matches' if extMatches else 'does not match'
@@ -394,8 +395,8 @@ def _detectBinaryFormats(image: Image,
         return None
 
 def detectBinaryFormat(image: Image,
-                       fileName: Optional[str] = None
-                       ) -> Optional[Type[BinaryFormat]]:
+                       fileName: str | None = None
+                       ) -> type[BinaryFormat] | None:
     '''Attempts to autodetect the binary format of the given image.
     If a file name is given, its extension will be used to first test the
     formats matching that extension, as well as considering those formats
@@ -424,7 +425,7 @@ def detectBinaryFormat(image: Image,
 def _unpackStruct(image: Image,
                   offset: int,
                   struct: Struct
-                  ) -> Optional[Sequence[Any]]:
+                  ) -> Sequence[Any] | None:
     '''Unpacks the given struct from the given offset of the given image.
     Returns the unpacked data, or None if the image did not contain enough
     data at the given offset.
