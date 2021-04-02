@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import reduce
 from typing import (
     AbstractSet, Any, DefaultDict, Dict, Iterable, Iterator, List, Mapping,
@@ -655,7 +656,8 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
     decoders.reverse()
     return SequentialDecoder(decoders)
 
-class ParsedModeEntry(NamedTuple):
+@dataclass(frozen=True)
+class ParsedModeEntry:
     entry: ModeEntry
     decoding: Mapping[Optional[str], Sequence[FixedEncoding]]
     flagsRequired: AbstractSet[str]
@@ -721,7 +723,8 @@ class DecoderFactory:
             cache[key] = decoder
         return decoder
 
-class Prefix(NamedTuple):
+@dataclass(frozen=True)
+class Prefix:
     encoding: Encoding
     semantics: CodeBlock
 
