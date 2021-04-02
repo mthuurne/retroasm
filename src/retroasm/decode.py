@@ -477,17 +477,20 @@ def _createEntryDecoder(
     # Sort matchers and value placeholders.
     # The sorting is just to make dumps more readable and consistent between
     # runs, it doesn't impact correctness.
-    def slicesKey(placeholder: Placeholder) -> Sequence[Tuple[int, int]]:
+    def slicesKey(placeholder: Placeholder) -> Tuple[Tuple[int, int], ...]:
         return tuple(
             (encIdx, -refIdx)
             for encIdx, refIdx, width in decoding[placeholder.name]
             )
-    def matcherKey(matcher: EncodingMatcher) -> object:
-        return (
-            slicesKey(matcher)
-            if isinstance(matcher, MatchPlaceholder) else
-            matcher
-            )
+    def matcherKey(matcher: EncodingMatcher) -> Tuple[Tuple[int, ...], ...]:
+        if isinstance(matcher, MatchPlaceholder):
+            return slicesKey(matcher)
+        elif isinstance(matcher, EncodingMultiMatch):
+            return ((matcher.start, ), )
+        elif isinstance(matcher, FixedEncoding):
+            return ((matcher.encIdx, -matcher.fixedMask), )
+        else:
+            assert False, type(matcher)
     for matchers in matchersByIndex:
         matchers.sort(key=matcherKey, reverse=True)
     valuePlaceholders.sort(key=slicesKey, reverse=True)
