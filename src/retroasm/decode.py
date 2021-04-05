@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
-    AbstractSet, Any, DefaultDict, Iterable, Iterator, Mapping, NamedTuple,
-    Sequence, Union, cast
+    AbstractSet, Any, DefaultDict, Iterable, Iterator, Mapping, Sequence,
+    Union, cast
 )
 
 from .codeblock import CodeBlock
@@ -83,8 +83,10 @@ class EncodedSegment:
         else:
             return EncodedSegment(encIdx + adjust, self.segment)
 
-class FixedEncoding(NamedTuple):
+@dataclass(frozen=True, order=True)
+class FixedEncoding:
     """Constant part of an instruction encoding."""
+
     encIdx: int
     fixedMask: int
     fixedValue: int
@@ -506,10 +508,10 @@ def _createEntryDecoder(
     valuePlaceholders.sort(key=slicesKey, reverse=True)
 
     # Insert fixed pattern matchers as early as possible.
-    for encIdx, fixedMask, fixedValue in sorted(fixedMatcher, reverse=True):
+    for fixedEncoding in sorted(fixedMatcher, reverse=True):
         # Find the earliest index at which the given encoding index can be
         # fetched and the index that should be requested from the fetcher.
-        whenIdx = fetchIdx = encIdx
+        whenIdx = fetchIdx = fixedEncoding.encIdx
         while whenIdx != 0:
             encItem = encoding[whenIdx - 1]
             if isinstance(encItem, EncodingMultiMatch):
@@ -521,9 +523,9 @@ def _createEntryDecoder(
                     # Adjust index.
                     fetchIdx += encodedLength - 1
             whenIdx -= 1
-        matchersByIndex[whenIdx].append(
-            FixedEncoding(fetchIdx, fixedMask, fixedValue)
-            )
+        matchersByIndex[whenIdx].append(FixedEncoding(
+            fetchIdx, fixedEncoding.fixedMask, fixedEncoding.fixedValue
+            ))
 
     # Start with the leaf node and work towards the root.
     decoder: Decoder = MatchFoundDecoder(entry)
@@ -752,12 +754,13 @@ class PrefixDecoder:
             fixedMatcher, decodeMap = decomposeEncoding(encoding)
             assert len(decodeMap) == 0, decodeMap
             values: list[int] = []
-            for idx, (encIdx, fixedMask, fixedValue) \
-                    in enumerate(sorted(fixedMatcher)):
+            for idx, fixedEncoding in enumerate(sorted(fixedMatcher)):
+                encIdx = fixedEncoding.encIdx
                 assert idx == encIdx, (idx, encIdx)
                 assert encoding.encodingWidth is not None
-                assert fixedMask == maskForWidth(encoding.encodingWidth)
-                values.append(fixedValue)
+                assert fixedEncoding.fixedMask == maskForWidth(
+                    encoding.encodingWidth)
+                values.append(fixedEncoding.fixedValue)
             assert len(values) == encoding.encodedLength
             addPrefix(tree, values, prefix)
         self._tree = tree
