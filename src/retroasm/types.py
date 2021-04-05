@@ -122,6 +122,10 @@ class Segment:
     def mask(self) -> int:
         return maskForWidth(self.width) << self.start
 
+    def cut(self, value: int) -> int:
+        """Slice the bits in this segment from the given integer value."""
+        return (value >> self.start) & maskForWidth(self.width)
+
     def __bool__(self) -> bool:
         """Return True iff the segment is non-empty."""
         return self.width != 0

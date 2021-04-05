@@ -71,6 +71,14 @@ def test_segmentsToMask():
     assert to_mask('[0:0]', '[9:9]') == 0x0000
     assert to_mask('[6:13]', '[3:8]') == 0x1FF8
 
+def test_segment_cut():
+    """A segment can be used to slice bits from an integer."""
+
+    assert parse_segment('[:12]').cut(0x1234) == 0x234
+    assert parse_segment('[4:12]').cut(0x1234) == 0x23
+    assert parse_segment('[4:]').cut(0x1234) == 0x123
+    assert parse_segment('[4:]').cut(-64) == -4
+
 def test_segment_shift():
     """Segments can be shifted left or right."""
 
