@@ -18,12 +18,20 @@ class Unique(type):
     __slots__ in your class, make sure you include '__weakref__' in __slots__.
     """
 
-    def __init__(cls, name, bases, nmspc):
+    def __init__(
+            cls,
+            name: str,
+            bases: tuple[type, ...],
+            nmspc: dict[str, object]
+            ):
         type.__init__(cls, name, bases, nmspc)
         # pylint: disable=abstract-class-instantiated
-        cls.__cache = WeakValueDictionary()
+        cls.__cache: MutableMapping[object, object] = WeakValueDictionary()
 
-    def __call__(cls, *args):
+    def __call__(cls, *args: object, **kwargs: object) -> object:
+        if kwargs:
+            raise TypeError(
+                'Metaclass Unique does not support keyword arguments')
         cache = cls.__cache
         value = cache.get(args)
         if value is None:
@@ -35,11 +43,18 @@ class Singleton(type):
     """Metaclass that enforces that there is one shared instance of a class.
     """
 
-    def __init__(cls, name, bases, nmspc):
+    def __init__(
+            cls,
+            name: str,
+            bases: tuple[type, ...],
+            nmspc: dict[str, object]
+            ):
         type.__init__(cls, name, bases, nmspc)
         cls.__instance = None
 
-    def __call__(cls):
+    def __call__(cls, *args: object, **kwargs: object) -> object:
+        if args or kwargs:
+            raise TypeError('Metaclass Singleton does not support arguments')
         instance = cls.__instance
         if instance is None:
             instance = super().__call__()
