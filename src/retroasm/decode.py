@@ -25,21 +25,21 @@ from .utils import Singleton
 
 
 def _decomposeBitString(bits: BitString
-                        ) -> Iterator[tuple[BitString, int, int, Width]]:
+                        ) -> Iterator[tuple[BitString, int, Segment]]:
     """Decomposes the given bit string into its base strings (FixedValue and
     SingleStorage).
     Yields a series of tuples, containing base string, index in the base
-    string, index in the given string and width of each decomposed slice.
+    string and segment in the given string.
     Raises ValueError if a bit string cannot be decomposed because it contains
     a slice with an unknown offset.
     """
     if isinstance(bits, (FixedValue, SingleStorage)):
-        yield bits, 0, 0, bits.width
+        yield bits, 0, Segment(0, bits.width)
     elif isinstance(bits, ConcatenatedBits):
         start = 0
         for sub in bits:
-            for base, baseIdx, compIdx, width in _decomposeBitString(sub):
-                yield base, baseIdx, start + compIdx, width
+            for base, baseIdx, segment in _decomposeBitString(sub):
+                yield base, baseIdx, segment << start
             # Note: It is possible for the width to be unlimited, but only
             #       at the end of a string, in which case we don't use
             #       the start offset anymore.
@@ -48,17 +48,13 @@ def _decomposeBitString(bits: BitString
         # Note that SlicedBits has already simplified the offset.
         offset = bits.offset
         if isinstance(offset, IntLiteral):
-            start = offset.value
-            end = start + bits.width
-            for base, baseIdx, compIdx, width in _decomposeBitString(bits.bits):
+            slice_seg = Segment(offset.value, bits.width)
+            for base, baseIdx, segment in _decomposeBitString(bits.bits):
                 # Clip to slice boundaries.
-                compStart = max(compIdx, start)
-                compEnd = min(compIdx + width, end)
-                # Output if clipped slice is not empty.
-                width = compEnd - compStart
-                if width > 0:
-                    baseShift = compStart - compIdx
-                    yield base, baseIdx + baseShift, compStart - start, width
+                clipped = segment & slice_seg
+                if clipped:
+                    baseShift = clipped.start - segment.start
+                    yield base, baseIdx + baseShift, clipped >> slice_seg.start
         else:
             raise ValueError('slices in encoding must have fixed offset')
     else:
@@ -96,14 +92,12 @@ def decomposeEncoding(
         fixedMask = 0
         fixedValue = 0
         try:
-            for base, baseIdx, compIdx, width in _decomposeBitString(
-                    encElem.bits
-                    ):
+            for base, baseIdx, segment in _decomposeBitString(encElem.bits):
                 if isinstance(base, SingleStorage):
                     storage = base.storage
                     if isinstance(storage, ArgStorage):
                         decodeMap[storage.name].append(
-                            (baseIdx, encIdx, compIdx, width)
+                            (baseIdx, encIdx, segment.start, segment.width)
                             )
                     else:
                         raise ValueError(
@@ -113,10 +107,11 @@ def decomposeEncoding(
                 elif isinstance(base, FixedValue):
                     expr = base.expr
                     if isinstance(expr, IntLiteral):
-                        mask = maskForWidth(width) << compIdx
+                        mask = segment.mask
                         fixedMask |= mask
-                        value = expr.value
-                        fixedValue |= ((value >> baseIdx) << compIdx) & mask
+                        fixedValue |= (
+                            (expr.value >> baseIdx) << segment.start
+                            ) & mask
                     else:
                         raise ValueError('unsupported operation in encoding')
                 else:
