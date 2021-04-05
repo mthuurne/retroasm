@@ -4,8 +4,8 @@ from collections import OrderedDict, defaultdict
 from logging import WARNING, Logger, getLogger
 from pathlib import Path
 from typing import (
-    AbstractSet, Callable, DefaultDict, Iterable, Iterator, Mapping, Optional,
-    Sequence, cast
+    AbstractSet, Callable, DefaultDict, Iterable, Iterator, Mapping, Sequence,
+    cast
 )
 import re
 
@@ -16,7 +16,9 @@ from .codeblock_builder import (
 from .context_parser import (
     MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
 )
-from .decode import FixedEncoding, ParsedModeEntry, Prefix, decomposeEncoding
+from .decode import (
+    EncodedSegment, FixedEncoding, ParsedModeEntry, Prefix, decomposeEncoding
+)
 from .expression_builder import (
     BadExpression, UnknownNameError, buildExpression, buildReference,
     buildStatementEval, convertDefinition
@@ -42,9 +44,7 @@ from .namespace import (
 )
 from .reference import Reference, badReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
-from .types import (
-    IntType, ReferenceType, Segment, Width, parseType, parseTypeDecl
-)
+from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _nameTok = r'\s*(' + _namePat + r')\s*'
@@ -821,10 +821,10 @@ def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
                 claimedMultiMatches[name] = encItem.location
 
 def _combinePlaceholderEncodings(
-        decodeMap: Mapping[str, Sequence[tuple[int, int, Segment]]],
+        decodeMap: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Iterator[tuple[str, Sequence[FixedEncoding]]]:
+        ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
@@ -838,8 +838,8 @@ def _combinePlaceholderEncodings(
         decoding = []
         problems = []
         prev = 0
-        for immIdx, encIdx, segment in sorted(slices):
-            width = segment.width
+        for immIdx, encSegment in sorted(slices):
+            width = encSegment.segment.width
             # TODO: Does it make sense to support unlimited width?
             #       If not, at which point should we exclude it from the type?
             assert isinstance(width, int), width
@@ -850,7 +850,7 @@ def _combinePlaceholderEncodings(
                     f'overlap at [{immIdx:d}:{min(immIdx + width, prev):d}]'
                     )
             prev = max(immIdx + width, prev)
-            decoding.append(FixedEncoding(encIdx, segment.start, width))
+            decoding.append(encSegment)
         if prev < immWidth:
             problems.append(f'gap at [{prev:d}:{immWidth:d}]')
         elif prev > immWidth:
@@ -865,7 +865,7 @@ def _combinePlaceholderEncodings(
 
 def _checkDecodingOrder(
         encoding: Encoding,
-        sequentialMap: Mapping[str, Sequence[FixedEncoding]],
+        sequentialMap: Mapping[str, Sequence[EncodedSegment]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> None:
@@ -893,9 +893,9 @@ def _checkDecodingOrder(
 
         # Are any parts of the placeholder are located after the multi-match?
         badIdx = [
-            encIdx
-            for encIdx, refIdx, width in decoding
-            if encIdx > multiIdx
+            encEegment.encIdx
+            for encEegment in decoding
+            if encEegment.encIdx > multiIdx
             ]
         if badIdx:
             mode = placeholderSpec.mode
@@ -912,7 +912,10 @@ def _parseModeDecoding(
         encoding: Encoding,
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
-        ) -> Mapping[str | None, Sequence[FixedEncoding]] | None:
+        ) -> tuple[
+            Sequence[FixedEncoding],
+            Mapping[str, Sequence[EncodedSegment]]
+            ] | None:
     """Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     """
@@ -936,12 +939,7 @@ def _parseModeDecoding(
     except DelayedError:
         return None
     else:
-        modeDecodeMap = cast(
-            dict[Optional[str], Sequence[FixedEncoding]],
-            sequentialMap
-            )
-        modeDecodeMap[None] = fixedMatcher
-        return modeDecodeMap
+        return fixedMatcher, sequentialMap
 
 def _parseModeSemantics(reader: DefLineReader,
                         semLoc: InputLocation,
@@ -1157,7 +1155,7 @@ def _parseModeEntries(
                 else:
                     template = CodeTemplate(semantics, placeholders)
                 entry = ModeEntry(encoding, mnemonic, template, placeholders)
-                yield ParsedModeEntry(entry, decoding, flagsRequired)
+                yield ParsedModeEntry(entry, *decoding, flagsRequired)
 
 def _formatEncodingWidth(width: Width | None) -> str:
     return 'empty' if width is None else f'{width} bits wide'

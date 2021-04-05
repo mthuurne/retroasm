@@ -59,6 +59,30 @@ def _decomposeBitString(bits: BitString
     else:
         assert False, bits
 
+@dataclass(frozen=True, order=True)
+class EncodedSegment:
+    """Part of an instruction encoding."""
+
+    encIdx: int
+    """Index of encoding unit that contains the segment."""
+
+    segment: Segment
+    """Bit range."""
+
+    def __str__(self) -> str:
+        return f'enc{self.encIdx:d}{self.segment}'
+
+    def adjust_unit(self, idx: int, adjust: int) -> EncodedSegment:
+        """Adjust the encoding unit index by 'adjust' if the current index
+        is below 'idx'.
+        Return the adjusted segment.
+        """
+        encIdx = self.encIdx
+        if encIdx < idx:
+            return self
+        else:
+            return EncodedSegment(encIdx + adjust, self.segment)
+
 class FixedEncoding(NamedTuple):
     """Constant part of an instruction encoding."""
     encIdx: int
@@ -69,7 +93,7 @@ def decomposeEncoding(
         encoding: Encoding
         ) -> tuple[
             Sequence[FixedEncoding],
-            Mapping[str, Sequence[tuple[int, int, Segment]]]
+            Mapping[str, Sequence[tuple[int, EncodedSegment]]]
             ]:
     """Decomposes the given Encoding into a matcher for the fixed bit strings
     and a decode map describing where the placeholders values can be found.
@@ -83,7 +107,7 @@ def decomposeEncoding(
     Raises BadInput if the given encoding cannot be decomposed.
     """
     fixedMatcher: list[FixedEncoding] = []
-    decodeMap: DefaultDict[str, list[tuple[int, int, Segment]]] = \
+    decodeMap: DefaultDict[str, list[tuple[int, EncodedSegment]]] = \
                                                             defaultdict(list)
     for encIdx, encElem in enumerate(encoding):
         if not isinstance(encElem, EncodingExpr):
@@ -96,7 +120,7 @@ def decomposeEncoding(
                     storage = base.storage
                     if isinstance(storage, ArgStorage):
                         decodeMap[storage.name].append(
-                            (baseIdx, encIdx, segment)
+                            (baseIdx, EncodedSegment(encIdx, segment))
                             )
                     else:
                         raise ValueError(
@@ -275,32 +299,31 @@ class PlaceholderDecoder(Decoder):
 
     def __init__(self,
                  name: str,
-                 slices: Sequence[FixedEncoding] | None,
+                 encodedSegments: Sequence[EncodedSegment] | None,
                  nxt: Decoder,
                  sub: Decoder | None,
                  auxIdx: int | None
                  ):
         self._name = name
-        self._slices = slices
+        self._encodedSegments = encodedSegments
         self._next = nxt
         self._sub = sub
         self._auxIdx = auxIdx
 
     def dump(self, indent: str = '', submodes: bool = True) -> None:
-        slices = self._slices
-        if slices is None:
-            sliceStr = ''
+        encodedSegments = self._encodedSegments
+        if encodedSegments is None:
+            encStr = ''
         else:
-            sliceStr = ';'.join(
-                f'enc{encIdx:d}{Segment(refIdx, width)}'
-                for encIdx, refIdx, width in reversed(slices)
+            encStr = ';'.join(
+                str(encSeg) for encSeg in reversed(encodedSegments)
                 )
 
         sub = self._sub
         if sub is None:
-            valStr = sliceStr
+            valStr = encStr
         else:
-            items = [sliceStr] if sliceStr else []
+            items = [encStr] if encStr else []
             auxIdx = self._auxIdx
             if auxIdx is not None:
                 items.append(f'enc{auxIdx:d}+')
@@ -312,18 +335,20 @@ class PlaceholderDecoder(Decoder):
             sub.dump((len(indent) + len(name))* ' ' + '`-> ')
 
     def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
-        slices = self._slices
-        if slices is None:
+        encodedSegments = self._encodedSegments
+        if encodedSegments is None:
             value = None
         else:
             # Compose encoded first value.
             value = 0
             offset = 0
-            for encIdx, refIdx, width in slices:
-                encoded = fetcher[encIdx]
+            for encSeg in encodedSegments:
+                encoded = fetcher[encSeg.encIdx]
                 if encoded is None:
                     return None
-                value |= ((encoded >> refIdx) & maskForWidth(width)) << offset
+                value |= encSeg.segment.cut(encoded) << offset
+                width = encSeg.segment.width
+                assert isinstance(width, int), encSeg
                 offset += width
 
         # Decode placeholder.
@@ -336,10 +361,12 @@ class PlaceholderDecoder(Decoder):
             if decoded is None:
                 return None
             if auxIdx is not None:
-                # Note: When there are slices, the multi-matcher won't match
-                #       the first unit, since they have been matched by single
-                #       matcher(s) already.
-                delta = decoded.encodedLength - (1 if slices is None else 2)
+                # Note: When there are encoded segments, the multi-matcher
+                #       won't match the first unit, since they have been
+                #       matched by single matcher(s) already.
+                delta = decoded.encodedLength - (
+                    1 if encodedSegments is None else 2
+                    )
                 if delta != 0:
                     fetcher = AfterModeFetcher(fetcher, auxIdx, delta)
 
@@ -387,14 +414,12 @@ EncodingMatcher = Union[MatchPlaceholder, EncodingMultiMatch, FixedEncoding]
 
 def _createEntryDecoder(
         entry: ModeEntry,
-        decoding: Mapping[str | None, Sequence[FixedEncoding]],
+        fixedMatcher: Sequence[FixedEncoding],
+        decoding: Mapping[str, Sequence[EncodedSegment]],
         factory: DecoderFactory
         ) -> Decoder:
     """Returns a Decoder instance that decodes this entry.
     """
-    name: str | None
-    matcher: EncodingMatcher
-    slices: Sequence[FixedEncoding] | None
 
     # Find all indices that contain multi-matches.
     multiMatches = {
@@ -424,19 +449,20 @@ def _createEntryDecoder(
 
     # Insert matchers at the last index they need.
     # Gather value placeholders them.
+    matcher: EncodingMatcher
     placeholders = entry.placeholders
     encoding = entry.encoding
     matchersByIndex: list[list[EncodingMatcher]] = [
         [] for _ in range(len(encoding))
         ]
     valuePlaceholders = []
-    for name, slices in decoding.items():
+    for name, encodedSegments in decoding.items():
         if name is not None:
             placeholder = placeholders[name]
             if isinstance(placeholder, ValuePlaceholder):
                 valuePlaceholders.append(placeholder)
             elif isinstance(placeholder, MatchPlaceholder):
-                lastIdx = max(encIdx for encIdx, refIdx, width in slices)
+                lastIdx = max(seg.encIdx for seg in encodedSegments)
                 multiMatchIdx = multiMatches.get(placeholder.name)
                 if multiMatchIdx is None:
                     matcher = placeholder
@@ -463,8 +489,8 @@ def _createEntryDecoder(
     # runs, it doesn't impact correctness.
     def slicesKey(placeholder: Placeholder) -> tuple[tuple[int, int], ...]:
         return tuple(
-            (encIdx, -refIdx)
-            for encIdx, refIdx, width in decoding[placeholder.name]
+            (seg.encIdx, -seg.segment.start)
+            for seg in decoding[placeholder.name]
             )
     def matcherKey(matcher: EncodingMatcher) -> tuple[tuple[int, ...], ...]:
         if isinstance(matcher, MatchPlaceholder):
@@ -480,7 +506,7 @@ def _createEntryDecoder(
     valuePlaceholders.sort(key=slicesKey, reverse=True)
 
     # Insert fixed pattern matchers as early as possible.
-    for encIdx, fixedMask, fixedValue in sorted(decoding[None], reverse=True):
+    for encIdx, fixedMask, fixedValue in sorted(fixedMatcher, reverse=True):
         # Find the earliest index at which the given encoding index can be
         # fetched and the index that should be requested from the fetcher.
         whenIdx = fetchIdx = encIdx
@@ -507,8 +533,7 @@ def _createEntryDecoder(
     # last, when we are certain that this entry matches.
     for placeholder in valuePlaceholders:
         name = placeholder.name
-        slices = decoding[name]
-        decoder = PlaceholderDecoder(name, slices, decoder, None, None)
+        decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
 
     # Add match placeholders, from high index to low.
     for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
@@ -529,26 +554,25 @@ def _createEntryDecoder(
             # Add submode matcher.
             name = matcher.name
             auxIdx = multiMatches[name] if multiMatch else None
-            slices = decoding.get(name)
+            encSegs = decoding.get(name)
             if multiMatch and auxIdx != encIdx:
-                # Some of the slices are located behind the multi-match;
-                # we should adjust their fetch indices accordingly.
-                assert slices is not None
+                # Some of the encoded segments are located behind the
+                # multi-match; we should adjust their fetch indices accordingly.
+                assert encSegs is not None
                 assert auxIdx is not None
                 assert auxIdx < encIdx, matcher
                 auxLen = encoding[auxIdx].encodedLength
                 assert auxLen is not None
                 adjust = auxLen - 1
                 if adjust != 0:
-                    slices = tuple(
-                        FixedEncoding(idx if idx < auxIdx else idx + adjust,
-                                      refIdx, width)
-                        for idx, refIdx, width in slices
+                    encSegs = tuple(
+                        encSeg.adjust_unit(auxIdx, adjust)
+                        for encSeg in encSegs
                         )
             sub = factory.createDecoder(matcher.mode.name, name)
             if isinstance(sub, NoMatchDecoder):
                 return sub
-            decoder = PlaceholderDecoder(name, slices, decoder, sub, auxIdx)
+            decoder = PlaceholderDecoder(name, encSegs, decoder, sub, auxIdx)
 
     return decoder
 
@@ -637,14 +661,16 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
 @dataclass(frozen=True)
 class ParsedModeEntry:
     entry: ModeEntry
-    decoding: Mapping[str | None, Sequence[FixedEncoding]]
+    fixedMatcher: Sequence[FixedEncoding]
+    decoding: Mapping[str, Sequence[EncodedSegment]]
     flagsRequired: AbstractSet[str]
 
 def _qualifyNames(parsedEntry: ParsedModeEntry,
                   branchName: str | None
                   ) -> tuple[
                       ModeEntry,
-                      Mapping[str | None, Sequence[FixedEncoding]]
+                      Sequence[FixedEncoding],
+                      Mapping[str, Sequence[EncodedSegment]]
                       ]:
     """Returns a pair containing a ModeEntry and decode mapping, where each
     name starts with the given branch name.
@@ -654,7 +680,7 @@ def _qualifyNames(parsedEntry: ParsedModeEntry,
     placeholders = entry.placeholders
     if branchName is None or len(placeholders) == 0:
         # Do not rename.
-        return parsedEntry.entry, parsedEntry.decoding
+        return parsedEntry.entry, parsedEntry.fixedMatcher, parsedEntry.decoding
     elif len(placeholders) == 1:
         # Replace current name with branch name.
         name, = placeholders.keys()
@@ -666,10 +692,10 @@ def _qualifyNames(parsedEntry: ParsedModeEntry,
 
     renamedEntry = entry.rename(nameMap)
     renamedDecoding = {
-        None if name is None else nameMap[name]: value
+        nameMap[name]: value
         for name, value in parsedEntry.decoding.items()
         }
-    return renamedEntry, renamedDecoding
+    return renamedEntry, parsedEntry.fixedMatcher, renamedDecoding
 
 class DecoderFactory:
 
