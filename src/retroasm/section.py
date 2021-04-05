@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, auto
 from typing import Iterable, Iterator
 
 from .types import Unlimited, Width, unlimited
 from .utils import search
 
-ByteOrder = Enum('ByteOrder', ( # pylint: disable=invalid-name
-    'undefined', 'little', 'big'
-    ))
+class ByteOrder(Enum):
+    undefined = auto()
+    little = auto()
+    big = auto()
 
 class Section:
     '''Base class for area in a binary with shared properties.

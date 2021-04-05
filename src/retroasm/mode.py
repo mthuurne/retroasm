@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from enum import Enum
+from enum import Enum, auto
 from typing import (
     Any, Callable, Iterable, Iterator, Mapping, Sequence, Union, cast, overload
 )
@@ -794,9 +794,9 @@ class Mode(ModeTable):
     def __str__(self) -> str:
         return f'mode {self._semType} {self._name}'
 
-PlaceholderRole = Enum('PlaceholderRole', ( # pylint: disable=invalid-name
-    'code_addr', 'data_addr'
-    ))
+class PlaceholderRole(Enum):
+    code_addr = auto()
+    data_addr = auto()
 
 class Placeholder:
     '''Abstract base class for a mode context element.
