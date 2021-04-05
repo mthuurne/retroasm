@@ -130,14 +130,6 @@ def decomposeEncoding(
                     )
     return fixedMatcher, decodeMap
 
-def _formatSlice(start: int, end: int) -> str:
-    if end == start + 1:
-        return f'[{start:d}]'
-    elif start == 0:
-        return f'[:{end:d}]'
-    else:
-        return f'[{start:d}:{end:d}]'
-
 def _formatMask(name: str, mask: int, value: int | None = None) -> str:
     segments = list(maskToSegments(mask))
     if len(segments) == 1:
@@ -301,7 +293,7 @@ class PlaceholderDecoder(Decoder):
             sliceStr = ''
         else:
             sliceStr = ';'.join(
-                f'enc{encIdx:d}{_formatSlice(refIdx, refIdx + width)}'
+                f'enc{encIdx:d}{Segment(refIdx, width)}'
                 for encIdx, refIdx, width in reversed(slices)
                 )
 
