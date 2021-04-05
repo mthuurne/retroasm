@@ -98,6 +98,13 @@ class Segment:
     start: int
     width: Width
 
+    def __new__(cls, start: int, width: Width) -> Segment:
+        if start < 0:
+            raise ValueError(f'Segment start cannot be negative: {start:d}')
+        instance: Segment = super().__new__(cls)
+        instance.__init__(start, width) # type: ignore[misc]
+        return instance
+
     def __str__(self) -> str:
         start = self.start
         width = self.width
@@ -114,6 +121,16 @@ class Segment:
     @property
     def mask(self) -> int:
         return maskForWidth(self.width) << self.start
+
+    def __lshift__(self, offset: int) -> Segment:
+        return Segment(self.start + offset, self.width)
+
+    def __rshift__(self, offset: int) -> Segment:
+        start = self.start - offset
+        if start < 0:
+            return Segment(0, self.width + start)
+        else:
+            return Segment(start, self.width)
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
     """Iterates through pairs of start and end indices of maximally long

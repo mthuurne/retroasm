@@ -70,3 +70,16 @@ def test_segmentsToMask():
     assert to_mask('[6:11]', '[12:16]', '[1:5]') == 0xF7DE
     assert to_mask('[0:0]', '[9:9]') == 0x0000
     assert to_mask('[6:13]', '[3:8]') == 0x1FF8
+
+def test_segment_shift():
+    """Segments can be shifted left or right."""
+
+    assert str(parse_segment('[3:7]') << 5) == '[8:12]'
+    assert str(parse_segment('[4:]') << 10) == '[14:]'
+
+    assert str(parse_segment('[8:12]') >> 5) == '[3:7]'
+    assert str(parse_segment('[14:]') >> 10) == '[4:]'
+
+    assert str(parse_segment('[3:7]') >> 6) == '[0]'
+    assert str(parse_segment('[:8]') >> 2) == '[:6]'
+    assert str(parse_segment('[4:]') >> 10) == '[:]'
