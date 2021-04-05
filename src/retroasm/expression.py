@@ -339,13 +339,13 @@ class AddOperator(MultiExpression):
         result = 0
         cmbValue: Width = 0
         cmbMask = 0
-        for start, end in sorted(chain(*(
+        for segment in sorted(chain(*(
                 maskToSegments(expr.mask) for expr in exprs))):
             # Compute bit mask for this segment.
-            segMask = maskForWidth(end - start) << start
+            segMask = segment.mask
             # If masks don't overlap, restart adding.
             if (segMask & cmbMask) == 0:
-                cmbStart = start
+                cmbStart = segment.start
                 cmbValue = 0
             # Maximum value is when the value is equal to the mask.
             if segMask >= 0:

@@ -20,7 +20,7 @@ from .reference import (
     BitString, ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 )
 from .storage import ArgStorage
-from .types import Width, maskForWidth, maskToSegments, segmentsToMask
+from .types import Segment, Width, maskForWidth, maskToSegments
 from .utils import Singleton
 
 
@@ -146,13 +146,11 @@ def _formatSlice(start: int, end: int) -> str:
 def _formatMask(name: str, mask: int, value: int | None = None) -> str:
     segments = list(maskToSegments(mask))
     if len(segments) == 1:
-        (start, end), = segments
-        assert isinstance(end, int), mask
-        segStr = name + _formatSlice(start, end)
+        segment, = segments
         if value is None:
-            return segStr
+            return f'{name}{segment}'
         else:
-            return f'{segStr}=${(value & mask) >> start:x}'
+            return f'{name}{segment}=${(value & mask) >> segment.start:x}'
     else:
         digits = []
         while mask:
@@ -606,27 +604,22 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
 
     # Find segments that are present in all masks.
     commonMask = reduce(int.__and__, maskFreqs.keys(), -1)
-    segments = []
-    if commonMask > 0:
-        for start, end in maskToSegments(commonMask):
-            assert isinstance(end, int), commonMask
-            segments.append((start, end))
+    segments = list(maskToSegments(commonMask))
 
     if len(segments) != 0:
         # Pick the upper segment: for correctness any segment will do,
         # but instruction sets are typically designed with top-level
         # categories in the upper bits.
         segment = segments[-1]
-        tableMask = segmentsToMask((segment,))
-        start, end = segment
+        start = segment.start
+        tableMask = segment.mask
 
         # Limit size of table.
-        end = min(end, start + 8)
+        width = min(segment.width, 8)
+        assert isinstance(width, int)
 
         # Group decoders in buckets determined by the selected segment.
-        table: list[list[Decoder]] = [
-            [] for index in range(1 << (end - start))
-            ]
+        table = [list[Decoder]() for index in range(1 << width)]
         for decoder in decoders:
             assert isinstance(decoder, FixedPatternDecoder), decoder
             value = decoder.value

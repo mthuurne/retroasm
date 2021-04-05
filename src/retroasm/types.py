@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, Iterator, NoReturn, Union, cast
 
 from .utils import Singleton, Unique
@@ -91,7 +92,35 @@ def trailingZeroes(n: int) -> Width:
         count += 1
     return count
 
-Segment = tuple[int, Width]
+@dataclass(order=True, frozen=True)
+class Segment:
+    __slots__ = ('start', 'end')
+    start: int
+    end: Width
+
+    def __str__(self) -> str:
+        start = self.start
+        end = self.end
+        if isinstance(end, Unlimited):
+            if start == 0:
+                return '[:]'
+            else:
+                return f'[{start:d}:]'
+        else:
+            if end == start + 1:
+                return f'[{start:d}]'
+            elif start == 0:
+                return f'[:{end:d}]'
+            else:
+                return f'[{start:d}:{end:d}]'
+
+    @property
+    def width(self) -> Width:
+        return self.end - self.start
+
+    @property
+    def mask(self) -> int:
+        return maskForWidth(self.width) << self.start
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
     """Iterates through pairs of start and end indices of maximally long
@@ -108,13 +137,13 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
             i += 1
             mask >>= 1
         if mask == -1:
-            yield i, unlimited
+            yield Segment(i, unlimited)
             break
         start = i
         while (mask & 1) == 1:
             i += 1
             mask >>= 1
-        yield start, i
+        yield Segment(start, i)
 
 def segmentsToMask(segments: Iterable[Segment]) -> int:
     """Computes a mask that corresponds to the given sequence of pairs of
@@ -123,10 +152,8 @@ def segmentsToMask(segments: Iterable[Segment]) -> int:
     End indices may be 'unlimited', start indices may not.
     """
     mask = 0
-    for start, end in segments:
-        mask |= (
-            -1 if end is unlimited else (1 << (cast(int, end) - start)) - 1
-            ) << start
+    for segment in segments:
+        mask |= segment.mask
     return mask
 
 class IntType(metaclass=Unique):
