@@ -593,24 +593,20 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
         if isinstance(decoder, FixedPatternDecoder)
         ), default=-1)
 
-    # Gather stats about fixed patterns of our entries.
-    maskFreqs: DefaultDict[int, int] = defaultdict(int)
+    # Find segments that are present in all masks.
+    commonMask = -1
     for decoder in decoders:
         if isinstance(decoder, FixedPatternDecoder) and decoder.index == encIdx:
-            mask = decoder.mask
+            commonMask &= decoder.mask
         else:
-            mask = 0
-        maskFreqs[mask] += 1
+            commonMask = 0
+            break
 
-    # Find segments that are present in all masks.
-    commonMask = reduce(int.__and__, maskFreqs.keys(), -1)
-    segments = list(maskToSegments(commonMask))
-
-    if len(segments) != 0:
+    if commonMask != 0:
         # Pick the upper segment: for correctness any segment will do,
         # but instruction sets are typically designed with top-level
         # categories in the upper bits.
-        segment = segments[-1]
+        segment = max(maskToSegments(commonMask))
         start = segment.start
         tableMask = segment.mask
 
