@@ -83,3 +83,12 @@ def test_segment_shift():
     assert str(parse_segment('[3:7]') >> 6) == '[0]'
     assert str(parse_segment('[:8]') >> 2) == '[:6]'
     assert str(parse_segment('[4:]') >> 10) == '[:]'
+
+def test_segment_intersect():
+    """Segments can be intersected using the '&' operator."""
+
+    assert str(parse_segment('[3:7]') & parse_segment('[6:9]')) == '[6]'
+    assert str(parse_segment('[3:10]') & parse_segment('[5:]')) == '[5:10]'
+
+    assert (parse_segment('[:4]') & parse_segment('[8:]')).width == 0
+    assert not (parse_segment('[:4]') & parse_segment('[8:]'))

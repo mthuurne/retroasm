@@ -122,6 +122,10 @@ class Segment:
     def mask(self) -> int:
         return maskForWidth(self.width) << self.start
 
+    def __bool__(self) -> bool:
+        """Return True iff the segment is non-empty."""
+        return self.width != 0
+
     def __lshift__(self, offset: int) -> Segment:
         return Segment(self.start + offset, self.width)
 
@@ -131,6 +135,16 @@ class Segment:
             return Segment(0, self.width + start)
         else:
             return Segment(start, self.width)
+
+    def __and__(self, other: object) -> Segment:
+        """Intersect two segments."""
+        if isinstance(other, Segment):
+            start = max(self.start, other.start)
+            end = min(self.end, other.end)
+            width = max(end - start, 0)
+            return Segment(start, width)
+        else:
+            return NotImplemented
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
     """Iterates through pairs of start and end indices of maximally long
