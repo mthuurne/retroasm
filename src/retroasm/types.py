@@ -94,29 +94,22 @@ def trailingZeroes(n: int) -> Width:
 
 @dataclass(order=True, frozen=True)
 class Segment:
-    __slots__ = ('start', 'end')
+    __slots__ = ('start', 'width')
     start: int
-    end: Width
+    width: Width
 
     def __str__(self) -> str:
         start = self.start
-        end = self.end
-        if isinstance(end, Unlimited):
-            if start == 0:
-                return '[:]'
-            else:
-                return f'[{start:d}:]'
-        else:
-            if end == start + 1:
-                return f'[{start:d}]'
-            elif start == 0:
-                return f'[:{end:d}]'
-            else:
-                return f'[{start:d}:{end:d}]'
+        width = self.width
+        if width == 1:
+            return f'[{start:d}]'
+        start_str = '' if start == 0 else f'{start:d}'
+        end_str = '' if isinstance(width, Unlimited) else f'{start + width:d}'
+        return f'[{start_str}:{end_str}]'
 
     @property
-    def width(self) -> Width:
-        return self.end - self.start
+    def end(self) -> Width:
+        return self.start + self.width
 
     @property
     def mask(self) -> int:
@@ -143,7 +136,7 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
         while (mask & 1) == 1:
             i += 1
             mask >>= 1
-        yield Segment(start, i)
+        yield Segment(start, i - start)
 
 def segmentsToMask(segments: Iterable[Segment]) -> int:
     """Computes a mask that corresponds to the given sequence of pairs of
