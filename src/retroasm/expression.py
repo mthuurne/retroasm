@@ -339,8 +339,8 @@ class AddOperator(MultiExpression):
         result = 0
         cmbValue: Width = 0
         cmbMask = 0
-        for segment in sorted(chain(*(
-                maskToSegments(expr.mask) for expr in exprs))):
+        for segment in sorted(chain.from_iterable(
+                maskToSegments(expr.mask) for expr in exprs)):
             # Compute bit mask for this segment.
             segMask = segment.mask
             # If masks don't overlap, restart adding.
