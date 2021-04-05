@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import reduce
 from typing import (
     AbstractSet, Any, DefaultDict, Iterable, Iterator, Mapping, NamedTuple,
     Sequence, Union, cast
@@ -20,7 +19,7 @@ from .reference import (
     BitString, ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
 )
 from .storage import ArgStorage
-from .types import Segment, Width, maskForWidth, maskToSegments
+from .types import Segment, maskForWidth, maskToSegments
 from .utils import Singleton
 
 
