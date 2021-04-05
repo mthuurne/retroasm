@@ -45,9 +45,9 @@ class Function:
 def _checkArgs(declArgs: Mapping[str, IntType | ReferenceType],
                codeArgs: Mapping[str, Storage]
                ) -> None:
-    '''Check consistency between declared argument types and code block.
+    """Check consistency between declared argument types and code block.
     Raises ValueError if an inconsistency is found.
-    '''
+    """
     for name, arg in codeArgs.items():
         try:
             typ = declArgs[name]
@@ -65,9 +65,9 @@ def _checkArgs(declArgs: Mapping[str, IntType | ReferenceType],
 def _checkReturn(retType: None | IntType | ReferenceType,
                  returned: Sequence[BitString]
                  ) -> None:
-    '''Check consistency between declared return type and code block.
+    """Check consistency between declared return type and code block.
     Raises ValueError if an inconsistency is found.
-    '''
+    """
     if len(returned) > 1:
         raise ValueError('code block returns multiple values')
 

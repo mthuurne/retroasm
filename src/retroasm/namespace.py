@@ -14,11 +14,11 @@ from .types import IntType
 NamespaceValue = Union[Reference, IOChannel, Function]
 
 class Namespace:
-    '''Container in which named elements such as variables, arguments,
+    """Container in which named elements such as variables, arguments,
     functions etc. are stored.
     Fetching elements is done through a dictionary-like interface.
     Storing elements is done by calling define().
-    '''
+    """
 
     def __init__(self, parent: Namespace | None):
         self.parent = parent
@@ -66,9 +66,9 @@ class Namespace:
                value: NamespaceValue,
                location: InputLocation
                ) -> None:
-        '''Defines a named item in the this namespace.
+        """Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
-        '''
+        """
         self._checkName(name, value, location)
         if name in self.elements:
             oldLocation = self.locations.get(name)
@@ -90,10 +90,10 @@ class Namespace:
                    value: NamespaceValue,
                    location: InputLocation
                    ) -> None:
-        '''Checks whether the given name can be used in this namespace
+        """Checks whether the given name can be used in this namespace
         for the given value.
         Raises NameExistsError if the name is rejected.
-        '''
+        """
         pass
 
     def _addNamedStorage(self,
@@ -112,15 +112,15 @@ class Namespace:
                     typ: IntType,
                     location: InputLocation
                     ) -> Reference:
-        '''Add an pass-by-reference argument to this namespace.
+        """Add an pass-by-reference argument to this namespace.
         Returns a reference to the argument's storage.
-        '''
+        """
         storage = ArgStorage(name, typ.width)
         return self._addNamedStorage(name, storage, typ, location)
 
 class ContextNamespace(Namespace):
-    '''A namespace for a mode entry context.
-    '''
+    """A namespace for a mode entry context.
+    """
 
     def _checkName(self,
                    name: str,
@@ -131,8 +131,8 @@ class ContextNamespace(Namespace):
         _rejectRet(name, location)
 
 class BuilderNamespace(Namespace):
-    '''A namespace with an associated code block builder.
-    '''
+    """A namespace with an associated code block builder.
+    """
 
     @property
     def scope(self) -> int:
@@ -146,9 +146,9 @@ class BuilderNamespace(Namespace):
         self.builder = builder
 
     def dump(self) -> None:
-        '''Prints the current state of this namespace and its code block
+        """Prints the current state of this namespace and its code block
         builder on stdout.
-        '''
+        """
         self.builder.dump()
         if 'ret' in self.elements:
             print(f"    return {self.elements['ret']}")
@@ -158,15 +158,15 @@ class BuilderNamespace(Namespace):
                     typ: IntType,
                     location: InputLocation
                     ) -> Reference:
-        '''Adds a variable with the given name and type to this namespace.
+        """Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
-        '''
+        """
         storage = Variable(typ.width, self.scope)
         return self._addNamedStorage(name, storage, typ, location)
 
 class GlobalNamespace(BuilderNamespace):
-    '''Namespace for the global scope.
-    '''
+    """Namespace for the global scope.
+    """
 
     @property
     def scope(self) -> int:
@@ -185,9 +185,9 @@ class GlobalNamespace(BuilderNamespace):
         _rejectRet(name, location)
 
 class LocalNamespace(BuilderNamespace):
-    '''A namespace for local blocks, that can import entries from its parent
+    """A namespace for local blocks, that can import entries from its parent
     namespace on demand.
-    '''
+    """
 
     @property
     def scope(self) -> int:
@@ -212,14 +212,14 @@ class LocalNamespace(BuilderNamespace):
                         log: LineReader | None = None,
                         location: InputLocation | None = None
                         ) -> CodeBlock:
-        '''Returns a CodeBlock object containing the items emitted so far.
+        """Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         If `retRef` is None, the created code block will not return anything,
         otherwise it returns that reference.
         Raises ValueError if our builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
-        '''
+        """
         if retRef is None:
             returned: Sequence[BitString] = ()
         else:
@@ -227,9 +227,9 @@ class LocalNamespace(BuilderNamespace):
         return self.builder.createCodeBlock(returned, log, location)
 
 class NameExistsError(BadInput):
-    '''Raised when attempting to add an element to a namespace under a name
+    """Raised when attempting to add an element to a namespace under a name
     which is already in use.
-    '''
+    """
 
 def _rejectRet(name: str, location: InputLocation) -> None:
     if name == 'ret':

@@ -30,13 +30,13 @@ from .types import (
 
 
 class BadExpression(BadInput):
-    '''Raised when the input text cannot be parsed into an expression.
-    '''
+    """Raised when the input text cannot be parsed into an expression.
+    """
 
 class UnknownNameError(BadExpression):
-    '''Raised when an expression contains an identifier that does not occur
+    """Raised when an expression contains an identifier that does not occur
     in any of its surrounding namespaces.
-    '''
+    """
 
     def __init__(self, name: str, msg: str, location: InputLocation):
         BadExpression.__init__(self, msg, location)
@@ -79,10 +79,10 @@ def convertDefinition(kind: DeclarationKind,
                       value: ParseNode,
                       namespace: BuilderNamespace
                       ) -> Reference:
-    '''Build and validate the right hand side of a definition.
+    """Build and validate the right hand side of a definition.
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
-    '''
+    """
     if kind is DeclarationKind.constant:
         try:
             expr = buildExpression(value, namespace)
@@ -119,8 +119,8 @@ def convertDefinition(kind: DeclarationKind,
 def _convertIdentifier(node: IdentifierNode,
                        namespace: BuilderNamespace
                        ) -> IOChannel | Reference:
-    '''Looks up an identifier in a namespace.
-    '''
+    """Looks up an identifier in a namespace.
+    """
     name = node.name
     try:
         value = namespace[name]
@@ -467,11 +467,11 @@ def buildStatementEval(reader: LineReader,
                        namespace: LocalNamespace,
                        node: ParseNode
                        ) -> None:
-    '''Emits loads and stores on the given namespace that produce the (side)
+    """Emits loads and stores on the given namespace that produce the (side)
     effects of evaluating the given node.
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
-    '''
+    """
     builder = namespace.builder
     numNodesBefore = len(builder.nodes)
 
@@ -540,10 +540,10 @@ def emitCodeFromStatements(reader: LineReader,
                            statements: Iterable[ParseNode],
                            retType: None | IntType | ReferenceType
                            ) -> None:
-    '''Emits a code block from the given statements.
+    """Emits a code block from the given statements.
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
-    '''
+    """
     for node in statements:
         if isinstance(node, DefinitionNode):
             # Constant/reference definition.

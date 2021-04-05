@@ -16,27 +16,27 @@ ExprT = TypeVar('ExprT', bound='Expression')
 SingleExprT = TypeVar('SingleExprT', bound='SingleExpression')
 
 class Expression:
-    '''Abstract base class for integer expressions.
+    """Abstract base class for integer expressions.
 
     Expressions are considered equal if they have the same tree form.
     This means that for example (A + (B + C)) and ((A + B) + C) are considered
     unequal: they represent the same computation, but not the same tree.
-    '''
+    """
 
     __slots__ = ()
 
     @property
     def mask(self) -> int:
-        '''A bit mask for the potential values of this expression: the mask
+        """A bit mask for the potential values of this expression: the mask
         is 1 for bits that might be 1 in the values and is 0 for bits that
         are certainly 0 in all possible values.
-        '''
+        """
         raise NotImplementedError
 
     def _ctorargs(self) -> tuple[object, ...]:
-        '''Returns a tuple containing the constructor arguments that can be
+        """Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
-        '''
+        """
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -67,24 +67,24 @@ class Expression:
         return hash(self._ctorargs() + (self.__class__,))
 
     def _equals(self: ExprT, other: ExprT) -> bool:
-        '''Returns True if this expression is equal to the other expression,
+        """Returns True if this expression is equal to the other expression,
         False otherwise.
         The other expression is of the same Python class as this one.
-        '''
+        """
         raise NotImplementedError
 
     @property
     def complexity(self) -> int:
-        '''Returns a postive number that reflects the complexity of this
+        """Returns a postive number that reflects the complexity of this
         expression: the higher the number, the more complex the expression.
         This is used to compare simplification candidates.
-        '''
+        """
         raise NotImplementedError
 
     def iterInstances(self, cls: type[ExprT]) -> Iterator[ExprT]:
-        '''Yields the subexpressions of this expression that are instances of
+        """Yields the subexpressions of this expression that are instances of
         the given Python type.
-        '''
+        """
         if isinstance(self, cls):
             yield self
         for value in self._ctorargs():
@@ -94,13 +94,13 @@ class Expression:
     def substitute(self,
                    func: Callable[[Expression], Expression | None]
                    ) -> Expression:
-        '''Applies the given substitution function to this expression and
+        """Applies the given substitution function to this expression and
         returns the resulting expression.
         The function is called for each node in the expression with that
         node as the argument. If it returns None, the node is kept and the
         substitution applied to its subnodes. If it returns an expression,
         that expression is the substituted for the node.
-        '''
+        """
         subst = func(self)
         if subst is not None:
             return subst
@@ -120,9 +120,9 @@ class Expression:
             return self
 
 class BadValue(Expression):
-    '''A dummy expression that can be used when an error has been discovered
+    """A dummy expression that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
-    '''
+    """
     __slots__ = ('_width',)
 
     @property
@@ -147,8 +147,8 @@ class BadValue(Expression):
         return 1
 
 class IntLiteral(Expression):
-    '''An integer literal.
-    '''
+    """An integer literal.
+    """
     __slots__ = ('_value',)
 
     @property
@@ -181,10 +181,10 @@ class IntLiteral(Expression):
         return 1
 
 class MultiExpression(Expression):
-    '''Base class for expressions that combine zero or more subexpressions.
+    """Base class for expressions that combine zero or more subexpressions.
     All subclasses of this class must represent operations that are both
     associative and commutative; other algebraic properties differ per subclass.
-    '''
+    """
     __slots__ = ('_exprs', '_mask')
     operator: str
     idempotent: bool
@@ -192,7 +192,7 @@ class MultiExpression(Expression):
     absorber: int | None
 
     nodeComplexity = 1
-    '''Contribution of the expression node itself to expression complexity.'''
+    """Contribution of the expression node itself to expression complexity."""
 
     @property
     def exprs(self) -> Sequence[Expression]:
@@ -213,8 +213,8 @@ class MultiExpression(Expression):
 
     @classmethod
     def computeMask(cls, exprs: Iterable[Expression]) -> int:
-        '''Returns the bit mask for the composition of the given expressions.
-        '''
+        """Returns the bit mask for the composition of the given expressions.
+        """
         raise NotImplementedError
 
     @property
@@ -225,8 +225,8 @@ class MultiExpression(Expression):
 
     @classmethod
     def combineLiterals(cls, *values: int) -> int:
-        '''Combine the given literal values into a single value.
-        '''
+        """Combine the given literal values into a single value.
+        """
         raise NotImplementedError
 
     def __str__(self) -> str:
@@ -374,8 +374,8 @@ class AddOperator(MultiExpression):
         return '(%s)' % ' '.join(fragments)
 
 class SingleExpression(Expression):
-    '''Base class for expressions that have a single subexpression.
-    '''
+    """Base class for expressions that have a single subexpression.
+    """
     __slots__ = ('_expr',)
 
     @property
@@ -418,8 +418,8 @@ class Negation(SingleExpression):
         return f'!{self._expr}'
 
 class SignTest(SingleExpression):
-    '''Tests the sign of the given expression.
-    '''
+    """Tests the sign of the given expression.
+    """
     __slots__ = ()
 
     @property
@@ -430,8 +430,8 @@ class SignTest(SingleExpression):
         return f'sign({self._expr})'
 
 class SignExtension(SingleExpression):
-    '''Extends the sign bit at the front of a given expression.
-    '''
+    """Extends the sign bit at the front of a given expression.
+    """
     __slots__ = ('_width',)
 
     @property
@@ -456,7 +456,7 @@ class SignExtension(SingleExpression):
         return self._width == other._width and super()._equals(other)
 
 _SHIFT_LIMIT_BITS = 256
-'''When shifting left, do not create masks longer than this number of bits.
+"""When shifting left, do not create masks longer than this number of bits.
 While Python integers can grow arbitrarily large, they will take up a lot of
 memory and take long to compute with. So we want to avoid creating masks
 that are overly large.
@@ -464,11 +464,11 @@ Note that we can still produce a correct mask even when applying this limit,
 it just won't be as strict as possible. Since bits this far into the expression
 will most likely be truncated at a later stage, getting an exact mask is not
 important.
-'''
+"""
 
 class LShift(SingleExpression):
-    '''Shifts a bit string to the left, appending zero bits at the end.
-    '''
+    """Shifts a bit string to the left, appending zero bits at the end.
+    """
     __slots__ = ('_offset', '_mask')
 
     @property
@@ -502,8 +502,8 @@ class LShift(SingleExpression):
             return -1 << _SHIFT_LIMIT_BITS
 
 class RShift(SingleExpression):
-    '''Drops the lower N bits from a bit string.
-    '''
+    """Drops the lower N bits from a bit string.
+    """
     __slots__ = ('_offset', '_mask')
 
     @property
@@ -537,9 +537,9 @@ class RShift(SingleExpression):
         return self._expr.mask >> self._offset
 
 class LVShift(Expression):
-    '''Shifts a bit string to the left, appending zero bits at the end.
+    """Shifts a bit string to the left, appending zero bits at the end.
     Unlike LShift, our offset is an expression.
-    '''
+    """
     __slots__ = ('_expr', '_offset', '_mask')
 
     @property
@@ -589,9 +589,9 @@ class LVShift(Expression):
         return self._offset == other._offset and self._expr == other._expr
 
 class RVShift(Expression):
-    '''Drops the lower N bits from a bit string.
+    """Drops the lower N bits from a bit string.
     Unlike RShift, our offset (N) is an expression.
-    '''
+    """
     __slots__ = ('_expr', '_offset', '_mask')
 
     @property
@@ -646,9 +646,9 @@ def truncate(expr: Expression, width: Width) -> Expression:
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
 
 def optSlice(expr: Expression, index: int, width: Width) -> Expression:
-    '''Return a slice of the given expression, at the given index with the given
+    """Return a slice of the given expression, at the given index with the given
     width, without adding any unnecessary operations.
-    '''
+    """
     if index != 0:
         expr = RShift(expr, index)
     mask = expr.mask

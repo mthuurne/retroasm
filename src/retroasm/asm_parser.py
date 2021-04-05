@@ -57,8 +57,8 @@ def parseNumber(location: InputLocation) -> NumberNode:
 def createMatchSequence(name: InputLocation,
                         tokens: Iterable[Token]
                         ) -> Iterator[type[int] | int | str]:
-    '''Convert tokens to a match sequence.
-    '''
+    """Convert tokens to a match sequence.
+    """
     yield name.text
     for kind, location in tokens:
         if kind is AsmToken.number or kind is AsmToken.string:

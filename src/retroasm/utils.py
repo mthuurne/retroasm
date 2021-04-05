@@ -10,13 +10,13 @@ from weakref import WeakValueDictionary
 
 
 class Unique(type):
-    '''Metaclass that enforces that for each combination of arguments there
+    """Metaclass that enforces that for each combination of arguments there
     is only one instance.
     Arguments must be of hashable types.
     Keyword constructor arguments are not supported.
     Weak references are used to keep track of instances, so if you define
     __slots__ in your class, make sure you include '__weakref__' in __slots__.
-    '''
+    """
 
     def __init__(cls, name, bases, nmspc):
         type.__init__(cls, name, bases, nmspc)
@@ -32,8 +32,8 @@ class Unique(type):
         return value
 
 class Singleton(type):
-    '''Metaclass that enforces that there is one shared instance of a class.
-    '''
+    """Metaclass that enforces that there is one shared instance of a class.
+    """
 
     def __init__(cls, name, bases, nmspc):
         type.__init__(cls, name, bases, nmspc)
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     const_property = property
 else:
     class const_property:
-        '''Decorator for properties that don't change in value.
+        """Decorator for properties that don't change in value.
         The getter function is called at most once: the first time the property
         is read.
         If the getter returns an iterator or a mutable sequence, set or mapping,
@@ -59,7 +59,7 @@ else:
         The value is stored in an attribute that is named equal to the wrapped
         getter function, with an underscore prepended. In classes that define
         __slots__, make sure that you include this attribute as well.
-        '''
+        """
 
         def __init__(self, getter):
             self._getter = getter
@@ -93,12 +93,12 @@ else:
             raise AttributeError('const_property cannot be deleted')
 
 def search(low: int, high: int, test: Callable[[int], bool]) -> int:
-    '''Binary search: [low..high) is the range to search; function "test"
+    """Binary search: [low..high) is the range to search; function "test"
     takes a single value from that interval and returns a truth value.
     The function must be ascending: (test(x) and y >= x) => test(y).
     Returns smallest argument in the interval for which the function is true,
     or "high" if the function is false for the entire interval.
-    '''
+    """
     while low < high:
         mid = (low + high - 1) // 2
         if test(mid):

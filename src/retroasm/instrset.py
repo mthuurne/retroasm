@@ -31,9 +31,9 @@ class PrefixMapping:
     encodingWidth: int | None
 
 def flagsSetByCode(code: CodeBlock) -> Iterator[Storage]:
-    '''Yields those storages to which the value 1 is assigned by the given code
+    """Yields those storages to which the value 1 is assigned by the given code
     block.
-    '''
+    """
     for node in code.nodes:
         if isinstance(node, Store):
             value = node.expr
@@ -56,16 +56,16 @@ class PrefixMappingFactory:
         self._encodingWidth: int | None = None
 
     def hasFlag(self, name: str) -> bool:
-        '''Return True iff a decode flag with the given name was added to
+        """Return True iff a decode flag with the given name was added to
         this factory.
-        '''
+        """
         return name in self._prefixForFlag
 
     def addPrefixes(self,
                     decodeFlags: Collection[str],
                     prefixes: Iterable[Prefix],
                     ) -> None:
-        '''Adds `prefixes`, which use the flags in `decodeFlags`, to this
+        """Adds `prefixes`, which use the flags in `decodeFlags`, to this
         mapping.
         Raises KeyError if a decode flag name either does not exist in the
         namespace or was added more than once.
@@ -73,7 +73,7 @@ class PrefixMappingFactory:
         given prefix semantics.
         Raises BadInput if an encoding item's width is inconsistent with
         earlier encoding item widths.
-        '''
+        """
         self._prefixes += prefixes
 
         # Check encoding width consistency.
@@ -129,8 +129,8 @@ class PrefixMappingFactory:
                 )
 
     def createMapping(self) -> PrefixMapping:
-        '''Create a `PrefixMapping` using the prefixes added so far.
-        '''
+        """Create a `PrefixMapping` using the prefixes added so far.
+        """
         return PrefixMapping(
             self._prefixes,
             self._initBuilder.createCodeBlock(()),
@@ -140,8 +140,8 @@ class PrefixMappingFactory:
             )
 
 class InstructionSet(ModeTable):
-    '''Contains all definitions for a processor's instruction set.
-    '''
+    """Contains all definitions for a processor's instruction set.
+    """
 
     @property
     def globalNamespace(self) -> GlobalNamespace:
@@ -189,9 +189,9 @@ class InstructionSet(ModeTable):
     def getDecoder(self,
                    flags: AbstractSet[str] = frozenset()
                    ) -> Decoder:
-        '''Returns an instruction decoder that decodes an instruction for the
+        """Returns an instruction decoder that decodes an instruction for the
         given combination of decode flags.
-        '''
+        """
         flags = frozenset(flags)
         decoders = self._decoders
         decoder = decoders.get(flags)
@@ -203,9 +203,9 @@ class InstructionSet(ModeTable):
 
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:
-        '''A set containing all possible combinations of decode flags that can
+        """A set containing all possible combinations of decode flags that can
         be set simultaneously.
-        '''
+        """
         prefixMapping = self._prefixMapping
         prefixes = prefixMapping.prefixes
         flagForVar = prefixMapping.flagForVar
@@ -236,12 +236,12 @@ class InstructionSet(ModeTable):
 
     @property
     def addrWidth(self) -> Width:
-        '''The width of the program counter, in bits.
-        '''
+        """The width of the program counter, in bits.
+        """
         return cast(Reference, self._globalNamespace['pc']).width
 
     @const_property
     def instructionNames(self) -> AbstractSet[str]:
-        '''A set containing the instruction names (operations).
-        '''
+        """A set containing the instruction names (operations).
+        """
         return cast(AbstractSet[str], self._mnemTree[0].keys())

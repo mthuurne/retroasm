@@ -21,8 +21,8 @@ else:
 
 
 class BitString:
-    '''Abstract base class for bit strings.
-    '''
+    """Abstract base class for bit strings.
+    """
     __slots__ = ('_width',)
 
     @property
@@ -33,13 +33,13 @@ class BitString:
         self._width = width
 
     def iterExpressions(self) -> Iterator[Expression]:
-        '''Iterates through the expressions contained in this bit string.
-        '''
+        """Iterates through the expressions contained in this bit string.
+        """
         raise NotImplementedError
 
     def iterStorages(self) -> Iterator[Storage]:
-        '''Iterates through the storages accessed through this bit string.
-        '''
+        """Iterates through the storages accessed through this bit string.
+        """
         raise NotImplementedError
 
     def substitute(
@@ -49,7 +49,7 @@ class BitString:
             expressionFunc:
                 Callable[[Expression], Expression | None] | None = None
             ) -> BitString:
-        '''Applies the given substitution functions to each applicable
+        """Applies the given substitution functions to each applicable
         term in this bit string and returns the resulting bit string.
         The storage function passed a storage as its argument and must return
         None if no substitution is to take place and a replacement bit string
@@ -57,17 +57,17 @@ class BitString:
         If no storage substitution took place, the expression function is
         applied. This function should follow the same contract as the function
         passed to Expression.substitute().
-        '''
+        """
         raise NotImplementedError
 
     def emitLoad(self,
                  builder: CodeBlockBuilder,
                  location: InputLocation | None
                  ) -> Expression:
-        '''Emits load nodes for loading a bit string from the underlying
+        """Emits load nodes for loading a bit string from the underlying
         storage(s).
         Returns the value of the bit string as an Expression.
-        '''
+        """
         raise NotImplementedError
 
     def emitStore(self,
@@ -75,14 +75,14 @@ class BitString:
                   value: Expression,
                   location: InputLocation | None
                   ) -> None:
-        '''Emits store nodes for storing a bit string into the underlying
+        """Emits store nodes for storing a bit string into the underlying
         storage(s).
-        '''
+        """
         raise NotImplementedError
 
 class FixedValue(BitString):
-    '''A bit string that always reads as the same value and ignores writes.
-    '''
+    """A bit string that always reads as the same value and ignores writes.
+    """
     __slots__ = ('_expr',)
 
     @property
@@ -90,9 +90,9 @@ class FixedValue(BitString):
         return self._expr
 
     def __init__(self, expr: Expression, width: Width):
-        '''Construct a FixedValue with the given value and width.
+        """Construct a FixedValue with the given value and width.
         The mask of the value Expression must fit within the given width.
-        '''
+        """
         BitString.__init__(self, width)
         self._expr = expr
         assert widthForMask(expr.mask) <= width, expr
@@ -200,14 +200,14 @@ class SingleStorage(BitString):
         builder.emitStoreBits(self._storage, value, location)
 
 class ConcatenatedBits(BitString):
-    '''A concatenation of a bit strings.
-    '''
+    """A concatenation of a bit strings.
+    """
     __slots__ = ('_subs',)
 
     def __init__(self, *subs: BitString):
-        '''Creates a concatenation of the given bit strings, in order from least
+        """Creates a concatenation of the given bit strings, in order from least
         to most significant.
-        '''
+        """
         width = 0
         for sub in subs:
             if width is unlimited:
@@ -278,8 +278,8 @@ class ConcatenatedBits(BitString):
             offset += width
 
 class SlicedBits(BitString):
-    '''A slice of a bit string.
-    '''
+    """A slice of a bit string.
+    """
     __slots__ = ('_bits', '_offset')
 
     @property
@@ -291,8 +291,8 @@ class SlicedBits(BitString):
         return self._offset
 
     def __init__(self, bits: BitString, offset: Expression, width: Width):
-        '''Creates a slice of the given bit string.
-        '''
+        """Creates a slice of the given bit string.
+        """
         self._bits = bits
 
         offset = simplifyExpression(offset)
@@ -379,14 +379,14 @@ class SlicedBits(BitString):
         bits.emitStore(builder, simplifyExpression(combined), location)
 
 class BadBits(BitString):
-    '''A dummy bit string that can be used when an error has been discovered
+    """A dummy bit string that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
-    '''
+    """
     __slots__ = ()
 
     def __init__(self, width: Width):
-        '''Construct a BadBits with the given width.
-        '''
+        """Construct a BadBits with the given width.
+        """
         BitString.__init__(self, width)
 
     def __repr__(self) -> str:
@@ -424,16 +424,16 @@ class BadBits(BitString):
         pass
 
 def badReference(decl: ReferenceType | IntType) -> Reference:
-    '''Returns a dummy reference to the given declared reference/value type,
+    """Returns a dummy reference to the given declared reference/value type,
     with a BadBits instance as the underlying bit string.
-    '''
+    """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
     return Reference(BadBits(typ.width), typ)
 
 def decodeInt(encoded: Expression, typ: IntType) -> Expression:
-    '''Decodes the given encoded representation as an integer of the given type.
+    """Decodes the given encoded representation as an integer of the given type.
     Returns the decoded value.
-    '''
+    """
     if typ.signed:
         width = typ.width
         if width is not unlimited:
@@ -441,8 +441,8 @@ def decodeInt(encoded: Expression, typ: IntType) -> Expression:
     return encoded
 
 class Reference:
-    '''Typed access to a bit string.
-    '''
+    """Typed access to a bit string.
+    """
     __slots__ = ('_bits', '_type')
 
     @property
@@ -471,10 +471,10 @@ class Reference:
                  builder: CodeBlockBuilder,
                  location: InputLocation | None
                  ) -> Expression:
-        '''Emits load nodes for loading a typed value from the referenced
+        """Emits load nodes for loading a typed value from the referenced
         bit string.
         Returns the loaded value as an Expression.
-        '''
+        """
         encoded = self._bits.emitLoad(builder, location)
         return decodeInt(encoded, self._type)
 
@@ -483,6 +483,6 @@ class Reference:
                   value: Expression,
                   location: InputLocation | None
                   ) -> None:
-        '''Emits store nodes for storing a value into the referenced bit string.
-        '''
+        """Emits store nodes for storing a value into the referenced bit string.
+        """
         self._bits.emitStore(builder, truncate(value, self.width), location)

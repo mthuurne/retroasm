@@ -26,8 +26,8 @@ class Image(Protocol):
     def __len__(self) -> int: ...
 
 class EntryPoint:
-    '''A point at which execution can start.
-    '''
+    """A point at which execution can start.
+    """
 
     @property
     def offset(self) -> int:
@@ -69,17 +69,17 @@ def _yieldEntryPoint(section: CodeSection,
         yield EntryPoint(offset, name)
 
 class BinaryFormat:
-    '''Abstract base class for binary formats.
-    '''
+    """Abstract base class for binary formats.
+    """
 
     name: ClassVar[str]
-    '''Short identifying name for this format.'''
+    """Short identifying name for this format."""
 
     description: ClassVar[str]
-    '''User-friendly name for this format.'''
+    """User-friendly name for this format."""
 
     extensions: ClassVar[Sequence[str]]
-    '''Sequence of file name extensions, lower case, excluding the dot.'''
+    """Sequence of file name extensions, lower case, excluding the dot."""
 
     @property
     def image(self) -> Image:
@@ -87,27 +87,27 @@ class BinaryFormat:
 
     @classmethod
     def checkImage(cls, image: Image) -> int:
-        '''Checks whether the given image (read-only buffer) might be an
+        """Checks whether the given image (read-only buffer) might be an
         instance of this binary format.
         Returns a positive number for likely matches, zero for undecided and
         a negative number for unlikely matches. The more certain, the further
         the number should be from zero, where 1000 means "very likely" and
         -1000 means "very unlikely"; values are outside that range may be
         returned but will be clipped to [-1000, 1000].
-        '''
+        """
         raise NotImplementedError
 
     def __init__(self, image: Image):
         self._image = image
 
     def iterSections(self) -> Iterator[Section]:
-        '''Iterates through the Sections in this binary.
-        '''
+        """Iterates through the Sections in this binary.
+        """
         raise NotImplementedError
 
     def iterEntryPoints(self) -> Iterator[EntryPoint]:
-        '''Iterates through the EntryPoints in this binary.
-        '''
+        """Iterates through the EntryPoints in this binary.
+        """
         raise NotImplementedError
 
 class GameBoyROM(BinaryFormat):
@@ -354,16 +354,16 @@ _formatsByName = {
     }
 
 def iterBinaryFormatNames() -> Iterable[str]:
-    '''Iterates through the names of supported binary formats, in no particular
+    """Iterates through the names of supported binary formats, in no particular
     order.
-    '''
+    """
     return _formatsByName.keys()
 
 def getBinaryFormat(name: str) -> type[BinaryFormat]:
-    '''Looks up a binary format by its name attribute.
+    """Looks up a binary format by its name attribute.
     Returns the binary format with the given value for its name attribute.
     Raises KeyError if there is no match.
-    '''
+    """
     return _formatsByName[name]
 
 def _detectBinaryFormats(image: Image,
@@ -397,12 +397,12 @@ def _detectBinaryFormats(image: Image,
 def detectBinaryFormat(image: Image,
                        fileName: str | None = None
                        ) -> type[BinaryFormat] | None:
-    '''Attempts to autodetect the binary format of the given image.
+    """Attempts to autodetect the binary format of the given image.
     If a file name is given, its extension will be used to first test the
     formats matching that extension, as well as considering those formats
     to be more likely matches.
     Returns a binary format on success, None on failure.
-    '''
+    """
     names = set(_formatsByName.keys())
 
     if fileName is not None:
@@ -426,9 +426,9 @@ def _unpackStruct(image: Image,
                   offset: int,
                   struct: Struct
                   ) -> Sequence[Any] | None:
-    '''Unpacks the given struct from the given offset of the given image.
+    """Unpacks the given struct from the given offset of the given image.
     Returns the unpacked data, or None if the image did not contain enough
     data at the given offset.
-    '''
+    """
     end = offset + struct.size
     return None if end > len(image) else struct.unpack(image[offset:end])

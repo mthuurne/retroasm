@@ -133,10 +133,10 @@ def _parseTypedArgs(reader: DefLineReader,
                         IntType | ReferenceType,
                         InputLocation, InputLocation
                         ]]:
-    '''Parses a typed arguments list, yielding a triple for each argument,
+    """Parses a typed arguments list, yielding a triple for each argument,
     containing the argument type and InputLocations for the type and name.
     Errors are logged on the given reader as they are discovered.
-    '''
+    """
     argLocs = tuple(args.split(_reCommaSep))
     if len(argLocs) == 1:
         # Arg list contains no separators; do we have 0 or 1 argument(s)?
@@ -495,8 +495,8 @@ def _buildPlaceholders(placeholderSpecs: Mapping[str, PlaceholderSpec],
                        globalNamespace: GlobalNamespace,
                        reader: DefLineReader
                        ) -> Iterator[tuple[str, Placeholder]]:
-    '''Yields pairs of name and Placeholder object.
-    '''
+    """Yields pairs of name and Placeholder object.
+    """
     semNamespace = ContextNamespace(globalNamespace)
 
     for name, spec in placeholderSpecs.items():
@@ -550,10 +550,10 @@ def _parseEncodingExpr(encNode: ParseNode,
                        encNamespace: Namespace,
                        placeholderSpecs: Mapping[str, PlaceholderSpec]
                        ) -> EncodingExpr:
-    '''Parse encoding node that is not a MultiMatchNode.
+    """Parse encoding node that is not a MultiMatchNode.
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
-    '''
+    """
     namespace = LocalNamespace(encNamespace, SemanticsCodeBlockBuilder())
     try:
         encRef = buildReference(encNode, namespace)
@@ -607,10 +607,10 @@ def _parseMultiMatch(encNode: MultiMatchNode,
                      identifiers: AbstractSet[str],
                      placeholderSpecs: Mapping[str, PlaceholderSpec]
                      ) -> EncodingMultiMatch:
-    '''Parse an encoding node of type MultiMatchNode.
+    """Parse an encoding node of type MultiMatchNode.
     Returns the parse result as an EncodingMultiMatch.
     Raises BadInput if the node is invalid.
-    '''
+    """
     name = encNode.name
     try:
         placeholder = placeholderSpecs[name]
@@ -677,10 +677,10 @@ def _checkEmptyMultiMatches(encItems: Iterable[EncodingItem],
                             placeholderSpecs: Mapping[str, PlaceholderSpec],
                             logger: DefLineReader
                             ) -> None:
-    '''Warn about multi-matches that always match zero elements.
+    """Warn about multi-matches that always match zero elements.
     Technically there is nothing wrong with those, but it is probably not what
     the user intended.
-    '''
+    """
     for encItem in encItems:
         if isinstance(encItem, EncodingMultiMatch):
             mode = encItem.mode
@@ -706,9 +706,9 @@ def _checkMissingPlaceholders(encItems: Iterable[EncodingItem],
                               location: InputLocation,
                               logger: DefLineReader
                               ) -> None:
-    '''Check that our encoding field contains sufficient placeholders to be able
+    """Check that our encoding field contains sufficient placeholders to be able
     to make matches in all included mode tables.
-    '''
+    """
     # Take inventory of placeholders in the encoding.
     identifiers = set()
     multiMatches = set()
@@ -760,10 +760,10 @@ def _checkMissingPlaceholders(encItems: Iterable[EncodingItem],
 def _checkAuxEncodingWidth(encItems: Iterable[EncodingItem],
                            logger: DefLineReader
                            ) -> None:
-    '''Check whether the encoding widths in the given encoding are the same
+    """Check whether the encoding widths in the given encoding are the same
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
-    '''
+    """
     firstAux: list[object] = [None, None]
     def checkAux(width: int | None, location: InputLocation) -> None:
         auxWidth, auxLoc = firstAux
@@ -803,9 +803,9 @@ def _checkAuxEncodingWidth(encItems: Iterable[EncodingItem],
 def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
                                 logger: DefLineReader
                                 ) -> None:
-    '''Checks whether more than one multi-matcher exists for the same
+    """Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
-    '''
+    """
     claimedMultiMatches: dict[str, InputLocation] = {}
     for encItem in encItems:
         if isinstance(encItem, EncodingMultiMatch):
@@ -823,11 +823,11 @@ def _combinePlaceholderEncodings(
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> Iterator[tuple[str, Sequence[FixedEncoding]]]:
-    '''Yield pairs of placeholder name and the locations where the placeholder
+    """Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
-    '''
+    """
     for name, slices in decodeMap.items():
         placeholderSpec = placeholderSpecs[name]
         immWidth = placeholderSpec.encodingWidth
@@ -866,9 +866,9 @@ def _checkDecodingOrder(
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> None:
-    '''Verifies that there is an order in which placeholders can be decoded.
+    """Verifies that there is an order in which placeholders can be decoded.
     Such an order might not exist because of circular dependencies.
-    '''
+    """
     # Find indices of multi-matches.
     multiMatchIndices = {
         encElem.name: encIdx
@@ -910,9 +910,9 @@ def _parseModeDecoding(
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> Mapping[str | None, Sequence[FixedEncoding]] | None:
-    '''Construct a mapping that, given an encoded instruction, produces the
+    """Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
-    '''
+    """
     try:
         # Decompose the encoding expressions.
         fixedMatcher, decodeMap = decomposeEncoding(encoding)
@@ -1164,13 +1164,13 @@ def _determineEncodingWidth(entries: list[ParsedModeEntry],
                             modeName: str | None,
                             logger: DefLineReader
                             ) -> int | None:
-    '''Returns the common encoding width for the given list of mode entries.
+    """Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
     If the 'aux' argument is False, the first matched unit width of each entry
     is checked, otherwise the width of auxiliary encoding units is checked.
     If the entries represent instructions, pass None for the mode name.
-    '''
+    """
 
     widthAttr = 'auxEncodingWidth' if aux else 'encodingWidth'
 

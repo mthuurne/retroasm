@@ -4,8 +4,8 @@ from .binfmt import Image
 
 
 class Fetcher:
-    '''Abstract base class for instruction fetchers.
-    '''
+    """Abstract base class for instruction fetchers.
+    """
     __slots__ = ('_cached',)
 
     def __init__(self) -> None:
@@ -26,14 +26,14 @@ class Fetcher:
                 )
 
     def _fetch(self, index: int) -> int | None:
-        '''Returns the data unit at the given index, or None if the index is
+        """Returns the data unit at the given index, or None if the index is
         out of range.
-        '''
+        """
         raise NotImplementedError
 
 class ImageFetcher(Fetcher):
-    '''Abstract base class for instruction fetchers that read from an image.
-    '''
+    """Abstract base class for instruction fetchers that read from an image.
+    """
     __slots__ = ('_image', '_offset', '_end', '_numBytes')
 
     def __init__(self,
@@ -74,9 +74,9 @@ class ImageFetcher(Fetcher):
         raise NotImplementedError
 
     def advance(self, steps: int = 1) -> ImageFetcher:
-        '''Returns a new fetcher of the same type, with an offset that is one
+        """Returns a new fetcher of the same type, with an offset that is one
         one data unit advanced beyond our offset.
-        '''
+        """
         return self.__class__(
             self._image,
             self._offset + steps * self._numBytes,
@@ -85,8 +85,8 @@ class ImageFetcher(Fetcher):
             )
 
 class ByteFetcher(ImageFetcher):
-    '''Instruction fetcher that reads individual bytes from an image.
-    '''
+    """Instruction fetcher that reads individual bytes from an image.
+    """
     __slots__ = ()
 
     def __init__(self,
@@ -102,9 +102,9 @@ class ByteFetcher(ImageFetcher):
         return self._image[offset] if offset < self._end else None
 
 class MultiByteFetcher(ImageFetcher):
-    '''Abstract base class for instruction fetchers that read multi-byte units
+    """Abstract base class for instruction fetchers that read multi-byte units
     from an image.
-    '''
+    """
     __slots__ = ()
 
     def _fetch(self, index: int) -> int | None:
@@ -117,14 +117,14 @@ class MultiByteFetcher(ImageFetcher):
             return self._fetchRange(offset, after)
 
     def _fetchRange(self, start: int, end: int) -> int:
-        '''Returns the data unit between the given byte offsets.
-        '''
+        """Returns the data unit between the given byte offsets.
+        """
         raise NotImplementedError
 
 class BigEndianFetcher(MultiByteFetcher):
-    '''Instruction fetcher that reads multi-byte units in big endian byte order
+    """Instruction fetcher that reads multi-byte units in big endian byte order
     from an image.
-    '''
+    """
     __slots__ = ()
 
     def _fetchRange(self, start: int, end: int) -> int:
@@ -136,9 +136,9 @@ class BigEndianFetcher(MultiByteFetcher):
         return value
 
 class LittleEndianFetcher(MultiByteFetcher):
-    '''Instruction fetcher that reads multi-byte units in little endian byte
+    """Instruction fetcher that reads multi-byte units in little endian byte
     order from an image.
-    '''
+    """
     __slots__ = ()
 
     def _fetchRange(self, start: int, end: int) -> int:
@@ -151,8 +151,8 @@ class LittleEndianFetcher(MultiByteFetcher):
         return value
 
 class ModeFetcher(Fetcher):
-    '''Instruction fetcher for looking up an entry in a mode table.
-    '''
+    """Instruction fetcher for looking up an entry in a mode table.
+    """
     __slots__ = ('_first', '_auxFetcher', '_auxIndex')
 
     def __init__(self,
@@ -180,8 +180,8 @@ class ModeFetcher(Fetcher):
             return self._auxFetcher._fetch(auxIndex + index)
 
 class AfterModeFetcher(Fetcher):
-    '''Instruction fetcher that adjusts indexing after a multi-match.
-    '''
+    """Instruction fetcher that adjusts indexing after a multi-match.
+    """
     __slots__ = ('_fetcher', '_auxIndex', '_delta')
 
     def __init__(self,

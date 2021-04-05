@@ -12,10 +12,10 @@ class ByteOrder(Enum):
     big = auto()
 
 class Section:
-    '''Base class for area in a binary with shared properties.
+    """Base class for area in a binary with shared properties.
     Start (inclusive) and end (exclusive) are offsets into the image.
     It is allowed to define a section with offsets outside of the image.
-    '''
+    """
 
     @property
     def start(self) -> int:
@@ -55,8 +55,8 @@ class Section:
             return f'[{self._start:#x}..{end:#x})'
 
 class CodeSection(Section):
-    '''Section that contains code and possibly also data.
-    '''
+    """Section that contains code and possibly also data.
+    """
 
     @property
     def instrSetName(self) -> str:
@@ -93,10 +93,10 @@ class CodeSection(Section):
                            f'ByteOrder.{self._byteOrder.name})'
 
     def offsetForAddr(self, addr: int) -> int:
-        '''Returns the offset in the image at which the given address can be
+        """Returns the offset in the image at which the given address can be
         found.
         Raises ValueError if the given address is outside this section.
-        '''
+        """
         start = self._start
         offset = start + addr - self._base
         if start <= offset < self._end:
@@ -105,8 +105,8 @@ class CodeSection(Section):
             raise ValueError(f'address outside section: {addr:#x}')
 
 class SectionMap:
-    '''A collection of sections.
-    '''
+    """A collection of sections.
+    """
 
     def __init__(self, sections: Iterable[Section]):
         sections = sorted(sections, key=lambda section: section.start)
@@ -129,9 +129,9 @@ class SectionMap:
         return f'SectionMap({self._sections!r})'
 
     def sectionAt(self, offset: int) -> Section | None:
-        '''Returns the section at the given offset, or None if there is no
+        """Returns the section at the given offset, or None if there is no
         section at that offset.
-        '''
+        """
         sections = self._sections
         def after(i: int) -> bool:
             return sections[i].start > offset

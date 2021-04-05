@@ -14,18 +14,18 @@ from .storage import ArgStorage, Storage, Variable
 class CodeBlockBuilder:
 
     def dump(self) -> None:
-        '''Prints the current state of this code block builder on stdout.
-        '''
+        """Prints the current state of this code block builder on stdout.
+        """
         pass
 
     def emitLoadBits(self,
                      storage: Storage,
                      location: InputLocation | None
                      ) -> Expression:
-        '''Loads the value from the given storage by emitting a Load node on
+        """Loads the value from the given storage by emitting a Load node on
         this builder.
         Returns an expression that represents the loaded value.
-        '''
+        """
         raise NotImplementedError
 
     def emitStoreBits(self,
@@ -33,9 +33,9 @@ class CodeBlockBuilder:
                       value: Expression,
                       location: InputLocation | None
                       ) -> None:
-        '''Stores the value of the given expression in the given storage by
+        """Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
-        '''
+        """
         raise NotImplementedError
 
     def inlineFunctionCall(self,
@@ -43,18 +43,18 @@ class CodeBlockBuilder:
                            argMap: Mapping[str, BitString | None],
                            location: InputLocation
                            ) -> BitString | None:
-        '''Inlines a call to the given function with the given arguments.
+        """Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
         Returns a BitString containing the value returned by the inlined
         function, or None if the function does not return anything.
-        '''
+        """
         raise NotImplementedError
 
 class IllegalStateAccess(BadInput):
-    '''Raised when an operation is attempted that reads or writes state
+    """Raised when an operation is attempted that reads or writes state
     in a situation where that is not allowed.
-    '''
+    """
 
     def __init__(self, msg: str, location: InputLocation | None):
         locations: Sequence[InputLocation]
@@ -65,9 +65,9 @@ class IllegalStateAccess(BadInput):
         super().__init__(msg, *locations)
 
 class StatelessCodeBlockBuilder(CodeBlockBuilder):
-    '''A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
+    """A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
     touch any state, such as performing register access or I/O.
-    '''
+    """
 
     def emitLoadBits(self,
                      storage: Storage,
@@ -115,14 +115,14 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                         log: LineReader | None = None,
                         location: InputLocation | None = None
                         ) -> CodeBlock:
-        '''Returns a CodeBlock object containing the items emitted so far.
+        """Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
         returned values for the created block.
         Raises ValueError if this builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
-        '''
+        """
         code = CodeBlockSimplifier(self.nodes, returned)
 
         # Check for reading of uninitialized variables.
@@ -212,13 +212,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                     argFetcher: Callable[[str], BitString | None]
                         = lambda name: None
                     ) -> list[BitString]:
-        '''Inlines another code block into this one.
+        """Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
         argument should remain an argument in the inlined block.
         Returns a list of BitStrings containing the values returned by the
         inlined block.
-        '''
+        """
 
         loadResults: dict[Expression, Expression] = {}
         def importExpr(expr: Expression) -> Expression:
@@ -238,9 +238,9 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return SingleStorage(newStorage)
         storageCache: dict[Storage, BitString] = {}
         def importStorage(storage: Storage) -> BitString:
-            '''Returns a bit string containing the imported version of the given
+            """Returns a bit string containing the imported version of the given
             storage.
-            '''
+            """
             bits = storageCache.get(storage)
             if bits is None:
                 bits = importStorageUncached(storage)

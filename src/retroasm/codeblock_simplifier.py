@@ -20,14 +20,14 @@ class CodeBlockSimplifier(CodeBlock):
         return self._gatherStorages()
 
     def freeze(self) -> None:
-        '''Change the type of this object from CodeBlockSimplifier to CodeBlock,
+        """Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
-        '''
+        """
         self.__class__ = CodeBlock # type: ignore
 
     def simplify(self) -> None:
-        '''Attempt to simplify the code block as much as possible.
-        '''
+        """Attempt to simplify the code block as much as possible.
+        """
         # Peform initial simplification of all expressions.
         # This allows removeRedundantNodes() to only simplify expressions when
         # it changes them.
@@ -119,9 +119,9 @@ class CodeBlockSimplifier(CodeBlock):
                 returned[i] = newBits
 
     def removeUnusedStores(self) -> None:
-        '''Remove side-effect-free stores that will be overwritten or that
+        """Remove side-effect-free stores that will be overwritten or that
         write a variable that will go out of scope.
-        '''
+        """
         nodes = self.nodes
 
         # Remove stores for which the value is overwritten before it is loaded.
@@ -147,8 +147,8 @@ class CodeBlockSimplifier(CodeBlock):
                     willBeOverwritten.add(storage)
 
     def removeUnusedLoads(self) -> None:
-        '''Remove side-effect-free loads of which the LoadedValue is unused.
-        '''
+        """Remove side-effect-free loads of which the LoadedValue is unused.
+        """
         nodes = self.nodes
 
         # Keep track of how often each LoadedValue is used.

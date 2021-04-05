@@ -6,9 +6,9 @@ from .utils import Singleton, Unique
 
 
 class Unlimited(metaclass=Singleton):
-    '''Width value for arbitrary-width integer types.
+    """Width value for arbitrary-width integer types.
     Compares as infinity: larger than any integer.
-    '''
+    """
     __slots__ = ()
 
     def __repr__(self) -> str:
@@ -94,12 +94,12 @@ def trailingZeroes(n: int) -> Width:
 Segment = tuple[int, Width]
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
-    '''Iterates through pairs of start and end indices of maximally long
+    """Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
     The segments are returned in increasing order.
     Negative masks are supported, the last segment will have 'unlimited' as
     its end in that case.
-    '''
+    """
     i = 0
     while True:
         if mask == 0:
@@ -117,11 +117,11 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
         yield start, i
 
 def segmentsToMask(segments: Iterable[Segment]) -> int:
-    '''Computes a mask that corresponds to the given sequence of pairs of
+    """Computes a mask that corresponds to the given sequence of pairs of
     start and end indices.
     Overlapping or empty segments are allowed, start larger than end is not.
     End indices may be 'unlimited', start indices may not.
-    '''
+    """
     mask = 0
     for start, end in segments:
         mask |= (
@@ -130,12 +130,12 @@ def segmentsToMask(segments: Iterable[Segment]) -> int:
     return mask
 
 class IntType(metaclass=Unique):
-    '''An integer value type of "width" bits, signed or unsigned.
+    """An integer value type of "width" bits, signed or unsigned.
     Width can be an integer or the singleton 'unlimited', which indicates an
     unlimited width integer type.
     There is at most one instance of IntType for each width + signedness,
     so instances can be compared using the "is" operator.
-    '''
+    """
     __slots__ = ('_width', '_signed', '__weakref__')
 
     @property
@@ -152,14 +152,14 @@ class IntType(metaclass=Unique):
 
     @classmethod
     def u(cls, width: Width) -> IntType:
-        '''Creates an unsigned integer type of the given width.
-        '''
+        """Creates an unsigned integer type of the given width.
+        """
         return cls(width, False)
 
     @classmethod
     def s(cls, width: Width) -> IntType:
-        '''Creates a signed integer type of the given width.
-        '''
+        """Creates a signed integer type of the given width.
+        """
         return cls(width, True)
 
     def __init__(self, width: Width, signed: bool):
@@ -186,8 +186,8 @@ class IntType(metaclass=Unique):
 IntType.int = IntType(unlimited, True)
 
 class ReferenceType(metaclass=Unique):
-    '''A reference to a value of a certain type.
-    '''
+    """A reference to a value of a certain type.
+    """
     __slots__ = ('_type', '__weakref__')
 
     @property

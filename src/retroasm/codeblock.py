@@ -11,16 +11,16 @@ from .utils import const_property
 
 
 class Node:
-    '''Base class for nodes.
-    '''
+    """Base class for nodes.
+    """
     __slots__ = ()
 
     def dump(self) -> None:
         raise NotImplementedError
 
 class AccessNode(Node):
-    '''Base class for Load and Store.
-    '''
+    """Base class for Load and Store.
+    """
     __slots__ = ('_expr', '_storage', '_location')
 
     def __init__(self,
@@ -56,13 +56,13 @@ class AccessNode(Node):
         print(f'    {self} ({self._storage.width}-bit)')
 
     def clone(self) -> AccessNode:
-        '''Create a clone of this node.
-        '''
+        """Create a clone of this node.
+        """
         raise NotImplementedError
 
 class Load(AccessNode):
-    '''A node that loads a value from a storage location.
-    '''
+    """A node that loads a value from a storage location.
+    """
     __slots__ = ()
 
     def __init__(self,
@@ -90,8 +90,8 @@ class Load(AccessNode):
         return Load(self._storage, self._location)
 
 class Store(AccessNode):
-    '''A node that stores a value into a storage location.
-    '''
+    """A node that stores a value into a storage location.
+    """
     __slots__ = ()
 
     def __init__(self,
@@ -111,8 +111,8 @@ class Store(AccessNode):
         return Store(self._expr, self._storage, self._location)
 
 class LoadedValue(Expression):
-    '''A value loaded from a storage location.
-    '''
+    """A value loaded from a storage location.
+    """
     __slots__ = ('_load', '_mask')
 
     @property
@@ -150,10 +150,10 @@ class LoadedValue(Expression):
 def verifyLoads(nodes: Iterable[AccessNode],
                 returned: Iterable[BitString] = ()
                 ) -> None:
-    '''Performs consistency checks on the LoadedValues in the given nodes and
+    """Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
-    '''
+    """
     # Check that every LoadedValue has an associated Load node, which must
     # execute before the LoadedValue is used.
     loads: set[Load] = set()
@@ -194,16 +194,16 @@ class CodeBlock:
         assert self.verify()
 
     def verify(self) -> bool:
-        '''Performs consistency checks on this code block.
+        """Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         Returns True on success, never returns False.
-        '''
+        """
         verifyLoads(self.nodes, self.returned)
         return True
 
     def dump(self) -> None:
-        '''Prints this code block on stdout.
-        '''
+        """Prints this code block on stdout.
+        """
         for node in self.nodes:
             node.dump()
         for retBits in self.returned:
@@ -221,10 +221,10 @@ class CodeBlock:
 
     @const_property
     def expressions(self) -> AbstractSet[Expression]:
-        '''A set of all expressions that are contained in this block.
+        """A set of all expressions that are contained in this block.
         Only top-level expressions are included, not all subexpressions of
         those top-level expressions.
-        '''
+        """
         return self._gatherExpressions()
 
     def _gatherStorages(self) -> set[Storage]:
@@ -237,8 +237,8 @@ class CodeBlock:
 
     @property
     def storages(self) -> AbstractSet[Storage]:
-        '''A set of all storages that are accessed or referenced by this block.
-        '''
+        """A set of all storages that are accessed or referenced by this block.
+        """
         return self._gatherStorages()
 
     def _gatherArguments(self) -> Mapping[str, ArgStorage]:
@@ -255,20 +255,20 @@ class CodeBlock:
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        '''A mapping containing all arguments that occur in this code block.
+        """A mapping containing all arguments that occur in this code block.
         ValueError is raised if the same name is used for multiple arguments.
-        '''
+        """
         return self._gatherArguments()
 
     def _updateExpressions(self,
                            substFunc: Callable[[Expression],
                                                Expression | None]
                            ) -> None:
-        '''Calls the given substitution function with each expression in this
+        """Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution
         function returns None, the original expression is kept.
-        '''
+        """
         for node in self.nodes:
             # Update indices for I/O storages.
             storage = node.storage

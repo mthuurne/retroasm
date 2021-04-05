@@ -26,13 +26,13 @@ from .utils import Singleton
 
 def _decomposeBitString(bits: BitString
                         ) -> Iterator[tuple[BitString, int, int, Width]]:
-    '''Decomposes the given bit string into its base strings (FixedValue and
+    """Decomposes the given bit string into its base strings (FixedValue and
     SingleStorage).
     Yields a series of tuples, containing base string, index in the base
     string, index in the given string and width of each decomposed slice.
     Raises ValueError if a bit string cannot be decomposed because it contains
     a slice with an unknown offset.
-    '''
+    """
     if isinstance(bits, (FixedValue, SingleStorage)):
         yield bits, 0, 0, bits.width
     elif isinstance(bits, ConcatenatedBits):
@@ -76,7 +76,7 @@ def decomposeEncoding(
             Sequence[FixedEncoding],
             Mapping[str, Sequence[tuple[int, int, int, Width]]]
             ]:
-    '''Decomposes the given Encoding into a matcher for the fixed bit strings
+    """Decomposes the given Encoding into a matcher for the fixed bit strings
     and a decode map describing where the placeholders values can be found.
     Returns a pair of the fixed matcher and the decode map.
     The fixed matcher is a sequence of tuples, where each tuple contains the
@@ -86,7 +86,7 @@ def decomposeEncoding(
     contains the index in the placeholder's argument storage, the index of
     the encoding item, the index within the encoding item and the width.
     Raises BadInput if the given encoding cannot be decomposed.
-    '''
+    """
     fixedMatcher: list[FixedEncoding] = []
     decodeMap: DefaultDict[str, list[tuple[int, int, int, Width]]] = \
                                                             defaultdict(list)
@@ -178,14 +178,14 @@ class Decoder:
         raise NotImplementedError
 
     def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
-        '''Attempts to decode an instruction from the given fetcher.
+        """Attempts to decode an instruction from the given fetcher.
         Returns an encode match, or None if no match could be made.
-        '''
+        """
         raise NotImplementedError
 
 class SequentialDecoder(Decoder):
-    '''Decoder that tries other decoders in order, until the first match.
-    '''
+    """Decoder that tries other decoders in order, until the first match.
+    """
 
     def __init__(self, decoders: Iterable[Decoder]):
         self._decoders = tuple(decoders)
@@ -203,8 +203,8 @@ class SequentialDecoder(Decoder):
         return None
 
 class TableDecoder(Decoder):
-    '''Decoder that performs a table lookup to find the next decoder to try.
-    '''
+    """Decoder that performs a table lookup to find the next decoder to try.
+    """
 
     def __init__(self,
                  table: Iterable[Decoder],
@@ -232,9 +232,9 @@ class TableDecoder(Decoder):
         return decoder.tryDecode(fetcher)
 
 class FixedPatternDecoder(Decoder):
-    '''Decoder that matches encoded bit strings by looking for a fixed pattern
+    """Decoder that matches encoded bit strings by looking for a fixed pattern
     using a mask and value.
-    '''
+    """
 
     @property
     def index(self) -> int:
@@ -286,8 +286,8 @@ class FixedPatternDecoder(Decoder):
             return self._next.tryDecode(fetcher)
 
 class PlaceholderDecoder(Decoder):
-    '''Decodes the value for one placeholder.
-    '''
+    """Decodes the value for one placeholder.
+    """
 
     def __init__(self,
                  name: str,
@@ -367,9 +367,9 @@ class PlaceholderDecoder(Decoder):
         return match
 
 class MatchFoundDecoder(Decoder):
-    '''Decoder that is placed at the end of a decode tree.
+    """Decoder that is placed at the end of a decode tree.
     It always finds a match.
-    '''
+    """
 
     @property
     def entry(self) -> ModeEntry:
@@ -389,9 +389,9 @@ class MatchFoundDecoder(Decoder):
         return EncodeMatch(self._entry)
 
 class NoMatchDecoder(Decoder, metaclass=Singleton):
-    '''Decoder that is placed at the end of a decode tree.
+    """Decoder that is placed at the end of a decode tree.
     It never finds a match.
-    '''
+    """
 
     def dump(self, indent: str = '', submodes: bool = True) -> None:
         print(indent + '(none)')
@@ -406,8 +406,8 @@ def _createEntryDecoder(
         decoding: Mapping[str | None, Sequence[FixedEncoding]],
         factory: DecoderFactory
         ) -> Decoder:
-    '''Returns a Decoder instance that decodes this entry.
-    '''
+    """Returns a Decoder instance that decodes this entry.
+    """
     name: str | None
     matcher: EncodingMatcher
     slices: Sequence[FixedEncoding] | None
@@ -569,9 +569,9 @@ def _createEntryDecoder(
     return decoder
 
 def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
-    '''Returns a decoder that will decode using the last matching decoder among
+    """Returns a decoder that will decode using the last matching decoder among
     the given decoders.
-    '''
+    """
     decoders: list[Decoder] = []
     for decoder in orgDecoders:
         if isinstance(decoder, NoMatchDecoder):
@@ -671,10 +671,10 @@ def _qualifyNames(parsedEntry: ParsedModeEntry,
                       ModeEntry,
                       Mapping[str | None, Sequence[FixedEncoding]]
                       ]:
-    '''Returns a pair containing a ModeEntry and decode mapping, where each
+    """Returns a pair containing a ModeEntry and decode mapping, where each
     name starts with the given branch name.
     If branchName is None, no renaming is performed.
-    '''
+    """
     entry = parsedEntry.entry
     placeholders = entry.placeholders
     if branchName is None or len(placeholders) == 0:
@@ -762,10 +762,10 @@ class PrefixDecoder:
         self._tree = tree
 
     def tryDecode(self, fetcher: Fetcher) -> Prefix | None:
-        '''Attempts to decode an instruction prefix from the encoded data
+        """Attempts to decode an instruction prefix from the encoded data
         provided by the given fetcher.
         Returns the decoded prefix, or None if no prefix was found.
-        '''
+        """
         idx = 0
         node: dict[int | None, Any] | None = self._tree
         assert node is not None

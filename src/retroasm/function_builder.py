@@ -14,10 +14,10 @@ from .types import IntType, ReferenceType
 
 
 def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
-    '''Parses the lines of a code block, yielding the statements.
+    """Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
     Errors are appended to `reader` as they are discovered.
-    '''
+    """
     for line in reader.iterBlock():
         try:
             yield parseStatement(line)

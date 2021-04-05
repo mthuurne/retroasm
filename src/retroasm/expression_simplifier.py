@@ -13,10 +13,10 @@ from .types import maskForWidth, widthForMask
 def _simplifyAlgebraic(cls: type[MultiExpression],
                        exprs: list[Expression]
                        ) -> bool:
-    '''Simplify the given list of expressions using algebraic properties of the
+    """Simplify the given list of expressions using algebraic properties of the
     given MultiExpression subclass.
     Returns True if the expression list was changed, False otherwise.
-    '''
+    """
     changed = False
 
     # Merge subexpressions of the same type into this expression.
@@ -90,10 +90,10 @@ def _simplifyAlgebraic(cls: type[MultiExpression],
     return changed
 
 def _simplifyList(exprs: list[Expression]) -> bool:
-    '''Simplify the given list of expressions individually.
+    """Simplify the given list of expressions individually.
     Returns True if any of the expressions was replaced by a simpler equivalent,
     False otherwise.
-    '''
+    """
     changed = False
     for i, expr in enumerate(exprs):
         simplified = simplifyExpression(expr)
@@ -288,9 +288,9 @@ def _simplifyComplement(complement: Complement) -> Expression:
         return Complement(expr)
 
 def _testBit(expr: Expression, bit: int) -> bool:
-    '''Returns True if the given bit of the given expression is certainly set,
+    """Returns True if the given bit of the given expression is certainly set,
     or False if it is unknown or certainly unset.
-    '''
+    """
     masked = _simplifyMasked(expr, 1 << bit)
     return isinstance(masked, IntLiteral) and masked.value != 0
 
@@ -498,12 +498,12 @@ def _simplifyRVShift(rvshift: RVShift) -> Expression:
         return RVShift(expr, offset)
 
 def _simplifyMasked(expr: Expression, mask: int) -> Expression:
-    '''Returns a simplified version of the given expression, such that it
+    """Returns a simplified version of the given expression, such that it
     has the same value when the given mask is applied to it. If no such
     simplification can be found, the original expression object is returned.
     Only mask-related simplifications are examined: typically callers will
     already have performed simplification of the full expression.
-    '''
+    """
     if (expr.mask & mask) == 0:
         # All potentially set bits are zeroed after masking.
         return IntLiteral(0)
@@ -579,10 +579,10 @@ _simplifiers: dict[type[Expression], Callable[[Any], Expression]] = {
     }
 
 def simplifyExpression(expr: Expression) -> Expression:
-    '''Returns an equivalent expression that is simpler (fewer nodes), or the
+    """Returns an equivalent expression that is simpler (fewer nodes), or the
     given expression object itself if no simplification was found.
     Simplified expressions can have reduced width.
-    '''
+    """
     if expr.mask == 0:
         # The only value that matches a 0 mask is 0.
         if isinstance(expr, IntLiteral):

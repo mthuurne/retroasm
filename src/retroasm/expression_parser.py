@@ -9,8 +9,8 @@ from .types import Width, cast, unlimited
 
 
 class ParseError(BadInput):
-    '''Raised when the input text cannot be parsed into an expression.
-    '''
+    """Raised when the input text cannot be parsed into an expression.
+    """
 
 class ExprToken(TokenEnum):
     # pylint: disable=bad-whitespace
@@ -33,8 +33,8 @@ class ParseNode:
     def __init__(self, location: InputLocation):
         self.location = location
         self.treeLocation = location
-        '''Location information, where the span includes to the entire tree
-        under this node.'''
+        """Location information, where the span includes to the entire tree
+        under this node."""
 
     def __repr__(self) -> str:
         return '%s(%s)' % (
@@ -670,10 +670,10 @@ def parseStatement(location: InputLocation) -> ParseNode:
     return cast(ParseNode, _parse(location, _ParseMode.statement))
 
 def parseInt(valueStr: str) -> tuple[int, Width]:
-    '''Parse the given string as a binary, decimal or hexadecimal integer.
+    """Parse the given string as a binary, decimal or hexadecimal integer.
     Returns a pair containing the value and the width of the literal in bits.
     Raises ValueError if the given string does not represent an integer.
-    '''
+    """
     if valueStr[0] == '$':
         return parseDigits(valueStr[1:], 16), (len(valueStr) - 1) * 4
     elif valueStr[0] == '%':
@@ -686,10 +686,10 @@ def parseInt(valueStr: str) -> tuple[int, Width]:
         return parseDigits(valueStr, 10), unlimited
 
 def parseDigits(digits: str, base: int) -> int:
-    '''Wrapper around the "int" constructor that generated a slightly more
+    """Wrapper around the "int" constructor that generated a slightly more
     detailed ValueError message if the given string contains characters that
     are not valid as digits in the given base.
-    '''
+    """
     try:
         return int(digits, base)
     except ValueError:
