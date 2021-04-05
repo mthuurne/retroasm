@@ -70,7 +70,7 @@ def decomposeEncoding(
         encoding: Encoding
         ) -> tuple[
             Sequence[FixedEncoding],
-            Mapping[str, Sequence[tuple[int, int, int, Width]]]
+            Mapping[str, Sequence[tuple[int, int, Segment]]]
             ]:
     """Decomposes the given Encoding into a matcher for the fixed bit strings
     and a decode map describing where the placeholders values can be found.
@@ -84,7 +84,7 @@ def decomposeEncoding(
     Raises BadInput if the given encoding cannot be decomposed.
     """
     fixedMatcher: list[FixedEncoding] = []
-    decodeMap: DefaultDict[str, list[tuple[int, int, int, Width]]] = \
+    decodeMap: DefaultDict[str, list[tuple[int, int, Segment]]] = \
                                                             defaultdict(list)
     for encIdx, encElem in enumerate(encoding):
         if not isinstance(encElem, EncodingExpr):
@@ -97,7 +97,7 @@ def decomposeEncoding(
                     storage = base.storage
                     if isinstance(storage, ArgStorage):
                         decodeMap[storage.name].append(
-                            (baseIdx, encIdx, segment.start, segment.width)
+                            (baseIdx, encIdx, segment)
                             )
                     else:
                         raise ValueError(

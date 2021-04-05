@@ -42,7 +42,9 @@ from .namespace import (
 )
 from .reference import Reference, badReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
-from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
+from .types import (
+    IntType, ReferenceType, Segment, Width, parseType, parseTypeDecl
+)
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _nameTok = r'\s*(' + _namePat + r')\s*'
@@ -819,7 +821,7 @@ def _checkDuplicateMultiMatches(encItems: Iterable[EncodingItem],
                 claimedMultiMatches[name] = encItem.location
 
 def _combinePlaceholderEncodings(
-        decodeMap: Mapping[str, Sequence[tuple[int, int, int, Width]]],
+        decodeMap: Mapping[str, Sequence[tuple[int, int, Segment]]],
         placeholderSpecs: Mapping[str, PlaceholderSpec],
         reader: DefLineReader
         ) -> Iterator[tuple[str, Sequence[FixedEncoding]]]:
@@ -836,7 +838,8 @@ def _combinePlaceholderEncodings(
         decoding = []
         problems = []
         prev = 0
-        for immIdx, encIdx, refIdx, width in sorted(slices):
+        for immIdx, encIdx, segment in sorted(slices):
+            width = segment.width
             # TODO: Does it make sense to support unlimited width?
             #       If not, at which point should we exclude it from the type?
             assert isinstance(width, int), width
@@ -847,7 +850,7 @@ def _combinePlaceholderEncodings(
                     f'overlap at [{immIdx:d}:{min(immIdx + width, prev):d}]'
                     )
             prev = max(immIdx + width, prev)
-            decoding.append(FixedEncoding(encIdx, refIdx, width))
+            decoding.append(FixedEncoding(encIdx, segment.start, width))
         if prev < immWidth:
             problems.append(f'gap at [{prev:d}:{immWidth:d}]')
         elif prev > immWidth:
