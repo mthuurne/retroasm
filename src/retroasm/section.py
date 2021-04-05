@@ -6,6 +6,7 @@ from typing import Iterable, Iterator
 from .types import Unlimited, Width, unlimited
 from .utils import search
 
+
 class ByteOrder(Enum):
     undefined = auto()
     little = auto()
