@@ -12,17 +12,17 @@ from retroasm.types import IntType, unlimited
 
 
 def test_zero_literal():
-    '''Verify that the same object is returned.'''
+    """Verify that the same object is returned."""
     zero = IntLiteral(0)
     assert simplifyExpression(zero) is zero
 
 def test_zeromask_variable():
-    '''Verify that a value with width 0 is simplified to the literal 0.'''
+    """Verify that a value with width 0 is simplified to the literal 0."""
     zvar = TestValue('Z', IntType.u(0))
     assertIntLiteral(simplifyExpression(zvar), 0)
 
 def test_and_literals():
-    '''Applies logical AND to integer literals.'''
+    """Applies logical AND to integer literals."""
     a = IntLiteral(0xE3)
     b = IntLiteral(0x7A)
     assertIntLiteral(simplifyExpression(AndOperator(a, b)), 0x62)
@@ -31,7 +31,7 @@ def test_and_literals():
     assertIntLiteral(simplifyExpression(AndOperator(c, d)), 0x3400)
 
 def test_and_identity():
-    '''Simplifies logical AND expressions containing -1.'''
+    """Simplifies logical AND expressions containing -1."""
     addr = TestValue('A', IntType.u(16))
     ones = IntLiteral(-1)
     # Check whether identity values are filtered out.
@@ -44,7 +44,7 @@ def test_and_identity():
         )
 
 def test_and_absorbtion():
-    '''Simplifies logical AND expressions containing 0.'''
+    """Simplifies logical AND expressions containing 0."""
     addr = TestValue('A', IntType.u(16))
     zero = IntLiteral(0)
     assertIntLiteral(simplifyExpression(AndOperator(zero, addr)), 0)
@@ -54,7 +54,7 @@ def test_and_absorbtion():
         )
 
 def test_and_idempotence():
-    '''Simplifies logical AND expressions containing duplicates.'''
+    """Simplifies logical AND expressions containing duplicates."""
     addr = TestValue('A', IntType.u(16))
     assert simplifyExpression(AndOperator(addr, addr)) is addr
     assert simplifyExpression(AndOperator(addr, addr, addr)) is addr
@@ -62,7 +62,7 @@ def test_and_idempotence():
     assertAnd(simplifyExpression(AndOperator(mask, addr, mask)), addr, mask)
 
 def test_and_or():
-    '''Simplifies expressions containing AND and OR.'''
+    """Simplifies expressions containing AND and OR."""
     a = TestValue('A', IntType.u(8))
     b = TestValue('B', IntType.u(8))
     # Test literal merging.
@@ -73,7 +73,7 @@ def test_and_or():
     assert expr3 is a
 
 def test_and_width():
-    '''Simplifies logical AND expressions using the subexpression widths.'''
+    """Simplifies logical AND expressions using the subexpression widths."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -89,7 +89,7 @@ def test_and_width():
     assertIntLiteral(simplifyExpression(AndOperator(maskHi, l)), 0)
 
 def test_and_mask_to_slice():
-    '''Simplifies logical AND expressions that are essentially slicing.'''
+    """Simplifies logical AND expressions that are essentially slicing."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -101,7 +101,7 @@ def test_and_mask_to_slice():
     assert simplifyExpression(AndOperator(hl, mask8)) is l
 
 def test_and_mask_concat():
-    '''Simplifies logical AND expressions that mask concatenated terms.'''
+    """Simplifies logical AND expressions that mask concatenated terms."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -114,7 +114,7 @@ def test_and_mask_concat():
     assert expr.offset == 8
 
 def test_and_mask_literal():
-    '''Tests elimination of redundant literals from AND expressions.'''
+    """Tests elimination of redundant literals from AND expressions."""
     addr = TestValue('A', IntType.u(16))
     assertAnd(simplifyExpression(
         AndOperator(
@@ -124,7 +124,7 @@ def test_and_mask_literal():
         ), Complement(addr), IntLiteral(0x3FF0))
 
 def test_or_literals():
-    '''Applies logical OR to integer literals.'''
+    """Applies logical OR to integer literals."""
     a = IntLiteral(0x4C)
     b = IntLiteral(0x91)
     assertIntLiteral(simplifyExpression(OrOperator(a, b)), 0xDD)
@@ -133,7 +133,7 @@ def test_or_literals():
     assertIntLiteral(simplifyExpression(OrOperator(c, d)), 0x1200FF)
 
 def test_or_identity():
-    '''Simplifies logical OR expressions containing 0.'''
+    """Simplifies logical OR expressions containing 0."""
     addr = TestValue('A', IntType.u(16))
     zero = IntLiteral(0)
     # Check whether identity values are filtered out.
@@ -144,7 +144,7 @@ def test_or_identity():
     assertIntLiteral(simplifyExpression(OrOperator(zero, zero, zero)), 0)
 
 def test_or_absorbtion():
-    '''Simplifies logical OR expressions containing -1.'''
+    """Simplifies logical OR expressions containing -1."""
     addr = TestValue('A', IntType.u(16))
     ones = IntLiteral(-1)
     assertIntLiteral(simplifyExpression(OrOperator(ones, addr)), -1)
@@ -154,7 +154,7 @@ def test_or_absorbtion():
         )
 
 def test_or_idempotence():
-    '''Simplifies logical OR expressions containing duplicates.'''
+    """Simplifies logical OR expressions containing duplicates."""
     addr = TestValue('A', IntType.u(16))
     assert simplifyExpression(OrOperator(addr, addr)) is addr
     assert simplifyExpression(OrOperator(addr, addr, addr)) is addr
@@ -162,7 +162,7 @@ def test_or_idempotence():
     assertOr(simplifyExpression(OrOperator(mask, addr, mask)), addr, mask)
 
 def test_or_and():
-    '''Simplifies expressions containing OR and AND.'''
+    """Simplifies expressions containing OR and AND."""
     x = TestValue('X', IntType.u(8))
     # (X & $55) | $AA  ==  (X | $AA) & ($55 | $AA)  ==  (X | $AA)
     mask1 = IntLiteral(0x55)
@@ -172,7 +172,7 @@ def test_or_and():
     assertOr(simplifyExpression(expr2), x, mask2)
 
 def test_or_mask_literal():
-    '''Tests elimination of masked OR expressions.'''
+    """Tests elimination of masked OR expressions."""
     addr = TestValue('A', IntType.u(16))
     assert simplifyExpression(
         AndOperator(
@@ -182,7 +182,7 @@ def test_or_mask_literal():
         ) is addr
 
 def test_xor_literals():
-    '''Applies logical XOR to integer literals.'''
+    """Applies logical XOR to integer literals."""
     a = IntLiteral(0xDC)
     b = IntLiteral(0x58)
     assertIntLiteral(simplifyExpression(XorOperator(a, b)), 0x84)
@@ -191,7 +191,7 @@ def test_xor_literals():
     assertIntLiteral(simplifyExpression(XorOperator(c, d)), 0x12C459)
 
 def test_xor_identity():
-    '''Simplifies logical XOR expressions containing 0.'''
+    """Simplifies logical XOR expressions containing 0."""
     addr = TestValue('A', IntType.u(16))
     zero = IntLiteral(0)
     # Check whether identity values are filtered out.
@@ -204,7 +204,7 @@ def test_xor_identity():
         )
 
 def test_xor_deduplication():
-    '''Simplifies logical XOR expressions containing duplicates.'''
+    """Simplifies logical XOR expressions containing duplicates."""
     a = TestValue('A', IntType.u(8))
     b = TestValue('B', IntType.u(8))
     zero = IntLiteral(0)
@@ -218,35 +218,35 @@ def test_xor_deduplication():
     assert simplifyExpression(XorOperator(a, b, b, a)) == zero
 
 def test_xor_bitwise_complement():
-    '''Simplifies XOR expressions used for bitwise complement.'''
+    """Simplifies XOR expressions used for bitwise complement."""
     a = TestValue('A', IntType.u(8))
     compl1 = XorOperator(IntLiteral(-1), a)
     compl2 = XorOperator(IntLiteral(-1), compl1)
     assert simplifyExpression(compl2) is a
 
 def test_add_int():
-    '''Adds two unlimited width integer literals.'''
+    """Adds two unlimited width integer literals."""
     arg1 = IntLiteral(3)
     arg2 = IntLiteral(20)
     expr = simplifyExpression(AddOperator(arg1, arg2))
     assertIntLiteral(expr, 23)
 
 def test_add_fixed_width():
-    '''Adds two fixed width integer literals.'''
+    """Adds two fixed width integer literals."""
     arg1 = IntLiteral(8)
     arg2 = IntLiteral(127)
     expr = simplifyExpression(AddOperator(arg1, arg2))
     assertIntLiteral(expr, 135)
 
 def test_add_nested():
-    '''Adds several integers in an expression tree.'''
+    """Adds several integers in an expression tree."""
     arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
     arg2 = AddOperator(IntLiteral(3), IntLiteral(4))
     expr = simplifyExpression(AddOperator(arg1, arg2))
     assertIntLiteral(expr, 10)
 
 def test_add_zero():
-    '''Test simplification of zero literal terms.'''
+    """Test simplification of zero literal terms."""
     zero = IntLiteral(0)
     addr = TestValue('A', IntType.u(16))
     assert simplifyExpression(AddOperator(zero, addr)) is addr
@@ -254,31 +254,31 @@ def test_add_zero():
     assertIntLiteral(simplifyExpression(AddOperator(zero, zero)), 0)
 
 def test_add_associative():
-    '''Test simplification using the associativity of addition.'''
+    """Test simplification using the associativity of addition."""
     addr = TestValue('A', IntType.u(16))
     arg1 = AddOperator(addr, IntLiteral(1))
     arg2 = AddOperator(IntLiteral(2), IntLiteral(-3))
     assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
 def test_add_commutative():
-    '''Test simplification using the commutativity of addition.'''
+    """Test simplification using the commutativity of addition."""
     addr = TestValue('A', IntType.u(16))
     arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
     arg2 = AddOperator(addr, IntLiteral(-3))
     assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
 def test_complement_int():
-    '''Takes the complement of an integer literal.'''
+    """Takes the complement of an integer literal."""
     expr = Complement(IntLiteral(4))
     assertIntLiteral(simplifyExpression(expr), -4)
 
 def test_complement_twice():
-    '''Takes the complement of a complement.'''
+    """Takes the complement of a complement."""
     addr = TestValue('A', IntType.u(16))
     assert simplifyExpression(Complement(Complement(addr))) is addr
 
 def test_complement_subexpr():
-    '''Takes the complement of a simplifiable subexpression.'''
+    """Takes the complement of a simplifiable subexpression."""
     addr = TestValue('A', IntType.u(16))
     expr = simplifyExpression(Complement(
         makeConcat(
@@ -290,7 +290,7 @@ def test_complement_subexpr():
     assertConcat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
 
 def test_negation_int():
-    '''Negates an integer literal.'''
+    """Negates an integer literal."""
     assertIntLiteral(simplifyExpression(Negation(IntLiteral(-1))), 0)
     assertIntLiteral(simplifyExpression(Negation(IntLiteral(0))), 1)
     assertIntLiteral(simplifyExpression(Negation(IntLiteral(1))), 0)
@@ -298,7 +298,7 @@ def test_negation_int():
     assertIntLiteral(simplifyExpression(Negation(IntLiteral(3))), 0)
 
 def test_negation_subexpr():
-    '''Negates a simplifiable subexpression.'''
+    """Negates a simplifiable subexpression."""
     assertIntLiteral(simplifyExpression(
         Negation(makeConcat(IntLiteral(0x0), IntLiteral(0x00), 8))
         ), 1)
@@ -310,14 +310,14 @@ def test_negation_subexpr():
         ), 0)
 
 def test_negation_or():
-    '''Negates an OR expression.'''
+    """Negates an OR expression."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(OrOperator(addr, IntLiteral(0x76)))
         ), 0)
 
 def test_negation_and():
-    '''Negates an AND expression.'''
+    """Negates an AND expression."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(AndOperator(
@@ -327,28 +327,28 @@ def test_negation_and():
         ), 0)
 
 def test_negation_xor():
-    '''Negates a XOR expression.'''
+    """Negates a XOR expression."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(XorOperator(addr, IntLiteral(-1)))
         ), 0)
 
 def test_negation_add():
-    '''Negates an addition.'''
+    """Negates an addition."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(AddOperator(addr, IntLiteral(1)))
         ), 0)
 
 def test_negation_complement():
-    '''Negates a complement.'''
+    """Negates a complement."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(Complement(OrOperator(addr, IntLiteral(0x76))))
         ), 0)
 
 def test_negation_twice():
-    '''Negates a negation.'''
+    """Negates a negation."""
     boolVal = TestValue('B', IntType.u(1))
     intVal = TestValue('I', IntType.u(16))
     assert simplifyExpression(Negation(Negation(boolVal))) is boolVal
@@ -358,21 +358,21 @@ def test_negation_twice():
     assert simplifyExpression(Negation(Negation(combi))) is combi
 
 def test_negation_lshift():
-    '''Negates a left-shifted expression.'''
+    """Negates a left-shifted expression."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(LShift(AddOperator(addr, IntLiteral(1)), 8))
         ), 0)
 
 def test_negation_rshift():
-    '''Negates a right-shifted expression.'''
+    """Negates a right-shifted expression."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifyExpression(
         Negation(RShift(OrOperator(addr, IntLiteral(0x345)), 8))
         ), 0)
 
 def test_sign_int():
-    '''Tests sign of several integer literals.'''
+    """Tests sign of several integer literals."""
     def check(value, result):
         assertIntLiteral(
             simplifyExpression(SignTest(IntLiteral(value))),
@@ -385,14 +385,14 @@ def test_sign_int():
     check(-123, 1)
 
 def test_sign_types():
-    '''Test sign of values of signed and unsigned types.'''
+    """Test sign of values of signed and unsigned types."""
     u = SignTest(TestValue('U', IntType.u(8)))
     assertIntLiteral(simplifyExpression(u), 0)
     s = SignTest(TestValue('S', IntType.s(8)))
     assert simplifyExpression(s) is s
 
 def test_sign_extended():
-    '''Test sign of sign extended values.'''
+    """Test sign of sign extended values."""
     v = TestValue('V', IntType.int)
     assertSlice(
         simplifyExpression(SignTest(SignExtension(v, 8))),
@@ -406,7 +406,7 @@ def test_sign_extended():
         )
 
 def test_sign_extend_int():
-    '''Applies sign extension to several integer literals.'''
+    """Applies sign extension to several integer literals."""
     def check(value, width, result):
         assertIntLiteral(
             simplifyExpression(SignExtension(IntLiteral(value), width)),
@@ -422,28 +422,28 @@ def test_sign_extend_int():
     check(1, 1, -1)
 
 def test_sign_extend_mask_concat():
-    '''Applies sign extension to concatenated values.'''
+    """Applies sign extension to concatenated values."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
     assert simplifyExpression(SignExtension(hl, 8)) == SignExtension(l, 8)
 
 def test_sign_extend_clear():
-    '''Removes sign extension when sign bit is known to be zero.'''
+    """Removes sign extension when sign bit is known to be zero."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hgapl = makeConcat(h, l, 9)
     assert simplifyExpression(SignExtension(hgapl, 9)) is l
 
 def test_sign_extend_set():
-    '''Removes sign extension when sign bit is known to be one.'''
+    """Removes sign extension when sign bit is known to be one."""
     a = TestValue('A', IntType.u(8))
     b = IntLiteral(0x80)
     combi = OrOperator(a, b)
     assert simplifyExpression(SignExtension(combi, 8)) == OrOperator(a, IntLiteral(~0x7F))
 
 def test_arithmetic_int():
-    '''Uses add/complement on several integer literals.'''
+    """Uses add/complement on several integer literals."""
     expr = AddOperator(
         AddOperator(IntLiteral(0), Complement(IntLiteral(39))),
         Complement(AddOperator(IntLiteral(101), IntLiteral(-1001)))
@@ -451,27 +451,27 @@ def test_arithmetic_int():
     assertIntLiteral(simplifyExpression(expr), 861)
 
 def test_arithmetic_associative():
-    '''Test simplification using the associativity of addition.
+    """Test simplification using the associativity of addition.
     Note that that associativity cannot be exploited unless the subtraction
     is converted into an addition first.
-    '''
+    """
     addr = TestValue('A', IntType.u(16))
     arg1 = AddOperator(addr, Complement(IntLiteral(1)))
     arg2 = AddOperator(IntLiteral(-2), IntLiteral(3))
     assert simplifyExpression(AddOperator(arg1, arg2)) is addr
 
 def test_arithmetic_commutative():
-    '''Test simplification using the commutativity of addition.
+    """Test simplification using the commutativity of addition.
     Note that that commutativity cannot be exploited unless the subtraction
     is converted into an addition first.
-    '''
+    """
     addr = TestValue('A', IntType.u(16))
     arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
     arg2 = AddOperator(Complement(addr), IntLiteral(3))
     assert simplifyExpression(AddOperator(arg1, Complement(arg2))) is addr
 
 def test_arithmetic_add_complement():
-    '''Test simplification of subtracting an expression from itself.'''
+    """Test simplification of subtracting an expression from itself."""
     a = TestValue('A', IntType.u(16))
     b = TestValue('B', IntType.u(8))
     assertIntLiteral(
@@ -491,7 +491,7 @@ def test_arithmetic_add_complement():
         )
 
 def test_arithmetic_add_truncate():
-    '''Test simplification of truncation of adding truncated expressions.'''
+    """Test simplification of truncation of adding truncated expressions."""
     a = TestValue('A', IntType.u(16))
     expr = truncate(
         AddOperator(
@@ -504,14 +504,14 @@ def test_arithmetic_add_truncate():
     assert simplifyExpression(expr) is a
 
 def test_arithmetic_add_truncate_literal():
-    '''Test simplification of truncation of added literal.'''
+    """Test simplification of truncation of added literal."""
     a = TestValue('A', IntType.u(16))
     expr = truncate(AddOperator(a, IntLiteral(0x10001)), 16)
     expected = truncate(AddOperator(a, IntLiteral(1)), 16)
     assert simplifyExpression(expr) == expected
 
 def test_lshift_literals():
-    '''Shifts an integer literal to the left.'''
+    """Shifts an integer literal to the left."""
     assertIntLiteral(
         simplifyExpression(LShift(IntLiteral(0x1234), 8)),
         0x123400
@@ -522,7 +522,7 @@ def test_lshift_literals():
         )
 
 def test_lshift_twice():
-    '''Shifts a value to the left twice.'''
+    """Shifts a value to the left twice."""
     addr = TestValue('A', IntType.u(16))
     expr = simplifyExpression(LShift(LShift(addr, 3), 5))
     assert isinstance(expr, LShift)
@@ -530,7 +530,7 @@ def test_lshift_twice():
     assert expr.offset == 8
 
 def test_lshift_rshift():
-    '''Tests left-shifting after right-shifting.'''
+    """Tests left-shifting after right-shifting."""
     addr = TestValue('A', IntType.u(16))
     # Shift more to the right than to the left.
     rwin = simplifyExpression(LShift(RShift(addr, 5), 3))
@@ -543,7 +543,7 @@ def test_lshift_rshift():
     assertAnd(lwin, LShift(addr, 2), IntLiteral(0x3FFE0))
 
 def test_lshift_truncate():
-    '''Tests truncation of a left-shifted expression.'''
+    """Tests truncation of a left-shifted expression."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -557,7 +557,7 @@ def test_lshift_truncate():
     assert expr2.offset == 8
 
 def test_rshift_lshift():
-    '''Tests right-shifting after left-shifting.'''
+    """Tests right-shifting after left-shifting."""
     addr = TestValue('A', IntType.u(16))
     # Shift less to the left than to the right.
     rwin = simplifyExpression(RShift(LShift(addr, 3), 5))
@@ -574,7 +574,7 @@ def test_rshift_lshift():
     assert lwin.expr is addr
 
 def test_lvshift_constant():
-    '''Shifts a constant number of positions to the left.'''
+    """Shifts a constant number of positions to the left."""
     assertIntLiteral(
         simplifyExpression(LVShift(IntLiteral(0x1234), IntLiteral(8))),
         0x123400
@@ -584,7 +584,7 @@ def test_lvshift_constant():
     assert simplifyExpression(LVShift(v8, TestValue('Z', IntType.u(0)))) == v8
 
 def test_rvshift_constant():
-    '''Shifts a constant number of positions to the left.'''
+    """Shifts a constant number of positions to the left."""
     assertIntLiteral(
         simplifyExpression(RVShift(IntLiteral(0x1234), IntLiteral(8))),
         0x12
@@ -594,7 +594,7 @@ def test_rvshift_constant():
     assert simplifyExpression(RVShift(v8, TestValue('Z', IntType.u(0)))) == v8
 
 def test_concat_literals():
-    '''Concatenates integer literals.'''
+    """Concatenates integer literals."""
     ip = IntLiteral(4)
     im = Complement(ip)
     u4 = IntLiteral(0xD)
@@ -617,7 +617,7 @@ def test_concat_literals():
     assertIntLiteral(cat_u8_u8, 0x2929)
 
 def test_concat_identity():
-    '''Simplifies concatenations containing identity values.'''
+    """Simplifies concatenations containing identity values."""
     addr = TestValue('A', IntType.u(16))
     # Check whether empty bitstrings are filtered out.
     empty = IntLiteral(0)
@@ -668,8 +668,8 @@ def test_concat_identity():
         )
 
 def test_concat_associative():
-    '''Test simplification using the associativity of concatenation.
-    '''
+    """Test simplification using the associativity of concatenation.
+    """
     addr = TestValue('A', IntType.u(16))
     arg1 = makeConcat(addr, addr, 16) # (A ; A)
     arg2 = makeConcat(arg1, arg1, 32) # ((A ; A) ; (A ; A))
@@ -677,8 +677,8 @@ def test_concat_associative():
     assertConcat(simplifyExpression(arg3), ((addr, 16), ) * 6)
 
 def test_concat_associative2():
-    '''Test simplification using the associativity of concatenation.
-    '''
+    """Test simplification using the associativity of concatenation.
+    """
     addr = TestValue('A', IntType.u(16))
     arg1 = makeConcat(addr, IntLiteral(0x9), 4) # (A ; $9)
     arg2 = makeConcat(IntLiteral(0x63), addr, 16) # ($63 ; A)
@@ -692,7 +692,7 @@ def simplifySlice(expr, index, width):
     return simplifyExpression(makeSlice(expr, index, width))
 
 def test_slice_literals():
-    '''Slices integer literals.'''
+    """Slices integer literals."""
     addr = IntLiteral(0xFD56)
     assertIntLiteral(simplifySlice(addr, 0, 16), 0xFD56)
     assertIntLiteral(simplifySlice(addr, 4, 8), 0xD5)
@@ -703,22 +703,22 @@ def test_slice_literals():
     assertIntLiteral(simplifySlice(signed, 8, 12), 0xFE6)
 
 def test_slice_zero_width():
-    '''Takes a slices of width 0.'''
+    """Takes a slices of width 0."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifySlice(addr, 8, 0), 0)
 
 def test_slice_full_range():
-    '''Slices a range that exactly matches a value's type.'''
+    """Slices a range that exactly matches a value's type."""
     addr = TestValue('A', IntType.u(16))
     assert simplifySlice(addr, 0, 16) is addr
 
 def test_slice_out_of_range():
-    '''Slices a range that is fully outside a value's type.'''
+    """Slices a range that is fully outside a value's type."""
     addr = TestValue('A', IntType.u(16))
     assertIntLiteral(simplifySlice(addr, 16, 8), 0)
 
 def test_slice_leading_zeroes():
-    '''Slices a range that is partially outside a value's type.'''
+    """Slices a range that is partially outside a value's type."""
     addr = TestValue('A', IntType.u(16))
     expr = simplifySlice(addr, 0, 20) # $0xxxx
     assert expr is addr
@@ -726,13 +726,13 @@ def test_slice_leading_zeroes():
     assertSlice(expr, addr, 16, 8, 8)
 
 def test_slice_of_slice():
-    '''Slices a range from another slice.'''
+    """Slices a range from another slice."""
     addr = TestValue('A', IntType.u(16))
     expr = simplifySlice(makeSlice(addr, 3, 10), 2, 6)
     assertSlice(expr, addr, 16, 5, 6)
 
 def test_slice_concat():
-    '''Slices a range from a concatenation.'''
+    """Slices a range from a concatenation."""
     a = TestValue('A', IntType.u(8))
     b = TestValue('B', IntType.u(8))
     c = TestValue('C', IntType.u(8))
@@ -767,7 +767,7 @@ def test_slice_concat():
         #)
 
 def test_slice_and():
-    '''Tests simplification of slicing a logical AND.'''
+    """Tests simplification of slicing a logical AND."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -778,7 +778,7 @@ def test_slice_and():
     assertAnd(simplifySlice(AndOperator(h, l), 0, 8), h, l)
 
 def test_slice_add():
-    '''Tests simplification of slicing an addition.'''
+    """Tests simplification of slicing an addition."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -801,7 +801,7 @@ def test_slice_add():
     assert low12s == low12
 
 def test_slice_complement():
-    '''Tests simplification of slicing a complement.'''
+    """Tests simplification of slicing a complement."""
     h = TestValue('H', IntType.u(8))
     l = TestValue('L', IntType.u(8))
     hl = makeConcat(h, l, 8)
@@ -826,7 +826,7 @@ def test_slice_complement():
     assertSlice(low12, simplifyExpression(expr), unlimited, 0, 12)
 
 def test_slice_mixed():
-    '''Tests a mixture of slicing, concatenation and leading zeroes.'''
+    """Tests a mixture of slicing, concatenation and leading zeroes."""
     addr = TestValue('A', IntType.u(16))
     expr_int = makeSlice(
         makeConcat(IntLiteral(7), makeSlice(addr, 8, 12), 12),

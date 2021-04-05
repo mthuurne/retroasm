@@ -40,9 +40,9 @@ class TestValue(Expression):
         return 3
 
 def assertIntLiteral(expr, value):
-    '''Asserts that the given expression is an unlimited-width int literal
+    """Asserts that the given expression is an unlimited-width int literal
     with the given value.
-    '''
+    """
     assert isinstance(expr, IntLiteral)
     assert expr.value == value
 

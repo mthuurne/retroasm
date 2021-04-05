@@ -33,7 +33,7 @@ def createSimplifiedCode(namespace):
     return code
 
 def test_no_change(namespace):
-    '''Test whether a basic sequence survives a simplification attempt.'''
+    """Test whether a basic sequence survives a simplification attempt."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     loadA = namespace.emitLoad(refA)
@@ -54,7 +54,7 @@ def test_no_change(namespace):
     checkNodes(code)
 
 def test_stored_expression(namespace):
-    '''Test whether stored expressions are simplified.'''
+    """Test whether stored expressions are simplified."""
     const1 = IntLiteral(2)
     const2 = AddOperator(IntLiteral(1), IntLiteral(1))
     refA = namespace.addRegister('a')
@@ -71,7 +71,7 @@ def test_stored_expression(namespace):
     assertNodes(code.nodes, correct)
 
 def test_unused_load(namespace):
-    '''Test whether unused loads are removed.'''
+    """Test whether unused loads are removed."""
     refA = namespace.addRegister('a')
     loadA = namespace.emitLoad(refA)
     andA = AndOperator(loadA, IntLiteral(0))
@@ -85,7 +85,7 @@ def test_unused_load(namespace):
     assertIntLiteral(node.expr, 0)
 
 def test_unused_load_nonremoval(namespace):
-    '''Test whether unused loads are kept for possible side effects.'''
+    """Test whether unused loads are kept for possible side effects."""
     addr = IntLiteral(0xD0D0)
     refM = namespace.addIOStorage('mem', addr)
     loadM = namespace.emitLoad(refM)
@@ -98,7 +98,7 @@ def test_unused_load_nonremoval(namespace):
     assertNodes(code.nodes, correct)
 
 def test_redundant_load_after_load(namespace):
-    '''Test whether redundant successive loads are removed.'''
+    """Test whether redundant successive loads are removed."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     refC = namespace.addRegister('c')
@@ -117,7 +117,7 @@ def test_redundant_load_after_load(namespace):
     assertNodes(code.nodes, correct())
 
 def test_redundant_load_after_store(namespace):
-    '''Test whether a redundant load after a store is removed.'''
+    """Test whether a redundant load after a store is removed."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     loadA1 = namespace.emitLoad(refA)
@@ -146,7 +146,7 @@ def test_redundant_load_after_store(namespace):
         )
 
 def test_redundant_same_value_store(namespace):
-    '''Test removal of storing the same value in the same storage twice.'''
+    """Test removal of storing the same value in the same storage twice."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     loadA = namespace.emitLoad(refA)
@@ -162,7 +162,7 @@ def test_redundant_same_value_store(namespace):
     assertNodes(code.nodes, correct())
 
 def test_redundant_other_value_store(namespace):
-    '''Test removal of storing a different value in the same storage.'''
+    """Test removal of storing a different value in the same storage."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     refC = namespace.addRegister('c')
@@ -180,7 +180,7 @@ def test_redundant_other_value_store(namespace):
     assertNodes(code.nodes, correct())
 
 def test_uncertain_redundant_load(namespace):
-    '''Test whether aliasing prevents loads from being removed.'''
+    """Test whether aliasing prevents loads from being removed."""
     const = IntLiteral(23)
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
@@ -205,7 +205,7 @@ def test_uncertain_redundant_load(namespace):
     assertNodes(code.nodes, correct())
 
 def test_same_value_redundant_load(namespace):
-    '''Test handling of writing the same value to a potential alias.'''
+    """Test handling of writing the same value to a potential alias."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     refX = namespace.addArgument('X')
@@ -224,7 +224,7 @@ def test_same_value_redundant_load(namespace):
     assertNodes(code.nodes, correct())
 
 def test_local_value(namespace):
-    '''Test whether load and stores of variables are removed.'''
+    """Test whether load and stores of variables are removed."""
     refA = namespace.addRegister('a')
     refB = namespace.addRegister('b')
     refV = namespace.addVariable('V')
@@ -242,7 +242,7 @@ def test_local_value(namespace):
     assertNodes(code.nodes, correct())
 
 def test_unused_storage_removal(namespace):
-    '''Test whether unused storages are removed.'''
+    """Test whether unused storages are removed."""
     refA = namespace.addRegister('a')
     loadA = namespace.emitLoad(refA)
     refM = namespace.addIOStorage('mem', loadA)
@@ -254,7 +254,7 @@ def test_unused_storage_removal(namespace):
     assertNodes(code.nodes, correct)
 
 def test_return_value(namespace):
-    '''Test whether a return value is stored correctly.'''
+    """Test whether a return value is stored correctly."""
     refV = namespace.addArgument('V')
     refA = namespace.addRegister('a')
     refRet = namespace.addVariable('ret')
@@ -281,7 +281,7 @@ def test_return_value(namespace):
         )
 
 def test_retbits_override(namespace):
-    '''Test code block creation with a non-default returned bit string.'''
+    """Test code block creation with a non-default returned bit string."""
     refV = namespace.addVariable('V', IntType.u(20))
     value = IntLiteral(604)
     namespace.emitStore(refV, value)
@@ -293,7 +293,7 @@ def test_retbits_override(namespace):
     assertRetVal(code, 604)
 
 def test_return_io_index(namespace):
-    '''Test returning an I/O reference with a simplifiable index.'''
+    """Test returning an I/O reference with a simplifiable index."""
     addr = AddOperator(IntLiteral(1), IntLiteral(1))
     memByte = namespace.addIOStorage('mem', addr)
     namespace.addRetReference(memByte)
@@ -308,7 +308,7 @@ def test_return_io_index(namespace):
     assertIntLiteral(storage.index, 2)
 
 def test_return_redundant_load_index(namespace):
-    '''Test returning a redundant loaded value.'''
+    """Test returning a redundant loaded value."""
     refA = namespace.addRegister('a', IntType.u(16))
     namespace.emitStore(refA, IntLiteral(0x4120))
     loadA = namespace.emitLoad(refA)
@@ -325,7 +325,7 @@ def test_return_redundant_load_index(namespace):
     assertIntLiteral(storage.index, 0x4120)
 
 def test_return_fixed_value_ref(namespace):
-    '''Test returning a reference to a fixed value.'''
+    """Test returning a reference to a fixed value."""
     add = AddOperator(IntLiteral(1), IntLiteral(2))
     value = FixedValue(add, 8)
     namespace.addRetReference(Reference(value, IntType.u(8)))
@@ -338,7 +338,7 @@ def test_return_fixed_value_ref(namespace):
     assertIntLiteral(retBits.expr, 3)
 
 def test_return_complex_ref(namespace):
-    '''Test returning a non-trivial reference.'''
+    """Test returning a non-trivial reference."""
     refH = namespace.addRegister('h')
     refL = namespace.addRegister('l')
     bitsHL = ConcatenatedBits(refL.bits, refH.bits)
@@ -355,7 +355,7 @@ def test_return_complex_ref(namespace):
     # in itself.
 
 def run_repeated_increase(namespace, counterRef, counterRemains):
-    '''Helper method for repeated increase tests.'''
+    """Helper method for repeated increase tests."""
     def emitInc():
         loadCounter= namespace.emitLoad(counterRef)
         incA = AddOperator(loadCounter, IntLiteral(1))
@@ -380,17 +380,17 @@ def run_repeated_increase(namespace, counterRef, counterRemains):
     assert retWidth == 8
 
 def test_repeated_increase_reg(namespace):
-    '''Test removal of redundant loads and stores to a register.'''
+    """Test removal of redundant loads and stores to a register."""
     refA = namespace.addRegister('a')
     run_repeated_increase(namespace, refA, True)
 
 def test_repeated_increase_var(namespace):
-    '''Test removal of redundant loads and stores to a local variable.'''
+    """Test removal of redundant loads and stores to a local variable."""
     refA = namespace.addVariable('A')
     run_repeated_increase(namespace, refA, False)
 
 def run_signed_load(namespace, write, compare):
-    '''Helper method for signed load tests.'''
+    """Helper method for signed load tests."""
     signedVar = namespace.addVariable('s', IntType.s(8))
     namespace.emitStore(signedVar, IntLiteral(write))
     loaded = namespace.emitLoad(signedVar)
@@ -401,19 +401,19 @@ def run_signed_load(namespace, write, compare):
     assertRetVal(code, compare)
 
 def test_signed_load_positive(namespace):
-    '''Test loading of a positive signed integer.'''
+    """Test loading of a positive signed integer."""
     run_signed_load(namespace, 56, 56)
 
 def test_signed_load_negative(namespace):
-    '''Test loading of a negative signed integer.'''
+    """Test loading of a negative signed integer."""
     run_signed_load(namespace, -78, -78)
 
 def test_signed_load_wrap(namespace):
-    '''Test loading of an unsigned integer as signed.'''
+    """Test loading of an unsigned integer as signed."""
     run_signed_load(namespace, 135, 135 - 256)
 
 def test_signed_load_unlimited(namespace):
-    '''Test loading of an unlimited width integer.'''
+    """Test loading of an unlimited width integer."""
 
     # No sign extension should be happening here, but the code once
     # contained a bug where it would try to apply sign extension and
@@ -429,7 +429,7 @@ def test_signed_load_unlimited(namespace):
     assertRetVal(code, 987654321)
 
 def test_6502_pull(namespace):
-    '''Test simplification of the 6502 PULL instructions.'''
+    """Test simplification of the 6502 PULL instructions."""
 
     refD = namespace.addArgument('D')
     refS = namespace.addRegister('s')

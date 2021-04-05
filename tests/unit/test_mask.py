@@ -5,7 +5,7 @@ from retroasm.types import (
 
 
 def test_maskForWidth():
-    '''Test maskForWidth function.'''
+    """Test maskForWidth function."""
     assert maskForWidth(0) == 0x000
     assert maskForWidth(1) == 0x001
     assert maskForWidth(7) == 0x07F
@@ -14,7 +14,7 @@ def test_maskForWidth():
     assert maskForWidth(unlimited) == -1
 
 def test_widthForMask():
-    '''Test widthForMask function.'''
+    """Test widthForMask function."""
     # Full masks.
     assert widthForMask(0x000) == 0
     assert widthForMask(0x001) == 1
@@ -28,7 +28,7 @@ def test_widthForMask():
     assert widthForMask(-16) == unlimited
 
 def test_maskToSegments():
-    '''Test maskToSegments function.'''
+    """Test maskToSegments function."""
     assert list(maskToSegments(0x0000)) == []
     assert list(maskToSegments(0x0003)) == [Segment(0, 2)]
     assert list(maskToSegments(0x0078)) == [Segment(3, 7)]
@@ -42,7 +42,7 @@ def test_maskToSegments():
         ]
 
 def test_segmentsToMask():
-    '''Test segmentsToMask function.'''
+    """Test segmentsToMask function."""
     # Segments from maskToSegments test.
     assert segmentsToMask(()) == 0x0000
     assert segmentsToMask([Segment(0, 2)]) == 0x0003

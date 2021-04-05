@@ -6,7 +6,7 @@ from retroasm.types import IntType
 
 
 def test_slice():
-    '''Formats slice expressions.'''
+    """Formats slice expressions."""
     addr = TestValue('A', IntType.u(16))
     # Truncation and shift in isolation.
     assert str(simplifyExpression(truncate(addr, 8))) == 'A[:8]'
@@ -17,7 +17,7 @@ def test_slice():
     assert str(simplifyExpression(truncate(RShift(addr, 8), 8))) == 'A[8:]'
 
 def test_index():
-    '''Formats bit index expressions.'''
+    """Formats bit index expressions."""
     addr = TestValue('A', IntType.u(16))
     assert str(simplifyExpression(truncate(addr, 1))) == 'A[0]'
     assert str(simplifyExpression(truncate(RShift(addr, 11), 1))) == 'A[11]'

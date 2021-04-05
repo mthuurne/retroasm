@@ -8,7 +8,7 @@ from retroasm.types import IntType
 
 
 def test_int():
-    '''Checks mask for integer literals.'''
+    """Checks mask for integer literals."""
     assert IntLiteral(0).mask == 0
     assert IntLiteral(1).mask == 1
     assert IntLiteral(123).mask == 123
@@ -16,14 +16,14 @@ def test_int():
     assert IntLiteral(-9).mask == -9
 
 def test_width():
-    '''Checks mask computed from value width.'''
+    """Checks mask computed from value width."""
     v8 = TestValue('A', IntType.u(8))
     v16 = TestValue('B', IntType.u(16))
     assert v8.mask == 0xFF
     assert v16.mask == 0xFFFF
 
 def test_and():
-    '''Checks mask for bitwise AND.'''
+    """Checks mask for bitwise AND."""
     v8 = TestValue('A', IntType.u(8))
     v16 = TestValue('B', IntType.u(16))
     litval = 0x1234
@@ -37,7 +37,7 @@ def test_and():
     assert AndOperator(v8, v16, lit).mask == litval & 0xFF
 
 def test_or():
-    '''Checks mask for bitwise OR.'''
+    """Checks mask for bitwise OR."""
     v8 = TestValue('A', IntType.u(8))
     v16 = TestValue('B', IntType.u(16))
     litval = 0x1234
@@ -51,7 +51,7 @@ def test_or():
     assert OrOperator(v8, v16, lit).mask == 0xFFFF
 
 def test_xor():
-    '''Checks mask for bitwise XOR.'''
+    """Checks mask for bitwise XOR."""
     v8 = TestValue('A', IntType.u(8))
     v16 = TestValue('B', IntType.u(16))
     litval = 0x1234
@@ -64,7 +64,7 @@ def test_xor():
     assert XorOperator(v8, v16, lit).mask == 0xFFFF
 
 def test_add():
-    '''Checks mask for addition.'''
+    """Checks mask for addition."""
     v8 = TestValue('A', IntType.u(8))
     v16 = TestValue('B', IntType.u(16))
     vu = TestValue('C', IntType.int)
@@ -78,7 +78,7 @@ def test_add():
     assert AddOperator(IntLiteral(0xFF00FF), IntLiteral(0xFF00FF)).mask == 0x1FF01FF
 
 def test_complement():
-    '''Checks mask for complement.'''
+    """Checks mask for complement."""
     v8 = TestValue('A', IntType.u(8))
     assert Complement(v8).mask == -1
     assert Complement(IntLiteral(-123)).mask == -1
@@ -87,7 +87,7 @@ def test_complement():
     assert Complement(IntLiteral(-68)).mask == -4
 
 def test_lshift():
-    '''Checks mask for left shift.'''
+    """Checks mask for left shift."""
     v8 = TestValue('A', IntType.u(8))
     assert LShift(v8, 0).mask == 0xFF
     assert LShift(v8, 3).mask == 0x7F8
@@ -95,7 +95,7 @@ def test_lshift():
     assert LShift(IntLiteral(0x1234), 12).mask == 0x1234000
 
 def test_rshift():
-    '''Checks mask for right shift.'''
+    """Checks mask for right shift."""
     v8 = TestValue('A', IntType.u(8))
     assert RShift(v8, 0).mask == 0xFF
     assert RShift(v8, 3).mask == 0x1F
@@ -103,7 +103,7 @@ def test_rshift():
     assert RShift(IntLiteral(0x12345678), 12).mask == 0x12345
 
 def test_lvshift():
-    '''Checks mask for left variable shift.'''
+    """Checks mask for left variable shift."""
     v8 = TestValue('A', IntType.u(8))
     v1 = TestValue('B', IntType.u(1))
     i = TestValue('I', IntType.int)
@@ -138,7 +138,7 @@ def test_lvshift():
     assert LVShift(IntLiteral(-160), i).mask == -1 << 5
 
 def test_rvshift():
-    '''Checks mask for right variable shift.'''
+    """Checks mask for right variable shift."""
     v8 = TestValue('A', IntType.u(8))
     v1 = TestValue('B', IntType.u(1))
     i = TestValue('I', IntType.int)

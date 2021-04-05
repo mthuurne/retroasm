@@ -23,12 +23,12 @@ def createSimplifiedCode(namespace):
     return code
 
 def args(**kvargs):
-    '''Argument fetcher helper function for inlineBlock().
-    '''
+    """Argument fetcher helper function for inlineBlock().
+    """
     return kvargs.__getitem__
 
 def test_inline_easy():
-    '''Test whether inlining works when there are no complications.'''
+    """Test whether inlining works when there are no complications."""
     inner = TestNamespace()
     innerA = inner.addRegister('a', IntType.u(16))
     const = IntLiteral(12345)
@@ -55,7 +55,7 @@ def test_inline_easy():
     assert retWidth == 16
 
 def test_inline_arg_ret():
-    '''Test whether inlining works with an argument and return value.'''
+    """Test whether inlining works with an argument and return value."""
     inc = TestNamespace()
     incArgRef = inc.addArgument('V')
     incArgVal = inc.emitLoad(incArgRef)
@@ -85,7 +85,7 @@ def test_inline_arg_ret():
     assert retWidth == 8
 
 def test_inline_multiret():
-    '''Test whether inlining works when "ret" is written multiple times.'''
+    """Test whether inlining works when "ret" is written multiple times."""
     inner = TestNamespace()
     val0 = IntLiteral(1000)
     val1 = IntLiteral(2000)
@@ -111,7 +111,7 @@ def test_inline_multiret():
     assert retWidth == 16
 
 def test_ret_truncate():
-    '''Test whether the value returned by a block is truncated.'''
+    """Test whether the value returned by a block is truncated."""
     inner = TestNamespace()
     innerVal = IntLiteral(0x8472)
     innerRet = inner.addVariable('ret')
@@ -133,7 +133,7 @@ def test_ret_truncate():
     assert retWidth == 16
 
 def test_pass_by_reference():
-    '''Test whether pass-by-reference arguments work correctly.'''
+    """Test whether pass-by-reference arguments work correctly."""
     inc = TestNamespace()
     incArgRef = inc.addArgument('R')
     incArgVal = inc.emitLoad(incArgRef)
@@ -162,7 +162,7 @@ def test_pass_by_reference():
     assert retWidth == 8
 
 def test_pass_concat_by_reference():
-    '''Test concatenated storages as pass-by-reference arguments.'''
+    """Test concatenated storages as pass-by-reference arguments."""
     inc = TestNamespace()
     incArgRef = inc.addArgument('R', IntType.u(16))
     incArgVal = inc.emitLoad(incArgRef)
@@ -198,7 +198,7 @@ def test_pass_concat_by_reference():
     assert retWidth == 16
 
 def test_pass_concat_fixed_by_reference():
-    '''Test concatenated storages arguments containing FixedValues.'''
+    """Test concatenated storages arguments containing FixedValues."""
     inc = TestNamespace()
     incArgRef = inc.addArgument('R', IntType.u(16))
     incArgVal = inc.emitLoad(incArgRef)
@@ -231,7 +231,7 @@ def test_pass_concat_fixed_by_reference():
     assert retWidth == 16
 
 def test_pass_slice_by_reference():
-    '''Test sliced storages as pass-by-reference arguments.'''
+    """Test sliced storages as pass-by-reference arguments."""
     inc = TestNamespace()
     incArgRef = inc.addArgument('R')
     incArgVal = inc.emitLoad(incArgRef)
@@ -262,7 +262,7 @@ def test_pass_slice_by_reference():
     assert retWidth == 16
 
 def test_inline_unsigned_reg():
-    '''Test reading of an unsigned register.'''
+    """Test reading of an unsigned register."""
     inner = TestNamespace()
     innerA = inner.addRegister('a')
     innerLoad = inner.emitLoad(innerA)
@@ -288,7 +288,7 @@ def test_inline_unsigned_reg():
     assertRetVal(code, finalVal)
 
 def test_inline_signed_reg():
-    '''Test reading of a signed register.'''
+    """Test reading of a signed register."""
     inner = TestNamespace()
     innerA = inner.addRegister('a', IntType.s(8))
     innerLoad = inner.emitLoad(innerA)
@@ -316,7 +316,7 @@ def test_inline_signed_reg():
     assert retWidth == 16
 
 def test_load_from_unsigned_reference_arg():
-    '''Test reading of a value passed via an unsigned reference.'''
+    """Test reading of a value passed via an unsigned reference."""
     inner = TestNamespace()
     argRef = inner.addArgument('R')
     argVal = inner.emitLoad(argRef)
@@ -340,7 +340,7 @@ def test_load_from_unsigned_reference_arg():
     assert retWidth == 16
 
 def test_load_from_signed_reference_arg():
-    '''Test reading of a value passed via a signed reference.'''
+    """Test reading of a value passed via a signed reference."""
     inner = TestNamespace()
     argRef = inner.addArgument('R', IntType.s(8))
     argVal = inner.emitLoad(argRef)
@@ -364,7 +364,7 @@ def test_load_from_signed_reference_arg():
     assert retWidth == 16
 
 def test_return_simple_reference():
-    '''Test returning a reference to a global.'''
+    """Test returning a reference to a global."""
     inner = TestNamespace()
     innerA = inner.addRegister('a')
     inner.addRetReference(innerA)
@@ -392,7 +392,7 @@ def test_return_simple_reference():
     assert retWidth == 8
 
 def test_return_io_reference():
-    '''Test returning a reference to an index in an I/O channel.'''
+    """Test returning a reference to an index in an I/O channel."""
     inner = TestNamespace()
     addrArg = inner.addArgument('A', IntType.u(16))
     addrVal = inner.emitLoad(addrArg)
@@ -418,12 +418,12 @@ def test_return_io_reference():
     assert retVal == code.nodes[0].expr
 
 def test_unique_loads():
-    '''Test whether multiple instances of the same load are kept separate.
+    """Test whether multiple instances of the same load are kept separate.
     If the possibility of side effects is ignored, only one load will
     remain.
     If the load results are not kept separate, the load result will be
     XOR-ed with itself, resulting in a 0 result.
-    '''
+    """
     addr = IntLiteral(0xFFFF)
 
     inner = TestNamespace()
