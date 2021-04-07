@@ -14,7 +14,7 @@ from .mode import (
     EncodeMatch, Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder,
     ModeEntry, Placeholder, ValuePlaceholder
 )
-from .reference import FixedValue, SingleStorage, decomposeBitString
+from .reference import FixedValue, SingleStorage
 from .storage import ArgStorage
 from .types import Segment, maskForWidth, maskToSegments
 from .utils import Singleton
@@ -79,7 +79,7 @@ def decomposeEncoding(
         fixedValue = 0
         try:
             start = 0
-            for base, base_seg in decomposeBitString(encElem.bits):
+            for base, base_seg in encElem.bits.decompose():
                 segment = Segment(start, base_seg.width)
                 if isinstance(base, SingleStorage):
                     storage = base.storage

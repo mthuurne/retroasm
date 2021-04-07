@@ -81,7 +81,28 @@ class BitString:
         """
         raise NotImplementedError
 
-class FixedValue(BitString):
+    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+        """Decomposes the given bit string into its leaf nodes.
+        Yields a series of pairs of base string and segment in the base string.
+        When concatenated, with the first yielded as the least significant bits,
+        these slices produce the given bit string.
+        Raises ValueError if a bit string cannot be decomposed because it
+        contains a slice with an unknown offset.
+        """
+        raise NotImplementedError
+
+class LeafBitString(BitString):
+    """Abstract base class for bit strings that doesn't reference any other
+    bit strings.
+
+    This is a leaf node in the tree structure of a composed bit string.
+    """
+    __slots__ = ()
+
+    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+        yield self, Segment(0, self.width)
+
+class FixedValue(LeafBitString):
     """A bit string that always reads as the same value and ignores writes.
     """
     __slots__ = ('_expr',)
@@ -94,7 +115,7 @@ class FixedValue(BitString):
         """Construct a FixedValue with the given value and width.
         The mask of the value Expression must fit within the given width.
         """
-        BitString.__init__(self, width)
+        super().__init__(width)
         self._expr = expr
         assert widthForMask(expr.mask) <= width, expr
 
@@ -139,7 +160,7 @@ class FixedValue(BitString):
                   ) -> None:
         pass
 
-class SingleStorage(BitString):
+class SingleStorage(LeafBitString):
     __slots__ = ('_storage',)
 
     @property
@@ -148,7 +169,7 @@ class SingleStorage(BitString):
 
     def __init__(self, storage: Storage):
         self._storage = storage
-        BitString.__init__(self, storage.width)
+        super().__init__(storage.width)
 
     def __repr__(self) -> str:
         return f'SingleStorage({self._storage!r})'
@@ -278,6 +299,10 @@ class ConcatenatedBits(BitString):
             sub.emitStore(builder, valueSlice, location)
             offset += width
 
+    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+        for sub in self._subs:
+            yield from sub.decompose()
+
 class SlicedBits(BitString):
     """A slice of a bit string.
     """
@@ -379,16 +404,32 @@ class SlicedBits(BitString):
 
         bits.emitStore(builder, simplifyExpression(combined), location)
 
-class BadBits(BitString):
+    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+        # Note that the offset was already simplified.
+        offset = self.offset
+        if not isinstance(offset, IntLiteral):
+            raise ValueError(
+                "Cannot decompose bit string with a variable slice offset"
+                )
+
+        slice_seg = Segment(offset.value, self.width)
+        for base, base_seg in self.bits.decompose():
+            # Clip to slice boundaries.
+            clipped = base_seg & slice_seg
+            if clipped:
+                yield base, clipped
+            # Shift slice segment to match remaining string.
+            width = base_seg.width
+            if not isinstance(width, int):
+                # Width can only be unlimited on last component.
+                break
+            slice_seg >>= width
+
+class BadBits(LeafBitString):
     """A dummy bit string that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
     """
     __slots__ = ()
-
-    def __init__(self, width: Width):
-        """Construct a BadBits with the given width.
-        """
-        BitString.__init__(self, width)
 
     def __repr__(self) -> str:
         return f'BadBits({self._width})'
@@ -430,41 +471,6 @@ def badReference(decl: ReferenceType | IntType) -> Reference:
     """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
     return Reference(BadBits(typ.width), typ)
-
-def decomposeBitString(bits: BitString) -> Iterator[tuple[BitString, Segment]]:
-    """Decomposes the given bit string into its base strings (FixedValue and
-    SingleStorage).
-    Yields a series of pairs of base string and segment in the base string.
-    When concatenated, with the first yielded as the least significant bits,
-    these slices produce the given bit string.
-    Raises ValueError if a bit string cannot be decomposed because it contains
-    a slice with an unknown offset.
-    """
-    if isinstance(bits, (FixedValue, SingleStorage)):
-        yield bits, Segment(0, bits.width)
-    elif isinstance(bits, ConcatenatedBits):
-        for sub in bits:
-            yield from decomposeBitString(sub)
-    elif isinstance(bits, SlicedBits):
-        # Note that SlicedBits has already simplified the offset.
-        offset = bits.offset
-        if isinstance(offset, IntLiteral):
-            slice_seg = Segment(offset.value, bits.width)
-            for base, base_seg in decomposeBitString(bits.bits):
-                # Clip to slice boundaries.
-                clipped = base_seg & slice_seg
-                if clipped:
-                    yield base, clipped
-                # Shift slice segment to match remaining string.
-                width = base_seg.width
-                if not isinstance(width, int):
-                    # Width can only be unlimited on last component.
-                    break
-                slice_seg >>= width
-        else:
-            raise ValueError('slices in encoding must have fixed offset')
-    else:
-        assert False, bits
 
 def decodeInt(encoded: Expression, typ: IntType) -> Expression:
     """Decodes the given encoded representation as an integer of the given type.
