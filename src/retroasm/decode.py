@@ -23,37 +23,36 @@ from .types import Segment, maskForWidth, maskToSegments
 from .utils import Singleton
 
 
-def _decomposeBitString(bits: BitString
-                        ) -> Iterator[tuple[BitString, int, Segment]]:
+def _decomposeBitString(bits: BitString) -> Iterator[tuple[BitString, Segment]]:
     """Decomposes the given bit string into its base strings (FixedValue and
     SingleStorage).
-    Yields a series of tuples, containing base string, index in the base
-    string and segment in the given string.
+    Yields a series of pairs of base string and segment in the base string.
+    When concatenated, with the first yielded as the least significant bits,
+    these slices produce the given bit string.
     Raises ValueError if a bit string cannot be decomposed because it contains
     a slice with an unknown offset.
     """
     if isinstance(bits, (FixedValue, SingleStorage)):
-        yield bits, 0, Segment(0, bits.width)
+        yield bits, Segment(0, bits.width)
     elif isinstance(bits, ConcatenatedBits):
-        start = 0
         for sub in bits:
-            for base, baseIdx, segment in _decomposeBitString(sub):
-                yield base, baseIdx, segment << start
-            # Note: It is possible for the width to be unlimited, but only
-            #       at the end of a string, in which case we don't use
-            #       the start offset anymore.
-            start += cast(int, sub.width)
+            yield from _decomposeBitString(sub)
     elif isinstance(bits, SlicedBits):
         # Note that SlicedBits has already simplified the offset.
         offset = bits.offset
         if isinstance(offset, IntLiteral):
             slice_seg = Segment(offset.value, bits.width)
-            for base, baseIdx, segment in _decomposeBitString(bits.bits):
+            for base, base_seg in _decomposeBitString(bits.bits):
                 # Clip to slice boundaries.
-                clipped = segment & slice_seg
+                clipped = base_seg & slice_seg
                 if clipped:
-                    baseShift = clipped.start - segment.start
-                    yield base, baseIdx + baseShift, clipped >> slice_seg.start
+                    yield base, clipped
+                # Shift slice segment to match remaining string.
+                width = base_seg.width
+                if not isinstance(width, int):
+                    # Width can only be unlimited on last component.
+                    break
+                slice_seg >>= width
         else:
             raise ValueError('slices in encoding must have fixed offset')
     else:
@@ -117,12 +116,14 @@ def decomposeEncoding(
         fixedMask = 0
         fixedValue = 0
         try:
-            for base, baseIdx, segment in _decomposeBitString(encElem.bits):
+            start = 0
+            for base, base_seg in _decomposeBitString(encElem.bits):
+                segment = Segment(start, base_seg.width)
                 if isinstance(base, SingleStorage):
                     storage = base.storage
                     if isinstance(storage, ArgStorage):
                         decodeMap[storage.name].append(
-                            (baseIdx, EncodedSegment(encIdx, segment))
+                            (base_seg.start, EncodedSegment(encIdx, segment))
                             )
                     else:
                         raise ValueError(
@@ -132,15 +133,16 @@ def decomposeEncoding(
                 elif isinstance(base, FixedValue):
                     expr = base.expr
                     if isinstance(expr, IntLiteral):
-                        mask = segment.mask
-                        fixedMask |= mask
-                        fixedValue |= (
-                            (expr.value >> baseIdx) << segment.start
-                            ) & mask
+                        fixedMask |= segment.mask
+                        fixedValue |= base_seg.cut(expr.value) << start
                     else:
                         raise ValueError('unsupported operation in encoding')
                 else:
                     assert False, base
+                # Note: It is possible for the width to be unlimited, but only
+                #       at the end of a string, in which case we don't use
+                #       the start offset anymore.
+                start += cast(int, base_seg.width)
         except ValueError as ex:
             # TODO: This message is particularly unclear, because we do not
             #       have the exact location nor can we print the offending
