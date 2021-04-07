@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
-    AbstractSet, Any, DefaultDict, Iterable, Iterator, Mapping, Sequence,
-    Union, cast
+    AbstractSet, Any, DefaultDict, Iterable, Mapping, Sequence, Union, cast
 )
 
 from .codeblock import CodeBlock
@@ -15,48 +14,11 @@ from .mode import (
     EncodeMatch, Encoding, EncodingExpr, EncodingMultiMatch, MatchPlaceholder,
     ModeEntry, Placeholder, ValuePlaceholder
 )
-from .reference import (
-    BitString, ConcatenatedBits, FixedValue, SingleStorage, SlicedBits
-)
+from .reference import FixedValue, SingleStorage, decomposeBitString
 from .storage import ArgStorage
 from .types import Segment, maskForWidth, maskToSegments
 from .utils import Singleton
 
-
-def _decomposeBitString(bits: BitString) -> Iterator[tuple[BitString, Segment]]:
-    """Decomposes the given bit string into its base strings (FixedValue and
-    SingleStorage).
-    Yields a series of pairs of base string and segment in the base string.
-    When concatenated, with the first yielded as the least significant bits,
-    these slices produce the given bit string.
-    Raises ValueError if a bit string cannot be decomposed because it contains
-    a slice with an unknown offset.
-    """
-    if isinstance(bits, (FixedValue, SingleStorage)):
-        yield bits, Segment(0, bits.width)
-    elif isinstance(bits, ConcatenatedBits):
-        for sub in bits:
-            yield from _decomposeBitString(sub)
-    elif isinstance(bits, SlicedBits):
-        # Note that SlicedBits has already simplified the offset.
-        offset = bits.offset
-        if isinstance(offset, IntLiteral):
-            slice_seg = Segment(offset.value, bits.width)
-            for base, base_seg in _decomposeBitString(bits.bits):
-                # Clip to slice boundaries.
-                clipped = base_seg & slice_seg
-                if clipped:
-                    yield base, clipped
-                # Shift slice segment to match remaining string.
-                width = base_seg.width
-                if not isinstance(width, int):
-                    # Width can only be unlimited on last component.
-                    break
-                slice_seg >>= width
-        else:
-            raise ValueError('slices in encoding must have fixed offset')
-    else:
-        assert False, bits
 
 @dataclass(frozen=True, order=True)
 class EncodedSegment:
@@ -117,7 +79,7 @@ def decomposeEncoding(
         fixedValue = 0
         try:
             start = 0
-            for base, base_seg in _decomposeBitString(encElem.bits):
+            for base, base_seg in decomposeBitString(encElem.bits):
                 segment = Segment(start, base_seg.width)
                 if isinstance(base, SingleStorage):
                     storage = base.storage

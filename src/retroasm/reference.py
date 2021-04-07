@@ -11,7 +11,8 @@ from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation
 from .storage import Storage
 from .types import (
-    IntType, ReferenceType, Width, maskForWidth, unlimited, widthForMask
+    IntType, ReferenceType, Segment, Width, maskForWidth, unlimited,
+    widthForMask
 )
 
 if TYPE_CHECKING:
@@ -429,6 +430,41 @@ def badReference(decl: ReferenceType | IntType) -> Reference:
     """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
     return Reference(BadBits(typ.width), typ)
+
+def decomposeBitString(bits: BitString) -> Iterator[tuple[BitString, Segment]]:
+    """Decomposes the given bit string into its base strings (FixedValue and
+    SingleStorage).
+    Yields a series of pairs of base string and segment in the base string.
+    When concatenated, with the first yielded as the least significant bits,
+    these slices produce the given bit string.
+    Raises ValueError if a bit string cannot be decomposed because it contains
+    a slice with an unknown offset.
+    """
+    if isinstance(bits, (FixedValue, SingleStorage)):
+        yield bits, Segment(0, bits.width)
+    elif isinstance(bits, ConcatenatedBits):
+        for sub in bits:
+            yield from decomposeBitString(sub)
+    elif isinstance(bits, SlicedBits):
+        # Note that SlicedBits has already simplified the offset.
+        offset = bits.offset
+        if isinstance(offset, IntLiteral):
+            slice_seg = Segment(offset.value, bits.width)
+            for base, base_seg in decomposeBitString(bits.bits):
+                # Clip to slice boundaries.
+                clipped = base_seg & slice_seg
+                if clipped:
+                    yield base, clipped
+                # Shift slice segment to match remaining string.
+                width = base_seg.width
+                if not isinstance(width, int):
+                    # Width can only be unlimited on last component.
+                    break
+                slice_seg >>= width
+        else:
+            raise ValueError('slices in encoding must have fixed offset')
+    else:
+        assert False, bits
 
 def decodeInt(encoded: Expression, typ: IntType) -> Expression:
     """Decodes the given encoded representation as an integer of the given type.
