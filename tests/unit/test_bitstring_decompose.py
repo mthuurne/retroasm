@@ -7,7 +7,7 @@ from retroasm.expression import (
 from retroasm.reference import (
     BitString, ConcatenatedBits, SingleStorage, SlicedBits
     )
-from retroasm.types import IntType, Segment, maskForWidth, widthForMask
+from retroasm.types import IntType, maskForWidth, widthForMask
 
 from pytest import fixture, mark
 
@@ -54,30 +54,6 @@ def decomposeExpr(expr):
     else:
         yield expr, 0, widthForMask(expr.mask), 0
 
-def flattenBits(bits):
-    assert isinstance(bits, BitString)
-    if isinstance(bits, SingleStorage):
-        yield bits.storage, Segment(0, bits.width)
-    elif isinstance(bits, ConcatenatedBits):
-        for sub in bits:
-            yield from flattenBits(sub)
-    elif isinstance(bits, SlicedBits):
-        assert isinstance(bits.offset, IntLiteral)
-        offset = bits.offset.value
-        width = bits.width
-        for storage, subSegment in flattenBits(bits.bits):
-            subOffset = subSegment.start
-            subWidth = subSegment.width
-            start = subOffset + max(offset, 0)
-            end = subOffset + min(offset + width, subWidth)
-            if start < end:
-                yield storage, Segment(start, end - start)
-            offset -= subWidth
-    else:
-        raise TypeError(
-            f"Unsupported BitString subtype: {type(bits).__name__}"
-            )
-
 def iterSlices(bits):
     """Iterate through the SlicedBits contained in the given bit string."""
     assert isinstance(bits, BitString)
@@ -115,7 +91,7 @@ def checkFlatten(namespace, bits, expected):
 
     i = 0
     width = 0
-    for actualItem in flattenBits(bits):
+    for base, base_seg in bits.decompose():
         try:
             expectedItem = expected[i]
         except IndexError:
@@ -125,8 +101,9 @@ def checkFlatten(namespace, bits, expected):
                 )
         else:
             i += 1
-        assert actualItem == expectedItem
-        width += actualItem[1].width
+        assert base.storage == expectedItem[0]
+        assert base_seg == expectedItem[1]
+        width += base_seg.width
     assert i >= len(expected), \
         f"Bit string produced only {i} of the {len(expected)} expected items"
     assert width <= bits.width

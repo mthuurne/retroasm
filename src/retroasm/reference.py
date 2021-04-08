@@ -415,7 +415,7 @@ class SlicedBits(BitString):
         slice_seg = Segment(offset.value, self.width)
         for base, base_seg in self.bits.decompose():
             # Clip to slice boundaries.
-            clipped = base_seg & slice_seg
+            clipped = (slice_seg << base_seg.start) & base_seg
             if clipped:
                 yield base, clipped
             # Shift slice segment to match remaining string.
