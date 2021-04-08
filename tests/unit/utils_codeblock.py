@@ -10,6 +10,8 @@ from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel
 from retroasm.types import IntType, unlimited
 
+from utils_segment import parse_segment
+
 
 def assertNodes(actualNodes, correctNodes):
     correctNodes = tuple(correctNodes)
@@ -48,6 +50,18 @@ class TestNamespace(LocalNamespace):
             globalNamespace = GlobalNamespace(globalBuilder)
         localBuilder = SemanticsCodeBlockBuilder()
         LocalNamespace.__init__(self, globalNamespace, localBuilder)
+
+    def _parse_one(self, storage_str):
+        idx = storage_str.index('[')
+        name = storage_str[:idx]
+        slice_str = storage_str[idx:]
+        return self[name].bits.storage, parse_segment(slice_str)
+
+    def parse(self, *storage_slices):
+        return tuple(
+            self._parse_one(storage_str)
+            for storage_str in storage_slices
+            )
 
     def emitLoad(self, ref):
         return ref.emitLoad(self.builder, None)

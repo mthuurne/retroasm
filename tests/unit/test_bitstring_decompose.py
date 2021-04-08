@@ -7,7 +7,7 @@ from retroasm.expression import (
 from retroasm.reference import (
     BitString, ConcatenatedBits, SingleStorage, SlicedBits
     )
-from retroasm.types import IntType, maskForWidth, widthForMask
+from retroasm.types import IntType, Segment, maskForWidth, widthForMask
 
 from pytest import fixture, mark
 
@@ -57,7 +57,7 @@ def decomposeExpr(expr):
 def flattenBits(bits):
     assert isinstance(bits, BitString)
     if isinstance(bits, SingleStorage):
-        yield bits.storage, 0, bits.width
+        yield bits.storage, Segment(0, bits.width)
     elif isinstance(bits, ConcatenatedBits):
         for sub in bits:
             yield from flattenBits(sub)
@@ -65,11 +65,13 @@ def flattenBits(bits):
         assert isinstance(bits.offset, IntLiteral)
         offset = bits.offset.value
         width = bits.width
-        for storage, subOffset, subWidth in flattenBits(bits.bits):
+        for storage, subSegment in flattenBits(bits.bits):
+            subOffset = subSegment.start
+            subWidth = subSegment.width
             start = subOffset + max(offset, 0)
             end = subOffset + min(offset + width, subWidth)
             if start < end:
-                yield storage, start, end - start
+                yield storage, Segment(start, end - start)
             offset -= subWidth
     else:
         raise TypeError(
@@ -124,7 +126,7 @@ def checkFlatten(namespace, bits, expected):
         else:
             i += 1
         assert actualItem == expectedItem
-        width += actualItem[2]
+        width += actualItem[1].width
     assert i >= len(expected), \
         f"Bit string produced only {i} of the {len(expected)} expected items"
     assert width <= bits.width
@@ -162,12 +164,12 @@ def checkLoad(namespace, bits, expected):
     offset = 0
     for actualItem, expectedItem in zip(decomposedVal, expected):
         valExpr, valOffset, valWidth, valShift = actualItem
-        expStorage, expOffset, expWidth = expectedItem
+        expStorage, expSegment = expectedItem
         assert isinstance(valExpr, LoadedValue)
         assert valExpr.load.storage == expStorage
         assert valShift == offset
-        assert valOffset == expOffset
-        assert valWidth == expWidth
+        assert valOffset == expSegment.start
+        assert valWidth == expSegment.width
         offset += valWidth
 
 def checkStore(namespace, bits, expected):
@@ -208,9 +210,7 @@ checkParam = mark.parametrize('check', [checkFlatten, checkLoad, checkStore])
 def test_decompose_single(namespace, check):
     """Test construction of SingleStorage."""
     ref0 = namespace.addArgument('R0')
-    expected = (
-        (ref0.bits.storage, 0, 8),
-        )
+    expected = namespace.parse('R0[0:8]')
     check(namespace, ref0.bits, expected)
 
 @checkParam
@@ -220,11 +220,7 @@ def test_decompose_basic_concat(namespace, check):
     ref1 = namespace.addArgument('R1', IntType.u(3))
     ref2 = namespace.addArgument('R2', IntType.u(13))
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
-    expected = (
-        (ref2.bits.storage, 0, 13),
-        (ref1.bits.storage, 0, 3),
-        (ref0.bits.storage, 0, 7),
-        )
+    expected = namespace.parse('R2[0:13]', 'R1[0:3]', 'R0[0:7]')
     check(namespace, concat, expected)
 
 @checkParam
@@ -232,10 +228,7 @@ def test_decompose_self_concat(namespace, check):
     """Test concatenation of a bit string to itself."""
     ref0 = namespace.addArgument('R0')
     concat = ConcatenatedBits(ref0.bits, ref0.bits)
-    expected = (
-        (ref0.bits.storage, 0, 8),
-        (ref0.bits.storage, 0, 8),
-        )
+    expected = namespace.parse('R0[0:8]', 'R0[0:8]')
     check(namespace, concat, expected)
 
 @checkParam
@@ -243,9 +236,7 @@ def test_decompose_basic_slice(namespace, check):
     """Test construction of SlicedBits."""
     ref0 = namespace.addArgument('R0')
     sliced = sliceBits(ref0.bits, 2, 3)
-    expected = (
-        (ref0.bits.storage, 2, 3),
-        )
+    expected = namespace.parse('R0[2:5]')
     check(namespace, sliced, expected)
 
 @checkParam
@@ -253,9 +244,7 @@ def test_decompose_slice_past_end(namespace, check):
     """Test clipping of slice width against parent width."""
     ref0 = namespace.addArgument('R0')
     sliced = sliceBits(ref0.bits, 2, 30)
-    expected = (
-        (ref0.bits.storage, 2, 6),
-        )
+    expected = namespace.parse('R0[2:8]')
     check(namespace, sliced, expected)
 
 @checkParam
@@ -263,8 +252,7 @@ def test_decompose_slice_outside(namespace, check):
     """Test handling of slice index outside parent width."""
     ref0 = namespace.addArgument('R0')
     sliced = sliceBits(ref0.bits, 12, 30)
-    expected = (
-        )
+    expected = ()
     check(namespace, sliced, expected)
 
 @checkParam
@@ -275,11 +263,7 @@ def test_decompose_slice_concat(namespace, check):
     ref2 = namespace.addArgument('R2')
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
     sliced = sliceBits(concat, 5, 13)
-    expected = (
-        (ref2.bits.storage, 5, 3),
-        (ref1.bits.storage, 0, 8),
-        (ref0.bits.storage, 0, 2),
-        )
+    expected = namespace.parse('R2[5:8]', 'R1[0:8]', 'R0[0:2]')
     check(namespace, sliced, expected)
 
 @checkParam
@@ -292,10 +276,7 @@ def test_decompose_combined(namespace, check):
     ref2 = namespace.addArgument('R2')
     concatB = ConcatenatedBits(sliceA, ref2.bits)
     storage = sliceBits(concatB, 4, 7)
-    expected = (
-        (ref1.bits.storage, 1, 2),
-        (ref2.bits.storage, 0, 5),
-        )
+    expected = namespace.parse('R1[1:3]', 'R2[0:5]')
     check(namespace, storage, expected)
 
 @checkParam
@@ -307,8 +288,5 @@ def test_decompose_nested_slice(namespace, check):
     slice1 = sliceBits(ref1.bits, 1, 4)
     concat = ConcatenatedBits(slice0, slice1)
     sliceC = sliceBits(concat, 3, 3)
-    expected = (
-        (ref0.bits.storage, 5, 2),
-        (ref1.bits.storage, 1, 1),
-        )
+    expected = namespace.parse('R0[5:7]', 'R1[1:2]')
     check(namespace, sliceC, expected)
