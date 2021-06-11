@@ -22,9 +22,10 @@ invoke = "^1.2"
 pytest = "^4.5"
 pytest-pythonpath = "^0.7.3"
 pylint = "^2.3"
-mypy = ">=0.720"
+mypy = ">=0.902"
 lxml = "^4.3.5"
 pyflakes = "^2.1.1"
+types-click = "^7.1.0"
 
 [tool.poetry.scripts]
 retro = 'retroasm.cmdline:main'
