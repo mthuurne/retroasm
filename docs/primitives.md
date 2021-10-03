@@ -8,7 +8,59 @@ Expression
 
 An *expression* is a tree containing literals and constants in its leaves and mathematical operators in its inner nodes. For example `A + 1` is represented by an expression tree with an `add` operator at its root and the constant `A` and the literal `1` as its children.
 
-All expressions are computed using unlimited-width signed integers. Conversion from/to limited-width types happens on load/store.
+The following types of expression nodes exist:
+
+- integer literals (`123`)
+- constants (`X`)
+- integer complement (`-X`)
+- Boolean negation / zero test (`!X`)
+- sign test (`X < 0`)
+- sign extension
+- bitwise operators: and, or, xor
+- addition
+- left/right shift by fixed amount (`X << 4`)
+- left/right shift by variable amount (`X << Y`)
+
+All expressions are computed using unlimited-width signed integers. Conversion from/to limited-width types happens on load/store. Loading an unsigned value uses implicit zero extension, loading a signed value wraps the loaded value in a sign extension node. When a value is stored in a limited-width location, it is truncated.
+
+### Subtraction
+
+Subtraction is handled by adding the integer complement: `A - B` is parsed to `A + -B`.
+
+### Bitwise Complement
+
+Bitwise complement is handled by bitwise *xor*: `~A` is parsed to `A ^ -1`.
+
+### Comparison
+
+Comparisons are converted to primitives as follows:
+
+|Comparison operator  |Definition language  |Primitives
+|:--------------------|:--------------------|:---------------
+| equality            | `A == B`            | `!(A ^ B)`
+| inequality          | `A != B`            | `!!(A ^ B)`
+| lesser than         | `A < B`             | `A + -B < 0`
+| greater than        | `A > B`             | `B + -A < 0`
+| lesser or equal     | `A <= B`            | `!(B + -A < 0)`
+| greater or equal    | `A >= B`            | `!(A + -B <  0)`
+
+Note that `X < 0` is the sign test primitive, so for example `A + -B < 0` is the expression tree `sign_test(add(A, complement(B)))`.
+
+### Shifting
+
+A shift by a fixed amount is equivalent to a shift by a variable amount where that variable amount is a literal. However, a shift by a fixed amount is a very common operation and offers so much more options for analysis that it's worth having a dedicated node type for it.
+
+### Truncation
+
+Truncation is an operation that preserves only the last *N* bits of a value, the rest is replaced by zeroes. There is no dedicated node type for truncation: a bit mask is computed with the value 2<sup>*N*</sup> - 1, meaning *N* consecutive ones in binary, and the truncation is handled by a bitwise *and* of the value and this mask.
+
+### Concatenation
+
+A concatenation is performed by a bitwise *or* with a shifted value. For example, `A;B` is parsed to `(A << wB) | B`, where `wB` is the width of `B` in bits. Note that the type system of the definition language requires the width of `B` to be fixed and known, so we can always use the "shift by fixed amount" primitive.
+
+### Slicing
+
+Slices are decomposed into shifts and truncations. For example `A[4:12]` is parsed to `(A >> 4) & $FF`, where `$FF` is an all-ones bit mask that's 12 - 4 = 8 bits wide.
 
 Storage
 -------

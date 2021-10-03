@@ -343,7 +343,7 @@ A prefix definition uses the following syntax:
     prefix <decode flags>
     <encoding> . <mnemonic> . <semantics>
 
-The decode flags are defined using a comma-separated list of declarations consisting of a type followed by a name, similar to function arguments. As the term 'flags' suggests, these will typically be booleans, so of the type `u1`. A decode flag is not allowed to have the same name as a register, I/O channel or function.
+The decode flags are defined using a comma-separated list of declarations consisting of a type followed by a name, similar to function arguments. As the term 'flags' suggests, these will typically be Booleans, so of the type `u1`. A decode flag is not allowed to have the same name as a register, I/O channel or function.
 
 The body of the prefix definition is a series of dot-separated lines, one per prefix. These are similar to the way mode definitions work, as will be explained in the next section.
 
