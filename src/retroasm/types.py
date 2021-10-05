@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, Iterator, NoReturn, Union, cast
+from typing import Iterable, Iterator, NoReturn, Union, cast
 
 from .utils import Singleton, Unique
 
@@ -244,8 +244,7 @@ class IntType(metaclass=Unique):
             else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
         )
 
-    if TYPE_CHECKING:
-        int = IntType(unlimited, True)
+    int: IntType
 
 
 IntType.int = IntType(unlimited, True)

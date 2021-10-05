@@ -29,9 +29,9 @@ pytest-pythonpath = "^0.7.3"
 pylint = "^2.3"
 mypy = ">=0.902"
 lxml = "^4.3.5"
-pyflakes = "^2.1.1"
 pre-commit = "^2.15.0"
 black = "^21.9b0"
+flake8 = "^3.9.2"
 
 [tool.poetry.scripts]
 retro = 'retroasm.cmdline:main'

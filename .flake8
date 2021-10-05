@@ -1,0 +1,6 @@
+[flake8]
+max-line-length = 88
+extend-ignore =
+  E203,  # whitespace before ':' (conflicts with Black)
+  E741,  # ambiguous variable name (install a good font so we can use 'l')
+  F841,  # local variable is assigned to but never used (expected at this stage)

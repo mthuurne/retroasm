@@ -1,6 +1,4 @@
 from os import makedirs, walk
-from os.path import isdir
-from shutil import rmtree
 
 from markdown import markdownFromFile
 from markdown.extensions import Extension

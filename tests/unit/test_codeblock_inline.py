@@ -63,7 +63,10 @@ def test_inline_arg_ret():
     incCode = inc.createCodeBlock(incRet)
 
     outer = TestNamespace()
-    argsV = lambda value: args(V=FixedValue(value, 8))
+
+    def argsV(value):
+        return args(V=FixedValue(value, 8))
+
     step0 = IntLiteral(100)
     (ret1,) = outer.inlineBlock(incCode, argsV(step0))
     step1 = outer.emitLoad(ret1)
