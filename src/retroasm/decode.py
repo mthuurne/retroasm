@@ -8,6 +8,7 @@ from typing import (
     DefaultDict,
     Iterable,
     Mapping,
+    Optional,
     Sequence,
     Union,
     cast,
@@ -700,15 +701,22 @@ class Prefix:
     semantics: CodeBlock
 
 
+_NodeT = dict[Optional[int], Any]
+"""
+Type of a node in a prefix decoder tree.
+
+The value is another node, but mypy doesn't support recursive type definitions yet.
+This type alias is computed at runtime as well, so we can't use the '|' syntax.
+"""
+
+
 class PrefixDecoder:
     def __init__(self, prefixes: Iterable[Prefix]):
-        tree: dict[int | None, Any] = {}
+        tree: _NodeT = {}
 
-        def addPrefix(
-            node: dict[int | None, Any], values: Sequence[int], prefix: Prefix
-        ) -> None:
+        def addPrefix(node: _NodeT, values: Sequence[int], prefix: Prefix) -> None:
             if values:
-                child = node.setdefault(values[0], {})
+                child: _NodeT = node.setdefault(values[0], {})
                 addPrefix(child, values[1:], prefix)
             else:
                 node[None] = prefix
@@ -736,7 +744,7 @@ class PrefixDecoder:
         Returns the decoded prefix, or None if no prefix was found.
         """
         idx = 0
-        node: dict[int | None, Any] | None = self._tree
+        node: _NodeT | None = self._tree
         assert node is not None
         while True:
             prefix: Prefix | None = node.get(None)
