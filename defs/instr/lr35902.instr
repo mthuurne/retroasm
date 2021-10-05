@@ -268,7 +268,7 @@ func halt()
 
 func stop()
     nop
-    
+
 instr
 $00                 . nop
 $10, $00            . stop              . stop()
