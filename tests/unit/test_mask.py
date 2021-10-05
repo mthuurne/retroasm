@@ -2,7 +2,7 @@ from retroasm.types import (
     maskForWidth, maskToSegments, segmentsToMask, widthForMask, unlimited
 )
 
-from utils_segment import parse_segment
+from .utils_segment import parse_segment
 
 
 def test_maskForWidth():

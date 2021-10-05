@@ -1,4 +1,4 @@
-from utils_codeblock import TestNamespace
+from .utils_codeblock import TestNamespace
 
 from retroasm.codeblock import Load, LoadedValue, Store
 from retroasm.expression import (

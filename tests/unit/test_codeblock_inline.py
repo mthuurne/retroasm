@@ -1,4 +1,4 @@
-from utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
+from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
 
 from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral, XorOperator

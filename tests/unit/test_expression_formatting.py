@@ -1,4 +1,4 @@
-from utils_expression import TestValue
+from .utils_expression import TestValue
 
 from retroasm.expression import RShift, truncate
 from retroasm.expression_simplifier import simplifyExpression

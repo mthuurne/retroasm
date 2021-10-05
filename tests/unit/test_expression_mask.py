@@ -1,4 +1,4 @@
-from utils_expression import TestValue
+from .utils_expression import TestValue
 
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,

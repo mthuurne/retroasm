@@ -1,5 +1,5 @@
-from utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
-from utils_expression import assertIntLiteral, assertOr, assertTrunc, makeConcat
+from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
+from .utils_expression import assertIntLiteral, assertOr, assertTrunc, makeConcat
 
 from retroasm.codeblock import Load, Store
 from retroasm.expression import (

@@ -10,7 +10,7 @@ from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel
 from retroasm.types import IntType, unlimited
 
-from utils_segment import parse_segment
+from .utils_segment import parse_segment
 
 
 def assertNodes(actualNodes, correctNodes):

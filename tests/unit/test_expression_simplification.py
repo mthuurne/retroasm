@@ -1,4 +1,4 @@
-from utils_expression import (
+from .utils_expression import (
     TestValue, assertAnd, assertConcat, assertIntLiteral, assertOr,
     assertSlice, makeConcat, makeSlice
     )

@@ -1,4 +1,4 @@
-from utils_expression import TestValue, makeConcat
+from .utils_expression import TestValue, makeConcat
 
 from retroasm.expression import IntLiteral, truncate
 from retroasm.types import IntType
