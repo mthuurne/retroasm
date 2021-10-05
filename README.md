@@ -72,3 +72,7 @@ The task you will probably want to run first is `docs`, which generates the docu
     $ inv docs
 
 Now you can read the documentation in `output/docs/`.
+
+RetroAsm uses [`pre-commit` ](https://pre-commit.com/) to automatically check and reformat source code before it is committed. Running the following command once in your Git work area sets up the pre-commit hooks:
+
+    $ pre-commit install
