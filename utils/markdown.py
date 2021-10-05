@@ -7,6 +7,7 @@ from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 from markdown.util import etree
 
+
 class DocumentProcessor(Treeprocessor):
     def run(self, root):
         titleText = root.find('./h1').text

@@ -8,6 +8,7 @@ TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / 'src'
 OUT_DIR = TOP_DIR / 'output'
 TEST_DIR = TOP_DIR / 'tests' / 'unit'
+UTILS_DIR = TOP_DIR / 'utils'
 
 @task
 def docs(c):
@@ -53,4 +54,4 @@ def lint(c, src=None):
 def isort(c):
     """Sort imports."""
     print('Sorting imports...')
-    c.run(f'isort {SRC_DIR} {TEST_DIR}', pty=True)
+    c.run(f'isort {SRC_DIR} {TEST_DIR} {UTILS_DIR} {__file__}', pty=True)
