@@ -204,8 +204,10 @@ def disassembleBinary(
     # Load instruction set definitions.
     instrSets: dict[str, InstructionSet | None] = {}
     for section in sectionMap:
-        instrSetName = getattr(section, 'instrSetName', None)
-        if instrSetName is not None and instrSetName not in instrSets:
+        if isinstance(section, CodeSection):
+            instrSetName = section.instrSetName
+            if instrSetName in instrSets:
+                continue
             logger.info('Loading instruction set: %s', instrSetName)
             instrPath = Path(f'defs/instr/{instrSetName}.instr')
             try:
