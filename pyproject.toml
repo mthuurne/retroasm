@@ -17,7 +17,7 @@ click = "^8.0"
 
 [tool.poetry.dev-dependencies]
 Markdown = "^3.1"
-isort = {version = "^4.3",extras = ["pyproject"]}
+isort = "^5.9.3"
 invoke = "^1.2"
 pytest = "^4.5"
 pytest-pythonpath = "^0.7.3"

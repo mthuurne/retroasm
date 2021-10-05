@@ -52,5 +52,4 @@ def lint(c, src=None):
 def isort(c):
     """Sort imports."""
     print('Sorting imports...')
-    with c.cd(str(SRC_DIR)):
-        c.run('isort --apply', pty=True)
+    c.run(f'isort {SRC_DIR}', pty=True)
