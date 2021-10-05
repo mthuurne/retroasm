@@ -4,16 +4,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
-from typing import (
-    Any,
-    ClassVar,
-    Collection,
-    Iterable,
-    Iterator,
-    Protocol,
-    Sequence,
-    overload,
-)
+from typing import Any, ClassVar, Collection, Iterable, Iterator, Protocol, overload
 
 from .section import ByteOrder, CodeSection, Section
 
@@ -90,8 +81,8 @@ class BinaryFormat:
     description: ClassVar[str]
     """User-friendly name for this format."""
 
-    extensions: ClassVar[Sequence[str]]
-    """Sequence of file name extensions, lower case, excluding the dot."""
+    extensions: ClassVar[tuple[str, ...]]
+    """File name extensions: lower case, excluding the dot."""
 
     @property
     def image(self) -> Image:
@@ -479,7 +470,7 @@ def detectBinaryFormat(
     return _detectBinaryFormats(image, names, False)
 
 
-def _unpackStruct(image: Image, offset: int, struct: Struct) -> Sequence[Any] | None:
+def _unpackStruct(image: Image, offset: int, struct: Struct) -> tuple[Any, ...] | None:
     """Unpacks the given struct from the given offset of the given image.
     Returns the unpacked data, or None if the image did not contain enough
     data at the given offset.
