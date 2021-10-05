@@ -1,8 +1,13 @@
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
 [tool.isort]
+profile = "black"
+line_length = 88
 case_sensitive = true
 combine_as_imports = true
 from_first = true
-multi_line_output = 6
 
 [tool.poetry]
 name = "retroasm"
@@ -26,6 +31,7 @@ mypy = ">=0.902"
 lxml = "^4.3.5"
 pyflakes = "^2.1.1"
 pre-commit = "^2.15.0"
+black = "^21.9b0"
 
 [tool.poetry.scripts]
 retro = 'retroasm.cmdline:main'

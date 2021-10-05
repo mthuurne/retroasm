@@ -1,5 +1,11 @@
 from retroasm.expression import (
-    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
+    AndOperator,
+    Expression,
+    IntLiteral,
+    LShift,
+    OrOperator,
+    RShift,
+    truncate,
 )
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
@@ -8,20 +14,22 @@ from retroasm.types import IntType, unlimited
 def makeConcat(exprH, exprL, widthL):
     return OrOperator(exprL, LShift(exprH, widthL))
 
+
 def makeSlice(expr, index, width):
     return truncate(RShift(expr, index), width)
 
+
 class TestValue(Expression):
-    __slots__ = ('_name', '_type')
+    __slots__ = ("_name", "_type")
 
     name = property(lambda self: self._name)
     mask = property(lambda self: self._type.mask)
 
     def __init__(self, name, typ):
         if not isinstance(name, str):
-            raise TypeError('name must be string, got %s' % type(name).__name__)
+            raise TypeError("name must be string, got %s" % type(name).__name__)
         if not isinstance(typ, IntType):
-            raise TypeError('typ must be IntType, got %s' % type(type).__name__)
+            raise TypeError("typ must be IntType, got %s" % type(type).__name__)
         Expression.__init__(self)
         self._name = name
         self._type = typ
@@ -39,12 +47,14 @@ class TestValue(Expression):
     def complexity(self):
         return 3
 
+
 def assertIntLiteral(expr, value):
     """Asserts that the given expression is an unlimited-width int literal
     with the given value.
     """
     assert isinstance(expr, IntLiteral)
     assert expr.value == value
+
 
 def assertAnd(expr, *args):
     assert isinstance(expr, AndOperator)
@@ -59,11 +69,13 @@ def assertAnd(expr, *args):
             missing.append(arg)
     if missing:
         raise AssertionError(
-            'mismatch on AND arguments: expected %s, got %s' % (
-                ', '.join("'%s'" % e for e in missing),
-                ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                )
+            "mismatch on AND arguments: expected %s, got %s"
+            % (
+                ", ".join("'%s'" % e for e in missing),
+                ", ".join("'%s'" % e for f, e in zip(found, exprs) if not f),
             )
+        )
+
 
 def assertOr(expr, *args):
     assert isinstance(expr, OrOperator)
@@ -78,11 +90,13 @@ def assertOr(expr, *args):
             missing.append(arg)
     if missing:
         raise AssertionError(
-            'mismatch on OR arguments: expected %s, got %s' % (
-                ', '.join("'%s'" % e for e in missing),
-                ', '.join("'%s'" % e for f, e in zip(found, exprs) if not f)
-                )
+            "mismatch on OR arguments: expected %s, got %s"
+            % (
+                ", ".join("'%s'" % e for e in missing),
+                ", ".join("'%s'" % e for f, e in zip(found, exprs) if not f),
             )
+        )
+
 
 def assertConcat(expr, subExprs):
     compExprs = []
@@ -96,6 +110,7 @@ def assertConcat(expr, subExprs):
         else:
             offset += width
     assertOr(expr, *compExprs)
+
 
 def assertSlice(expr, subExpr, subWidth, index, width):
     needsShift = index != 0
@@ -114,6 +129,7 @@ def assertSlice(expr, subExpr, subWidth, index, width):
         assert shiftExpr.expr == subExpr
     else:
         assert shiftExpr == subExpr
+
 
 def assertTrunc(expr, subExpr, subWidth, width):
     assertSlice(expr, subExpr, subWidth, 0, width)

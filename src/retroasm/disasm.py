@@ -11,7 +11,6 @@ from .types import IntType, unlimited
 
 
 class Disassembler:
-
     def __init__(self, instrSet: InstructionSet):
         self._instrSet = instrSet
         self._decoded: dict[int, Union[Reference, ModeMatch]] = {}
@@ -24,7 +23,7 @@ class Disassembler:
         to be executed at the given address.
         """
         instrSet = self._instrSet
-        pc = cast(Reference, instrSet.globalNamespace['pc'])
+        pc = cast(Reference, instrSet.globalNamespace["pc"])
         decodePrefix = instrSet.prefixDecodeFunc
         prefixMapping = instrSet.prefixMapping
         prefixInitCode = prefixMapping.initCode
@@ -57,9 +56,8 @@ class Disassembler:
             else:
                 prefixCode = prefixBuilder.createCodeBlock(())
                 flags = frozenset(
-                    flagForVar[storage]
-                    for storage in flagsSetByCode(prefixCode)
-                    )
+                    flagForVar[storage] for storage in flagsSetByCode(prefixCode)
+                )
 
             # Decode instruction.
             decoder = instrSet.getDecoder(flags)
@@ -87,10 +85,10 @@ class Disassembler:
         addrDigits = (instrSet.addrWidth + 3) // 4
 
         labels = {}
-        dataLabelFormat = f'data_{{:0{addrDigits:d}x}}'
+        dataLabelFormat = f"data_{{:0{addrDigits:d}x}}"
         for addr in dataAddrs:
             labels[addr] = dataLabelFormat.format(addr)
-        codeLabelFormat = f'code_{{:0{addrDigits:d}x}}'
+        codeLabelFormat = f"code_{{:0{addrDigits:d}x}}"
         for addr in codeAddrs:
             labels[addr] = codeLabelFormat.format(addr)
 

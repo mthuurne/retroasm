@@ -12,6 +12,7 @@ def assertExprEqual(expr1, expr2):
     assert (expr1 != expr2) is False
     assert (expr2 != expr1) is False
 
+
 def assertExprNotEqual(expr1, expr2):
     assert expr1 != expr2
     assert expr2 != expr1
@@ -19,6 +20,7 @@ def assertExprNotEqual(expr1, expr2):
     assert (expr2 == expr1) is False
     assert (expr1 != expr2) is True
     assert (expr2 != expr1) is True
+
 
 def test_int():
     """Checks integer literals for equality."""
@@ -29,13 +31,15 @@ def test_int():
     assertExprNotEqual(arg1a, arg2)
     assertExprEqual(arg2, arg2)
 
+
 def test_type_mismatch():
     """Checks equality checks between mismatching types."""
     zero = IntLiteral(0)
-    addr = TestValue('A', IntType.u(16))
+    addr = TestValue("A", IntType.u(16))
     assertExprNotEqual(zero, 0)
-    assertExprNotEqual(addr, 'A')
+    assertExprNotEqual(addr, "A")
     assertExprNotEqual(zero, addr)
+
 
 def test_concat_internal():
     """Checks equality between different concatenations of equal width."""
@@ -48,6 +52,7 @@ def test_concat_internal():
     # Test that position of integer within concatenation is considered.
     assertExprNotEqual(cat_u4_u8, cat_u8_u4)
 
+
 def test_truncate_subexpr():
     """Checks equality between truncations with differing subexpressions."""
     trunc1 = truncate(IntLiteral(0x1234), 8)
@@ -56,12 +61,13 @@ def test_truncate_subexpr():
     assertExprEqual(trunc2, trunc2)
     assertExprNotEqual(trunc1, trunc2)
 
+
 def test_truncate_width():
     """Checks equality between truncations with differing widths."""
     addr = IntLiteral(0x456)
     trunc1 = truncate(addr, 8)  # $56
-    trunc2 = truncate(addr, 12) # $456
-    trunc3 = truncate(addr, 16) # $0456
+    trunc2 = truncate(addr, 12)  # $456
+    trunc3 = truncate(addr, 16)  # $0456
     assertExprEqual(trunc1, trunc1)
     assertExprEqual(trunc2, trunc2)
     assertExprEqual(trunc3, trunc3)

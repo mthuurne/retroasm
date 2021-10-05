@@ -5,15 +5,20 @@ from itertools import chain
 from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
 
 from .types import (
-    Width, maskForWidth, maskToSegments, trailingZeroes, unlimited,
-    widthForMask
+    Width,
+    maskForWidth,
+    maskToSegments,
+    trailingZeroes,
+    unlimited,
+    widthForMask,
 )
 from .utils import const_property
 
 # pylint: disable=protected-access
 
-ExprT = TypeVar('ExprT', bound='Expression')
-SingleExprT = TypeVar('SingleExprT', bound='SingleExpression')
+ExprT = TypeVar("ExprT", bound="Expression")
+SingleExprT = TypeVar("SingleExprT", bound="SingleExpression")
+
 
 class Expression:
     """Abstract base class for integer expressions.
@@ -40,10 +45,10 @@ class Expression:
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return '%s(%s)' % (
+        return "%s(%s)" % (
             self.__class__.__name__,
-            ', '.join(repr(arg) for arg in self._ctorargs())
-            )
+            ", ".join(repr(arg) for arg in self._ctorargs()),
+        )
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Expression):
@@ -91,9 +96,7 @@ class Expression:
             if isinstance(value, Expression):
                 yield from value.iterInstances(cls)
 
-    def substitute(self,
-                   func: Callable[[Expression], Expression | None]
-                   ) -> Expression:
+    def substitute(self, func: Callable[[Expression], Expression | None]) -> Expression:
         """Applies the given substitution function to this expression and
         returns the resulting expression.
         The function is called for each node in the expression with that
@@ -119,11 +122,13 @@ class Expression:
         else:
             return self
 
+
 class BadValue(Expression):
     """A dummy expression that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
     """
-    __slots__ = ('_width',)
+
+    __slots__ = ("_width",)
 
     @property
     def mask(self) -> int:
@@ -134,10 +139,10 @@ class BadValue(Expression):
         Expression.__init__(self)
 
     def _ctorargs(self) -> tuple[Width]:
-        return self._width,
+        return (self._width,)
 
     def __str__(self) -> str:
-        return f'({self._width}-bit bad value)'
+        return f"({self._width}-bit bad value)"
 
     def _equals(self, other: BadValue) -> bool:
         return self is other
@@ -146,10 +151,11 @@ class BadValue(Expression):
     def complexity(self) -> int:
         return 1
 
+
 class IntLiteral(Expression):
-    """An integer literal.
-    """
-    __slots__ = ('_value',)
+    """An integer literal."""
+
+    __slots__ = ("_value",)
 
     @property
     def value(self) -> int:
@@ -164,14 +170,14 @@ class IntLiteral(Expression):
         Expression.__init__(self)
 
     def _ctorargs(self) -> tuple[int]:
-        return self._value,
+        return (self._value,)
 
     def __str__(self) -> str:
         value = self._value
-        if value < 10: # small, zero or negative -> print as decimal
+        if value < 10:  # small, zero or negative -> print as decimal
             return str(self._value)
-        else: # print as hexadecimal
-            return f'${value:X}'
+        else:  # print as hexadecimal
+            return f"${value:X}"
 
     def _equals(self, other: IntLiteral) -> bool:
         return self._value == other._value
@@ -180,12 +186,14 @@ class IntLiteral(Expression):
     def complexity(self) -> int:
         return 1
 
+
 class MultiExpression(Expression):
     """Base class for expressions that combine zero or more subexpressions.
     All subclasses of this class must represent operations that are both
     associative and commutative; other algebraic properties differ per subclass.
     """
-    __slots__ = ('_exprs', '_mask')
+
+    __slots__ = ("_exprs", "_mask")
     operator: str
     idempotent: bool
     identity: int
@@ -200,7 +208,7 @@ class MultiExpression(Expression):
 
     def __init__(self, *exprs: Expression):
         if not exprs:
-            raise TypeError('one or more subexpressions must be provided')
+            raise TypeError("one or more subexpressions must be provided")
         Expression.__init__(self)
         self._exprs = exprs
 
@@ -213,35 +221,32 @@ class MultiExpression(Expression):
 
     @classmethod
     def computeMask(cls, exprs: Iterable[Expression]) -> int:
-        """Returns the bit mask for the composition of the given expressions.
-        """
+        """Returns the bit mask for the composition of the given expressions."""
         raise NotImplementedError
 
     @property
     def complexity(self) -> int:
-        return self.nodeComplexity + sum(
-            expr.complexity for expr in self._exprs
-            )
+        return self.nodeComplexity + sum(expr.complexity for expr in self._exprs)
 
     @classmethod
     def combineLiterals(cls, *values: int) -> int:
-        """Combine the given literal values into a single value.
-        """
+        """Combine the given literal values into a single value."""
         raise NotImplementedError
 
     def __str__(self) -> str:
-        sep = f' {self.operator} '
-        return '(%s)' % sep.join(str(expr) for expr in self._exprs)
+        sep = f" {self.operator} "
+        return "(%s)" % sep.join(str(expr) for expr in self._exprs)
 
     def _equals(self, other: MultiExpression) -> bool:
         return len(self._exprs) == len(other._exprs) and all(
             myExpr == otherExpr
             for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
-            )
+        )
+
 
 class AndOperator(MultiExpression):
-    __slots__ = ('_tryDistributeAndOverOr',)
-    operator = '&'
+    __slots__ = ("_tryDistributeAndOverOr",)
+    operator = "&"
     idempotent = True
     identity = -1
     absorber = 0
@@ -266,19 +271,19 @@ class AndOperator(MultiExpression):
                     if isinstance(first, RShift):
                         offset = first.offset
                         if width == 1:
-                            return f'{first.expr}[{offset:d}]'
+                            return f"{first.expr}[{offset:d}]"
                         else:
-                            return f'{first.expr}[{offset:d}:' \
-                                                f'{offset + width:d}]'
+                            return f"{first.expr}[{offset:d}:" f"{offset + width:d}]"
                     else:
                         if width == 1:
-                            return f'{first}[0]'
+                            return f"{first}[0]"
                         else:
-                            return f'{first}[:{width:d}]'
+                            return f"{first}[:{width:d}]"
                 else:
-                    return '(%s)[:%d]' % (
-                        ' & '.join(str(expr) for expr in exprs[:-1]), width
-                        )
+                    return "(%s)[:%d]" % (
+                        " & ".join(str(expr) for expr in exprs[:-1]),
+                        width,
+                    )
         return super().__str__()
 
     @classmethod
@@ -289,9 +294,10 @@ class AndOperator(MultiExpression):
     def combineLiterals(cls, *values: int) -> int:
         return reduce(int.__and__, values, -1)
 
+
 class OrOperator(MultiExpression):
-    __slots__ = ('_tryDistributeOrOverAnd', )
-    operator = '|'
+    __slots__ = ("_tryDistributeOrOverAnd",)
+    operator = "|"
     idempotent = True
     identity = 0
     absorber = -1
@@ -310,9 +316,10 @@ class OrOperator(MultiExpression):
     def combineLiterals(cls, *values: int) -> int:
         return reduce(int.__or__, values, 0)
 
+
 class XorOperator(MultiExpression):
     __slots__ = ()
-    operator = '^'
+    operator = "^"
     idempotent = False
     identity = 0
     absorber = None
@@ -327,9 +334,10 @@ class XorOperator(MultiExpression):
     def combineLiterals(cls, *values: int) -> int:
         return reduce(int.__xor__, values, 0)
 
+
 class AddOperator(MultiExpression):
     __slots__ = ()
-    operator = '+'
+    operator = "+"
     idempotent = False
     identity = 0
     absorber = None
@@ -339,8 +347,9 @@ class AddOperator(MultiExpression):
         result = 0
         cmbValue: Width = 0
         cmbMask = 0
-        for segment in sorted(chain.from_iterable(
-                maskToSegments(expr.mask) for expr in exprs)):
+        for segment in sorted(
+            chain.from_iterable(maskToSegments(expr.mask) for expr in exprs)
+        ):
             # Compute bit mask for this segment.
             segMask = segment.mask
             # If masks don't overlap, restart adding.
@@ -368,15 +377,16 @@ class AddOperator(MultiExpression):
         fragments = [str(exprs[0])]
         for expr in exprs[1:]:
             if isinstance(expr, Complement):
-                fragments += ('-', str(expr.expr))
+                fragments += ("-", str(expr.expr))
             else:
-                fragments += ('+', str(expr))
-        return '(%s)' % ' '.join(fragments)
+                fragments += ("+", str(expr))
+        return "(%s)" % " ".join(fragments)
+
 
 class SingleExpression(Expression):
-    """Base class for expressions that have a single subexpression.
-    """
-    __slots__ = ('_expr',)
+    """Base class for expressions that have a single subexpression."""
+
+    __slots__ = ("_expr",)
 
     @property
     def expr(self) -> Expression:
@@ -387,7 +397,7 @@ class SingleExpression(Expression):
         self._expr = expr
 
     def _ctorargs(self) -> tuple[object, ...]:
-        return self._expr,
+        return (self._expr,)
 
     def _equals(self: SingleExprT, other: SingleExprT) -> bool:
         return self._expr == other._expr
@@ -396,16 +406,18 @@ class SingleExpression(Expression):
     def complexity(self) -> int:
         return 1 + self._expr.complexity
 
+
 class Complement(SingleExpression):
-    __slots__ = ('_mask',)
+    __slots__ = ("_mask",)
 
     def __str__(self) -> str:
-        return f'-{self._expr}'
+        return f"-{self._expr}"
 
     @const_property
     def mask(self) -> int:
         exprMask = self._expr.mask
         return 0 if exprMask == 0 else -1 << cast(int, trailingZeroes(exprMask))
+
 
 class Negation(SingleExpression):
     __slots__ = ()
@@ -415,11 +427,12 @@ class Negation(SingleExpression):
         return 1
 
     def __str__(self) -> str:
-        return f'!{self._expr}'
+        return f"!{self._expr}"
+
 
 class SignTest(SingleExpression):
-    """Tests the sign of the given expression.
-    """
+    """Tests the sign of the given expression."""
+
     __slots__ = ()
 
     @property
@@ -427,12 +440,13 @@ class SignTest(SingleExpression):
         return 1
 
     def __str__(self) -> str:
-        return f'sign({self._expr})'
+        return f"sign({self._expr})"
+
 
 class SignExtension(SingleExpression):
-    """Extends the sign bit at the front of a given expression.
-    """
-    __slots__ = ('_width',)
+    """Extends the sign bit at the front of a given expression."""
+
+    __slots__ = ("_width",)
 
     @property
     def width(self) -> int:
@@ -450,10 +464,11 @@ class SignExtension(SingleExpression):
         return self._expr, self._width
 
     def __str__(self) -> str:
-        return f's{self._width:d}({self._expr})'
+        return f"s{self._width:d}({self._expr})"
 
     def _equals(self, other: SignExtension) -> bool:
         return self._width == other._width and super()._equals(other)
+
 
 _SHIFT_LIMIT_BITS = 256
 """When shifting left, do not create masks longer than this number of bits.
@@ -466,10 +481,11 @@ will most likely be truncated at a later stage, getting an exact mask is not
 important.
 """
 
+
 class LShift(SingleExpression):
-    """Shifts a bit string to the left, appending zero bits at the end.
-    """
-    __slots__ = ('_offset', '_mask')
+    """Shifts a bit string to the left, appending zero bits at the end."""
+
+    __slots__ = ("_offset", "_mask")
 
     @property
     def offset(self) -> int:
@@ -479,13 +495,13 @@ class LShift(SingleExpression):
         SingleExpression.__init__(self, expr)
         self._offset = offset
         if offset < 0:
-            raise ValueError('negative shift count')
+            raise ValueError("negative shift count")
 
     def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return f'({self._expr} << {self._offset:d})'
+        return f"({self._expr} << {self._offset:d})"
 
     def _equals(self, other: LShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
@@ -501,10 +517,11 @@ class LShift(SingleExpression):
         else:
             return -1 << _SHIFT_LIMIT_BITS
 
+
 class RShift(SingleExpression):
-    """Drops the lower N bits from a bit string.
-    """
-    __slots__ = ('_offset', '_mask')
+    """Drops the lower N bits from a bit string."""
+
+    __slots__ = ("_offset", "_mask")
 
     @property
     def offset(self) -> int:
@@ -514,16 +531,16 @@ class RShift(SingleExpression):
         SingleExpression.__init__(self, expr)
         self._offset = offset
         if offset < 0:
-            raise ValueError('negative shift count')
+            raise ValueError("negative shift count")
 
     def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
         if self.mask == 1:
-            return f'{self._expr}[{self._offset:d}]'
+            return f"{self._expr}[{self._offset:d}]"
         else:
-            return f'{self._expr}[{self._offset:d}:]'
+            return f"{self._expr}[{self._offset:d}:]"
 
     def _equals(self, other: RShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
@@ -536,11 +553,13 @@ class RShift(SingleExpression):
     def mask(self) -> int:
         return self._expr.mask >> self._offset
 
+
 class LVShift(Expression):
     """Shifts a bit string to the left, appending zero bits at the end.
     Unlike LShift, our offset is an expression.
     """
-    __slots__ = ('_expr', '_offset', '_mask')
+
+    __slots__ = ("_expr", "_offset", "_mask")
 
     @property
     def expr(self) -> Expression:
@@ -565,9 +584,7 @@ class LVShift(Expression):
         if exprMask == 0:
             return 0
         offsetMask = self._offset.mask
-        width = cast(int, widthForMask(
-            offsetMask if offsetMask >= 0 else ~offsetMask
-            ))
+        width = cast(int, widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask))
         mask = exprMask
         for i in range(width):
             if 1 << i >= _SHIFT_LIMIT_BITS:
@@ -575,24 +592,28 @@ class LVShift(Expression):
                 break
             if (offsetMask >> i) & 1:
                 mask |= mask << (1 << i)
-        return mask if offsetMask >= 0 else mask | (
-            -1 << ((1 << width) + cast(int, trailingZeroes(exprMask)))
-            )
+        return (
+            mask
+            if offsetMask >= 0
+            else mask | (-1 << ((1 << width) + cast(int, trailingZeroes(exprMask))))
+        )
 
     def _ctorargs(self) -> tuple[Expression, Expression]:
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return f'({self._expr} << {self._offset})'
+        return f"({self._expr} << {self._offset})"
 
     def _equals(self, other: LVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
+
 
 class RVShift(Expression):
     """Drops the lower N bits from a bit string.
     Unlike RShift, our offset (N) is an expression.
     """
-    __slots__ = ('_expr', '_offset', '_mask')
+
+    __slots__ = ("_expr", "_offset", "_mask")
 
     @property
     def expr(self) -> Expression:
@@ -637,13 +658,15 @@ class RVShift(Expression):
         return self._expr, self._offset
 
     def __str__(self) -> str:
-        return f'({self._expr} >> {self._offset})'
+        return f"({self._expr} >> {self._offset})"
 
     def _equals(self, other: RVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
 
+
 def truncate(expr: Expression, width: Width) -> Expression:
     return AndOperator(expr, IntLiteral(maskForWidth(width)))
+
 
 def optSlice(expr: Expression, index: int, width: Width) -> Expression:
     """Return a slice of the given expression, at the given index with the given

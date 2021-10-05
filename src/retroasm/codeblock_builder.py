@@ -12,37 +12,33 @@ from .storage import ArgStorage, Storage, Variable
 
 
 class CodeBlockBuilder:
-
     def dump(self) -> None:
-        """Prints the current state of this code block builder on stdout.
-        """
+        """Prints the current state of this code block builder on stdout."""
         pass
 
-    def emitLoadBits(self,
-                     storage: Storage,
-                     location: InputLocation | None
-                     ) -> Expression:
+    def emitLoadBits(
+        self, storage: Storage, location: InputLocation | None
+    ) -> Expression:
         """Loads the value from the given storage by emitting a Load node on
         this builder.
         Returns an expression that represents the loaded value.
         """
         raise NotImplementedError
 
-    def emitStoreBits(self,
-                      storage: Storage,
-                      value: Expression,
-                      location: InputLocation | None
-                      ) -> None:
+    def emitStoreBits(
+        self, storage: Storage, value: Expression, location: InputLocation | None
+    ) -> None:
         """Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
         raise NotImplementedError
 
-    def inlineFunctionCall(self,
-                           func: Function,
-                           argMap: Mapping[str, BitString | None],
-                           location: InputLocation
-                           ) -> BitString | None:
+    def inlineFunctionCall(
+        self,
+        func: Function,
+        argMap: Mapping[str, BitString | None],
+        location: InputLocation,
+    ) -> BitString | None:
         """Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
@@ -50,6 +46,7 @@ class CodeBlockBuilder:
         function, or None if the function does not return anything.
         """
         raise NotImplementedError
+
 
 class IllegalStateAccess(BadInput):
     """Raised when an operation is attempted that reads or writes state
@@ -64,44 +61,34 @@ class IllegalStateAccess(BadInput):
             locations = (location,)
         super().__init__(msg, *locations)
 
+
 class StatelessCodeBlockBuilder(CodeBlockBuilder):
     """A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
     touch any state, such as performing register access or I/O.
     """
 
-    def emitLoadBits(self,
-                     storage: Storage,
-                     location: InputLocation | None
-                     ) -> Expression:
-        raise IllegalStateAccess(
-            f'attempt to read state: {storage}',
-            location
-            )
+    def emitLoadBits(
+        self, storage: Storage, location: InputLocation | None
+    ) -> Expression:
+        raise IllegalStateAccess(f"attempt to read state: {storage}", location)
 
-    def emitStoreBits(self,
-                      storage: Storage,
-                      value: Expression,
-                      location: InputLocation | None
-                      ) -> None:
-        raise IllegalStateAccess(
-            f'attempt to write state: {storage}',
-            location
-            )
+    def emitStoreBits(
+        self, storage: Storage, value: Expression, location: InputLocation | None
+    ) -> None:
+        raise IllegalStateAccess(f"attempt to write state: {storage}", location)
 
-    def inlineFunctionCall(self,
-                           func: Function,
-                           argMap: Mapping[str, BitString | None],
-                           location: InputLocation
-                           ) -> BitString | None:
+    def inlineFunctionCall(
+        self,
+        func: Function,
+        argMap: Mapping[str, BitString | None],
+        location: InputLocation,
+    ) -> BitString | None:
         # TODO: This is probably overly strict: calling a function that does
         #       not touch state should be fine.
-        raise IllegalStateAccess(
-            'attempt to call function',
-            location
-            )
+        raise IllegalStateAccess("attempt to call function", location)
+
 
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
-
     def __init__(self) -> None:
         self.nodes: list[AccessNode] = []
 
@@ -110,11 +97,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             node.dump()
         super().dump()
 
-    def createCodeBlock(self,
-                        returned: Iterable[BitString],
-                        log: LineReader | None = None,
-                        location: InputLocation | None = None
-                        ) -> CodeBlock:
+    def createCodeBlock(
+        self,
+        returned: Iterable[BitString],
+        log: LineReader | None = None,
+        location: InputLocation | None = None,
+    ) -> CodeBlock:
         """Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
@@ -140,20 +128,20 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             if log is not None:
                 for load in ununitializedLoads:
                     log.error(
-                        'variable is read before it is initialized',
-                        location=load.location or location
-                        )
+                        "variable is read before it is initialized",
+                        location=load.location or location,
+                    )
             raise ValueError(
-                f'code block reads {len(ununitializedLoads):d} '
-                f'uninitialized variable(s)'
-                )
+                f"code block reads {len(ununitializedLoads):d} "
+                f"uninitialized variable(s)"
+            )
 
         # Check for returning of uninitialized variables.
         for retBits in returned:
             for storage in retBits.iterStorages():
                 if isinstance(storage, Variable) and storage.scope == 1:
                     if storage not in initializedVariables:
-                        msg = 'code block returns uninitialized variable(s)'
+                        msg = "code block returns uninitialized variable(s)"
                         if log is not None:
                             log.error(msg, location=location)
                         raise ValueError(msg)
@@ -163,26 +151,24 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def emitLoadBits(self,
-                     storage: Storage,
-                     location: InputLocation | None
-                     ) -> Expression:
+    def emitLoadBits(
+        self, storage: Storage, location: InputLocation | None
+    ) -> Expression:
         load = Load(storage, location)
         self.nodes.append(load)
         return load.expr
 
-    def emitStoreBits(self,
-                      storage: Storage,
-                      value: Expression,
-                      location: InputLocation | None
-                      ) -> None:
+    def emitStoreBits(
+        self, storage: Storage, value: Expression, location: InputLocation | None
+    ) -> None:
         self.nodes.append(Store(value, storage, location))
 
-    def inlineFunctionCall(self,
-                           func: Function,
-                           argMap: Mapping[str, BitString | None],
-                           location: InputLocation
-                           ) -> BitString | None:
+    def inlineFunctionCall(
+        self,
+        func: Function,
+        argMap: Mapping[str, BitString | None],
+        location: InputLocation,
+    ) -> BitString | None:
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
@@ -191,14 +177,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         badArgs = argMap.keys() - func.args.keys()
         if badArgs:
-            raise KeyError(
-                'Non-existing arguments passed: %s' % ', '.join(badArgs)
-                )
+            raise KeyError("Non-existing arguments passed: %s" % ", ".join(badArgs))
         missingArgs = func.args.keys() - argMap.keys()
         if missingArgs:
-            raise KeyError(
-                'Missing values for arguments: %s' % ', '.join(missingArgs)
-                )
+            raise KeyError("Missing values for arguments: %s" % ", ".join(missingArgs))
 
         returned = self.inlineBlock(code, argMap.__getitem__)
         if len(returned) == 1:
@@ -207,11 +189,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             assert len(returned) == 0, returned
             return None
 
-    def inlineBlock(self,
-                    code: CodeBlock,
-                    argFetcher: Callable[[str], BitString | None]
-                        = lambda name: None
-                    ) -> list[BitString]:
+    def inlineBlock(
+        self,
+        code: CodeBlock,
+        argFetcher: Callable[[str], BitString | None] = lambda name: None,
+    ) -> list[BitString]:
         """Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
@@ -221,22 +203,23 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         """
 
         loadResults: dict[Expression, Expression] = {}
+
         def importExpr(expr: Expression) -> Expression:
             return expr.substitute(loadResults.get)
 
-        def importStorageUncached(storage: Storage
-                                  ) -> BitString | SingleStorage:
+        def importStorageUncached(storage: Storage) -> BitString | SingleStorage:
             if isinstance(storage, ArgStorage):
                 bits = argFetcher(storage.name)
                 if bits is not None:
-                    assert storage.width == bits.width, \
-                        (storage.width, bits.width)
+                    assert storage.width == bits.width, (storage.width, bits.width)
                     return bits
                 newStorage: Storage = storage
             else:
                 newStorage = storage.substituteExpressions(importExpr)
             return SingleStorage(newStorage)
+
         storageCache: dict[Storage, BitString] = {}
+
         def importStorage(storage: Storage) -> BitString:
             """Returns a bit string containing the imported version of the given
             storage.
@@ -261,6 +244,5 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Determine return value.
         return [
-            retBits.substitute(importStorage, importExpr)
-            for retBits in code.returned
-            ]
+            retBits.substitute(importStorage, importExpr) for retBits in code.returned
+        ]

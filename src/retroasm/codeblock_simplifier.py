@@ -10,7 +10,6 @@ from .storage import Storage, Variable
 
 
 class CodeBlockSimplifier(CodeBlock):
-
     @property
     def expressions(self) -> AbstractSet[Expression]:
         return self._gatherExpressions()
@@ -23,11 +22,10 @@ class CodeBlockSimplifier(CodeBlock):
         """Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
         """
-        self.__class__ = CodeBlock # type: ignore
+        self.__class__ = CodeBlock  # type: ignore
 
     def simplify(self) -> None:
-        """Attempt to simplify the code block as much as possible.
-        """
+        """Attempt to simplify the code block as much as possible."""
         # Peform initial simplification of all expressions.
         # This allows removeRedundantNodes() to only simplify expressions when
         # it changes them.
@@ -48,6 +46,7 @@ class CodeBlockSimplifier(CodeBlock):
         nodes = self.nodes
 
         loadReplacements: dict[Expression, Expression] = {}
+
         def replaceLoadedValues(expr: Expression) -> Expression:
             newExpr = expr.substitute(loadReplacements.get)
             if newExpr is not expr:
@@ -109,11 +108,13 @@ class CodeBlockSimplifier(CodeBlock):
         # Fixate variables and apply load replacements in returned bit strings.
         returned = self.returned
         for i, retBits in enumerate(returned):
+
             def fixateVariables(storage: Storage) -> FixedValue | None:
                 if isinstance(storage, Variable) and storage.scope == 1:
                     return FixedValue(currentValues[storage], storage.width)
                 else:
                     return None
+
             newBits = retBits.substitute(fixateVariables, replaceLoadedValues)
             if newBits is not retBits:
                 returned[i] = newBits
@@ -130,29 +131,29 @@ class CodeBlockSimplifier(CodeBlock):
         # variable stores are at this point considered redundant, unless the
         # variable is part of the returned bit string.
         willBeOverwritten = set()
-        for i in range(len(nodes) - 1,  -1, -1):
+        for i in range(len(nodes) - 1, -1, -1):
             node = nodes[i]
             storage = node.storage
             if not storage.canStoreHaveSideEffect():
                 if isinstance(node, Load):
                     assert not (
                         isinstance(storage, Variable) and storage.scope == 1
-                        ), storage
+                    ), storage
                     willBeOverwritten.discard(storage)
                 elif isinstance(node, Store):
                     if storage in willBeOverwritten or (
-                            isinstance(storage, Variable) and storage.scope == 1
-                            ):
+                        isinstance(storage, Variable) and storage.scope == 1
+                    ):
                         del nodes[i]
                     willBeOverwritten.add(storage)
 
     def removeUnusedLoads(self) -> None:
-        """Remove side-effect-free loads of which the LoadedValue is unused.
-        """
+        """Remove side-effect-free loads of which the LoadedValue is unused."""
         nodes = self.nodes
 
         # Keep track of how often each LoadedValue is used.
         useCounts = DefaultDict[LoadedValue, int](int)
+
         def updateCounts(expr: Expression, delta: int = 1) -> None:
             for loaded in expr.iterInstances(LoadedValue):
                 useCounts[loaded] += delta
@@ -168,7 +169,7 @@ class CodeBlockSimplifier(CodeBlock):
                 updateCounts(expr)
 
         # Remove unnecesary Loads.
-        for i in range(len(nodes) - 1,  -1, -1):
+        for i in range(len(nodes) - 1, -1, -1):
             node = nodes[i]
             if isinstance(node, Load):
                 if useCounts[node.expr] == 0:

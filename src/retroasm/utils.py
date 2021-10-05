@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import (
-    Iterator, MutableMapping, MutableSequence, MutableSet
-)
+from collections.abc import Iterator, MutableMapping, MutableSequence, MutableSet
 from functools import update_wrapper
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Callable
@@ -18,20 +16,14 @@ class Unique(type):
     __slots__ in your class, make sure you include '__weakref__' in __slots__.
     """
 
-    def __init__(
-            cls,
-            name: str,
-            bases: tuple[type, ...],
-            nmspc: dict[str, object]
-            ):
+    def __init__(cls, name: str, bases: tuple[type, ...], nmspc: dict[str, object]):
         type.__init__(cls, name, bases, nmspc)
         # pylint: disable=abstract-class-instantiated
         cls.__cache: MutableMapping[object, object] = WeakValueDictionary()
 
     def __call__(cls, *args: object, **kwargs: object) -> object:
         if kwargs:
-            raise TypeError(
-                'Metaclass Unique does not support keyword arguments')
+            raise TypeError("Metaclass Unique does not support keyword arguments")
         cache = cls.__cache
         value = cache.get(args)
         if value is None:
@@ -39,32 +31,29 @@ class Unique(type):
             cache[args] = value
         return value
 
-class Singleton(type):
-    """Metaclass that enforces that there is one shared instance of a class.
-    """
 
-    def __init__(
-            cls,
-            name: str,
-            bases: tuple[type, ...],
-            nmspc: dict[str, object]
-            ):
+class Singleton(type):
+    """Metaclass that enforces that there is one shared instance of a class."""
+
+    def __init__(cls, name: str, bases: tuple[type, ...], nmspc: dict[str, object]):
         type.__init__(cls, name, bases, nmspc)
         cls.__instance = None
 
     def __call__(cls, *args: object, **kwargs: object) -> object:
         if args or kwargs:
-            raise TypeError('Metaclass Singleton does not support arguments')
+            raise TypeError("Metaclass Singleton does not support arguments")
         instance = cls.__instance
         if instance is None:
             instance = super().__call__()
             cls.__instance = instance
         return instance
 
+
 if TYPE_CHECKING:
     # TODO: This correctly expresses the caching part, but not the const part.
     const_property = property
 else:
+
     class const_property:
         """Decorator for properties that don't change in value.
         The getter function is called at most once: the first time the property
@@ -78,7 +67,7 @@ else:
 
         def __init__(self, getter):
             self._getter = getter
-            self._name = '_' + getter.__name__
+            self._name = "_" + getter.__name__
             update_wrapper(self, getter)
 
         def __get__(self, obj, objtype):
@@ -102,10 +91,11 @@ else:
                 return value
 
         def __set__(self, obj, value):
-            raise AttributeError('const_property cannot be set')
+            raise AttributeError("const_property cannot be set")
 
         def __delete__(self, obj):
-            raise AttributeError('const_property cannot be deleted')
+            raise AttributeError("const_property cannot be deleted")
+
 
 def search(low: int, high: int, test: Callable[[int], bool]) -> int:
     """Binary search: [low..high) is the range to search; function "test"
@@ -118,8 +108,8 @@ def search(low: int, high: int, test: Callable[[int], bool]) -> int:
         mid = (low + high - 1) // 2
         if test(mid):
             if mid == low:
-                return low # found
+                return low  # found
             high = mid + 1
         else:
             low = mid + 1
-    return high # not found
+    return high  # not found

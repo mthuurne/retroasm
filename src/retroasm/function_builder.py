@@ -22,18 +22,18 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
         try:
             yield parseStatement(line)
         except ParseError as ex:
-            reader.error(
-                'failed to parse statement: %s', ex, location=ex.locations
-                )
+            reader.error("failed to parse statement: %s", ex, location=ex.locations)
 
-def createFunc(reader: DefLineReader,
-               funcNameLocation: InputLocation,
-               retType: None | IntType | ReferenceType,
-               retTypeLocation: InputLocation | None,
-               args: Mapping[str, IntType | ReferenceType],
-               argNameLocations: Mapping[str, InputLocation],
-               globalNamespace: GlobalNamespace
-               ) -> Function:
+
+def createFunc(
+    reader: DefLineReader,
+    funcNameLocation: InputLocation,
+    retType: None | IntType | ReferenceType,
+    retTypeLocation: InputLocation | None,
+    args: Mapping[str, IntType | ReferenceType],
+    argNameLocations: Mapping[str, InputLocation],
+    globalNamespace: GlobalNamespace,
+) -> Function:
 
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(globalNamespace, builder)
@@ -55,26 +55,26 @@ def createFunc(reader: DefLineReader,
     retRef: Reference | None
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType
-        retRef = namespace.addVariable('ret', retType, retTypeLocation)
+        retRef = namespace.addVariable("ret", retType, retTypeLocation)
 
     try:
         with reader.checkErrors():
             bodyNodes = _parseBody(reader)
             emitCodeFromStatements(
-                reader, 'function body', namespace, bodyNodes, retType
-                )
+                reader, "function body", namespace, bodyNodes, retType
+            )
     except DelayedError:
         code = None
     else:
         if retType is None:
             retRef = None
         elif isinstance(retType, ReferenceType):
-            retRef = cast(Reference, namespace.elements['ret'])
+            retRef = cast(Reference, namespace.elements["ret"])
 
         try:
             code = namespace.createCodeBlock(
                 retRef, log=reader, location=funcNameLocation
-                )
+            )
         except ValueError:
             code = None
 
@@ -82,9 +82,11 @@ def createFunc(reader: DefLineReader,
         func = Function(retType, args, code)
     except ValueError as ex:
         reader.error(
-            'error in function "%s": %s', funcNameLocation.text, ex,
-            location=funcNameLocation
-            )
+            'error in function "%s": %s',
+            funcNameLocation.text,
+            ex,
+            location=funcNameLocation,
+        )
         code = None
         func = Function(retType, args, code)
 
@@ -97,8 +99,9 @@ def createFunc(reader: DefLineReader,
             if argName not in codeArgs:
                 reader.warning(
                     'unused argument "%s" in function "%s"',
-                    argName, funcNameLocation.text,
-                    location=argNameLocations[argName]
-                    )
+                    argName,
+                    funcNameLocation.text,
+                    location=argNameLocations[argName],
+                )
 
     return func

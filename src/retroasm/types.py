@@ -10,13 +10,14 @@ class Unlimited(metaclass=Singleton):
     """Width value for arbitrary-width integer types.
     Compares as infinity: larger than any integer.
     """
+
     __slots__ = ()
 
     def __repr__(self) -> str:
-        return 'unlimited'
+        return "unlimited"
 
     def __str__(self) -> str:
-        return 'unlimited'
+        return "unlimited"
 
     def __hash__(self) -> int:
         return super().__hash__()
@@ -74,15 +75,19 @@ class Unlimited(metaclass=Singleton):
     def __rsub__(self, other: object) -> NoReturn:
         raise ArithmeticError('Cannot subtract "unlimited"')
 
+
 unlimited = Unlimited()
 
 Width = Union[int, Unlimited]
 
+
 def maskForWidth(width: Width) -> int:
     return -1 if width is unlimited else (1 << cast(int, width)) - 1
 
+
 def widthForMask(mask: int) -> Width:
     return unlimited if mask < 0 else mask.bit_length()
+
 
 def trailingZeroes(n: int) -> Width:
     if n == 0:
@@ -92,27 +97,28 @@ def trailingZeroes(n: int) -> Width:
         count += 1
     return count
 
+
 @dataclass(order=True, frozen=True)
 class Segment:
-    __slots__ = ('start', 'width')
+    __slots__ = ("start", "width")
     start: int
     width: Width
 
     def __new__(cls, start: int, width: Width) -> Segment:
         if start < 0:
-            raise ValueError(f'Segment start cannot be negative: {start:d}')
+            raise ValueError(f"Segment start cannot be negative: {start:d}")
         instance: Segment = super().__new__(cls)
-        instance.__init__(start, width) # type: ignore[misc]
+        instance.__init__(start, width)  # type: ignore[misc]
         return instance
 
     def __str__(self) -> str:
         start = self.start
         width = self.width
         if width == 1:
-            return f'[{start:d}]'
-        start_str = '' if start == 0 else f'{start:d}'
-        end_str = '' if isinstance(width, Unlimited) else f'{start + width:d}'
-        return f'[{start_str}:{end_str}]'
+            return f"[{start:d}]"
+        start_str = "" if start == 0 else f"{start:d}"
+        end_str = "" if isinstance(width, Unlimited) else f"{start + width:d}"
+        return f"[{start_str}:{end_str}]"
 
     @property
     def end(self) -> Width:
@@ -150,6 +156,7 @@ class Segment:
         else:
             return NotImplemented
 
+
 def maskToSegments(mask: int) -> Iterator[Segment]:
     """Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
@@ -173,6 +180,7 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
             mask >>= 1
         yield Segment(start, i - start)
 
+
 def segmentsToMask(segments: Iterable[Segment]) -> int:
     """Computes a mask that corresponds to the given sequence of pairs of
     start and end indices.
@@ -184,6 +192,7 @@ def segmentsToMask(segments: Iterable[Segment]) -> int:
         mask |= segment.mask
     return mask
 
+
 class IntType(metaclass=Unique):
     """An integer value type of "width" bits, signed or unsigned.
     Width can be an integer or the singleton 'unlimited', which indicates an
@@ -191,7 +200,8 @@ class IntType(metaclass=Unique):
     There is at most one instance of IntType for each width + signedness,
     so instances can be compared using the "is" operator.
     """
-    __slots__ = ('_width', '_signed', '__weakref__')
+
+    __slots__ = ("_width", "_signed", "__weakref__")
 
     @property
     def width(self) -> Width:
@@ -203,47 +213,48 @@ class IntType(metaclass=Unique):
 
     @property
     def mask(self) -> int:
-         return -1 if self._signed else maskForWidth(self._width)
+        return -1 if self._signed else maskForWidth(self._width)
 
     @classmethod
     def u(cls, width: Width) -> IntType:
-        """Creates an unsigned integer type of the given width.
-        """
+        """Creates an unsigned integer type of the given width."""
         return cls(width, False)
 
     @classmethod
     def s(cls, width: Width) -> IntType:
-        """Creates a signed integer type of the given width.
-        """
+        """Creates a signed integer type of the given width."""
         return cls(width, True)
 
     def __init__(self, width: Width, signed: bool):
         if isinstance(width, int):
             if width < 0:
-                raise ValueError(f'width must not be negative: {width:d}')
+                raise ValueError(f"width must not be negative: {width:d}")
         elif width is not unlimited:
-            raise TypeError(
-                f'width must be integer or unlimited, got {type(width)}'
-                )
+            raise TypeError(f"width must be integer or unlimited, got {type(width)}")
         self._width = width
         self._signed = signed
 
     def __repr__(self) -> str:
-        return f'IntType({self._width}, {self._signed})'
+        return f"IntType({self._width}, {self._signed})"
 
     def __str__(self) -> str:
-        return 'int' if self._width is unlimited \
-          else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
+        return (
+            "int"
+            if self._width is unlimited
+            else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
+        )
 
     if TYPE_CHECKING:
         int = IntType(unlimited, True)
 
+
 IntType.int = IntType(unlimited, True)
 
+
 class ReferenceType(metaclass=Unique):
-    """A reference to a value of a certain type.
-    """
-    __slots__ = ('_type', '__weakref__')
+    """A reference to a value of a certain type."""
+
+    __slots__ = ("_type", "__weakref__")
 
     @property
     def type(self) -> IntType:
@@ -253,22 +264,24 @@ class ReferenceType(metaclass=Unique):
         self._type = typ
 
     def __repr__(self) -> str:
-        return f'ReferenceType({self._type!r})'
+        return f"ReferenceType({self._type!r})"
 
     def __str__(self) -> str:
-        return f'{self._type}&'
+        return f"{self._type}&"
+
 
 def parseType(typeName: str) -> IntType:
-    if typeName == 'int':
+    if typeName == "int":
         return IntType.int
-    if typeName.startswith('u') or typeName.startswith('s'):
+    if typeName.startswith("u") or typeName.startswith("s"):
         widthStr = typeName[1:]
         if widthStr.isdigit():
-            return IntType(int(widthStr), typeName.startswith('s'))
+            return IntType(int(widthStr), typeName.startswith("s"))
     raise ValueError(f'"{typeName}" is not a valid type name')
 
+
 def parseTypeDecl(typeDecl: str) -> IntType | ReferenceType:
-    if typeDecl.endswith('&'):
+    if typeDecl.endswith("&"):
         return ReferenceType(parseType(typeDecl[:-1]))
     else:
         return parseType(typeDecl)

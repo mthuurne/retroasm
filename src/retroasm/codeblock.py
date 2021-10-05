@@ -11,23 +11,22 @@ from .utils import const_property
 
 
 class Node:
-    """Base class for nodes.
-    """
+    """Base class for nodes."""
+
     __slots__ = ()
 
     def dump(self) -> None:
         raise NotImplementedError
 
-class AccessNode(Node):
-    """Base class for Load and Store.
-    """
-    __slots__ = ('_expr', '_storage', '_location')
 
-    def __init__(self,
-                 expr: Expression,
-                 storage: Storage,
-                 location: InputLocation | None
-                 ):
+class AccessNode(Node):
+    """Base class for Load and Store."""
+
+    __slots__ = ("_expr", "_storage", "_location")
+
+    def __init__(
+        self, expr: Expression, storage: Storage, location: InputLocation | None
+    ):
         self._expr = expr
         self._storage = storage
         self._location = location
@@ -53,30 +52,27 @@ class AccessNode(Node):
         return self._location
 
     def dump(self) -> None:
-        print(f'    {self} ({self._storage.width}-bit)')
+        print(f"    {self} ({self._storage.width}-bit)")
 
     def clone(self) -> AccessNode:
-        """Create a clone of this node.
-        """
+        """Create a clone of this node."""
         raise NotImplementedError
 
+
 class Load(AccessNode):
-    """A node that loads a value from a storage location.
-    """
+    """A node that loads a value from a storage location."""
+
     __slots__ = ()
 
-    def __init__(self,
-                 storage: Storage,
-                 location: InputLocation | None = None
-                 ):
+    def __init__(self, storage: Storage, location: InputLocation | None = None):
         expr = LoadedValue(self, maskForWidth(storage.width))
         AccessNode.__init__(self, expr, storage, location)
 
     def __repr__(self) -> str:
-        return f'Load({self._storage!r}, {self._location!r})'
+        return f"Load({self._storage!r}, {self._location!r})"
 
     def __str__(self) -> str:
-        return f'load from {self._storage}'
+        return f"load from {self._storage}"
 
     @property
     def expr(self) -> LoadedValue:
@@ -84,36 +80,36 @@ class Load(AccessNode):
 
     @expr.setter
     def expr(self, expr: Expression) -> None:
-        raise AttributeError('Cannot change expression for Load nodes')
+        raise AttributeError("Cannot change expression for Load nodes")
 
     def clone(self) -> Load:
         return Load(self._storage, self._location)
 
+
 class Store(AccessNode):
-    """A node that stores a value into a storage location.
-    """
+    """A node that stores a value into a storage location."""
+
     __slots__ = ()
 
-    def __init__(self,
-                 expr: Expression,
-                 storage: Storage,
-                 location: InputLocation | None = None
-                 ):
+    def __init__(
+        self, expr: Expression, storage: Storage, location: InputLocation | None = None
+    ):
         AccessNode.__init__(self, expr, storage, location)
 
     def __repr__(self) -> str:
-        return f'Store({self._expr!r}, {self._storage!r}, {self._location!r})'
+        return f"Store({self._expr!r}, {self._storage!r}, {self._location!r})"
 
     def __str__(self) -> str:
-        return f'store {self._expr} in {self._storage}'
+        return f"store {self._expr} in {self._storage}"
 
     def clone(self) -> Store:
         return Store(self._expr, self._storage, self._location)
 
+
 class LoadedValue(Expression):
-    """A value loaded from a storage location.
-    """
-    __slots__ = ('_load', '_mask')
+    """A value loaded from a storage location."""
+
+    __slots__ = ("_load", "_mask")
 
     @property
     def load(self) -> Load:
@@ -132,10 +128,10 @@ class LoadedValue(Expression):
         return self._load, self._mask
 
     def __repr__(self) -> str:
-        return f'LoadedValue({self._load!r}, {self._mask:d})'
+        return f"LoadedValue({self._load!r}, {self._mask:d})"
 
     def __str__(self) -> str:
-        return f'load({self._load.storage})'
+        return f"load({self._load.storage})"
 
     def _equals(self, other: LoadedValue) -> bool:
         # pylint: disable=protected-access
@@ -147,9 +143,10 @@ class LoadedValue(Expression):
         # desirable in analysis, so assign a high cost to them.
         return 8
 
-def verifyLoads(nodes: Iterable[AccessNode],
-                returned: Iterable[BitString] = ()
-                ) -> None:
+
+def verifyLoads(
+    nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()
+) -> None:
     """Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
@@ -175,12 +172,9 @@ def verifyLoads(nodes: Iterable[AccessNode],
                 for value in expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
 
-class CodeBlock:
 
-    def __init__(self,
-                 nodes: Iterable[AccessNode],
-                 returned: Iterable[BitString]
-                 ):
+class CodeBlock:
+    def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
         clonedNodes = []
         valueMapping: dict[Expression, Expression] = {}
         for node in nodes:
@@ -202,12 +196,11 @@ class CodeBlock:
         return True
 
     def dump(self) -> None:
-        """Prints this code block on stdout.
-        """
+        """Prints this code block on stdout."""
         for node in self.nodes:
             node.dump()
         for retBits in self.returned:
-            print(f'    return {retBits}')
+            print(f"    return {retBits}")
 
     def _gatherExpressions(self) -> set[Expression]:
         expressions = set()
@@ -237,8 +230,7 @@ class CodeBlock:
 
     @property
     def storages(self) -> AbstractSet[Storage]:
-        """A set of all storages that are accessed or referenced by this block.
-        """
+        """A set of all storages that are accessed or referenced by this block."""
         return self._gatherStorages()
 
     def _gatherArguments(self) -> Mapping[str, ArgStorage]:
@@ -260,10 +252,9 @@ class CodeBlock:
         """
         return self._gatherArguments()
 
-    def _updateExpressions(self,
-                           substFunc: Callable[[Expression],
-                                               Expression | None]
-                           ) -> None:
+    def _updateExpressions(
+        self, substFunc: Callable[[Expression], Expression | None]
+    ) -> None:
         """Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution

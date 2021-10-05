@@ -12,7 +12,7 @@ class Formatter:
     operationWidth = 8
 
     def __init__(self) -> None:
-        self._lineFormat = '{:%d}{:%d}{}' % (self.margin, self.operationWidth)
+        self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
 
     def formatInt(self, value: int, typ: IntType) -> str:
         if value < 16 or typ.signed:
@@ -25,27 +25,28 @@ class Formatter:
                 width = value.bit_length()
             else:
                 assert isinstance(width, int)
-            return f'${{:0{(width + 3) // 4:d}x}}'.format(value)
+            return f"${{:0{(width + 3) // 4:d}x}}".format(value)
 
     def _formatOperands(self, operands: Iterable[str]) -> str:
         prevWord = False
         parts = []
         for operand in operands:
-            isWord = operand[0].isalnum() or operand[0] in '_$%'
+            isWord = operand[0].isalnum() or operand[0] in "_$%"
             if prevWord and isWord:
-                parts.append(' ')
+                parts.append(" ")
             parts.append(operand)
             prevWord = isWord
-        return ''.join(parts)
+        return "".join(parts)
 
     def formatLabel(self, label: str) -> str:
-        return label + ':'
+        return label + ":"
 
-    def formatMnemonic(self,
-                       # TODO: Use the Mnemonic class instead?
-                       mnemonic: Iterable[Union[str, Reference]],
-                       labels: Mapping[int, str]
-                       ) -> str:
+    def formatMnemonic(
+        self,
+        # TODO: Use the Mnemonic class instead?
+        mnemonic: Iterable[Union[str, Reference]],
+        labels: Mapping[int, str],
+    ) -> str:
         parts = []
         for mnemElem in mnemonic:
             if isinstance(mnemElem, str):
@@ -63,10 +64,10 @@ class Formatter:
                 roles: AbstractSet[PlaceholderRole] = frozenset()
                 label = (
                     labels.get(value)
-                    if PlaceholderRole.code_addr in roles or
-                        PlaceholderRole.data_addr in roles else
-                    None
-                    )
+                    if PlaceholderRole.code_addr in roles
+                    or PlaceholderRole.data_addr in roles
+                    else None
+                )
                 if label is None:
                     parts.append(self.formatInt(value, mnemElem.type))
                 else:
@@ -74,14 +75,12 @@ class Formatter:
             else:
                 assert False, mnemElem
 
-        localLabel = ''
+        localLabel = ""
         return self._lineFormat.format(
             localLabel, parts[0], self._formatOperands(parts[1:])
-            ).rstrip()
+        ).rstrip()
 
-    dataDirectives: Mapping[Width, str] = {
-        8: 'db', 16: 'dw', 32: 'dd', 64: 'dq'
-        }
+    dataDirectives: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
     def formatData(self, ref: Reference) -> str:
         directive = self.dataDirectives[ref.width]

@@ -1,11 +1,10 @@
 from retroasm.codeblock import Load, Store
 from retroasm.codeblock_builder import (
-    SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
+    SemanticsCodeBlockBuilder,
+    StatelessCodeBlockBuilder,
 )
 from retroasm.expression import IntLiteral
-from retroasm.namespace import (
-    GlobalNamespace, LocalNamespace, createIOReference
-)
+from retroasm.namespace import GlobalNamespace, LocalNamespace, createIOReference
 from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel
 from retroasm.types import IntType, unlimited
@@ -18,7 +17,7 @@ def assertNodes(actualNodes, correctNodes):
     loadMap = {}
     assert len(actualNodes) == len(correctNodes)
     for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
-        msg = 'node %d of %d' % (i + 1, len(actualNodes))
+        msg = "node %d of %d" % (i + 1, len(actualNodes))
         assert isinstance(actual, type(correct)), msg
         assert actual.storage == correct.storage, msg
         if isinstance(correct, Load):
@@ -27,14 +26,14 @@ def assertNodes(actualNodes, correctNodes):
             expr = actual.expr.substitute(loadMap.get)
             assert expr == correct.expr, msg
         else:
-            raise AssertionError(
-                f'unknown node type: {correct.__class__.__name__}'
-                )
+            raise AssertionError(f"unknown node type: {correct.__class__.__name__}")
+
 
 def getRetVal(code):
-    retBits, = code.returned
+    (retBits,) = code.returned
     assert isinstance(retBits, FixedValue)
     return retBits.expr, retBits.width
+
 
 def assertRetVal(code, value):
     expr, width = getRetVal(code)
@@ -42,8 +41,8 @@ def assertRetVal(code, value):
     mask = -1 if width is unlimited else ((1 << width) - 1)
     assert expr.value & mask == value
 
-class TestNamespace(LocalNamespace):
 
+class TestNamespace(LocalNamespace):
     def __init__(self, globalNamespace=None):
         if globalNamespace is None:
             globalBuilder = StatelessCodeBlockBuilder()
@@ -52,16 +51,13 @@ class TestNamespace(LocalNamespace):
         LocalNamespace.__init__(self, globalNamespace, localBuilder)
 
     def _parse_one(self, storage_str):
-        idx = storage_str.index('[')
+        idx = storage_str.index("[")
         name = storage_str[:idx]
         slice_str = storage_str[idx:]
         return self[name].bits.storage, parse_segment(slice_str)
 
     def parse(self, *storage_slices):
-        return tuple(
-            self._parse_one(storage_str)
-            for storage_str in storage_slices
-            )
+        return tuple(self._parse_one(storage_str) for storage_str in storage_slices)
 
     def emitLoad(self, ref):
         return ref.emitLoad(self.builder, None)
@@ -88,8 +84,9 @@ class TestNamespace(LocalNamespace):
 
         return ref
 
-    def addIOStorage(self, channelName, index,
-            elemType=IntType.u(8), addrType=IntType.u(16)):
+    def addIOStorage(
+        self, channelName, index, elemType=IntType.u(8), addrType=IntType.u(16)
+    ):
         try:
             channel = self.parent[channelName]
         except KeyError:
@@ -114,7 +111,7 @@ class TestNamespace(LocalNamespace):
         return super().addVariable(name, typ, location)
 
     def addRetReference(self, value):
-        return super().define('ret', value, None)
+        return super().define("ret", value, None)
 
     def inlineBlock(self, code, argFetcher):
         return self.builder.inlineBlock(code, argFetcher)

@@ -13,15 +13,13 @@ class TokenMeta(EnumMeta):
     if TYPE_CHECKING:
         pattern: Pattern[str]
 
-    def __new__(cls,
-                name: str,
-                bases: tuple[type, ...],
-                namespace: dict[str, Any]
-                ) -> TokenMeta:
-        newClass = cast(type['TokenEnum'],
-                        super().__new__(cls, name, bases, namespace))
+    def __new__(
+        cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ) -> TokenMeta:
+        newClass = cast(type["TokenEnum"], super().__new__(cls, name, bases, namespace))
         newClass.pattern = newClass.compilePattern()
         return newClass
+
 
 class TokenEnum(Enum, metaclass=TokenMeta):
     """Base class for token types.
@@ -35,19 +33,20 @@ class TokenEnum(Enum, metaclass=TokenMeta):
 
     @classmethod
     def compilePattern(cls) -> Pattern[str]:
-        patterns = [r'(\s+)']
+        patterns = [r"(\s+)"]
         patterns += (
-            f'(?P<{name}>{token.regex})'
-            for name, token in cls.__members__.items()
-            )
-        return re.compile('|'.join(patterns))
+            f"(?P<{name}>{token.regex})" for name, token in cls.__members__.items()
+        )
+        return re.compile("|".join(patterns))
 
     @classmethod
     def scan(cls: type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
         """Splits an input string into tokens."""
         return Tokenizer(cls, location)
 
-TokenT = TypeVar('TokenT', bound=TokenEnum)
+
+TokenT = TypeVar("TokenT", bound=TokenEnum)
+
 
 class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
@@ -66,7 +65,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         """
         kind = self._kind
         if kind is None:
-            raise ValueError('out of tokens')
+            raise ValueError("out of tokens")
         return kind
 
     @property
@@ -120,10 +119,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         """
         return self._kind is kind and (value is None or self.value == value)
 
-    def eat(self,
-            kind: TokenT,
-            value: str | None = None
-            ) -> InputLocation | None:
+    def eat(self, kind: TokenT, value: str | None = None) -> InputLocation | None:
         """Consume the current token if it matches the given kind and,
         if specified, also the given value.
         Return the token's input location if the token was consumed,
