@@ -1,6 +1,6 @@
-from retroasm.utils import const_property
-
 import pytest
+
+from retroasm.utils import const_property
 
 
 class DataType:

@@ -1,5 +1,5 @@
 from retroasm.types import (
-    maskForWidth, maskToSegments, segmentsToMask, widthForMask, unlimited
+    maskForWidth, maskToSegments, segmentsToMask, unlimited, widthForMask
 )
 
 from .utils_segment import parse_segment

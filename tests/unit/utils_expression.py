@@ -1,6 +1,6 @@
 from retroasm.expression import (
-    AndOperator, Expression, IntLiteral, LShift, RShift, OrOperator, truncate
-    )
+    AndOperator, Expression, IntLiteral, LShift, OrOperator, RShift, truncate
+)
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType, unlimited
 

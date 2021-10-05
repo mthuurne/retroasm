@@ -1,7 +1,7 @@
-from .utils_expression import TestValue, makeConcat
-
 from retroasm.expression import IntLiteral, truncate
 from retroasm.types import IntType
+
+from .utils_expression import TestValue, makeConcat
 
 
 def assertExprEqual(expr1, expr2):

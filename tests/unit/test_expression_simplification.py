@@ -1,14 +1,15 @@
+from retroasm.expression import (
+    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
+    Negation, OrOperator, RShift, RVShift, SignExtension, SignTest,
+    XorOperator, truncate
+)
+from retroasm.expression_simplifier import simplifyExpression
+from retroasm.types import IntType, unlimited
+
 from .utils_expression import (
     TestValue, assertAnd, assertConcat, assertIntLiteral, assertOr,
     assertSlice, makeConcat, makeSlice
-    )
-
-from retroasm.expression import (
-    AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift, Negation,
-    OrOperator, RShift, RVShift, SignExtension, SignTest, XorOperator, truncate
-    )
-from retroasm.expression_simplifier import simplifyExpression
-from retroasm.types import IntType, unlimited
+)
 
 
 def test_zero_literal():

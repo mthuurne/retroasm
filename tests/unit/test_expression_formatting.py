@@ -1,8 +1,8 @@
-from .utils_expression import TestValue
-
 from retroasm.expression import RShift, truncate
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType
+
+from .utils_expression import TestValue
 
 
 def test_slice():

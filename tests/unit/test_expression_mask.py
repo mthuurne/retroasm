@@ -1,10 +1,10 @@
-from .utils_expression import TestValue
-
 from retroasm.expression import (
     AddOperator, AndOperator, Complement, IntLiteral, LShift, LVShift,
     OrOperator, RShift, RVShift, XorOperator
-    )
+)
 from retroasm.types import IntType
+
+from .utils_expression import TestValue
 
 
 def test_int():

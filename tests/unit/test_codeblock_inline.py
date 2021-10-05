@@ -1,13 +1,14 @@
-from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
-
 from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral, XorOperator
 from retroasm.function import Function
 from retroasm.reference import (
     ConcatenatedBits, FixedValue, Reference, SlicedBits
-    )
+)
 from retroasm.types import IntType
 
+from .utils_codeblock import (
+    TestNamespace, assertNodes, assertRetVal, getRetVal
+)
 
 verbose = False
 

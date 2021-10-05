@@ -2,7 +2,6 @@ import re
 
 from retroasm.types import Segment, unlimited
 
-
 re_segment = re.compile(r'^\[(\d*):(\d*)\]$')
 
 def parse_segment(segment_str):

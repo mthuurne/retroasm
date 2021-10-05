@@ -1,15 +1,15 @@
-from .utils_codeblock import TestNamespace
+from pytest import fixture, mark
 
 from retroasm.codeblock import Load, LoadedValue, Store
 from retroasm.expression import (
     AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
-    )
+)
 from retroasm.reference import (
     BitString, ConcatenatedBits, SingleStorage, SlicedBits
-    )
+)
 from retroasm.types import IntType, maskForWidth, widthForMask
 
-from pytest import fixture, mark
+from .utils_codeblock import TestNamespace
 
 
 @fixture

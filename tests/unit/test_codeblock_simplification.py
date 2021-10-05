@@ -1,19 +1,22 @@
-from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
-from .utils_expression import assertIntLiteral, assertOr, assertTrunc, makeConcat
+from pytest import fixture
 
 from retroasm.codeblock import Load, Store
 from retroasm.expression import (
     AddOperator, AndOperator, IntLiteral, OrOperator, truncate
-    )
+)
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.reference import (
     ConcatenatedBits, FixedValue, Reference, SingleStorage, SlicedBits
-    )
+)
 from retroasm.storage import IOStorage
 from retroasm.types import IntType
 
-from pytest import fixture
-
+from .utils_codeblock import (
+    TestNamespace, assertNodes, assertRetVal, getRetVal
+)
+from .utils_expression import (
+    assertIntLiteral, assertOr, assertTrunc, makeConcat
+)
 
 verbose = False
 
