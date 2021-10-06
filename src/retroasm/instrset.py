@@ -15,7 +15,13 @@ from typing import (
 
 from .codeblock import CodeBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import Decoder, DecoderFactory, ParsedModeEntry, Prefix, PrefixDecoder
+from .decode import (
+    Decoder,
+    DecoderFactory,
+    ParsedModeEntry,
+    Prefix,
+    createPrefixDecoder,
+)
 from .expression import IntLiteral
 from .fetch import Fetcher
 from .linereader import BadInput
@@ -184,11 +190,7 @@ class InstructionSet(ModeTable):
 
     @const_property
     def prefixDecodeFunc(self) -> Callable[[Fetcher], Prefix | None]:
-        prefixes = self._prefixMapping.prefixes
-        if len(prefixes) == 0:
-            return lambda fetcher: None
-        else:
-            return PrefixDecoder(prefixes).tryDecode
+        return createPrefixDecoder(self._prefixMapping.prefixes)
 
     def getDecoder(self, flags: AbstractSet[str] = frozenset()) -> Decoder:
         """Returns an instruction decoder that decodes an instruction for the

@@ -4,11 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
     AbstractSet,
-    Any,
+    Callable,
     DefaultDict,
     Iterable,
     Mapping,
-    Optional,
     Sequence,
     Union,
     cast,
@@ -701,42 +700,25 @@ class Prefix:
     semantics: CodeBlock
 
 
-_NodeT = dict[Optional[int], Any]
-"""
-Type of a node in a prefix decoder tree.
+class _PrefixDecoder:
+    """A node in a prefix decoder tree."""
 
-The value is another node, but mypy doesn't support recursive type definitions yet.
-This type alias is computed at runtime as well, so we can't use the '|' syntax.
-"""
+    __slots__ = ("children", "prefix")
 
+    def __init__(self) -> None:
+        self.children: dict[int, _PrefixDecoder] = {}
+        self.prefix: Prefix | None = None
 
-class PrefixDecoder:
-    def __init__(self, prefixes: Iterable[Prefix]):
-        tree: _NodeT = {}
-
-        def addPrefix(node: _NodeT, values: Sequence[int], prefix: Prefix) -> None:
-            if values:
-                child: _NodeT = node.setdefault(values[0], {})
-                addPrefix(child, values[1:], prefix)
-            else:
-                node[None] = prefix
-
-        for prefix in prefixes:
-            # Note that since we have no placeholders in prefixes, the
-            # errors that decomposeEncoding() could report cannot happen.
-            encoding = prefix.encoding
-            fixedMatcher, decodeMap = decomposeEncoding(encoding)
-            assert len(decodeMap) == 0, decodeMap
-            values: list[int] = []
-            for idx, fixedEncoding in enumerate(sorted(fixedMatcher)):
-                encIdx = fixedEncoding.encIdx
-                assert idx == encIdx, (idx, encIdx)
-                assert encoding.encodingWidth is not None
-                assert fixedEncoding.fixedMask == maskForWidth(encoding.encodingWidth)
-                values.append(fixedEncoding.fixedValue)
-            assert len(values) == encoding.encodedLength
-            addPrefix(tree, values, prefix)
-        self._tree = tree
+    def addPrefix(self, values: Sequence[int], prefix: Prefix) -> None:
+        if values:
+            value = values[0]
+            try:
+                child = self.children[value]
+            except KeyError:
+                child = self.children[value] = _PrefixDecoder()
+            child.addPrefix(values[1:], prefix)
+        else:
+            self.prefix = prefix
 
     def tryDecode(self, fetcher: Fetcher) -> Prefix | None:
         """Attempts to decode an instruction prefix from the encoded data
@@ -744,15 +726,44 @@ class PrefixDecoder:
         Returns the decoded prefix, or None if no prefix was found.
         """
         idx = 0
-        node: _NodeT | None = self._tree
-        assert node is not None
+        node = self
         while True:
-            prefix: Prefix | None = node.get(None)
-            if prefix is None:
-                encoded = fetcher[idx]
-                idx += 1
-                node = node.get(encoded)
-                if node is None:
-                    return None
-            else:
+            prefix = node.prefix
+            if prefix is not None:
                 return prefix
+            encoded = fetcher[idx]
+            if encoded is None:
+                break
+            idx += 1
+            child = node.children.get(encoded)
+            if child is None:
+                break
+            node = child
+        return None
+
+
+def createPrefixDecoder(
+    prefixes: Sequence[Prefix],
+) -> Callable[[Fetcher], Prefix | None]:
+    if len(prefixes) == 0:
+        # Many instruction sets don't use prefixes at all.
+        # Return an optimized special case for those.
+        return lambda fetcher: None
+
+    root = _PrefixDecoder()
+    for prefix in prefixes:
+        # Note that since we have no placeholders in prefixes, the
+        # errors that decomposeEncoding() could report cannot happen.
+        encoding = prefix.encoding
+        fixedMatcher, decodeMap = decomposeEncoding(encoding)
+        assert len(decodeMap) == 0, decodeMap
+        values: list[int] = []
+        for idx, fixedEncoding in enumerate(sorted(fixedMatcher)):
+            encIdx = fixedEncoding.encIdx
+            assert idx == encIdx, (idx, encIdx)
+            assert encoding.encodingWidth is not None
+            assert fixedEncoding.fixedMask == maskForWidth(encoding.encodingWidth)
+            values.append(fixedEncoding.fixedValue)
+        assert len(values) == encoding.encodedLength
+        root.addPrefix(values, prefix)
+    return root.tryDecode
