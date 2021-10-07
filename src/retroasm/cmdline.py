@@ -32,7 +32,7 @@ from .binfmt import (
     iterBinaryFormatNames,
 )
 from .disasm import Disassembler
-from .fetch import BigEndianFetcher, ByteFetcher, ImageFetcher, LittleEndianFetcher
+from .fetch import ImageFetcher
 from .instrset import InstructionSet
 from .instrset_parser import parseInstrSet
 from .linereader import DelayedError, LineReaderFormatter
@@ -293,32 +293,20 @@ def disassembleBinary(
             continue
 
         # Create instruction fetcher.
-        byteOrder = entrySection.byteOrder
-        instrWidth = instrSet.encodingWidth
-        if instrWidth is unlimited or instrWidth is None or instrWidth % 8 != 0:
-            logger.error(
-                "Instruction units must be a multiple of 8 bits wide, got %s",
-                "undefined" if instrWidth is None else instrWidth,
+        try:
+            instrWidth = instrSet.encodingWidth
+            if instrWidth is None:
+                raise ValueError("unknown instruction width")
+            fetcherFactory = ImageFetcher.factory(instrWidth, entrySection.byteOrder)
+        except ValueError as ex:
+            logger.warning(
+                "Skipping disassembly of offset 0x%x because no instruction fetcher "
+                "could be created: %s",
+                offset,
+                ex,
             )
-            return
-        fetcher: ImageFetcher
-        numBytes = instrWidth // 8
-        if numBytes == 1:
-            fetcher = ByteFetcher(image, offset, end)
-        else:
-            if byteOrder is ByteOrder.undefined:
-                logger.warning(
-                    "Skipping disassembly of offset 0x%x due to unknown "
-                    "instruction byte order",
-                    offset,
-                )
-                continue
-            elif byteOrder is ByteOrder.big:
-                fetcher = BigEndianFetcher(image, offset, end, numBytes)
-            elif byteOrder is ByteOrder.little:
-                fetcher = LittleEndianFetcher(image, offset, end, numBytes)
-            else:
-                assert False, byteOrder
+            continue
+        fetcher = fetcherFactory(image, offset, end)
 
         addr = entrySection.base + offset - entrySection.start
         disassemblers[instrSetName].disassemble(fetcher, addr)

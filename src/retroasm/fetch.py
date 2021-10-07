@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from functools import partial
+from typing import Callable
+
 from .binfmt import Image
+from .section import ByteOrder
 
 
 class Fetcher:
@@ -34,6 +38,30 @@ class ImageFetcher(Fetcher):
     """Abstract base class for instruction fetchers that read from an image."""
 
     __slots__ = ("_image", "_offset", "_end", "_numBytes")
+
+    @staticmethod
+    def factory(
+        width: int, byteOrder: ByteOrder
+    ) -> Callable[[Image, int, int], ImageFetcher]:
+        """
+        Return a factory which builds instruction fetchers using the given instruction
+        width and byte order.
+
+        Raise ValueError if no fetcher can be made for the given width and byte order.
+        """
+        if width % 8 != 0:
+            raise ValueError(f"expected width to be a multiple of 8 bits, got {width}")
+        fetcher: ImageFetcher
+        numBytes = width // 8
+        if numBytes == 1:
+            return ByteFetcher
+        elif byteOrder is ByteOrder.big:
+            return partial(BigEndianFetcher, numBytes=numBytes)
+        elif byteOrder is ByteOrder.little:
+            return partial(LittleEndianFetcher, numBytes=numBytes)
+        else:
+            assert byteOrder is ByteOrder.undefined, byteOrder
+            raise ValueError("byte order unknown")
 
     def __init__(self, image: Image, start: int, end: int, numBytes: int):
         self._image = image
