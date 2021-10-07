@@ -209,6 +209,21 @@ def disassembleBinary(
         logger.error("Invalid section map: %s", ex)
         return
 
+    # Merge user-defined entry points with entry points from binary format.
+    entryPoints = []
+    for entryPoint in userEntryPoints:
+        logger.debug("user-defined entry: %s", entryPoint)
+        entryPoints.append(entryPoint)
+    for entryPoint in binary.iterEntryPoints():
+        logger.debug("binfmt-defined entry: %s", entryPoint)
+        entryPoints.append(entryPoint)
+    if len(entryPoints) == 0:
+        logger.warning(
+            "No entry points; you can manually define them using the --entry "
+            "argument"
+        )
+        return
+
     # Load instruction set definitions.
     instrSets: dict[str, InstructionSet | None] = {}
     for section in sectionMap:
@@ -225,21 +240,6 @@ def disassembleBinary(
                     'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
                 )
                 instrSets[instrSetName] = None
-
-    # Merge user-defined entry points with entry points from binary format.
-    entryPoints = []
-    for entryPoint in userEntryPoints:
-        logger.debug("user-defined entry: %s", entryPoint)
-        entryPoints.append(entryPoint)
-    for entryPoint in binary.iterEntryPoints():
-        logger.debug("binfmt-defined entry: %s", entryPoint)
-        entryPoints.append(entryPoint)
-    if len(entryPoints) == 0:
-        logger.warning(
-            "No entry points; you can manually define them using the --entry "
-            "argument"
-        )
-        return
 
     # Disassemble.
     logger.info("Disassembling...")
