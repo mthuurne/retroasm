@@ -119,57 +119,10 @@ class GameBoyROM(BinaryFormat):
     extensions = ("gb", "gbc")
 
     header = Struct("<4s48s16s2sBBBBBBBBH")
-    logo = bytes(
-        (
-            0xCE,
-            0xED,
-            0x66,
-            0x66,
-            0xCC,
-            0x0D,
-            0x00,
-            0x0B,
-            0x03,
-            0x73,
-            0x00,
-            0x83,
-            0x00,
-            0x0C,
-            0x00,
-            0x0D,
-            0x00,
-            0x08,
-            0x11,
-            0x1F,
-            0x88,
-            0x89,
-            0x00,
-            0x0E,
-            0xDC,
-            0xCC,
-            0x6E,
-            0xE6,
-            0xDD,
-            0xDD,
-            0xD9,
-            0x99,
-            0xBB,
-            0xBB,
-            0x67,
-            0x63,
-            0x6E,
-            0x0E,
-            0xEC,
-            0xCC,
-            0xDD,
-            0xDC,
-            0x99,
-            0x9F,
-            0xBB,
-            0xB9,
-            0x33,
-            0x3E,
-        )
+    logo = (
+        b"\xce\xed\x66\x66\xcc\x0d\x00\x0b\x03\x73\x00\x83\x00\x0c\x00\x0d"
+        b"\x00\x08\x11\x1f\x88\x89\x00\x0e\xdc\xcc\x6e\xe6\xdd\xdd\xd9\x99"
+        b"\xbb\xbb\x67\x63\x6e\x0e\xec\xcc\xdd\xdc\x99\x9f\xbb\xb9\x33\x3e"
     )
 
     @classmethod
