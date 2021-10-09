@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from importlib.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
-from pathlib import Path
 from typing import (
     IO,
     Any,
@@ -27,8 +27,12 @@ class InputLocation:
     __slots__ = ("_path", "_lineno", "_line", "_span")
 
     @property
-    def path(self) -> Path:
-        """The file system path to the input text file."""
+    def path(self) -> Traversable:
+        """The path to the input text file.
+
+        This path might not exist on the file system, for example when reading from
+        a resource.
+        """
         return self._path
 
     @property
@@ -48,7 +52,9 @@ class InputLocation:
         """The column span information of this location."""
         return self._span
 
-    def __init__(self, path: Path, lineno: int, line: str, span: tuple[int, int]):
+    def __init__(
+        self, path: Traversable, lineno: int, line: str, span: tuple[int, int]
+    ):
         self._path = path
         self._lineno = lineno
         self._line = line
@@ -248,15 +254,15 @@ class LineReader:
     @classmethod
     @contextmanager
     def open(
-        cls: type[LineReaderT], path: Path, logger: Logger
+        cls: type[LineReaderT], path: Traversable, logger: Logger
     ) -> Iterator[LineReaderT]:
-        with open(path) as lines:
+        with path.open() as lines:
             reader = cls(path, lines, logger)
             reader.debug("start reading")
             yield reader
             reader.debug("done reading")
 
-    def __init__(self, path: Path, lines: IO[str], logger: Logger):
+    def __init__(self, path: Traversable, lines: IO[str], logger: Logger):
         self._path = path
         self._lines = lines
         self.logger = logger
@@ -406,7 +412,13 @@ class LineReaderFormatter(Formatter):
     def _formatParts(
         self,
         parts: Iterable[
-            tuple[str | None, Path | None, int, str | None, Sequence[tuple[int, int]]]
+            tuple[
+                str | None,
+                Traversable | None,
+                int,
+                str | None,
+                Sequence[tuple[int, int]],
+            ]
         ],
     ) -> Iterator[str]:
         for msg, path, lineno, line, spans in parts:
@@ -442,7 +454,9 @@ class LineReaderFormatter(Formatter):
     def _iterParts(
         self, msg: str, location: None | InputLocation | Sequence[InputLocation]
     ) -> Iterator[
-        tuple[str | None, Path | None, int, str | None, Sequence[tuple[int, int]]]
+        tuple[
+            str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]
+        ]
     ]:
         if location is None:
             yield msg, None, -1, None, []

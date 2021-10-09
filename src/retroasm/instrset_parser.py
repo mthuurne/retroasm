@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
+from importlib.abc import Traversable
 from logging import WARNING, Logger, getLogger
-from pathlib import Path
 from typing import (
     AbstractSet,
     Callable,
@@ -1372,7 +1372,7 @@ _reHeader = re.compile(_nameTok + r"(?:\s+(.*\S)\s*)?$")
 
 
 def parseInstrSet(
-    path: Path, logger: Logger | None = None, wantSemantics: bool = True
+    path: Traversable, logger: Logger | None = None, wantSemantics: bool = True
 ) -> InstructionSet | None:
     if logger is None:
         logger = getLogger("parse-instr")
