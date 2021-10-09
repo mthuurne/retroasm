@@ -72,18 +72,6 @@ class InputLocation:
         else:
             return NotImplemented
 
-    def __ne__(self, other: object) -> bool:
-        if isinstance(other, InputLocation):
-            # pylint: disable=protected-access
-            return (
-                self._path != other._path
-                or self._lineno != other._lineno
-                or self._line != other._line
-                or self._span != other._span
-            )
-        else:
-            return NotImplemented
-
     def __len__(self) -> int:
         start, end = self._span
         return end - start
