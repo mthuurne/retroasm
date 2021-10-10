@@ -21,3 +21,11 @@ repos:
     rev: 3.9.2
     hooks:
       - id: flake8
+
+  - repo: local
+    hooks:
+      - id: checkdef
+        name: checkdef
+        entry: retro checkdef
+        language: system
+        files: \.instr$
