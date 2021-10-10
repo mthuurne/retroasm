@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -50,6 +51,16 @@ def setupLogging(rootLevel: int) -> Logger:
     return logger
 
 
+def loadInstructionSet(
+    path: Traversable, logger: Logger, wantSemantics: bool = True
+) -> InstructionSet | None:
+    try:
+        return parseInstrSet(path, wantSemantics=wantSemantics)
+    except OSError as ex:
+        logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
+        return None
+
+
 @command()
 @option("-i", "--instr", required=True, help="Instruction set.")
 @argument("source", type=PathArg(exists=True))
@@ -59,13 +70,7 @@ def asm(instr: str, source: str) -> None:
     logger = setupLogging(INFO)
 
     instrPath = Path(f"defs/instr/{instr}.instr")
-    try:
-        instrSet = parseInstrSet(instrPath, wantSemantics=False)
-    except OSError as ex:
-        logger.error(
-            'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
-        )
-        get_current_context().exit(1)
+    instrSet = loadInstructionSet(instrPath, logger, wantSemantics=False)
     if instrSet is None:
         get_current_context().exit(1)
 
@@ -96,12 +101,7 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
 def checkInstrSet(path: Path, dumpNoSubs: bool, dumpSubs: bool, logger: Logger) -> int:
 
     logger.info("checking: %s", path)
-    try:
-        instrSet = parseInstrSet(path, logger)
-    except OSError as ex:
-        logger.error("Could not load instruction set: %s", ex)
-        return 1
-
+    instrSet = loadInstructionSet(path, logger)
     if instrSet is None:
         return 1
 
@@ -225,7 +225,7 @@ def disassembleBinary(
         return
 
     # Load instruction set definitions.
-    instrSets: dict[str, InstructionSet | None] = {}
+    instrSets = {}
     for section in sectionMap:
         if isinstance(section, CodeSection):
             instrSetName = section.instrSetName
@@ -233,13 +233,7 @@ def disassembleBinary(
                 continue
             logger.info("Loading instruction set: %s", instrSetName)
             instrPath = Path(f"defs/instr/{instrSetName}.instr")
-            try:
-                instrSets[instrSetName] = parseInstrSet(instrPath)
-            except OSError as ex:
-                logger.error(
-                    'Failed to read instruction set "%s": %s', ex.filename, ex.strerror
-                )
-                instrSets[instrSetName] = None
+            instrSets[instrSetName] = loadInstructionSet(instrPath, logger)
 
     # Disassemble.
     logger.info("Disassembling...")
