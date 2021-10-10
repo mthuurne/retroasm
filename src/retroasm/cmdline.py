@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from importlib.abc import Traversable
-from importlib.resources import files
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -35,9 +33,8 @@ from .binfmt import (
 )
 from .disasm import Disassembler
 from .fetch import ImageFetcher
-from .instr import defs as instr_defs
+from .instr import loadInstructionSet, loadInstructionSetByName
 from .instrset import InstructionSet
-from .instrset_parser import parseInstrSet
 from .linereader import DelayedError, LineReaderFormatter
 from .section import ByteOrder, CodeSection, Section, SectionMap
 from .types import Unlimited, unlimited
@@ -51,24 +48,6 @@ def setupLogging(rootLevel: int) -> Logger:
     logger.addHandler(handler)
     logger.setLevel(rootLevel)
     return logger
-
-
-def loadInstructionSet(
-    path: Traversable, logger: Logger, wantSemantics: bool = True
-) -> InstructionSet | None:
-    try:
-        return parseInstrSet(path, wantSemantics=wantSemantics)
-    except OSError as ex:
-        logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
-        return None
-
-
-def loadInstructionSetByName(
-    name: str, logger: Logger, wantSemantics: bool = True
-) -> InstructionSet | None:
-    logger.info("Loading instruction set: %s", name)
-    path = files(instr_defs) / f"{name}.instr"
-    return loadInstructionSet(path, logger, wantSemantics)
 
 
 @command()
