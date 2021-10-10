@@ -32,7 +32,7 @@ def types(c, report=False):
     cmd = ["mypy"]
     if report:
         cmd.append("--html-report output/mypy-report.html")
-    cmd.append("src/retroasm/*.py")
+    cmd.append(str(SRC_DIR))
     print("Type-checking...")
     with c.cd(str(TOP_DIR)):
         try:

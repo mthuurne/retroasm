@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib.abc import Traversable
+from importlib.resources import files
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -34,6 +35,7 @@ from .binfmt import (
 )
 from .disasm import Disassembler
 from .fetch import ImageFetcher
+from .instr import defs as instr_defs
 from .instrset import InstructionSet
 from .instrset_parser import parseInstrSet
 from .linereader import DelayedError, LineReaderFormatter
@@ -61,6 +63,14 @@ def loadInstructionSet(
         return None
 
 
+def loadInstructionSetByName(
+    name: str, logger: Logger, wantSemantics: bool = True
+) -> InstructionSet | None:
+    logger.info("Loading instruction set: %s", name)
+    path = files(instr_defs) / f"{name}.instr"
+    return loadInstructionSet(path, logger, wantSemantics)
+
+
 @command()
 @option("-i", "--instr", required=True, help="Instruction set.")
 @argument("source", type=PathArg(exists=True))
@@ -69,8 +79,7 @@ def asm(instr: str, source: str) -> None:
 
     logger = setupLogging(INFO)
 
-    instrPath = Path(f"defs/instr/{instr}.instr")
-    instrSet = loadInstructionSet(instrPath, logger, wantSemantics=False)
+    instrSet = loadInstructionSetByName(instr, logger, wantSemantics=False)
     if instrSet is None:
         get_current_context().exit(1)
 
@@ -231,9 +240,7 @@ def disassembleBinary(
             instrSetName = section.instrSetName
             if instrSetName in instrSets:
                 continue
-            logger.info("Loading instruction set: %s", instrSetName)
-            instrPath = Path(f"defs/instr/{instrSetName}.instr")
-            instrSets[instrSetName] = loadInstructionSet(instrPath, logger)
+            instrSets[instrSetName] = loadInstructionSetByName(instrSetName, logger)
 
     # Disassemble.
     logger.info("Disassembling...")
