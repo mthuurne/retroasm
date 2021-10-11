@@ -33,7 +33,7 @@ from .binfmt import (
 )
 from .disasm import Disassembler
 from .fetch import ImageFetcher
-from .instr import loadInstructionSet, loadInstructionSetByName
+from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSetByName
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
 from .section import ByteOrder, CodeSection, Section, SectionMap
@@ -212,22 +212,18 @@ def disassembleBinary(
         )
         return
 
-    # Load instruction set definitions.
-    instrSets = {}
-    for section in sectionMap:
-        if isinstance(section, CodeSection):
-            instrSetName = section.instrSetName
-            if instrSetName in instrSets:
-                continue
-            instrSets[instrSetName] = loadInstructionSetByName(instrSetName, logger)
+    disassemblers = {}
+    for instrSetName in {
+        section.instrSetName
+        for section in sectionMap
+        if isinstance(section, CodeSection)
+    }:
+        instrSet = builtinInstructionSets[instrSetName]
+        if instrSet is not None:
+            disassemblers[instrSetName] = Disassembler(instrSet)
 
     # Disassemble.
     logger.info("Disassembling...")
-    disassemblers = {
-        name: Disassembler(instrSet)
-        for name, instrSet in instrSets.items()
-        if instrSet is not None
-    }
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -250,7 +246,7 @@ def disassembleBinary(
             )
             continue
         instrSetName = entrySection.instrSetName
-        instrSet = instrSets[instrSetName]
+        instrSet = builtinInstructionSets[instrSetName]
         if instrSet is None:
             logger.warning(
                 "Skipping disassembly of offset 0x%x due to unknown "
