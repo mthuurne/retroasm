@@ -212,18 +212,9 @@ def disassembleBinary(
         )
         return
 
-    disassemblers = {}
-    for instrSetName in {
-        section.instrSetName
-        for section in sectionMap
-        if isinstance(section, CodeSection)
-    }:
-        instrSet = builtinInstructionSets[instrSetName]
-        if instrSet is not None:
-            disassemblers[instrSetName] = Disassembler(instrSet)
-
     # Disassemble.
     logger.info("Disassembling...")
+    disassembler = Disassembler()
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -285,13 +276,25 @@ def disassembleBinary(
         fetcher = fetcherFactory(image, offset, end)
 
         addr = entrySection.base + offset - entrySection.start
-        disassemblers[instrSetName].disassemble(fetcher, addr)
+        disassembler.disassemble(instrSet, fetcher, addr)
+
+    # TODO: Do this some time else.
+    # TODO: Handle no/multiple instruction sets.
+    instructionSets = {
+        builtinInstructionSets[section.instrSetName]
+        for section in sectionMap
+        if isinstance(section, CodeSection)
+    }
+    instructionSets.discard(None)
+    if len(instructionSets) == 1:
+        (instrSet,) = instructionSets
+        assert instrSet is not None
+        disassembler.makeLabels(instrSet)
 
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
-    for instrSetName, disassembler in sorted(disassemblers.items()):
-        disassembler.formatAsm(formatter)
+    disassembler.formatAsm(formatter)
 
 
 def _parseNumber(number: str) -> int:

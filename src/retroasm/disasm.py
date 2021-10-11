@@ -11,18 +11,19 @@ from .types import IntType, unlimited
 
 
 class Disassembler:
-    def __init__(self, instrSet: InstructionSet):
-        self._instrSet = instrSet
+    def __init__(self) -> None:
         self._decoded: dict[int, Union[Reference, ModeMatch]] = {}
         self._codeAddrs: MutableSet[int] = set()
         self._dataAddrs: MutableSet[int] = set()
+        self._labels: dict[int, str] = {}
 
-    def disassemble(self, fetcher: ImageFetcher, startAddr: int) -> None:
+    def disassemble(
+        self, instrSet: InstructionSet, fetcher: ImageFetcher, startAddr: int
+    ) -> None:
         """Disassemble instructions from the given fetcher.
         The fetched data is assumed to be code for the given instruction set,
         to be executed at the given address.
         """
-        instrSet = self._instrSet
         pc = cast(Reference, instrSet.globalNamespace["pc"])
         decodePrefix = instrSet.prefixDecodeFunc
         prefixMapping = instrSet.prefixMapping
@@ -76,27 +77,23 @@ class Disassembler:
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
 
-    def formatAsm(self, formatter: Formatter) -> None:
-        decoded = self._decoded
-        codeAddrs = self._codeAddrs
-        dataAddrs = self._dataAddrs
-        instrSet = self._instrSet
+    def makeLabels(self, instrSet: InstructionSet) -> None:
         assert isinstance(instrSet.addrWidth, int)
         addrDigits = (instrSet.addrWidth + 3) // 4
-
-        labels = {}
+        labels = self._labels
         dataLabelFormat = f"data_{{:0{addrDigits:d}x}}"
-        for addr in dataAddrs:
+        for addr in self._dataAddrs:
             labels[addr] = dataLabelFormat.format(addr)
         codeLabelFormat = f"code_{{:0{addrDigits:d}x}}"
-        for addr in codeAddrs:
+        for addr in self._codeAddrs:
             labels[addr] = codeLabelFormat.format(addr)
 
-        for addr in sorted(decoded.keys()):
+    def formatAsm(self, formatter: Formatter) -> None:
+        labels = self._labels
+        for addr, match in sorted(self._decoded.items()):
             label = labels.get(addr)
             if label is not None:
                 print(formatter.formatLabel(label))
-            match = decoded[addr]
             if isinstance(match, Reference):
                 print(formatter.formatData(match))
             else:
