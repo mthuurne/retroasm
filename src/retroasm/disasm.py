@@ -1,4 +1,6 @@
-from typing import AbstractSet, Union, cast
+from __future__ import annotations
+
+from typing import AbstractSet, cast
 
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -12,7 +14,7 @@ from .types import IntType, unlimited
 
 class Disassembler:
     def __init__(self) -> None:
-        self._decoded: dict[int, Union[Reference, ModeMatch]] = {}
+        self._decoded: dict[int, Reference | ModeMatch] = {}
         self._labels: dict[int, str] = {}
 
     def disassemble(

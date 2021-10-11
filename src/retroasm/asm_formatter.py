@@ -1,4 +1,6 @@
-from typing import AbstractSet, Iterable, Mapping, Union
+from __future__ import annotations
+
+from typing import AbstractSet, Iterable, Mapping
 
 from .expression import IntLiteral
 from .mode import PlaceholderRole
@@ -44,7 +46,7 @@ class Formatter:
     def formatMnemonic(
         self,
         # TODO: Use the Mnemonic class instead?
-        mnemonic: Iterable[Union[str, Reference]],
+        mnemonic: Iterable[str | Reference],
         labels: Mapping[int, str],
     ) -> str:
         parts = []
