@@ -1,4 +1,4 @@
-from typing import AbstractSet, MutableSet, Union, cast
+from typing import AbstractSet, Union, cast
 
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -13,8 +13,6 @@ from .types import IntType, unlimited
 class Disassembler:
     def __init__(self) -> None:
         self._decoded: dict[int, Union[Reference, ModeMatch]] = {}
-        self._codeAddrs: MutableSet[int] = set()
-        self._dataAddrs: MutableSet[int] = set()
         self._labels: dict[int, str] = {}
 
     def disassemble(
@@ -35,8 +33,6 @@ class Disassembler:
         encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
         decoded = self._decoded
-        codeAddrs = self._codeAddrs
-        dataAddrs = self._dataAddrs
         addr = startAddr
         while fetcher[0] is not None:
             # Decode prefixes.
@@ -76,17 +72,6 @@ class Disassembler:
                 decoded[addr] = match.substPC(pc, IntLiteral(postAddr))
             fetcher = fetcher.advance(encodedLength)
             addr = postAddr
-
-    def makeLabels(self, instrSet: InstructionSet) -> None:
-        assert isinstance(instrSet.addrWidth, int)
-        addrDigits = (instrSet.addrWidth + 3) // 4
-        labels = self._labels
-        dataLabelFormat = f"data_{{:0{addrDigits:d}x}}"
-        for addr in self._dataAddrs:
-            labels[addr] = dataLabelFormat.format(addr)
-        codeLabelFormat = f"code_{{:0{addrDigits:d}x}}"
-        for addr in self._codeAddrs:
-            labels[addr] = codeLabelFormat.format(addr)
 
     def formatAsm(self, formatter: Formatter) -> None:
         labels = self._labels

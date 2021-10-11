@@ -278,19 +278,6 @@ def disassembleBinary(
         addr = entrySection.base + offset - entrySection.start
         disassembler.disassemble(instrSet, fetcher, addr)
 
-    # TODO: Do this some time else.
-    # TODO: Handle no/multiple instruction sets.
-    instructionSets = {
-        builtinInstructionSets[section.instrSetName]
-        for section in sectionMap
-        if isinstance(section, CodeSection)
-    }
-    instructionSets.discard(None)
-    if len(instructionSets) == 1:
-        (instrSet,) = instructionSets
-        assert instrSet is not None
-        disassembler.makeLabels(instrSet)
-
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
