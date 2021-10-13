@@ -114,7 +114,11 @@ class CodeSection(Section):
 
 
 class SectionMap:
-    """A collection of sections."""
+    """
+    A collection of sections.
+
+    Sections cannot overlap, but there can be gaps between sections.
+    """
 
     def __init__(self, sections: Iterable[Section]):
         sections = sorted(sections, key=lambda section: section.start)
@@ -126,6 +130,7 @@ class SectionMap:
         self._sections = sections
 
     def __iter__(self) -> Iterator[Section]:
+        """Iterate through the sections, in address order."""
         return iter(self._sections)
 
     def __len__(self) -> int:
