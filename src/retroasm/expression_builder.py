@@ -66,7 +66,8 @@ class BadExpression(BadInput):
 
 
 class UnknownNameError(BadExpression):
-    """Raised when an expression contains an identifier that does not occur
+    """
+    Raised when an expression contains an identifier that does not occur
     in any of its surrounding namespaces.
     """
 
@@ -108,7 +109,8 @@ def convertDefinition(
     value: ParseNode,
     namespace: BuilderNamespace,
 ) -> Reference:
-    """Build and validate the right hand side of a definition.
+    """
+    Build and validate the right hand side of a definition.
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
     """
@@ -492,7 +494,8 @@ def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
 def buildStatementEval(
     reader: LineReader, whereDesc: str, namespace: LocalNamespace, node: ParseNode
 ) -> None:
-    """Emits loads and stores on the given namespace that produce the (side)
+    """
+    Emits loads and stores on the given namespace that produce the (side)
     effects of evaluating the given node.
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
@@ -572,7 +575,8 @@ def emitCodeFromStatements(
     statements: Iterable[ParseNode],
     retType: None | IntType | ReferenceType,
 ) -> None:
-    """Emits a code block from the given statements.
+    """
+    Emits a code block from the given statements.
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
     """

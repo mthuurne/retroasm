@@ -14,7 +14,9 @@ class ByteOrder(Enum):
 
 
 class Section:
-    """Base class for area in a binary with shared properties.
+    """
+    Base class for area in a binary with shared properties.
+
     Start (inclusive) and end (exclusive) are offsets into the image.
     It is allowed to define a section with offsets outside of the image.
     """
@@ -98,8 +100,9 @@ class CodeSection(Section):
         )
 
     def offsetForAddr(self, addr: int) -> int:
-        """Returns the offset in the image at which the given address can be
-        found.
+        """
+        Return the offset in the image at which the given address can be found.
+
         Raises ValueError if the given address is outside this section.
         """
         start = self._start
@@ -132,8 +135,9 @@ class SectionMap:
         return f"SectionMap({self._sections!r})"
 
     def sectionAt(self, offset: int) -> Section | None:
-        """Returns the section at the given offset, or None if there is no
-        section at that offset.
+        """
+        Return the section at the given offset, or None if there is no section
+        at that offset.
         """
         sections = self._sections
 

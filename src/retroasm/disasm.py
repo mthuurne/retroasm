@@ -20,7 +20,8 @@ class Disassembler:
     def disassemble(
         self, instrSet: InstructionSet, fetcher: ImageFetcher, startAddr: int
     ) -> None:
-        """Disassemble instructions from the given fetcher.
+        """
+        Disassemble instructions from the given fetcher.
         The fetched data is assumed to be code for the given instruction set,
         to be executed at the given address.
         """

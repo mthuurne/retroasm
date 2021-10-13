@@ -7,7 +7,8 @@ from .utils import Singleton, Unique
 
 
 class Unlimited(metaclass=Singleton):
-    """Width value for arbitrary-width integer types.
+    """
+    Width value for arbitrary-width integer types.
     Compares as infinity: larger than any integer.
     """
 
@@ -158,7 +159,8 @@ class Segment:
 
 
 def maskToSegments(mask: int) -> Iterator[Segment]:
-    """Iterates through pairs of start and end indices of maximally long
+    """
+    Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
     The segments are returned in increasing order.
     Negative masks are supported, the last segment will have 'unlimited' as
@@ -182,7 +184,8 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
 
 
 def segmentsToMask(segments: Iterable[Segment]) -> int:
-    """Computes a mask that corresponds to the given sequence of pairs of
+    """
+    Computes a mask that corresponds to the given sequence of pairs of
     start and end indices.
     Overlapping or empty segments are allowed, start larger than end is not.
     End indices may be 'unlimited', start indices may not.
@@ -194,7 +197,8 @@ def segmentsToMask(segments: Iterable[Segment]) -> int:
 
 
 class IntType(metaclass=Unique):
-    """An integer value type of "width" bits, signed or unsigned.
+    """
+    An integer value type of "width" bits, signed or unsigned.
     Width can be an integer or the singleton 'unlimited', which indicates an
     unlimited width integer type.
     There is at most one instance of IntType for each width + signedness,

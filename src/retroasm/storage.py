@@ -48,7 +48,8 @@ class IOChannel:
     # pylint: disable=unused-argument
 
     def canLoadHaveSideEffect(self, index: Expression) -> bool:
-        """Returns True if reading from this channel at the given index
+        """
+        Returns True if reading from this channel at the given index
         might have an effect other than fetching the value. For example
         reading a peripheral's status register might reset a flag.
         The index is an Expression which might provide some additional
@@ -57,7 +58,8 @@ class IOChannel:
         return True
 
     def canStoreHaveSideEffect(self, index: Expression) -> bool:
-        """Returns True if writing to this channel at the given index
+        """
+        Returns True if writing to this channel at the given index
         might have an effect other than setting the value. For example
         writing a peripheral's control register might change its output.
         The index is an Expression which might provide some additional
@@ -66,7 +68,8 @@ class IOChannel:
         return True
 
     def isLoadConsistent(self, index: Expression) -> bool:
-        """Returns True if reading from this channel at the given index
+        """
+        Returns True if reading from this channel at the given index
         twice in succession will return the same value both times.
         The index is an Expression which might provide some additional
         information about which part of the channel is being read.
@@ -74,7 +77,8 @@ class IOChannel:
         return False
 
     def isSticky(self, index: Expression) -> bool:
-        """Returns True if reading from this channel at the give index after
+        """
+        Returns True if reading from this channel at the give index after
         it is written at that same index will return the written value.
         If access at another index inbetween the write and read can change
         the value, the given index is not considered sticky (return False).
@@ -84,7 +88,8 @@ class IOChannel:
         return False
 
     def mightBeSame(self, index1: Expression, index2: Expression) -> bool:
-        """Returns True if the storages at the two given indices might be the
+        """
+        Returns True if the storages at the two given indices might be the
         same, either because the indices might be equal or because multiple
         indices can point to the same storage.
         """
@@ -108,33 +113,38 @@ class Storage:
             )
 
     def canLoadHaveSideEffect(self) -> bool:
-        """Returns True if reading from this storage might have an effect
+        """
+        Returns True if reading from this storage might have an effect
         other than fetching the value. For example reading a peripheral's
         status register might reset a flag.
         """
         raise NotImplementedError
 
     def canStoreHaveSideEffect(self) -> bool:
-        """Returns True if writing to this storage might have an effect
+        """
+        Returns True if writing to this storage might have an effect
         other than setting the value. For example writing a peripheral's
         control register might change its output.
         """
         raise NotImplementedError
 
     def isLoadConsistent(self) -> bool:
-        """Returns True if reading this storage twice in succession will
+        """
+        Returns True if reading this storage twice in succession will
         return the same value both times.
         """
         raise NotImplementedError
 
     def isSticky(self) -> bool:
-        """Returns True if reading this storage after it is written will
+        """
+        Returns True if reading this storage after it is written will
         return the written value.
         """
         raise NotImplementedError
 
     def mightBeSame(self, other: Storage) -> bool:
-        """Returns True if the given storage might be the same storage as
+        """
+        Returns True if the given storage might be the same storage as
         this one: if it is either certainly the same or if it might be an
         alias.
         """
@@ -147,7 +157,8 @@ class Storage:
     def substituteExpressions(
         self, func: Callable[[Expression], Expression | None]
     ) -> Storage:
-        """Applies the given substitution function to the expressions in this
+        """
+        Applies the given substitution function to the expressions in this
         storage, if any.
         See Expression.substitute() for details about the substitution function.
         Returns a new version of storage with its expressions replaced if any
@@ -157,7 +168,8 @@ class Storage:
 
 
 class Variable(Storage):
-    """A simple piece of named storage.
+    """
+    A simple piece of named storage.
     Is used for registers as well as variables.
     """
 
@@ -198,7 +210,8 @@ class Variable(Storage):
 
 
 class ArgStorage(Storage):
-    """A placeholder storage location for a storage passed to a function.
+    """
+    A placeholder storage location for a storage passed to a function.
     The storage properties depend on which concrete storage will be passed,
     so until we know the concrete storage we have to assume the worst case.
     """
@@ -308,7 +321,8 @@ class IOStorage(Storage):
 
 
 class Keeper(Storage):
-    """Storage location used to artificially force a load or store
+    """
+    Storage location used to artificially force a load or store
     to not be optimized out.
     """
 

@@ -140,7 +140,9 @@ def checkdef(
 def determineBinaryFormat(
     image: Image, fileName: str, formatName: str | None, logger: Logger
 ) -> type[BinaryFormat] | None:
-    """Determines the right binary format for the given open file object.
+    """
+    Determines the right binary format for the given open file object.
+
     If the given format name is None, autodetection will be used.
     Returns a binary format subclass on success, or None if the format could
     not be determined.

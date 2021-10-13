@@ -27,7 +27,8 @@ from .utils import const_property
 
 
 class EncodingExpr:
-    """A single element in an encoding sequence that is specified using an
+    """
+    A single element in an encoding sequence that is specified using an
     expression.
     """
 
@@ -65,7 +66,8 @@ class EncodingExpr:
         self,
         func: Callable[[str], BitString | None],
     ) -> EncodingExpr:
-        """Apply the given substitution function to each placeholder.
+        """
+        Apply the given substitution function to each placeholder.
         The function is passed a placeholder name and should either return
         a bit string containing the value for that placeholder, or None
         to preserve the placeholder.
@@ -85,7 +87,8 @@ class EncodingExpr:
             return EncodingExpr(newBits, self._location)
 
     def rename(self, nameMap: Mapping[str, str]) -> EncodingExpr:
-        """Returns a new EncodingExpr, with placeholder names substituted by
+        """
+        Returns a new EncodingExpr, with placeholder names substituted by
         their value in the given mapping.
         """
 
@@ -101,7 +104,8 @@ class EncodingExpr:
 
 
 class EncodingMultiMatch:
-    """A segment in an encoding sequence of zero or more elements, that will
+    """
+    A segment in an encoding sequence of zero or more elements, that will
     be filled in by a matched entry from an included mode.
     """
 
@@ -148,7 +152,8 @@ class EncodingMultiMatch:
         )
 
     def rename(self, nameMap: Mapping[str, str]) -> EncodingMultiMatch:
-        """Returns a new EncodingMultiMatch, with the placeholder name
+        """
+        Returns a new EncodingMultiMatch, with the placeholder name
         substituted by its value in the given mapping.
         """
         return EncodingMultiMatch(
@@ -162,7 +167,8 @@ class EncodingMultiMatch:
 
 
 def _findFirstAuxIndex(encoding: Sequence[EncodingItem]) -> int | None:
-    """Returns the index of the first encoding item that can match auxiliary
+    """
+    Returns the index of the first encoding item that can match auxiliary
     encoding units, or None if no auxiliary encoding units can be matched.
     The given encoding sequence must not contain matchers that never match
     any encoding units.
@@ -189,7 +195,8 @@ EncodingItem = Union[EncodingExpr, EncodingMultiMatch]
 
 
 class Encoding:
-    """Defines how (part of) an instruction is encoded.
+    """
+    Defines how (part of) an instruction is encoded.
     We call the elements of a definition 'items', these are represented by
     EncodingExpr and EncodingMultiMatch objects. We call the elements of an
     encoded instruction 'units', depending on the instruction set these are
@@ -239,7 +246,8 @@ class Encoding:
         return self._items[index]
 
     def fillPlaceholders(self, match: EncodeMatch) -> Encoding:
-        """Return a new encoding, in which placeholders are replaced by
+        """
+        Return a new encoding, in which placeholders are replaced by
         match results, if available.
         """
 
@@ -301,14 +309,16 @@ class Encoding:
         return Encoding(items, self._location)
 
     def rename(self, nameMap: Mapping[str, str]) -> Encoding:
-        """Returns a new Encoding, in which all placeholder names are
+        """
+        Returns a new Encoding, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         return Encoding((item.rename(nameMap) for item in self._items), self._location)
 
     @property
     def encodingWidth(self) -> int | None:
-        """The width in bits a first encoding unit matched by this encoding
+        """
+        The width in bits a first encoding unit matched by this encoding
         definition would have, or None if this encoding definition always
         matches zero encoding units.
         """
@@ -323,7 +333,8 @@ class Encoding:
 
     @property
     def auxEncodingWidth(self) -> int | None:
-        """The width in bits that all non-first encoding units matched by this
+        """
+        The width in bits that all non-first encoding units matched by this
         encoding definition would have, or None if a match cannot contain more
         than one encoding unit.
         """
@@ -340,7 +351,8 @@ class Encoding:
 
     @property
     def auxEncodingLocation(self) -> InputLocation:
-        """The InputLocation of the auxiliary encoding items in this mode
+        """
+        The InputLocation of the auxiliary encoding items in this mode
         entry. If there are no auxiliary encoding items, the end of the
         encoding field is returned.
         """
@@ -354,7 +366,8 @@ class Encoding:
 
     @const_property
     def encodedLength(self) -> int | None:
-        """The number of encoded units (bytes, words etc.) that this encoding
+        """
+        The number of encoded units (bytes, words etc.) that this encoding
         definitions matches, or None if that number may vary depending on which
         match is made in an included mode.
         """
@@ -371,7 +384,8 @@ MnemItem = Union[str, int, "Placeholder"]
 
 
 class Mnemonic:
-    """Defines how (part of) an instruction is presented in assembly source
+    """
+    Defines how (part of) an instruction is presented in assembly source
     code.
     The items within a mnemonic definition are exposed as a sequence.
     """
@@ -389,7 +403,8 @@ class Mnemonic:
         return self._items[index]
 
     def fillPlaceholders(self, match: EncodeMatch) -> Mnemonic:
-        """Return a new mnemonic, in which placeholders are replaced by
+        """
+        Return a new mnemonic, in which placeholders are replaced by
         match results, if available.
         """
         items: list[MnemItem] = []
@@ -420,7 +435,8 @@ class Mnemonic:
         return Mnemonic(items)
 
     def rename(self, nameMap: Mapping[str, str]) -> Mnemonic:
-        """Returns a new Mnemonic, in which all placeholder names are
+        """
+        Returns a new Mnemonic, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         return Mnemonic(
@@ -430,7 +446,8 @@ class Mnemonic:
 
 
 class CodeTemplate:
-    """A container for a code block which contains placeholders that will be
+    """
+    A container for a code block which contains placeholders that will be
     filled in later.
     """
 
@@ -439,7 +456,8 @@ class CodeTemplate:
         self.placeholders = placeholders
 
     def fillPlaceholders(self, match: EncodeMatch) -> CodeTemplate:
-        """Return a new code template, in which placeholders are replaced by
+        """
+        Return a new code template, in which placeholders are replaced by
         match results, if available.
         """
 
@@ -472,7 +490,8 @@ class CodeTemplate:
         return CodeTemplate(newCode, placeholders)
 
     def rename(self, nameMap: Mapping[str, str]) -> CodeTemplate:
-        """Returns a new CodeTemplate, in which all placeholder names are
+        """
+        Returns a new CodeTemplate, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         code = self.code
@@ -518,7 +537,8 @@ class ModeEntry:
 
     @property
     def semantics(self) -> CodeTemplate:
-        """The semantics of this mode entry.
+        """
+        The semantics of this mode entry.
         It is an error to access this property for instruction sets that were
         loaded with the `wantSemantics=False` option.
         """
@@ -533,7 +553,8 @@ class ModeEntry:
         return semantics
 
     def rename(self, nameMap: Mapping[str, str]) -> ModeEntry:
-        """Returns a new ModeEntry, in which all placeholder names are
+        """
+        Returns a new ModeEntry, in which all placeholder names are
         substituted by their value in the given mapping.
         """
 
@@ -552,7 +573,8 @@ class ModeEntry:
 
 
 class ModeMatch:
-    """A flattened match of a mode entry at a particular address.
+    """
+    A flattened match of a mode entry at a particular address.
     Flattened means that all submode matches have been resolved and substituted
     into this match.
     """
@@ -598,7 +620,8 @@ class ModeMatch:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
 
     def substPC(self, pc: Reference, pcVal: Expression) -> ModeMatch:
-        """Return a new mode match with the value `pcVal` substituted for
+        """
+        Return a new mode match with the value `pcVal` substituted for
         the program counter `pc`.
         """
 
@@ -751,7 +774,8 @@ class ModeTable:
 
     @const_property
     def encodedLength(self) -> int | None:
-        """The number of encoded data units (bytes, words etc.) that all
+        """
+        The number of encoded data units (bytes, words etc.) that all
         entries in this mode use, or None if that number may vary depending
         on which match is made.
         """
@@ -774,7 +798,8 @@ class ModeTable:
 
 
 class Mode(ModeTable):
-    """A pattern for operands, such as an addressing mode or a table defining
+    """
+    A pattern for operands, such as an addressing mode or a table defining
     register encoding.
     """
 
@@ -824,7 +849,8 @@ class Placeholder:
         self._name = name
 
     def rename(self, name: str) -> Placeholder:
-        """Returns a new placeholder that is the same as this one, except
+        """
+        Returns a new placeholder that is the same as this one, except
         the name is changed to the given name.
         """
         raise NotImplementedError
@@ -878,7 +904,8 @@ class ComputedPlaceholder(ValuePlaceholder):
         builder: SemanticsCodeBlockBuilder,
         argFetcher: Callable[[str], BitString | None],
     ) -> FixedValue:
-        """Computes the value of this placeholder.
+        """
+        Computes the value of this placeholder.
         The builder can already contain nodes, for example to initialize
         registers like the program counter. This placeholder's code will
         be inlined on the builder.
@@ -896,7 +923,8 @@ class ComputedPlaceholder(ValuePlaceholder):
 
 
 class MatchPlaceholder(Placeholder):
-    """An element from a mode context that will be filled in by a match made
+    """
+    An element from a mode context that will be filled in by a match made
     in a different mode table.
     """
 
@@ -940,7 +968,8 @@ class EncodeMatch:
         self._mapping[key] = value
 
     def fillPlaceholders(self) -> ModeEntry:
-        """Return a new entry, in which those placeholders that are present
+        """
+        Return a new entry, in which those placeholders that are present
         in this match are replaced by the mode/value they are mapped to.
         It is not necessary for the match to provide modes/values for every
         placeholder: whatever is not matched is left untouched.

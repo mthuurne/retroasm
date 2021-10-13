@@ -147,7 +147,8 @@ class LoadedValue(Expression):
 def verifyLoads(
     nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()
 ) -> None:
-    """Performs consistency checks on the LoadedValues in the given nodes and
+    """
+    Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
     """
@@ -188,7 +189,8 @@ class CodeBlock:
         assert self.verify()
 
     def verify(self) -> bool:
-        """Performs consistency checks on this code block.
+        """
+        Performs consistency checks on this code block.
         Raises AssertionError if an inconsistency is found.
         Returns True on success, never returns False.
         """
@@ -214,7 +216,8 @@ class CodeBlock:
 
     @const_property
     def expressions(self) -> AbstractSet[Expression]:
-        """A set of all expressions that are contained in this block.
+        """
+        A set of all expressions that are contained in this block.
         Only top-level expressions are included, not all subexpressions of
         those top-level expressions.
         """
@@ -247,7 +250,8 @@ class CodeBlock:
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        """A mapping containing all arguments that occur in this code block.
+        """
+        A mapping containing all arguments that occur in this code block.
         ValueError is raised if the same name is used for multiple arguments.
         """
         return self._gatherArguments()
@@ -255,7 +259,8 @@ class CodeBlock:
     def _updateExpressions(
         self, substFunc: Callable[[Expression], Expression | None]
     ) -> None:
-        """Calls the given substitution function with each expression in this
+        """
+        Calls the given substitution function with each expression in this
         code block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution
         function returns None, the original expression is kept.

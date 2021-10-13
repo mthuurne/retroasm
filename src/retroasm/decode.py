@@ -47,7 +47,8 @@ class EncodedSegment:
         return f"enc{self.encIdx:d}{self.segment}"
 
     def adjust_unit(self, idx: int, adjust: int) -> EncodedSegment:
-        """Adjust the encoding unit index by 'adjust' if the current index
+        """
+        Adjust the encoding unit index by 'adjust' if the current index
         is below 'idx'.
         Return the adjusted segment.
         """
@@ -70,7 +71,8 @@ class FixedEncoding:
 def decomposeEncoding(
     encoding: Encoding,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[tuple[int, EncodedSegment]]]]:
-    """Decomposes the given Encoding into a matcher for the fixed bit strings
+    """
+    Decomposes the given Encoding into a matcher for the fixed bit strings
     and a decode map describing where the placeholders values can be found.
     Returns a pair of the fixed matcher and the decode map.
     The fixed matcher is a sequence of tuples, where each tuple contains the
@@ -164,7 +166,8 @@ class Decoder:
         raise NotImplementedError
 
     def tryDecode(self, fetcher: Fetcher) -> EncodeMatch | None:
-        """Attempts to decode an instruction from the given fetcher.
+        """
+        Attempts to decode an instruction from the given fetcher.
         Returns an encode match, or None if no match could be made.
         """
         raise NotImplementedError
@@ -214,7 +217,8 @@ class TableDecoder(Decoder):
 
 
 class FixedPatternDecoder(Decoder):
-    """Decoder that matches encoded bit strings by looking for a fixed pattern
+    """
+    Decoder that matches encoded bit strings by looking for a fixed pattern
     using a mask and value.
     """
 
@@ -347,7 +351,8 @@ class PlaceholderDecoder(Decoder):
 
 
 class MatchFoundDecoder(Decoder):
-    """Decoder that is placed at the end of a decode tree.
+    """
+    Decoder that is placed at the end of a decode tree.
     It always finds a match.
     """
 
@@ -370,7 +375,8 @@ class MatchFoundDecoder(Decoder):
 
 
 class NoMatchDecoder(Decoder, metaclass=Singleton):
-    """Decoder that is placed at the end of a decode tree.
+    """
+    Decoder that is placed at the end of a decode tree.
     It never finds a match.
     """
 
@@ -545,7 +551,8 @@ def _createEntryDecoder(
 
 
 def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
-    """Returns a decoder that will decode using the last matching decoder among
+    """
+    Returns a decoder that will decode using the last matching decoder among
     the given decoders.
     """
     decoders: list[Decoder] = []
@@ -641,7 +648,8 @@ class ParsedModeEntry:
 def _qualifyNames(
     parsedEntry: ParsedModeEntry, branchName: str | None
 ) -> tuple[ModeEntry, Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
-    """Returns a pair containing a ModeEntry and decode mapping, where each
+    """
+    Returns a pair containing a ModeEntry and decode mapping, where each
     name starts with the given branch name.
     If branchName is None, no renaming is performed.
     """
@@ -721,7 +729,8 @@ class _PrefixDecoder:
             self.prefix = prefix
 
     def tryDecode(self, fetcher: Fetcher) -> Prefix | None:
-        """Attempts to decode an instruction prefix from the encoded data
+        """
+        Attempts to decode an instruction prefix from the encoded data
         provided by the given fetcher.
         Returns the decoded prefix, or None if no prefix was found.
         """

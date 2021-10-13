@@ -19,7 +19,8 @@ class CodeBlockSimplifier(CodeBlock):
         return self._gatherStorages()
 
     def freeze(self) -> None:
-        """Change the type of this object from CodeBlockSimplifier to CodeBlock,
+        """
+        Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
         """
         self.__class__ = CodeBlock  # type: ignore
@@ -120,7 +121,8 @@ class CodeBlockSimplifier(CodeBlock):
                 returned[i] = newBits
 
     def removeUnusedStores(self) -> None:
-        """Remove side-effect-free stores that will be overwritten or that
+        """
+        Remove side-effect-free stores that will be overwritten or that
         write a variable that will go out of scope.
         """
         nodes = self.nodes

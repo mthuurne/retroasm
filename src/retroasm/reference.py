@@ -61,7 +61,8 @@ class BitString:
         storageFunc: Callable[[Storage], BitString | None] | None = None,
         expressionFunc: Callable[[Expression], Expression | None] | None = None,
     ) -> BitString:
-        """Applies the given substitution functions to each applicable
+        """
+        Applies the given substitution functions to each applicable
         term in this bit string and returns the resulting bit string.
         The storage function passed a storage as its argument and must return
         None if no substitution is to take place and a replacement bit string
@@ -75,7 +76,8 @@ class BitString:
     def emitLoad(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        """Emits load nodes for loading a bit string from the underlying
+        """
+        Emits load nodes for loading a bit string from the underlying
         storage(s).
         Returns the value of the bit string as an Expression.
         """
@@ -87,13 +89,15 @@ class BitString:
         value: Expression,
         location: InputLocation | None,
     ) -> None:
-        """Emits store nodes for storing a bit string into the underlying
+        """
+        Emits store nodes for storing a bit string into the underlying
         storage(s).
         """
         raise NotImplementedError
 
     def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
-        """Decomposes the given bit string into its leaf nodes.
+        """
+        Decomposes the given bit string into its leaf nodes.
         Yields a series of pairs of base string and segment in the base string.
         When concatenated, with the first yielded as the least significant bits,
         these slices produce the given bit string.
@@ -104,7 +108,8 @@ class BitString:
 
 
 class LeafBitString(BitString):
-    """Abstract base class for bit strings that doesn't reference any other
+    """
+    Abstract base class for bit strings that doesn't reference any other
     bit strings.
 
     This is a leaf node in the tree structure of a composed bit string.
@@ -126,7 +131,8 @@ class FixedValue(LeafBitString):
         return self._expr
 
     def __init__(self, expr: Expression, width: Width):
-        """Construct a FixedValue with the given value and width.
+        """
+        Construct a FixedValue with the given value and width.
         The mask of the value Expression must fit within the given width.
         """
         super().__init__(width)
@@ -238,7 +244,8 @@ class ConcatenatedBits(BitString):
     __slots__ = ("_subs",)
 
     def __init__(self, *subs: BitString):
-        """Creates a concatenation of the given bit strings, in order from least
+        """
+        Creates a concatenation of the given bit strings, in order from least
         to most significant.
         """
         width = 0
@@ -426,7 +433,8 @@ class SlicedBits(BitString):
 
 
 class BadBits(LeafBitString):
-    """A dummy bit string that can be used when an error has been discovered
+    """
+    A dummy bit string that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
     """
 
@@ -466,7 +474,8 @@ class BadBits(LeafBitString):
 
 
 def badReference(decl: ReferenceType | IntType) -> Reference:
-    """Returns a dummy reference to the given declared reference/value type,
+    """
+    Returns a dummy reference to the given declared reference/value type,
     with a BadBits instance as the underlying bit string.
     """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
@@ -474,7 +483,8 @@ def badReference(decl: ReferenceType | IntType) -> Reference:
 
 
 def decodeInt(encoded: Expression, typ: IntType) -> Expression:
-    """Decodes the given encoded representation as an integer of the given type.
+    """
+    Decodes the given encoded representation as an integer of the given type.
     Returns the decoded value.
     """
     if typ.signed:
@@ -515,7 +525,8 @@ class Reference:
     def emitLoad(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        """Emits load nodes for loading a typed value from the referenced
+        """
+        Emits load nodes for loading a typed value from the referenced
         bit string.
         Returns the loaded value as an Expression.
         """

@@ -43,8 +43,8 @@ class PrefixMapping:
 
 
 def flagsSetByCode(code: CodeBlock) -> Iterator[Storage]:
-    """Yields those storages to which the value 1 is assigned by the given code
-    block.
+    """
+    Yields those storages to which the value 1 is assigned by the given code block.
     """
     for node in code.nodes:
         if isinstance(node, Store):
@@ -68,8 +68,8 @@ class PrefixMappingFactory:
         self._encodingWidth: int | None = None
 
     def hasFlag(self, name: str) -> bool:
-        """Return True iff a decode flag with the given name was added to
-        this factory.
+        """
+        Return True iff a decode flag with the given name was added to this factory.
         """
         return name in self._prefixForFlag
 
@@ -78,8 +78,9 @@ class PrefixMappingFactory:
         decodeFlags: Collection[str],
         prefixes: Iterable[Prefix],
     ) -> None:
-        """Adds `prefixes`, which use the flags in `decodeFlags`, to this
-        mapping.
+        """
+        Add `prefixes`, which use the flags in `decodeFlags`, to this mapping.
+
         Raises KeyError if a decode flag name either does not exist in the
         namespace or was added more than once.
         Raises ValueError if no reverse mapping could be computed from the
@@ -193,7 +194,8 @@ class InstructionSet(ModeTable):
         return createPrefixDecoder(self._prefixMapping.prefixes)
 
     def getDecoder(self, flags: AbstractSet[str] = frozenset()) -> Decoder:
-        """Returns an instruction decoder that decodes an instruction for the
+        """
+        Returns an instruction decoder that decodes an instruction for the
         given combination of decode flags.
         """
         flags = frozenset(flags)
@@ -207,7 +209,8 @@ class InstructionSet(ModeTable):
 
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:
-        """A set containing all possible combinations of decode flags that can
+        """
+        A set containing all possible combinations of decode flags that can
         be set simultaneously.
         """
         prefixMapping = self._prefixMapping

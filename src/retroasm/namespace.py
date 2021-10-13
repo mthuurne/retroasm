@@ -15,7 +15,8 @@ NamespaceValue = Union[Reference, IOChannel, Function]
 
 
 class Namespace:
-    """Container in which named elements such as variables, arguments,
+    """
+    Container in which named elements such as variables, arguments,
     functions etc. are stored.
     Fetching elements is done through a dictionary-like interface.
     Storing elements is done by calling define().
@@ -63,7 +64,8 @@ class Namespace:
         return self.elements.items()
 
     def define(self, name: str, value: NamespaceValue, location: InputLocation) -> None:
-        """Defines a named item in the this namespace.
+        """
+        Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
         """
         self._checkName(name, value, location)
@@ -83,7 +85,8 @@ class Namespace:
     def _checkName(
         self, name: str, value: NamespaceValue, location: InputLocation
     ) -> None:
-        """Checks whether the given name can be used in this namespace
+        """
+        Checks whether the given name can be used in this namespace
         for the given value.
         Raises NameExistsError if the name is rejected.
         """
@@ -100,7 +103,8 @@ class Namespace:
     def addArgument(
         self, name: str, typ: IntType, location: InputLocation
     ) -> Reference:
-        """Add an pass-by-reference argument to this namespace.
+        """
+        Add an pass-by-reference argument to this namespace.
         Returns a reference to the argument's storage.
         """
         storage = ArgStorage(name, typ.width)
@@ -129,7 +133,8 @@ class BuilderNamespace(Namespace):
         self.builder = builder
 
     def dump(self) -> None:
-        """Prints the current state of this namespace and its code block
+        """
+        Prints the current state of this namespace and its code block
         builder on stdout.
         """
         self.builder.dump()
@@ -139,7 +144,8 @@ class BuilderNamespace(Namespace):
     def addVariable(
         self, name: str, typ: IntType, location: InputLocation
     ) -> Reference:
-        """Adds a variable with the given name and type to this namespace.
+        """
+        Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
         """
         storage = Variable(typ.width, self.scope)
@@ -165,7 +171,8 @@ class GlobalNamespace(BuilderNamespace):
 
 
 class LocalNamespace(BuilderNamespace):
-    """A namespace for local blocks, that can import entries from its parent
+    """
+    A namespace for local blocks, that can import entries from its parent
     namespace on demand.
     """
 
@@ -188,7 +195,8 @@ class LocalNamespace(BuilderNamespace):
         log: LineReader | None = None,
         location: InputLocation | None = None,
     ) -> CodeBlock:
-        """Returns a CodeBlock object containing the items emitted so far.
+        """
+        Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         If `retRef` is None, the created code block will not return anything,
         otherwise it returns that reference.
@@ -204,7 +212,8 @@ class LocalNamespace(BuilderNamespace):
 
 
 class NameExistsError(BadInput):
-    """Raised when attempting to add an element to a namespace under a name
+    """
+    Raised when attempting to add an element to a namespace under a name
     which is already in use.
     """
 

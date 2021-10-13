@@ -28,8 +28,8 @@ class Fetcher:
             raise TypeError(f"fetcher index must be integer, not {type(key).__name__}")
 
     def _fetch(self, index: int) -> int | None:
-        """Returns the data unit at the given index, or None if the index is
-        out of range.
+        """
+        Return the data unit at the given index, or None if the index is out of range.
         """
         raise NotImplementedError
 
@@ -98,7 +98,8 @@ class ImageFetcher(Fetcher):
         raise NotImplementedError
 
     def advance(self, steps: int = 1) -> ImageFetcher:
-        """Returns a new fetcher of the same type, with an offset that is one
+        """
+        Returns a new fetcher of the same type, with an offset that is one
         one data unit advanced beyond our offset.
         """
         return self.__class__(
@@ -123,7 +124,8 @@ class ByteFetcher(ImageFetcher):
 
 
 class MultiByteFetcher(ImageFetcher):
-    """Abstract base class for instruction fetchers that read multi-byte units
+    """
+    Abstract base class for instruction fetchers that read multi-byte units
     from an image.
     """
 
@@ -144,7 +146,8 @@ class MultiByteFetcher(ImageFetcher):
 
 
 class BigEndianFetcher(MultiByteFetcher):
-    """Instruction fetcher that reads multi-byte units in big endian byte order
+    """
+    Instruction fetcher that reads multi-byte units in big endian byte order
     from an image.
     """
 
@@ -160,7 +163,8 @@ class BigEndianFetcher(MultiByteFetcher):
 
 
 class LittleEndianFetcher(MultiByteFetcher):
-    """Instruction fetcher that reads multi-byte units in little endian byte
+    """
+    Instruction fetcher that reads multi-byte units in little endian byte
     order from an image.
     """
 

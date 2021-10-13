@@ -19,7 +19,8 @@ class CodeBlockBuilder:
     def emitLoadBits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
-        """Loads the value from the given storage by emitting a Load node on
+        """
+        Loads the value from the given storage by emitting a Load node on
         this builder.
         Returns an expression that represents the loaded value.
         """
@@ -28,7 +29,8 @@ class CodeBlockBuilder:
     def emitStoreBits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
-        """Stores the value of the given expression in the given storage by
+        """
+        Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
         raise NotImplementedError
@@ -39,7 +41,8 @@ class CodeBlockBuilder:
         argMap: Mapping[str, BitString | None],
         location: InputLocation,
     ) -> BitString | None:
-        """Inlines a call to the given function with the given arguments.
+        """
+        Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
         Returns a BitString containing the value returned by the inlined
@@ -49,7 +52,8 @@ class CodeBlockBuilder:
 
 
 class IllegalStateAccess(BadInput):
-    """Raised when an operation is attempted that reads or writes state
+    """
+    Raised when an operation is attempted that reads or writes state
     in a situation where that is not allowed.
     """
 
@@ -63,7 +67,8 @@ class IllegalStateAccess(BadInput):
 
 
 class StatelessCodeBlockBuilder(CodeBlockBuilder):
-    """A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
+    """
+    A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
     touch any state, such as performing register access or I/O.
     """
 
@@ -103,7 +108,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         log: LineReader | None = None,
         location: InputLocation | None = None,
     ) -> CodeBlock:
-        """Returns a CodeBlock object containing the items emitted so far.
+        """
+        Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
         returned values for the created block.
@@ -194,7 +200,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         code: CodeBlock,
         argFetcher: Callable[[str], BitString | None] = lambda name: None,
     ) -> list[BitString]:
-        """Inlines another code block into this one.
+        """
+        Inlines another code block into this one.
         The given argument fetcher function, when called with an argument name,
         should return the bit string passed for that argument, or None if the
         argument should remain an argument in the inlined block.
@@ -221,7 +228,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         storageCache: dict[Storage, BitString] = {}
 
         def importStorage(storage: Storage) -> BitString:
-            """Returns a bit string containing the imported version of the given
+            """
+            Returns a bit string containing the imported version of the given
             storage.
             """
             bits = storageCache.get(storage)

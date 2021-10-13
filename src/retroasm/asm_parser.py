@@ -26,7 +26,8 @@ Token = tuple[AsmToken, InputLocation]
 
 
 def parseNumber(location: InputLocation) -> NumberNode:
-    """Parse a numeric literal in one of several formats.
+    """
+    Parse a numeric literal in one of several formats.
     Raise `ValueError` if the location does not contain a valid number.
     """
 

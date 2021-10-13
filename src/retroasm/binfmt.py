@@ -12,7 +12,8 @@ logger = getLogger("binfmt")
 
 
 class Image(Protocol):
-    """A binary image.
+    """
+    A binary image.
 
     `mmap.mmap` implements this interface, while it does not implement
     `ByteString` because it doesn't provide `__contains__`.
@@ -90,8 +91,9 @@ class BinaryFormat:
 
     @classmethod
     def checkImage(cls, image: Image) -> int:
-        """Checks whether the given image (read-only buffer) might be an
-        instance of this binary format.
+        """
+        Checks whether the given image (read-only buffer) might be an instance
+        of this binary format.
         Returns a positive number for likely matches, zero for undecided and
         a negative number for unlikely matches. The more certain, the further
         the number should be from zero, where 1000 means "very likely" and
@@ -352,14 +354,15 @@ _formatsByName = {
 
 
 def iterBinaryFormatNames() -> Iterable[str]:
-    """Iterates through the names of supported binary formats, in no particular
-    order.
+    """
+    Iterates through the names of supported binary formats, in no particular order.
     """
     return _formatsByName.keys()
 
 
 def getBinaryFormat(name: str) -> type[BinaryFormat]:
-    """Looks up a binary format by its name attribute.
+    """
+    Looks up a binary format by its name attribute.
     Returns the binary format with the given value for its name attribute.
     Raises KeyError if there is no match.
     """
@@ -397,7 +400,9 @@ def _detectBinaryFormats(
 def detectBinaryFormat(
     image: Image, fileName: str | None = None
 ) -> type[BinaryFormat] | None:
-    """Attempts to autodetect the binary format of the given image.
+    """
+    Attempts to autodetect the binary format of the given image.
+
     If a file name is given, its extension will be used to first test the
     formats matching that extension, as well as considering those formats
     to be more likely matches.
@@ -424,7 +429,9 @@ def detectBinaryFormat(
 
 
 def _unpackStruct(image: Image, offset: int, struct: Struct) -> tuple[Any, ...] | None:
-    """Unpacks the given struct from the given offset of the given image.
+    """
+    Unpacks the given struct from the given offset of the given image.
+
     Returns the unpacked data, or None if the image did not contain enough
     data at the given offset.
     """

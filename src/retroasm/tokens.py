@@ -22,7 +22,8 @@ class TokenMeta(EnumMeta):
 
 
 class TokenEnum(Enum, metaclass=TokenMeta):
-    """Base class for token types.
+    """
+    Base class for token types.
 
     Each member should have as its value the regular expression for
     matching that kind of token.
@@ -60,7 +61,8 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
     @property
     def kind(self) -> TokenT:
-        """The token kind of the current token.
+        """
+        The token kind of the current token.
         Raise `ValueError` if called at end of input.
         """
         kind = self._kind
@@ -113,14 +115,16 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         self._location = location
 
     def peek(self, kind: TokenT, value: str | None = None) -> bool:
-        """Check whether the current token matches the given kind and,
+        """
+        Check whether the current token matches the given kind and,
         if specified, also the given value.
         Return True for a match, False otherwise.
         """
         return self._kind is kind and (value is None or self.value == value)
 
     def eat(self, kind: TokenT, value: str | None = None) -> InputLocation | None:
-        """Consume the current token if it matches the given kind and,
+        """
+        Consume the current token if it matches the given kind and,
         if specified, also the given value.
         Return the token's input location if the token was consumed,
         or None if no match was found.

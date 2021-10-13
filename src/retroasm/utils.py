@@ -8,7 +8,8 @@ from weakref import WeakValueDictionary
 
 
 class Unique(type):
-    """Metaclass that enforces that for each combination of arguments there
+    """
+    Metaclass that enforces that for each combination of arguments there
     is only one instance.
     Arguments must be of hashable types.
     Keyword constructor arguments are not supported.
@@ -55,7 +56,8 @@ if TYPE_CHECKING:
 else:
 
     class const_property:
-        """Decorator for properties that don't change in value.
+        """
+        Decorator for properties that don't change in value.
         The getter function is called at most once: the first time the property
         is read.
         If the getter returns an iterator or a mutable sequence, set or mapping,

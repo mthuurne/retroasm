@@ -21,7 +21,8 @@ SingleExprT = TypeVar("SingleExprT", bound="SingleExpression")
 
 
 class Expression:
-    """Abstract base class for integer expressions.
+    """
+    Abstract base class for integer expressions.
 
     Expressions are considered equal if they have the same tree form.
     This means that for example (A + (B + C)) and ((A + B) + C) are considered
@@ -32,14 +33,16 @@ class Expression:
 
     @property
     def mask(self) -> int:
-        """A bit mask for the potential values of this expression: the mask
+        """
+        A bit mask for the potential values of this expression: the mask
         is 1 for bits that might be 1 in the values and is 0 for bits that
         are certainly 0 in all possible values.
         """
         raise NotImplementedError
 
     def _ctorargs(self) -> tuple[object, ...]:
-        """Returns a tuple containing the constructor arguments that can be
+        """
+        Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
         """
         raise NotImplementedError
@@ -72,7 +75,8 @@ class Expression:
         return hash(self._ctorargs() + (self.__class__,))
 
     def _equals(self: ExprT, other: ExprT) -> bool:
-        """Returns True if this expression is equal to the other expression,
+        """
+        Returns True if this expression is equal to the other expression,
         False otherwise.
         The other expression is of the same Python class as this one.
         """
@@ -80,14 +84,16 @@ class Expression:
 
     @property
     def complexity(self) -> int:
-        """Returns a postive number that reflects the complexity of this
+        """
+        Returns a postive number that reflects the complexity of this
         expression: the higher the number, the more complex the expression.
         This is used to compare simplification candidates.
         """
         raise NotImplementedError
 
     def iterInstances(self, cls: type[ExprT]) -> Iterator[ExprT]:
-        """Yields the subexpressions of this expression that are instances of
+        """
+        Yields the subexpressions of this expression that are instances of
         the given Python type.
         """
         if isinstance(self, cls):
@@ -97,7 +103,8 @@ class Expression:
                 yield from value.iterInstances(cls)
 
     def substitute(self, func: Callable[[Expression], Expression | None]) -> Expression:
-        """Applies the given substitution function to this expression and
+        """
+        Applies the given substitution function to this expression and
         returns the resulting expression.
         The function is called for each node in the expression with that
         node as the argument. If it returns None, the node is kept and the
@@ -124,7 +131,8 @@ class Expression:
 
 
 class BadValue(Expression):
-    """A dummy expression that can be used when an error has been discovered
+    """
+    A dummy expression that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
     """
 
@@ -188,7 +196,8 @@ class IntLiteral(Expression):
 
 
 class MultiExpression(Expression):
-    """Base class for expressions that combine zero or more subexpressions.
+    """
+    Base class for expressions that combine zero or more subexpressions.
     All subclasses of this class must represent operations that are both
     associative and commutative; other algebraic properties differ per subclass.
     """
@@ -471,7 +480,8 @@ class SignExtension(SingleExpression):
 
 
 _SHIFT_LIMIT_BITS = 256
-"""When shifting left, do not create masks longer than this number of bits.
+"""
+When shifting left, do not create masks longer than this number of bits.
 While Python integers can grow arbitrarily large, they will take up a lot of
 memory and take long to compute with. So we want to avoid creating masks
 that are overly large.
@@ -555,7 +565,8 @@ class RShift(SingleExpression):
 
 
 class LVShift(Expression):
-    """Shifts a bit string to the left, appending zero bits at the end.
+    """
+    Shifts a bit string to the left, appending zero bits at the end.
     Unlike LShift, our offset is an expression.
     """
 
@@ -609,7 +620,8 @@ class LVShift(Expression):
 
 
 class RVShift(Expression):
-    """Drops the lower N bits from a bit string.
+    """
+    Drops the lower N bits from a bit string.
     Unlike RShift, our offset (N) is an expression.
     """
 
@@ -669,8 +681,9 @@ def truncate(expr: Expression, width: Width) -> Expression:
 
 
 def optSlice(expr: Expression, index: int, width: Width) -> Expression:
-    """Return a slice of the given expression, at the given index with the given
-    width, without adding any unnecessary operations.
+    """
+    Return a slice of the given expression, at the given index with the given width,
+    without adding any unnecessary operations.
     """
     if index != 0:
         expr = RShift(expr, index)

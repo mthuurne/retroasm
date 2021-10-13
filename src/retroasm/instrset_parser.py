@@ -156,7 +156,8 @@ _reArgDecl = re.compile(_typeTok + r"\s" + _nameTok + r"$")
 def _parseTypedArgs(
     reader: DefLineReader, args: InputLocation, description: str
 ) -> Iterator[tuple[IntType | ReferenceType, InputLocation, InputLocation]]:
-    """Parses a typed arguments list, yielding a triple for each argument,
+    """
+    Parses a typed arguments list, yielding a triple for each argument,
     containing the argument type and InputLocations for the type and name.
     Errors are logged on the given reader as they are discovered.
     """
@@ -566,7 +567,8 @@ def _parseEncodingExpr(
     encNamespace: Namespace,
     placeholderSpecs: Mapping[str, PlaceholderSpec],
 ) -> EncodingExpr:
-    """Parse encoding node that is not a MultiMatchNode.
+    """
+    Parse encoding node that is not a MultiMatchNode.
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
     """
@@ -622,7 +624,8 @@ def _parseMultiMatch(
     identifiers: AbstractSet[str],
     placeholderSpecs: Mapping[str, PlaceholderSpec],
 ) -> EncodingMultiMatch:
-    """Parse an encoding node of type MultiMatchNode.
+    """
+    Parse an encoding node of type MultiMatchNode.
     Returns the parse result as an EncodingMultiMatch.
     Raises BadInput if the node is invalid.
     """
@@ -690,7 +693,8 @@ def _checkEmptyMultiMatches(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     logger: DefLineReader,
 ) -> None:
-    """Warn about multi-matches that always match zero elements.
+    """
+    Warn about multi-matches that always match zero elements.
     Technically there is nothing wrong with those, but it is probably not what
     the user intended.
     """
@@ -723,7 +727,8 @@ def _checkMissingPlaceholders(
     location: InputLocation,
     logger: DefLineReader,
 ) -> None:
-    """Check that our encoding field contains sufficient placeholders to be able
+    """
+    Check that our encoding field contains sufficient placeholders to be able
     to make matches in all included mode tables.
     """
     # Take inventory of placeholders in the encoding.
@@ -781,7 +786,8 @@ def _checkMissingPlaceholders(
 def _checkAuxEncodingWidth(
     encItems: Iterable[EncodingItem], logger: DefLineReader
 ) -> None:
-    """Check whether the encoding widths in the given encoding are the same
+    """
+    Check whether the encoding widths in the given encoding are the same
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
     """
@@ -829,7 +835,8 @@ def _checkAuxEncodingWidth(
 def _checkDuplicateMultiMatches(
     encItems: Iterable[EncodingItem], logger: DefLineReader
 ) -> None:
-    """Checks whether more than one multi-matcher exists for the same
+    """
+    Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
     """
     claimedMultiMatches: dict[str, InputLocation] = {}
@@ -851,7 +858,8 @@ def _combinePlaceholderEncodings(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     reader: DefLineReader,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
-    """Yield pairs of placeholder name and the locations where the placeholder
+    """
+    Yield pairs of placeholder name and the locations where the placeholder
     resides in the encoded items.
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
@@ -898,7 +906,8 @@ def _checkDecodingOrder(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     reader: DefLineReader,
 ) -> None:
-    """Verifies that there is an order in which placeholders can be decoded.
+    """
+    Verifies that there is an order in which placeholders can be decoded.
     Such an order might not exist because of circular dependencies.
     """
     # Find indices of multi-matches.
@@ -944,7 +953,8 @@ def _parseModeDecoding(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     reader: DefLineReader,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
-    """Construct a mapping that, given an encoded instruction, produces the
+    """
+    Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     """
     try:
@@ -1199,7 +1209,8 @@ def _determineEncodingWidth(
     modeName: str | None,
     logger: DefLineReader,
 ) -> int | None:
-    """Returns the common encoding width for the given list of mode entries.
+    """
+    Returns the common encoding width for the given list of mode entries.
     Entries with a deviating encoding width will be logged as errors on the
     given logger and removed from the entries list.
     If the 'aux' argument is False, the first matched unit width of each entry

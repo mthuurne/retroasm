@@ -19,7 +19,8 @@ import re
 
 
 class InputLocation:
-    """Describes a particular location in an input text file.
+    """
+    Describes a particular location in an input text file.
     This can be used to provide context in error reporting, by passing it as
     the value of the 'location' argument to the log methods of LineReader.
     """
@@ -28,7 +29,8 @@ class InputLocation:
 
     @property
     def path(self) -> Traversable:
-        """The path to the input text file.
+        """
+        The path to the input text file.
 
         This path might not exist on the file system, for example when reading from
         a resource.
@@ -42,7 +44,8 @@ class InputLocation:
 
     @property
     def lineno(self) -> int:
-        """The number of this location's line in the input file,
+        """
+        The number of this location's line in the input file,
         where line 1 is the first line.
         """
         return self._lineno
@@ -83,7 +86,8 @@ class InputLocation:
         return end - start
 
     def updateSpan(self, span: tuple[int, int]) -> InputLocation:
-        """Adds or updates the column span information of a location.
+        """
+        Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         """
         return InputLocation(self._path, self._lineno, self._line, span)
@@ -96,13 +100,15 @@ class InputLocation:
 
     @property
     def text(self) -> str:
-        """Returns the text described by this location: the spanned substring
+        """
+        Returns the text described by this location: the spanned substring
         if span information is available, otherwise the full line.
         """
         return self._line[slice(*self._span)]
 
     def match(self, pattern: Pattern[str]) -> InputMatch | None:
-        """Matches the text in this location to the given compiled regular
+        """
+        Matches the text in this location to the given compiled regular
         expression pattern.
         Returns an InputMatch object, or None if no match was found.
         """
@@ -110,7 +116,8 @@ class InputLocation:
         return None if match is None else InputMatch(self, match)
 
     def findLocations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
-        """Searches the text in this location for the given compiled regular
+        """
+        Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputLocation object for each
         match.
@@ -119,7 +126,8 @@ class InputLocation:
             yield self.updateSpan(match.span(0))
 
     def findMatches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
-        """Searches the text in this location for the given compiled regular
+        """
+        Searches the text in this location for the given compiled regular
         expression pattern.
         Returns an iterator that yields an InputMatch object for each
         match.
@@ -128,7 +136,8 @@ class InputLocation:
             yield InputMatch(self, match)
 
     def split(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
-        """Splits the text in this location using the given pattern as a
+        """
+        Splits the text in this location using the given pattern as a
         separator.
         Returns an iterator yielding InputLocations representing the text
         between the separators.
@@ -143,7 +152,8 @@ class InputLocation:
 
 
 class InputMatch:
-    """The result of a regular expression operation on an InputLocation.
+    """
+    The result of a regular expression operation on an InputLocation.
     The interface is inspired by, but not equal to, that of match objects from
     the "re" module of the standard library.
     """
@@ -155,13 +165,15 @@ class InputMatch:
         self._match = match
 
     def hasGroup(self, index: int | str) -> bool:
-        """Returns `True` iff a group matched at the given index,
+        """
+        Returns `True` iff a group matched at the given index,
         which can be name or a numeric index with the first group being 1.
         """
         return self._match.span(index) != (-1, -1)
 
     def group(self, index: int | str) -> InputLocation:
-        """Returns an InputLocation for the group matched at the given index,
+        """
+        Returns an InputLocation for the group matched at the given index,
         which can be name or a numeric index with the first group being 1.
         If 0 as passed as the index, an InputLocation for the entire matched
         string is returned.
@@ -176,7 +188,8 @@ class InputMatch:
 
     @property
     def groups(self) -> Iterator[InputLocation]:
-        """Iterates through the InputLocations of each of the groups matched.
+        """
+        Iterates through the InputLocations of each of the groups matched.
         If a group did not participate in the match, ValueError is raised.
         """
         for i in range(self._match.re.groups):
@@ -184,14 +197,16 @@ class InputMatch:
 
     @property
     def groupName(self) -> str | None:
-        """The name of the last matched group, or None if last matched group
+        """
+        The name of the last matched group, or None if last matched group
         was nameless or no groups were matched.
         """
         return self._match.lastgroup
 
 
 def mergeSpan(fromLocation: InputLocation, toLocation: InputLocation) -> InputLocation:
-    """Returns a new location of which the span starts at the start of the
+    """
+    Returns a new location of which the span starts at the start of the
     given 'from' location and ends at the end of the given 'to' location.
     Both given locations must be on the same line.
     """
@@ -207,7 +222,8 @@ def mergeSpan(fromLocation: InputLocation, toLocation: InputLocation) -> InputLo
 
 
 class DelayedError(Exception):
-    """Raised when one or more errors were encountered when processing input.
+    """
+    Raised when one or more errors were encountered when processing input.
     Since we want to report as many errors as possible in each processing,
     errors are logged and processing continues. However, it usually doesn't
     make sense to continue with later processing steps, since the incomplete
@@ -218,7 +234,8 @@ class DelayedError(Exception):
 
 
 class BadInput(Exception):
-    """An exception which contains information about the part of the input
+    """
+    An exception which contains information about the part of the input
     file which is considered to violate a rule.
     The 'location' attribute contains an InputLocation object describing
     the location in the input file that triggered the exception, or None if
@@ -227,7 +244,8 @@ class BadInput(Exception):
 
     @classmethod
     def withText(cls, msg: str, location: InputLocation) -> BadInput:
-        """Returns an instance of the BadInput (sub)class it is called on,
+        """
+        Returns an instance of the BadInput (sub)class it is called on,
         with the input text in the location's span appended after the error
         message.
         """
@@ -242,7 +260,8 @@ LineReaderT = TypeVar("LineReaderT", bound="LineReader")
 
 
 class LineReader:
-    """Iterates through the lines of a text file.
+    """
+    Iterates through the lines of a text file.
     The lines will not contain a trailing newline character.
     Log methods on the reader can be used to produce log records with context
     information: path name and the number and contents of the current line.
@@ -288,7 +307,8 @@ class LineReader:
 
     @property
     def location(self) -> InputLocation:
-        """Returns an InputLocation object describing the current line in
+        """
+        Returns an InputLocation object describing the current line in
         the input file.
         """
         lastline = self._lastline
@@ -319,7 +339,8 @@ class LineReader:
 
     @contextmanager
     def checkErrors(self) -> Iterator[LineReader]:
-        """Returns a context manager that raises DelayedError on context close
+        """
+        Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.
         """
         errorsBefore = self.errors
@@ -355,7 +376,8 @@ _reComment = re.compile(r"(?<!\\)#")
 
 
 class DefLineReader(LineReader):
-    """Iterates through lines of a block-structured definition file.
+    """
+    Iterates through lines of a block-structured definition file.
     Trailing whitespace is stripped, comments are removed.
     If a block header is bad, it is possible to skip the parsing of that
     block without aborting parsing altogether, in an attempt to catch
