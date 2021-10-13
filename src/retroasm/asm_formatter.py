@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Iterable, Mapping
+from typing import AbstractSet, Iterable, Iterator, Mapping
 
 from .expression import IntLiteral
 from .mode import PlaceholderRole
@@ -39,6 +39,9 @@ class Formatter:
             parts.append(operand)
             prevWord = isWord
         return "".join(parts)
+
+    def formatComment(self, comment: str) -> str:
+        return f"# {comment}"
 
     def formatLabel(self, label: str) -> str:
         return label + ":"
@@ -87,3 +90,14 @@ class Formatter:
     def formatData(self, ref: Reference) -> str:
         directive = self.dataDirectives[ref.width]
         return self.formatMnemonic((directive, ref), {})
+
+    def formatRaw(self, data: bytes) -> Iterator[str]:
+        """Format data with no known structure using data directives."""
+        directive = self.dataDirectives[8]
+        chunkSize = 16
+        for offset in range(0, len(data), chunkSize):
+            yield self._lineFormat.format(
+                "",
+                directive,
+                ", ".join(f"${byte:02x}" for byte in data[offset : offset + chunkSize]),
+            )
