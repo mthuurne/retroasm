@@ -14,9 +14,25 @@
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=design,missing-docstring,no-self-use,star-args,dangerous-default-value,
-        no-else-return
-
+disable=
+    # Not all of these are easy to fix, especially in the short term.
+    # There is no need to show them every time:
+        design,
+        fixme,
+        invalid-name,
+        protected-access,
+        too-many-lines,
+    # Eventually all public API should have docstrings, but I don't want to spend
+    # too much time documenting interfaces that are still going to radically change.
+        missing-docstring,
+    # I like symmetry:
+        no-else-break,
+        no-else-continue,
+        no-else-raise,
+        no-else-return,
+    # Too many false positives:
+        no-self-use,
+        similarities,
 
 [BASIC]
 
@@ -55,4 +71,4 @@ dummy-variables-rgx=(.*)_$
 [FORMAT]
 
 # Maximum number of characters on a single line.
-max-line-length=80
+max-line-length=88
