@@ -3,6 +3,7 @@ from __future__ import annotations
 from importlib.abc import Traversable
 from importlib.resources import files
 from logging import Logger, getLogger
+from typing import Iterator
 
 from ..instrset import InstructionSet
 from ..instrset_parser import parseInstrSet
@@ -39,6 +40,10 @@ class InstructionSetProvider:
         """
         raise NotImplementedError
 
+    def __iter__(self) -> Iterator[str]:
+        """Iterate through the names of the instruction sets that can be provided."""
+        raise NotImplementedError
+
 
 class InstructionSetDirectory(InstructionSetProvider):
     """
@@ -62,6 +67,13 @@ class InstructionSetDirectory(InstructionSetProvider):
             instrSet = loadInstructionSet(path, logger)
             self._cache[name] = instrSet
             return instrSet
+
+    def __iter__(self) -> Iterator[str]:
+        for path in self._path.iterdir():
+            if path.is_file():
+                name = path.name
+                if name.endswith(".instr"):
+                    yield name[:-6]
 
 
 builtinInstructionSets = InstructionSetDirectory(files(defs), getLogger(__name__))

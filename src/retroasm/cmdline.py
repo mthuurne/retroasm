@@ -399,8 +399,7 @@ def listSupported(
     print("")
 
     print("Instruction sets:")
-    instrDir = Path("defs/instr/")
-    for name in sorted(p.stem for p in instrDir.glob("*.instr")):
+    for name in sorted(builtinInstructionSets):
         print(f"  {name}")
     print("")
 
