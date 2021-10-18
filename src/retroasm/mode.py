@@ -708,19 +708,13 @@ class ModeTable:
             encDef = entry.encoding
             if encDef.encodingWidth != encWidth:
                 raise ValueError(
-                    "mode with %s contains entry with %s"
-                    % (
-                        _formatEncodingWidth(encWidth),
-                        _formatEncodingWidth(encDef.encodingWidth),
-                    )
+                    f"mode with {_formatEncodingWidth(encWidth)} contains "
+                    f"entry with {_formatEncodingWidth(encDef.encodingWidth)}"
                 )
             if encDef.auxEncodingWidth not in (None, auxEncWidth):
                 raise ValueError(
-                    "mode with %s contains entry with %s"
-                    % (
-                        _formatAuxEncodingWidth(auxEncWidth),
-                        _formatAuxEncodingWidth(encDef.auxEncodingWidth),
-                    )
+                    f"mode with {_formatAuxEncodingWidth(auxEncWidth)} contains "
+                    f"entry with {_formatAuxEncodingWidth(encDef.auxEncodingWidth)}"
                 )
 
         # TODO: Annotate in more detail.

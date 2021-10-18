@@ -129,15 +129,13 @@ class PrefixMappingFactory:
                 # Note: In theory we could support prefixes that set multiple
                 #       flags, but let's keep things simple until we encounter
                 #       a processor that actually requires it.
-                raise ValueError(
-                    'prefix "%s" sets %d flags'
-                    % (" ".join(str(enc) for enc in prefix.encoding), len(setFlags))
-                )
+                encStr = " ".join(str(enc) for enc in prefix.encoding)
+                raise ValueError(f'prefix "{encStr}" sets {len(setFlags):d} flags')
 
         unsettableFlags = set(decodeFlags) - set(prefixForFlag.keys())
         if unsettableFlags:
             raise ValueError(
-                "unsettable decode flags: %s" % ", ".join(sorted(unsettableFlags))
+                "unsettable decode flags: " + ", ".join(sorted(unsettableFlags))
             )
 
     def createMapping(self) -> PrefixMapping:

@@ -13,7 +13,6 @@ class ParseError(BadInput):
 
 
 class ExprToken(TokenEnum):
-    # pylint: disable=bad-whitespace
     keyword = r"var|def|branch|nop"
     multimatch = r"[A-Za-z_][A-Za-z0-9_]*@"
     identifier = r"[A-Za-z_][A-Za-z0-9_]*'?"
@@ -40,14 +39,12 @@ class ParseNode:
         """
 
     def __repr__(self) -> str:
-        return "%s(%s)" % (
-            self.__class__.__name__,
-            ", ".join(
-                f"{slot}={getattr(self, slot)}"
-                for cls in self.__class__.__mro__[:-2]  # drop ParseNode, object
-                for slot in cls.__slots__
-            ),
+        attrStr = ", ".join(
+            f"{slot}={getattr(self, slot)}"
+            for cls in self.__class__.__mro__[:-2]  # drop ParseNode, object
+            for slot in cls.__slots__
         )
+        return f"{self.__class__.__name__}({attrStr})"
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -560,15 +557,12 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         # Type.
         typeLocation = tokens.eat(ExprToken.identifier)
         if typeLocation is None:
-            raise badTokenKind(
-                "%s definition"
-                % {
-                    "ctx": "context",
-                    "def": "constant/reference",
-                    "var": "variable",
-                }[keyword],
-                "type name",
-            )
+            kindDesc = {
+                "ctx": "context",
+                "def": "constant/reference",
+                "var": "variable",
+            }[keyword]
+            raise badTokenKind(f"{kindDesc} definition", "type name")
 
         # Merge reference indicator '&' into type.
         if tokens.location.span[0] == typeLocation.span[1]:

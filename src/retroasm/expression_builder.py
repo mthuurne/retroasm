@@ -594,9 +594,9 @@ def emitCodeFromStatements(
                 assert kind == DeclarationKind.reference, kind
                 assert nameNode.name == "ret", nameNode.name
                 if not isinstance(retType, ReferenceType):
+                    desc = "nothing" if retType is None else "value"
                     reader.error(
-                        '"ret" defined as reference in function that returns %s'
-                        % ("nothing" if retType is None else "value"),
+                        f'"ret" defined as reference in function that returns {desc}',
                         location=decl.location,
                     )
                     continue

@@ -14,7 +14,6 @@ from .storage import ArgStorage, Storage, Variable
 class CodeBlockBuilder:
     def dump(self) -> None:
         """Prints the current state of this code block builder on stdout."""
-        pass
 
     def emitLoadBits(
         self, storage: Storage, location: InputLocation | None
@@ -183,10 +182,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         badArgs = argMap.keys() - func.args.keys()
         if badArgs:
-            raise KeyError("Non-existing arguments passed: %s" % ", ".join(badArgs))
+            raise KeyError("Non-existing arguments passed: " + ", ".join(badArgs))
         missingArgs = func.args.keys() - argMap.keys()
         if missingArgs:
-            raise KeyError("Missing values for arguments: %s" % ", ".join(missingArgs))
+            raise KeyError("Missing values for arguments: " + ", ".join(missingArgs))
 
         returned = self.inlineBlock(code, argMap.__getitem__)
         if len(returned) == 1:

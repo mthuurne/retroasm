@@ -301,7 +301,7 @@ class PlaceholderDecoder(Decoder):
             auxIdx = self._auxIdx
             if auxIdx is not None:
                 items.append(f"enc{auxIdx:d}+")
-            valStr = "sub(%s)" % ", ".join(items)
+            valStr = f"sub({', '.join(items)})"
 
         name = self._name
         self._next.dump(indent + f"{name}={valStr}, ", submodes)

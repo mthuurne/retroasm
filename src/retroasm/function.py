@@ -27,10 +27,9 @@ class Function:
         return f"Function({self.retType!r}, {self.args!r}, {self.code!r})"
 
     def __str__(self) -> str:
-        return "(%s) -> %s" % (
-            ", ".join(f"{decl} {name}" for name, decl in self.args.items()),
-            "unit" if self.retType is None else self.retType,
-        )
+        args = ", ".join(f"{decl} {name}" for name, decl in self.args.items())
+        ret = "unit" if self.retType is None else self.retType
+        return f"({args}) -> {ret}"
 
     def dump(self) -> None:
         print(str(self))

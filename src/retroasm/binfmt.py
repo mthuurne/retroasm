@@ -27,7 +27,9 @@ class Image(Protocol):
     def __getitem__(self, index: slice) -> bytes:
         ...
 
-    def __len__(self) -> int:
+    # This false positive has already been fixed, but is not in a release yet:
+    #   https://github.com/PyCQA/pylint/issues/4736
+    def __len__(self) -> int:  # pylint: disable=invalid-length-returned
         ...
 
 

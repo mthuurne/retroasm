@@ -155,7 +155,10 @@ class Storage:
         return iter(())
 
     def substituteExpressions(
-        self, func: Callable[[Expression], Expression | None]
+        # pylint: disable=unused-argument
+        # The default implementation doesn't use the argument, but subclasses do.
+        self,
+        func: Callable[[Expression], Expression | None],
     ) -> Storage:
         """
         Applies the given substitution function to the expressions in this

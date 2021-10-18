@@ -20,9 +20,6 @@ class Unlimited(metaclass=Singleton):
     def __str__(self) -> str:
         return "unlimited"
 
-    def __hash__(self) -> int:
-        return super().__hash__()
-
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is other
@@ -216,7 +213,7 @@ class IntType(metaclass=Unique):
         return self._signed
 
     @property
-    def mask(self) -> int:
+    def mask(self) -> int:  # pylint: disable=undefined-variable
         return -1 if self._signed else maskForWidth(self._width)
 
     @classmethod

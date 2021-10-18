@@ -79,8 +79,7 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
         print()
         if flags:
             print(
-                "with decode flag%s %s:"
-                % ("" if len(flags) == 1 else "s", ", ".join(flags))
+                f"with decode flag{'' if len(flags) == 1 else 's'} {', '.join(flags)}:"
             )
             print()
         instrSet.getDecoder(frozenset(flags)).dump(submodes=submodes)
@@ -392,7 +391,7 @@ def listSupported(
 
     print("Binary formats:")
     names = sorted(iterBinaryFormatNames())
-    lineFormatter = "  %%-%ds : %%s" % max(len(name) for name in names)
+    lineFormatter = f"  %-{max(len(name) for name in names)}s : %s"
     for name in names:
         binfmt = getBinaryFormat(name)
         print(lineFormatter % (name, binfmt.description))
@@ -497,7 +496,6 @@ def disasm(
 @version_option(prog_name="RetroAsm", message="%(prog)s version %(version)s")
 def main() -> None:
     """Command line interface to the RetroAsm assembly toolkit."""
-    pass
 
 
 main.add_command(asm)

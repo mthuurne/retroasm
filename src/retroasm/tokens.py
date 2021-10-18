@@ -14,7 +14,11 @@ class TokenMeta(EnumMeta):
         pattern: Pattern[str]
 
     def __new__(
-        cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+        # pylint: disable=arguments-differ
+        cls,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
     ) -> TokenMeta:
         newClass = cast(type["TokenEnum"], super().__new__(cls, name, bases, namespace))
         newClass.pattern = newClass.compilePattern()

@@ -28,10 +28,8 @@ class Namespace:
         self.locations: dict[str, InputLocation] = {}
 
     def __str__(self) -> str:
-        return "%s(%s)" % (
-            self.__class__.__name__,
-            ", ".join("%s=%s" % item for item in self.elements.items()),
-        )
+        args = ", ".join(f"{name}={value}" for name, value in self.elements.items())
+        return f"{self.__class__.__name__}({args})"
 
     def __contains__(self, key: str) -> bool:
         if key in self.elements:
@@ -86,11 +84,11 @@ class Namespace:
         self, name: str, value: NamespaceValue, location: InputLocation
     ) -> None:
         """
-        Checks whether the given name can be used in this namespace
-        for the given value.
+        Check whether the given name can be used in this namespace for the given value.
+
         Raises NameExistsError if the name is rejected.
+        The default implementation accepts all names.
         """
-        pass
 
     def _addNamedStorage(
         self, name: str, storage: Storage, typ: IntType, location: InputLocation

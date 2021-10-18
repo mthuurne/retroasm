@@ -117,6 +117,10 @@ class LeafBitString(BitString):
 
     __slots__ = ()
 
+    # Repeat definition to mark class as abstract for pylint.
+    def iterExpressions(self) -> Iterator[Expression]:
+        raise NotImplementedError
+
     def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
         yield self, Segment(0, self.width)
 
@@ -259,10 +263,10 @@ class ConcatenatedBits(BitString):
         self._subs: Sequence[BitString] = subs
 
     def __repr__(self) -> str:
-        return "ConcatenatedBits(%s)" % ", ".join(repr(sub) for sub in self._subs)
+        return f"ConcatenatedBits({', '.join(repr(sub) for sub in self._subs)})"
 
     def __str__(self) -> str:
-        return "(%s)" % " ; ".join(str(sub) for sub in reversed(self._subs))
+        return f"({' ; '.join(str(sub) for sub in reversed(self._subs))})"
 
     def __iter__(self) -> Iterator[BitString]:
         return iter(self._subs)
@@ -352,17 +356,16 @@ class SlicedBits(BitString):
         width = self._width
         if isinstance(offset, IntLiteral):
             offsetVal = offset.value
-            return "%s[%s:%s]" % (
-                self._bits,
-                "" if offsetVal == 0 else offsetVal,
-                "" if width is unlimited else offsetVal + width,
-            )
+            start = "" if offsetVal == 0 else offsetVal
+            end = "" if width is unlimited else offsetVal + width
         else:
-            if width is unlimited:
-                end = ""
-            else:
-                end = str(AddOperator(offset, IntLiteral(cast(int, width))))
-            return f"{self._bits}[{offset}:{end}]"
+            start = str(offset)
+            end = (
+                ""
+                if width is unlimited
+                else str(AddOperator(offset, IntLiteral(cast(int, width))))
+            )
+        return f"{self._bits}[{start}:{end}]"
 
     def iterExpressions(self) -> Iterator[Expression]:
         return self._bits.iterExpressions()

@@ -979,7 +979,9 @@ def _parseModeDecoding(
 
 
 def _parseModeSemantics(
-    reader: DefLineReader,
+    # While 'reader' is not used here, it is part of the signature that
+    # _parseModeEntries() uses to call this function.
+    reader: DefLineReader,  # pylint: disable=unused-argument
     semLoc: InputLocation,
     semNamespace: LocalNamespace,
     modeType: None | IntType | ReferenceType,
@@ -989,8 +991,7 @@ def _parseModeSemantics(
         ref = buildReference(semantics, semNamespace)
         if ref.type != modeType.type:
             raise BadInput(
-                f"semantics type {ref.type} does not match "
-                f"mode type {modeType.type}",
+                f"semantics type {ref.type} does not match mode type {modeType.type}",
                 semLoc,
             )
         semNamespace.define("ret", ref, semLoc)
@@ -1014,7 +1015,6 @@ def _parseInstrSemantics(
     assert modeType is None, modeType
     node = parseStatement(semLoc)
     buildStatementEval(reader, "semantics field", namespace, node)
-    return None
 
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
@@ -1463,7 +1463,9 @@ def parseInstrSet(
 
     logger.debug(
         "regs: %s",
-        ", ".join("%s = %r" % item for item in sorted(globalNamespace.items())),
+        ", ".join(
+            f"{name} = {value!r}" for name, value in sorted(globalNamespace.items())
+        ),
     )
 
     return instrSet

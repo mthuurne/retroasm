@@ -14,7 +14,6 @@ logger = getLogger("parse-asm")
 
 
 class AsmToken(TokenEnum):
-    # pylint: disable=bad-whitespace
     number = r"\$\w+|%\w+|\d\w*"
     word = r"[\w.]+"
     string = r'"[^"]*"|\'[^\']*\''
@@ -103,7 +102,7 @@ def parseInstruction(
                             location=location,
                         )
     except DelayedError:
-        return None
+        return
 
     matchSeq = tuple(createMatchSequence(name, tokenList))
 

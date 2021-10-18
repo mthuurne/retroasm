@@ -14,6 +14,7 @@ class Formatter:
     operationWidth = 8
 
     def __init__(self) -> None:
+        # pylint: disable=consider-using-f-string
         self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
 
     def formatInt(self, value: int, typ: IntType) -> str:

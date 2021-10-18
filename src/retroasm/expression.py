@@ -48,10 +48,8 @@ class Expression:
         raise NotImplementedError
 
     def __repr__(self) -> str:
-        return "%s(%s)" % (
-            self.__class__.__name__,
-            ", ".join(repr(arg) for arg in self._ctorargs()),
-        )
+        args = ", ".join(repr(arg) for arg in self._ctorargs())
+        return "f{self.__class__.__name__}({args})"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Expression):
@@ -235,7 +233,7 @@ class MultiExpression(Expression):
 
     def __str__(self) -> str:
         sep = f" {self.operator} "
-        return "(%s)" % sep.join(str(expr) for expr in self._exprs)
+        return f"({sep.join(str(expr) for expr in self._exprs)})"
 
     def _equals(self, other: MultiExpression) -> bool:
         return len(self._exprs) == len(other._exprs) and all(
@@ -280,10 +278,8 @@ class AndOperator(MultiExpression):
                         else:
                             return f"{first}[:{width:d}]"
                 else:
-                    return "(%s)[:%d]" % (
-                        " & ".join(str(expr) for expr in exprs[:-1]),
-                        width,
-                    )
+                    conjuction = " & ".join(str(expr) for expr in exprs[:-1])
+                    return f"({conjuction})[:{width:d}]"
         return super().__str__()
 
     @classmethod
@@ -380,13 +376,18 @@ class AddOperator(MultiExpression):
                 fragments += ("-", str(expr.expr))
             else:
                 fragments += ("+", str(expr))
-        return "(%s)" % " ".join(fragments)
+        return f"({' '.join(fragments)})"
 
 
 class SingleExpression(Expression):
     """Base class for expressions that have a single subexpression."""
 
     __slots__ = ("_expr",)
+
+    # Repeat definition to mark class as abstract for pylint.
+    @property
+    def mask(self) -> int:
+        raise NotImplementedError
 
     @property
     def expr(self) -> Expression:
