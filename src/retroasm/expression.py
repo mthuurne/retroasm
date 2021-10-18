@@ -62,15 +62,6 @@ class Expression:
         else:
             return NotImplemented
 
-    def __ne__(self, other: object) -> bool:
-        if isinstance(other, Expression):
-            if self.__class__ is other.__class__:
-                return not self._equals(other)
-            else:
-                return True
-        else:
-            return NotImplemented
-
     def __hash__(self) -> int:
         return hash(self._ctorargs() + (self.__class__,))
 
