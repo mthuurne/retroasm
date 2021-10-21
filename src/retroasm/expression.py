@@ -49,7 +49,7 @@ class Expression:
 
     def __repr__(self) -> str:
         args = ", ".join(repr(arg) for arg in self._ctorargs())
-        return "f{self.__class__.__name__}({args})"
+        return f"{self.__class__.__name__}({args})"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Expression):

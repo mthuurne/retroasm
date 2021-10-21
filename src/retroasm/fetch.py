@@ -51,7 +51,6 @@ class ImageFetcher(Fetcher):
         """
         if width % 8 != 0:
             raise ValueError(f"expected width to be a multiple of 8 bits, got {width}")
-        fetcher: ImageFetcher
         numBytes = width // 8
         if numBytes == 1:
             return ByteFetcher

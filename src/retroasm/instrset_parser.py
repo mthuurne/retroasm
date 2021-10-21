@@ -86,7 +86,6 @@ _reDotSep = re.compile(r"\s*\.\s*")
 def _parseRegs(
     reader: DefLineReader, args: InputLocation, globalNamespace: GlobalNamespace
 ) -> None:
-    headerLocation = reader.location
     if args:
         reader.error("register definition must have no arguments", location=args)
 
@@ -1034,7 +1033,7 @@ def _parseMnemonic(
         if placeholder is None:
             if "0" <= text[0] <= "9" or text[0] in "$%":
                 try:
-                    value, width = parseInt(text)
+                    value, width_ = parseInt(text)
                 except ValueError as ex:
                     reader.error("%s", ex, location=mnemElem)
                 else:

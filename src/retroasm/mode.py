@@ -212,7 +212,7 @@ class Encoding:
             item for item in items if item.encodedLength != 0
         )
         self._items = nonEmptyItems
-        self._firstAuxIndex = firstAuxIndex = _findFirstAuxIndex(nonEmptyItems)
+        self._firstAuxIndex = _findFirstAuxIndex(nonEmptyItems)
 
         # Verify that all auxiliary units have the same width.
         auxWidth = self.auxEncodingWidth

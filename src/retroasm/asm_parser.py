@@ -77,6 +77,8 @@ def parseInstruction(
     try:
         with reader.checkErrors():
             for kind, location in tokenList:
+                # TODO: Use the parsed number for something.
+                # pylint: disable=unused-variable
                 if kind is AsmToken.number:
                     # Convert to int.
                     try:
