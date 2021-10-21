@@ -50,7 +50,7 @@ def _checkArgs(
         try:
             typ = declArgs[name]
         except KeyError:
-            raise ValueError(f'code block uses undeclared argument "{name}"')
+            raise ValueError(f'code block uses undeclared argument "{name}"') from None
 
         if isinstance(typ, ReferenceType):
             typ = typ.type

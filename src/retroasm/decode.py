@@ -124,7 +124,7 @@ def decomposeEncoding(
             #       expression.
             #       We could store locations in non-simplified expressions
             #       or decompose parse trees instead of references.
-            raise BadInput(str(ex), encElem.location)
+            raise BadInput(str(ex), encElem.location) from ex
         else:
             if fixedMask != 0:
                 fixedMatcher.append(FixedEncoding(encIdx, fixedMask, fixedValue))

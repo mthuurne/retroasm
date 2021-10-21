@@ -87,7 +87,9 @@ def declareVariable(node: DeclarationNode, namespace: BuilderNamespace) -> Refer
     try:
         typ = parseType(typeNode.name)
     except ValueError as ex:
-        raise BadExpression(f"bad type name in definition: {ex}", typeNode.location)
+        raise BadExpression(
+            f"bad type name in definition: {ex}", typeNode.location
+        ) from ex
 
     # Get name.
     nameNode = node.name
@@ -99,7 +101,7 @@ def declareVariable(node: DeclarationNode, namespace: BuilderNamespace) -> Refer
     except NameExistsError as ex:
         raise BadExpression(
             f'failed to declare variable "{typ} {name}": {ex}', *ex.locations
-        )
+        ) from ex
 
 
 def convertDefinition(
@@ -122,7 +124,7 @@ def convertDefinition(
             #       could throw IllegalStateAccess.
             raise BadExpression(
                 f'bad value for constant "{typ} {name}": {ex}', *ex.locations
-            )
+            ) from ex
         assert isinstance(typ, IntType), typ
         declWidth = typ.width
         bits = FixedValue(truncate(expr, declWidth), declWidth)
@@ -133,7 +135,7 @@ def convertDefinition(
         except BadExpression as ex:
             raise BadExpression(
                 f'bad value for reference "{typ} {name}": {ex}', *ex.locations
-            )
+            ) from ex
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
             raise BadExpression.withText(
@@ -153,7 +155,7 @@ def _convertIdentifier(
     try:
         value = namespace[name]
     except KeyError:
-        raise UnknownNameError(name, f'unknown name "{name}"', node.location)
+        raise UnknownNameError(name, f'unknown name "{name}"', node.location) from None
     if isinstance(value, Function):
         raise BadExpression(f'function "{name}" is not called', node.location)
     elif isinstance(value, (IOChannel, Reference)):
@@ -176,7 +178,7 @@ def _convertFunctionCall(
     except KeyError:
         raise UnknownNameError(
             funcName, f'no function named "{funcName}"', nameNode.location
-        )
+        ) from None
     if not isinstance(func, Function):
         raise BadExpression(f'"{funcName}" is not a function', nameNode.location)
 
@@ -354,7 +356,7 @@ def _convertReferenceLookup(
     try:
         bits = SlicedBits(ref.bits, index, 1)
     except ValueError as ex:
-        raise BadExpression(f"invalid bitwise lookup: {ex}", node.location)
+        raise BadExpression(f"invalid bitwise lookup: {ex}", node.location) from ex
     else:
         return Reference(bits, IntType.u(1))
 
@@ -392,7 +394,7 @@ def _convertReferenceSlice(
                 raise ValueError("slice width cannot be determined")
         bits = SlicedBits(ref.bits, startExpr, width)
     except ValueError as ex:
-        raise BadExpression(f"invalid slice: {ex}", node.location)
+        raise BadExpression(f"invalid slice: {ex}", node.location) from ex
     else:
         typ = IntType(width, width is unlimited)
         return Reference(bits, typ)
@@ -608,7 +610,7 @@ def emitCodeFromStatements(
                 except ValueError as ex:
                     raise BadExpression(
                         f"bad type name in definition: {ex}", typeNode.location
-                    )
+                    ) from ex
             # Evaluate value.
             name = nameNode.name
             try:

@@ -588,7 +588,7 @@ def _parseEncodingExpr(
                         f"has an empty encoding sequence",
                         *ex.locations,
                         spec.decl.treeLocation,
-                    )
+                    ) from None
                 if spec.value is not None:
                     raise BadInput(
                         f'cannot use placeholder "{ex.name}" '
@@ -596,8 +596,10 @@ def _parseEncodingExpr(
                         f"computed in the context",
                         *ex.locations,
                         spec.value.treeLocation,
-                    )
-        raise BadInput(f"error in encoding: {ex}", encNode.treeLocation, *ex.locations)
+                    ) from None
+        raise BadInput(
+            f"error in encoding: {ex}", encNode.treeLocation, *ex.locations
+        ) from ex
 
     code = namespace.builder.createCodeBlock((encRef.bits,))
     if len(code.nodes) != 0:
@@ -635,7 +637,7 @@ def _parseMultiMatch(
     except KeyError:
         raise BadInput(
             f'placeholder "{name}" does not exist in context', encNode.treeLocation
-        )
+        ) from None
     if not isinstance(placeholder, MatchPlaceholderSpec):
         raise BadInput(
             f'placeholder "{name}" does not represent a mode match',

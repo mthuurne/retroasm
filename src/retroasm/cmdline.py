@@ -313,7 +313,7 @@ class EntryPointParamType(ParamType):
         try:
             offset = _parseNumber(offsetStr)
         except ValueError as ex:
-            raise BadParameter(f'Bad entry point definition "{value}": {ex}')
+            raise BadParameter(f'Bad entry point definition "{value}": {ex}') from ex
         else:
             return EntryPoint(offset, label)
 
@@ -346,16 +346,18 @@ class SectionParamType(ParamType):
                 try:
                     start = _parseNumber(startStr)
                 except ValueError as ex:
-                    raise BadParameter(f'Bad section start "{startStr}": {ex}')
+                    raise BadParameter(f'Bad section start "{startStr}": {ex}') from ex
                 try:
                     end = _parseNumber(endStr)
                 except ValueError as ex:
-                    raise BadParameter(f'Bad section end "{endStr}": {ex}')
+                    raise BadParameter(f'Bad section end "{endStr}": {ex}') from ex
             elif opt[0].isdigit():
                 try:
                     base = _parseNumber(opt)
                 except ValueError as ex:
-                    raise BadParameter(f'Bad section base address "{opt}": {ex}')
+                    raise BadParameter(
+                        f'Bad section base address "{opt}": {ex}'
+                    ) from ex
             else:
                 if "," in opt:
                     instrSetName, byteorderStr = opt.split(",")

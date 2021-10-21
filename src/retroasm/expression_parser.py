@@ -618,7 +618,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         try:
             value, width = parseInt(location.text)
         except ValueError as ex:
-            raise ParseError(f"{ex}", location)
+            raise ParseError(f"{ex}", location) from ex
         else:
             return NumberNode(value, width, location)
 
@@ -690,4 +690,4 @@ def parseDigits(digits: str, base: int) -> int:
         return int(digits, base)
     except ValueError:
         baseDesc = {2: "binary", 10: "decimal", 16: "hexadecimal"}
-        raise ValueError(f"bad {baseDesc[base]} number: {digits}")
+        raise ValueError(f"bad {baseDesc[base]} number: {digits}") from None

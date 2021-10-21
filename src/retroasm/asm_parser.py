@@ -48,7 +48,7 @@ def parseNumber(location: InputLocation) -> NumberNode:
         try:
             digitWidth = {"b": 1, "h": 4}[value[-1].casefold()]
         except KeyError:
-            raise ValueError(f'bad number suffix "{value[-1]}"')
+            raise ValueError(f'bad number suffix "{value[-1]}"') from None
 
     return NumberNode(
         parseDigits(digits, 1 << digitWidth), len(digits) * digitWidth, location
