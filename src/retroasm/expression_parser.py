@@ -278,7 +278,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if tokens.eat(ExprToken.separator, ",") is None:
                 return exprs
 
-    def parseContext() -> Iterable[ContextNode]:
+    def parseContextTop() -> Iterable[ContextNode]:
         elems = []
         while True:
             node: ContextNode
@@ -491,7 +491,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 raise badTokenKind(f"{declNode.kind.name} value", '"="')
             return DefinitionNode(declNode, parseExprTop(), defLocation)
 
-    def parseRegs() -> Iterable[DefDeclNode]:
+    def parseRegsTop() -> Iterable[DefDeclNode]:
         defs: list[DefDeclNode] = []
         typeNode: IdentifierNode | None = None
         while True:
@@ -626,8 +626,8 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
     topForMode = {
         _ParseMode.single: parseExprTop,
         _ParseMode.multi: parseList,
-        _ParseMode.registers: parseRegs,
-        _ParseMode.context: parseContext,
+        _ParseMode.registers: parseRegsTop,
+        _ParseMode.context: parseContextTop,
         _ParseMode.statement: parseStatementTop,
     }
 
