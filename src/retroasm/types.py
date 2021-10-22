@@ -20,6 +20,9 @@ class Unlimited(metaclass=Singleton):
     def __str__(self) -> str:
         return "unlimited"
 
+    # Since we override __eq__(), we need this to be considered hashable.
+    __hash__ = object.__hash__
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is other
