@@ -31,11 +31,13 @@ from .binfmt import (
     getBinaryFormat,
     iterBinaryFormatNames,
 )
-from .disasm import Disassembler
+from .disasm import disassemble, formatAsm
 from .fetch import ImageFetcher
 from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSetByName
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
+from .mode import ModeMatch
+from .reference import Reference
 from .section import ByteOrder, CodeSection, Section, SectionMap
 from .types import Unlimited, unlimited
 
@@ -215,7 +217,7 @@ def disassembleBinary(
 
     # Disassemble.
     logger.info("Disassembling...")
-    disassembler = Disassembler()
+    decoded: list[tuple[int, Reference | ModeMatch]] = []
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -277,12 +279,13 @@ def disassembleBinary(
         fetcher = fetcherFactory(image, offset, end)
 
         addr = entrySection.base + offset - entrySection.start
-        disassembler.disassemble(instrSet, fetcher, addr)
+        decoded += disassemble(instrSet, fetcher, addr)
 
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
-    disassembler.formatAsm(formatter)
+    labels: dict[int, str] = {}
+    formatAsm(formatter, decoded, labels)
 
 
 def _parseNumber(number: str) -> int:
