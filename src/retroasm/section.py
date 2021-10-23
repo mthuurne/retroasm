@@ -58,6 +58,15 @@ class Section:
         else:
             return f"[{self._start:#x}..{end:#x})"
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Section):
+            return self._start == other._start and self._end == other._end
+        else:
+            return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self._start, self._end))
+
 
 class CodeSection(Section):
     """Section that contains code and possibly also data."""
