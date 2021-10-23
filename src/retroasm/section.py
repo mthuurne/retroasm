@@ -33,16 +33,21 @@ class Section:
     def size(self) -> Width:
         return self._end - self._start
 
-    def __init__(self, start: int, end: int | Unlimited):
-        self._start = start
-        self._end = end
+    @property
+    def description(self) -> str:
+        return self._description
 
+    def __init__(self, start: int, end: int | Unlimited, description: str = "data"):
         if start < 0:
             raise ValueError(f"negative start: {start:d}")
         if end < 0:
             raise ValueError(f"negative end: {end:d}")
         if end < start:
             raise ValueError(f"end ({end:#x}) before start ({start:#x})")
+
+        self._start = start
+        self._end = end
+        self._description = description
 
     def __repr__(self) -> str:
         end = self._end
@@ -90,8 +95,9 @@ class CodeSection(Section):
         base: int,
         instrSetName: str,
         byteOrder: ByteOrder,
+        description: str = "code",
     ):
-        Section.__init__(self, start, end)
+        super().__init__(start, end, description)
         self._instrSetName = instrSetName
         self._byteOrder = byteOrder
         self._base = base
