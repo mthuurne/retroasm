@@ -167,7 +167,7 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
 
 
 def readSource(path: Path, instrSet: InstructionSet) -> None:
-    with LineReader.open(path, logger) as reader:
+    with LineReader.open(path, logger) as reader:  # type: ignore[arg-type]
         with reader.checkErrors():
             parseAsm(reader, instrSet)
             reader.summarize()
