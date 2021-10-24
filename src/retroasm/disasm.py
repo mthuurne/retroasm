@@ -79,8 +79,8 @@ def formatAsm(
     for addr, match in decoded:
         label = labels.get(addr)
         if label is not None:
-            print(formatter.formatLabel(label))
+            print(formatter.label(label))
         if isinstance(match, Reference):
-            print(formatter.formatData(match))
+            print(formatter.data(match))
         else:
-            print(formatter.formatMnemonic(match.mnemonic, labels))
+            print(formatter.mnemonic(match.mnemonic, labels))

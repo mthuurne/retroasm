@@ -17,7 +17,7 @@ class Formatter:
         # pylint: disable=consider-using-f-string
         self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
 
-    def formatInt(self, value: int, typ: IntType) -> str:
+    def value(self, value: int, typ: IntType) -> str:
         if value < 16 or typ.signed:
             return str(value)
         else:
@@ -30,7 +30,7 @@ class Formatter:
                 assert isinstance(width, int)
             return f"${{:0{(width + 3) // 4:d}x}}".format(value)
 
-    def _formatOperands(self, operands: Iterable[str]) -> str:
+    def _operands(self, operands: Iterable[str]) -> str:
         prevWord = False
         parts = []
         for operand in operands:
@@ -41,13 +41,13 @@ class Formatter:
             prevWord = isWord
         return "".join(parts)
 
-    def formatComment(self, comment: str) -> str:
+    def comment(self, comment: str) -> str:
         return f"# {comment}"
 
-    def formatLabel(self, label: str) -> str:
+    def label(self, label: str) -> str:
         return label + ":"
 
-    def formatMnemonic(
+    def mnemonic(
         self,
         # TODO: Use the Mnemonic class instead?
         mnemonic: Iterable[str | Reference],
@@ -75,7 +75,7 @@ class Formatter:
                     else None
                 )
                 if label is None:
-                    parts.append(self.formatInt(value, mnemElem.type))
+                    parts.append(self.value(value, mnemElem.type))
                 else:
                     parts.append(label)
             else:
@@ -83,16 +83,16 @@ class Formatter:
 
         localLabel = ""
         return self._lineFormat.format(
-            localLabel, parts[0], self._formatOperands(parts[1:])
+            localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
 
     dataDirectives: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
-    def formatData(self, ref: Reference) -> str:
+    def data(self, ref: Reference) -> str:
         directive = self.dataDirectives[ref.width]
-        return self.formatMnemonic((directive, ref), {})
+        return self.mnemonic((directive, ref), {})
 
-    def formatRaw(self, data: bytes) -> Iterator[str]:
+    def raw(self, data: bytes) -> Iterator[str]:
         """Format data with no known structure using data directives."""
         directive = self.dataDirectives[8]
         chunkSize = 16
