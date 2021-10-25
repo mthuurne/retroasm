@@ -6,6 +6,10 @@ from typing import Iterable, Iterator, NoReturn, Union, cast
 from .utils import Singleton, Unique
 
 
+class DoesNotExist:
+    """Used in type annotations when no type is allowed to match."""
+
+
 class Unlimited(metaclass=Singleton):
     """
     Width value for arbitrary-width integer types.
@@ -20,60 +24,45 @@ class Unlimited(metaclass=Singleton):
     def __str__(self) -> str:
         return "unlimited"
 
-    # Since we override __eq__(), we need this to be considered hashable.
-    __hash__ = object.__hash__
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, (int, Unlimited)):
-            return self is other
-        else:
-            return NotImplemented
-
-    def __ne__(self, other: object) -> bool:
-        if isinstance(other, (int, Unlimited)):
-            return self is not other
-        else:
-            return NotImplemented
-
-    def __lt__(self, other: object) -> bool:
+    def __lt__(self, other: int | Unlimited) -> bool:
         if isinstance(other, (int, Unlimited)):
             return False
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    def __le__(self, other: object) -> bool:
+    def __le__(self, other: int | Unlimited) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is other
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    def __gt__(self, other: object) -> bool:
+    def __gt__(self, other: int | Unlimited) -> bool:
         if isinstance(other, (int, Unlimited)):
             return self is not other
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    def __ge__(self, other: object) -> bool:
+    def __ge__(self, other: int | Unlimited) -> bool:
         if isinstance(other, (int, Unlimited)):
             return True
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    def __add__(self, other: object) -> Unlimited:
+    def __add__(self, other: int | Unlimited) -> Unlimited:
         if isinstance(other, (int, Unlimited)):
             return self
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
     __radd__ = __add__
 
-    def __sub__(self, other: object) -> Unlimited:
+    def __sub__(self, other: int) -> Unlimited:
         if isinstance(other, int):
             return self
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    def __rsub__(self, other: object) -> NoReturn:
+    def __rsub__(self, other: DoesNotExist) -> NoReturn:
         raise ArithmeticError('Cannot subtract "unlimited"')
 
 
