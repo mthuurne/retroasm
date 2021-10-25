@@ -38,6 +38,7 @@ class EntryPoint:
 
     @property
     def offset(self) -> int:
+        """Location of this entry point in the image, in bytes from the start."""
         return self._offset
 
     @property

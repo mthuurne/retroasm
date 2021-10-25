@@ -218,6 +218,7 @@ def disassembleBinary(
     # Disassemble.
     logger.info("Disassembling...")
     decoded: dict[CodeSection, Sequence[tuple[int, Reference | ModeMatch]]] = {}
+    labels: dict[int, str] = {}
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -262,6 +263,17 @@ def disassembleBinary(
             )
             continue
 
+        # Remember label.
+        addr = entrySection.base + offset - entrySection.start
+        label = entryPoint.label
+        if label is not None:
+            labels[addr] = label
+
+        # TODO: For now, we disassemble full sections instead of tracing execution
+        #       from the entry points.
+        offset = entrySection.start
+        addr = entrySection.base
+
         # Create instruction fetcher.
         try:
             instrWidth = instrSet.encodingWidth
@@ -278,15 +290,13 @@ def disassembleBinary(
             continue
         fetcher = fetcherFactory(image, offset, end)
 
-        addr = entrySection.base + offset - entrySection.start
-        assert entrySection not in decoded
-        decoded[entrySection] = tuple(disassemble(instrSet, fetcher, addr))
+        if entrySection not in decoded:
+            decoded[entrySection] = tuple(disassemble(instrSet, fetcher, addr))
 
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
     imageOffsetWidth = len(image).bit_length()
-    labels: dict[int, str] = {}
     print(formatter.comment("Disassembled by RetroAsm"))
     for section, data in _iterImageSections(image, sectionMap):
         print()
