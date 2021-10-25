@@ -53,7 +53,7 @@ If you want to try RetroAsm, start by cloning the Git repository:
 
 RetroAsm requires Python version 3.9 or later. If this is not available for your system, you can use for example [pyenv](https://github.com/pyenv/pyenv) to build it.
 
-RetroAsm uses the [Poetry build system](https://poetry.eustace.io/) for managing its development environment. Using the [recommended installation procedure](https://github.com/sdispater/poetry#installation) instead of pip helps separate Poetry's dependencies from those of the software it manages.
+RetroAsm uses the [Poetry build system](https://python-poetry.org/) for managing its development environment. Using the [recommended installation procedure](https://python-poetry.org/docs/#installation) instead of pip helps separate Poetry's dependencies from those of the software it manages.
 
 Start a shell in the virtual environment managed by Poetry:
 
