@@ -25,34 +25,44 @@ class Unlimited(metaclass=Singleton):
         return "unlimited"
 
     def __lt__(self, other: int | Unlimited) -> bool:
-        if isinstance(other, (int, Unlimited)):
+        if self is other:
+            return False
+        elif isinstance(other, int):
             return False
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __le__(self, other: int | Unlimited) -> bool:
-        if isinstance(other, (int, Unlimited)):
-            return self is other
+        if self is other:
+            return True
+        elif isinstance(other, int):
+            return False
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __gt__(self, other: int | Unlimited) -> bool:
-        if isinstance(other, (int, Unlimited)):
-            return self is not other
-        else:
-            return NotImplemented  # type: ignore[unreachable]
-
-    def __ge__(self, other: int | Unlimited) -> bool:
-        if isinstance(other, (int, Unlimited)):
+        if self is other:
+            return False
+        elif isinstance(other, int):
             return True
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
+
+    def __ge__(self, other: int | Unlimited) -> bool:
+        if self is other:
+            return True
+        elif isinstance(other, int):
+            return True
+        else:
+            return NotImplemented
 
     def __add__(self, other: int | Unlimited) -> Unlimited:
-        if isinstance(other, (int, Unlimited)):
+        if self is other:
+            return self
+        elif isinstance(other, int):
             return self
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     __radd__ = __add__
 
