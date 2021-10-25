@@ -3,7 +3,7 @@ from __future__ import annotations
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-from typing import Iterable, NoReturn
+from typing import Iterable, Iterator, NoReturn, Sequence, cast
 import sys
 
 from click import (
@@ -217,7 +217,7 @@ def disassembleBinary(
 
     # Disassemble.
     logger.info("Disassembling...")
-    decoded: list[tuple[int, Reference | ModeMatch]] = []
+    decoded: dict[CodeSection, Sequence[tuple[int, Reference | ModeMatch]]] = {}
     for entryPoint in entryPoints:
         offset = entryPoint.offset
 
@@ -279,13 +279,58 @@ def disassembleBinary(
         fetcher = fetcherFactory(image, offset, end)
 
         addr = entrySection.base + offset - entrySection.start
-        decoded += disassemble(instrSet, fetcher, addr)
+        assert entrySection not in decoded
+        decoded[entrySection] = tuple(disassemble(instrSet, fetcher, addr))
 
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
+    imageOffsetWidth = len(image).bit_length()
     labels: dict[int, str] = {}
-    formatAsm(formatter, decoded, labels)
+    print(formatter.comment("Disassembled by RetroAsm"))
+    for section, data in _iterImageSections(image, sectionMap):
+        print()
+        print(
+            formatter.comment(
+                f"{section.description.title()} section: "
+                f"{formatter.hexRange(section.start, section.end, imageOffsetWidth)}"
+            )
+        )
+        print()
+        if isinstance(section, CodeSection):
+            instrSet = builtinInstructionSets[section.instrSetName]
+            assert instrSet is not None
+            print(formatter.org(section.base, instrSet.addrWidth))
+            print()
+            formatAsm(formatter, decoded[section], labels)
+        else:
+            for line in formatter.raw(data):
+                print(line)
+
+
+def _iterImageSections(
+    image: Image, sections: SectionMap
+) -> Iterator[tuple[Section, bytes]]:
+    """
+    Iterate through the sections and corresponding data in the given image.
+
+    Gaps in the section map will be wrapped in dummy sections.
+    Sections that are entirely outside of the image will be ignored.
+    The last section could be partially outside of the image.
+    """
+    imageEnd = len(image)
+    offset = 0
+    for section in sections:
+        prevEnd = min(section.start, imageEnd)
+        if offset < prevEnd:
+            yield Section(offset, prevEnd, "gap"), image[offset:prevEnd]
+        if prevEnd == imageEnd:
+            break
+        end = cast(int, min(section.end, imageEnd))
+        yield section, image[prevEnd:end]
+        offset = end
+    if offset < imageEnd:
+        yield Section(offset, imageEnd, "gap"), image[offset:imageEnd]
 
 
 def _parseNumber(number: str) -> int:

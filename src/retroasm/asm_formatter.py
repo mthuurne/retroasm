@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Iterable, Iterator, Mapping
+from typing import AbstractSet, Iterable, Iterator, Mapping, cast
 
 from .expression import IntLiteral
 from .mode import PlaceholderRole
@@ -28,7 +28,15 @@ class Formatter:
                 width = value.bit_length()
             else:
                 assert isinstance(width, int)
-            return f"${{:0{(width + 3) // 4:d}x}}".format(value)
+            return self.hexValue(value, width)
+
+    def hexValue(self, value: int, width: int) -> str:
+        return f"${{:0{(width + 3) // 4:d}x}}".format(value)
+
+    def hexRange(self, start: int, end: Width, width: int) -> str:
+        startStr = self.hexValue(start, width)
+        endStr = "" if end is unlimited else self.hexValue(cast(int, end), width)
+        return f"{startStr}-{endStr}"
 
     def _operands(self, operands: Iterable[str]) -> str:
         prevWord = False
@@ -42,7 +50,7 @@ class Formatter:
         return "".join(parts)
 
     def comment(self, comment: str) -> str:
-        return f"# {comment}"
+        return f"; {comment}"
 
     def label(self, label: str) -> str:
         return label + ":"
@@ -85,6 +93,10 @@ class Formatter:
         return self._lineFormat.format(
             localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
+
+    def org(self, address: int, width: Width) -> str:
+        ref = Reference(FixedValue(IntLiteral(address), width), IntType.u(width))
+        return self.mnemonic(("org", ref), {})
 
     dataDirectives: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
