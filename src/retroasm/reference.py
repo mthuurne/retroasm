@@ -522,6 +522,9 @@ class Reference:
                 f"bit string of {bits.width} bits " f"used for reference of type {typ}"
             )
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._bits!r}, {self._type!r})"
+
     def __str__(self) -> str:
         return f"{self._type}& {self._bits}"
 
