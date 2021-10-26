@@ -9,8 +9,7 @@ from .expression import IntLiteral
 from .fetch import ImageFetcher
 from .instrset import InstructionSet, flagsSetByCode
 from .mode import ModeMatch
-from .reference import FixedValue, Reference
-from .types import IntType, unlimited
+from .reference import Reference
 
 
 def disassemble(
@@ -27,8 +26,6 @@ def disassemble(
     prefixInitCode = prefixMapping.initCode
     flagForVar = prefixMapping.flagForVar
     numBytes = fetcher.numBytes
-    encWidth = instrSet.encodingWidth
-    encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
     addr = startAddr
     while fetcher[0] is not None:
@@ -62,8 +59,7 @@ def disassemble(
             value = fetcher[0]
             if value is None:
                 break
-            bits = FixedValue(IntLiteral(value), encWidth)
-            yield addr, DataDirective(Reference(bits, encType))
+            yield addr, DataDirective.unsigned(instrSet.encodingWidth, value)
         else:
             match = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, match.substPC(pc, IntLiteral(postAddr))
