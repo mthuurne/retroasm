@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import AbstractSet, Iterable, Iterator, Mapping, cast
 
+from .asm_directives import DataDirective
 from .expression import IntLiteral
 from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
@@ -98,15 +99,17 @@ class Formatter:
         ref = Reference(FixedValue(IntLiteral(address), width), IntType.u(width))
         return self.mnemonic(("org", ref), {})
 
-    dataDirectives: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
+    dataKeywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
-    def data(self, ref: Reference) -> str:
-        directive = self.dataDirectives[ref.width]
-        return self.mnemonic((directive, ref), {})
+    def data(self, directive: DataDirective) -> str:
+        keyword = self.dataKeywords[directive.width]
+        words: list[str | Reference] = [keyword]
+        words += directive.data
+        return self.mnemonic(words, {})
 
     def raw(self, data: bytes) -> Iterator[str]:
         """Format data with no known structure using data directives."""
-        directive = self.dataDirectives[8]
+        directive = self.dataKeywords[8]
         chunkSize = 16
         for offset in range(0, len(data), chunkSize):
             yield self._lineFormat.format(

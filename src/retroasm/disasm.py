@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import AbstractSet, Iterable, Iterator, Mapping, cast
 
+from .asm_directives import DataDirective
 from .asm_formatter import Formatter
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
@@ -81,6 +82,7 @@ def formatAsm(
         if label is not None:
             print(formatter.label(label))
         if isinstance(match, Reference):
-            print(formatter.data(match))
+            directive = DataDirective(match)
+            print(formatter.data(directive))
         else:
             print(formatter.mnemonic(match.mnemonic, labels))
