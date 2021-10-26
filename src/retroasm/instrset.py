@@ -153,6 +153,10 @@ class InstructionSet(ModeTable):
     """Contains all definitions for a processor's instruction set."""
 
     @property
+    def encodingWidth(self) -> int:
+        return cast(int, self._encWidth)
+
+    @property
     def globalNamespace(self) -> GlobalNamespace:
         return self._globalNamespace
 
@@ -162,7 +166,7 @@ class InstructionSet(ModeTable):
 
     def __init__(
         self,
-        encWidth: int | None,
+        encWidth: int,
         auxEncWidth: int | None,
         globalNamespace: GlobalNamespace,
         prefixMapping: PrefixMapping,

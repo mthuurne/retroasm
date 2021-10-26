@@ -28,7 +28,6 @@ def disassemble(
     flagForVar = prefixMapping.flagForVar
     numBytes = fetcher.numBytes
     encWidth = instrSet.encodingWidth
-    assert encWidth is not None
     encType = IntType.int if encWidth is unlimited else IntType.u(encWidth)
 
     addr = startAddr

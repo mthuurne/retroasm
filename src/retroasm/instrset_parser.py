@@ -1454,6 +1454,12 @@ def parseInstrSet(
         instrSet = None
         if reader.errors == 0:
             try:
+                if encWidth is None:
+                    # Since the last instruction with an identical encoding overrides
+                    # earlier ones, only degenerate instruction sets can have an empty
+                    # encoding: either the instruction set is empty or it has a single
+                    # instruction with no encoding.
+                    raise ValueError("no encodings")
                 instrSet = InstructionSet(
                     encWidth, auxEncWidth, globalNamespace, prefixMapping, modeEntries
                 )
