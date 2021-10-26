@@ -15,7 +15,7 @@ from .types import IntType, unlimited
 
 def disassemble(
     instrSet: InstructionSet, fetcher: ImageFetcher, startAddr: int
-) -> Iterator[tuple[int, Reference | ModeMatch]]:
+) -> Iterator[tuple[int, DataDirective | ModeMatch]]:
     """
     Disassemble instructions from the given fetcher.
     The fetched data is assumed to be code for the given instruction set,
@@ -64,7 +64,7 @@ def disassemble(
             if value is None:
                 break
             bits = FixedValue(IntLiteral(value), encWidth)
-            yield addr, Reference(bits, encType)
+            yield addr, DataDirective(Reference(bits, encType))
         else:
             match = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, match.substPC(pc, IntLiteral(postAddr))
@@ -74,15 +74,14 @@ def disassemble(
 
 def formatAsm(
     formatter: Formatter,
-    decoded: Iterable[tuple[int, Reference | ModeMatch]],
+    decoded: Iterable[tuple[int, DataDirective | ModeMatch]],
     labels: Mapping[int, str],
 ) -> None:
     for addr, match in decoded:
         label = labels.get(addr)
         if label is not None:
             print(formatter.label(label))
-        if isinstance(match, Reference):
-            directive = DataDirective(match)
-            print(formatter.data(directive))
+        if isinstance(match, DataDirective):
+            print(formatter.data(match))
         else:
             print(formatter.mnemonic(match.mnemonic, labels))

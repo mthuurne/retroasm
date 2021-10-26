@@ -21,6 +21,7 @@ from click import (
     version_option,
 )
 
+from .asm_directives import DataDirective
 from .asm_formatter import Formatter
 from .asm_parser import readSource
 from .binfmt import (
@@ -37,7 +38,6 @@ from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSe
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
 from .mode import ModeMatch
-from .reference import Reference
 from .section import ByteOrder, CodeSection, Section, SectionMap
 from .types import Unlimited, unlimited
 
@@ -217,7 +217,7 @@ def disassembleBinary(
 
     # Disassemble.
     logger.info("Disassembling...")
-    decoded: dict[CodeSection, Sequence[tuple[int, Reference | ModeMatch]]] = {}
+    decoded: dict[CodeSection, Sequence[tuple[int, DataDirective | ModeMatch]]] = {}
     labels: dict[int, str] = {}
     for entryPoint in entryPoints:
         offset = entryPoint.offset
