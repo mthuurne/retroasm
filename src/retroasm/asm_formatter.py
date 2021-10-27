@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import AbstractSet, Iterable, Iterator, Mapping, cast
 
-from .asm_directives import DataDirective
+from .asm_directives import DataDirective, OriginDirective
 from .expression import IntLiteral
 from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
@@ -95,9 +95,10 @@ class Formatter:
             localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
 
-    def org(self, address: int, width: Width) -> str:
-        ref = Reference(FixedValue(IntLiteral(address), width), IntType.u(width))
-        return self.mnemonic(("org", ref), {})
+    orgKeyword = "org"
+
+    def origin(self, directive: OriginDirective) -> str:
+        return self.mnemonic((self.orgKeyword, directive.addr), {})
 
     dataKeywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 

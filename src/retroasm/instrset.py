@@ -29,7 +29,7 @@ from .mode import ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
-from .types import Width
+from .types import IntType
 from .utils import const_property
 
 
@@ -243,9 +243,9 @@ class InstructionSet(ModeTable):
         return flagSets
 
     @property
-    def addrWidth(self) -> Width:
-        """The width of the program counter, in bits."""
-        return cast(Reference, self._globalNamespace["pc"]).width
+    def addrType(self) -> IntType:
+        """The type of the program counter."""
+        return cast(Reference, self._globalNamespace["pc"]).type
 
     @const_property
     def instructionNames(self) -> AbstractSet[str]:

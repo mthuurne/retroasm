@@ -70,3 +70,26 @@ class DataDirective:
     def __repr__(self) -> str:
         argsStr = ", ".join(repr(ref) for ref in self._data)
         return f"{self.__class__.__name__}({argsStr})"
+
+
+class OriginDirective:
+    """Defines the address that code is expected to execute at."""
+
+    __slots__ = ("_addr",)
+
+    @property
+    def addr(self) -> Reference:
+        return self._addr
+
+    @classmethod
+    def fromInt(cls, addr: int, typ: IntType) -> OriginDirective:
+        return cls(Reference(FixedValue(IntLiteral(addr), typ.width), typ))
+
+    def __init__(self, addr: Reference):
+        self._addr = addr
+
+    def __str__(self) -> str:
+        return f"org {self._addr}"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._addr!r})"

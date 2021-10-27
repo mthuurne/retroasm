@@ -21,7 +21,7 @@ from click import (
     version_option,
 )
 
-from .asm_directives import DataDirective
+from .asm_directives import DataDirective, OriginDirective
 from .asm_formatter import Formatter
 from .asm_parser import readSource
 from .binfmt import (
@@ -310,7 +310,8 @@ def disassembleBinary(
         if isinstance(section, CodeSection):
             instrSet = builtinInstructionSets[section.instrSetName]
             assert instrSet is not None
-            print(formatter.org(section.base, instrSet.addrWidth))
+            org = OriginDirective.fromInt(section.base, instrSet.addrType)
+            print(formatter.origin(org))
             print()
             formatAsm(formatter, decoded[section], labels)
         else:
