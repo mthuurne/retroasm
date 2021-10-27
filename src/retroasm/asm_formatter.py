@@ -105,7 +105,10 @@ class Formatter:
     def data(self, directive: DataDirective) -> str:
         keyword = self.dataKeywords[directive.width]
         words: list[str | Reference] = [keyword]
-        words += directive.data
+        for word in directive.data:
+            if len(words) > 1:
+                words.append(", ")
+            words.append(word)
         return self.mnemonic(words, {})
 
     def raw(self, data: bytes) -> Iterator[str]:
