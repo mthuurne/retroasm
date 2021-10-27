@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Iterable, Iterator
 
+from .asm_directives import StructuredData
 from .types import Unlimited, Width, unlimited
 from .utils import search
 
@@ -71,6 +72,18 @@ class Section:
 
     def __hash__(self) -> int:
         return hash((self._start, self._end))
+
+
+class StructuredDataSection(Section):
+    """Section that consists entirely of structured data."""
+
+    @property
+    def data(self) -> StructuredData:
+        return self._data
+
+    def __init__(self, offset: int, data: StructuredData, description: str = "struct"):
+        super().__init__(offset, offset + len(data), description)
+        self._data = data
 
 
 class CodeSection(Section):

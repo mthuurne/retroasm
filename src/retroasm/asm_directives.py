@@ -7,6 +7,8 @@ assembly do we care about syntax.
 
 from __future__ import annotations
 
+from typing import Iterator, Protocol
+
 from .expression import IntLiteral
 from .reference import FixedValue, Reference
 from .types import IntType, Width
@@ -70,6 +72,23 @@ class DataDirective:
     def __repr__(self) -> str:
         argsStr = ", ".join(repr(ref) for ref in self._data)
         return f"{self.__class__.__name__}({argsStr})"
+
+
+class StructuredData(Protocol):
+    """Protocol for data areas with a struct-like layout."""
+
+    @property
+    def encoded(self) -> bytes:
+        """The data in encoded form."""
+        raise NotImplementedError
+
+    @property
+    def directives(self) -> Iterator[DataDirective]:
+        """Yield the data directives that define this data area."""
+        raise NotImplementedError
+
+    def __len__(self) -> int:
+        return len(self.encoded)
 
 
 class OriginDirective:

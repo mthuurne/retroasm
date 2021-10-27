@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
 from typing import Any, ClassVar, Collection, Iterable, Iterator, Protocol, overload
 
-from .section import ByteOrder, CodeSection, Section
+from .asm_directives import DataDirective, StructuredData
+from .section import ByteOrder, CodeSection, Section, StructuredDataSection
 
 logger = getLogger("binfmt")
 
@@ -165,13 +166,34 @@ class GameBoyROM(BinaryFormat):
 
 
 @dataclass(frozen=True)
-class MSXROMHeader:
-    cartID: bytes
-    init: int
-    statement: int
-    device: int
-    text: int
-    reserved: bytes
+class MSXROMHeader(StructuredData):
+    struct: ClassVar[Struct] = Struct("<2sHHHH6s")
+
+    cartID: bytes = b"AB"
+    init: int = 0
+    statement: int = 0
+    device: int = 0
+    text: int = 0
+    reserved: bytes = bytes(6)
+
+    @classmethod
+    def unpack(cls, image: Image, offset: int) -> MSXROMHeader | None:
+        items = _unpackStruct(image, 0, cls.struct)
+        return None if items is None else cls(*items)
+
+    @property
+    def encoded(self) -> bytes:
+        return self.struct.pack(astuple(self))
+
+    @property
+    def directives(self) -> Iterator[DataDirective]:
+        # TODO: Support strings.
+        yield DataDirective.u8(*self.cartID)
+        yield DataDirective.u16(self.init, self.statement, self.device, self.text)
+        yield DataDirective.u8(*self.reserved)
+
+    def __len__(self) -> int:  # pylint: disable=invalid-length-returned
+        return self.struct.size
 
 
 class MSXROM(BinaryFormat):
@@ -180,14 +202,11 @@ class MSXROM(BinaryFormat):
     description = "MSX ROM image"
     extensions = ("rom",)
 
-    _headerStruct = Struct("<2sHHHH6s")
-
     @classmethod
     def checkImage(cls, image: Image) -> int:
-        headerItems = _unpackStruct(image, 0, cls._headerStruct)
-        if headerItems is None:
+        header = MSXROMHeader.unpack(image, 0)
+        if header is None:
             return -1000
-        header = MSXROMHeader(*headerItems)
 
         if header.cartID == b"AB":
             # ROM cartridge.
@@ -226,10 +245,10 @@ class MSXROM(BinaryFormat):
     def __init__(self, image: Image):
         BinaryFormat.__init__(self, image)
 
-        headerItems = _unpackStruct(image, 0, self._headerStruct)
-        if headerItems is None:
+        header = MSXROMHeader.unpack(image, 0)
+        if header is None:
             raise ValueError("no header")
-        self._header = header = MSXROMHeader(*headerItems)
+        self._header = header
 
         # Figure out address at which ROM is mapped into memory.
         cartID = header.cartID
@@ -254,7 +273,7 @@ class MSXROM(BinaryFormat):
 
     def iterSections(self) -> Iterator[Section]:
         # Header.
-        yield Section(0x0, 0x10)
+        yield StructuredDataSection(0x0, self._header, "header")
         # Fixed mapping.
         # Note: MegaROM mappers are not supported yet.
         yield self._section

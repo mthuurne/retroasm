@@ -38,7 +38,7 @@ from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSe
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
 from .mode import ModeMatch
-from .section import ByteOrder, CodeSection, Section, SectionMap
+from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredDataSection
 from .types import Unlimited, unlimited
 
 
@@ -314,6 +314,9 @@ def disassembleBinary(
             print(formatter.origin(org))
             print()
             formatAsm(formatter, decoded[section], labels)
+        elif isinstance(section, StructuredDataSection):
+            for directive in section.data.directives:
+                print(formatter.data(directive))
         else:
             for line in formatter.raw(data):
                 print(line)
