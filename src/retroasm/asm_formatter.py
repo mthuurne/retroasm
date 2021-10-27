@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import AbstractSet, Iterable, Iterator, Mapping, cast
 
-from .asm_directives import DataDirective, OriginDirective
+from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
 from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
@@ -38,6 +38,20 @@ class Formatter:
         startStr = self.hexValue(start, width)
         endStr = "" if end is unlimited else self.hexValue(cast(int, end), width)
         return f"{startStr}-{endStr}"
+
+    def _stringLiteral(self, string: bytes) -> Iterator[str]:
+        idx = 0
+        end = len(string)
+        while idx < end:
+            start = idx
+            while idx < end and 32 <= string[idx] < 127 and string[idx] != ord('"'):
+                idx += 1
+            if idx != start:
+                yield f'"{string[start:idx].decode()}"'
+            if idx < end:
+                value = string[idx]
+                yield "0" if value == 0 else self.hexValue(value, 8)
+                idx += 1
 
     def _operands(self, operands: Iterable[str]) -> str:
         prevWord = False
@@ -102,13 +116,21 @@ class Formatter:
 
     dataKeywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
-    def data(self, directive: DataDirective) -> str:
-        keyword = self.dataKeywords[directive.width]
+    def data(self, directive: DataDirective | StringDirective) -> str:
+        keyword = self.dataKeywords[
+            directive.width if isinstance(directive, DataDirective) else 8
+        ]
         words: list[str | Reference] = [keyword]
-        for word in directive.data:
-            if len(words) > 1:
-                words.append(", ")
-            words.append(word)
+        for data in directive.data:
+            items: Iterable[str | Reference]
+            if isinstance(data, bytes):
+                items = self._stringLiteral(data)
+            else:
+                items = (data,)
+            for item in items:
+                if len(words) > 1:
+                    words.append(", ")
+                words.append(item)
         return self.mnemonic(words, {})
 
     def raw(self, data: bytes) -> Iterator[str]:

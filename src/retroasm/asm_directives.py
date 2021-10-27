@@ -74,6 +74,28 @@ class DataDirective:
         return f"{self.__class__.__name__}({argsStr})"
 
 
+class StringDirective:
+    """Data definition directive that can contain bytestrings."""
+
+    @property
+    def data(self) -> tuple[Reference | bytes, ...]:
+        return self._data
+
+    def __init__(self, *data: Reference | bytes):
+        self._data = data
+
+    def __str__(self) -> str:
+        argsStr = ", ".join(
+            str(item.bits) if isinstance(item, Reference) else repr(item)
+            for item in self._data
+        )
+        return f"defb {argsStr}"
+
+    def __repr__(self) -> str:
+        argsStr = ", ".join(repr(item) for item in self._data)
+        return f"{self.__class__.__name__}({argsStr})"
+
+
 class StructuredData(Protocol):
     """Protocol for data areas with a struct-like layout."""
 
@@ -83,7 +105,7 @@ class StructuredData(Protocol):
         raise NotImplementedError
 
     @property
-    def directives(self) -> Iterator[DataDirective]:
+    def directives(self) -> Iterator[DataDirective | StringDirective]:
         """Yield the data directives that define this data area."""
         raise NotImplementedError
 

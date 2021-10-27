@@ -6,7 +6,7 @@ from pathlib import PurePath
 from struct import Struct
 from typing import Any, ClassVar, Collection, Iterable, Iterator, Protocol, overload
 
-from .asm_directives import DataDirective, StructuredData
+from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
 
 logger = getLogger("binfmt")
@@ -186,9 +186,8 @@ class MSXROMHeader(StructuredData):
         return self.struct.pack(astuple(self))
 
     @property
-    def directives(self) -> Iterator[DataDirective]:
-        # TODO: Support strings.
-        yield DataDirective.u8(*self.cartID)
+    def directives(self) -> Iterator[DataDirective | StringDirective]:
+        yield StringDirective(self.cartID)
         yield DataDirective.u16(self.init, self.statement, self.device, self.text)
         yield DataDirective.u8(*self.reserved)
 
