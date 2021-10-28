@@ -33,6 +33,7 @@ def types(c, report=False):
     if report:
         cmd.append("--html-report output/mypy-report.html")
     cmd.append(str(SRC_DIR))
+    cmd.append(str(TEST_DIR))
     print("Type-checking...")
     with c.cd(str(TOP_DIR)):
         try:

@@ -22,10 +22,15 @@ def makeSlice(expr, index, width):
 class TestValue(Expression):
     __slots__ = ("_name", "_type")
 
-    name = property(lambda self: self._name)
-    mask = property(lambda self: self._type.mask)
+    @property
+    def name(self) -> str:
+        return self._name
 
-    def __init__(self, name, typ):
+    @property
+    def mask(self) -> int:
+        return self._type.mask
+
+    def __init__(self, name: str, typ: IntType):
         if not isinstance(name, str):
             raise TypeError("name must be string, got %s" % type(name).__name__)
         if not isinstance(typ, IntType):
