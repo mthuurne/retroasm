@@ -241,11 +241,16 @@ class IntType(metaclass=Unique):
         return f"IntType({self._width}, {self._signed})"
 
     def __str__(self) -> str:
-        return (
-            "int"
-            if self._width is unlimited
-            else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
-        )
+        if self._signed:
+            if self._width is unlimited:
+                return "int"
+            else:
+                return f"s{cast(int, self._width):d}"
+        else:
+            if self._width is unlimited:
+                return "uint"
+            else:
+                return f"u{cast(int, self._width):d}"
 
     def checkRange(self, value: int) -> None:
         """
@@ -254,16 +259,19 @@ class IntType(metaclass=Unique):
         Raises ValueError if the value does not fit.
         """
         width = self._width
-        if width is unlimited:
-            return
-        elif self._signed:
-            if width == 0:
+        if self._signed:
+            if width is unlimited:
+                return
+            elif width == 0:
                 if value == 0:
                     return
             elif -1 << (cast(int, width) - 1) <= value < 1 << (cast(int, width) - 1):
                 return
         else:
-            if 0 <= value < 1 << cast(int, width):
+            if width is unlimited:
+                if value >= 0:
+                    return
+            elif 0 <= value < 1 << cast(int, width):
                 return
         raise ValueError(f"value {value:d} does not fit in type {self}")
 

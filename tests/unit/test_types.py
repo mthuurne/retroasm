@@ -1,6 +1,6 @@
 from pytest import raises
 
-from retroasm.types import IntType
+from retroasm.types import IntType, unlimited
 
 
 def test_inttype_range_check_unlimited() -> None:
@@ -14,6 +14,28 @@ def test_inttype_range_check_unlimited() -> None:
     # Big numbers.
     IntType.int.checkRange(1 << 100)
     IntType.int.checkRange(-1 << 100)
+
+
+def test_inttype_range_check_unsigned_unlimited() -> None:
+    """
+    Any non-negative integer value fits in the unlimited-width 'uint' type.
+
+    While this type does not exist in the instruction set definition language,
+    the API does support it.
+    """
+
+    uint = IntType(unlimited, False)
+
+    # Near zero.
+    uint.checkRange(0)
+    uint.checkRange(1)
+    with raises(ValueError, match="^value -1 does not fit in type uint$"):
+        uint.checkRange(-1)
+
+    # Big numbers.
+    uint.checkRange(1 << 100)
+    with raises(ValueError, match=r"^value -1267\d* does not fit in type uint$"):
+        uint.checkRange(-1 << 100)
 
 
 def test_inttype_range_check_unsigned() -> None:
