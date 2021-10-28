@@ -247,6 +247,26 @@ class IntType(metaclass=Unique):
             else f"{'s' if self._signed else 'u'}{cast(int, self._width):d}"
         )
 
+    def checkRange(self, value: int) -> None:
+        """
+        Check whether the given value fits within this type.
+
+        Raises ValueError if the value does not fit.
+        """
+        width = self._width
+        if width is unlimited:
+            return
+        elif self._signed:
+            if width == 0:
+                if value == 0:
+                    return
+            elif -1 << (cast(int, width) - 1) <= value < 1 << (cast(int, width) - 1):
+                return
+        else:
+            if 0 <= value < 1 << cast(int, width):
+                return
+        raise ValueError(f"value {value:d} does not fit in type {self}")
+
     int: IntType
 
 
