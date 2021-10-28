@@ -547,3 +547,13 @@ class Reference:
     ) -> None:
         """Emits store nodes for storing a value into the referenced bit string."""
         self._bits.emitStore(builder, truncate(value, self.width), location)
+
+
+def intReference(value: int, typ: IntType) -> Reference:
+    """
+    Return a reference to a fixed integer with the given value and type.
+
+    Raises ValueError if the value does not fit within the type.
+    """
+    typ.checkRange(value)
+    return Reference(FixedValue(IntLiteral(value), typ.width), typ)

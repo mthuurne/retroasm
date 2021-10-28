@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from typing import Iterator, Protocol
 
-from .expression import IntLiteral
-from .reference import FixedValue, Reference
+from .reference import Reference, intReference
 from .types import IntType, Width
 
 
@@ -22,13 +21,7 @@ class DataDirective:
     @classmethod
     def unsigned(cls, width: Width, *values: int) -> DataDirective:
         valueType = IntType.u(width)
-        data = []
-        for value in values:
-            if value < 0:
-                raise ValueError(f"negative value: {value}")
-            if value.bit_length() > width:
-                raise ValueError(f"more than {width} bits: {value}")
-            data.append(Reference(FixedValue(IntLiteral(value), width), valueType))
+        data = (intReference(value, valueType) for value in values)
         return cls(*data)
 
     @classmethod
@@ -124,7 +117,7 @@ class OriginDirective:
 
     @classmethod
     def fromInt(cls, addr: int, typ: IntType) -> OriginDirective:
-        return cls(Reference(FixedValue(IntLiteral(addr), typ.width), typ))
+        return cls(intReference(addr, typ))
 
     def __init__(self, addr: Reference):
         self._addr = addr
