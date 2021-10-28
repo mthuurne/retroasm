@@ -157,6 +157,10 @@ class InstructionSet(ModeTable):
         return cast(int, self._encWidth)
 
     @property
+    def encodingType(self) -> IntType:
+        return IntType.u(self.encodingWidth)
+
+    @property
     def globalNamespace(self) -> GlobalNamespace:
         return self._globalNamespace
 

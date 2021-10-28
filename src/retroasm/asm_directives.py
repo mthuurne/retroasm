@@ -19,26 +19,24 @@ class DataDirective:
     __slots__ = ("_data",)
 
     @classmethod
-    def unsigned(cls, width: Width, *values: int) -> DataDirective:
-        valueType = IntType.u(width)
-        data = (intReference(value, valueType) for value in values)
-        return cls(*data)
+    def literal(cls, typ: IntType, *values: int) -> DataDirective:
+        return cls(*(intReference(value, typ) for value in values))
 
     @classmethod
     def u8(cls, *values: int) -> DataDirective:
-        return cls.unsigned(8, *values)
+        return cls.literal(IntType.u(8), *values)
 
     @classmethod
     def u16(cls, *values: int) -> DataDirective:
-        return cls.unsigned(16, *values)
+        return cls.literal(IntType.u(16), *values)
 
     @classmethod
     def u32(cls, *values: int) -> DataDirective:
-        return cls.unsigned(32, *values)
+        return cls.literal(IntType.u(32), *values)
 
     @classmethod
     def u64(cls, *values: int) -> DataDirective:
-        return cls.unsigned(64, *values)
+        return cls.literal(IntType.u(64), *values)
 
     @property
     def width(self) -> Width:

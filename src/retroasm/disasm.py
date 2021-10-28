@@ -59,7 +59,7 @@ def disassemble(
             value = fetcher[0]
             if value is None:
                 break
-            yield addr, DataDirective.unsigned(instrSet.encodingWidth, value)
+            yield addr, DataDirective.literal(instrSet.encodingType, value)
         else:
             match = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, match.substPC(pc, IntLiteral(postAddr))
