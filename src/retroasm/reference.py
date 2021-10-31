@@ -20,6 +20,7 @@ from .expression import (
 from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation
 from .storage import Storage
+from .symbol import SymbolValue
 from .types import (
     IntType,
     ReferenceType,
@@ -557,3 +558,11 @@ def intReference(value: int, typ: IntType) -> Reference:
     """
     typ.checkRange(value)
     return Reference(FixedValue(IntLiteral(value), typ.width), typ)
+
+
+def symbolReference(name: str, typ: IntType) -> Reference:
+    """
+    Return a reference to a symbol value.
+    """
+    width = typ.width
+    return Reference(FixedValue(SymbolValue(name, width), width), typ)

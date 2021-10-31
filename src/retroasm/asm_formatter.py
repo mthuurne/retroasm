@@ -6,6 +6,7 @@ from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
 from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
+from .symbol import SymbolValue
 from .types import IntType, Width, unlimited
 
 
@@ -81,26 +82,34 @@ class Formatter:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
             elif isinstance(mnemElem, Reference):
-                # TODO: Are these asserts always true? If so, try to change
-                #       the argument types to refrect that. If not, make
-                #       this method more versatile.
+                # TODO: Is 'bits' always a FixedValue?
+                #       If so, try to change the types to reflect that.
+                #       If not, make this method more versatile.
                 bits = mnemElem.bits
                 assert isinstance(bits, FixedValue)
                 expr = bits.expr
-                assert isinstance(expr, IntLiteral)
-                value = expr.value
-                # TODO: Role detection needs to be re-implemented.
-                roles: AbstractSet[PlaceholderRole] = frozenset()
-                label = (
-                    labels.get(value)
-                    if PlaceholderRole.code_addr in roles
-                    or PlaceholderRole.data_addr in roles
-                    else None
-                )
-                if label is None:
+                symbol: str | None
+                # TODO: Use a recursive expression pretty printer.
+                #       Once we start formatting actual sources instead of
+                #       only disassembly, we will encounter operators as well.
+                if isinstance(expr, SymbolValue):
+                    symbol = expr.name
+                elif isinstance(expr, IntLiteral):
+                    value = expr.value
+                    # TODO: Role detection needs to be re-implemented.
+                    roles: AbstractSet[PlaceholderRole] = frozenset()
+                    symbol = (
+                        labels.get(value)
+                        if PlaceholderRole.code_addr in roles
+                        or PlaceholderRole.data_addr in roles
+                        else None
+                    )
+                else:
+                    assert False, expr
+                if symbol is None:
                     parts.append(self.value(value, mnemElem.type))
                 else:
-                    parts.append(label)
+                    parts.append(symbol)
             else:
                 assert False, mnemElem
 

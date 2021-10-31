@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Collection, Iterable, Iterator, Protocol, over
 
 from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
+from .types import IntType
 
 logger = getLogger("binfmt")
 
@@ -188,7 +189,13 @@ class MSXROMHeader(StructuredData):
     @property
     def directives(self) -> Iterator[DataDirective | StringDirective]:
         yield StringDirective(self.cartID)
-        yield DataDirective.u16(self.init, self.statement, self.device, self.text)
+        for name in ("init", "statement", "device", "text"):
+            value: int = getattr(self, name)
+            if value == 0:
+                # TODO: Add comment with the entry point name.
+                yield DataDirective.u16(0)
+            else:
+                yield DataDirective.symbol(IntType.u(16), name)
         yield DataDirective.u8(*self.reserved)
 
     def __len__(self) -> int:  # pylint: disable=invalid-length-returned

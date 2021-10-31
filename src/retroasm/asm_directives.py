@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Iterator, Protocol
 
-from .reference import Reference, intReference
+from .reference import Reference, intReference, symbolReference
 from .types import IntType, Width
 
 
@@ -17,6 +17,10 @@ class DataDirective:
     """Data definition directive like DB, DW etc."""
 
     __slots__ = ("_data",)
+
+    @classmethod
+    def symbol(cls, typ: IntType, *names: str) -> DataDirective:
+        return cls(*(symbolReference(name, typ) for name in names))
 
     @classmethod
     def literal(cls, typ: IntType, *values: int) -> DataDirective:
