@@ -20,9 +20,6 @@ class SymbolValue(Expression):
 
     When assembling, the expression that computes the actual value can be substituted
     for this once it is known.
-
-    Symbol names are case-preserving: they compare case-insensitive, but stick to
-    the casing that they were constructed with.
     """
 
     __slots__ = ("_name", "_width")
@@ -50,7 +47,7 @@ class SymbolValue(Expression):
         return (self._name, self._width)
 
     def _equals(self, other: SymbolValue) -> bool:
-        return self._name.casefold() == other._name.casefold()
+        return self._name == other._name
 
     def __str__(self) -> str:
         return self._name
