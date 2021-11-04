@@ -42,6 +42,7 @@ def disassemble(
             encLen = prefix.encoding.encodedLength
             assert encLen is not None, prefix
             fetcher = fetcher.advance(encLen)
+            addr += encLen * numBytes
         if prefixBuilder is None:
             flags: AbstractSet[str] = frozenset()
         else:
