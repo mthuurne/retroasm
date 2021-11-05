@@ -8,7 +8,7 @@ from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .fetch import ImageFetcher
 from .instrset import InstructionSet, flagsSetByCode
-from .mode import EncodeMatch, Encoding, ModeMatch
+from .mode import EncodeMatch, Encoding, EncodingExpr, ModeMatch
 from .reference import Reference
 
 
@@ -33,18 +33,23 @@ def disassemble(
 
         if encMatch is None:
             for prefixEnc in prefixEncs:
-                raise NotImplementedError  # TODO: Implement.
+                for encItem in prefixEnc:
+                    assert isinstance(encItem, EncodingExpr), encItem
+                    yield addr, DataDirective(encItem.reference)
+                    addr += numBytes
+                    fetcher = fetcher.advance(numBytes)
             value = fetcher[0]
             if value is None:
                 break
             yield addr, DataDirective.literal(instrSet.encodingType, value)
+            fetcher = fetcher.advance(numBytes)
         else:
             # TODO: Handle situations where the re-encoding of the match does not
             #       result in the same encoded data as the input, for example when
             #       redundant prefixes are present.
             modeMatch = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
-        fetcher = fetcher.advance(encodedLength)
+            fetcher = fetcher.advance(encodedLength)
         addr = postAddr
 
 

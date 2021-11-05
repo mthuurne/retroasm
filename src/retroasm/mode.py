@@ -49,6 +49,14 @@ class EncodingExpr:
         return width
 
     @property
+    def encodingType(self) -> IntType:
+        return IntType.u(self.encodingWidth)
+
+    @property
+    def reference(self) -> Reference:
+        return Reference(self.bits, self.encodingType)
+
+    @property
     def encodedLength(self) -> int:
         return 1
 
