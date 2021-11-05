@@ -107,6 +107,28 @@ class BitString:
         """
         raise NotImplementedError
 
+    @property
+    def intValue(self) -> int:
+        """
+        The value of a bit string that consists solely of integer literals.
+
+        Raises TypeError if one of the leaves is not a FixedValue or does not
+        wrap an IntLiteral.
+        """
+        value = 0
+        width = 0
+        for leaf, segment in self.decompose():
+            if not isinstance(leaf, FixedValue):
+                raise TypeError(f"Not a fixed value: {leaf!r}")
+            expr = leaf.expr
+            if not isinstance(expr, IntLiteral):
+                raise TypeError(f"Not an integer literal: {expr!r}")
+            value |= segment.cut(expr.value) << width
+            # The width can be unlimited for the last element, but we don't use
+            # it anymore after that.
+            width += cast(int, segment.width)
+        return value
+
 
 class LeafBitString(BitString):
     """
