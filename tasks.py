@@ -48,9 +48,7 @@ def lint(c, src=None):
     """Check sources with PyLint."""
     print("Linting...")
     sources = (
-        (TOP_DIR / "src" / "retroasm").glob("**/*.py")
-        if src is None
-        else Path.cwd().glob(src)
+        (SRC_DIR / "retroasm").glob("**/*.py") if src is None else Path.cwd().glob(src)
     )
     with c.cd(str(TOP_DIR)):
         c.run("pylint %s" % " ".join(str(path) for path in sources), pty=True)
@@ -61,3 +59,11 @@ def isort(c):
     """Sort imports."""
     print("Sorting imports...")
     c.run(f"isort {SRC_DIR} {TEST_DIR} {UTILS_DIR} {__file__}", pty=True)
+
+
+@task
+def upgrade(c):
+    """Upgrade sources to take advantage of new Python features."""
+    print("Upgrading sources...")
+    sources = (SRC_DIR / "retroasm").glob("**/*.py")
+    c.run(f"pyupgrade --py39-plus {' '.join(str(path) for path in sources)}")
