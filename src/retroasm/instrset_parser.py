@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from importlib.abc import Traversable
 from logging import WARNING, Logger, getLogger
 from typing import (
@@ -396,7 +396,7 @@ def _parseFunc(
         retType = None
 
     # Parse arguments.
-    args: OrderedDict[str, IntType | ReferenceType] = OrderedDict()
+    args = {}
     try:
         with reader.checkErrors():
             nameLocations: dict[str, InputLocation] = {}
@@ -449,7 +449,7 @@ def _parseModeContext(
     modes: Mapping[str, Mode],
     reader: DefLineReader,
 ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
-    placeholderSpecs: OrderedDict[str, PlaceholderSpec] = OrderedDict()
+    placeholderSpecs = {}
     flagsRequired = set()
     for node in parseContext(ctxLoc):
         if isinstance(node, (DeclarationNode, DefinitionNode)):
@@ -1089,7 +1089,7 @@ def _parseModeEntries(
                             placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxLoc, prefixes, modes, reader
                             )
-                            placeholders = OrderedDict(
+                            placeholders = dict(
                                 _buildPlaceholders(
                                     placeholderSpecs, globalNamespace, reader
                                 )
@@ -1099,7 +1099,7 @@ def _parseModeEntries(
                         continue
                 else:
                     placeholderSpecs, flagsRequired = {}, set()
-                    placeholders = OrderedDict()
+                    placeholders = {}
 
                 # Parse encoding.
                 encNodes: Iterable[ParseNode] | None

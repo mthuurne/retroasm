@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 from enum import Enum, auto
 from typing import (
     Any,
@@ -459,7 +458,7 @@ class CodeTemplate:
     filled in later.
     """
 
-    def __init__(self, code: CodeBlock, placeholders: OrderedDict[str, Placeholder]):
+    def __init__(self, code: CodeBlock, placeholders: Mapping[str, Placeholder]):
         self.code = code
         self.placeholders = placeholders
 
@@ -469,7 +468,7 @@ class CodeTemplate:
         match results, if available.
         """
 
-        placeholders: OrderedDict[str, Placeholder] = OrderedDict()
+        placeholders = {}
         values = {}
         for name, placeholder in self.placeholders.items():
             try:
@@ -515,10 +514,7 @@ class CodeTemplate:
         newCode = builder.createCodeBlock(())
 
         return CodeTemplate(
-            newCode,
-            OrderedDict(
-                (nameMap[name], value) for name, value in self.placeholders.items()
-            ),
+            newCode, {nameMap[name]: value for name, value in self.placeholders.items()}
         )
 
 
@@ -530,7 +526,7 @@ class ModeEntry:
         encoding: Encoding,
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
-        placeholders: OrderedDict[str, Placeholder],
+        placeholders: Mapping[str, Placeholder],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
@@ -576,7 +572,7 @@ class ModeEntry:
             self.encoding.rename(nameMap),
             self.mnemonic.rename(nameMap),
             None if semantics is None else semantics.rename(nameMap),
-            OrderedDict(renamePlaceholders()),
+            dict(renamePlaceholders()),
         )
 
 
@@ -986,11 +982,11 @@ class EncodeMatch:
         encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
         semantics = entry.semantics.fillPlaceholders(self)
-        placeholders = OrderedDict(
-            (name, placeholder)
+        placeholders = {
+            name: placeholder
             for name, placeholder in entry.placeholders.items()
             if name not in mapping
-        )
+        }
         return ModeEntry(encoding, mnemonic, semantics, placeholders)
 
     @const_property
