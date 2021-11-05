@@ -25,23 +25,41 @@ def disassemble(
     addr = startAddr
     while fetcher[0] is not None:
         encodedLength, modeMatch = instrSet.decodeInstruction(fetcher)
+
         if modeMatch is None:
             # Force at least one encoding item to be disassembled to a data directive,
             # otherwise we would not make any progress.
-            encodedLength = max(encodedLength, 1)
-            for idx in range(encodedLength):
-                value = fetcher[idx]
-                assert value is not None
-                yield addr, DataDirective.literal(instrSet.encodingType, value)
-                addr += numBytes
+            unused = max(encodedLength, 1)
         else:
-            # TODO: Handle situations where the re-encoding of the match does not
-            #       result in the same encoded data as the input, for example when
-            #       redundant prefixes are present.
-            postAddr = addr + encodedLength * numBytes
+            # Verify that the opcodes produced when assembling are the same as
+            # the ones we disassembled. This is not a given: there can be more
+            # than one way to encode the same instruction.
+            reencoded = tuple(instrSet.encodeInstruction(modeMatch))
+            reencodedLen = len(reencoded)
+            unused = encodedLength - reencodedLen
+            if unused < 0 or any(
+                fetcher[unused + idx] != enc for idx, enc in enumerate(reencoded)
+            ):
+                # Reject the match because it would break round trips.
+                # TODO: Maybe this should be an option: there might be use cases where
+                #       round trips are not important.
+                modeMatch = None
+                unused = encodedLength
+
+        # Disassemble unused encoding items to data directives.
+        for idx in range(unused):
+            value = fetcher[idx]
+            assert value is not None
+            yield addr, DataDirective.literal(instrSet.encodingType, value)
+            addr += numBytes
+        fetcher = fetcher.advance(unused)
+
+        # Disassemble instruction.
+        if modeMatch is not None:
+            postAddr = addr + reencodedLen * numBytes
             yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
             addr = postAddr
-        fetcher = fetcher.advance(encodedLength)
+            fetcher = fetcher.advance(reencodedLen)
 
 
 def formatAsm(

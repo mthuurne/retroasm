@@ -257,6 +257,13 @@ class InstructionSet(ModeTable):
 
         return encodedLength, modeMatch
 
+    def encodeInstruction(self, modeMatch: ModeMatch) -> Iterator[int]:
+        # TODO: If the match was guarded by a prefix flag, emit the corresponding
+        #       prefix here.
+
+        for bits in modeMatch.iterBits():
+            yield bits.intValue
+
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:
         """

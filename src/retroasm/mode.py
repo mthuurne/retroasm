@@ -235,6 +235,9 @@ class Encoding:
 
         self._location = location
 
+    def __repr__(self) -> str:
+        return f"Encoding({self._items!r}, {self._location!r})"
+
     def __iter__(self) -> Iterator[EncodingItem]:
         return iter(self._items)
 
@@ -399,6 +402,9 @@ class Mnemonic:
 
     def __init__(self, items: Iterable[MnemItem]):
         self._items: Sequence[MnemItem] = tuple(items)
+
+    def __repr__(self) -> str:
+        return f"Mnemonic({self._items!r})"
 
     def __iter__(self) -> Iterator[MnemItem]:
         return iter(self._items)
@@ -622,6 +628,28 @@ class ModeMatch:
 
     def __repr__(self) -> str:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
+
+    def iterBits(self) -> Iterator[BitString]:
+        """
+        Yield the encoding of this match as bit strings.
+        Each yielded item has the instruction set's encoding width.
+        """
+
+        def subst(name: str) -> BitString:
+            value = self._values.get(name)
+            if value is not None:
+                return value
+            return next(self._subs[name].iterBits())
+
+        for encItem in self._entry.encoding:
+            if isinstance(encItem, EncodingExpr):
+                yield encItem.substitute(subst).bits
+            else:
+                subBits = self._subs[encItem.name].iterBits()
+                if encItem.start != 0:
+                    for _ in subBits:
+                        break
+                yield from subBits
 
     def substPC(self, pc: Reference, pcVal: Expression) -> ModeMatch:
         """
