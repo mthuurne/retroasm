@@ -24,8 +24,8 @@ def disassemble(
 
     addr = startAddr
     while fetcher[0] is not None:
-        encodedLength, encMatch = instrSet.decodeInstruction(fetcher)
-        if encMatch is None:
+        encodedLength, modeMatch = instrSet.decodeInstruction(fetcher)
+        if modeMatch is None:
             # Force at least one encoding item to be disassembled to a data directive,
             # otherwise we would not make any progress.
             encodedLength = max(encodedLength, 1)
@@ -39,7 +39,6 @@ def disassemble(
             #       result in the same encoded data as the input, for example when
             #       redundant prefixes are present.
             postAddr = addr + encodedLength * numBytes
-            modeMatch = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
             addr = postAddr
         fetcher = fetcher.advance(encodedLength)

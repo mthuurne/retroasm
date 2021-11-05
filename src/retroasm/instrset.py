@@ -25,7 +25,7 @@ from .decode import (
 from .expression import IntLiteral
 from .fetch import Fetcher, ImageFetcher
 from .linereader import BadInput
-from .mode import EncodeMatch, ModeTable
+from .mode import ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -213,9 +213,7 @@ class InstructionSet(ModeTable):
             decoders[flags] = decoder
         return decoder
 
-    def decodeInstruction(
-        self, fetcher: ImageFetcher
-    ) -> tuple[int, EncodeMatch | None]:
+    def decodeInstruction(self, fetcher: ImageFetcher) -> tuple[int, ModeMatch | None]:
         """
         Attempt to decode one instruction from the given fetcher.
 
@@ -251,10 +249,13 @@ class InstructionSet(ModeTable):
         # Decode instruction.
         decoder = self.getDecoder(flags)
         encMatch = decoder.tryDecode(fetcher)
-        if encMatch is not None:
+        if encMatch is None:
+            modeMatch = None
+        else:
             encodedLength += encMatch.encodedLength
+            modeMatch = ModeMatch.fromEncodeMatch(encMatch)
 
-        return encodedLength, encMatch
+        return encodedLength, modeMatch
 
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:
