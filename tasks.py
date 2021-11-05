@@ -67,3 +67,10 @@ def upgrade(c):
     print("Upgrading sources...")
     sources = (SRC_DIR / "retroasm").glob("**/*.py")
     c.run(f"pyupgrade --py39-plus {' '.join(str(path) for path in sources)}")
+
+
+@task
+def unused(c):
+    """Find unused code."""
+    print("Scanning sources for unused code...")
+    c.run(f"vulture --ignore-names '*_' {SRC_DIR} {TEST_DIR}")
