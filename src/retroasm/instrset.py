@@ -23,9 +23,9 @@ from .decode import (
     createPrefixDecoder,
 )
 from .expression import IntLiteral
-from .fetch import Fetcher
+from .fetch import Fetcher, ImageFetcher
 from .linereader import BadInput
-from .mode import ModeTable
+from .mode import EncodeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -212,6 +212,49 @@ class InstructionSet(ModeTable):
             decoder = decoderFactory.createDecoder(None, None)
             decoders[flags] = decoder
         return decoder
+
+    def decodeInstruction(
+        self, fetcher: ImageFetcher
+    ) -> tuple[int, EncodeMatch | None]:
+        """
+        Attempt to decode one instruction from the given fetcher.
+
+        Return the number of encoding items decoded and the decoded instruction, if any.
+        """
+
+        # Decode prefixes.
+        prefixes = []
+        decodePrefix = self.prefixDecodeFunc
+        encodedLength = 0
+        while (prefix := decodePrefix(fetcher)) is not None:
+            prefixes.append(prefix)
+            prefixEncLen = prefix.encoding.encodedLength
+            assert prefixEncLen is not None, prefix
+            fetcher = fetcher.advance(prefixEncLen)
+            encodedLength += prefixEncLen
+
+        # Compute prefix flags.
+        if prefixes:
+            prefixMapping = self.prefixMapping
+            prefixBuilder = SemanticsCodeBlockBuilder()
+            prefixBuilder.inlineBlock(prefixMapping.initCode)
+            for prefix in prefixes:
+                prefixBuilder.inlineBlock(prefix.semantics)
+            prefixCode = prefixBuilder.createCodeBlock(())
+            flagForVar = prefixMapping.flagForVar
+            flags = frozenset(
+                flagForVar[storage] for storage in flagsSetByCode(prefixCode)
+            )
+        else:
+            flags = frozenset()
+
+        # Decode instruction.
+        decoder = self.getDecoder(flags)
+        encMatch = decoder.tryDecode(fetcher)
+        if encMatch is not None:
+            encodedLength += encMatch.encodedLength
+
+        return encodedLength, encMatch
 
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:

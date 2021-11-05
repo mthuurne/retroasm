@@ -4,11 +4,10 @@ from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective
 from .asm_formatter import Formatter
-from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .fetch import ImageFetcher
-from .instrset import InstructionSet, flagsSetByCode
-from .mode import EncodeMatch, ModeMatch
+from .instrset import InstructionSet
+from .mode import ModeMatch
 from .reference import Reference
 
 
@@ -25,7 +24,7 @@ def disassemble(
 
     addr = startAddr
     while fetcher[0] is not None:
-        encodedLength, encMatch = decode(instrSet, fetcher)
+        encodedLength, encMatch = instrSet.decodeInstruction(fetcher)
         if encMatch is None:
             # Force at least one encoding item to be disassembled to a data directive,
             # otherwise we would not make any progress.
@@ -44,48 +43,6 @@ def disassemble(
             yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
             addr = postAddr
         fetcher = fetcher.advance(encodedLength)
-
-
-def decode(
-    instrSet: InstructionSet, fetcher: ImageFetcher
-) -> tuple[int, EncodeMatch | None]:
-    """
-    Attempt to decode one instruction from the given fetcher.
-
-    Return the number of encoding items decoded and the decoded instruction, if any.
-    """
-
-    # Decode prefixes.
-    prefixes = []
-    decodePrefix = instrSet.prefixDecodeFunc
-    encodedLength = 0
-    while (prefix := decodePrefix(fetcher)) is not None:
-        prefixes.append(prefix)
-        prefixEncLen = prefix.encoding.encodedLength
-        assert prefixEncLen is not None, prefix
-        fetcher = fetcher.advance(prefixEncLen)
-        encodedLength += prefixEncLen
-
-    # Compute prefix flags.
-    if prefixes:
-        prefixMapping = instrSet.prefixMapping
-        prefixBuilder = SemanticsCodeBlockBuilder()
-        prefixBuilder.inlineBlock(prefixMapping.initCode)
-        for prefix in prefixes:
-            prefixBuilder.inlineBlock(prefix.semantics)
-        prefixCode = prefixBuilder.createCodeBlock(())
-        flagForVar = prefixMapping.flagForVar
-        flags = frozenset(flagForVar[storage] for storage in flagsSetByCode(prefixCode))
-    else:
-        flags = frozenset()
-
-    # Decode instruction.
-    decoder = instrSet.getDecoder(flags)
-    encMatch = decoder.tryDecode(fetcher)
-    if encMatch is not None:
-        encodedLength += encMatch.encodedLength
-
-    return encodedLength, encMatch
 
 
 def formatAsm(
