@@ -47,6 +47,9 @@ class ImageFetcher(Fetcher):
         Return a factory which builds instruction fetchers using the given instruction
         width and byte order.
 
+        The returned factory function takes three positional arguments:
+        the image, the start offset and the end offset.
+
         Raise ValueError if no fetcher can be made for the given width and byte order.
         """
         if width % 8 != 0:
