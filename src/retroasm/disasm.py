@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Mapping, Sequence, cast
+from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective
 from .asm_formatter import Formatter
@@ -8,7 +8,7 @@ from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import IntLiteral
 from .fetch import ImageFetcher
 from .instrset import InstructionSet, flagsSetByCode
-from .mode import EncodeMatch, Encoding, EncodingExpr, ModeMatch
+from .mode import EncodeMatch, ModeMatch
 from .reference import Reference
 
 
@@ -25,47 +25,46 @@ def disassemble(
 
     addr = startAddr
     while fetcher[0] is not None:
-        prefixEncs, encMatch = decode(instrSet, fetcher)
-
-        encodedLength = sum(cast(int, enc.encodedLength) for enc in prefixEncs)
-        encodedLength += 1 if encMatch is None else encMatch.encodedLength
-        postAddr = addr + encodedLength * numBytes
-
+        encodedLength, encMatch = decode(instrSet, fetcher)
         if encMatch is None:
-            for prefixEnc in prefixEncs:
-                for encItem in prefixEnc:
-                    assert isinstance(encItem, EncodingExpr), encItem
-                    yield addr, DataDirective(encItem.reference)
-                    addr += numBytes
-                    fetcher = fetcher.advance(numBytes)
-            value = fetcher[0]
-            if value is None:
-                break
-            yield addr, DataDirective.literal(instrSet.encodingType, value)
-            fetcher = fetcher.advance(numBytes)
+            # Force at least one encoding item to be disassembled to a data directive,
+            # otherwise we would not make any progress.
+            encodedLength = max(encodedLength, 1)
+            for idx in range(encodedLength):
+                value = fetcher[idx]
+                assert value is not None
+                yield addr, DataDirective.literal(instrSet.encodingType, value)
+                addr += numBytes
         else:
             # TODO: Handle situations where the re-encoding of the match does not
             #       result in the same encoded data as the input, for example when
             #       redundant prefixes are present.
+            postAddr = addr + encodedLength * numBytes
             modeMatch = ModeMatch.fromEncodeMatch(encMatch)
             yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
-            fetcher = fetcher.advance(encodedLength)
-        addr = postAddr
+            addr = postAddr
+        fetcher = fetcher.advance(encodedLength)
 
 
 def decode(
     instrSet: InstructionSet, fetcher: ImageFetcher
-) -> tuple[Sequence[Encoding], EncodeMatch | None]:
-    """Attempt to decode one instruction from the given fetcher."""
+) -> tuple[int, EncodeMatch | None]:
+    """
+    Attempt to decode one instruction from the given fetcher.
+
+    Return the number of encoding items decoded and the decoded instruction, if any.
+    """
 
     # Decode prefixes.
     prefixes = []
     decodePrefix = instrSet.prefixDecodeFunc
+    encodedLength = 0
     while (prefix := decodePrefix(fetcher)) is not None:
         prefixes.append(prefix)
         prefixEncLen = prefix.encoding.encodedLength
         assert prefixEncLen is not None, prefix
         fetcher = fetcher.advance(prefixEncLen)
+        encodedLength += prefixEncLen
 
     # Compute prefix flags.
     if prefixes:
@@ -83,8 +82,10 @@ def decode(
     # Decode instruction.
     decoder = instrSet.getDecoder(flags)
     encMatch = decoder.tryDecode(fetcher)
+    if encMatch is not None:
+        encodedLength += encMatch.encodedLength
 
-    return tuple(prefix.encoding for prefix in prefixes), encMatch
+    return encodedLength, encMatch
 
 
 def formatAsm(
