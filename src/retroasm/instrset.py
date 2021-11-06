@@ -193,7 +193,7 @@ class InstructionSet(ModeTable):
         self._globalNamespace = globalNamespace
         self._prefixMapping = prefixMapping
         self._modeEntries = modeEntries
-        self._decoders: dict[AbstractSet[str], Decoder] = {}
+        self._decoders: dict[frozenset[str], Decoder] = {}
 
     @const_property
     def prefixDecodeFunc(self) -> Callable[[Fetcher], Prefix | None]:
@@ -276,7 +276,7 @@ class InstructionSet(ModeTable):
 
         flagSets: MutableSet[AbstractSet[str]] = set()
 
-        def addRecursive(flags: AbstractSet[str], code: CodeBlock) -> None:
+        def addRecursive(flags: frozenset[str], code: CodeBlock) -> None:
             if flags in flagSets:
                 return
             flagSets.add(flags)

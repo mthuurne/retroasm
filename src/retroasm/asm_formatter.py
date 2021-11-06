@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Iterable, Iterator, Mapping, cast
+from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
@@ -97,7 +97,7 @@ class Formatter:
                 elif isinstance(expr, IntLiteral):
                     value = expr.value
                     # TODO: Role detection needs to be re-implemented.
-                    roles: AbstractSet[PlaceholderRole] = frozenset()
+                    roles = frozenset[PlaceholderRole]()
                     symbol = (
                         labels.get(value)
                         if PlaceholderRole.code_addr in roles

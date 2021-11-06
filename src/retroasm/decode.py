@@ -2,16 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import (
-    AbstractSet,
-    Callable,
-    DefaultDict,
-    Iterable,
-    Mapping,
-    Sequence,
-    Union,
-    cast,
-)
+from typing import Callable, DefaultDict, Iterable, Mapping, Sequence, Union, cast
 
 from .codeblock import CodeBlock
 from .expression import IntLiteral
@@ -642,7 +633,7 @@ class ParsedModeEntry:
     entry: ModeEntry
     fixedMatcher: Sequence[FixedEncoding]
     decoding: Mapping[str, Sequence[EncodedSegment]]
-    flagsRequired: AbstractSet[str]
+    flagsRequired: frozenset[str]
 
 
 def _qualifyNames(
