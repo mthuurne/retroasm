@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import Enum, auto
 from typing import (
+    AbstractSet,
     Any,
     Callable,
     Iterable,
@@ -533,16 +534,18 @@ class ModeEntry:
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
         placeholders: Mapping[str, Placeholder],
+        flagsRequired: AbstractSet[str],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self.placeholders = placeholders
+        self.flagsRequired = frozenset(flagsRequired)
 
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
-            f"{self.semantics!r}, {self.placeholders!r})"
+            f"{self.semantics!r}, {self.placeholders!r}, {self.flagsRequired!r})"
         )
 
     @property
@@ -579,6 +582,7 @@ class ModeEntry:
             self.mnemonic.rename(nameMap),
             None if semantics is None else semantics.rename(nameMap),
             dict(renamePlaceholders()),
+            self.flagsRequired,
         )
 
 
@@ -1015,7 +1019,16 @@ class EncodeMatch:
             for name, placeholder in entry.placeholders.items()
             if name not in mapping
         }
-        return ModeEntry(encoding, mnemonic, semantics, placeholders)
+
+        flagsRequired = entry.flagsRequired.union(
+            *(
+                match.entry.flagsRequired
+                for match in self._mapping.values()
+                if isinstance(match, EncodeMatch)
+            )
+        )
+
+        return ModeEntry(encoding, mnemonic, semantics, placeholders, flagsRequired)
 
     @const_property
     def encodedLength(self) -> int:

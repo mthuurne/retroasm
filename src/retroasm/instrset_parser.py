@@ -1196,8 +1196,10 @@ def _parseModeEntries(
                     template = None
                 else:
                     template = CodeTemplate(semantics, placeholders)
-                entry = ModeEntry(encoding, mnemonic, template, placeholders)
-                yield ParsedModeEntry(entry, *decoding, frozenset(flagsRequired))
+                entry = ModeEntry(
+                    encoding, mnemonic, template, placeholders, frozenset(flagsRequired)
+                )
+                yield ParsedModeEntry(entry, *decoding)
 
 
 def _formatEncodingWidth(width: Width | None) -> str:

@@ -633,7 +633,6 @@ class ParsedModeEntry:
     entry: ModeEntry
     fixedMatcher: Sequence[FixedEncoding]
     decoding: Mapping[str, Sequence[EncodedSegment]]
-    flagsRequired: frozenset[str]
 
 
 def _qualifyNames(
@@ -687,7 +686,7 @@ class DecoderFactory:
                     *_qualifyNames(parsedEntry, branchName), factory=self
                 )
                 for parsedEntry in parsedEntries
-                if flagsAreSet(parsedEntry.flagsRequired)
+                if flagsAreSet(parsedEntry.entry.flagsRequired)
             )
             cache[key] = decoder
         return decoder
