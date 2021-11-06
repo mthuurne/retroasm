@@ -633,6 +633,14 @@ class ModeMatch:
     def __repr__(self) -> str:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
 
+    @property
+    def flagsRequired(self) -> AbstractSet[str]:
+        """The prefix flags that must be set to match this mode entry."""
+        flags = self._entry.flagsRequired
+        for subMatch in self._subs.values():
+            flags |= subMatch.flagsRequired
+        return flags
+
     def iterBits(self) -> Iterator[BitString]:
         """
         Yield the encoding of this match as bit strings.

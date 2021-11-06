@@ -25,7 +25,7 @@ from .decode import (
 from .expression import IntLiteral
 from .fetch import Fetcher, ImageFetcher
 from .linereader import BadInput
-from .mode import ModeMatch, ModeTable
+from .mode import EncodingExpr, ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -258,8 +258,14 @@ class InstructionSet(ModeTable):
         return encodedLength, modeMatch
 
     def encodeInstruction(self, modeMatch: ModeMatch) -> Iterator[int]:
-        # TODO: If the match was guarded by a prefix flag, emit the corresponding
-        #       prefix here.
+        # Emit prefixes.
+        # TODO: When there can be more than one prefix, alphabetical sorting
+        #       may not be the right order.
+        for name in sorted(modeMatch.flagsRequired):
+            prefix = self._prefixMapping.prefixForFlag[name]
+            for encItem in prefix.encoding:
+                assert isinstance(encItem, EncodingExpr), encItem
+                yield encItem.bits.intValue
 
         for bits in modeMatch.iterBits():
             yield bits.intValue
