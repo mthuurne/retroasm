@@ -4,7 +4,16 @@ from dataclasses import astuple, dataclass
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
-from typing import Any, ClassVar, Collection, Iterable, Iterator, Protocol, overload
+from typing import (
+    Any,
+    ClassVar,
+    Collection,
+    Iterable,
+    Iterator,
+    Protocol,
+    TypeVar,
+    overload,
+)
 
 from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
@@ -78,6 +87,9 @@ def _yieldEntryPoint(
         yield EntryPoint(offset, name)
 
 
+BinFmtT = TypeVar("BinFmtT", bound="BinaryFormat")
+
+
 class BinaryFormat:
     """Abstract base class for binary formats."""
 
@@ -90,25 +102,41 @@ class BinaryFormat:
     extensions: ClassVar[tuple[str, ...]]
     """File name extensions: lower case, excluding the dot."""
 
-    @property
-    def image(self) -> Image:
-        return self._image
-
     @classmethod
-    def checkImage(cls, image: Image) -> int:
+    def autodetect(cls: type[BinFmtT], image: Image) -> BinFmtT | None:
         """
-        Checks whether the given image (read-only buffer) might be an instance
-        of this binary format.
-        Returns a positive number for likely matches, zero for undecided and
-        a negative number for unlikely matches. The more certain, the further
-        the number should be from zero, where 1000 means "very likely" and
-        -1000 means "very unlikely"; values are outside that range may be
-        returned but will be clipped to [-1000, 1000].
+        Attempt to autodetect the given image as an instance of this binary format.
+
+        Returns the most likely instance if the image could feasibly be an instance
+        of this format, `None` otherwise.
+
+        Implementers are encouraged to return an instance even for unlikely cases;
+        the `score` property can then be used to determine whether it's worth
+        continuing with this interpretation of the image.
         """
         raise NotImplementedError
 
     def __init__(self, image: Image):
         self._image = image
+
+    @property
+    def image(self) -> Image:
+        return self._image
+
+    @property
+    def score(self) -> int:
+        """
+        A number which indicates how likely it is that the wrapped image is actually
+        an instance of this binary format.
+
+        A positive number indicates a likely match, zero is undecided and a negative
+        number indicates an unlikely match. The more certain, the further the number
+        should be from zero, where 1000 means "very likely" and -1000 means "very
+        unlikely".
+
+        The default implementation returns 1000.
+        """
+        return 1000
 
     def iterSections(self) -> Iterator[Section]:
         """Iterates through the Sections in this binary."""
@@ -133,13 +161,14 @@ class GameBoyROM(BinaryFormat):
     )
 
     @classmethod
-    def checkImage(cls, image: Image) -> int:
+    def autodetect(cls, image: Image) -> GameBoyROM | None:
         header = _unpackStruct(image, 0x100, cls.header)
         if header is None:
-            return -1000
-        else:
-            logo: bytes = header[1]
-            return 1000 if logo == cls.logo else -1000
+            return None
+        logo: bytes = header[1]
+        if logo != cls.logo:
+            return None
+        return cls(image)
 
     def iterSections(self) -> Iterator[Section]:
         # Jump vectors.
@@ -209,15 +238,47 @@ class MSXROM(BinaryFormat):
     extensions = ("rom",)
 
     @classmethod
-    def checkImage(cls, image: Image) -> int:
+    def autodetect(cls, image: Image) -> MSXROM | None:
         header = MSXROMHeader.unpack(image, 0)
         if header is None:
-            return -1000
+            return None
+
+        return MSXROM(image, header)
+
+    def __init__(self, image: Image, header: MSXROMHeader):
+        BinaryFormat.__init__(self, image)
+
+        self._header = header
+
+        # Figure out address at which ROM is mapped into memory.
+        cartID = header.cartID
+        if cartID == b"AB":
+            if len(image) <= 0x4000:
+                baseFreqs = [0] * 4
+                for addr in (header.init, header.statement, header.device, header.text):
+                    if addr != 0:
+                        baseFreqs[addr >> 14] += 1
+                if baseFreqs[1] == 0 and baseFreqs[2] != 0:
+                    base = 0x8000
+                else:
+                    base = 0x4000
+            else:
+                base = 0x4000
+        elif cartID == b"CD":
+            base = 0x0000
+        else:
+            raise ValueError("unknown cartridge type")
+
+        self._section = CodeSection(0x10, 0x8000, base + 0x10, "z80", ByteOrder.little)
+
+    @property
+    def score(self) -> int:
+        header = self._header
 
         if header.cartID == b"AB":
             # ROM cartridge.
             score = 400
-            if 0x4000 <= header.init < 0xC000:
+            if header.init < 0xC000:
                 score += 200
             elif header.init != 0:
                 score -= 500
@@ -241,41 +302,12 @@ class MSXROM(BinaryFormat):
                 score -= 200
             score += sum(10 if byte == 0 else 0 for byte in header.reserved[1:])
         else:
-            score = -1000
+            return -1000
 
-        if len(image) % 8192 != 0:
+        if len(self._image) % 8192 != 0:
             score -= 500
 
         return score
-
-    def __init__(self, image: Image):
-        BinaryFormat.__init__(self, image)
-
-        header = MSXROMHeader.unpack(image, 0)
-        if header is None:
-            raise ValueError("no header")
-        self._header = header
-
-        # Figure out address at which ROM is mapped into memory.
-        cartID = header.cartID
-        if cartID == b"AB":
-            if len(image) <= 0x4000:
-                baseFreqs = [0] * 4
-                for addr in (header.init, header.statement, header.device, header.text):
-                    if addr != 0:
-                        baseFreqs[addr >> 14] += 1
-                if baseFreqs[1] == 0 and baseFreqs[2] != 0:
-                    base = 0x8000
-                else:
-                    base = 0x4000
-            else:
-                base = 0x4000
-        elif cartID == b"CD":
-            base = 0x0000
-        else:
-            raise ValueError("unknown cartridge type")
-
-        self._section = CodeSection(0x10, 0x8000, base + 0x10, "z80", ByteOrder.little)
 
     def iterSections(self) -> Iterator[Section]:
         # Header.
@@ -322,10 +354,12 @@ class PSXExecutable(BinaryFormat):
     _headerStruct = Struct("<8sIIIIIIIIIIII")
 
     @classmethod
-    def checkImage(cls, image: Image) -> int:
-        return 1000 if image[:8] == b"PS-X EXE" else -1000
+    def autodetect(cls, image: Image) -> PSXExecutable | None:
+        if image[:8] != b"PS-X EXE":
+            return None
+        return cls(image)
 
-    def __init__(self, image: bytes):
+    def __init__(self, image: Image):
         BinaryFormat.__init__(self, image)
 
         headerItems = _unpackStruct(image, 0, self._headerStruct)
@@ -361,7 +395,11 @@ class RawBinary(BinaryFormat):
     extensions = ("raw", "bin")
 
     @classmethod
-    def checkImage(cls, image: Image) -> int:
+    def autodetect(cls, image: Image) -> RawBinary:
+        return RawBinary(image)
+
+    @property
+    def score(self) -> int:
         return 0
 
     def iterSections(self) -> Iterator[Section]:
@@ -399,7 +437,7 @@ def getBinaryFormat(name: str) -> type[BinaryFormat]:
 
 def _detectBinaryFormats(
     image: Image, names: Collection[str], extMatches: bool
-) -> type[BinaryFormat] | None:
+) -> BinaryFormat | None:
     logger.debug(
         "Binary format autodetection, extension %s:",
         "matches" if extMatches else "does not match",
@@ -409,17 +447,24 @@ def _detectBinaryFormats(
         return None
 
     boost = 100 if extMatches else 0
-    checkResults = []
+    bestMatch = None
+    bestScore = -1000
     for name in names:
-        binfmt = _formatsByName[name]
-        likely = min(1000, max(-1000, binfmt.checkImage(image))) + boost
-        checkResults.append((likely, name))
-        logger.debug('  format "%s": score %d', name, likely)
+        binfmtClass = _formatsByName[name]
+        binfmt = binfmtClass.autodetect(image)
+        if binfmt is None:
+            logger.debug('  format "%s": rejected by autodetection', name)
+        else:
+            score = min(1000, binfmt.score)
+            logger.debug('  format "%s": score %d', name, score)
+            if score > bestScore:
+                bestScore = score
+                bestMatch = binfmt
 
-    likely, name = max(checkResults)
-    if likely > 0:
-        logger.debug("Best match: %s", name)
-        return _formatsByName[name]
+    if bestScore + boost > 0:
+        assert bestMatch is not None
+        logger.debug("Best match: %s", bestMatch.name)
+        return bestMatch
     else:
         logger.debug("No match")
         return None
@@ -427,9 +472,9 @@ def _detectBinaryFormats(
 
 def detectBinaryFormat(
     image: Image, fileName: str | None = None
-) -> type[BinaryFormat] | None:
+) -> BinaryFormat | None:
     """
-    Attempts to autodetect the binary format of the given image.
+    Attempt to autodetect the binary format of the given image.
 
     If a file name is given, its extension will be used to first test the
     formats matching that extension, as well as considering those formats

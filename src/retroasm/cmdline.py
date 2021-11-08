@@ -140,7 +140,7 @@ def checkdef(
 
 def determineBinaryFormat(
     image: Image, fileName: str, formatName: str | None, logger: Logger
-) -> type[BinaryFormat] | None:
+) -> BinaryFormat | None:
     """
     Determines the right binary format for the given open file object.
 
@@ -161,14 +161,17 @@ def determineBinaryFormat(
             )
     else:
         try:
-            binfmt = getBinaryFormat(formatName)
+            binfmtClass = getBinaryFormat(formatName)
         except KeyError:
             logger.error("Unknown binary format: %s", formatName)
             binfmt = None
         else:
             logger.debug(
-                "User-specified binary format: %s (%s)", binfmt.name, binfmt.description
+                "User-specified binary format: %s (%s)",
+                binfmtClass.name,
+                binfmtClass.description,
             )
+            binfmt = binfmtClass.autodetect(image)
     return binfmt
 
 
@@ -543,10 +546,9 @@ def disasm(
     try:
         with open(binary, "rb") as binFile:
             with mmap(binFile.fileno(), 0, access=ACCESS_READ) as image:
-                factory = determineBinaryFormat(image, binary, binfmt, logger)
-                if factory is None:
+                binaryFormat = determineBinaryFormat(image, binary, binfmt, logger)
+                if binaryFormat is None:
                     get_current_context().exit(1)
-                binaryFormat = factory(image)
                 disassembleBinary(binaryFormat, sections, entries, logger)
     except OSError as ex:
         if ex.filename == binary:
