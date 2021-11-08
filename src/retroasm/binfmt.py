@@ -109,10 +109,22 @@ class BinaryFormat:
 
         Returns the most likely instance if the image could feasibly be an instance
         of this format, `None` otherwise.
+        """
+        return max(
+            cls.detectAll(image),
+            default=None,
+            key=lambda fmt: -9999 if fmt is None else fmt.score,
+        )
 
-        Implementers are encouraged to return an instance even for unlikely cases;
-        the `score` property can then be used to determine whether it's worth
-        continuing with this interpretation of the image.
+    @classmethod
+    def detectAll(cls: type[BinFmtT], image: Image) -> Iterator[BinFmtT]:
+        """
+        Iterate through plausible intepretations of the given image as this binary
+        format.
+
+        Implementers are encouraged to yield all plausible instances even if they
+        are not very likely; the `score` property can then be used to determine
+        whether it's worth continuing with this interpretation of the image.
         """
         raise NotImplementedError
 
@@ -161,14 +173,14 @@ class GameBoyROM(BinaryFormat):
     )
 
     @classmethod
-    def autodetect(cls, image: Image) -> GameBoyROM | None:
+    def detectAll(cls, image: Image) -> Iterator[GameBoyROM]:
         header = _unpackStruct(image, 0x100, cls.header)
         if header is None:
-            return None
+            return
         logo: bytes = header[1]
         if logo != cls.logo:
-            return None
-        return cls(image)
+            return
+        yield cls(image)
 
     def iterSections(self) -> Iterator[Section]:
         # Jump vectors.
@@ -238,12 +250,15 @@ class MSXROM(BinaryFormat):
     extensions = ("rom",)
 
     @classmethod
-    def autodetect(cls, image: Image) -> MSXROM | None:
+    def detectAll(cls, image: Image) -> Iterator[MSXROM]:
         header = MSXROMHeader.unpack(image, 0)
         if header is None:
-            return None
+            return
 
-        return MSXROM(image, header)
+        try:
+            yield MSXROM(image, header)
+        except ValueError:
+            pass
 
     def __init__(self, image: Image, header: MSXROMHeader):
         BinaryFormat.__init__(self, image)
@@ -354,10 +369,10 @@ class PSXExecutable(BinaryFormat):
     _headerStruct = Struct("<8sIIIIIIIIIIII")
 
     @classmethod
-    def autodetect(cls, image: Image) -> PSXExecutable | None:
+    def detectAll(cls, image: Image) -> Iterator[PSXExecutable]:
         if image[:8] != b"PS-X EXE":
-            return None
-        return cls(image)
+            return
+        yield cls(image)
 
     def __init__(self, image: Image):
         BinaryFormat.__init__(self, image)
@@ -395,8 +410,8 @@ class RawBinary(BinaryFormat):
     extensions = ("raw", "bin")
 
     @classmethod
-    def autodetect(cls, image: Image) -> RawBinary:
-        return RawBinary(image)
+    def detectAll(cls, image: Image) -> Iterator[RawBinary]:
+        yield RawBinary(image)
 
     @property
     def score(self) -> int:
