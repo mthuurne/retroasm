@@ -220,7 +220,7 @@ class MSXROMHeader(StructuredData):
 
     @classmethod
     def unpack(cls, image: Image, offset: int) -> MSXROMHeader | None:
-        items = _unpackStruct(image, 0, cls.struct)
+        items = _unpackStruct(image, offset, cls.struct)
         return None if items is None else cls(*items)
 
     @property
