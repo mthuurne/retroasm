@@ -310,7 +310,8 @@ def disassembleBinary(
             )
         )
         print()
-        if isinstance(section, CodeSection):
+        if section in decoded:
+            assert isinstance(section, CodeSection), section
             instrSet = builtinInstructionSets[section.instrSetName]
             assert instrSet is not None
             org = OriginDirective.fromInt(section.base, instrSet.addrType)
