@@ -279,25 +279,24 @@ class MSXROM(BinaryFormat):
         if header is None:
             return
         if header.cartID == b"AB":
-            yield MSXROM(image, 0x0000, header, 0x0000)
-            yield MSXROM(image, 0x0000, header, 0x4000)
+            yield cls._create(image, 0x0000, header, 0x0000)
+            yield cls._create(image, 0x0000, header, 0x4000)
             if len(image) <= 0x4000:
-                yield MSXROM(image, 0x0000, header, 0x8000)
+                yield cls._create(image, 0x0000, header, 0x8000)
         elif header.cartID == b"CD":
-            yield MSXROM(image, 0x0000, replace(header, size=8), 0x0000)
+            yield cls._create(image, 0x0000, replace(header, size=8), 0x0000)
         else:
             header = MSXROMHeader.unpack(image, 0x4000)
             if header is None:
                 return
             if header.cartID == b"AB":
-                yield MSXROM(image, 0x4000, header, 0x0000)
-                yield MSXROM(image, 0x4000, header, 0x4000)
+                yield cls._create(image, 0x4000, header, 0x0000)
+                yield cls._create(image, 0x4000, header, 0x4000)
 
-    def __init__(
-        self, image: Image, headerOffset: int, header: MSXROMHeader, base: int
-    ):
-        BinaryFormat.__init__(self, image)
-
+    @classmethod
+    def _create(
+        cls, image: Image, headerOffset: int, header: MSXROMHeader, base: int
+    ) -> MSXROM:
         # Some ROMs put code or data in the header area.
         init = header.init
         headerBase = base + headerOffset
@@ -309,6 +308,14 @@ class MSXROM(BinaryFormat):
                 headerSize = 4
             header = replace(header, size=headerSize)
 
+        return cls(image, headerOffset, header, base)
+
+    def __init__(
+        self, image: Image, headerOffset: int, header: MSXROMHeader, base: int
+    ):
+        BinaryFormat.__init__(self, image)
+
+        codeStart = headerOffset + header.size
         if base == 0x0000:
             codeEnd = min(0x10000, len(image))
         else:
@@ -317,9 +324,9 @@ class MSXROM(BinaryFormat):
         self._header = header
         self._headerOffset = headerOffset
         self._section = CodeSection(
-            headerOffset + header.size,
+            codeStart,
             codeEnd,
-            headerBase + header.size,
+            base + codeStart,
             "z80",
             ByteOrder.little,
         )
