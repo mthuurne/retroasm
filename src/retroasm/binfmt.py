@@ -224,12 +224,22 @@ class MSXROMHeader(StructuredData):
 
     Some ROMs put code or data in the reserved area or even in the entry points
     after INIT. For those ROMs, the size can be overridden.
+
+    The value must be a multiple of 2.
     """
 
     @classmethod
     def unpack(cls, image: Image, offset: int) -> MSXROMHeader | None:
         items = _unpackStruct(image, offset, cls.struct)
         return None if items is None else cls(*items)
+
+    def __post_init__(self) -> None:
+        size = self.size
+        if size < 4 or size > self.struct.size or size % 2 != 0:
+            raise ValueError(f"invalid size: {size:d}")
+        # Clear addresses that are beyond the end of the header.
+        for name in ("init", "statement", "device", "text")[(size - 2) // 2 :]:
+            object.__setattr__(self, name, 0)
 
     @property
     def encoded(self) -> bytes:
@@ -244,9 +254,7 @@ class MSXROMHeader(StructuredData):
                 break
             remaining -= 2
             value: int = getattr(self, name)
-            if remaining == -1:
-                yield DataDirective.u8(value & 0xFF)
-            elif value == 0:
+            if value == 0:
                 # TODO: Add comment with the entry point name.
                 yield DataDirective.u16(0)
             else:
@@ -290,14 +298,16 @@ class MSXROM(BinaryFormat):
     ):
         BinaryFormat.__init__(self, image)
 
-        # Some ROMs that don't return from INIT start their code in the remaining
-        # header bytes.
+        # Some ROMs put code or data in the header area.
         init = header.init
         headerBase = base + headerOffset
-        codeBase = headerBase + 0x10
-        if headerBase + 0x04 <= init < codeBase:
-            codeBase = init
-            header = replace(header, size=codeBase - headerBase)
+        if 4 <= init - headerBase < 16:
+            headerSize = (init - headerBase) & ~1
+            if headerSize < 10:
+                # If the header is this incomplete, we can assume that INIT will not
+                # return and therefore disregard STATEMENT and DEVICE.
+                headerSize = 4
+            header = replace(header, size=headerSize)
 
         if base == 0x0000:
             codeEnd = min(0x10000, len(image))
@@ -307,7 +317,11 @@ class MSXROM(BinaryFormat):
         self._header = header
         self._headerOffset = headerOffset
         self._section = CodeSection(
-            headerOffset + header.size, codeEnd, codeBase, "z80", ByteOrder.little
+            headerOffset + header.size,
+            codeEnd,
+            headerBase + header.size,
+            "z80",
+            ByteOrder.little,
         )
 
     @property
@@ -327,7 +341,7 @@ class MSXROM(BinaryFormat):
 
         # Check whether entry points are in the mapped address range.
         numValidAddrs = 0
-        for name in ("init", "statement", "device")[: (header.size - 2) // 2]:
+        for name in ("init", "statement", "device"):
             addr: int = getattr(header, name)
             if addr == 0:
                 continue
@@ -343,7 +357,7 @@ class MSXROM(BinaryFormat):
                     score -= weight
 
         # Tokenized BASIC.
-        if header.size >= 10 and header.text != 0:
+        if header.text != 0:
             if (0x8000 + 10) <= header.text < 0xC000:
                 numValidAddrs += 1
             else:
@@ -373,13 +387,8 @@ class MSXROM(BinaryFormat):
     def iterEntryPoints(self) -> Iterator[EntryPoint]:
         header = self._header
         section = self._section
-        offset = 2
-        size = header.size
         # Note: TEXT points to tokenized MSX-BASIC and is therefore not an entry point.
         for name in ("init", "statement", "device"):
-            offset += 2
-            if offset > size:
-                break
             addr: int = getattr(header, name)
             if addr != 0:
                 yield from _yieldEntryPoint(section, addr, name)
