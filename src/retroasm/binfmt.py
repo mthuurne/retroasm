@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass
+from dataclasses import astuple, dataclass, replace
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
@@ -218,6 +218,14 @@ class MSXROMHeader(StructuredData):
     text: int = 0
     reserved: bytes = bytes(6)
 
+    size: int = struct.size
+    """
+    Size of the header in bytes.
+
+    Some ROMs put code or data in the reserved area or even in the entry points
+    after INIT. For those ROMs, the size can be overridden.
+    """
+
     @classmethod
     def unpack(cls, image: Image, offset: int) -> MSXROMHeader | None:
         items = _unpackStruct(image, offset, cls.struct)
@@ -230,17 +238,24 @@ class MSXROMHeader(StructuredData):
     @property
     def directives(self) -> Iterator[DataDirective | StringDirective]:
         yield StringDirective(self.cartID)
+        remaining = self.size - 2
         for name in ("init", "statement", "device", "text"):
+            if remaining <= 0:
+                break
+            remaining -= 2
             value: int = getattr(self, name)
-            if value == 0:
+            if remaining == -1:
+                yield DataDirective.u8(value & 0xFF)
+            elif value == 0:
                 # TODO: Add comment with the entry point name.
                 yield DataDirective.u16(0)
             else:
                 yield DataDirective.symbol(IntType.u(16), name)
-        yield DataDirective.u8(*self.reserved)
+        if remaining > 0:
+            yield DataDirective.u8(*self.reserved[:remaining])
 
-    def __len__(self) -> int:  # pylint: disable=invalid-length-returned
-        return self.struct.size
+    def __len__(self) -> int:
+        return self.size
 
 
 class MSXROM(BinaryFormat):
@@ -251,73 +266,91 @@ class MSXROM(BinaryFormat):
 
     @classmethod
     def detectAll(cls, image: Image) -> Iterator[MSXROM]:
-        header = MSXROMHeader.unpack(image, 0)
+        # Attempt to deduce the address mapping from the ROM header.
+        header = MSXROMHeader.unpack(image, 0x0000)
         if header is None:
             return
+        if header.cartID == b"AB":
+            yield MSXROM(image, 0x0000, header, 0x0000)
+            yield MSXROM(image, 0x0000, header, 0x4000)
+            if len(image) <= 0x4000:
+                yield MSXROM(image, 0x0000, header, 0x8000)
+        elif header.cartID == b"CD":
+            yield MSXROM(image, 0x0000, replace(header, size=8), 0x0000)
+        else:
+            header = MSXROMHeader.unpack(image, 0x4000)
+            if header is None:
+                return
+            if header.cartID == b"AB":
+                yield MSXROM(image, 0x4000, header, 0x0000)
+                yield MSXROM(image, 0x4000, header, 0x4000)
 
-        try:
-            yield MSXROM(image, header)
-        except ValueError:
-            pass
-
-    def __init__(self, image: Image, header: MSXROMHeader):
+    def __init__(
+        self, image: Image, headerOffset: int, header: MSXROMHeader, base: int
+    ):
         BinaryFormat.__init__(self, image)
 
-        self._header = header
+        # Some ROMs that don't return from INIT start their code in the remaining
+        # header bytes.
+        init = header.init
+        headerBase = base + headerOffset
+        codeBase = headerBase + 0x10
+        if headerBase + 0x04 <= init < codeBase:
+            codeBase = init
+            header = replace(header, size=codeBase - headerBase)
 
-        # Figure out address at which ROM is mapped into memory.
-        cartID = header.cartID
-        if cartID == b"AB":
-            if len(image) <= 0x4000:
-                baseFreqs = [0] * 4
-                for addr in (header.init, header.statement, header.device, header.text):
-                    if addr != 0:
-                        baseFreqs[addr >> 14] += 1
-                if baseFreqs[1] == 0 and baseFreqs[2] != 0:
-                    base = 0x8000
-                else:
-                    base = 0x4000
-            else:
-                base = 0x4000
-        elif cartID == b"CD":
-            base = 0x0000
+        if base == 0x0000:
+            codeEnd = min(0x10000, len(image))
         else:
-            raise ValueError("unknown cartridge type")
+            codeEnd = min(0xC000 - base, len(image))
 
-        self._section = CodeSection(0x10, 0x8000, base + 0x10, "z80", ByteOrder.little)
+        self._header = header
+        self._headerOffset = headerOffset
+        self._section = CodeSection(
+            headerOffset + header.size, codeEnd, codeBase, "z80", ByteOrder.little
+        )
 
     @property
     def score(self) -> int:
         header = self._header
+        size = len(self._image)
 
         if header.cartID == b"AB":
             # ROM cartridge.
             score = 400
-            if header.init < 0xC000:
-                score += 200
-            elif header.init != 0:
-                score -= 500
-            if not (header.statement == 0 or 0x4000 <= header.statement < 0x8000):
-                score -= 100
-            if not (header.device == 0 or 0x4000 <= header.device < 0x8000):
-                score -= 100
-            if not (header.text == 0 or 0x8000 <= header.text < 0xC000):
-                score -= 100
-            score += sum(10 if byte == 0 else 0 for byte in header.reserved)
+            score += sum(10 for byte in header.reserved if byte == 0)
         elif header.cartID == b"CD":
             # Sub ROM, only used for BIOS.
             score = 100
-            if header.init >= 0x4000:
-                score -= 200
-            if header.statement >= 0x4000:
-                score -= 200
-            if header.device >= 0x4000:
-                score -= 200
-            if header.text >= 0x4000:
-                score -= 200
-            score += sum(10 if byte == 0 else 0 for byte in header.reserved[1:])
         else:
             return -1000
+
+        # Check whether entry points are in the mapped address range.
+        numValidAddrs = 0
+        for name in ("init", "statement", "device")[: (header.size - 2) // 2]:
+            addr: int = getattr(header, name)
+            if addr == 0:
+                continue
+            weight = 300 if name == "init" else 100
+            try:
+                offset = self._section.offsetForAddr(addr)
+            except ValueError:
+                score -= weight
+            else:
+                if offset < size:
+                    numValidAddrs += 1
+                else:
+                    score -= weight
+
+        # Tokenized BASIC.
+        if header.size >= 10 and header.text != 0:
+            if (0x8000 + 10) <= header.text < 0xC000:
+                numValidAddrs += 1
+            else:
+                score -= 100
+
+        if numValidAddrs == 0:
+            score -= 500
 
         if len(self._image) % 8192 != 0:
             score -= 500
@@ -325,19 +358,28 @@ class MSXROM(BinaryFormat):
         return score
 
     def iterSections(self) -> Iterator[Section]:
-        # Header.
-        yield StructuredDataSection(0x0, self._header, "header")
-        # Fixed mapping.
         # Note: MegaROM mappers are not supported yet.
-        yield self._section
+        mainSection = self._section
+        headerOffset = self._headerOffset
+
+        if headerOffset != 0:
+            # When the header is not at offset 0, we need a code section before it.
+            base = mainSection.base - mainSection.start
+            yield CodeSection(0, headerOffset, base, "z80", ByteOrder.little)
+
+        yield StructuredDataSection(headerOffset, self._header, "header")
+        yield mainSection
 
     def iterEntryPoints(self) -> Iterator[EntryPoint]:
         header = self._header
         section = self._section
-
-        # Note: TEXT points to tokenized MSX-BASIC and is therefore not an
-        #       entry point.
+        offset = 2
+        size = header.size
+        # Note: TEXT points to tokenized MSX-BASIC and is therefore not an entry point.
         for name in ("init", "statement", "device"):
+            offset += 2
+            if offset > size:
+                break
             addr: int = getattr(header, name)
             if addr != 0:
                 yield from _yieldEntryPoint(section, addr, name)
