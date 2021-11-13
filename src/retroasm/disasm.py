@@ -66,12 +66,12 @@ def formatAsm(
     formatter: Formatter,
     decoded: Iterable[tuple[int, DataDirective | ModeMatch]],
     labels: Mapping[int, str],
-) -> None:
+) -> Iterator[str]:
     for addr, match in decoded:
         label = labels.get(addr)
         if label is not None:
-            print(formatter.label(label))
+            yield formatter.label(label)
         if isinstance(match, DataDirective):
-            print(formatter.data(match))
+            yield formatter.data(match)
         else:
-            print(formatter.mnemonic(match.mnemonic, labels))
+            yield formatter.mnemonic(match.mnemonic, labels)

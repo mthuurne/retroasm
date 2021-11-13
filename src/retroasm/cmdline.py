@@ -3,7 +3,7 @@ from __future__ import annotations
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-from typing import Iterable, Iterator, NoReturn, Sequence, cast
+from typing import IO, Iterable, Iterator, NoReturn, Sequence, cast
 import sys
 
 from click import (
@@ -179,6 +179,7 @@ def disassembleBinary(
     binary: BinaryFormat,
     userSections: Iterable[Section],
     userEntryPoints: Iterable[EntryPoint],
+    out: IO[str],
     logger: Logger,
 ) -> None:
 
@@ -300,30 +301,32 @@ def disassembleBinary(
     logger.info("Writing output...")
     formatter = Formatter()
     imageOffsetWidth = len(image).bit_length()
-    print(formatter.comment("Disassembled by RetroAsm"))
+    print(formatter.comment("Disassembled by RetroAsm"), file=out)
     for section, data in _iterImageSections(image, sectionMap):
-        print()
+        print(file=out)
         print(
             formatter.comment(
                 f"{section.description.title()} section: "
                 f"{formatter.hexRange(section.start, section.end, imageOffsetWidth)}"
-            )
+            ),
+            file=out,
         )
-        print()
+        print(file=out)
         if section in decoded:
             assert isinstance(section, CodeSection), section
             instrSet = builtinInstructionSets[section.instrSetName]
             assert instrSet is not None
             org = OriginDirective.fromInt(section.base, instrSet.addrType)
-            print(formatter.origin(org))
-            print()
-            formatAsm(formatter, decoded[section], labels)
+            print(formatter.origin(org), file=out)
+            print(file=out)
+            for line in formatAsm(formatter, decoded[section], labels):
+                print(line, file=out)
         elif isinstance(section, StructuredDataSection):
             for directive in section.data.directives:
-                print(formatter.data(directive))
+                print(formatter.data(directive), file=out)
         else:
             for line in formatter.raw(data):
-                print(line)
+                print(line, file=out)
 
 
 def _iterImageSections(
@@ -550,7 +553,7 @@ def disasm(
                 binaryFormat = determineBinaryFormat(image, binary, binfmt, logger)
                 if binaryFormat is None:
                     get_current_context().exit(1)
-                disassembleBinary(binaryFormat, sections, entries, logger)
+                disassembleBinary(binaryFormat, sections, entries, sys.stdout, logger)
     except OSError as ex:
         if ex.filename == binary:
             logger.error('Failed to read binary "%s": %s', binary, ex.strerror)
