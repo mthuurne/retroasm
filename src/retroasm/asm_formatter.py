@@ -160,5 +160,7 @@ class Formatter:
             yield self._lineFormat.format(
                 "",
                 directive,
-                ", ".join(f"${byte:02x}" for byte in data[offset : offset + chunkSize]),
+                ", ".join(
+                    self.hexValue(byte, 8) for byte in data[offset : offset + chunkSize]
+                ),
             )
