@@ -112,3 +112,12 @@ def test_disasm_overridden_prefix() -> None:
         (0x4000, "db $fd"),
         (0x4001, "ld ix,$abcd"),
     ]
+
+
+def test_disasm_negative_offset() -> None:
+    """Disassemble a code fragment using a negative offset."""
+    image = b"\xdd\x77\xfe"
+    disassembled = list(disassemble_image(image))
+    assert disassembled == [
+        (0x4000, "ld (ix-2),a"),
+    ]

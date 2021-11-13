@@ -96,6 +96,13 @@ class Formatter:
                     symbol = expr.name
                 elif isinstance(expr, IntLiteral):
                     value = expr.value
+                    valueType = mnemElem.type
+                    valueWidth = valueType.width
+                    if valueType.signed:
+                        if valueWidth != 0 and valueWidth is not unlimited:
+                            assert isinstance(valueWidth, int)
+                            if value & 1 << (valueWidth - 1):
+                                value -= 1 << valueWidth
                     # TODO: Role detection needs to be re-implemented.
                     roles = frozenset[PlaceholderRole]()
                     symbol = (
@@ -107,6 +114,9 @@ class Formatter:
                 else:
                     assert False, expr
                 if symbol is None:
+                    if value < 0 and parts and parts[-1] == "+":
+                        # Shorten "X+-N" to just "X-N".
+                        del parts[-1]
                     parts.append(self.value(value, mnemElem.type))
                 else:
                     parts.append(symbol)
