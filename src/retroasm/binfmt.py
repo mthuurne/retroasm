@@ -300,12 +300,31 @@ class MSXROM(BinaryFormat):
         # Some ROMs put code or data in the header area.
         init = header.init
         headerBase = base + headerOffset
+        headerSize = header.size
         if 4 <= init - headerBase < 16:
             headerSize = (init - headerBase) & ~1
             if headerSize < 10:
                 # If the header is this incomplete, we can assume that INIT will not
                 # return and therefore disregard STATEMENT and DEVICE.
                 headerSize = 4
+
+        # If STATEMENT, DEVICE or TEXT are out of range, that's a clue that INIT
+        # will not return and therefore it would be better to truncate the header.
+        imageSize = len(image)
+        if imageSize <= 65536:
+            addrEnd = base + imageSize
+        else:
+            addrEnd = 0xC000
+        for name in ("statement", "device", "text"):
+            addr: int = getattr(header, name)
+            if addr != 0 and not base <= addr < addrEnd:
+                logger.debug(
+                    "truncating MSX ROM header because %s address looks bogus",
+                    name.upper(),
+                )
+                headerSize = 4
+
+        if headerSize != header.size:
             header = replace(header, size=headerSize)
 
         return cls(image, headerOffset, header, base)
