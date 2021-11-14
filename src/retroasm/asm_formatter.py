@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
-from .expression import IntLiteral
+from .expression import Expression, IntLiteral
 from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
 from .symbol import SymbolValue
@@ -87,39 +87,10 @@ class Formatter:
                 #       If not, make this method more versatile.
                 bits = mnemElem.bits
                 assert isinstance(bits, FixedValue)
-                expr = bits.expr
-                symbol: str | None
-                # TODO: Use a recursive expression pretty printer.
-                #       Once we start formatting actual sources instead of
-                #       only disassembly, we will encounter operators as well.
-                if isinstance(expr, SymbolValue):
-                    symbol = expr.name
-                elif isinstance(expr, IntLiteral):
-                    value = expr.value
-                    valueType = mnemElem.type
-                    valueWidth = valueType.width
-                    if valueType.signed:
-                        if valueWidth != 0 and valueWidth is not unlimited:
-                            assert isinstance(valueWidth, int)
-                            if value & 1 << (valueWidth - 1):
-                                value -= 1 << valueWidth
-                    # TODO: Role detection needs to be re-implemented.
-                    roles = frozenset[PlaceholderRole]()
-                    symbol = (
-                        labels.get(value)
-                        if PlaceholderRole.code_addr in roles
-                        or PlaceholderRole.data_addr in roles
-                        else None
-                    )
-                else:
-                    assert False, expr
-                if symbol is None:
-                    if value < 0 and parts and parts[-1] == "+":
-                        # Shorten "X+-N" to just "X-N".
-                        del parts[-1]
-                    parts.append(self.value(value, mnemElem.type))
-                else:
-                    parts.append(symbol)
+                parts.append(self.expression(bits.expr, mnemElem.type, labels))
+                # Shorten "X+-N" to just "X-N".
+                if len(parts) >= 2 and parts[-1].startswith("-") and parts[-2] == "+":
+                    del parts[-2]
             else:
                 assert False, mnemElem
 
@@ -127,6 +98,41 @@ class Formatter:
         return self._lineFormat.format(
             localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
+
+    def expression(
+        self, expr: Expression, exprType: IntType, labels: Mapping[int, str]
+    ) -> str:
+        """
+        Format the given expression.
+        TODO: Use a recursive expression pretty printer.
+              Once we start formatting actual sources instead of
+              only disassembly, we will encounter operators as well.
+        """
+        if isinstance(expr, SymbolValue):
+            return expr.name
+        elif isinstance(expr, IntLiteral):
+            value = expr.value
+            width = exprType.width
+            if exprType.signed:
+                if width != 0 and width is not unlimited:
+                    assert isinstance(width, int)
+                    if value & 1 << (width - 1):
+                        value -= 1 << width
+            # TODO: Role detection needs to be re-implemented.
+            # TODO: This substitution should happen before formatting, not during.
+            roles = frozenset[PlaceholderRole]()
+            symbol = (
+                labels.get(value)
+                if PlaceholderRole.code_addr in roles
+                or PlaceholderRole.data_addr in roles
+                else None
+            )
+            if symbol is None:
+                return self.value(value, exprType)
+            else:
+                return symbol
+        else:
+            assert False, expr
 
     orgKeyword = "org"
 
