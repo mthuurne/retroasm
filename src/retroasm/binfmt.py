@@ -355,6 +355,7 @@ class MSXROM(BinaryFormat):
     def score(self) -> int:
         header = self._header
         size = len(self._image)
+        section = self._section
 
         if header.cartID == b"AB":
             # ROM cartridge.
@@ -366,6 +367,15 @@ class MSXROM(BinaryFormat):
         else:
             return -1000
 
+        # ROMs that are mapped to page 1 + 2 are the most common, so give them a boost,
+        # but a smaller amount than the penalty for INIT being out of range.
+        if section.base // 0x4000 == 1:
+            if size > 65536:
+                # MegaROM mappers tend to use page 1 + 2.
+                score += 200
+            else:
+                score += 100
+
         # Check whether entry points are in the mapped address range.
         numValidAddrs = 0
         for name in ("init", "statement", "device"):
@@ -374,7 +384,7 @@ class MSXROM(BinaryFormat):
                 continue
             weight = 300 if name == "init" else 100
             try:
-                offset = self._section.offsetForAddr(addr)
+                offset = section.offsetForAddr(addr)
             except ValueError:
                 score -= weight
             else:
