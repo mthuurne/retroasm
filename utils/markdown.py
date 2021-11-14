@@ -39,25 +39,25 @@ extensions = (
 )
 
 
-def renderFile(inFileName, outFileName):
-    print(inFileName, "->", outFileName)
+def render_file(in_file_name, out_file_name):
+    print(in_file_name, "->", out_file_name)
     markdownFromFile(
-        input=str(inFileName), output=str(outFileName), extensions=extensions
+        input=str(in_file_name), output=str(out_file_name), extensions=extensions
     )
 
 
-def renderDir(inBase, outBase):
-    inPrefix = str(inBase) + "/"
-    outPrefix = str(outBase) + "/"
-    for dirPath, subdirList, fileList in walk(inBase):
-        dirPath += "/"
-        if not dirPath.startswith(inPrefix):
+def render_dir(in_base, out_base):
+    in_prefix = str(in_base) + "/"
+    out_prefix = str(out_base) + "/"
+    for dir_path, subdir_list, file_list in walk(in_base):
+        dir_path += "/"
+        if not dir_path.startswith(in_prefix):
             raise ValueError(
                 'os.walk entered directory "%s" which is outside its '
-                'root "%s"' % (dirPath, inBase)
+                'root "%s"' % (dir_path, in_base)
             )
-        outDir = outPrefix + dirPath[len(inPrefix) :]
-        for fileName in fileList:
-            if fileName.endswith(".md"):
-                makedirs(outDir, exist_ok=True)
-                renderFile(dirPath + fileName, outDir + fileName[:-3] + ".html")
+        out_dir = out_prefix + dir_path[len(in_prefix) :]
+        for file_name in file_list:
+            if file_name.endswith(".md"):
+                makedirs(out_dir, exist_ok=True)
+                render_file(dir_path + file_name, out_dir + file_name[:-3] + ".html")
