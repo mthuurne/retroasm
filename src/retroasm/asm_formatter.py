@@ -4,7 +4,6 @@ from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import Expression, IntLiteral
-from .mode import PlaceholderRole
 from .reference import FixedValue, Reference
 from .symbol import SymbolValue
 from .types import IntType, Width, unlimited
@@ -118,19 +117,7 @@ class Formatter:
                     assert isinstance(width, int)
                     if value & 1 << (width - 1):
                         value -= 1 << width
-            # TODO: Role detection needs to be re-implemented.
-            # TODO: This substitution should happen before formatting, not during.
-            roles = frozenset[PlaceholderRole]()
-            symbol = (
-                labels.get(value)
-                if PlaceholderRole.code_addr in roles
-                or PlaceholderRole.data_addr in roles
-                else None
-            )
-            if symbol is None:
-                return self.value(value, exprType)
-            else:
-                return symbol
+            return self.value(value, exprType)
         else:
             assert False, expr
 
