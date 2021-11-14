@@ -29,8 +29,6 @@ pylint = "^2.3"
 mypy = ">=0.902"
 lxml = "^4.3.5"
 pre-commit = "^2.15.0"
-black = "^21.9b0"
-flake8 = "^3.9.2"
 pyupgrade = "^2.29.0"
 vulture = "^2.3"
 
