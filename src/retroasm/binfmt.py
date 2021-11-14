@@ -18,6 +18,7 @@ from typing import (
 from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
 from .types import IntType
+from .utils import const_property
 
 logger = getLogger("binfmt")
 
@@ -350,7 +351,7 @@ class MSXROM(BinaryFormat):
             ByteOrder.little,
         )
 
-    @property
+    @const_property
     def score(self) -> int:
         header = self._header
         size = len(self._image)
