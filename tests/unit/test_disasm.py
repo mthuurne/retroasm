@@ -65,6 +65,17 @@ def test_disasm_bad_opcode() -> None:
     ]
 
 
+def test_disasm_multiple_opcode() -> None:
+    """Disassemble an instruction that has more than one possible opcode."""
+    image = b"\x2a\x34\x12" b"\xed\x6b\x78\x56"
+    disassembled = list(disassemble_image(image))
+    assert disassembled == [
+        (0x4000, "ld hl,($1234)"),
+        # TODO: Using a DW for the address would be even better.
+        (0x4003, "db $ed, $6b, $78, $56"),
+    ]
+
+
 def test_disasm_truncated_instr() -> None:
     """Disassemble a code fragment containing a partial instruction."""
     image = b"\xed"
