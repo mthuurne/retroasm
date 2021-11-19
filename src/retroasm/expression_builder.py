@@ -44,10 +44,12 @@ from .namespace import (
 from .reference import (
     ConcatenatedBits,
     FixedValue,
+    FixedValueReference,
     Reference,
     SingleStorage,
     SlicedBits,
     badReference,
+    intReference,
 )
 from .storage import IOChannel, Keeper
 from .types import (
@@ -126,9 +128,7 @@ def convertDefinition(
                 f'bad value for constant "{typ} {name}": {ex}', *ex.locations
             ) from ex
         assert isinstance(typ, IntType), typ
-        declWidth = typ.width
-        bits = FixedValue(truncate(expr, declWidth), declWidth)
-        return Reference(bits, typ)
+        return FixedValueReference(truncate(expr, typ.width), typ)
     elif kind is DeclarationKind.reference:
         try:
             ref = buildReference(value, namespace)
@@ -460,14 +460,12 @@ def _convertReferenceOperator(
     else:
         expr = _convertArithmetic(node, namespace)
         typ = IntType.u(1) if operator in comparisonOperators else IntType.int
-        return Reference(FixedValue(expr, typ.width), typ)
+        return FixedValueReference(expr, typ)
 
 
 def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
     if isinstance(node, NumberNode):
-        literal = IntLiteral(node.value)
-        typ = IntType(node.width, node.width is unlimited)
-        return Reference(FixedValue(literal, node.width), typ)
+        return intReference(node.value, IntType(node.width, node.width is unlimited))
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, namespace)
     elif isinstance(node, DefinitionNode):

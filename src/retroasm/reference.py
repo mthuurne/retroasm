@@ -572,19 +572,40 @@ class Reference:
         self._bits.emitStore(builder, truncate(value, self.width), location)
 
 
-def intReference(value: int, typ: IntType) -> Reference:
+class FixedValueReference(Reference):
+    """Reference to a value defined by an expression."""
+
+    __slots__ = ()
+
+    if TYPE_CHECKING:
+
+        @property
+        def bits(self) -> FixedValue:
+            return cast(FixedValue, super().bits)
+
+    @property
+    def expr(self) -> Expression:
+        return self.bits.expr
+
+    def __init__(self, expr: Expression, typ: IntType):
+        super().__init__(FixedValue(expr, typ.width), typ)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
+
+
+def intReference(value: int, typ: IntType) -> FixedValueReference:
     """
     Return a reference to a fixed integer with the given value and type.
 
     Raises ValueError if the value does not fit within the type.
     """
     typ.checkRange(value)
-    return Reference(FixedValue(IntLiteral(value), typ.width), typ)
+    return FixedValueReference(IntLiteral(value), typ)
 
 
-def symbolReference(name: str, typ: IntType) -> Reference:
+def symbolReference(name: str, typ: IntType) -> FixedValueReference:
     """
     Return a reference to a symbol value.
     """
-    width = typ.width
-    return Reference(FixedValue(SymbolValue(name, width), width), typ)
+    return FixedValueReference(SymbolValue(name, typ.width), typ)

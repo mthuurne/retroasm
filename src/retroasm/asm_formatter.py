@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Iterable, Iterator, Mapping, cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
-from .expression import Expression, IntLiteral
-from .reference import FixedValue, Reference
+from .expression import IntLiteral
+from .reference import FixedValueReference
 from .symbol import SymbolValue
 from .types import IntType, Width, unlimited
 
@@ -73,44 +73,37 @@ class Formatter:
     def mnemonic(
         self,
         # TODO: Use the Mnemonic class instead?
-        mnemonic: Iterable[str | Reference],
+        mnemonic: Iterable[str | FixedValueReference],
         labels: Mapping[int, str],
     ) -> str:
         parts = []
         for mnemElem in mnemonic:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
-            elif isinstance(mnemElem, Reference):
-                # TODO: Is 'bits' always a FixedValue?
-                #       If so, try to change the types to reflect that.
-                #       If not, make this method more versatile.
-                bits = mnemElem.bits
-                assert isinstance(bits, FixedValue)
-                parts.append(self.expression(bits.expr, mnemElem.type, labels))
+            else:
+                parts.append(self.expression(mnemElem, labels))
                 # Shorten "X+-N" to just "X-N".
                 if len(parts) >= 2 and parts[-1].startswith("-") and parts[-2] == "+":
                     del parts[-2]
-            else:
-                assert False, mnemElem
 
         localLabel = ""
         return self._lineFormat.format(
             localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
 
-    def expression(
-        self, expr: Expression, exprType: IntType, labels: Mapping[int, str]
-    ) -> str:
+    def expression(self, ref: FixedValueReference, labels: Mapping[int, str]) -> str:
         """
         Format the given expression.
         TODO: Use a recursive expression pretty printer.
               Once we start formatting actual sources instead of
               only disassembly, we will encounter operators as well.
         """
+        expr = ref.expr
         if isinstance(expr, SymbolValue):
             return expr.name
         elif isinstance(expr, IntLiteral):
             value = expr.value
+            exprType = ref.type
             width = exprType.width
             if exprType.signed:
                 if width != 0 and width is not unlimited:
@@ -132,9 +125,9 @@ class Formatter:
         keyword = self.dataKeywords[
             directive.width if isinstance(directive, DataDirective) else 8
         ]
-        words: list[str | Reference] = [keyword]
+        words: list[str | FixedValueReference] = [keyword]
         for data in directive.data:
-            items: Iterable[str | Reference]
+            items: Iterable[str | FixedValueReference]
             if isinstance(data, bytes):
                 items = self._stringLiteral(data)
             else:

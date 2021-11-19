@@ -20,7 +20,14 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression, IntLiteral
 from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation, mergeSpan
-from .reference import BitString, FixedValue, Reference, SingleStorage, decodeInt
+from .reference import (
+    BitString,
+    FixedValue,
+    FixedValueReference,
+    Reference,
+    SingleStorage,
+    decodeInt,
+)
 from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, unlimited
 from .utils import const_property
@@ -689,7 +696,7 @@ class ModeMatch:
         return ModeMatch(entry, values, subs)
 
     @const_property
-    def mnemonic(self) -> Iterator[str | Reference]:
+    def mnemonic(self) -> Iterator[str | FixedValueReference]:
         entry = self._entry
         subs = self._subs
         values = self._values
@@ -698,13 +705,13 @@ class ModeMatch:
             if isinstance(mnemElem, str):
                 yield mnemElem
             elif isinstance(mnemElem, int):
-                yield Reference(
-                    FixedValue(IntLiteral(mnemElem), unlimited), IntType.int
-                )
+                yield FixedValueReference(IntLiteral(mnemElem), IntType.int)
             elif isinstance(mnemElem, MatchPlaceholder):
                 yield from subs[mnemElem.name].mnemonic
             elif isinstance(mnemElem, ValuePlaceholder):
-                yield Reference(values[mnemElem.name], mnemElem.type)
+                value = values[mnemElem.name]
+                assert isinstance(value, FixedValue), value
+                yield FixedValueReference(value.expr, mnemElem.type)
             else:
                 assert False, mnemElem
 

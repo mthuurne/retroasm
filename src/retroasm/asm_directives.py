@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Iterator, Protocol
 
-from .reference import Reference, intReference, symbolReference
+from .reference import FixedValueReference, intReference, symbolReference
 from .types import IntType, Width
 
 
@@ -47,10 +47,10 @@ class DataDirective:
         return self._data[0].width
 
     @property
-    def data(self) -> tuple[Reference, ...]:
+    def data(self) -> tuple[FixedValueReference, ...]:
         return self._data
 
-    def __init__(self, *data: Reference):
+    def __init__(self, *data: FixedValueReference):
         widths = {ref.width for ref in data}
         if len(widths) != 1:
             if widths:
@@ -73,15 +73,15 @@ class StringDirective:
     """Data definition directive that can contain bytestrings."""
 
     @property
-    def data(self) -> tuple[Reference | bytes, ...]:
+    def data(self) -> tuple[FixedValueReference | bytes, ...]:
         return self._data
 
-    def __init__(self, *data: Reference | bytes):
+    def __init__(self, *data: FixedValueReference | bytes):
         self._data = data
 
     def __str__(self) -> str:
         argsStr = ", ".join(
-            str(item.bits) if isinstance(item, Reference) else repr(item)
+            str(item.bits) if isinstance(item, FixedValueReference) else repr(item)
             for item in self._data
         )
         return f"defb {argsStr}"
@@ -114,14 +114,14 @@ class OriginDirective:
     __slots__ = ("_addr",)
 
     @property
-    def addr(self) -> Reference:
+    def addr(self) -> FixedValueReference:
         return self._addr
 
     @classmethod
     def fromInt(cls, addr: int, typ: IntType) -> OriginDirective:
         return cls(intReference(addr, typ))
 
-    def __init__(self, addr: Reference):
+    def __init__(self, addr: FixedValueReference):
         self._addr = addr
 
     def __str__(self) -> str:
