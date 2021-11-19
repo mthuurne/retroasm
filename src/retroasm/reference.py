@@ -542,7 +542,7 @@ class Reference:
         self._type = typ
         if bits.width != typ.width:
             raise ValueError(
-                f"bit string of {bits.width} bits " f"used for reference of type {typ}"
+                f"bit string of {bits.width} bits used for reference of type {typ}"
             )
 
     def __repr__(self) -> str:
