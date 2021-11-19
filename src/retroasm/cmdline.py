@@ -32,12 +32,11 @@ from .binfmt import (
     getBinaryFormat,
     iterBinaryFormatNames,
 )
-from .disasm import disassemble, formatAsm
+from .disasm import Instruction, disassemble, formatAsm
 from .fetch import ImageFetcher
 from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSetByName
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
-from .mode import ModeMatch
 from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredDataSection
 from .types import Unlimited, unlimited
 
@@ -221,7 +220,7 @@ def disassembleBinary(
 
     # Disassemble.
     logger.info("Disassembling...")
-    decoded: dict[CodeSection, Sequence[tuple[int, DataDirective | ModeMatch]]] = {}
+    decoded: dict[CodeSection, Sequence[tuple[int, DataDirective | Instruction]]] = {}
     labels: dict[int, str] = {}
     for entryPoint in entryPoints:
         offset = entryPoint.offset

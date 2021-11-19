@@ -1,19 +1,27 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Mapping, cast
+from typing import Iterable, Iterator, Mapping, Sequence, cast
 
 from .asm_directives import DataDirective
 from .asm_formatter import Formatter
 from .expression import IntLiteral
 from .fetch import ImageFetcher
 from .instrset import InstructionSet
-from .mode import ModeMatch
-from .reference import Reference
+from .reference import FixedValueReference, Reference
+
+
+class Instruction:
+    @property
+    def mnemonic(self) -> Sequence[str | FixedValueReference]:
+        return self._mnemonic
+
+    def __init__(self, mnemonic: Iterable[str | FixedValueReference]):
+        self._mnemonic = tuple(mnemonic)
 
 
 def disassemble(
     instrSet: InstructionSet, fetcher: ImageFetcher, startAddr: int
-) -> Iterator[tuple[int, DataDirective | ModeMatch]]:
+) -> Iterator[tuple[int, DataDirective | Instruction]]:
     """
     Disassemble instructions from the given fetcher.
     The fetched data is assumed to be code for the given instruction set,
@@ -57,21 +65,22 @@ def disassemble(
         # Disassemble instruction.
         if modeMatch is not None:
             postAddr = addr + reencodedLen * numBytes
-            yield addr, modeMatch.substPC(pc, IntLiteral(postAddr))
+            modeMatch = modeMatch.substPC(pc, IntLiteral(postAddr))
+            yield addr, Instruction(modeMatch.mnemonic)
             addr = postAddr
             fetcher = fetcher.advance(reencodedLen)
 
 
 def formatAsm(
     formatter: Formatter,
-    decoded: Iterable[tuple[int, DataDirective | ModeMatch]],
+    decoded: Iterable[tuple[int, DataDirective | Instruction]],
     labels: Mapping[int, str],
 ) -> Iterator[str]:
-    for addr, match in decoded:
+    for addr, statement in decoded:
         label = labels.get(addr)
         if label is not None:
             yield formatter.label(label)
-        if isinstance(match, DataDirective):
-            yield formatter.data(match)
+        if isinstance(statement, DataDirective):
+            yield formatter.data(statement)
         else:
-            yield formatter.mnemonic(match.mnemonic, labels)
+            yield formatter.mnemonic(statement.mnemonic, labels)
