@@ -72,7 +72,6 @@ class Formatter:
 
     def mnemonic(
         self,
-        # TODO: Use the Mnemonic class instead?
         mnemonic: Iterable[str | FixedValueReference],
         labels: Mapping[int, str],
     ) -> str:

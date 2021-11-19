@@ -403,8 +403,7 @@ MnemItem = Union[str, int, "Placeholder"]
 
 class Mnemonic:
     """
-    Defines how (part of) an instruction is presented in assembly source
-    code.
+    Defines how (part of) an instruction is presented in assembly source code.
     The items within a mnemonic definition are exposed as a sequence.
     """
 
