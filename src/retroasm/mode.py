@@ -794,27 +794,20 @@ class ModeTable:
         dumpNode(self._mnemTree, "")
 
     def _updateMnemTree(self, entry: ModeEntry) -> None:
-        # Update match tree for mnemonics.
-        mnemonic = entry.mnemonic
-
-        def addMnemonic(node: MnemTreeNode, idx: int) -> None:
-            if idx == len(mnemonic):
-                node[1].append(entry)
+        """Update match tree for mnemonics."""
+        node = self._mnemTree
+        for token in entry.mnemonic:
+            match: MnemMatch
+            if isinstance(token, str):
+                match = token
+            elif isinstance(token, (int, ValuePlaceholder)):
+                match = int
+            elif isinstance(token, MatchPlaceholder):
+                match = token.mode
             else:
-                token = mnemonic[idx]
-                match: MnemMatch
-                if isinstance(token, str):
-                    match = token
-                elif isinstance(token, (int, ValuePlaceholder)):
-                    match = int
-                elif isinstance(token, MatchPlaceholder):
-                    match = token.mode
-                else:
-                    assert False, token
-                child = node[0].setdefault(match, ({}, []))
-                addMnemonic(child, idx + 1)
-
-        addMnemonic(self._mnemTree, 0)
+                assert False, token
+            node = node[0].setdefault(match, ({}, []))
+        node[1].append(entry)
 
     @const_property
     def encodedLength(self) -> int | None:
