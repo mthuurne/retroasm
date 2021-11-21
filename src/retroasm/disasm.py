@@ -83,4 +83,4 @@ def formatAsm(
         if isinstance(statement, DataDirective):
             yield formatter.data(statement)
         else:
-            yield formatter.mnemonic(statement.mnemonic, labels)
+            yield formatter.mnemonic(statement.mnemonic)

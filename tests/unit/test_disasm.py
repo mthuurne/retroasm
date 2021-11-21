@@ -23,7 +23,7 @@ def disassemble_image(image: Image, addr: int = 0x4000) -> Iterator[tuple[int, s
         if isinstance(statement, DataDirective):
             stmt_str = formatter.data(statement)
         else:
-            stmt_str = formatter.mnemonic(statement.mnemonic, {})
+            stmt_str = formatter.mnemonic(statement.mnemonic)
         yield stmt_addr, " ".join(stmt_str.split())
 
 

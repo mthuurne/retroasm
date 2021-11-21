@@ -70,17 +70,13 @@ class Formatter:
     def label(self, label: str) -> str:
         return label + ":"
 
-    def mnemonic(
-        self,
-        mnemonic: Iterable[str | FixedValueReference],
-        labels: Mapping[int, str],
-    ) -> str:
+    def mnemonic(self, mnemonic: Iterable[str | FixedValueReference]) -> str:
         parts = []
         for mnemElem in mnemonic:
             if isinstance(mnemElem, str):
                 parts.append(mnemElem)
             else:
-                parts.append(self.expression(mnemElem, labels))
+                parts.append(self.expression(mnemElem))
                 # Shorten "X+-N" to just "X-N".
                 if len(parts) >= 2 and parts[-1].startswith("-") and parts[-2] == "+":
                     del parts[-2]
@@ -90,7 +86,7 @@ class Formatter:
             localLabel, parts[0], self._operands(parts[1:])
         ).rstrip()
 
-    def expression(self, ref: FixedValueReference, labels: Mapping[int, str]) -> str:
+    def expression(self, ref: FixedValueReference) -> str:
         """
         Format the given expression.
         TODO: Use a recursive expression pretty printer.
@@ -116,7 +112,7 @@ class Formatter:
     orgKeyword = "org"
 
     def origin(self, directive: OriginDirective) -> str:
-        return self.mnemonic((self.orgKeyword, directive.addr), {})
+        return self.mnemonic((self.orgKeyword, directive.addr))
 
     dataKeywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
@@ -135,7 +131,7 @@ class Formatter:
                 if len(words) > 1:
                     words.append(", ")
                 words.append(item)
-        return self.mnemonic(words, {})
+        return self.mnemonic(words)
 
     def raw(self, data: bytes) -> Iterator[str]:
         """Format data with no known structure using data directives."""
