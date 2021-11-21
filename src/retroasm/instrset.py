@@ -311,4 +311,4 @@ class InstructionSet(ModeTable):
     @const_property
     def instructionNames(self) -> AbstractSet[str]:
         """A set containing the instruction names (operations)."""
-        return cast(AbstractSet[str], self._mnemTree[0].keys())
+        return cast(AbstractSet[str], self._mnemTree._children.keys())

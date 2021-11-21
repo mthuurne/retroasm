@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from enum import Enum, auto
 from typing import (
     AbstractSet,
@@ -728,7 +729,58 @@ def _formatAuxEncodingWidth(width: int | None) -> str:
 
 
 MnemMatch = Union[str, type[int], "Mode"]
-MnemTreeNode = tuple[dict[MnemMatch, Any], list[ModeEntry]]
+
+
+class _MnemTreeNode:
+    """
+    A node in a mnemonic match tree.
+
+    A mnemonic match tree efficiently finds the matching mode entry for a given
+    mnemonic sequence.
+    """
+
+    def __init__(self) -> None:
+        self._children: dict[MnemMatch, _MnemTreeNode] = defaultdict(_MnemTreeNode)
+        self._leaves: list[ModeEntry] = []
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._children!r}, {self._leaves!r})"
+
+    @staticmethod
+    def _matchKey(match: MnemMatch) -> tuple[int, str | None]:
+        if isinstance(match, str):
+            return 0, match
+        elif isinstance(match, Mode):
+            return 1, match.name
+        elif match is int:
+            return 2, None
+        else:
+            assert False, match
+
+    def dump(self, indent: str) -> None:
+        for entry in self._leaves:
+            tokens = " ".join(str(token) for token in entry.mnemonic)
+            print(f"{indent}= {tokens}")
+        children = self._children
+        for match in sorted(children.keys(), key=self._matchKey):
+            print(f"{indent}+ {match}")
+            children[match].dump(" " * len(indent) + "`---")
+
+    def addModeEntry(self, entry: ModeEntry) -> None:
+        """Add the given mode entry to this tree."""
+        node = self
+        for token in entry.mnemonic:
+            match: MnemMatch
+            if isinstance(token, str):
+                match = token
+            elif isinstance(token, (int, ValuePlaceholder)):
+                match = int
+            elif isinstance(token, MatchPlaceholder):
+                match = token.mode
+            else:
+                assert False, token
+            node = node._children[match]
+        node._leaves.append(entry)
 
 
 class ModeTable:
@@ -767,47 +819,12 @@ class ModeTable:
                     f"entry with {_formatAuxEncodingWidth(encDef.auxEncodingWidth)}"
                 )
 
-        # TODO: Annotate in more detail.
-        self._mnemTree: MnemTreeNode = ({}, [])
+        self._mnemTree = mnemTree = _MnemTreeNode()
         for entry in entries:
-            self._updateMnemTree(entry)
+            mnemTree.addModeEntry(entry)
 
     def dumpMnemonicTree(self) -> None:
-        def matchKey(match: MnemMatch) -> tuple[int, str | None]:
-            if isinstance(match, str):
-                return 0, match
-            elif isinstance(match, Mode):
-                return 1, match.name
-            elif match is int:
-                return 2, None
-            else:
-                assert False, match
-
-        def dumpNode(node: MnemTreeNode, indent: str) -> None:
-            for entry in node[1]:
-                tokens = " ".join(str(token) for token in entry.mnemonic)
-                print(f"{indent}= {tokens}")
-            for match in sorted(node[0].keys(), key=matchKey):
-                print(f"{indent}+ {match}")
-                dumpNode(node[0][match], " " * len(indent) + "`---")
-
-        dumpNode(self._mnemTree, "")
-
-    def _updateMnemTree(self, entry: ModeEntry) -> None:
-        """Update match tree for mnemonics."""
-        node = self._mnemTree
-        for token in entry.mnemonic:
-            match: MnemMatch
-            if isinstance(token, str):
-                match = token
-            elif isinstance(token, (int, ValuePlaceholder)):
-                match = int
-            elif isinstance(token, MatchPlaceholder):
-                match = token.mode
-            else:
-                assert False, token
-            node = node[0].setdefault(match, ({}, []))
-        node[1].append(entry)
+        self._mnemTree.dump("")
 
     @const_property
     def encodedLength(self) -> int | None:
