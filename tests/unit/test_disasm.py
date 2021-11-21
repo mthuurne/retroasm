@@ -57,11 +57,10 @@ def test_disasm_push_ix_pop_iy() -> None:
 
 def test_disasm_bad_opcode() -> None:
     """Disassemble an illegal instruction."""
-    image = b"\xed\x1e"
+    image = b"\xed\x0c"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
-        (0x4000, "db $ed"),
-        (0x4001, "db $1e"),
+        (0x4000, "db $ed, $0c"),
     ]
 
 
