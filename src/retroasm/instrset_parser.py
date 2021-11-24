@@ -62,7 +62,6 @@ from .mode import (
     Mnemonic,
     Mode,
     ModeEntry,
-    Placeholder,
     ValuePlaceholder,
 )
 from .namespace import (
@@ -510,7 +509,7 @@ def _buildPlaceholders(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     globalNamespace: GlobalNamespace,
     reader: DefLineReader,
-) -> Iterator[Placeholder]:
+) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
     semNamespace = ContextNamespace(globalNamespace)
 
@@ -1023,7 +1022,7 @@ _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
 def _parseMnemonic(
     mnemLoc: InputLocation,
-    placeholders: Iterable[Placeholder],
+    placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
     reader: DefLineReader,
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}

@@ -15,7 +15,6 @@ from .mode import (
     EncodingMultiMatch,
     MatchPlaceholder,
     ModeEntry,
-    Placeholder,
     ValuePlaceholder,
 )
 from .reference import FixedValue, SingleStorage
@@ -453,14 +452,12 @@ def _createEntryDecoder(
     # Sort matchers and value placeholders.
     # The sorting is just to make dumps more readable and consistent between
     # runs, it doesn't impact correctness.
-    def slicesKey(placeholder: Placeholder) -> tuple[tuple[int, int], ...]:
-        return tuple(
-            (seg.encIdx, -seg.segment.start) for seg in decoding[placeholder.name]
-        )
+    def slicesKey(name: str) -> tuple[tuple[int, int], ...]:
+        return tuple((seg.encIdx, -seg.segment.start) for seg in decoding[name])
 
     def matcherKey(matcher: EncodingMatcher) -> tuple[tuple[int, ...], ...]:
         if isinstance(matcher, MatchPlaceholder):
-            return slicesKey(matcher)
+            return slicesKey(matcher.name)
         elif isinstance(matcher, EncodingMultiMatch):
             return ((matcher.start,),)
         elif isinstance(matcher, FixedEncoding):
@@ -468,9 +465,12 @@ def _createEntryDecoder(
         else:
             assert False, type(matcher)
 
+    def valueKey(placeholder: ValuePlaceholder) -> tuple[tuple[int, int], ...]:
+        return slicesKey(placeholder.name)
+
     for matchers in matchersByIndex:
         matchers.sort(key=matcherKey, reverse=True)
-    valuePlaceholders.sort(key=slicesKey, reverse=True)
+    valuePlaceholders.sort(key=valueKey, reverse=True)
 
     # Insert fixed pattern matchers as early as possible.
     for fixedEncoding in sorted(fixedMatcher, reverse=True):

@@ -399,7 +399,7 @@ class Encoding:
         return total
 
 
-MnemItem = Union[str, int, "Placeholder"]
+MnemItem = Union[str, int, "MatchPlaceholder", "ValuePlaceholder"]
 
 
 class Mnemonic:
@@ -461,7 +461,9 @@ class Mnemonic:
         substituted by their value in the given mapping.
         """
         return Mnemonic(
-            item.rename(nameMap[item.name]) if isinstance(item, Placeholder) else item
+            item.rename(nameMap[item.name])
+            if isinstance(item, (MatchPlaceholder, ValuePlaceholder))
+            else item
             for item in self._items
         )
 
@@ -472,7 +474,11 @@ class CodeTemplate:
     filled in later.
     """
 
-    def __init__(self, code: CodeBlock, placeholders: Iterable[Placeholder]):
+    def __init__(
+        self,
+        code: CodeBlock,
+        placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
+    ):
         self.code = code
         self.placeholders = tuple(placeholders)
 
@@ -544,7 +550,7 @@ class ModeEntry:
         encoding: Encoding,
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
-        placeholders: Iterable[Placeholder],
+        placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
         flagsRequired: AbstractSet[str],
     ):
         self.encoding = encoding
@@ -891,33 +897,19 @@ class PlaceholderRole(Enum):
     data_addr = auto()
 
 
-class Placeholder:
-    """Abstract base class for a mode context element."""
+class ValuePlaceholder:
+    """An element from a mode context that represents a numeric value."""
 
     @property
     def name(self) -> str:
         return self._name
-
-    def __init__(self, name: str):
-        self._name = name
-
-    def rename(self, name: str) -> Placeholder:
-        """
-        Returns a new placeholder that is the same as this one, except
-        the name is changed to the given name.
-        """
-        raise NotImplementedError
-
-
-class ValuePlaceholder(Placeholder):
-    """An element from a mode context that represents a numeric value."""
 
     @property
     def type(self) -> IntType:
         return self._type
 
     def __init__(self, name: str, typ: IntType):
-        Placeholder.__init__(self, name)
+        self._name = name
         self._type = typ
 
     def __repr__(self) -> str:
@@ -975,18 +967,22 @@ class ComputedPlaceholder(ValuePlaceholder):
         return FixedValue(simplifyExpression(valExpr), valType.width)
 
 
-class MatchPlaceholder(Placeholder):
+class MatchPlaceholder:
     """
     An element from a mode context that will be filled in by a match made
     in a different mode table.
     """
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def mode(self) -> Mode:
         return self._mode
 
     def __init__(self, name: str, mode: Mode):
-        Placeholder.__init__(self, name)
+        self._name = name
         self._mode = mode
 
     def __repr__(self) -> str:
