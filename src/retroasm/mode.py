@@ -527,9 +527,12 @@ class CodeTemplate:
         builder.inlineBlock(code, argMap.__getitem__)
         newCode = builder.createCodeBlock(())
 
-        return CodeTemplate(
-            newCode, {nameMap[name]: value for name, value in self.placeholders.items()}
-        )
+        newPlaceholders = {}
+        for name, placeholder in self.placeholders.items():
+            newName = nameMap[name]
+            newPlaceholders[newName] = placeholder.rename(newName)
+
+        return CodeTemplate(newCode, newPlaceholders)
 
 
 class ModeEntry:
