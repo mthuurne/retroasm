@@ -45,6 +45,46 @@ def test_disasm_ldir() -> None:
     ]
 
 
+def test_disasm_rst() -> None:
+    """
+    Disassemble an instruction with an immediate value embedded in the opcode.
+
+    Unlike most immediates, the address for the Z80 RST instruction is encoded
+    in the first and only opcode byte.
+    """
+    image = b"\xc7\xcf\xd7\xdf\xe7\xef\xf7\xff"
+    disassembled = list(disassemble_image(image))
+    assert disassembled == [
+        # TODO: It would be more consistent if the first two also use 2 hex digits.
+        (0x4000, "rst 0"),
+        (0x4001, "rst 8"),
+        (0x4002, "rst $10"),
+        (0x4003, "rst $18"),
+        (0x4004, "rst $20"),
+        (0x4005, "rst $28"),
+        (0x4006, "rst $30"),
+        (0x4007, "rst $38"),
+    ]
+
+
+def test_disasm_fixed_numbers() -> None:
+    """
+    Disassemble instructions with fixed numbers.
+
+    These numbers are implied by the instruction rather than explicitly encoded.
+    While the values are fixed, the numbers are expressions rather than strings
+    to support constructs like "OUT (C),$00" or "INT_MODE: EQU 2 ... IM INT_MODE".
+    """
+    image = b"\xed\x46\xed\x56\xed\x5e\xed\x71"
+    disassembled = list(disassemble_image(image))
+    assert disassembled == [
+        (0x4000, "im 0"),
+        (0x4002, "im 1"),
+        (0x4004, "im 2"),
+        (0x4006, "out (c),0"),
+    ]
+
+
 def test_disasm_push_ix_pop_iy() -> None:
     """Disassemble code using prefixes."""
     image = b"\xdd\xe5" b"\xfd\xe1"
