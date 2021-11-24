@@ -1198,7 +1198,11 @@ def _parseModeEntries(
                 else:
                     template = CodeTemplate(semantics, placeholders.values())
                 entry = ModeEntry(
-                    encoding, mnemonic, template, placeholders, frozenset(flagsRequired)
+                    encoding,
+                    mnemonic,
+                    template,
+                    placeholders.values(),
+                    frozenset(flagsRequired),
                 )
                 yield ParsedModeEntry(entry, *decoding)
 

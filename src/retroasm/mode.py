@@ -544,13 +544,13 @@ class ModeEntry:
         encoding: Encoding,
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
-        placeholders: Mapping[str, Placeholder],
+        placeholders: Iterable[Placeholder],
         flagsRequired: AbstractSet[str],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
-        self.placeholders = placeholders
+        self.placeholders = tuple(placeholders)
         self.flagsRequired = frozenset(flagsRequired)
 
     def __repr__(self) -> str:
@@ -581,18 +581,12 @@ class ModeEntry:
         Returns a new ModeEntry, in which all placeholder names are
         substituted by their value in the given mapping.
         """
-
-        def renamePlaceholders() -> Iterator[tuple[str, Placeholder]]:
-            for name, placeholder in self.placeholders.items():
-                newName = nameMap[name]
-                yield newName, placeholder.rename(newName)
-
         semantics = self._semantics
         return ModeEntry(
             self.encoding.rename(nameMap),
             self.mnemonic.rename(nameMap),
             None if semantics is None else semantics.rename(nameMap),
-            dict(renamePlaceholders()),
+            (p.rename(nameMap[p.name]) for p in self.placeholders),
             self.flagsRequired,
         )
 
@@ -616,7 +610,8 @@ class ModeMatch:
 
         values: dict[str, BitString] = {}
         subs = {}
-        for name, placeholder in placeholders.items():
+        for placeholder in placeholders:
+            name = placeholder.name
             if isinstance(placeholder, MatchPlaceholder):
                 subMatch = cast(EncodeMatch, match[name])
                 subs[name] = cls.fromEncodeMatch(subMatch)
@@ -681,7 +676,7 @@ class ModeMatch:
         """
 
         entry = self._entry
-        placeholders = entry.placeholders
+        placeholders = {p.name: p for p in entry.placeholders}
 
         values: dict[str, BitString] = {}
         for name, value in self._values.items():
@@ -1042,11 +1037,7 @@ class EncodeMatch:
         encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
         semantics = entry.semantics.fillPlaceholders(self)
-        placeholders = {
-            name: placeholder
-            for name, placeholder in entry.placeholders.items()
-            if name not in mapping
-        }
+        unfilled = (p for p in entry.placeholders if p.name not in mapping)
 
         flagsRequired = entry.flagsRequired.union(
             *(
@@ -1056,7 +1047,7 @@ class EncodeMatch:
             )
         )
 
-        return ModeEntry(encoding, mnemonic, semantics, placeholders, flagsRequired)
+        return ModeEntry(encoding, mnemonic, semantics, unfilled, flagsRequired)
 
     @const_property
     def encodedLength(self) -> int:

@@ -399,8 +399,9 @@ def _createEntryDecoder(
     # Match placeholders that are not represented in the encoding.
     # Typically these are matched on decode flags.
     match = EncodeMatch(entry)
-    for name, placeholder in entry.placeholders.items():
+    for placeholder in entry.placeholders:
         if isinstance(placeholder, MatchPlaceholder):
+            name = placeholder.name
             if name not in decoding and name not in multiMatches:
                 # A submode match that is not represented in the encoding
                 # will either always match or never match, so if the
@@ -418,13 +419,13 @@ def _createEntryDecoder(
     # Insert matchers at the last index they need.
     # Gather value placeholders them.
     matcher: EncodingMatcher
-    placeholders = entry.placeholders
+    placeholder_map = {p.name: p for p in entry.placeholders}
     encoding = entry.encoding
     matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
     valuePlaceholders = []
     for name, encodedSegments in decoding.items():
         if name is not None:
-            placeholder = placeholders[name]
+            placeholder = placeholder_map[name]
             if isinstance(placeholder, ValuePlaceholder):
                 valuePlaceholders.append(placeholder)
             elif isinstance(placeholder, MatchPlaceholder):
@@ -650,12 +651,10 @@ def _qualifyNames(
         return parsedEntry.entry, parsedEntry.fixedMatcher, parsedEntry.decoding
     elif len(placeholders) == 1:
         # Replace current name with branch name.
-        (name,) = placeholders.keys()
-        nameMap = {name: branchName}
+        nameMap = {placeholders[0].name: branchName}
     else:
         # Prefix current names with branch name.
-        qualifier = branchName + "."
-        nameMap = {name: qualifier + name for name in placeholders.keys()}
+        nameMap = {(name := p.name): f"{branchName}.{name}" for p in placeholders}
 
     renamedEntry = entry.rename(nameMap)
     renamedDecoding = {
