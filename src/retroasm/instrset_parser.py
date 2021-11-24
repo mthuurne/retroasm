@@ -1023,13 +1023,14 @@ _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 
 def _parseMnemonic(
     mnemLoc: InputLocation,
-    placeholders: Mapping[str, Placeholder],
+    placeholders: Iterable[Placeholder],
     reader: DefLineReader,
 ) -> Iterator[MnemItem]:
+    placeholder_map = {p.name: p for p in placeholders}
     seenPlaceholders: dict[str, InputLocation] = {}
     for mnemElem in mnemLoc.findLocations(_reMnemonic):
         text = mnemElem.text
-        placeholder = placeholders.get(text)
+        placeholder = placeholder_map.get(text)
         if placeholder is None:
             if "0" <= text[0] <= "9" or text[0] in "$%":
                 try:
@@ -1089,18 +1090,17 @@ def _parseModeEntries(
                             placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxLoc, prefixes, modes, reader
                             )
-                            placeholders = {
-                                placeholder.name: placeholder
-                                for placeholder in _buildPlaceholders(
+                            placeholders = tuple(
+                                _buildPlaceholders(
                                     placeholderSpecs, globalNamespace, reader
                                 )
-                            }
+                            )
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
                 else:
                     placeholderSpecs, flagsRequired = {}, set()
-                    placeholders = {}
+                    placeholders = ()
 
                 # Parse encoding.
                 encNodes: Iterable[ParseNode] | None
@@ -1196,13 +1196,9 @@ def _parseModeEntries(
                 if semantics is None:
                     template = None
                 else:
-                    template = CodeTemplate(semantics, placeholders.values())
+                    template = CodeTemplate(semantics, placeholders)
                 entry = ModeEntry(
-                    encoding,
-                    mnemonic,
-                    template,
-                    placeholders.values(),
-                    frozenset(flagsRequired),
+                    encoding, mnemonic, template, placeholders, frozenset(flagsRequired)
                 )
                 yield ParsedModeEntry(entry, *decoding)
 
