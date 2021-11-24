@@ -19,13 +19,15 @@ class Formatter:
         self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
 
     def value(self, value: int, typ: IntType) -> str:
-        if value < 16 or typ.signed:
+        if typ.signed:
             return str(value)
         else:
             width = typ.width
             if width is unlimited:
                 # The type doesn't tell us how wide the presentation
                 # should be, so look at the value instead.
+                if value < 16:
+                    return str(value)
                 width = value.bit_length()
             else:
                 assert isinstance(width, int)

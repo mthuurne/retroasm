@@ -55,9 +55,8 @@ def test_disasm_rst() -> None:
     image = b"\xc7\xcf\xd7\xdf\xe7\xef\xf7\xff"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
-        # TODO: It would be more consistent if the first two also use 2 hex digits.
-        (0x4000, "rst 0"),
-        (0x4001, "rst 8"),
+        (0x4000, "rst $00"),
+        (0x4001, "rst $08"),
         (0x4002, "rst $10"),
         (0x4003, "rst $18"),
         (0x4004, "rst $20"),
