@@ -28,6 +28,7 @@ from .reference import (
     Reference,
     SingleStorage,
     decodeInt,
+    intReference,
 )
 from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, unlimited
@@ -399,7 +400,7 @@ class Encoding:
         return total
 
 
-MnemItem = Union[str, int, "MatchPlaceholder", "ValuePlaceholder"]
+MnemItem = Union[str, FixedValueReference, "MatchPlaceholder", "ValuePlaceholder"]
 
 
 class Mnemonic:
@@ -409,7 +410,7 @@ class Mnemonic:
     """
 
     def __init__(self, items: Iterable[MnemItem]):
-        self._items: Sequence[MnemItem] = tuple(items)
+        self._items = tuple(items)
 
     def __repr__(self) -> str:
         return f"Mnemonic({self._items!r})"
@@ -447,9 +448,7 @@ class Mnemonic:
                     #       See ModeMatch.fromEncodeMatch() for a blueprint.
                     items.append(item)
                 else:
-                    # TODO: This loses type information; ModeMatch.mnemonic
-                    #       use Reference instead of plain integers.
-                    items.append(value)
+                    items.append(intReference(value, item.type))
             else:
                 # Fixed item.
                 items.append(item)
@@ -707,10 +706,8 @@ class ModeMatch:
         values = self._values
 
         for mnemElem in entry.mnemonic:
-            if isinstance(mnemElem, str):
+            if isinstance(mnemElem, (str, FixedValueReference)):
                 yield mnemElem
-            elif isinstance(mnemElem, int):
-                yield FixedValueReference(IntLiteral(mnemElem), IntType.int)
             elif isinstance(mnemElem, MatchPlaceholder):
                 yield from subs[mnemElem.name].mnemonic
             elif isinstance(mnemElem, ValuePlaceholder):
@@ -779,7 +776,7 @@ class _MnemTreeNode:
             match: MnemMatch
             if isinstance(token, str):
                 match = token
-            elif isinstance(token, (int, ValuePlaceholder)):
+            elif isinstance(token, (FixedValueReference, ValuePlaceholder)):
                 match = int
             elif isinstance(token, MatchPlaceholder):
                 match = token.mode

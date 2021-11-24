@@ -71,7 +71,7 @@ from .namespace import (
     NameExistsError,
     Namespace,
 )
-from .reference import Reference, badReference
+from .reference import Reference, badReference, intReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
 from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
 from .utils import bad_type
@@ -1034,11 +1034,11 @@ def _parseMnemonic(
         if placeholder is None:
             if "0" <= text[0] <= "9" or text[0] in "$%":
                 try:
-                    value, width_ = parseInt(text)
+                    value, width = parseInt(text)
                 except ValueError as ex:
                     reader.error("%s", ex, location=mnemElem)
                 else:
-                    yield value
+                    yield intReference(value, IntType.u(width))
             else:
                 yield text
         elif text in seenPlaceholders:
