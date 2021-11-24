@@ -1196,7 +1196,7 @@ def _parseModeEntries(
                 if semantics is None:
                     template = None
                 else:
-                    template = CodeTemplate(semantics, placeholders)
+                    template = CodeTemplate(semantics, placeholders.values())
                 entry = ModeEntry(
                     encoding, mnemonic, template, placeholders, frozenset(flagsRequired)
                 )

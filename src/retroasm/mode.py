@@ -472,9 +472,9 @@ class CodeTemplate:
     filled in later.
     """
 
-    def __init__(self, code: CodeBlock, placeholders: Mapping[str, Placeholder]):
+    def __init__(self, code: CodeBlock, placeholders: Iterable[Placeholder]):
         self.code = code
-        self.placeholders = placeholders
+        self.placeholders = tuple(placeholders)
 
     def fillPlaceholders(self, match: EncodeMatch) -> CodeTemplate:
         """
@@ -482,13 +482,14 @@ class CodeTemplate:
         match results, if available.
         """
 
-        placeholders = {}
+        unfilled = []
         values = {}
-        for name, placeholder in self.placeholders.items():
+        for placeholder in self.placeholders:
+            name = placeholder.name
             try:
                 value = match[name]
             except KeyError:
-                placeholders[name] = placeholder
+                unfilled.append(placeholder)
             else:
                 if isinstance(value, EncodeMatch):
                     subSem = value.entry.semantics.fillPlaceholders(value)
@@ -508,7 +509,7 @@ class CodeTemplate:
         returned = builder.inlineBlock(self.code, values.get)
         newCode = builder.createCodeBlock(returned)
 
-        return CodeTemplate(newCode, placeholders)
+        return CodeTemplate(newCode, unfilled)
 
     def rename(self, nameMap: Mapping[str, str]) -> CodeTemplate:
         """
@@ -527,10 +528,10 @@ class CodeTemplate:
         builder.inlineBlock(code, argMap.__getitem__)
         newCode = builder.createCodeBlock(())
 
-        newPlaceholders = {}
-        for name, placeholder in self.placeholders.items():
-            newName = nameMap[name]
-            newPlaceholders[newName] = placeholder.rename(newName)
+        newPlaceholders = (
+            placeholder.rename(nameMap[placeholder.name])
+            for placeholder in self.placeholders
+        )
 
         return CodeTemplate(newCode, newPlaceholders)
 
