@@ -31,7 +31,7 @@ from .reference import (
 )
 from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, unlimited
-from .utils import const_property
+from .utils import bad_type, const_property
 
 
 class EncodingExpr:
@@ -309,7 +309,7 @@ class Encoding:
             elif isinstance(value, int):
                 assert False, value
             else:
-                assert False, value
+                bad_type(value)
 
         items: list[EncodingItem] = []
         for item in self._items:
@@ -324,7 +324,7 @@ class Encoding:
                 else:
                     items += getSubEncoding(name, subMatch)[item.start :]
             else:
-                assert False, item
+                bad_type(item)
         return Encoding(items, self._location)
 
     def rename(self, nameMap: Mapping[str, str]) -> Encoding:
@@ -509,7 +509,7 @@ class CodeTemplate:
                         cast(ValuePlaceholder, placeholder).type.width,
                     )
                 else:
-                    assert False, value
+                    bad_type(value)
 
         builder = SemanticsCodeBlockBuilder()
         returned = builder.inlineBlock(self.code, values.get)
@@ -628,7 +628,7 @@ class ModeMatch:
                     IntLiteral(cast(int, match[name])), placeholder.type.width
                 )
             else:
-                assert False, placeholder
+                bad_type(placeholder)
 
         return cls(entry, values, subs)
 
@@ -718,7 +718,7 @@ class ModeMatch:
                 assert isinstance(value, FixedValue), value
                 yield FixedValueReference(value.expr, mnemElem.type)
             else:
-                assert False, mnemElem
+                bad_type(mnemElem)
 
 
 def _formatEncodingWidth(width: int | None) -> str:
@@ -757,10 +757,11 @@ class _MnemTreeNode:
             return 0, match
         elif isinstance(match, Mode):
             return 1, match.name
-        elif match is int:
+        elif isinstance(match, type):
+            assert match is int
             return 2, None
         else:
-            assert False, match
+            bad_type(match)
 
     def dump(self, indent: str) -> None:
         for entry in self._leaves:
@@ -783,7 +784,7 @@ class _MnemTreeNode:
             elif isinstance(token, MatchPlaceholder):
                 match = token.mode
             else:
-                assert False, token
+                bad_type(token)
             node = node._children[match]
         node._leaves.append(entry)
 
@@ -1063,5 +1064,5 @@ class EncodeMatch:
                 match = cast(EncodeMatch, mapping[encItem.name])
                 length += match.encodedLength - encItem.start
             else:
-                assert False, encItem
+                bad_type(encItem)
         return length

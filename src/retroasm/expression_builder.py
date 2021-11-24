@@ -61,6 +61,7 @@ from .types import (
     unlimited,
     widthForMask,
 )
+from .utils import bad_type
 
 
 class BadExpression(BadInput):
@@ -161,7 +162,7 @@ def _convertIdentifier(
     elif isinstance(value, (IOChannel, Reference)):
         return value
     else:
-        assert False, (name, repr(value))
+        bad_type(value)
 
 
 def _convertFunctionCall(

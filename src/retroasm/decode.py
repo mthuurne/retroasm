@@ -20,7 +20,7 @@ from .mode import (
 from .reference import FixedValue, SingleStorage
 from .storage import ArgStorage
 from .types import Segment, maskForWidth, maskToSegments
-from .utils import Singleton
+from .utils import Singleton, bad_type
 
 
 @dataclass(frozen=True, order=True)
@@ -442,7 +442,7 @@ def _createEntryDecoder(
                         )
                 matchersByIndex[lastIdx].append(matcher)
             else:
-                assert False, placeholder
+                bad_type(placeholder)
     # Insert multi-matchers without slices.
     for encIdx in multiMatches.values():
         matcher = cast(EncodingMultiMatch, encoding[encIdx])
@@ -463,7 +463,7 @@ def _createEntryDecoder(
         elif isinstance(matcher, FixedEncoding):
             return ((matcher.encIdx, -matcher.fixedMask),)
         else:
-            assert False, type(matcher)
+            bad_type(matcher)
 
     def valueKey(placeholder: ValuePlaceholder) -> tuple[tuple[int, int], ...]:
         return slicesKey(placeholder.name)
@@ -516,7 +516,7 @@ def _createEntryDecoder(
                 )
                 continue
             else:
-                assert False, matcher
+                bad_type(matcher)
             # Add submode matcher.
             name = matcher.name
             auxIdx = multiMatches[name] if multiMatch else None

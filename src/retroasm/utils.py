@@ -3,8 +3,23 @@ from __future__ import annotations
 from collections.abc import Iterator, MutableMapping, MutableSequence, MutableSet
 from functools import update_wrapper
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, NoReturn
 from weakref import WeakValueDictionary
+
+
+class _Impossible:
+    pass
+
+
+def bad_type(value: _Impossible) -> NoReturn:
+    """
+    Report a type error.
+
+    If this function is called with a known type, the type checker will complain.
+    In code that handles the different types in a type union separately, call
+    this function in the default case to verify that no types were left out.
+    """
+    raise TypeError(type(value).__name__)
 
 
 class Unique(type):

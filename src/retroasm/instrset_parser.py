@@ -74,6 +74,7 @@ from .namespace import (
 from .reference import Reference, badReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
 from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
+from .utils import bad_type
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _nameTok = r"\s*(" + _namePat + r")\s*"
@@ -742,7 +743,7 @@ def _checkMissingPlaceholders(
         elif isinstance(encItem, EncodingMultiMatch):
             multiMatches.add(encItem.name)
         else:
-            assert False, encItem
+            bad_type(encItem)
 
     # Check whether all placeholders from the context occur in the encoding.
     for name, spec in placeholderSpecs.items():
@@ -829,7 +830,7 @@ def _checkAuxEncodingWidth(
                         checkAux(modeAuxWidth, encLoc)
                 firstUnitMatched = True
         else:
-            assert False, encItem
+            bad_type(encItem)
 
 
 def _checkDuplicateMultiMatches(
