@@ -510,8 +510,8 @@ def _buildPlaceholders(
     placeholderSpecs: Mapping[str, PlaceholderSpec],
     globalNamespace: GlobalNamespace,
     reader: DefLineReader,
-) -> Iterator[tuple[str, Placeholder]]:
-    """Yields pairs of name and Placeholder object."""
+) -> Iterator[Placeholder]:
+    """Create placeholders from a spec."""
     semNamespace = ContextNamespace(globalNamespace)
 
     for name, spec in placeholderSpecs.items():
@@ -552,11 +552,11 @@ def _buildPlaceholders(
                 #       See TODO in _parseModeContext().
                 assert isinstance(semType, IntType), semType
                 if code is None:
-                    yield name, ValuePlaceholder(name, semType)
+                    yield ValuePlaceholder(name, semType)
                 else:
-                    yield name, ComputedPlaceholder(name, semType, code)
+                    yield ComputedPlaceholder(name, semType, code)
         elif isinstance(spec, MatchPlaceholderSpec):
-            yield name, MatchPlaceholder(name, spec.mode)
+            yield MatchPlaceholder(name, spec.mode)
         else:
             assert False, spec
 
@@ -1089,11 +1089,12 @@ def _parseModeEntries(
                             placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxLoc, prefixes, modes, reader
                             )
-                            placeholders = dict(
-                                _buildPlaceholders(
+                            placeholders = {
+                                placeholder.name: placeholder
+                                for placeholder in _buildPlaceholders(
                                     placeholderSpecs, globalNamespace, reader
                                 )
-                            )
+                            }
                     except DelayedError:
                         # To avoid error spam, skip this line.
                         continue
