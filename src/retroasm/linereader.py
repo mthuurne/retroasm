@@ -429,77 +429,72 @@ class LineReaderFormatter(Formatter):
             Union[None, InputLocation, Sequence[InputLocation]],
             getattr(record, "location", None),
         )
-        return "\n".join(self._formatParts(self._iterParts(msg, location)))
+        return "\n".join(_formatParts(_iterParts(msg, location)))
 
-    def _formatParts(
-        self,
-        parts: Iterable[
-            tuple[
-                str | None,
-                Traversable | None,
-                int,
-                str | None,
-                Sequence[tuple[int, int]],
-            ]
-        ],
-    ) -> Iterator[str]:
-        for msg, path, lineno, line, spans in parts:
-            if path is None:
-                assert msg is not None
-                yield msg
-            elif msg is None:
-                yield f"{path}:{lineno:d}:"
-            else:
-                yield f"{path}:{lineno:d}: {msg}"
 
-            if line is not None:
-                yield line
-
-                length = len(line) + 1
-                spanLine = " " * length
-                last = len(spans) - 1
-                for i, span in enumerate(reversed(spans)):
-                    start, end = span
-                    start = min(start, length)
-                    end = min(end, length)
-                    if start > end:
-                        continue
-                    elif start == end:
-                        # Highlight empty span using single character.
-                        end = start + 1
-                    highlight = ("^" if i == last else "~") * (end - start)
-                    spanLine = spanLine[:start] + highlight + spanLine[end:]
-                spanLine = spanLine.rstrip()
-                if spanLine:
-                    yield spanLine
-
-    def _iterParts(
-        self, msg: str, location: None | InputLocation | Sequence[InputLocation]
-    ) -> Iterator[
+def _formatParts(
+    parts: Iterable[
         tuple[
             str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]
         ]
-    ]:
-        if location is None:
-            yield msg, None, -1, None, []
-        elif isinstance(location, InputLocation):
-            loc = location
-            yield msg, loc.path, loc.lineno, loc.line, [loc.span]
+    ],
+) -> Iterator[str]:
+    for msg, path, lineno, line, spans in parts:
+        if path is None:
+            assert msg is not None
+            yield msg
+        elif msg is None:
+            yield f"{path}:{lineno:d}:"
         else:
-            multiMsg: str | None = msg
-            i = 0
-            while i < len(location):
-                # Merge spans of following locations on the same line.
-                loc = location[i]
-                lineno = loc.lineno
-                spans = [loc.span]
+            yield f"{path}:{lineno:d}: {msg}"
+
+        if line is not None:
+            yield line
+
+            length = len(line) + 1
+            spanLine = " " * length
+            last = len(spans) - 1
+            for i, span in enumerate(reversed(spans)):
+                start, end = span
+                start = min(start, length)
+                end = min(end, length)
+                if start > end:
+                    continue
+                elif start == end:
+                    # Highlight empty span using single character.
+                    end = start + 1
+                highlight = ("^" if i == last else "~") * (end - start)
+                spanLine = spanLine[:start] + highlight + spanLine[end:]
+            spanLine = spanLine.rstrip()
+            if spanLine:
+                yield spanLine
+
+
+def _iterParts(
+    msg: str, location: None | InputLocation | Sequence[InputLocation]
+) -> Iterator[
+    tuple[str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]]
+]:
+    if location is None:
+        yield msg, None, -1, None, []
+    elif isinstance(location, InputLocation):
+        loc = location
+        yield msg, loc.path, loc.lineno, loc.line, [loc.span]
+    else:
+        multiMsg: str | None = msg
+        i = 0
+        while i < len(location):
+            # Merge spans of following locations on the same line.
+            loc = location[i]
+            lineno = loc.lineno
+            spans = [loc.span]
+            i += 1
+            while (
+                i < len(location)
+                and location[i].lineno == lineno
+                and location[i].path == loc.path
+            ):
+                spans.append(location[i].span)
                 i += 1
-                while (
-                    i < len(location)
-                    and location[i].lineno == lineno
-                    and location[i].path == loc.path
-                ):
-                    spans.append(location[i].span)
-                    i += 1
-                yield multiMsg, loc.path, lineno, loc.line, spans
-                multiMsg = None
+            yield multiMsg, loc.path, lineno, loc.line, spans
+            multiMsg = None
