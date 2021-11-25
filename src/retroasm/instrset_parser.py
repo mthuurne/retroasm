@@ -558,7 +558,7 @@ def _buildPlaceholders(
         elif isinstance(spec, MatchPlaceholderSpec):
             yield MatchPlaceholder(name, spec.mode)
         else:
-            assert False, spec
+            bad_type(spec)
 
 
 def _parseEncodingExpr(
@@ -781,7 +781,7 @@ def _checkMissingPlaceholders(
                     location=(location, spec.decl.treeLocation),
                 )
         else:
-            assert False, spec
+            bad_type(spec)
 
 
 def _checkAuxEncodingWidth(

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from typing import Union
+
 from .expression_parser import DeclarationNode, ParseNode
 from .mode import Mode
 from .types import IntType, ReferenceType, Width
 
+PlaceholderSpec = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
 
-class PlaceholderSpec:
+
+class ValuePlaceholderSpec:
     @property
     def decl(self) -> DeclarationNode:
         return self._decl
@@ -14,23 +18,6 @@ class PlaceholderSpec:
     def name(self) -> str:
         return self._decl.name.name
 
-    @property
-    def encodingWidth(self) -> Width | None:
-        raise NotImplementedError
-
-    @property
-    def semanticsType(self) -> None | IntType | ReferenceType:
-        raise NotImplementedError
-
-    @property
-    def value(self) -> ParseNode | None:
-        raise NotImplementedError
-
-    def __init__(self, decl: DeclarationNode):
-        self._decl = decl
-
-
-class ValuePlaceholderSpec(PlaceholderSpec):
     @property
     def encodingWidth(self) -> Width:
         return self._type.width
@@ -44,7 +31,7 @@ class ValuePlaceholderSpec(PlaceholderSpec):
         return self._value
 
     def __init__(self, decl: DeclarationNode, typ: IntType, value: ParseNode | None):
-        PlaceholderSpec.__init__(self, decl)
+        self._decl = decl
         self._type = typ
         self._value = value
 
@@ -55,7 +42,15 @@ class ValuePlaceholderSpec(PlaceholderSpec):
         return f"{{{self._type} {self.name}}}"
 
 
-class MatchPlaceholderSpec(PlaceholderSpec):
+class MatchPlaceholderSpec:
+    @property
+    def decl(self) -> DeclarationNode:
+        return self._decl
+
+    @property
+    def name(self) -> str:
+        return self._decl.name.name
+
     @property
     def encodingWidth(self) -> int | None:
         return self._mode.encodingWidth
@@ -73,7 +68,7 @@ class MatchPlaceholderSpec(PlaceholderSpec):
         return self._mode
 
     def __init__(self, decl: DeclarationNode, mode: Mode):
-        PlaceholderSpec.__init__(self, decl)
+        self._decl = decl
         self._mode = mode
 
     def __repr__(self) -> str:
