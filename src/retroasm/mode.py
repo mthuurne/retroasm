@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
     AbstractSet,
@@ -895,50 +896,31 @@ class PlaceholderRole(Enum):
     data_addr = auto()
 
 
+@dataclass(frozen=True)
 class ValuePlaceholder:
     """An element from a mode context that represents a numeric value."""
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def type(self) -> IntType:
-        return self._type
-
-    def __init__(self, name: str, typ: IntType):
-        self._name = name
-        self._type = typ
-
-    def __repr__(self) -> str:
-        return f"ValuePlaceholder({self._name!r}, {self._type!r})"
+    name: str
+    type: IntType
 
     def __str__(self) -> str:
-        return f"{{{self._type} {self._name}}}"
+        return f"{{{self.type} {self.name}}}"
 
     def rename(self, name: str) -> ValuePlaceholder:
-        return ValuePlaceholder(name, self._type)
+        return ValuePlaceholder(name, self.type)
 
 
+@dataclass(frozen=True)
 class ComputedPlaceholder(ValuePlaceholder):
     """An element from a mode context that represents a computed numeric value."""
 
-    @property
-    def code(self) -> CodeBlock:
-        return self._code
-
-    def __init__(self, name: str, typ: IntType, code: CodeBlock):
-        ValuePlaceholder.__init__(self, name, typ)
-        self._code = code
-
-    def __repr__(self) -> str:
-        return f"ComputedPlaceholder({self._name!r}, {self._type!r}, {self._code!r})"
+    code: CodeBlock
 
     def __str__(self) -> str:
-        return f"{{{self._type} {self._name} = ...}}"
+        return f"{{{self.type} {self.name} = ...}}"
 
     def rename(self, name: str) -> ComputedPlaceholder:
-        return ComputedPlaceholder(name, self._type, self._code)
+        return ComputedPlaceholder(name, self.type, self.code)
 
     def computeValue(
         self,
@@ -953,42 +935,31 @@ class ComputedPlaceholder(ValuePlaceholder):
         See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
         fetching works.
         """
-        returned = builder.inlineBlock(self._code, argFetcher)
+        returned = builder.inlineBlock(self.code, argFetcher)
         computeCode = CodeBlockSimplifier(builder.nodes, returned)
         computeCode.simplify()
         (valBits,) = computeCode.returned
         assert isinstance(valBits, FixedValue), valBits
-        valType = self._type
+        valType = self.type
         valExpr = decodeInt(valBits.expr, valType)
         return FixedValue(simplifyExpression(valExpr), valType.width)
 
 
+@dataclass(frozen=True)
 class MatchPlaceholder:
     """
     An element from a mode context that will be filled in by a match made
     in a different mode table.
     """
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def mode(self) -> Mode:
-        return self._mode
-
-    def __init__(self, name: str, mode: Mode):
-        self._name = name
-        self._mode = mode
-
-    def __repr__(self) -> str:
-        return f"MatchPlaceholder({self._name!r}, {self._mode!r})"
+    name: str
+    mode: Mode
 
     def __str__(self) -> str:
-        return f"{{{self._mode.name} {self._name}}}"
+        return f"{{{self.mode.name} {self.name}}}"
 
     def rename(self, name: str) -> MatchPlaceholder:
-        return MatchPlaceholder(name, self._mode)
+        return MatchPlaceholder(name, self.mode)
 
 
 class EncodeMatch:
