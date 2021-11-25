@@ -307,7 +307,7 @@ class Encoding:
                     #       which we don't use yet.
                     assert False, firstItem
                 else:
-                    assert False, firstItem
+                    bad_type(firstItem)
             elif isinstance(value, int):
                 assert False, value
             else:

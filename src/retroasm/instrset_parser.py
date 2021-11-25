@@ -501,7 +501,7 @@ def _parseModeContext(
                     'there is no decode flag named "%s"', name, location=node.location
                 )
         else:
-            assert False, node
+            bad_type(node)
 
     return placeholderSpecs, flagsRequired
 
@@ -539,7 +539,7 @@ def _buildPlaceholders(
             elif isinstance(semType, IntType):
                 argType = semType
             else:
-                assert False, semType
+                bad_type(semType)
             try:
                 semNamespace.addArgument(name, argType, decl.name.location)
             except NameExistsError as ex:

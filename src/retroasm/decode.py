@@ -402,16 +402,16 @@ def _createEntryDecoder(
         if isinstance(placeholder, MatchPlaceholder):
             name = placeholder.name
             if name not in decoding and name not in multiMatches:
-                # A submode match that is not represented in the encoding
-                # will either always match or never match, so if the
-                # simplifications of the sub-decoder were effective, only
-                # MatchFoundDecoder and NoMatchDecoder are possible.
                 sub = factory.createDecoder(placeholder.mode.name, name)
                 if isinstance(sub, NoMatchDecoder):
                     return sub
                 elif isinstance(sub, MatchFoundDecoder):
                     match[name] = sub.match
                 else:
+                    # A submode match that is not represented in the encoding
+                    # will either always match or never match, so if the
+                    # simplifications of the sub-decoder were effective, only
+                    # MatchFoundDecoder and NoMatchDecoder are possible.
                     assert False, sub
     entry = match.fillPlaceholders()
 

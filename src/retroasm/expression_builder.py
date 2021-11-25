@@ -335,7 +335,7 @@ def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
             node.treeLocation,
         )
     else:
-        assert False, node
+        raise TypeError(type(node).__name__)
 
 
 def _convertReferenceLookup(

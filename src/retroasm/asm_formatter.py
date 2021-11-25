@@ -91,9 +91,6 @@ class Formatter:
     def expression(self, ref: FixedValueReference) -> str:
         """
         Format the given expression.
-        TODO: Use a recursive expression pretty printer.
-              Once we start formatting actual sources instead of
-              only disassembly, we will encounter operators as well.
         """
         expr = ref.expr
         if isinstance(expr, SymbolValue):
@@ -109,7 +106,10 @@ class Formatter:
                         value -= 1 << width
             return self.value(value, exprType)
         else:
-            assert False, expr
+            # TODO: Use a recursive expression pretty printer.
+            #       Once we start formatting actual sources instead of only
+            #       disassembly, we will encounter operators as well.
+            raise NotImplementedError
 
     orgKeyword = "org"
 
