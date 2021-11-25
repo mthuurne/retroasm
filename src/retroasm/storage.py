@@ -45,7 +45,7 @@ class IOChannel:
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
 
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument,no-self-use
 
     def canLoadHaveSideEffect(self, index: Expression) -> bool:
         """
@@ -150,7 +150,7 @@ class Storage:
         """
         raise NotImplementedError
 
-    def iterExpressions(self) -> Iterator[Expression]:
+    def iterExpressions(self) -> Iterator[Expression]:  # pylint: disable=no-self-use
         """Iterates through the expressions in this storage, if any."""
         return iter(())
 

@@ -18,6 +18,8 @@ class Formatter:
         # pylint: disable=consider-using-f-string
         self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
 
+    # pylint: disable=no-self-use
+
     def value(self, value: int, typ: IntType) -> str:
         if typ.signed:
             return str(value)

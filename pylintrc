@@ -31,7 +31,6 @@ disable=
         no-else-raise,
         no-else-return,
     # Too many false positives:
-        no-self-use,
         similarities,
 
 [BASIC]
