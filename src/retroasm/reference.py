@@ -96,9 +96,7 @@ class BitString:
         """
         raise NotImplementedError
 
-    def decompose(
-        self,
-    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
+    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
         """
         Decomposes the given bit string into its leaf nodes.
         Yields a series of pairs of base string and segment in the base string.
@@ -331,9 +329,7 @@ class ConcatenatedBits(BitString):
             sub.emitStore(builder, valueSlice, location)
             offset += width
 
-    def decompose(
-        self,
-    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
+    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
         for sub in self._subs:
             yield from sub.decompose()
 
@@ -432,9 +428,7 @@ class SlicedBits(BitString):
 
         bits.emitStore(builder, simplifyExpression(combined), location)
 
-    def decompose(
-        self,
-    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
+    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
         # Note that the offset was already simplified.
         offset = self.offset
         if not isinstance(offset, IntLiteral):
@@ -452,59 +446,6 @@ class SlicedBits(BitString):
                 # Width can only be unlimited on last component.
                 break
             slice_seg >>= width
-
-
-class BadBits(BitString):
-    """
-    A dummy bit string that can be used when an error has been discovered
-    in the input but we don't want to abort parsing immediately.
-    """
-
-    __slots__ = ()
-
-    def __repr__(self) -> str:
-        return f"BadBits({self._width})"
-
-    def __str__(self) -> str:
-        return f"({self._width} bad bits)"
-
-    def iterExpressions(self) -> Iterator[Expression]:
-        return iter(())
-
-    def iterStorages(self) -> Iterator[Storage]:
-        return iter(())
-
-    def substitute(
-        self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
-    ) -> BadBits:
-        return self
-
-    def emitLoad(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
-    ) -> Expression:
-        return BadValue(self._width)
-
-    def emitStore(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
-    ) -> None:
-        pass
-
-    def decompose(self) -> Iterator[tuple[BadBits, Segment]]:
-        yield self, Segment(0, self.width)
-
-
-def badReference(decl: ReferenceType | IntType) -> Reference:
-    """
-    Returns a dummy reference to the given declared reference/value type,
-    with a BadBits instance as the underlying bit string.
-    """
-    typ = decl.type if isinstance(decl, ReferenceType) else decl
-    return Reference(BadBits(typ.width), typ)
 
 
 def decodeInt(encoded: Expression, typ: IntType) -> Expression:
@@ -591,6 +532,15 @@ class FixedValueReference(Reference):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
+
+
+def badReference(decl: ReferenceType | IntType) -> Reference:
+    """
+    Return a dummy reference to the given declared reference/value type,
+    with a BadValue instance as the underlying expression.
+    """
+    typ = decl.type if isinstance(decl, ReferenceType) else decl
+    return FixedValueReference(BadValue(typ.width), typ)
 
 
 def intReference(value: int, typ: IntType) -> FixedValueReference:

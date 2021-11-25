@@ -17,7 +17,7 @@ from .mode import (
     ModeEntry,
     ValuePlaceholder,
 )
-from .reference import BadBits, FixedValue, SingleStorage
+from .reference import FixedValue, SingleStorage
 from .storage import ArgStorage
 from .types import Segment, maskForWidth, maskToSegments
 from .utils import Singleton, bad_type
@@ -102,8 +102,6 @@ def decomposeEncoding(
                         fixedValue |= base_seg.cut(expr.value) << start
                     else:
                         raise ValueError("unsupported operation in encoding")
-                elif isinstance(base, BadBits):
-                    assert False, base
                 else:
                     bad_type(base)
                 # Note: It is possible for the width to be unlimited, but only
