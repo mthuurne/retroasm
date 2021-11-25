@@ -96,7 +96,9 @@ class BitString:
         """
         raise NotImplementedError
 
-    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+    def decompose(
+        self,
+    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
         """
         Decomposes the given bit string into its leaf nodes.
         Yields a series of pairs of base string and segment in the base string.
@@ -130,25 +132,7 @@ class BitString:
         return value
 
 
-class LeafBitString(BitString):
-    """
-    Abstract base class for bit strings that doesn't reference any other
-    bit strings.
-
-    This is a leaf node in the tree structure of a composed bit string.
-    """
-
-    __slots__ = ()
-
-    # Repeat definition to mark class as abstract for pylint.
-    def iterExpressions(self) -> Iterator[Expression]:
-        raise NotImplementedError
-
-    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
-        yield self, Segment(0, self.width)
-
-
-class FixedValue(LeafBitString):
+class FixedValue(BitString):
     """A bit string that always reads as the same value and ignores writes."""
 
     __slots__ = ("_expr",)
@@ -205,8 +189,13 @@ class FixedValue(LeafBitString):
     ) -> None:
         pass
 
+    def decompose(self) -> Iterator[tuple[FixedValue, Segment]]:
+        yield self, Segment(0, self.width)
 
-class SingleStorage(LeafBitString):
+
+class SingleStorage(BitString):
+    """A bit string that is read from or written to a storage location."""
+
     __slots__ = ("_storage",)
 
     @property
@@ -263,6 +252,9 @@ class SingleStorage(LeafBitString):
         location: InputLocation | None,
     ) -> None:
         builder.emitStoreBits(self._storage, value, location)
+
+    def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
+        yield self, Segment(0, self.width)
 
 
 class ConcatenatedBits(BitString):
@@ -339,7 +331,9 @@ class ConcatenatedBits(BitString):
             sub.emitStore(builder, valueSlice, location)
             offset += width
 
-    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+    def decompose(
+        self,
+    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
         for sub in self._subs:
             yield from sub.decompose()
 
@@ -438,7 +432,9 @@ class SlicedBits(BitString):
 
         bits.emitStore(builder, simplifyExpression(combined), location)
 
-    def decompose(self) -> Iterator[tuple[LeafBitString, Segment]]:
+    def decompose(
+        self,
+    ) -> Iterator[tuple[FixedValue | SingleStorage | BadBits, Segment]]:
         # Note that the offset was already simplified.
         offset = self.offset
         if not isinstance(offset, IntLiteral):
@@ -458,7 +454,7 @@ class SlicedBits(BitString):
             slice_seg >>= width
 
 
-class BadBits(LeafBitString):
+class BadBits(BitString):
     """
     A dummy bit string that can be used when an error has been discovered
     in the input but we don't want to abort parsing immediately.
@@ -497,6 +493,9 @@ class BadBits(LeafBitString):
         location: InputLocation | None,
     ) -> None:
         pass
+
+    def decompose(self) -> Iterator[tuple[BadBits, Segment]]:
+        yield self, Segment(0, self.width)
 
 
 def badReference(decl: ReferenceType | IntType) -> Reference:
