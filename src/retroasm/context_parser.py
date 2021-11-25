@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Union
 
 from .expression_parser import DeclarationNode, ParseNode
@@ -9,70 +10,44 @@ from .types import IntType, ReferenceType, Width
 PlaceholderSpec = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
 
 
+@dataclass(frozen=True)
 class ValuePlaceholderSpec:
-    @property
-    def decl(self) -> DeclarationNode:
-        return self._decl
+    decl: DeclarationNode
+    type: IntType
+    value: ParseNode | None
 
     @property
     def name(self) -> str:
-        return self._decl.name.name
+        return self.decl.name.name
 
     @property
     def encodingWidth(self) -> Width:
-        return self._type.width
-
-    @property
-    def semanticsType(self) -> IntType:
-        return self._type
-
-    @property
-    def value(self) -> ParseNode | None:
-        return self._value
-
-    def __init__(self, decl: DeclarationNode, typ: IntType, value: ParseNode | None):
-        self._decl = decl
-        self._type = typ
-        self._value = value
-
-    def __repr__(self) -> str:
-        return f"ValuePlaceholderSpec({self._decl!r}, {self._type!r}, {self._value!r})"
+        return self.type.width
 
     def __str__(self) -> str:
-        return f"{{{self._type} {self.name}}}"
+        return f"{{{self.type} {self.name}}}"
 
 
+@dataclass(frozen=True)
 class MatchPlaceholderSpec:
-    @property
-    def decl(self) -> DeclarationNode:
-        return self._decl
+    decl: DeclarationNode
+    mode: Mode
 
     @property
     def name(self) -> str:
-        return self._decl.name.name
+        return self.decl.name.name
 
     @property
     def encodingWidth(self) -> int | None:
-        return self._mode.encodingWidth
+        return self.mode.encodingWidth
 
     @property
-    def semanticsType(self) -> None | IntType | ReferenceType:
-        return self._mode.semanticsType
+    def type(self) -> None | IntType | ReferenceType:
+        return self.mode.semanticsType
 
     @property
     def value(self) -> None:
         return None
 
-    @property
-    def mode(self) -> Mode:
-        return self._mode
-
-    def __init__(self, decl: DeclarationNode, mode: Mode):
-        self._decl = decl
-        self._mode = mode
-
-    def __repr__(self) -> str:
-        return f"MatchPlaceholderSpec({self._decl!r}, {self._mode!r})"
-
     def __str__(self) -> str:
-        return f"{{{self._mode.name} {self.name}}}"
+        return f"{{{self.mode.name} {self.name}}}"

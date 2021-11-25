@@ -516,7 +516,7 @@ def _buildPlaceholders(
 
     for name, spec in placeholderSpecs.items():
         decl = spec.decl
-        semType = spec.semanticsType
+        semType = spec.type
         value = spec.value
 
         code = None
@@ -1156,7 +1156,7 @@ def _parseModeEntries(
                         # Define placeholders in semantics builder.
                         for name, spec in placeholderSpecs.items():
                             location = spec.decl.name.location
-                            semType = spec.semanticsType
+                            semType = spec.type
                             if isinstance(semType, ReferenceType):
                                 argType = semType.type
                             else:
