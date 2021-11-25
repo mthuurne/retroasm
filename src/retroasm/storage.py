@@ -37,7 +37,7 @@ class IOChannel:
         self._addrType = addrType
 
     def __repr__(self) -> str:
-        return f"IOChannel({self._name!r}, {self._elemType!r}, " f"{self._addrType!r})"
+        return f"IOChannel({self._name!r}, {self._elemType!r}, {self._addrType!r})"
 
     def __str__(self) -> str:
         return f"{self._elemType} {self._name}[{self._addrType}]"

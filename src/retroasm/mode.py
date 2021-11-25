@@ -932,9 +932,7 @@ class ComputedPlaceholder(ValuePlaceholder):
         self._code = code
 
     def __repr__(self) -> str:
-        return (
-            f"ComputedPlaceholder({self._name!r}, {self._type!r}, " f"{self._code!r})"
-        )
+        return f"ComputedPlaceholder({self._name!r}, {self._type!r}, {self._code!r})"
 
     def __str__(self) -> str:
         return f"{{{self._type} {self._name} = ...}}"

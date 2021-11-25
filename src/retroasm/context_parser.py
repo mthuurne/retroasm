@@ -49,9 +49,7 @@ class ValuePlaceholderSpec(PlaceholderSpec):
         self._value = value
 
     def __repr__(self) -> str:
-        return (
-            f"ValuePlaceholderSpec({self._decl!r}, {self._type!r}, " f"{self._value!r})"
-        )
+        return f"ValuePlaceholderSpec({self._decl!r}, {self._type!r}, {self._value!r})"
 
     def __str__(self) -> str:
         return f"{{{self._type} {self.name}}}"
