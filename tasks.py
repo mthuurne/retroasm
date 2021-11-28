@@ -6,7 +6,7 @@ from utils.markdown import render_dir, render_file
 
 TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / "src"
-OUT_DIR = TOP_DIR / "output"
+OUT_DIR = TOP_DIR / "build"
 TEST_DIR = TOP_DIR / "tests" / "unit"
 UTILS_DIR = TOP_DIR / "utils"
 
@@ -31,7 +31,7 @@ def types(c, report=False):
     """Type-check sources with mypy."""
     cmd = ["mypy"]
     if report:
-        cmd.append("--html-report output/mypy-report.html")
+        cmd.append(f"--html-report {OUT_DIR}/mypy-report.html")
     cmd.append(str(SRC_DIR))
     cmd.append(str(TEST_DIR))
     print("Type-checking...")
