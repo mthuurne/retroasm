@@ -17,12 +17,15 @@
 
 # -- Project information -----------------------------------------------------
 
+import importlib.metadata
+
+_METADATA = importlib.metadata.metadata("retroasm")
+
 project = "RetroAsm"
-copyright = "2021, Maarten ter Huurne"
-author = "Maarten ter Huurne"
+author = _METADATA["Author"]
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+release = _METADATA["Version"]
 
 
 # -- General configuration ---------------------------------------------------
@@ -47,6 +50,16 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = "alabaster"
+
+html_context = {
+    "show_copyright": False,
+    "show_source": False,
+}
+
+html_theme_options = {
+    "github_user": "mthuurne",
+    "github_repo": "retroasm",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
