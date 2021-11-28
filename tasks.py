@@ -20,6 +20,17 @@ def docs(c):
 
 
 @task
+def sphinx(c, builder="html"):
+    """Build documentation using Sphinx."""
+    dest = OUT_DIR / "sphinx"
+    cmd = ["sphinx-build", "-j auto", f"-d {OUT_DIR}/sphinx-cache", f"-b {builder}"]
+    cmd.append(str(TOP_DIR / "docs"))
+    cmd.append(str(dest))
+    with c.cd(str(TOP_DIR)):
+        c.run(" ".join(cmd), pty=True)
+
+
+@task
 def test(c):
     """Run tests."""
     with c.cd(str(TOP_DIR)):
