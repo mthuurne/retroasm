@@ -1,7 +1,3 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
-
-
 Instruction Set Definition
 ==========================
 
@@ -75,14 +71,16 @@ The language contains value types and reference types. Currently the only suppor
 Integer Types
 ^^^^^^^^^^^^^
 
-The type ``u``\ *N* is an unsigned integer type of *N* bits wide. So for example ``u8`` is a byte and ``u1`` can hold a Boolean value. The type ``s``\ *N* is a signed integer type of *N* bits wide, where bit *N*\ -1 is the sign bit. The types ``u0`` and ``s0`` are valid and the only value in those types is the number 0. The type ``int`` is an integer type that can contain arbitrary signed integers (unlimited width).
+The type :math:`u_N` is an unsigned integer type of :math:`N` bits wide. So for example :math:`u_8` is a byte and :math:`u_1` can hold a Boolean value. The type :math:`s_N` is a signed integer type of :math:`N` bits wide, where bit :math:`N-1` is the sign bit. The types :math:`u_0` and :math:`s_0` are valid and the only value in those types is the number 0. The type :math:`int` is an integer type that can contain arbitrary signed integers (unlimited width).
 
-The ``int`` type is used in arithmetical expressions. The ``u``\ *N* types are used to describe aspects of the hardware, such as registers. The ``s``\ *N* types are not often used, but are necessary to for example describe signed offsets in relative addressing modes.
+The :math:`int` type is used in arithmetical expressions. The :math:`u_N` types are used to describe aspects of the hardware, such as registers. The :math:`s_N` types are not often used, but are necessary to for example describe signed offsets in relative addressing modes.
+
+In plain text, such as in instruction set definition files, types are written as follows: ``int``, ``u16`` and ``s8``.
 
 Reference Types
 ^^^^^^^^^^^^^^^
 
-A reference to a storage location is denoted by placing an ampersand after the value type. For example ``u8&`` is a reference to a byte.
+A reference to a storage location is denoted by placing an ampersand after the value type. For example :math:`u_8^\&`, or ``u8&`` in plain text, is a reference to a byte.
 
 Literals
 --------
@@ -99,24 +97,24 @@ Integer literals in base 2, 10 and 16 are supported. Integer literals are never 
      - Type
    * - binary
      - 2
-     - %0101
+     - ``%0101``
      - 5
-     - u4
+     - :math:`u_4`
    * - decimal
      - 10
+     - ``42``
      - 42
-     - 42
-     - int
+     - :math:`int`
    * - hexadecimal
      - 16
-     - $7F
+     - ``$7F``
      - 127
-     - u8
+     - :math:`u_8`
 
 
 The width of a binary integer literal is equal to the number of digits it contains; the width of a hexadecimal integer literal is equal to four times the number of digits it contains. In both cases leading zeroes count as digits.
 
-The width of a decimal integer literal is undefined: they are of the type ``int``. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
+The width of a decimal integer literal is undefined: they are of the type :math:`int`. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
 
 Operators
 ---------
@@ -125,120 +123,113 @@ The following operators can be used in expressions:
 
 .. list-table::
    :header-rows: 1
+   :widths: auto
 
    * - Name
      - Notation
      - Types
    * - bitwise and
-     - *A* & *B*
-     - int &times; int &rarr; int
+     - ``A & B``
+     - :math:`int \times int \rightarrow int`
    * - bitwise or
-     - *A* &#124; *B*
-     - int &times; int &rarr; int
+     - ``A | B``
+     - :math:`int \times int \rightarrow int`
    * - bitwise xor
-     - *A* ^ *B*
-     - int &times; int &rarr; int
+     - ``A ^ B``
+     - :math:`int \times int \rightarrow int`
    * - shift left
-     - *A* << *B*
-     - int &times; int &rarr; int
+     - ``A << B``
+     - :math:`int \times int \rightarrow int`
    * - shift right
-     - *A* >> *B*
-     - int &times; int &rarr; int
+     - ``A >> B``
+     - :math:`int \times int \rightarrow int`
    * - addition
-     - *A* + *B*
-     - int &times; int &rarr; int
+     - ``A + B``
+     - :math:`int \times int \rightarrow int`
    * - subtraction
-     - *A* - *B*
-     - int &times; int &rarr; int
+     - ``A - B``
+     - :math:`int \times int \rightarrow int`
    * - type conversion
-     - to_s(\ *A*\ )
-     - u\ *N* &rarr; s\ *N*
+     - ``to_s(A)``
+     - :math:`u_N \rightarrow s_N`
    * -
-     - to_u(\ *A*\ )
-     - s\ *N* &rarr; u\ *N*
+     - ``to_u(A)``
+     - :math:`s_N \rightarrow u_N`
    * - complement
-     - -\ *A*
-     - int &rarr; int
+     - ``-A``
+     - :math:`int \rightarrow int`
    * - bitwise complement
-     - ~\ *A*
-     - int &rarr; int
+     - ``~A``
+     - :math:`int \rightarrow int`
    * - logical negation
-     - !\ *A*
-     - int &rarr; u1
+     - ``!A``
+     - :math:`int \rightarrow u_1`
    * - equality
-     - *A* == *B*
-     - int &times; int &rarr; u1
+     - ``A == B``
+     - :math:`int \times int \rightarrow u_1`
    * - inequality
-     - *A* != *B*
-     - int &times; int &rarr; u1
+     - ``A != B``
+     - :math:`int \times int \rightarrow u_1`
    * - lesser than
-     - *A* < *B*
-     - int &times; int &rarr; u1
+     - ``A < B``
+     - :math:`int \times int \rightarrow u_1`
    * - lesser or equal
-     - *A* <= *B*
-     - int &times; int &rarr; u1
+     - ``A <= B``
+     - :math:`int \times int \rightarrow u_1`
    * - greater than
-     - *A* > *B*
-     - int &times; int &rarr; u1
+     - ``A > B``
+     - :math:`int \times int \rightarrow u_1`
    * - greater or equal
-     - *A* >= *B*
-     - int &times; int &rarr; u1
+     - ``A >= B``
+     - :math:`int \times int \rightarrow u_1`
    * - concatenation
-     - *A* ; *B*
-     - int& &times; (u&#124;s)\ *N*\ & &rarr; int&
-   * -
-     -
-     - u\ *M*\ & &times; (u&#124;s)\ *N*\ & &rarr; u(\ *M*\ +\ *N*\ )&
-   * -
-     -
-     - s\ *M*\ & &times; (u&#124;s)\ *N*\ & &rarr; s(\ *M*\ +\ *N*\ )&
+     - ``A ; B``
+     - | :math:`int^\& \times u_{N}^\& | s_{N}^\& \rightarrow int^\&`
+       | :math:`u_{M}^\& \times u_{N}^\& | s_{N}^\& \rightarrow u_{M+N}^\&`
+       | :math:`s_{M}^\& \times u_{N}^\& | s_{N}^\& \rightarrow s_{M+N}^\&`
    * - slicing
-     - *A*\ [\ *K*\ :\ *L*\ ]
-     - int& &rarr; u(\ *L*\ -\ *K*\ )&
+     - ``A[K:L]``
+     - :math:`int^\& \rightarrow u_{L-K}^\&`
    * -
-     - *A*\ [:\ *L*\ ]
-     - int& &rarr; u\ *L*\ &
+     - ``A[:L]``
+     - :math:`int^\& \rightarrow u_{L}^\&`
    * -
-     - *A*\ [\ *K*\ :]
-     - int& &rarr; int&
-   * -
-     -
-     - u\ *N*\ & &rarr; u(\ *N*\ -\ *K*\ )&
-   * -
-     -
-     - s\ *N*\ & &rarr; s(\ *N*\ -\ *K*\ )&
+     - ``A[K:]``
+     - | :math:`int^\& \rightarrow int^\&`
+       | :math:`u_{N}^\& \rightarrow u_{N-K}^\&`
+       | :math:`s_{N}^\& \rightarrow s_{N-K}^\&`
    * - bitwise lookup
-     - *A*\ [\ *K*\ ]
-     - int& &rarr; u1&
+     - ``A[K]``
+     - :math:`int^\& \rightarrow u_1^\&`
    * - I/O reference
-     - *C*\ [\ *X*\ ]
-     - u\ *M* &rarr; u\ *N*\ &
+     - ``C[X]``
+     - :math:`u_M \rightarrow u_N^\&`
 
 
 Most of these operators should be familiar to the reader, but a few may require a more detailed explanation.
 
 The logical negation operator works as in the C language: the negation of zero is 1, the negation of any non-zero number is 0.
 
-Concatenation puts one fixed width bit string after another. For example, the concatenation of ``%11`` and ``%001`` is ``%11001``. In numeric value: *A* ; *B* = *A*\ *2\ :raw-html-m2r:`<sup>*N*</sup>` + *B*\ , where *B* is of type ``u``\ *N*. The signedness of the result of a concatenation matches the signedness of the first operand.
+Concatenation places one fixed width bit string after another. For example, the concatenation of ``%11`` and ``%001`` is ``%11001``. In numeric value: ``A ; B`` = :math:`A \cdot 2^N + B` , where :math:`B` is of type :math:`u_N`. The signedness of the result of a concatenation matches the signedness of the first operand.
 
-Slicing extracts a region from a bit string: *A*\ [\ *K*\ :\ *L*\ ] extracts the bits from and including bit *K* up to and excluding bit *L*\ , similar to sequence slicing in Python. For example: ``$12CD[4:8]`` = ``$C``. If the lower index of a slice is omitted, the slice starts from bit 0: ``$AB[:4]`` = ``$B``. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: ``$AB[4:]`` = ``$A``.
+Slicing extracts a region from a bit string: ``A[K:L]`` extracts the bits from and including bit :math:`K` up to and excluding bit :math:`L`, similar to sequence slicing in Python. For example: ``$12CD[4:8]`` = ``$C``. If the lower index of a slice is omitted, the slice starts from bit 0: ``$AB[:4]`` = ``$B``. If the upper index of a slice is omitted, the slice ends at the full width of the sliced expression: ``$AB[4:]`` = ``$A``.
 
-The value of a slice can be expressed using other operators as follows: *A*\ [\ *K*\ :\ *L*\ ] = (\ *A* >> *K*\ ) & (2\ :raw-html-m2r:`<sup>*L-K*</sup>` - 1). If the lower index is omitted, no shift is performed (shift by 0 bits). If the upper index is omitted, the 'and' part is dropped.
+The value of a slice can be expressed using other operators as follows: ``A[K:L]`` = :math:`(A \gg K)\ \&\ (2^{L-K}-1)`. If the lower index is omitted, no shift is performed (shift by 0 bits). If the upper index is omitted, the *and* operation is dropped.
 
-The width of a slice must be known at the time of definition. This means it cannot depend on for example a function argument or a value from a register or immediate. Note that RetroAsm is able to determine that the width of *A*\ [\ *K*\ :\ *K*\ +\ *N*\ ] is *N* bits if it knows the value of *N* but not the value of *K*.
+The width of a slice must be known at the time of definition. This means it cannot depend on for example a function argument or a value from a register or immediate. Note that RetroAsm is able to determine that the width of ``A[K:K+N]`` is :math:`N` bits if it knows the value of :math:`N` but not the value of :math:`K`.
 
-A bitwise lookup is equivalent to taking a single bit slice: *A*\ [\ *K*\ ] = *A*\ [\ *K*\ :\ *K*\ +1].
+A bitwise lookup is equivalent to taking a single bit slice: ``A[K]`` = ``A[K:K+1]``.
 
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
 
 Type Conversions
 ----------------
 
-Conversion from fixed-width (\ ``u``\ *N* or ``s``\ *N*\ ) integer to arbitrary-sized integer (\ ``int``\ ) is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
+Conversion from fixed-width :math:`u_N` or :math:`s_N` integer type to arbitrary-sized integer type :math:`int` is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
 
-Conversion from arbitrary-sized integer (\ ``int``\ ) to fixed-width (\ ``u``\ *N*\ ) integer is done by truncation: the *N* least significant bits of the value are kept. Truncation can be done explicitly through slicing: *A*\ [:\ *N*\ ] will convert *A* to ``u``\ *N*. Truncation is done implicitly when an integer value is stored into a fixed-width reference.
+Conversion from arbitrary-sized integer type :math:`int` to fixed-width integer type :math:`u_N` is done by truncation: the :math:`N` least significant bits of the value are kept. Truncation can be done explicitly through slicing: ``A[:N]`` will convert :math:`A` to :math:`u_N`. Truncation is done implicitly when an integer value is stored into a fixed-width reference.
 
-Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example ``$84`` is a ``u8`` with numeric value 132, but when converted to ``s8`` the value becomes -124. Explicit conversion can be performed using the ``to_s`` and ``to_u`` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the reference type.
+Conversion from unsigned to signed or vice versa is done by keeping the bit string identical, which means the value will change if the most significant bit is set. For example ``$84`` is a :math:`u_8` with numeric value 132, but when converted to :math:`s_8` the value becomes -124. Explicit conversion can be performed using the ``to_s`` and ``to_u`` operators. Implicit conversion happens after implicit truncation: the value will be converted to match the signedness of the reference type.
 
 When a reference is used where a value is expected, the value is loaded from the reference. If the reference points to a peripheral, the load operation can have side effects in the peripheral. For example, some hardware status flags are automatically reset when read.
 
@@ -285,7 +276,7 @@ The definitions can be split over multiple lines to improve readability. As an e
 
 The integer literal ``%1`` in the value of the ``p`` alias above is an example of a fixed value reference: the corresponding bits are always read as that literal value, while writes to those bits are ignored.
 
-If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type ``u1``.
+If a register can be accessed in multiple ways, for example as an individual register or as part of a register pair, it is recommended to define the smallest unit as a register and define the larger units as aliases. For flags this means defining them individually as registers of type :math:`u_1`.
 
 The program counter register must always be named ``pc``. If the instruction set uses a different name, that other name can be defined as an alias for the ``pc`` register.
 
@@ -302,7 +293,7 @@ The syntax for defining I/O channels is as follows:
    <element type> <channel name>[<address type>]
 
 
-For example the Z80 has a 64K (2\ :raw-html-m2r:`<sup>16</sup>`\ ) memory address space and 256 (2\ :raw-html-m2r:`<sup>8</sup>`\ ) I/O ports that are one byte wide:
+For example the Z80 has a 64K (:math:`2^{16}`) memory address space and 256 (:math:`2^8`) I/O ports that are one byte wide:
 
 .. code-block::
 
@@ -313,7 +304,7 @@ For example the Z80 has a 64K (2\ :raw-html-m2r:`<sup>16</sup>`\ ) memory addres
 
 When reading a value from an I/O channel, the element type determines the type of the read value. When writing a value to an I/O channel, the written value can be of any type, but the width of the element type determines how many bits are actually stored.
 
-The width of the address type determines the number of significant bits in the index. For example, if the address type is ``u8``\ , addresses ``0x21`` and ``0x321`` are considered to address the same element, since they are equal in the last 8 bits.
+The width of the address type determines the number of significant bits in the index. For example, if the address type is :math:`u_8`, addresses ``$21`` and ``$321`` are considered to address the same element, since they are equal in the last 8 bits.
 
 For a CPU, it doesn't matter what is on the other side of an I/O channel. But for analyzing assembly code it does matter whether I/O is done with RAM, ROM or a peripheral. Therefore an analyzer will need a system definition in addition to an instruction set definition to do its job.
 
@@ -705,8 +696,8 @@ The mnemonic base is prepended to the mnemonic field of every entry. For example
 .. code-block::
 
    instr ld
-   %01;D;S             . D,S               . D := S            . reg8 D, reg8 S
-   %00;D;%110, N       . D,N               . D := N            . reg8 D, u8 N
+   %01;D;S             . D,S       . D := S        . reg8 D, reg8 S
+   %00;D;%110, N       . D,N       . D := N        . reg8 D, u8 N
 
 
 The mnemonic ``ld b,h`` is matched by the first entry (\ ``D`` matching ``b`` and ``S`` matching ``h``\ ), while ``ld b,12`` is matched by the second entry (\ ``D`` matching ``b`` and ``N`` matching ``12``\ ).

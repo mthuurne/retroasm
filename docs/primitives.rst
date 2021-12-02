@@ -1,7 +1,3 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
-
-
 Primitives
 ==========
 
@@ -79,7 +75,7 @@ A shift by a fixed amount is equivalent to a shift by a variable amount where th
 Truncation
 ^^^^^^^^^^
 
-Truncation is an operation that preserves only the last *N* bits of a value, the rest is replaced by zeroes. There is no dedicated node type for truncation: a bit mask is computed with the value 2\ :raw-html-m2r:`<sup>*N*</sup>` - 1, meaning *N* consecutive ones in binary, and the truncation is handled by a bitwise *and* of the value and this mask.
+Truncation is an operation that preserves only the last :math:`N` bits of a value, the rest is replaced by zeroes. There is no dedicated node type for truncation: a bit mask is computed with the value :math:`2^N-1`, meaning :math:`N` consecutive ones in binary, and the truncation is handled by a bitwise *and* of the value and this mask.
 
 Concatenation
 ^^^^^^^^^^^^^
