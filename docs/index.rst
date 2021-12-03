@@ -6,6 +6,9 @@ RetroAsm: Assembly Toolkit
    :maxdepth: 2
    :caption: Contents:
 
+   concepts
+   instruction-set
+   primitives
 
 
 Indices and tables
