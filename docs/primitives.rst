@@ -3,6 +3,8 @@ Primitives
 
 While the instruction set definition language is pretty low-level, for analysis we want even lower-level primitives. Those primitives and how higher-level objects are built from them are described in this document.
 
+.. index:: ! expression
+
 Expression
 ----------
 
@@ -87,12 +89,7 @@ Slicing
 
 Slices are decomposed into shifts and truncations. For example ``A[4:12]`` is parsed to ``(A >> 4) & $FF``\ , where ``$FF`` is an all-ones bit mask that's 12 - 4 = 8 bits wide.
 
-Storage
--------
-
-A *storage* is an atomic location where bits can be loaded from and stored into. Typical examples are CPU registers, I/O ports and memory at a specific address.
-
-A storage has a width (how many bits it contains) and provides information that can be used to eliminate redundant loads and stores.
+.. index:: ! bit string
 
 Bit String
 ----------
@@ -101,10 +98,14 @@ A *bit string* is similar to a storage, but not atomic. This means it's possible
 
 Bit strings are created from storages, expressions (fixed value) or by concatenating or slicing other bit strings.
 
+.. index:: ! reference
+
 Reference
 ---------
 
 A *reference* adds a type to a bit string. Since RetroAsm currently only supports integers, in practice this means it adds sign extension when a signed value is loaded.
+
+.. index:: ! code block
 
 Code Block
 ----------
@@ -115,9 +116,15 @@ There is no final design yet for how branching will be handled, but the currentl
 
 Mathematical computations are handled by expressions, not by nodes. For example ``A := A + 1`` would be represented by two nodes: ``load V from A`` and ``store V + 1 into A``\ ; there is no node for the addition.
 
+.. index:: argument
+
 Values and references are passed into code blocks via *arguments*\ , which are represented by named storages. These are substituted when a code block is called.
 
+.. index:: returned bit string
+
 Values and references are passed out of code blocks via *returned bit strings*. Unlike arguments these are not named, but identified by their position (index) in the series of returned bit strings.
+
+.. index:: ! function
 
 Function
 --------

@@ -5,14 +5,16 @@ Instructions are the basic units that a processor can execute. An instruction co
 
 An instruction set definition in RetroAsm describes the following aspects of each instruction:
 
-mnemonic
-:   A textual representation of the operation and its operands, as used in assembly language.
+.. glossary::
 
-encoding
-:   A binary representation of the operation and its operands, as used by the processor when executing instructions from memory.
+   mnemonic
+      A textual representation of the operation and its operands, as used in assembly language.
 
-semantics
-:   A formal description of the operation that an instruction performs.
+   encoding
+      A binary representation of the operation and its operands, as used by the processor when executing instructions from memory.
+
+   semantics
+      A formal description of the operation that an instruction performs.
 
 Mnemonics and encoding are handled by many traditional tools that deal with machine language: an assembler translates a mnemonic version of a program to an encoded version, while a disassembler translates an encoded version to a mnemonic version. The addition of semantics allows other types of processing of machine language programs, such as static code analysis and the automatic generation of interpreters.
 
@@ -48,3 +50,12 @@ Semantics
 The semantical description of an instruction specifies the operation performed by an instruction: what state it changes and what I/O it performs. The semantical description uses a simple imperative language consisting only of assignments and conditional branches.
 
 Only the functional aspects of the operation are considered relevant; it doesn't matter how it is implemented in hardware. For example the Z80 had a 4-bit ALU, but in the instruction set definition we can use arithmetic of any width.
+
+.. index:: ! storage
+
+Storage
+^^^^^^^
+
+A *storage* is an atomic location where bits can be loaded from and stored into. Typical examples are CPU registers, I/O ports and memory at a specific address.
+
+A storage has a width (how many bits it contains) and provides information that can be used to eliminate redundant loads and stores.
