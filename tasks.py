@@ -18,6 +18,10 @@ def docs(c):
     render_file(TOP_DIR / "README.md", OUT_DIR / "docs" / "README.html")
     render_dir(TOP_DIR / "docs", OUT_DIR / "docs")
 
+    cmd = ["rst2html", "README.rst", f"-d {OUT_DIR}/README.html"]
+    with c.cd(str(TOP_DIR)):
+        c.run(" ".join(cmd), pty=True)
+
 
 @task
 def sphinx(c, builder="html"):
