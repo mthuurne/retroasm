@@ -2,36 +2,32 @@ from pathlib import Path
 
 from invoke import UnexpectedExit, task
 
-from utils.markdown import render_dir, render_file
-
 TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / "src"
 OUT_DIR = TOP_DIR / "build"
 TEST_DIR = TOP_DIR / "tests" / "unit"
-UTILS_DIR = TOP_DIR / "utils"
-
-
-@task
-def docs(c):
-    """Build documentation."""
-    (OUT_DIR / "docs").mkdir(parents=True, exist_ok=True)
-    render_file(TOP_DIR / "README.md", OUT_DIR / "docs" / "README.html")
-    render_dir(TOP_DIR / "docs", OUT_DIR / "docs")
-
-    cmd = ["rst2html", "README.rst", f"-d {OUT_DIR}/README.html"]
-    with c.cd(str(TOP_DIR)):
-        c.run(" ".join(cmd), pty=True)
 
 
 @task
 def sphinx(c, builder="html"):
     """Build documentation using Sphinx."""
-    dest = OUT_DIR / "sphinx"
+    dest = OUT_DIR / "docs"
     cmd = ["sphinx-build", "-j auto", f"-d {OUT_DIR}/sphinx-cache", f"-b {builder}"]
     cmd.append(str(TOP_DIR / "docs"))
     cmd.append(str(dest))
     with c.cd(str(TOP_DIR)):
         c.run(" ".join(cmd), pty=True)
+
+
+@task(post=[sphinx])
+def docs(c):
+    """Build documentation."""
+    print("Rendering README...")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    cmd = ["rst2html", "README.rst", f"-d {OUT_DIR}/README.html"]
+    with c.cd(str(TOP_DIR)):
+        c.run(" ".join(cmd), pty=True)
+    print()
 
 
 @task
@@ -73,7 +69,7 @@ def lint(c, src=None):
 def isort(c):
     """Sort imports."""
     print("Sorting imports...")
-    c.run(f"isort {SRC_DIR} {TEST_DIR} {UTILS_DIR} {__file__}", pty=True)
+    c.run(f"isort {SRC_DIR} {TEST_DIR} {__file__}", pty=True)
 
 
 @task
