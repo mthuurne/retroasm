@@ -1,44 +1,44 @@
 from retroasm.types import (
-    maskForWidth,
-    maskToSegments,
-    segmentsToMask,
+    mask_for_width,
+    mask_to_segments,
+    segments_to_mask,
     unlimited,
-    widthForMask,
+    width_for_mask,
 )
 
 from .utils_segment import parse_segment
 
 
-def test_maskForWidth():
-    """Test maskForWidth function."""
-    assert maskForWidth(0) == 0x000
-    assert maskForWidth(1) == 0x001
-    assert maskForWidth(7) == 0x07F
-    assert maskForWidth(8) == 0x0FF
-    assert maskForWidth(9) == 0x1FF
-    assert maskForWidth(unlimited) == -1
+def test_mask_for_width():
+    """Test mask_for_width function."""
+    assert mask_for_width(0) == 0x000
+    assert mask_for_width(1) == 0x001
+    assert mask_for_width(7) == 0x07F
+    assert mask_for_width(8) == 0x0FF
+    assert mask_for_width(9) == 0x1FF
+    assert mask_for_width(unlimited) == -1
 
 
-def test_widthForMask():
-    """Test widthForMask function."""
+def test_width_for_mask():
+    """Test width_for_mask function."""
     # Full masks.
-    assert widthForMask(0x000) == 0
-    assert widthForMask(0x001) == 1
-    assert widthForMask(0x07F) == 7
-    assert widthForMask(0x0FF) == 8
-    assert widthForMask(0x1FF) == 9
-    assert widthForMask(-1) == unlimited
+    assert width_for_mask(0x000) == 0
+    assert width_for_mask(0x001) == 1
+    assert width_for_mask(0x07F) == 7
+    assert width_for_mask(0x0FF) == 8
+    assert width_for_mask(0x1FF) == 9
+    assert width_for_mask(-1) == unlimited
     # Masks with holes.
-    assert widthForMask(0xC7) == 8
-    assert widthForMask(0x80) == 8
-    assert widthForMask(-16) == unlimited
+    assert width_for_mask(0xC7) == 8
+    assert width_for_mask(0x80) == 8
+    assert width_for_mask(-16) == unlimited
 
 
-def test_maskToSegments():
-    """Test maskToSegments function."""
+def test_mask_to_segments():
+    """Test mask_to_segments function."""
 
     def to_segs(mask):
-        return [str(segment) for segment in maskToSegments(mask)]
+        return [str(segment) for segment in mask_to_segments(mask)]
 
     assert to_segs(0x0000) == []
     assert to_segs(0x0003) == ["[:2]"]
@@ -49,13 +49,13 @@ def test_maskToSegments():
     assert to_segs(-64 ^ 0x1C00) == ["[6:10]", "[13:]"]
 
 
-def test_segmentsToMask():
-    """Test segmentsToMask function."""
+def test_segments_to_mask():
+    """Test segments_to_mask function."""
 
     def to_mask(*segments):
-        return segmentsToMask(parse_segment(segment) for segment in segments)
+        return segments_to_mask(parse_segment(segment) for segment in segments)
 
-    # Segments from maskToSegments test.
+    # Segments from mask_to_segments test.
     assert to_mask() == 0x0000
     assert to_mask("[0:2]") == 0x0003
     assert to_mask("[3:7]") == 0x0078
@@ -64,7 +64,7 @@ def test_segmentsToMask():
     assert to_mask("[4:]") == -16
     assert to_mask("[6:10]", "[13:]") == -64 ^ 0x1C00
 
-    # Segments that maskToSegments won't return.
+    # Segments that mask_to_segments won't return.
     assert to_mask("[6:11]", "[12:16]", "[1:5]") == 0xF7DE
     assert to_mask("[0:0]", "[9:9]") == 0x0000
     assert to_mask("[6:13]", "[3:8]") == 0x1FF8

@@ -6,11 +6,11 @@ from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
 
 from .types import (
     Width,
-    maskForWidth,
-    maskToSegments,
-    trailingZeroes,
+    mask_for_width,
+    mask_to_segments,
+    trailing_zeroes,
     unlimited,
-    widthForMask,
+    width_for_mask,
 )
 from .utils import const_property
 
@@ -129,7 +129,7 @@ class BadValue(Expression):
 
     @property
     def mask(self) -> int:
-        return maskForWidth(self._width)
+        return mask_for_width(self._width)
 
     def __init__(self, width: Width):
         self._width = width
@@ -260,8 +260,8 @@ class AndOperator(MultiExpression):
         last = exprs[-1]
         if isinstance(last, IntLiteral):
             value = last.value
-            width = widthForMask(value)
-            if width is not unlimited and maskForWidth(width) == value:
+            width = width_for_mask(value)
+            if width is not unlimited and mask_for_width(width) == value:
                 assert isinstance(width, int)
                 # Special formatting for truncation and slicing.
                 if len(exprs) == 2:
@@ -344,7 +344,7 @@ class AddOperator(MultiExpression):
         cmbValue: Width = 0
         cmbMask = 0
         for segment in sorted(
-            chain.from_iterable(maskToSegments(expr.mask) for expr in exprs)
+            chain.from_iterable(mask_to_segments(expr.mask) for expr in exprs)
         ):
             # Compute bit mask for this segment.
             segMask = segment.mask
@@ -417,7 +417,7 @@ class Complement(SingleExpression):
     @const_property
     def mask(self) -> int:
         exprMask = self._expr.mask
-        return 0 if exprMask == 0 else -1 << cast(int, trailingZeroes(exprMask))
+        return 0 if exprMask == 0 else -1 << cast(int, trailing_zeroes(exprMask))
 
 
 class Negation(SingleExpression):
@@ -587,7 +587,9 @@ class LVShift(Expression):
         if exprMask == 0:
             return 0
         offsetMask = self._offset.mask
-        width = cast(int, widthForMask(offsetMask if offsetMask >= 0 else ~offsetMask))
+        width = cast(
+            int, width_for_mask(offsetMask if offsetMask >= 0 else ~offsetMask)
+        )
         mask = exprMask
         for i in range(width):
             if 1 << i >= _SHIFT_LIMIT_BITS:
@@ -598,7 +600,7 @@ class LVShift(Expression):
         return (
             mask
             if offsetMask >= 0
-            else mask | (-1 << ((1 << width) + cast(int, trailingZeroes(exprMask))))
+            else mask | (-1 << ((1 << width) + cast(int, trailing_zeroes(exprMask))))
         )
 
     def _ctorargs(self) -> tuple[Expression, Expression]:
@@ -642,12 +644,12 @@ class RVShift(Expression):
         offsetMask = self._offset.mask
         if offsetMask >= 0:
             # There is a limited number of possible offsets.
-            offsetWidth = cast(int, widthForMask(offsetMask))
+            offsetWidth = cast(int, width_for_mask(offsetMask))
         elif exprMask >= 0:
             # There is an unlimited number of possible offsets, but only
             # offsets below the width of the expression mask contribute.
-            exprWidth = cast(int, widthForMask(exprMask))
-            offsetWidth = cast(int, widthForMask(exprWidth))
+            exprWidth = cast(int, width_for_mask(exprMask))
+            offsetWidth = cast(int, width_for_mask(exprWidth))
         else:
             # There is no value we can rule out.
             assert exprMask < 0 and offsetMask < 0, self
@@ -669,7 +671,7 @@ class RVShift(Expression):
 
 
 def truncate(expr: Expression, width: Width) -> Expression:
-    return AndOperator(expr, IntLiteral(maskForWidth(width)))
+    return AndOperator(expr, IntLiteral(mask_for_width(width)))
 
 
 def optSlice(expr: Expression, index: int, width: Width) -> Expression:
@@ -680,6 +682,6 @@ def optSlice(expr: Expression, index: int, width: Width) -> Expression:
     if index != 0:
         expr = RShift(expr, index)
     mask = expr.mask
-    if mask & maskForWidth(width) != mask:
+    if mask & mask_for_width(width) != mask:
         expr = truncate(expr, width)
     return expr

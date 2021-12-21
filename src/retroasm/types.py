@@ -81,15 +81,15 @@ unlimited = Unlimited()
 Width = Union[int, Unlimited]
 
 
-def maskForWidth(width: Width) -> int:
+def mask_for_width(width: Width) -> int:
     return -1 if width is unlimited else (1 << cast(int, width)) - 1
 
 
-def widthForMask(mask: int) -> Width:
+def width_for_mask(mask: int) -> Width:
     return unlimited if mask < 0 else mask.bit_length()
 
 
-def trailingZeroes(n: int) -> Width:
+def trailing_zeroes(n: int) -> Width:
     if n == 0:
         return unlimited
     count = 0
@@ -126,11 +126,11 @@ class Segment:
 
     @property
     def mask(self) -> int:
-        return maskForWidth(self.width) << self.start
+        return mask_for_width(self.width) << self.start
 
     def cut(self, value: int) -> int:
         """Slice the bits in this segment from the given integer value."""
-        return (value >> self.start) & maskForWidth(self.width)
+        return (value >> self.start) & mask_for_width(self.width)
 
     def __bool__(self) -> bool:
         """Return True iff the segment is non-empty."""
@@ -157,7 +157,7 @@ class Segment:
             return NotImplemented
 
 
-def maskToSegments(mask: int) -> Iterator[Segment]:
+def mask_to_segments(mask: int) -> Iterator[Segment]:
     """
     Iterates through pairs of start and end indices of maximally long
     segments of consecutive set bits in the given mask.
@@ -182,7 +182,7 @@ def maskToSegments(mask: int) -> Iterator[Segment]:
         yield Segment(start, i - start)
 
 
-def segmentsToMask(segments: Iterable[Segment]) -> int:
+def segments_to_mask(segments: Iterable[Segment]) -> int:
     """
     Computes a mask that corresponds to the given sequence of pairs of
     start and end indices.
@@ -216,7 +216,7 @@ class IntType(metaclass=Unique):
 
     @property
     def mask(self) -> int:  # pylint: disable=undefined-variable
-        return -1 if self._signed else maskForWidth(self._width)
+        return -1 if self._signed else mask_for_width(self._width)
 
     @classmethod
     def u(cls, width: Width) -> IntType:
@@ -300,18 +300,18 @@ class ReferenceType(metaclass=Unique):
         return f"{self._type}&"
 
 
-def parseType(typeName: str) -> IntType:
-    if typeName == "int":
+def parse_type(type_name: str) -> IntType:
+    if type_name == "int":
         return IntType.int
-    if typeName.startswith("u") or typeName.startswith("s"):
-        widthStr = typeName[1:]
-        if widthStr.isdigit():
-            return IntType(int(widthStr), typeName.startswith("s"))
-    raise ValueError(f'"{typeName}" is not a valid type name')
+    if type_name.startswith("u") or type_name.startswith("s"):
+        width_str = type_name[1:]
+        if width_str.isdigit():
+            return IntType(int(width_str), type_name.startswith("s"))
+    raise ValueError(f'"{type_name}" is not a valid type name')
 
 
-def parseTypeDecl(typeDecl: str) -> IntType | ReferenceType:
-    if typeDecl.endswith("&"):
-        return ReferenceType(parseType(typeDecl[:-1]))
+def parse_type_decl(type_decl: str) -> IntType | ReferenceType:
+    if type_decl.endswith("&"):
+        return ReferenceType(parse_type(type_decl[:-1]))
     else:
-        return parseType(typeDecl)
+        return parse_type(type_decl)

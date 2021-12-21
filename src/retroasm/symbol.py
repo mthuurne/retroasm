@@ -11,7 +11,7 @@ Two kinds of symbols are supported:
 from __future__ import annotations
 
 from .expression import Expression
-from .types import Width, maskForWidth
+from .types import Width, mask_for_width
 
 
 class SymbolValue(Expression):
@@ -26,7 +26,7 @@ class SymbolValue(Expression):
 
     @property
     def mask(self) -> int:
-        return maskForWidth(self._width)
+        return mask_for_width(self._width)
 
     @property
     def name(self) -> str:

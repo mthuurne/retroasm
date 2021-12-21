@@ -73,7 +73,7 @@ from .namespace import (
 )
 from .reference import Reference, badReference, intReference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
-from .types import IntType, ReferenceType, Width, parseType, parseTypeDecl
+from .types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from .utils import bad_type
 
 _namePat = r"[A-Za-z_][A-Za-z0-9_]*'?"
@@ -104,7 +104,7 @@ def _parseRegs(
             assert declType is not None
             typeLocation = declType.location
             try:
-                regType = parseTypeDecl(declType.name)
+                regType = parse_type_decl(declType.name)
             except ValueError as ex:
                 # Avoid reporting the same error twice.
                 if typeLocation != lastTypeLocation:
@@ -152,7 +152,7 @@ _reCommaSep = re.compile(r"\s*,\s*")
 _reArgDecl = re.compile(_typeTok + r"\s" + _nameTok + r"$")
 
 
-def _parseTypedArgs(
+def _parse_typedArgs(
     reader: DefLineReader, args: InputLocation, description: str
 ) -> Iterator[tuple[IntType | ReferenceType, InputLocation, InputLocation]]:
     """
@@ -176,7 +176,7 @@ def _parseTypedArgs(
 
         typeLoc, nameLoc = argMatch.groups
         try:
-            argType = parseTypeDecl(typeLoc.text)
+            argType = parse_type_decl(typeLoc.text)
         except ValueError as ex:
             reader.error(
                 'bad %s %d ("%s"): %s',
@@ -203,7 +203,7 @@ def _parsePrefix(
     try:
         with reader.checkErrors():
             flagType = IntType.u(1)
-            for argType, argTypeLoc, argNameLoc in _parseTypedArgs(
+            for argType, argTypeLoc, argNameLoc in _parse_typedArgs(
                 reader, args, "decode flag"
             ):
                 if isinstance(argType, ReferenceType):
@@ -340,13 +340,13 @@ def _parseIO(
             elemTypeLoc, nameLoc, addrTypeLoc = match.groups
 
             try:
-                elemType: IntType | None = parseType(elemTypeLoc.text)
+                elemType: IntType | None = parse_type(elemTypeLoc.text)
             except ValueError as ex:
                 reader.error("bad I/O element type: %s", ex, location=elemTypeLoc)
                 elemType = None
 
             try:
-                addrType: IntType | None = parseType(addrTypeLoc.text)
+                addrType: IntType | None = parse_type(addrTypeLoc.text)
             except ValueError as ex:
                 reader.error("bad I/O address type: %s", ex, location=addrTypeLoc)
                 addrType = None
@@ -386,7 +386,7 @@ def _parseFunc(
     if match.hasGroup(1):
         retTypeLoc = match.group(1)
         try:
-            retType = parseTypeDecl(retTypeLoc.text)
+            retType = parse_type_decl(retTypeLoc.text)
         except ValueError as ex:
             reader.error("bad return type: %s", ex, location=retTypeLoc)
             reader.skipBlock()
@@ -401,7 +401,7 @@ def _parseFunc(
         with reader.checkErrors():
             nameLocations: dict[str, InputLocation] = {}
             for i, (argType, argTypeLoc_, argNameLoc) in enumerate(
-                _parseTypedArgs(reader, match.group(3), "function argument"), 1
+                _parse_typedArgs(reader, match.group(3), "function argument"), 1
             ):
                 argName = argNameLoc.text
                 if argName == "ret":
@@ -472,9 +472,9 @@ def _parseModeContext(
             else:
                 try:
                     # TODO: While the documentation says we do support defining
-                    #       references in the context, parseType() rejects
-                    #       "<type>&"; we'd have to use parseTypeDecl() instead.
-                    typ = parseType(typeName)
+                    #       references in the context, parse_type() rejects
+                    #       "<type>&"; we'd have to use parse_type_decl() instead.
+                    typ = parse_type(typeName)
                 except ValueError:
                     reader.error(
                         'there is no type or mode named "%s"',
@@ -1292,7 +1292,7 @@ def _parseMode(
     modeTypeLoc, modeNameLoc = match.groups
     semType: None | IntType | ReferenceType
     try:
-        semType = parseTypeDecl(modeTypeLoc.text)
+        semType = parse_type_decl(modeTypeLoc.text)
     except ValueError as ex:
         reader.error("bad mode type: %s", ex, location=modeTypeLoc)
         semType = None
@@ -1309,7 +1309,7 @@ def _parseMode(
         )
     else:
         try:
-            parseType(modeName)
+            parse_type(modeName)
         except ValueError:
             addMode = True
         else:

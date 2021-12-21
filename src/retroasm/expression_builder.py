@@ -56,10 +56,10 @@ from .types import (
     IntType,
     ReferenceType,
     Width,
-    parseType,
-    parseTypeDecl,
+    parse_type,
+    parse_type_decl,
     unlimited,
-    widthForMask,
+    width_for_mask,
 )
 from .utils import bad_type
 
@@ -88,7 +88,7 @@ def declareVariable(node: DeclarationNode, namespace: BuilderNamespace) -> Refer
     typeNode = node.type
     assert typeNode is not None, node
     try:
-        typ = parseType(typeNode.name)
+        typ = parse_type(typeNode.name)
     except ValueError as ex:
         raise BadExpression(
             f"bad type name in definition: {ex}", typeNode.location
@@ -215,7 +215,7 @@ def _convertFunctionCall(
             # Value arguments must be evaluated and truncated when passed.
             value = ref.emitLoad(builder, argNode.treeLocation)
             argWidth = decl.width
-            if widthForMask(value.mask) > argWidth:
+            if width_for_mask(value.mask) > argWidth:
                 value = truncate(value, argWidth)
             bits = FixedValue(value, argWidth)
         argMap[name] = bits
@@ -605,7 +605,7 @@ def emitCodeFromStatements(
             else:
                 # Determine type.
                 try:
-                    typ = parseTypeDecl(typeNode.name)
+                    typ = parse_type_decl(typeNode.name)
                 except ValueError as ex:
                     raise BadExpression(
                         f"bad type name in definition: {ex}", typeNode.location

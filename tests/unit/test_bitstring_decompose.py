@@ -10,7 +10,7 @@ from retroasm.expression import (
     RVShift,
 )
 from retroasm.reference import BitString, ConcatenatedBits, SingleStorage, SlicedBits
-from retroasm.types import IntType, maskForWidth, widthForMask
+from retroasm.types import IntType, mask_for_width, width_for_mask
 
 from .utils_codeblock import TestNamespace
 
@@ -31,8 +31,8 @@ def decomposeExpr(expr):
         subExpr, maskExpr = expr.exprs
         assert isinstance(maskExpr, IntLiteral)
         mask = maskExpr.value
-        maskWidth = widthForMask(mask)
-        assert maskForWidth(maskWidth) == mask
+        maskWidth = width_for_mask(mask)
+        assert mask_for_width(maskWidth) == mask
         for dex, offset, width, shift in decomposeExpr(subExpr):
             width = min(width, maskWidth - shift)
             if width > 0:
@@ -57,7 +57,7 @@ def decomposeExpr(expr):
                     continue
             yield dex, offset, width, shift
     else:
-        yield expr, 0, widthForMask(expr.mask), 0
+        yield expr, 0, width_for_mask(expr.mask), 0
 
 
 def iterSlices(bits):
@@ -134,14 +134,14 @@ def checkLoad(namespace, bits, expected):
 
     # Check the loaded value expression's bit mask.
     assert (
-        widthForMask(value.mask) <= bits.width
+        width_for_mask(value.mask) <= bits.width
     ), "loaded value is wider than bit string"
 
     # Check that the loaded expression's terms don't overlap.
     decomposedVal = tuple(decomposeExpr(value))
     mask = 0
     for dex, offset, width, shift in decomposedVal:
-        termMask = maskForWidth(width) << shift
+        termMask = mask_for_width(width) << shift
         assert mask & termMask == 0, "loaded terms overlap"
 
     # Check loaded value.

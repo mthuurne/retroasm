@@ -26,9 +26,9 @@ from .types import (
     ReferenceType,
     Segment,
     Width,
-    maskForWidth,
+    mask_for_width,
     unlimited,
-    widthForMask,
+    width_for_mask,
 )
 
 if TYPE_CHECKING:
@@ -146,7 +146,7 @@ class FixedValue(BitString):
         """
         super().__init__(width)
         self._expr = expr
-        assert widthForMask(expr.mask) <= width, expr
+        assert width_for_mask(expr.mask) <= width, expr
 
     def __repr__(self) -> str:
         return f"FixedValue({self._expr!r}, {self._width})"
@@ -415,11 +415,11 @@ class SlicedBits(BitString):
     ) -> None:
         offset = self._offset
         width = self.width
-        valueMask = LVShift(IntLiteral(maskForWidth(width)), offset)
+        valueMask = LVShift(IntLiteral(mask_for_width(width)), offset)
 
         # Get mask and previous value of our bit string.
         bits = self._bits
-        fullMask = IntLiteral(maskForWidth(bits.width))
+        fullMask = IntLiteral(mask_for_width(bits.width))
         prevValue = bits.emitLoad(builder, location)
 
         # Combine previous value with new value.

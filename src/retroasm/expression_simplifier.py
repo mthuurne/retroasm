@@ -20,7 +20,7 @@ from .expression import (
     XorOperator,
     optSlice,
 )
-from .types import maskForWidth, widthForMask
+from .types import mask_for_width, width_for_mask
 
 
 def _simplifyAlgebraic(cls: type[MultiExpression], exprs: list[Expression]) -> bool:
@@ -392,7 +392,7 @@ def _simplifySignTest(signTest: SignTest) -> Expression:
 
 def _simplifySignExtension(signExtend: SignExtension) -> Expression:
     width = signExtend.width
-    mask = maskForWidth(width)
+    mask = mask_for_width(width)
     expr = _simplifyMasked(simplifyExpression(signExtend.expr), mask)
 
     if isinstance(expr, IntLiteral):
@@ -566,7 +566,7 @@ def _simplifyMasked(expr: Expression, mask: int) -> Expression:
             # Note: Only take truncation at the front into account.
             #       While truncation could be done inside holes as well,
             #       implementing that might not be worth the effort.
-            termMask = maskForWidth(widthForMask(mask))
+            termMask = mask_for_width(width_for_mask(mask))
         else:
             termMask = mask
         terms = []
@@ -589,7 +589,7 @@ def _simplifyMasked(expr: Expression, mask: int) -> Expression:
             return simplifyExpression(expr.__class__(*terms))
     elif isinstance(expr, Complement):
         subExpr = expr.expr
-        subMasked = _simplifyMasked(subExpr, maskForWidth(widthForMask(mask)))
+        subMasked = _simplifyMasked(subExpr, mask_for_width(width_for_mask(mask)))
         if subMasked is not subExpr:
             return simplifyExpression(Complement(subMasked))
 

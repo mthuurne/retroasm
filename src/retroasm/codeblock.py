@@ -6,7 +6,7 @@ from .expression import Expression
 from .linereader import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
-from .types import maskForWidth
+from .types import mask_for_width
 from .utils import const_property
 
 
@@ -65,7 +65,7 @@ class Load(AccessNode):
     __slots__ = ()
 
     def __init__(self, storage: Storage, location: InputLocation | None = None):
-        expr = LoadedValue(self, maskForWidth(storage.width))
+        expr = LoadedValue(self, mask_for_width(storage.width))
         AccessNode.__init__(self, expr, storage, location)
 
     def __repr__(self) -> str:

@@ -19,7 +19,7 @@ from .mode import (
 )
 from .reference import FixedValue, SingleStorage
 from .storage import ArgStorage
-from .types import Segment, maskForWidth, maskToSegments
+from .types import Segment, mask_for_width, mask_to_segments
 from .utils import Singleton, bad_type
 
 
@@ -122,7 +122,7 @@ def decomposeEncoding(
 
 
 def _formatMask(name: str, mask: int, value: int | None = None) -> str:
-    segments = list(maskToSegments(mask))
+    segments = list(mask_to_segments(mask))
     if len(segments) == 1:
         (segment,) = segments
         if value is None:
@@ -586,7 +586,7 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
         # Pick the upper segment: for correctness any segment will do,
         # but instruction sets are typically designed with top-level
         # categories in the upper bits.
-        segment = max(maskToSegments(commonMask))
+        segment = max(mask_to_segments(commonMask))
         start = segment.start
         tableMask = segment.mask
 
@@ -760,7 +760,7 @@ def createPrefixDecoder(
             encIdx = fixedEncoding.encIdx
             assert idx == encIdx, (idx, encIdx)
             assert encoding.encodingWidth is not None
-            assert fixedEncoding.fixedMask == maskForWidth(encoding.encodingWidth)
+            assert fixedEncoding.fixedMask == mask_for_width(encoding.encodingWidth)
             values.append(fixedEncoding.fixedValue)
         assert len(values) == encoding.encodedLength
         root.addPrefix(values, prefix)
