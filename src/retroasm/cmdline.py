@@ -89,7 +89,7 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
 def checkInstrSet(path: Path, dumpNoSubs: bool, dumpSubs: bool, logger: Logger) -> int:
 
     logger.info("checking: %s", path)
-    instrSet = loadInstructionSet(path, logger)  # type: ignore[arg-type]
+    instrSet = loadInstructionSet(path, logger)
     if instrSet is None:
         return 1
 
