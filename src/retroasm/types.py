@@ -159,11 +159,11 @@ class Segment:
 
 def mask_to_segments(mask: int) -> Iterator[Segment]:
     """
-    Iterates through pairs of start and end indices of maximally long
-    segments of consecutive set bits in the given mask.
+    Yield maximally long disjunct segments corresponding to consecutive set bits
+    in the given mask.
     The segments are returned in increasing order.
-    Negative masks are supported, the last segment will have 'unlimited' as
-    its end in that case.
+    Negative masks are supported, the last segment will have width 'unlimited'
+    in that case.
     """
     i = 0
     while True:
@@ -183,12 +183,7 @@ def mask_to_segments(mask: int) -> Iterator[Segment]:
 
 
 def segments_to_mask(segments: Iterable[Segment]) -> int:
-    """
-    Computes a mask that corresponds to the given sequence of pairs of
-    start and end indices.
-    Overlapping or empty segments are allowed, start larger than end is not.
-    End indices may be 'unlimited', start indices may not.
-    """
+    """Compute a mask that corresponds to the union of the given segments."""
     mask = 0
     for segment in segments:
         mask |= segment.mask
