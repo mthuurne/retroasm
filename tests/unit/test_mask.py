@@ -1,3 +1,5 @@
+from hypothesis import given, infer
+
 from retroasm.types import (
     mask_for_width,
     mask_to_segments,
@@ -68,6 +70,23 @@ def test_segments_to_mask():
     assert to_mask("[6:11]", "[12:16]", "[1:5]") == 0xF7DE
     assert to_mask("[0:0]", "[9:9]") == 0x0000
     assert to_mask("[6:13]", "[3:8]") == 0x1FF8
+
+
+@given(mask=infer)
+def test_mask_to_segments_properties(mask: int) -> None:
+    segments = list(mask_to_segments(mask))
+
+    # Round trip preserves value.
+    assert segments_to_mask(segments) == mask
+
+    # Segments are non-empty.
+    for seg in segments:
+        assert seg.width > 0
+
+    # Segments are ascending and don't touch.
+    # TODO: Python 3.10 has itertools.pairwise().
+    for idx in range(len(segments) - 1):
+        assert segments[idx].end < segments[idx + 1].start
 
 
 def test_segment_cut():
