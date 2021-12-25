@@ -104,12 +104,11 @@ class Segment:
     start: int
     width: Width
 
-    def __new__(cls, start: int, width: Width) -> Segment:
-        if start < 0:
-            raise ValueError(f"Segment start cannot be negative: {start:d}")
-        instance: Segment = object.__new__(cls)
-        instance.__init__(start, width)  # type: ignore[misc]
-        return instance
+    def __post_init__(self) -> None:
+        if self.start < 0:
+            raise ValueError(f"Segment start cannot be negative: {self.start:d}")
+        if self.width < 0:
+            raise ValueError(f"Segment width cannot be negative: {self.width:d}")
 
     def __str__(self) -> str:
         start = self.start

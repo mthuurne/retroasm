@@ -1,6 +1,10 @@
+from dataclasses import replace
+
 from hypothesis import given, infer
+from pytest import raises
 
 from retroasm.types import (
+    Segment,
     mask_for_width,
     mask_to_segments,
     segments_to_mask,
@@ -87,6 +91,20 @@ def test_mask_to_segments_properties(mask: int) -> None:
     # TODO: Python 3.10 has itertools.pairwise().
     for idx in range(len(segments) - 1):
         assert segments[idx].end < segments[idx + 1].start
+
+
+def test_segment_validation() -> None:
+    """Segment construction refuses out-of-range arguments."""
+
+    with raises(ValueError, match="^Segment start cannot be negative: -5$"):
+        Segment(-5, 2)
+    with raises(ValueError, match="^Segment width cannot be negative: -8$"):
+        Segment(0, -8)
+
+    with raises(ValueError, match="^Segment start cannot be negative: -1$"):
+        replace(Segment(12, 4), start=-1)
+    with raises(ValueError, match="^Segment width cannot be negative: -16$"):
+        replace(Segment(3, 7), width=-16)
 
 
 def test_segment_cut() -> None:
