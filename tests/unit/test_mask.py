@@ -11,7 +11,7 @@ from retroasm.types import (
 from .utils_segment import parse_segment
 
 
-def test_mask_for_width():
+def test_mask_for_width() -> None:
     """Test mask_for_width function."""
     assert mask_for_width(0) == 0x000
     assert mask_for_width(1) == 0x001
@@ -21,7 +21,7 @@ def test_mask_for_width():
     assert mask_for_width(unlimited) == -1
 
 
-def test_width_for_mask():
+def test_width_for_mask() -> None:
     """Test width_for_mask function."""
     # Full masks.
     assert width_for_mask(0x000) == 0
@@ -36,7 +36,7 @@ def test_width_for_mask():
     assert width_for_mask(-16) == unlimited
 
 
-def test_mask_to_segments():
+def test_mask_to_segments() -> None:
     """Test mask_to_segments function."""
 
     def to_segs(mask):
@@ -51,7 +51,7 @@ def test_mask_to_segments():
     assert to_segs(-64 ^ 0x1C00) == ["[6:10]", "[13:]"]
 
 
-def test_segments_to_mask():
+def test_segments_to_mask() -> None:
     """Test segments_to_mask function."""
 
     def to_mask(*segments):
@@ -89,7 +89,7 @@ def test_mask_to_segments_properties(mask: int) -> None:
         assert segments[idx].end < segments[idx + 1].start
 
 
-def test_segment_cut():
+def test_segment_cut() -> None:
     """A segment can be used to slice bits from an integer."""
 
     assert parse_segment("[:12]").cut(0x1234) == 0x234
@@ -98,7 +98,7 @@ def test_segment_cut():
     assert parse_segment("[4:]").cut(-64) == -4
 
 
-def test_segment_shift():
+def test_segment_shift() -> None:
     """Segments can be shifted left or right."""
 
     assert str(parse_segment("[3:7]") << 5) == "[8:12]"
@@ -112,7 +112,7 @@ def test_segment_shift():
     assert str(parse_segment("[4:]") >> 10) == "[:]"
 
 
-def test_segment_intersect():
+def test_segment_intersect() -> None:
     """Segments can be intersected using the '&' operator."""
 
     assert str(parse_segment("[3:7]") & parse_segment("[6:9]")) == "[6]"

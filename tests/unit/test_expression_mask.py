@@ -15,7 +15,7 @@ from retroasm.types import IntType
 from .utils_expression import TestValue
 
 
-def test_int():
+def test_int() -> None:
     """Checks mask for integer literals."""
     assert IntLiteral(0).mask == 0
     assert IntLiteral(1).mask == 1
@@ -24,7 +24,7 @@ def test_int():
     assert IntLiteral(-9).mask == -9
 
 
-def test_width():
+def test_width() -> None:
     """Checks mask computed from value width."""
     v8 = TestValue("A", IntType.u(8))
     v16 = TestValue("B", IntType.u(16))
@@ -32,7 +32,7 @@ def test_width():
     assert v16.mask == 0xFFFF
 
 
-def test_and():
+def test_and() -> None:
     """Checks mask for bitwise AND."""
     v8 = TestValue("A", IntType.u(8))
     v16 = TestValue("B", IntType.u(16))
@@ -47,7 +47,7 @@ def test_and():
     assert AndOperator(v8, v16, lit).mask == litval & 0xFF
 
 
-def test_or():
+def test_or() -> None:
     """Checks mask for bitwise OR."""
     v8 = TestValue("A", IntType.u(8))
     v16 = TestValue("B", IntType.u(16))
@@ -62,7 +62,7 @@ def test_or():
     assert OrOperator(v8, v16, lit).mask == 0xFFFF
 
 
-def test_xor():
+def test_xor() -> None:
     """Checks mask for bitwise XOR."""
     v8 = TestValue("A", IntType.u(8))
     v16 = TestValue("B", IntType.u(16))
@@ -76,7 +76,7 @@ def test_xor():
     assert XorOperator(v8, v16, lit).mask == 0xFFFF
 
 
-def test_add():
+def test_add() -> None:
     """Checks mask for addition."""
     v8 = TestValue("A", IntType.u(8))
     v16 = TestValue("B", IntType.u(16))
@@ -91,7 +91,7 @@ def test_add():
     assert AddOperator(IntLiteral(0xFF00FF), IntLiteral(0xFF00FF)).mask == 0x1FF01FF
 
 
-def test_complement():
+def test_complement() -> None:
     """Checks mask for complement."""
     v8 = TestValue("A", IntType.u(8))
     assert Complement(v8).mask == -1
@@ -101,7 +101,7 @@ def test_complement():
     assert Complement(IntLiteral(-68)).mask == -4
 
 
-def test_lshift():
+def test_lshift() -> None:
     """Checks mask for left shift."""
     v8 = TestValue("A", IntType.u(8))
     assert LShift(v8, 0).mask == 0xFF
@@ -110,7 +110,7 @@ def test_lshift():
     assert LShift(IntLiteral(0x1234), 12).mask == 0x1234000
 
 
-def test_rshift():
+def test_rshift() -> None:
     """Checks mask for right shift."""
     v8 = TestValue("A", IntType.u(8))
     assert RShift(v8, 0).mask == 0xFF
@@ -119,7 +119,7 @@ def test_rshift():
     assert RShift(IntLiteral(0x12345678), 12).mask == 0x12345
 
 
-def test_lvshift():
+def test_lvshift() -> None:
     """Checks mask for left variable shift."""
     v8 = TestValue("A", IntType.u(8))
     v1 = TestValue("B", IntType.u(1))
@@ -158,7 +158,7 @@ def test_lvshift():
     assert LVShift(IntLiteral(-160), i).mask == -1 << 5
 
 
-def test_rvshift():
+def test_rvshift() -> None:
     """Checks mask for right variable shift."""
     v8 = TestValue("A", IntType.u(8))
     v1 = TestValue("B", IntType.u(1))

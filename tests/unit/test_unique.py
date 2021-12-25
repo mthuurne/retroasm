@@ -11,7 +11,7 @@ def assertData(data, a):
     assert data.a == a
 
 
-def test_create():
+def test_create() -> None:
     """Test that construction creates correct objects."""
     assertData(DataType(0), 0)
     assertData(DataType(123), 123)
@@ -19,7 +19,7 @@ def test_create():
     assertData(DataType("foo"), "foo")
 
 
-def test_id():
+def test_id() -> None:
     """Test that construction with same arguments returns same object."""
     d1 = DataType(123)
     d2 = DataType("foo")
@@ -33,7 +33,7 @@ def test_id():
     assert d2 is not d4
 
 
-def test_star():
+def test_star() -> None:
     """Test passing arguments using the '*' operator."""
     d1 = DataType(*(123,))
     d2 = DataType(*("foo",))
