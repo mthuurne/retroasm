@@ -177,3 +177,11 @@ def test_segment_intersect() -> None:
 
     assert (parse_segment("[:4]") & parse_segment("[8:]")).width == 0
     assert not (parse_segment("[:4]") & parse_segment("[8:]"))
+
+
+@given(segment1=infer, segment2=infer)
+def test_segment_intersect_diamond(segment1: Segment, segment2: Segment) -> None:
+    """
+    The mask of a segment intersection is equal to the intersection of the masks.
+    """
+    assert (segment1 & segment2).mask == segment1.mask & segment2.mask
