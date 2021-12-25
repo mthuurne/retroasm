@@ -1,6 +1,7 @@
 from dataclasses import replace
 
-from hypothesis import given, infer
+from hypothesis import given, infer, note
+from hypothesis.strategies import builds, integers, just, one_of, register_type_strategy
 from pytest import raises
 
 from retroasm.types import (
@@ -13,6 +14,24 @@ from retroasm.types import (
 )
 
 from .utils_segment import parse_segment
+
+offsets = integers(min_value=0, max_value=100)
+"""
+Strategy for generating bit offsets.
+We must limit the maximum offset to avoid huge bitmasks.
+"""
+
+width = one_of(offsets, just(unlimited))
+"""
+Strategy for generating bitstring widths.
+"""
+
+segments = builds(Segment, start=offsets, width=width)
+"""
+Strategy for generating bit index segments.
+"""
+
+register_type_strategy(Segment, segments)
 
 
 def test_mask_for_width() -> None:
@@ -128,6 +147,26 @@ def test_segment_shift() -> None:
     assert str(parse_segment("[3:7]") >> 6) == "[0]"
     assert str(parse_segment("[:8]") >> 2) == "[:6]"
     assert str(parse_segment("[4:]") >> 10) == "[:]"
+
+
+@given(segment=infer, offset=offsets)
+def test_segment_lshift_diamond(segment: Segment, offset: int) -> None:
+    """
+    The mask of a shifted segment is equal to the shifted mask of the original segment.
+    """
+    shifted = segment << offset
+    note(f"Shifted segment: {shifted}")
+    assert shifted.mask == segment.mask << offset
+
+
+@given(segment=infer, offset=offsets)
+def test_segment_rshift_diamond(segment: Segment, offset: int) -> None:
+    """
+    The mask of a shifted segment is equal to the shifted mask of the original segment.
+    """
+    shifted = segment >> offset
+    note(f"Shifted segment: {shifted}")
+    assert shifted.mask == segment.mask >> offset
 
 
 def test_segment_intersect() -> None:

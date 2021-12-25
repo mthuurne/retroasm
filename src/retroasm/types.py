@@ -141,7 +141,7 @@ class Segment:
     def __rshift__(self, offset: int) -> Segment:
         start = self.start - offset
         if start < 0:
-            return Segment(0, self.width + start)
+            return Segment(0, max(self.width + start, 0))
         else:
             return Segment(start, self.width)
 
