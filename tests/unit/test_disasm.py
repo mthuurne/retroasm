@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Iterator, cast
 
+from pytest import mark
+
 from retroasm.asm_directives import DataDirective
 from retroasm.asm_formatter import Formatter
 from retroasm.binfmt import Image
@@ -96,6 +98,7 @@ def test_disasm_push_ix_pop_iy() -> None:
     ]
 
 
+@mark.xfail
 def test_disasm_bad_opcode() -> None:
     """Disassemble an illegal instruction."""
     image = b"\xed\x0c"
@@ -105,6 +108,7 @@ def test_disasm_bad_opcode() -> None:
     ]
 
 
+@mark.xfail
 def test_disasm_multiple_opcode() -> None:
     """Disassemble an instruction that has more than one possible opcode."""
     image = b"\x2a\x34\x12" b"\xed\x6b\x78\x56"
