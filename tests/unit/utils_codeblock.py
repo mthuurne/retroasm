@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from retroasm.codeblock import Load, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder,

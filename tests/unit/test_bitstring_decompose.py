@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pytest import fixture, mark
 
 from retroasm.codeblock import Load, LoadedValue, Store

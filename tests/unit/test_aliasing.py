@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from retroasm.expression import IntLiteral
 from retroasm.storage import ArgStorage, IOChannel, IOStorage, Variable
 from retroasm.types import IntType

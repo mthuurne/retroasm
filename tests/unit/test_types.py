@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pytest import raises
 
 from retroasm.types import IntType, unlimited

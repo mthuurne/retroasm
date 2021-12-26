@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from retroasm.expression import RShift, truncate
 from retroasm.expression_simplifier import simplifyExpression
 from retroasm.types import IntType

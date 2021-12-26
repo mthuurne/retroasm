@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from retroasm.codeblock import Load, Store
 from retroasm.expression import AddOperator, IntLiteral, XorOperator
 from retroasm.function import Function

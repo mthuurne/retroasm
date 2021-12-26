@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from retroasm.utils import const_property

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from retroasm.expression import IntLiteral, truncate
 from retroasm.types import IntType
 
