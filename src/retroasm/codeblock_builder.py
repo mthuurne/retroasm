@@ -38,7 +38,7 @@ class CodeBlockBuilder:
         self,
         func: Function,
         argMap: Mapping[str, BitString | None],
-        location: InputLocation,
+        location: InputLocation | None = None,
     ) -> BitString | None:
         """
         Inlines a call to the given function with the given arguments.
@@ -85,7 +85,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
         self,
         func: Function,
         argMap: Mapping[str, BitString | None],
-        location: InputLocation,
+        location: InputLocation | None = None,
     ) -> BitString | None:
         # TODO: This is probably overly strict: calling a function that does
         #       not touch state should be fine.
@@ -172,7 +172,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         self,
         func: Function,
         argMap: Mapping[str, BitString | None],
-        location: InputLocation,
+        location: InputLocation | None = None,
     ) -> BitString | None:
         code = func.code
         if code is None:
