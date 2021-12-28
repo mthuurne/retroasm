@@ -25,7 +25,7 @@ class Namespace:
     def __init__(self, parent: Namespace | None):
         self.parent = parent
         self.elements: dict[str, NamespaceValue] = {}
-        self.locations: dict[str, InputLocation] = {}
+        self.locations: dict[str, InputLocation | None] = {}
 
     def __str__(self) -> str:
         args = ", ".join(f"{name}={value}" for name, value in self.elements.items())
@@ -61,15 +61,18 @@ class Namespace:
     def items(self) -> ItemsView[str, NamespaceValue]:
         return self.elements.items()
 
-    def define(self, name: str, value: NamespaceValue, location: InputLocation) -> None:
+    def define(
+        self, name: str, value: NamespaceValue, location: InputLocation | None = None
+    ) -> None:
         """
         Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
         """
         self._checkName(name, value, location)
         if name in self.elements:
-            oldLocation = self.locations.get(name)
-            if oldLocation is None:
+            try:
+                oldLocation = self.locations[name]
+            except KeyError:
                 # No stored location implies this is an imported name.
                 # TODO: Showing the import location would be nice,
                 #       but we'd have to change the interface to pass
@@ -81,7 +84,7 @@ class Namespace:
         self.elements[name] = value
 
     def _checkName(
-        self, name: str, value: NamespaceValue, location: InputLocation
+        self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         """
         Check whether the given name can be used in this namespace for the given value.
@@ -91,7 +94,7 @@ class Namespace:
         """
 
     def _addNamedStorage(
-        self, name: str, storage: Storage, typ: IntType, location: InputLocation
+        self, name: str, storage: Storage, typ: IntType, location: InputLocation | None
     ) -> Reference:
         bits = SingleStorage(storage)
         ref = Reference(bits, typ)
@@ -99,7 +102,7 @@ class Namespace:
         return ref
 
     def addArgument(
-        self, name: str, typ: IntType, location: InputLocation
+        self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         """
         Add an pass-by-reference argument to this namespace.
@@ -113,7 +116,7 @@ class ContextNamespace(Namespace):
     """A namespace for a mode entry context."""
 
     def _checkName(
-        self, name: str, value: NamespaceValue, location: InputLocation
+        self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         _rejectPC(name, location)
         _rejectRet(name, location)
@@ -140,7 +143,7 @@ class BuilderNamespace(Namespace):
             print(f"    return {self.elements['ret']}")
 
     def addVariable(
-        self, name: str, typ: IntType, location: InputLocation
+        self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         """
         Adds a variable with the given name and type to this namespace.
@@ -161,7 +164,7 @@ class GlobalNamespace(BuilderNamespace):
         BuilderNamespace.__init__(self, None, builder)
 
     def _checkName(
-        self, name: str, value: NamespaceValue, location: InputLocation
+        self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         if not isinstance(value, Reference):
             _rejectPC(name, location)
@@ -183,7 +186,7 @@ class LocalNamespace(BuilderNamespace):
         self.builder: SemanticsCodeBlockBuilder
 
     def _checkName(
-        self, name: str, value: NamespaceValue, location: InputLocation
+        self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         _rejectPC(name, location)
 
@@ -215,15 +218,24 @@ class NameExistsError(BadInput):
     which is already in use.
     """
 
+    def __init__(
+        self,
+        msg: str,
+        location: InputLocation | None,
+        old_location: InputLocation | None = None,
+    ):
+        locations = tuple(loc for loc in (location, old_location) if loc is not None)
+        super().__init__(msg, *locations)
 
-def _rejectRet(name: str, location: InputLocation) -> None:
+
+def _rejectRet(name: str, location: InputLocation | None) -> None:
     if name == "ret":
         raise NameExistsError(
             'the name "ret" is reserved for function return values', location
         )
 
 
-def _rejectPC(name: str, location: InputLocation) -> None:
+def _rejectPC(name: str, location: InputLocation | None) -> None:
     if name == "pc":
         raise NameExistsError(
             'the name "pc" is reserved for the program counter register', location
