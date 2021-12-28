@@ -549,7 +549,7 @@ def intReference(value: int, typ: IntType) -> FixedValueReference:
 
     Raises ValueError if the value does not fit within the type.
     """
-    typ.checkRange(value)
+    typ.check_range(value)
     return FixedValueReference(IntLiteral(value), typ)
 
 

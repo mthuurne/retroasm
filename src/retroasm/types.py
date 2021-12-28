@@ -246,7 +246,7 @@ class IntType(metaclass=Unique):
             else:
                 return f"u{cast(int, self._width):d}"
 
-    def checkRange(self, value: int) -> None:
+    def check_range(self, value: int) -> None:
         """
         Check whether the given value fits within this type.
 
