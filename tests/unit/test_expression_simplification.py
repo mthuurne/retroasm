@@ -4,6 +4,7 @@ from retroasm.expression import (
     AddOperator,
     AndOperator,
     Complement,
+    Expression,
     IntLiteral,
     LShift,
     LVShift,
@@ -425,7 +426,7 @@ def test_negation_rshift() -> None:
 def test_sign_int() -> None:
     """Tests sign of several integer literals."""
 
-    def check(value, result):
+    def check(value: int, result: int) -> None:
         assertIntLiteral(simplifyExpression(SignTest(IntLiteral(value))), result)
 
     check(0, 0)
@@ -455,7 +456,7 @@ def test_sign_extended() -> None:
 def test_sign_extend_int() -> None:
     """Applies sign extension to several integer literals."""
 
-    def check(value, width, result):
+    def check(value: int, width: int, result: int) -> None:
         assertIntLiteral(
             simplifyExpression(SignExtension(IntLiteral(value), width)), result
         )
@@ -732,7 +733,7 @@ def test_concat_associative2() -> None:
     )
 
 
-def simplifySlice(expr, index, width):
+def simplifySlice(expr: Expression, index: int, width: int) -> Expression:
     return simplifyExpression(makeSlice(expr, index, width))
 
 

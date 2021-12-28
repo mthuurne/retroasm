@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from retroasm.expression import IntLiteral, truncate
+from retroasm.expression import Expression, IntLiteral, truncate
 from retroasm.types import IntType
 
 from .utils_expression import TestValue, makeConcat
 
 
-def assertExprEqual(expr1, expr2):
+def assertExprEqual(expr1: Expression, expr2: Expression) -> None:
     assert expr1 == expr2
     assert expr2 == expr1
     assert (expr1 == expr2) is True
@@ -15,7 +15,7 @@ def assertExprEqual(expr1, expr2):
     assert (expr2 != expr1) is False
 
 
-def assertExprNotEqual(expr1, expr2):
+def assertExprNotEqual(expr1: Expression, expr2: Expression) -> None:
     assert expr1 != expr2
     assert expr2 != expr1
     assert (expr1 == expr2) is False
@@ -38,8 +38,8 @@ def test_type_mismatch() -> None:
     """Checks equality checks between mismatching types."""
     zero = IntLiteral(0)
     addr = TestValue("A", IntType.u(16))
-    assertExprNotEqual(zero, 0)
-    assertExprNotEqual(addr, "A")
+    assertExprNotEqual(zero, 0)  # type: ignore[arg-type]
+    assertExprNotEqual(addr, "A")  # type: ignore[arg-type]
     assertExprNotEqual(zero, addr)
 
 

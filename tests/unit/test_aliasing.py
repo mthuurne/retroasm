@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from retroasm.expression import IntLiteral
-from retroasm.storage import ArgStorage, IOChannel, IOStorage, Variable
+from retroasm.storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
 from retroasm.types import IntType
 
 
-def assertAlias(storage1, storage2):
+def assertAlias(storage1: Storage, storage2: Storage) -> None:
     assert storage1.mightBeSame(storage2), f"{storage1} does not alias {storage2}"
     assert storage2.mightBeSame(
         storage1
     ), f"{storage1} does alias {storage2}, but not vice versa"
 
 
-def assertNoAlias(storage1, storage2):
+def assertNoAlias(storage1: Storage, storage2: Storage) -> None:
     assert not storage1.mightBeSame(storage2), f"{storage1} does alias {storage2}"
     assert not storage2.mightBeSame(
         storage1

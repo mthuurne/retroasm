@@ -1,9 +1,19 @@
 from __future__ import annotations
 
-from retroasm.codeblock import Load, Store
-from retroasm.expression import AddOperator, IntLiteral, XorOperator
+from typing import Callable
+
+from retroasm.codeblock import CodeBlock, Load, Store
+from retroasm.expression import AddOperator, Expression, IntLiteral, XorOperator
 from retroasm.function import Function
-from retroasm.reference import ConcatenatedBits, FixedValue, Reference, SlicedBits
+from retroasm.namespace import LocalNamespace
+from retroasm.reference import (
+    BitString,
+    ConcatenatedBits,
+    FixedValue,
+    Reference,
+    SingleStorage,
+    SlicedBits,
+)
 from retroasm.types import IntType
 
 from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
@@ -11,11 +21,15 @@ from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
 verbose = False
 
 
-def createSimplifiedCode(namespace):
+def createSimplifiedCode(namespace: LocalNamespace) -> CodeBlock:
     if verbose:
         print("=" * 40)
         namespace.dump()
-    retRef = namespace.elements["ret"] if "ret" in namespace else None
+    if "ret" in namespace:
+        retRef = namespace.elements["ret"]
+        assert isinstance(retRef, Reference), retRef
+    else:
+        retRef = None
     code = namespace.createCodeBlock(retRef)
     if verbose:
         print("-" * 40)
@@ -23,12 +37,12 @@ def createSimplifiedCode(namespace):
     return code
 
 
-def args(**kvargs):
+def args(**kvargs: BitString) -> Callable[[str], BitString]:
     """Argument fetcher helper function for inlineBlock()."""
     return kvargs.__getitem__
 
 
-def test_inline_easy():
+def test_inline_easy() -> None:
     """Test whether inlining works when there are no complications."""
     inner = TestNamespace()
     innerA = inner.addRegister("a", IntType.u(16))
@@ -54,7 +68,7 @@ def test_inline_easy():
     assert retWidth == 16
 
 
-def test_inline_arg_ret():
+def test_inline_arg_ret() -> None:
     """Test whether inlining works with an argument and return value."""
     inc = TestNamespace()
     incArgRef = inc.addArgument("V")
@@ -66,7 +80,7 @@ def test_inline_arg_ret():
 
     outer = TestNamespace()
 
-    def argsV(value):
+    def argsV(value: Expression) -> Callable[[str], BitString]:
         return args(V=FixedValue(value, 8))
 
     step0 = IntLiteral(100)
@@ -87,7 +101,7 @@ def test_inline_arg_ret():
     assert retWidth == 8
 
 
-def test_inline_multiret():
+def test_inline_multiret() -> None:
     """Test whether inlining works when "ret" is written multiple times."""
     inner = TestNamespace()
     val0 = IntLiteral(1000)
@@ -100,8 +114,8 @@ def test_inline_multiret():
     innerCode = inner.createCodeBlock(innerRet)
 
     outer = TestNamespace()
-    (innerRet,) = outer.inlineBlock(innerCode, args())
-    inlinedVal = outer.emitLoad(innerRet)
+    (inlinedRet,) = outer.inlineBlock(innerCode, args())
+    inlinedVal = outer.emitLoad(inlinedRet)
     outerRet = outer.addVariable("ret", IntType.u(16))
     outer.emitStore(outerRet, inlinedVal)
 
@@ -113,7 +127,7 @@ def test_inline_multiret():
     assert retWidth == 16
 
 
-def test_ret_truncate():
+def test_ret_truncate() -> None:
     """Test whether the value returned by a block is truncated."""
     inner = TestNamespace()
     innerVal = IntLiteral(0x8472)
@@ -123,7 +137,9 @@ def test_ret_truncate():
     func = Function(IntType.u(8), {}, innerCode)
 
     outer = TestNamespace()
-    outerVal = outer.emitLoad(outer.inlineFunctionCall(func, {}))
+    inlineRet = outer.inlineFunctionCall(func, {})
+    assert inlineRet is not None
+    outerVal = outer.emitLoad(inlineRet)
     outerRet = outer.addVariable("ret", IntType.u(16))
     outer.emitStore(outerRet, outerVal)
 
@@ -135,7 +151,7 @@ def test_ret_truncate():
     assert retWidth == 16
 
 
-def test_pass_by_reference():
+def test_pass_by_reference() -> None:
     """Test whether pass-by-reference arguments work correctly."""
     inc = TestNamespace()
     incArgRef = inc.addArgument("R")
@@ -163,7 +179,7 @@ def test_pass_by_reference():
     assert retWidth == 8
 
 
-def test_pass_concat_by_reference():
+def test_pass_concat_by_reference() -> None:
     """Test concatenated storages as pass-by-reference arguments."""
     inc = TestNamespace()
     incArgRef = inc.addArgument("R", IntType.u(16))
@@ -200,7 +216,7 @@ def test_pass_concat_by_reference():
     assert retWidth == 16
 
 
-def test_pass_concat_fixed_by_reference():
+def test_pass_concat_fixed_by_reference() -> None:
     """Test concatenated storages arguments containing FixedValues."""
     inc = TestNamespace()
     incArgRef = inc.addArgument("R", IntType.u(16))
@@ -232,7 +248,7 @@ def test_pass_concat_fixed_by_reference():
     assert retWidth == 16
 
 
-def test_pass_slice_by_reference():
+def test_pass_slice_by_reference() -> None:
     """Test sliced storages as pass-by-reference arguments."""
     inc = TestNamespace()
     incArgRef = inc.addArgument("R")
@@ -262,7 +278,7 @@ def test_pass_slice_by_reference():
     assert retWidth == 16
 
 
-def test_inline_unsigned_reg():
+def test_inline_unsigned_reg() -> None:
     """Test reading of an unsigned register."""
     inner = TestNamespace()
     innerA = inner.addRegister("a")
@@ -287,7 +303,7 @@ def test_inline_unsigned_reg():
     assertRetVal(code, finalVal)
 
 
-def test_inline_signed_reg():
+def test_inline_signed_reg() -> None:
     """Test reading of a signed register."""
     inner = TestNamespace()
     innerA = inner.addRegister("a", IntType.s(8))
@@ -314,7 +330,7 @@ def test_inline_signed_reg():
     assert retWidth == 16
 
 
-def test_load_from_unsigned_reference_arg():
+def test_load_from_unsigned_reference_arg() -> None:
     """Test reading of a value passed via an unsigned reference."""
     inner = TestNamespace()
     argRef = inner.addArgument("R")
@@ -338,7 +354,7 @@ def test_load_from_unsigned_reference_arg():
     assert retWidth == 16
 
 
-def test_load_from_signed_reference_arg():
+def test_load_from_signed_reference_arg() -> None:
     """Test reading of a value passed via a signed reference."""
     inner = TestNamespace()
     argRef = inner.addArgument("R", IntType.s(8))
@@ -362,12 +378,14 @@ def test_load_from_signed_reference_arg():
     assert retWidth == 16
 
 
-def test_return_simple_reference():
+def test_return_simple_reference() -> None:
     """Test returning a reference to a global."""
     inner = TestNamespace()
     innerA = inner.addRegister("a")
     inner.addRetReference(innerA)
-    innerCode = inner.createCodeBlock(inner["ret"])
+    innerRet = inner["ret"]
+    assert isinstance(innerRet, Reference), innerRet
+    innerCode = inner.createCodeBlock(innerRet)
     assert len(innerCode.returned) == 1
 
     outer = TestNamespace(inner)
@@ -389,19 +407,22 @@ def test_return_simple_reference():
     assert retWidth == 8
 
 
-def test_return_io_reference():
+def test_return_io_reference() -> None:
     """Test returning a reference to an index in an I/O channel."""
     inner = TestNamespace()
     addrArg = inner.addArgument("A", IntType.u(16))
     addrVal = inner.emitLoad(addrArg)
     memByte = inner.addIOStorage("mem", addrVal)
     inner.addRetReference(memByte)
-    innerCode = inner.createCodeBlock(inner["ret"])
+    innerRet = inner["ret"]
+    assert isinstance(innerRet, Reference), innerRet
+    innerCode = inner.createCodeBlock(innerRet)
     assert len(innerCode.returned) == 1
 
     outer = TestNamespace()
     addr = FixedValue(IntLiteral(0x4002), 16)
     (retBits,) = outer.inlineBlock(innerCode, args(A=addr))
+    assert isinstance(retBits, SingleStorage), retBits
     outerRet = outer.addVariable("ret")
     retVal = outer.emitLoad(retBits)
     outer.emitStore(outerRet, retVal)
@@ -414,7 +435,7 @@ def test_return_io_reference():
     assert retVal == code.nodes[0].expr
 
 
-def test_unique_loads():
+def test_unique_loads() -> None:
     """Test whether multiple instances of the same load are kept separate.
     If the possibility of side effects is ignored, only one load will
     remain.
@@ -432,10 +453,10 @@ def test_unique_loads():
     assert len(innerCode.returned) == 1
 
     outer = TestNamespace()
-    (val1Bits,) = outer.inlineBlock(innerCode, None)
+    (val1Bits,) = outer.inlineBlock(innerCode)
     assert isinstance(val1Bits, FixedValue)
     val1 = val1Bits.expr
-    (val2Bits,) = outer.inlineBlock(innerCode, None)
+    (val2Bits,) = outer.inlineBlock(innerCode)
     assert isinstance(val2Bits, FixedValue)
     val2 = val2Bits.expr
     outerRet = outer.addVariable("ret")

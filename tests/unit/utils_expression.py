@@ -1,23 +1,26 @@
 from __future__ import annotations
 
+from typing import Sequence, cast
+
 from retroasm.expression import (
     AndOperator,
     Expression,
     IntLiteral,
     LShift,
+    MultiExpression,
     OrOperator,
     RShift,
     truncate,
 )
 from retroasm.expression_simplifier import simplifyExpression
-from retroasm.types import IntType, unlimited
+from retroasm.types import IntType, Width
 
 
-def makeConcat(exprH, exprL, widthL):
+def makeConcat(exprH: Expression, exprL: Expression, widthL: int) -> Expression:
     return OrOperator(exprL, LShift(exprH, widthL))
 
 
-def makeSlice(expr, index, width):
+def makeSlice(expr: Expression, index: int, width: Width) -> Expression:
     return truncate(RShift(expr, index), width)
 
 
@@ -33,37 +36,31 @@ class TestValue(Expression):
         return self._type.mask
 
     def __init__(self, name: str, typ: IntType):
-        if not isinstance(name, str):
-            raise TypeError("name must be string, got %s" % type(name).__name__)
-        if not isinstance(typ, IntType):
-            raise TypeError("typ must be IntType, got %s" % type(type).__name__)
-        Expression.__init__(self)
+        super().__init__()
         self._name = name
         self._type = typ
 
-    def _ctorargs(self):
+    def _ctorargs(self) -> tuple[str, IntType]:
         return self._name, self._type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._name
 
-    def _equals(self, other):
+    def _equals(self, other: object) -> bool:
         return self is other
 
     @property
-    def complexity(self):
+    def complexity(self) -> int:
         return 3
 
 
-def assertIntLiteral(expr, value):
-    """Asserts that the given expression is an unlimited-width int literal
-    with the given value.
-    """
+def assertIntLiteral(expr: Expression, value: int) -> None:
+    """Assert that the given expression is an int literal with the given value."""
     assert isinstance(expr, IntLiteral)
     assert expr.value == value
 
 
-def assertAnd(expr, *args):
+def assertAnd(expr: Expression, *args: Expression) -> None:
     assert isinstance(expr, AndOperator)
     exprs = expr.exprs
     assert len(exprs) == len(args)
@@ -84,7 +81,7 @@ def assertAnd(expr, *args):
         )
 
 
-def assertOr(expr, *args):
+def assertOr(expr: Expression, *args: Expression) -> None:
     assert isinstance(expr, OrOperator)
     exprs = expr.exprs
     assert len(exprs) == len(args)
@@ -105,21 +102,22 @@ def assertOr(expr, *args):
         )
 
 
-def assertConcat(expr, subExprs):
+def assertConcat(
+    expr: Expression, subExprs: Sequence[tuple[Expression, Width]]
+) -> None:
     compExprs = []
     offset = 0
     for term, width in reversed(subExprs):
         shifted = simplifyExpression(LShift(term, offset))
         if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
             compExprs.append(shifted)
-        if width is unlimited:
-            offset = None
-        else:
-            offset += width
+        offset += cast(int, width)
     assertOr(expr, *compExprs)
 
 
-def assertSlice(expr, subExpr, subWidth, index, width):
+def assertSlice(
+    expr: Expression, subExpr: Expression, subWidth: Width, index: int, width: Width
+) -> None:
     needsShift = index != 0
     shift = RShift(subExpr, index) if needsShift else subExpr
     needsTrunc = subWidth > index + width
@@ -127,7 +125,11 @@ def assertSlice(expr, subExpr, subWidth, index, width):
     assert str(expr) == str(trunc)
     assert expr == trunc
     assert isinstance(expr, type(trunc))
-    shiftExpr = expr.exprs[0] if needsTrunc else expr
+    if needsTrunc:
+        assert isinstance(expr, MultiExpression), expr
+        shiftExpr = expr.exprs[0]
+    else:
+        shiftExpr = expr
     if needsShift:
         assert str(shiftExpr) == str(shift)
         assert shiftExpr == shift
@@ -138,5 +140,7 @@ def assertSlice(expr, subExpr, subWidth, index, width):
         assert shiftExpr == subExpr
 
 
-def assertTrunc(expr, subExpr, subWidth, width):
+def assertTrunc(
+    expr: Expression, subExpr: Expression, subWidth: Width, width: Width
+) -> None:
     assertSlice(expr, subExpr, subWidth, 0, width)

@@ -3,7 +3,14 @@ from __future__ import annotations
 from dataclasses import replace
 
 from hypothesis import given, infer, note
-from hypothesis.strategies import builds, integers, just, one_of, register_type_strategy
+from hypothesis.strategies import (
+    SearchStrategy,
+    builds,
+    integers,
+    just,
+    one_of,
+    register_type_strategy,
+)
 from pytest import raises
 
 from retroasm.types import (
@@ -28,7 +35,7 @@ width = one_of(offsets, just(unlimited))
 Strategy for generating bitstring widths.
 """
 
-segments = builds(Segment, start=offsets, width=width)
+segments: SearchStrategy[Segment] = builds(Segment, start=offsets, width=width)
 """
 Strategy for generating bit index segments.
 """
@@ -64,7 +71,7 @@ def test_width_for_mask() -> None:
 def test_mask_to_segments() -> None:
     """Test mask_to_segments function."""
 
-    def to_segs(mask):
+    def to_segs(mask: int) -> list[str]:
         return [str(segment) for segment in mask_to_segments(mask)]
 
     assert to_segs(0x0000) == []
@@ -79,7 +86,7 @@ def test_mask_to_segments() -> None:
 def test_segments_to_mask() -> None:
     """Test segments_to_mask function."""
 
-    def to_mask(*segments):
+    def to_mask(*segments: str) -> int:
         return segments_to_mask(parse_segment(segment) for segment in segments)
 
     # Segments from mask_to_segments test.

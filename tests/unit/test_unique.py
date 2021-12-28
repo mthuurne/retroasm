@@ -4,11 +4,11 @@ from retroasm.utils import Unique
 
 
 class DataType(metaclass=Unique):
-    def __init__(self, a):
+    def __init__(self, a: object):
         self.a = a
 
 
-def assertData(data, a):
+def assertData(data: DataType, a: object) -> None:
     assert isinstance(data, DataType)
     assert data.a == a
 
