@@ -115,7 +115,7 @@ class PrefixMappingFactory:
             if name in prefixForFlag:
                 raise KeyError(f"decode flag redefined: {name}")
             flagForVar[cast(SingleStorage, ref.bits).storage] = name
-            ref.emitStore(builder, zero, None)
+            ref.emit_store(builder, zero, None)
 
         # Figure out which prefix sets which flag.
         for prefix in prefixes:
@@ -265,10 +265,10 @@ class InstructionSet(ModeTable):
             prefix = self._prefixMapping.prefixForFlag[name]
             for encItem in prefix.encoding:
                 assert isinstance(encItem, EncodingExpr), encItem
-                yield encItem.bits.intValue
+                yield encItem.bits.int_value
 
         for bits in modeMatch.iterBits():
-            yield bits.intValue
+            yield bits.int_value
 
     @const_property
     def decodeFlagCombinations(self) -> AbstractSet[AbstractSet[str]]:

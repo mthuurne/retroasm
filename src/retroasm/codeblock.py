@@ -160,7 +160,7 @@ def verifyLoads(
         if isinstance(node, Store):
             for value in node.expr.iterInstances(LoadedValue):
                 assert value.load in loads, value
-        for expr in node.storage.iterExpressions():
+        for expr in node.storage.iter_expressions():
             for value in expr.iterInstances(LoadedValue):
                 assert value.load in loads, value
         # Remember this load.
@@ -168,8 +168,8 @@ def verifyLoads(
             loads.add(node)
     # Check I/O indices in the returned bit string.
     for retBits in returned:
-        for storage in retBits.iterStorages():
-            for expr in storage.iterExpressions():
+        for storage in retBits.iter_storages():
+            for expr in storage.iter_expressions():
                 for value in expr.iterInstances(LoadedValue):
                     assert value.load in loads, value
 
@@ -209,9 +209,9 @@ class CodeBlock:
         for node in self.nodes:
             if isinstance(node, Store):
                 expressions.add(node.expr)
-            expressions.update(node.storage.iterExpressions())
+            expressions.update(node.storage.iter_expressions())
         for retBits in self.returned:
-            expressions.update(retBits.iterExpressions())
+            expressions.update(retBits.iter_expressions())
         return expressions
 
     @const_property
@@ -228,7 +228,7 @@ class CodeBlock:
         for node in self.nodes:
             storages.add(node.storage)
         for retBits in self.returned:
-            storages.update(retBits.iterStorages())
+            storages.update(retBits.iter_storages())
         return storages
 
     @property
@@ -282,6 +282,6 @@ class CodeBlock:
         # Update returned bit string.
         returned = self.returned
         for i, retBits in enumerate(returned):
-            newBits = retBits.substitute(expressionFunc=substFunc)
+            newBits = retBits.substitute(expression_func=substFunc)
             if newBits is not retBits:
                 returned[i] = newBits

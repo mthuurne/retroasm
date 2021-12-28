@@ -89,7 +89,7 @@ def iterSliceLoads(bits: BitString) -> Iterator[Storage]:
     cycle before other nodes can be processed.
     """
     for sliceBits in iterSlices(bits):
-        yield from sliceBits.iterStorages()
+        yield from sliceBits.iter_storages()
         yield from iterSliceLoads(sliceBits.bits)
 
 
@@ -133,8 +133,8 @@ def checkLoad(
 ) -> None:
     """Check that loading from a bit string works as expected."""
 
-    # Check that emitLoad only emits Load nodes.
-    value = namespace.emitLoad(bits)
+    # Check that emit_load only emits Load nodes.
+    value = namespace.emit_load(bits)
     nodes = namespace.builder.nodes
     for node in nodes:
         assert isinstance(node, Load)
@@ -143,7 +143,7 @@ def checkLoad(
     # Also check that the load order matches the depth-first tree walk.
     # Even storages that are not part of the decomposition should still be
     # loaded from since loading might trigger side effects.
-    allStorages = tuple(bits.iterStorages())
+    allStorages = tuple(bits.iter_storages())
     loadedStorages = tuple(node.storage for node in nodes)
     assert allStorages == loadedStorages
 
@@ -180,12 +180,12 @@ def checkStore(
 ) -> None:
     """Check that storing to a bit string works as expected."""
 
-    # Check that emitStore only emits Load and Store nodes.
+    # Check that emit_store only emits Load and Store nodes.
     nodes = namespace.builder.nodes
     valueRef = namespace.addArgument("V", IntType.int)
-    value = namespace.emitLoad(valueRef)
+    value = namespace.emit_load(valueRef)
     initIdx = len(nodes)
-    namespace.emitStore(bits, value)
+    namespace.emit_store(bits, value)
     loadNodes: list[Load] = []
     storeNodes: list[Store] = []
     for node in nodes[initIdx:]:
@@ -205,7 +205,7 @@ def checkStore(
 
     # Check that all underlying storages are stored to.
     # Also check that the store order matches the depth-first tree walk.
-    allStorages = tuple(bits.iterStorages())
+    allStorages = tuple(bits.iter_storages())
     storedStorages = tuple(node.storage for node in storeNodes)
     assert allStorages == storedStorages
 

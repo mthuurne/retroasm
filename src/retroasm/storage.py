@@ -150,7 +150,7 @@ class Storage:
         """
         raise NotImplementedError
 
-    def iterExpressions(self) -> Iterator[Expression]:  # pylint: disable=no-self-use
+    def iter_expressions(self) -> Iterator[Expression]:  # pylint: disable=no-self-use
         """Iterates through the expressions in this storage, if any."""
         return iter(())
 
@@ -309,7 +309,7 @@ class IOStorage(Storage):
         else:
             return isinstance(other, ArgStorage)
 
-    def iterExpressions(self) -> Iterator[Expression]:
+    def iter_expressions(self) -> Iterator[Expression]:
         yield self._index
 
     def substituteExpressions(

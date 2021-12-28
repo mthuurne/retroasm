@@ -71,7 +71,7 @@ from .namespace import (
     NameExistsError,
     Namespace,
 )
-from .reference import Reference, badReference, intReference
+from .reference import Reference, bad_reference, int_reference
 from .storage import ArgStorage, IOChannel, IOStorage, Variable
 from .types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from .utils import bad_type
@@ -139,7 +139,7 @@ def _parseRegs(
                     )
                 except BadExpression as ex:
                     reader.error("bad register alias: %s", ex, location=ex.locations)
-                    ref = badReference(regType)
+                    ref = bad_reference(regType)
                 try:
                     globalNamespace.define(name, ref, decl.name.location)
                 except NameExistsError as ex:
@@ -606,7 +606,7 @@ def _parseEncodingExpr(
             "encoding expression accesses state or performs I/O", encNode.treeLocation
         )
     (encBits,) = code.returned
-    for storage in encBits.iterStorages():
+    for storage in encBits.iter_storages():
         if isinstance(storage, Variable):
             raise BadInput(
                 "encoding expression references register", encNode.treeLocation
@@ -737,7 +737,7 @@ def _checkMissingPlaceholders(
     multiMatches = set()
     for encItem in encItems:
         if isinstance(encItem, EncodingExpr):
-            for storage in encItem.bits.iterStorages():
+            for storage in encItem.bits.iter_storages():
                 if isinstance(storage, ArgStorage):
                     identifiers.add(storage.name)
         elif isinstance(encItem, EncodingMultiMatch):
@@ -1003,7 +1003,7 @@ def _parseModeSemantics(
         if modeType is None:
             return None
         ref = semNamespace.addVariable("ret", modeType, semLoc)
-        ref.emitStore(semNamespace.builder, expr, semLoc)
+        ref.emit_store(semNamespace.builder, expr, semLoc)
         return ref
 
 
@@ -1038,7 +1038,7 @@ def _parseMnemonic(
                 except ValueError as ex:
                     reader.error("%s", ex, location=mnemElem)
                 else:
-                    yield intReference(value, IntType.u(width))
+                    yield int_reference(value, IntType.u(width))
             else:
                 yield text
         elif text in seenPlaceholders:

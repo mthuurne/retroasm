@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Iterator, Protocol
 
-from .reference import FixedValueReference, intReference, symbolReference
+from .reference import FixedValueReference, int_reference, symbol_reference
 from .types import IntType, Width
 
 
@@ -20,11 +20,11 @@ class DataDirective:
 
     @classmethod
     def symbol(cls, typ: IntType, *names: str) -> DataDirective:
-        return cls(*(symbolReference(name, typ) for name in names))
+        return cls(*(symbol_reference(name, typ) for name in names))
 
     @classmethod
     def literal(cls, typ: IntType, *values: int) -> DataDirective:
-        return cls(*(intReference(value, typ) for value in values))
+        return cls(*(int_reference(value, typ) for value in values))
 
     @classmethod
     def u8(cls, *values: int) -> DataDirective:
@@ -119,7 +119,7 @@ class OriginDirective:
 
     @classmethod
     def fromInt(cls, addr: int, typ: IntType) -> OriginDirective:
-        return cls(intReference(addr, typ))
+        return cls(int_reference(addr, typ))
 
     def __init__(self, addr: FixedValueReference):
         self._addr = addr

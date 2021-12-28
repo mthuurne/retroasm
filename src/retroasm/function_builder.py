@@ -51,8 +51,8 @@ def createFunc(
             # Add local variable.
             varRef = namespace.addVariable(argName, argDecl, argLoc)
             # Store initial value.
-            value = argRef.emitLoad(builder, argLoc)
-            varRef.emitStore(builder, value, argLoc)
+            value = argRef.emit_load(builder, argLoc)
+            varRef.emit_store(builder, value, argLoc)
     retRef: Reference | None
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType

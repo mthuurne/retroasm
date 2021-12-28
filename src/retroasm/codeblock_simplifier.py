@@ -164,10 +164,10 @@ class CodeBlockSimplifier(CodeBlock):
         for node in nodes:
             if isinstance(node, Store):
                 updateCounts(node.expr)
-            for expr in node.storage.iterExpressions():
+            for expr in node.storage.iter_expressions():
                 updateCounts(expr)
         for retBits in self.returned:
-            for expr in retBits.iterExpressions():
+            for expr in retBits.iter_expressions():
                 updateCounts(expr)
 
         # Remove unnecesary Loads.
@@ -181,5 +181,5 @@ class CodeBlockSimplifier(CodeBlock):
                         # Update useCounts, so we can remove earlier Loads that
                         # became unused because the Load we just removed was
                         # the sole user of their LoadedValue.
-                        for expr in storage.iterExpressions():
+                        for expr in storage.iter_expressions():
                             updateCounts(expr, -1)

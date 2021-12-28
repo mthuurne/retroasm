@@ -49,18 +49,18 @@ class BitString:
     def __init__(self, width: Width):
         self._width = width
 
-    def iterExpressions(self) -> Iterator[Expression]:
+    def iter_expressions(self) -> Iterator[Expression]:
         """Iterates through the expressions contained in this bit string."""
         raise NotImplementedError
 
-    def iterStorages(self) -> Iterator[Storage]:
+    def iter_storages(self) -> Iterator[Storage]:
         """Iterates through the storages accessed through this bit string."""
         raise NotImplementedError
 
     def substitute(
         self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> BitString:
         """
         Applies the given substitution functions to each applicable
@@ -74,7 +74,7 @@ class BitString:
         """
         raise NotImplementedError
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         """
@@ -84,7 +84,7 @@ class BitString:
         """
         raise NotImplementedError
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
@@ -108,7 +108,7 @@ class BitString:
         raise NotImplementedError
 
     @property
-    def intValue(self) -> int:
+    def int_value(self) -> int:
         """
         The value of a bit string that consists solely of integer literals.
 
@@ -154,32 +154,32 @@ class FixedValue(BitString):
     def __str__(self) -> str:
         return str(self._expr)
 
-    def iterExpressions(self) -> Iterator[Expression]:
+    def iter_expressions(self) -> Iterator[Expression]:
         yield self._expr
 
-    def iterStorages(self) -> Iterator[Storage]:
+    def iter_storages(self) -> Iterator[Storage]:
         return iter(())
 
     def substitute(
         self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> FixedValue:
-        if expressionFunc is None:
+        if expression_func is None:
             return self
         expr = self._expr
-        newExpr = expr.substitute(expressionFunc)
+        newExpr = expr.substitute(expression_func)
         if newExpr is expr:
             return self
         else:
             return FixedValue(newExpr, self._width)
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         return self._expr
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
@@ -210,46 +210,46 @@ class SingleStorage(BitString):
     def __str__(self) -> str:
         return str(self._storage)
 
-    def iterExpressions(self) -> Iterator[Expression]:
-        return self._storage.iterExpressions()
+    def iter_expressions(self) -> Iterator[Expression]:
+        return self._storage.iter_expressions()
 
-    def iterStorages(self) -> Iterator[Storage]:
+    def iter_storages(self) -> Iterator[Storage]:
         yield self._storage
 
     def substitute(
         self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> BitString:
         storage = self._storage
-        if storageFunc is not None:
-            newBits = storageFunc(storage)
+        if storage_func is not None:
+            newBits = storage_func(storage)
             if newBits is not None:
                 if isinstance(newBits, SingleStorage) and newBits._storage is storage:
                     return self
                 else:
                     return newBits
 
-        if expressionFunc is None:
+        if expression_func is None:
             return self
-        newStorage = storage.substituteExpressions(expressionFunc)
+        newStorage = storage.substituteExpressions(expression_func)
         if newStorage is storage:
             return self
         else:
             return SingleStorage(newStorage)
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        return builder.emitLoadBits(self._storage, location)
+        return builder.emit_loadBits(self._storage, location)
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
         location: InputLocation | None,
     ) -> None:
-        builder.emitStoreBits(self._storage, value, location)
+        builder.emit_storeBits(self._storage, value, location)
 
     def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
         yield self, Segment(0, self.width)
@@ -284,39 +284,39 @@ class ConcatenatedBits(BitString):
     def __iter__(self) -> Iterator[BitString]:
         return iter(self._subs)
 
-    def iterExpressions(self) -> Iterator[Expression]:
+    def iter_expressions(self) -> Iterator[Expression]:
         for sub in self._subs:
-            yield from sub.iterExpressions()
+            yield from sub.iter_expressions()
 
-    def iterStorages(self) -> Iterator[Storage]:
+    def iter_storages(self) -> Iterator[Storage]:
         for sub in self._subs:
-            yield from sub.iterStorages()
+            yield from sub.iter_storages()
 
     def substitute(
         self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> ConcatenatedBits:
         changed = False
         subs = []
         for sub in self._subs:
-            newBits = sub.substitute(storageFunc, expressionFunc)
+            newBits = sub.substitute(storage_func, expression_func)
             subs.append(newBits)
             changed |= newBits is not sub
         return ConcatenatedBits(*subs) if changed else self
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         terms = []
         offset = 0
         for sub in self._subs:
-            value = sub.emitLoad(builder, location)
+            value = sub.emit_load(builder, location)
             terms.append(value if offset == 0 else LShift(value, offset))
             offset += cast(int, sub.width)
         return OrOperator(*terms)
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
@@ -325,8 +325,8 @@ class ConcatenatedBits(BitString):
         offset = 0
         for sub in self._subs:
             width = cast(int, sub.width)
-            valueSlice = optSlice(value, offset, width)
-            sub.emitStore(builder, valueSlice, location)
+            value_slice = optSlice(value, offset, width)
+            sub.emit_store(builder, value_slice, location)
             offset += width
 
     def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
@@ -368,9 +368,9 @@ class SlicedBits(BitString):
         offset = self._offset
         width = self._width
         if isinstance(offset, IntLiteral):
-            offsetVal = offset.value
-            start = "" if offsetVal == 0 else offsetVal
-            end = "" if width is unlimited else offsetVal + width
+            offset_val = offset.value
+            start = "" if offset_val == 0 else offset_val
+            end = "" if width is unlimited else offset_val + width
         else:
             start = str(offset)
             end = (
@@ -380,34 +380,34 @@ class SlicedBits(BitString):
             )
         return f"{self._bits}[{start}:{end}]"
 
-    def iterExpressions(self) -> Iterator[Expression]:
-        return self._bits.iterExpressions()
+    def iter_expressions(self) -> Iterator[Expression]:
+        return self._bits.iter_expressions()
 
-    def iterStorages(self) -> Iterator[Storage]:
-        return self._bits.iterStorages()
+    def iter_storages(self) -> Iterator[Storage]:
+        return self._bits.iter_storages()
 
     def substitute(
         self,
-        storageFunc: Callable[[Storage], BitString | None] | None = None,
-        expressionFunc: Callable[[Expression], Expression | None] | None = None,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> SlicedBits:
         bits = self._bits
-        newBits = bits.substitute(storageFunc, expressionFunc)
-        if newBits is bits:
+        new_bits = bits.substitute(storage_func, expression_func)
+        if new_bits is bits:
             return self
         else:
-            return SlicedBits(newBits, self._offset, self._width)
+            return SlicedBits(new_bits, self._offset, self._width)
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         # Load value from our bit string.
-        value = self._bits.emitLoad(builder, location)
+        value = self._bits.emit_load(builder, location)
 
         # Slice the loaded value.
         return truncate(RVShift(value, self._offset), self.width)
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
@@ -415,18 +415,18 @@ class SlicedBits(BitString):
     ) -> None:
         offset = self._offset
         width = self.width
-        valueMask = LVShift(IntLiteral(mask_for_width(width)), offset)
+        value_mask = LVShift(IntLiteral(mask_for_width(width)), offset)
 
         # Get mask and previous value of our bit string.
         bits = self._bits
-        fullMask = IntLiteral(mask_for_width(bits.width))
-        prevValue = bits.emitLoad(builder, location)
+        full_mask = IntLiteral(mask_for_width(bits.width))
+        prev_value = bits.emit_load(builder, location)
 
         # Combine previous value with new value.
-        maskLit = AndOperator(fullMask, XorOperator(IntLiteral(-1), valueMask))
-        combined = OrOperator(AndOperator(prevValue, maskLit), LVShift(value, offset))
+        mask_lit = AndOperator(full_mask, XorOperator(IntLiteral(-1), value_mask))
+        combined = OrOperator(AndOperator(prev_value, mask_lit), LVShift(value, offset))
 
-        bits.emitStore(builder, simplifyExpression(combined), location)
+        bits.emit_store(builder, simplifyExpression(combined), location)
 
     def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
         # Note that the offset was already simplified.
@@ -448,7 +448,7 @@ class SlicedBits(BitString):
             slice_seg >>= width
 
 
-def decodeInt(encoded: Expression, typ: IntType) -> Expression:
+def decode_int(encoded: Expression, typ: IntType) -> Expression:
     """
     Decodes the given encoded representation as an integer of the given type.
     Returns the decoded value.
@@ -491,7 +491,7 @@ class Reference:
     def __str__(self) -> str:
         return f"{self._type}& {self._bits}"
 
-    def emitLoad(
+    def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         """
@@ -499,17 +499,17 @@ class Reference:
         bit string.
         Returns the loaded value as an Expression.
         """
-        encoded = self._bits.emitLoad(builder, location)
-        return decodeInt(encoded, self._type)
+        encoded = self._bits.emit_load(builder, location)
+        return decode_int(encoded, self._type)
 
-    def emitStore(
+    def emit_store(
         self,
         builder: CodeBlockBuilder,
         value: Expression,
         location: InputLocation | None,
     ) -> None:
         """Emits store nodes for storing a value into the referenced bit string."""
-        self._bits.emitStore(builder, truncate(value, self.width), location)
+        self._bits.emit_store(builder, truncate(value, self.width), location)
 
 
 class FixedValueReference(Reference):
@@ -534,7 +534,7 @@ class FixedValueReference(Reference):
         return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
 
 
-def badReference(decl: ReferenceType | IntType) -> Reference:
+def bad_reference(decl: ReferenceType | IntType) -> Reference:
     """
     Return a dummy reference to the given declared reference/value type,
     with a BadValue instance as the underlying expression.
@@ -543,7 +543,7 @@ def badReference(decl: ReferenceType | IntType) -> Reference:
     return FixedValueReference(BadValue(typ.width), typ)
 
 
-def intReference(value: int, typ: IntType) -> FixedValueReference:
+def int_reference(value: int, typ: IntType) -> FixedValueReference:
     """
     Return a reference to a fixed integer with the given value and type.
 
@@ -553,7 +553,7 @@ def intReference(value: int, typ: IntType) -> FixedValueReference:
     return FixedValueReference(IntLiteral(value), typ)
 
 
-def symbolReference(name: str, typ: IntType) -> FixedValueReference:
+def symbol_reference(name: str, typ: IntType) -> FixedValueReference:
     """
     Return a reference to a symbol value.
     """

@@ -28,8 +28,8 @@ from .reference import (
     FixedValueReference,
     Reference,
     SingleStorage,
-    decodeInt,
-    intReference,
+    decode_int,
+    int_reference,
 )
 from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, unlimited
@@ -98,7 +98,7 @@ class EncodingExpr:
                 return None
 
         bits = self._bits
-        newBits = bits.substitute(storageFunc=substPlaceholder)
+        newBits = bits.substitute(storage_func=substPlaceholder)
         if bits is newBits:
             return self
         else:
@@ -117,7 +117,7 @@ class EncodingExpr:
                 return None
 
         return EncodingExpr(
-            self._bits.substitute(storageFunc=renameValArg), self._location
+            self._bits.substitute(storage_func=renameValArg), self._location
         )
 
 
@@ -449,7 +449,7 @@ class Mnemonic:
                     #       See ModeMatch.fromEncodeMatch() for a blueprint.
                     items.append(item)
                 else:
-                    items.append(intReference(value, item.type))
+                    items.append(int_reference(value, item.type))
             else:
                 # Fixed item.
                 items.append(item)
@@ -689,7 +689,7 @@ class ModeMatch:
             placeholder = placeholders[name]
             if isinstance(placeholder, ComputedPlaceholder):
                 builder = SemanticsCodeBlockBuilder()
-                pc.emitStore(builder, pcVal, None)
+                pc.emit_store(builder, pcVal, None)
                 value = placeholder.computeValue(builder, values.__getitem__)
             values[name] = value
 
@@ -941,7 +941,7 @@ class ComputedPlaceholder(ValuePlaceholder):
         (valBits,) = computeCode.returned
         assert isinstance(valBits, FixedValue), valBits
         valType = self.type
-        valExpr = decodeInt(valBits.expr, valType)
+        valExpr = decode_int(valBits.expr, valType)
         return FixedValue(simplifyExpression(valExpr), valType.width)
 
 

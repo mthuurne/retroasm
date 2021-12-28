@@ -7,7 +7,7 @@ from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
-from .reference import BitString, SingleStorage, badReference
+from .reference import BitString, SingleStorage, bad_reference
 from .storage import ArgStorage, Storage, Variable
 
 
@@ -15,7 +15,7 @@ class CodeBlockBuilder:
     def dump(self) -> None:
         """Prints the current state of this code block builder on stdout."""
 
-    def emitLoadBits(
+    def emit_loadBits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
         """
@@ -25,7 +25,7 @@ class CodeBlockBuilder:
         """
         raise NotImplementedError
 
-    def emitStoreBits(
+    def emit_storeBits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
         """
@@ -71,12 +71,12 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
     touch any state, such as performing register access or I/O.
     """
 
-    def emitLoadBits(
+    def emit_loadBits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
         raise IllegalStateAccess(f"attempt to read state: {storage}", location)
 
-    def emitStoreBits(
+    def emit_storeBits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
         raise IllegalStateAccess(f"attempt to write state: {storage}", location)
@@ -143,7 +143,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Check for returning of uninitialized variables.
         for retBits in returned:
-            for storage in retBits.iterStorages():
+            for storage in retBits.iter_storages():
                 if isinstance(storage, Variable) and storage.scope == 1:
                     if storage not in initializedVariables:
                         msg = "code block returns uninitialized variable(s)"
@@ -156,14 +156,14 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         code.freeze()
         return code
 
-    def emitLoadBits(
+    def emit_loadBits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
         load = Load(storage, location)
         self.nodes.append(load)
         return load.expr
 
-    def emitStoreBits(
+    def emit_storeBits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
         self.nodes.append(Store(value, storage, location))
@@ -178,7 +178,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         if code is None:
             # Missing body, probably because of earlier errors.
             retType = func.retType
-            return None if retType is None else badReference(retType).bits
+            return None if retType is None else bad_reference(retType).bits
 
         badArgs = argMap.keys() - func.args.keys()
         if badArgs:
@@ -241,11 +241,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         for node in code.nodes:
             bits = importStorage(node.storage)
             if isinstance(node, Load):
-                value = bits.emitLoad(self, node.location)
+                value = bits.emit_load(self, node.location)
                 loadResults[node.expr] = value
             elif isinstance(node, Store):
                 newExpr = importExpr(node.expr)
-                bits.emitStore(self, newExpr, node.location)
+                bits.emit_store(self, newExpr, node.location)
             else:
                 assert False, node
 

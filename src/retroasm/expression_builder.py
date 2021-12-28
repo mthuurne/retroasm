@@ -48,8 +48,8 @@ from .reference import (
     Reference,
     SingleStorage,
     SlicedBits,
-    badReference,
-    intReference,
+    bad_reference,
+    int_reference,
 )
 from .storage import IOChannel, Keeper
 from .types import (
@@ -213,7 +213,7 @@ def _convertFunctionCall(
             bits = ref.bits
         else:
             # Value arguments must be evaluated and truncated when passed.
-            value = ref.emitLoad(builder, argNode.treeLocation)
+            value = ref.emit_load(builder, argNode.treeLocation)
             argWidth = decl.width
             if width_for_mask(value.mask) > argWidth:
                 value = truncate(value, argWidth)
@@ -291,17 +291,17 @@ def _convertExpressionOperator(
                 "function does not return anything; expected value", node.treeLocation
             )
         else:
-            return ref.emitLoad(namespace.builder, node.treeLocation)
+            return ref.emit_load(namespace.builder, node.treeLocation)
     elif operator is Operator.lookup:
-        return _convertReferenceLookup(node, namespace).emitLoad(
+        return _convertReferenceLookup(node, namespace).emit_load(
             namespace.builder, node.treeLocation
         )
     elif operator is Operator.slice:
-        return _convertReferenceSlice(node, namespace).emitLoad(
+        return _convertReferenceSlice(node, namespace).emit_load(
             namespace.builder, node.treeLocation
         )
     elif operator is Operator.concatenation:
-        return _convertReferenceConcat(node, namespace).emitLoad(
+        return _convertReferenceConcat(node, namespace).emit_load(
             namespace.builder, node.treeLocation
         )
     else:
@@ -318,7 +318,7 @@ def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
                 f'I/O channel "{node.name}" can only be used for lookup', node.location
             )
         else:
-            return ident.emitLoad(namespace.builder, node.location)
+            return ident.emit_load(namespace.builder, node.location)
     elif isinstance(node, OperatorNode):
         return _convertExpressionOperator(node, namespace)
     elif isinstance(node, DeclarationNode):
@@ -466,7 +466,7 @@ def _convertReferenceOperator(
 
 def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
     if isinstance(node, NumberNode):
-        return intReference(node.value, IntType(node.width, node.width is unlimited))
+        return int_reference(node.value, IntType(node.width, node.width is unlimited))
     elif isinstance(node, DeclarationNode):
         return declareVariable(node, namespace)
     elif isinstance(node, DefinitionNode):
@@ -527,7 +527,7 @@ def buildStatementEval(
             )
             return
 
-        lhs.emitStore(builder, rhs, node.lhs.treeLocation)
+        lhs.emit_store(builder, rhs, node.lhs.treeLocation)
 
     elif isinstance(node, EmptyNode):
         # Empty statement (NOP).
@@ -616,7 +616,7 @@ def emitCodeFromStatements(
                 ref = convertDefinition(kind, name, typ, node.value, namespace)
             except BadExpression as ex:
                 reader.error(str(ex), location=ex.locations)
-                ref = badReference(typ)
+                ref = bad_reference(typ)
             # Add definition to namespace.
             try:
                 namespace.define(name, ref, nameNode.location)
@@ -643,7 +643,7 @@ def emitCodeFromStatements(
             # the condition to be computed.
             value = Negation(buildExpression(node.cond, namespace))
             ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emitStore(namespace.builder, value, node.cond.treeLocation)
+            ref.emit_store(namespace.builder, value, node.cond.treeLocation)
 
         elif isinstance(node, LabelNode):
             # TODO: Add support.

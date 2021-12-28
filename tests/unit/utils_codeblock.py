@@ -95,11 +95,11 @@ class TestNamespace(LocalNamespace):
     def parse(self, *storage_slices: str) -> tuple[tuple[Storage, Segment], ...]:
         return tuple(self._parse_one(storage_str) for storage_str in storage_slices)
 
-    def emitLoad(self, ref: BitString | Reference) -> Expression:
-        return ref.emitLoad(self.builder, None)
+    def emit_load(self, ref: BitString | Reference) -> Expression:
+        return ref.emit_load(self.builder, None)
 
-    def emitStore(self, ref: BitString | Reference, expr: Expression) -> None:
-        ref.emitStore(self.builder, expr, None)
+    def emit_store(self, ref: BitString | Reference, expr: Expression) -> None:
+        ref.emit_store(self.builder, expr, None)
 
     def addRegister(
         self, name: str, typ: IntType = IntType.u(8)
