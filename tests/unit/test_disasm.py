@@ -98,7 +98,6 @@ def test_disasm_push_ix_pop_iy() -> None:
     ]
 
 
-@mark.xfail
 def test_disasm_bad_opcode() -> None:
     """Disassemble an illegal instruction."""
     image = b"\xed\x0c"

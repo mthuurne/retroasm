@@ -35,9 +35,10 @@ def disassemble(
         encodedLength, modeMatch = instrSet.decodeInstruction(fetcher)
 
         if modeMatch is None:
-            # Force at least one encoding item to be disassembled to a data directive,
-            # otherwise we would not make any progress.
-            unused = max(encodedLength, 1)
+            # Disassemble to data directives a number of encoding items equal to
+            # how far the instruction decoder looked ahead.
+            unused = fetcher.looked_ahead
+            assert unused > 0
         else:
             # Verify that the opcodes produced when assembling are the same as
             # the ones we disassembled. This is not a given: there can be more
@@ -55,11 +56,15 @@ def disassemble(
                 unused = encodedLength
 
         # Disassemble unused encoding items to data directives.
+        unused_items = []
         for idx in range(unused):
             value = fetcher[idx]
-            assert value is not None
-            yield addr, DataDirective.literal(instrSet.encodingType, value)
-            addr += numBytes
+            if value is None:
+                break
+            unused_items.append(value)
+        if unused_items:
+            yield addr, DataDirective.literal(instrSet.encodingType, *unused_items)
+        addr += unused * numBytes
         fetcher = fetcher.advance(unused)
 
         # Disassemble instruction.
