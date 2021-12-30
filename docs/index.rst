@@ -7,6 +7,8 @@ RetroAsm: Assembly Toolkit
    :caption: Contents:
 
    concepts
+   assembler
+   disassembler
    instruction-set
    primitives
 

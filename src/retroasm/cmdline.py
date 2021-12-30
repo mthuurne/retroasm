@@ -480,7 +480,7 @@ def listSupported(
 
 @command(
     epilog="""
-Section options:
+Section options: (separated by ":")
 
 \b
 START..END   offsets within binary  [default: entire file]
@@ -519,7 +519,7 @@ example:     0..0x1000:0x80000000:mips-i,le
     "--section",
     multiple=True,
     type=SECTION,
-    help="Code or data section. See below for OPT syntax. "
+    help="Code or data section. See below for sections syntax. "
     "Can be passed multiple times.",
 )
 @option(

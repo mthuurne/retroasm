@@ -34,6 +34,7 @@ release = _METADATA["Version"]
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_click",
     "sphinxcontrib.spelling",
 ]
 

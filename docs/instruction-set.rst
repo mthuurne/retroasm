@@ -663,3 +663,12 @@ The mnemonic base can be empty if you want to define separate instructions in a 
    %101;%110;%00       . clv       . v := 0
    %110;%110;%00       . cld       . d := 0
    %111;%110;%00       . sed       . d := 1
+
+Adding New Instruction Sets
+---------------------------
+
+You can use the ``retro checkdef`` command to verify instruction set definition files:
+
+.. click:: retroasm.cmdline:checkdef
+   :prog: retro checkdef
+   :nested: full
