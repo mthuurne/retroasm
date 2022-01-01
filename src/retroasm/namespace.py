@@ -77,7 +77,9 @@ class Namespace:
                 # TODO: Showing the import location would be nice,
                 #       but we'd have to change the interface to pass
                 #       a location for lookups.
-                raise NameExistsError(f'imported name "{name}" redefined', location)
+                raise NameExistsError(
+                    f'imported name "{name}" redefined', location
+                ) from None
             else:
                 raise NameExistsError(f'name "{name}" redefined', location, oldLocation)
         self.locations[name] = location
