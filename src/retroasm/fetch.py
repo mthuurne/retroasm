@@ -27,18 +27,15 @@ class Fetcher:
         """
         return self._max_offset + 1
 
-    def __getitem__(self, key: int) -> int | None:
-        self._max_offset = max(self._max_offset, key)
-        if key == 0:
+    def __getitem__(self, index: int, /) -> int | None:
+        self._max_offset = max(self._max_offset, index)
+        if index == 0:
             # Fast path for most frequently used index.
             return self._cached
-        elif isinstance(key, int):
-            if key < 0:
-                raise IndexError(f"fetcher index must not be negative: {key:d}")
-            else:
-                return self._fetch(key)
+        elif index < 0:
+            raise IndexError(f"fetcher index must not be negative: {index:d}")
         else:
-            raise TypeError(f"fetcher index must be integer, not {type(key).__name__}")
+            return self._fetch(index)
 
     def _fetch(self, index: int) -> int | None:
         """
