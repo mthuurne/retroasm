@@ -8,11 +8,34 @@ from .section import ByteOrder
 
 
 class Fetcher:
+    """
+    Instruction fetcher interface.
+
+    Each fetcher represents a specific location in the program.
+    """
+
+    __slots__ = ()
+
+    def __getitem__(self, index: int, /) -> int | None:
+        """
+        Return the encoded item at the given index, or None if the index
+        is out of range.
+
+        An encoded item is the smallest unit in instruction encoding;
+        typically it is 8, 16 or 32 bits wide.
+        Some instruction sets have one encoded item per instruction,
+        others have variable instruction length.
+        """
+        raise NotImplementedError
+
+
+class FetcherBase(Fetcher):
     """Abstract base class for instruction fetchers."""
 
     __slots__ = ("_cached", "_max_offset")
 
     def __init__(self) -> None:
+        super().__init__()
         self._cached = self._fetch(0)
         self._max_offset = -1
 
@@ -44,7 +67,7 @@ class Fetcher:
         raise NotImplementedError
 
 
-class ImageFetcher(Fetcher):
+class ImageFetcher(FetcherBase):
     """Abstract base class for instruction fetchers that read from an image."""
 
     __slots__ = ("_image", "_offset", "_end", "_numBytes")
@@ -80,7 +103,7 @@ class ImageFetcher(Fetcher):
         self._offset = start
         self._end = end
         self._numBytes = numBytes
-        Fetcher.__init__(self)
+        super().__init__()
 
     def __repr__(self) -> str:
         return (
@@ -192,7 +215,7 @@ class LittleEndianFetcher(MultiByteFetcher):
         return value
 
 
-class ModeFetcher(Fetcher):
+class ModeFetcher(FetcherBase):
     """Instruction fetcher for looking up an entry in a mode table."""
 
     __slots__ = ("_first", "_auxFetcher", "_auxIndex")
@@ -201,7 +224,7 @@ class ModeFetcher(Fetcher):
         self._first = first
         self._auxFetcher = auxFetcher
         self._auxIndex = auxIndex
-        Fetcher.__init__(self)
+        super().__init__()
 
     def _fetch(self, index: int) -> int | None:
         first = self._first
@@ -215,10 +238,10 @@ class ModeFetcher(Fetcher):
         if auxIndex is None:
             return None
         else:
-            return self._auxFetcher._fetch(auxIndex + index)
+            return self._auxFetcher[auxIndex + index]
 
 
-class AfterModeFetcher(Fetcher):
+class AfterModeFetcher(FetcherBase):
     """Instruction fetcher that adjusts indexing after a multi-match."""
 
     __slots__ = ("_fetcher", "_auxIndex", "_delta")
@@ -227,10 +250,10 @@ class AfterModeFetcher(Fetcher):
         self._fetcher = fetcher
         self._auxIndex = auxIndex
         self._delta = delta
-        Fetcher.__init__(self)
+        super().__init__()
 
     def _fetch(self, index: int) -> int | None:
         if index >= self._auxIndex:
             assert index > self._auxIndex
             index += self._delta
-        return self._fetcher._fetch(index)
+        return self._fetcher[index]
