@@ -29,6 +29,19 @@ class Fetcher:
         raise NotImplementedError
 
 
+class AdvancingFetcher(Fetcher):
+    """An instruction fetcher that can advance to a new program location."""
+
+    __slots__ = ()
+
+    def advance(self, steps: int = 1) -> AdvancingFetcher:
+        """
+        Return a new instruction fetcher of the same type, with a program location
+        that is the given number of encoding units advanced beyond ours.
+        """
+        raise NotImplementedError
+
+
 class FetcherBase(Fetcher):
     """Abstract base class for instruction fetchers."""
 
@@ -67,7 +80,7 @@ class FetcherBase(Fetcher):
         raise NotImplementedError
 
 
-class ImageFetcher(FetcherBase):
+class ImageFetcher(FetcherBase, AdvancingFetcher):
     """Abstract base class for instruction fetchers that read from an image."""
 
     __slots__ = ("_image", "_offset", "_end", "_numBytes")

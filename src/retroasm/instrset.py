@@ -23,7 +23,7 @@ from .decode import (
     createPrefixDecoder,
 )
 from .expression import IntLiteral
-from .fetch import Fetcher, ImageFetcher
+from .fetch import AdvancingFetcher, Fetcher
 from .linereader import BadInput
 from .mode import EncodingExpr, ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
@@ -213,7 +213,9 @@ class InstructionSet(ModeTable):
             decoders[flags] = decoder
         return decoder
 
-    def decodeInstruction(self, fetcher: ImageFetcher) -> tuple[int, ModeMatch | None]:
+    def decodeInstruction(
+        self, fetcher: AdvancingFetcher
+    ) -> tuple[int, ModeMatch | None]:
         """
         Attempt to decode one instruction from the given fetcher.
 
