@@ -22,13 +22,25 @@ class Instruction:
 class DisasmFetcher(AdvancingFetcher):
     """Wraps an image fetcher and tracks how far it looks ahead."""
 
-    __slots__ = ("_fetcher", "_delta_offset", "_max_offset")
+    __slots__ = ("_fetcher", "_addr", "_addr_step", "_delta_offset", "_max_offset")
 
-    def __init__(self, fetcher: AdvancingFetcher, delta: int = 0):
+    @classmethod
+    def from_image_fetcher(cls, fetcher: ImageFetcher, addr: int) -> DisasmFetcher:
+        return cls(fetcher, 0, addr, fetcher.numBytes)
+
+    def __init__(
+        self, fetcher: AdvancingFetcher, delta: int, addr: int, addr_step: int
+    ):
         super().__init__()
         self._fetcher = fetcher
+        self._addr = addr
+        self._addr_step = addr_step
         self._delta_offset = delta
         self._max_offset = -1
+
+    @property
+    def addr(self) -> int:
+        return self._addr
 
     @property
     def looked_ahead(self) -> int:
@@ -46,12 +58,15 @@ class DisasmFetcher(AdvancingFetcher):
         return self._fetcher[self._delta_offset + index]
 
     def advance(self, steps: int = 1) -> DisasmFetcher:
-        return DisasmFetcher(self, steps)
+        addr_step = self._addr_step
+        new_addr = self._addr + steps * addr_step
+        return DisasmFetcher(self, steps, new_addr, addr_step)
 
     def update(self, steps: int) -> None:
         """Advance the wrapped fetcher and reset the look ahead tracking."""
         if steps != 0:
             self._fetcher = self._fetcher.advance(steps)
+            self._addr += steps * self._addr_step
         assert self._delta_offset == 0
         self._max_offset = -1
 
@@ -65,10 +80,8 @@ def disassemble(
     to be executed at the given address.
     """
     pc = cast(Reference, instrSet.globalNamespace["pc"])
-    numBytes = imageFetcher.numBytes
-    fetcher = DisasmFetcher(imageFetcher)
+    fetcher = DisasmFetcher.from_image_fetcher(imageFetcher, startAddr)
 
-    addr = startAddr
     while fetcher[0] is not None:
         encodedLength, modeMatch = instrSet.decodeInstruction(fetcher)
 
@@ -101,17 +114,18 @@ def disassemble(
                 break
             unused_items.append(value)
         if unused_items:
-            yield addr, DataDirective.literal(instrSet.encodingType, *unused_items)
-        addr += unused * numBytes
+            yield fetcher.addr, DataDirective.literal(
+                instrSet.encodingType, *unused_items
+            )
         fetcher.update(unused)
 
         # Disassemble instruction.
         if modeMatch is not None:
-            postAddr = addr + reencodedLen * numBytes
-            modeMatch = modeMatch.substPC(pc, IntLiteral(postAddr))
-            yield addr, Instruction(modeMatch.mnemonic)
-            addr = postAddr
+            pre_addr = fetcher.addr
             fetcher.update(reencodedLen)
+            post_addr = fetcher.addr
+            modeMatch = modeMatch.substPC(pc, IntLiteral(post_addr))
+            yield pre_addr, Instruction(modeMatch.mnemonic)
 
 
 def formatAsm(
