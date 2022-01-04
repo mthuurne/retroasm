@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Any, Iterable, Iterator, Sequence, Union
+from typing import Any, Iterable, Iterator, Sequence, Union, cast
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .tokens import TokenEnum
-from .types import Width, cast, unlimited
+from .types import Width, unlimited
 
 
 class ParseError(BadInput):
