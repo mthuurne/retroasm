@@ -4,11 +4,12 @@ from logging import getLogger
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .expression_nodes import NumberNode, parseDigits
+from .expression_nodes import IdentifierNode, NumberNode, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
 from .tokens import TokenEnum, Tokenizer
 from .types import unlimited
+from .utils import bad_type
 
 logger = getLogger("parse-asm")
 
@@ -56,57 +57,65 @@ def parse_number(location: InputLocation) -> NumberNode:
 
 
 def create_match_sequence(
-    name: InputLocation, tokens: Iterable[Token]
-) -> Iterator[type[int] | int | str]:
+    name: InputLocation, nodes: Iterable[IdentifierNode | NumberNode]
+) -> Iterator[type[int] | str]:
     """Convert tokens to a match sequence."""
     yield name.text
-    for kind, location in tokens:
-        if kind is AsmToken.number or kind is AsmToken.string:
+    for node in nodes:
+        if isinstance(node, IdentifierNode):
+            yield node.name
+        elif isinstance(node, NumberNode):
             yield int
-        elif kind is AsmToken.word or kind is AsmToken.symbol:
-            yield location.text
         else:
-            assert kind is AsmToken.comment, kind
+            bad_type(node)
 
 
 def parse_instruction(
+    tokens: Tokenizer[AsmToken], reader: LineReader
+) -> Iterator[IdentifierNode | NumberNode]:
+    for kind, location in tokens:
+        if kind is AsmToken.word:
+            yield IdentifierNode(location.text, location)
+        elif kind is AsmToken.symbol:
+            # TODO: Treating symbols as identifiers is weird, but it works for now.
+            yield IdentifierNode(location.text, location)
+        elif kind is AsmToken.number:
+            try:
+                yield parse_number(location)
+            except ValueError as ex:
+                reader.error("%s", ex, location=location)
+        elif kind is AsmToken.string:
+            # Arbitrary strings are not allowed as instruction
+            # operands, but single characters should be replaced
+            # by their character numbers.
+            value = location.text
+            assert len(value) >= 2, value
+            assert value[0] == value[-1], value
+            if len(value) == 2:
+                reader.error("empty string in instruction operand", location=location)
+            elif len(value) == 3:
+                yield NumberNode(ord(value[1]), 8, location)
+            else:
+                reader.error(
+                    "multi-character string in instruction operand",
+                    location=location,
+                )
+        elif kind is AsmToken.comment:
+            pass
+        else:
+            assert False, kind
+
+
+def build_instruction(
     name: InputLocation, tokens: Tokenizer[AsmToken], reader: LineReader
 ) -> None:
-    token_list = list(tokens)
-
     try:
         with reader.checkErrors():
-            for kind, location in token_list:
-                # TODO: Use the parsed number for something.
-                # pylint: disable=unused-variable
-                if kind is AsmToken.number:
-                    # Convert to int.
-                    try:
-                        number = parse_number(location)
-                    except ValueError as ex:
-                        reader.error("%s", ex, location=location)
-                elif kind is AsmToken.string:
-                    # Arbitrary strings are not allowed as instruction
-                    # operands, but single characters should be replaced
-                    # by their character numbers.
-                    value = location.text
-                    assert len(value) >= 2, value
-                    assert value[0] == value[-1], value
-                    if len(value) == 2:
-                        reader.error(
-                            "empty string in instruction operand", location=location
-                        )
-                    elif len(value) == 3:
-                        number = NumberNode(ord(value[1]), 8, location)
-                    else:
-                        reader.error(
-                            "multi-character string in instruction operand",
-                            location=location,
-                        )
+            match_seq = tuple(
+                create_match_sequence(name, parse_instruction(tokens, reader))
+            )
     except DelayedError:
         return
-
-    match_seq = tuple(create_match_sequence(name, token_list))
 
     reader.info(
         "instruction %s", " ".join(str(elem) for elem in match_seq), location=name
@@ -153,7 +162,7 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
         # Look for a directive or instruction.
         if first_word is not None:
             if first_word.text.casefold() in instruction_names:
-                parse_instruction(first_word, tokens, reader)
+                build_instruction(first_word, tokens, reader)
             else:
                 parse_directive(first_word, tokens, reader)
         elif tokens.eat(AsmToken.comment) is not None:
