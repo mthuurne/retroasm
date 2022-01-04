@@ -4,9 +4,12 @@ from logging import getLogger
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .expression_nodes import IdentifierNode, NumberNode, parseDigits
+from .asm_directives import OriginDirective
+from .expression import Expression, IntLiteral
+from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
+from .reference import FixedValueReference
 from .tokens import TokenEnum, Tokenizer
 from .types import unlimited
 from .utils import bad_type
@@ -15,7 +18,7 @@ logger = getLogger("parse-asm")
 
 
 class AsmToken(TokenEnum):
-    number = r"\$\w+|%\w+|\d\w*"
+    number = r"\$\w+|%\w+|\d\w*|0[xXbB]\w+"
     word = r"[\w.]+"
     string = r'"[^"]*"|\'[^\']*\''
     comment = r";.*$"
@@ -122,18 +125,35 @@ def build_instruction(
     )
 
 
+def parse_value(tokens: Tokenizer[AsmToken]) -> Expression:
+    if (location := tokens.eat(AsmToken.number)) is not None:
+        number = parse_number(location)
+        return IntLiteral(number.value)
+    elif tokens.end:
+        raise ParseError("missing value", tokens.location)
+    else:
+        # TODO: Implement.
+        raise ParseError.withText(
+            "unexpected token; expression parsing not implemented yet", tokens.location
+        )
+
+
 def parse_directive(
-    name: InputLocation, tokens: Tokenizer[AsmToken], reader: LineReader
-) -> None:
-    directive = [name]
-    for kind, location in tokens:
-        if kind is not AsmToken.comment:
-            directive.append(location)
-    reader.info(
-        "directive: %s",
-        " ".join(location.text for location in directive),
-        location=name,
-    )
+    name: InputLocation, tokens: Tokenizer[AsmToken], instr_set: InstructionSet
+) -> OriginDirective:
+    # TODO: It would be good to store the expression locations, so we can print
+    #       a proper error report if we later discover the value is bad.
+    keyword = name.text.casefold()
+    if keyword == "org":
+        addr = parse_value(tokens)
+        if tokens.end:
+            return OriginDirective(FixedValueReference(addr, instr_set.addrType))
+        else:
+            raise ParseError.withText("unexpected token after value", tokens.location)
+    else:
+        raise ParseError.withText(
+            "statement is not a known instruction or directive", name
+        )
 
 
 def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
@@ -164,7 +184,12 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
             if first_word.text.casefold() in instruction_names:
                 build_instruction(first_word, tokens, reader)
             else:
-                parse_directive(first_word, tokens, reader)
+                try:
+                    directive = parse_directive(first_word, tokens, instr_set)
+                except ParseError as ex:
+                    reader.error("%s", ex, location=ex.locations)
+                else:
+                    reader.info("directive: %s", directive, location=first_word)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end:
