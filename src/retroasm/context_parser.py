@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Union
 
-from .expression_parser import DeclarationNode, ParseNode
+from .expression_nodes import DeclarationNode, ParseNode
 from .mode import Mode
 from .types import IntType, ReferenceType, Width
 

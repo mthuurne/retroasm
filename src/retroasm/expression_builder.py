@@ -17,7 +17,7 @@ from .expression import (
     XorOperator,
     truncate,
 )
-from .expression_parser import (
+from .expression_nodes import (
     AssignmentNode,
     BranchNode,
     DeclarationKind,

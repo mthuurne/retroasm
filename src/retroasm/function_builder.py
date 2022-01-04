@@ -4,7 +4,8 @@ from typing import Iterator, Mapping, cast
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
-from .expression_parser import ParseError, ParseNode, parseStatement
+from .expression_nodes import ParseError, ParseNode
+from .expression_parser import parseStatement
 from .function import Function
 from .linereader import DefLineReader, DelayedError, InputLocation
 from .namespace import GlobalNamespace, LocalNamespace

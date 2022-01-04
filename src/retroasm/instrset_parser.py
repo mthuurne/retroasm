@@ -33,17 +33,19 @@ from .expression_builder import (
     buildStatementEval,
     convertDefinition,
 )
-from .expression_parser import (
+from .expression_nodes import (
     DeclarationNode,
     DefinitionNode,
     FlagTestNode,
     IdentifierNode,
     MultiMatchNode,
     ParseNode,
+    parseInt,
+)
+from .expression_parser import (
     parseContext,
     parseExpr,
     parseExprList,
-    parseInt,
     parseRegs,
     parseStatement,
 )

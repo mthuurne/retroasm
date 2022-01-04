@@ -4,7 +4,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .expression_parser import NumberNode, parseDigits
+from .expression_nodes import NumberNode, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
 from .tokens import TokenEnum, Tokenizer
