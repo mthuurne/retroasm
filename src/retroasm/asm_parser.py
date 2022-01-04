@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from .asm_directives import DataDirective, OriginDirective
-from .expression import Expression, IntLiteral
+from .expression import Expression, IntLiteral, truncate
 from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
 from .reference import FixedValueReference
+from .symbol import SymbolValue
 from .tokens import TokenEnum, Tokenizer
 from .types import IntType, unlimited
 from .utils import bad_type
@@ -129,6 +130,10 @@ def parse_value(tokens: Tokenizer[AsmToken]) -> Expression:
     if (location := tokens.eat(AsmToken.number)) is not None:
         number = parse_number(location)
         return IntLiteral(number.value)
+    elif (location := tokens.eat(AsmToken.word)) is not None:
+        # We don't know at this stage whether a symbol is a label or a constant,
+        # so assume the width is unlimited.
+        return SymbolValue(location.text, unlimited)
     elif tokens.end:
         raise ParseError("missing value", tokens.location)
     else:
@@ -161,7 +166,16 @@ def parse_directive(
         data = []
         while True:
             value = parse_value(tokens)
-            data.append(FixedValueReference(value, data_type))
+            # TODO: I don't like the use of truncation here, since it might silence
+            #       errors.
+            #       One alternative would be to add an expression node that performs
+            #       a range check. Perhaps this could also store the location (see
+            #       TODO at the top of this function).
+            #       Another alternative would be to not use FixedValueReference for
+            #       storing the values. Instead, we could store expressions (ignore
+            #       width, since it's implied by the directive) or we could store
+            #       ASTs (preserves more of the original code when reformatting).
+            data.append(FixedValueReference(truncate(value, width), data_type))
             if tokens.end:
                 break
             if tokens.eat(AsmToken.symbol, ",") is None:
