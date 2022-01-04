@@ -24,7 +24,7 @@ class AsmToken(TokenEnum):
 Token = tuple[AsmToken, InputLocation]
 
 
-def parseNumber(location: InputLocation) -> NumberNode:
+def parse_number(location: InputLocation) -> NumberNode:
     """
     Parse a numeric literal in one of several formats.
     Raise `ValueError` if the location does not contain a valid number.
@@ -33,29 +33,29 @@ def parseNumber(location: InputLocation) -> NumberNode:
     value = location.text
     if value[0] == "$":
         digits = value[1:]
-        digitWidth = 4
+        digit_width = 4
     elif value[0] == "%":
         digits = value[1:]
-        digitWidth = 1
+        digit_width = 1
     elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
         digits = value[2:]
-        digitWidth = 4 if value[1] in "xX" else 1
+        digit_width = 4 if value[1] in "xX" else 1
     elif value[-1].isdigit():
         # Decimal numbers have no integer per-digit width.
         return NumberNode(parseDigits(value, 10), unlimited, location)
     else:
         digits = value[:-1]
         try:
-            digitWidth = {"b": 1, "h": 4}[value[-1].casefold()]
+            digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
         except KeyError:
             raise ValueError(f'bad number suffix "{value[-1]}"') from None
 
     return NumberNode(
-        parseDigits(digits, 1 << digitWidth), len(digits) * digitWidth, location
+        parseDigits(digits, 1 << digit_width), len(digits) * digit_width, location
     )
 
 
-def createMatchSequence(
+def create_match_sequence(
     name: InputLocation, tokens: Iterable[Token]
 ) -> Iterator[type[int] | int | str]:
     """Convert tokens to a match sequence."""
@@ -69,20 +69,20 @@ def createMatchSequence(
             assert kind is AsmToken.comment, kind
 
 
-def parseInstruction(
+def parse_instruction(
     name: InputLocation, tokens: Tokenizer[AsmToken], reader: LineReader
 ) -> None:
-    tokenList = list(tokens)
+    token_list = list(tokens)
 
     try:
         with reader.checkErrors():
-            for kind, location in tokenList:
+            for kind, location in token_list:
                 # TODO: Use the parsed number for something.
                 # pylint: disable=unused-variable
                 if kind is AsmToken.number:
                     # Convert to int.
                     try:
-                        number = parseNumber(location)
+                        number = parse_number(location)
                     except ValueError as ex:
                         reader.error("%s", ex, location=location)
                 elif kind is AsmToken.string:
@@ -106,14 +106,14 @@ def parseInstruction(
     except DelayedError:
         return
 
-    matchSeq = tuple(createMatchSequence(name, tokenList))
+    match_seq = tuple(create_match_sequence(name, token_list))
 
     reader.info(
-        "instruction %s", " ".join(str(elem) for elem in matchSeq), location=name
+        "instruction %s", " ".join(str(elem) for elem in match_seq), location=name
     )
 
 
-def parseDirective(
+def parse_directive(
     name: InputLocation, tokens: Tokenizer[AsmToken], reader: LineReader
 ) -> None:
     directive = [name]
@@ -127,35 +127,35 @@ def parseDirective(
     )
 
 
-def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
-    instrSet.dumpMnemonicTree()
-    instructionNames = instrSet.instructionNames
+def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
+    instr_set.dumpMnemonicTree()
+    instruction_names = instr_set.instructionNames
 
     for line in reader:
         tokens = AsmToken.scan(line)
 
         # Look for a label.
         label = None
-        firstWord = tokens.eat(AsmToken.word)
-        if firstWord is not None and (
+        first_word = tokens.eat(AsmToken.word)
+        if first_word is not None and (
             # explicit label declaration
             tokens.eat(AsmToken.symbol, ":") is not None
             # EQU directive
             or (tokens.peek(AsmToken.word) and tokens.value.casefold() == "equ")
             # local label
-            or firstWord.text.startswith(".")
+            or first_word.text.startswith(".")
         ):
-            label = firstWord.text
-            firstWord = tokens.eat(AsmToken.word)
+            label = first_word.text
+            first_word = tokens.eat(AsmToken.word)
         if label is not None:
             reader.info("label: %s", label)
 
         # Look for a directive or instruction.
-        if firstWord is not None:
-            if firstWord.text.casefold() in instructionNames:
-                parseInstruction(firstWord, tokens, reader)
+        if first_word is not None:
+            if first_word.text.casefold() in instruction_names:
+                parse_instruction(first_word, tokens, reader)
             else:
-                parseDirective(firstWord, tokens, reader)
+                parse_directive(first_word, tokens, reader)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end:
@@ -166,8 +166,8 @@ def parseAsm(reader: LineReader, instrSet: InstructionSet) -> None:
             )
 
 
-def readSource(path: Path, instrSet: InstructionSet) -> None:
+def read_source(path: Path, instr_set: InstructionSet) -> None:
     with LineReader.open(path, logger) as reader:
         with reader.checkErrors():
-            parseAsm(reader, instrSet)
+            parse_asm(reader, instr_set)
             reader.summarize()

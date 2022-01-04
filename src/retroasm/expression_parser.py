@@ -458,7 +458,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             return ident
 
         if tokens.peek(ExprToken.number):
-            return parseNumber()
+            return parse_number()
 
         multimatchLocation = tokens.eat(ExprToken.multimatch)
         if multimatchLocation is not None:
@@ -612,7 +612,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         location = mergeSpan(openLocation, closeLocation)
         return OperatorNode(Operator.call, exprs, location)
 
-    def parseNumber() -> NumberNode:
+    def parse_number() -> NumberNode:
         location = tokens.eat(ExprToken.number)
         assert location is not None, tokens.location
         try:

@@ -23,7 +23,7 @@ from click import (
 
 from .asm_directives import DataDirective, OriginDirective
 from .asm_formatter import Formatter
-from .asm_parser import readSource
+from .asm_parser import read_source
 from .binfmt import (
     BinaryFormat,
     EntryPoint,
@@ -65,7 +65,7 @@ def asm(instr: str, source: str) -> None:
 
     sourcePath = Path(source)
     try:
-        readSource(sourcePath, instrSet)
+        read_source(sourcePath, instrSet)
     except OSError as ex:
         logger.error('Failed to read source "%s": %s', ex.filename, ex.strerror)
         get_current_context().exit(1)
@@ -353,7 +353,7 @@ def _iterImageSections(
         yield Section(offset, imageEnd, "gap"), image[offset:imageEnd]
 
 
-def _parseNumber(number: str) -> int:
+def _parse_number(number: str) -> int:
     if number.startswith("0x"):
         return int(number[2:], 16)
     else:
@@ -379,7 +379,7 @@ class EntryPointParamType(ParamType):
             offsetStr, label = value, None
 
         try:
-            offset = _parseNumber(offsetStr)
+            offset = _parse_number(offsetStr)
         except ValueError as ex:
             raise BadParameter(f'Bad entry point definition "{value}": {ex}') from ex
         else:
@@ -412,16 +412,16 @@ class SectionParamType(ParamType):
             elif ".." in opt:
                 startStr, endStr = opt.split("..")
                 try:
-                    start = _parseNumber(startStr)
+                    start = _parse_number(startStr)
                 except ValueError as ex:
                     raise BadParameter(f'Bad section start "{startStr}": {ex}') from ex
                 try:
-                    end = _parseNumber(endStr)
+                    end = _parse_number(endStr)
                 except ValueError as ex:
                     raise BadParameter(f'Bad section end "{endStr}": {ex}') from ex
             elif opt[0].isdigit():
                 try:
-                    base = _parseNumber(opt)
+                    base = _parse_number(opt)
                 except ValueError as ex:
                     raise BadParameter(
                         f'Bad section base address "{opt}": {ex}'
