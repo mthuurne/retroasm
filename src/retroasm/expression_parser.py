@@ -391,7 +391,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 typeLocation = mergeSpan(typeLocation, ampLocation)
                 if kind is DeclarationKind.variable:
                     raise ParseError(
-                        "references can only be defined using " 'the "def" keyword',
+                        'references can only be defined using the "def" keyword',
                         mergeSpan(startLocation, ampLocation),
                     )
                 kind = DeclarationKind.reference
