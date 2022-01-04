@@ -133,8 +133,7 @@ def test_disasm_truncated_prefix() -> None:
     image = b"\xdd\xfd"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
-        (0x4000, "db $dd"),
-        (0x4001, "db $fd"),
+        (0x4000, "db $dd, $fd"),
     ]
 
 

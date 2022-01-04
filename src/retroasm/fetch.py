@@ -45,26 +45,13 @@ class AdvancingFetcher(Fetcher):
 class FetcherBase(Fetcher):
     """Abstract base class for instruction fetchers."""
 
-    __slots__ = ("_cached", "_max_offset")
+    __slots__ = ("_cached",)
 
     def __init__(self) -> None:
         super().__init__()
         self._cached = self._fetch(0)
-        self._max_offset = -1
-
-    @property
-    def looked_ahead(self) -> int:
-        """
-        Return the number of encoding units that was fetched ahead of the start
-        position.
-
-        This is used as the number of encoding units consumed by the instruction
-        decoder if no instruction was matched.
-        """
-        return self._max_offset + 1
 
     def __getitem__(self, index: int, /) -> int | None:
-        self._max_offset = max(self._max_offset, index)
         if index == 0:
             # Fast path for most frequently used index.
             return self._cached
