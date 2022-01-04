@@ -4,14 +4,14 @@ from logging import getLogger
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .asm_directives import OriginDirective
+from .asm_directives import DataDirective, OriginDirective
 from .expression import Expression, IntLiteral
 from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader
 from .reference import FixedValueReference
 from .tokens import TokenEnum, Tokenizer
-from .types import unlimited
+from .types import IntType, unlimited
 from .utils import bad_type
 
 logger = getLogger("parse-asm")
@@ -138,13 +138,38 @@ def parse_value(tokens: Tokenizer[AsmToken]) -> Expression:
         )
 
 
+_data_widths = {
+    "db": 8,
+    "defb": 8,
+    "dw": 16,
+    "defw": 16,
+    "dd": 32,
+    "defd": 32,
+    "dq": 64,
+    "defq": 64,
+}
+
+
 def parse_directive(
     name: InputLocation, tokens: Tokenizer[AsmToken], instr_set: InstructionSet
-) -> OriginDirective:
+) -> DataDirective | OriginDirective:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
     keyword = name.text.casefold()
-    if keyword == "org":
+    if (width := _data_widths.get(keyword)) is not None:
+        data_type = IntType.u(width)
+        data = []
+        while True:
+            value = parse_value(tokens)
+            data.append(FixedValueReference(value, data_type))
+            if tokens.end:
+                break
+            if tokens.eat(AsmToken.symbol, ",") is None:
+                raise ParseError.withText(
+                    "unexpected token after value", tokens.location
+                )
+        return DataDirective(*data)
+    elif keyword == "org":
         addr = parse_value(tokens)
         if tokens.end:
             return OriginDirective(FixedValueReference(addr, instr_set.addrType))
