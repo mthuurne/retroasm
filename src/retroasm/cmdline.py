@@ -315,7 +315,7 @@ def disassembleBinary(
             assert isinstance(section, CodeSection), section
             instrSet = builtinInstructionSets[section.instrSetName]
             assert instrSet is not None
-            org = OriginDirective.fromInt(section.base, instrSet.addrType)
+            org = OriginDirective.from_int(section.base, instrSet.addrType)
             print(formatter.origin(org), file=out)
             print(file=out)
             for line in formatAsm(formatter, decoded[section], labels):

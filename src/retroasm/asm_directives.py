@@ -54,19 +54,19 @@ class DataDirective:
         widths = {ref.width for ref in data}
         if len(widths) != 1:
             if widths:
-                widthsStr = ", ".join(str(width for width in sorted(widths)))
-                raise ValueError(f"inconsistent widths: {widthsStr}")
+                widths_str = ", ".join(str(width for width in sorted(widths)))
+                raise ValueError(f"inconsistent widths: {widths_str}")
             else:
                 raise ValueError("no data")
         self._data = data
 
     def __str__(self) -> str:
-        argsStr = ", ".join(str(ref.bits) for ref in self._data)
-        return f"def{self.width} {argsStr}"
+        args_str = ", ".join(str(ref.bits) for ref in self._data)
+        return f"def{self.width} {args_str}"
 
     def __repr__(self) -> str:
-        argsStr = ", ".join(repr(ref) for ref in self._data)
-        return f"{self.__class__.__name__}({argsStr})"
+        args_str = ", ".join(repr(ref) for ref in self._data)
+        return f"{self.__class__.__name__}({args_str})"
 
 
 class StringDirective:
@@ -80,15 +80,15 @@ class StringDirective:
         self._data = data
 
     def __str__(self) -> str:
-        argsStr = ", ".join(
+        args_str = ", ".join(
             str(item.bits) if isinstance(item, FixedValueReference) else repr(item)
             for item in self._data
         )
-        return f"defb {argsStr}"
+        return f"defb {args_str}"
 
     def __repr__(self) -> str:
-        argsStr = ", ".join(repr(item) for item in self._data)
-        return f"{self.__class__.__name__}({argsStr})"
+        args_str = ", ".join(repr(item) for item in self._data)
+        return f"{self.__class__.__name__}({args_str})"
 
 
 class StructuredData(Protocol):
@@ -118,7 +118,7 @@ class OriginDirective:
         return self._addr
 
     @classmethod
-    def fromInt(cls, addr: int, typ: IntType) -> OriginDirective:
+    def from_int(cls, addr: int, typ: IntType) -> OriginDirective:
         return cls(int_reference(addr, typ))
 
     def __init__(self, addr: FixedValueReference):
