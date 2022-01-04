@@ -5,7 +5,7 @@ A symbol is a name which can be used in expressions.
 
 Two kinds of symbols are supported:
 - labels, which contain an address that corresponds to a certain source location
-- constants, which are compuated values defined via a directive
+- constants, which are computed values defined via a directive
 """
 
 from __future__ import annotations
