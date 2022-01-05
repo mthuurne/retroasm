@@ -456,7 +456,7 @@ Here two flags are defined: ``ixf`` and ``iyf``\ , which select the ``IX`` and `
 
 Decode flags are considered to be zero at the start of the decoding of each instruction. If you want to model a persistent flag, you should instead define a register and one or more instructions to change that register.
 
-Prefixes that select different instruction rather than modify existing instructions should not be modeled as prefixes, but as part of the instruction itself. For example, the Z80 ``$CB`` and ``$ED`` prefixes are considered part of the instruction encoding, so ``LDIR`` has the encoding ``$ED $B0``\ , not ``$B0`` with a ``$ED`` prefix.
+Opcode bytes that select different instructions rather than modify existing instructions should not be modeled as prefixes, but as part of the instruction itself. For example, the Z80 ``$CB`` and ``$ED`` opcode bytes are considered part of the instruction encoding, so ``LDIR`` has the encoding ``$ED $B0``\ , not ``$B0`` with a ``$ED`` prefix.
 
 Branch Delay Slots
 ^^^^^^^^^^^^^^^^^^
