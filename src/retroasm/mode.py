@@ -804,7 +804,12 @@ class ModeTable:
         auxEncWidth: int | None,
         entries: Iterable[ModeEntry],
     ):
-        if encWidth is unlimited or auxEncWidth is unlimited:
+        if (
+            encWidth is unlimited  # type: ignore[comparison-overlap]
+            or auxEncWidth is unlimited  # type: ignore[comparison-overlap]
+        ):
+            # TODO: With unlimited encoding width we can't produce binaries,
+            #       but is that enough reason to disallow it?
             raise ValueError("unlimited width is not allowed for encoding")
         self._encWidth = encWidth
         self._auxEncWidth = auxEncWidth

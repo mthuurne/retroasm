@@ -265,7 +265,7 @@ class ConcatenatedBits(BitString):
         Creates a concatenation of the given bit strings, in order from least
         to most significant.
         """
-        width = 0
+        width: Width = 0
         for sub in subs:
             if width is unlimited:
                 raise ValueError(

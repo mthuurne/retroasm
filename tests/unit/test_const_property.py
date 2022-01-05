@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 import pytest
 
@@ -99,10 +99,10 @@ def test_readonly_list_value() -> None:
     """Test that the returned value is converted to a read-only type."""
     data = (1, 2, 3)
     obj = DataType(list(data))
-    assert obj.prop == data
+    assert cast(tuple[int, ...], obj.prop) == data
     with pytest.raises(AttributeError):
         obj.prop.append(4)
-    assert obj.prop == data
+    assert cast(tuple[int, ...], obj.prop) == data
 
 
 def test_readonly_set_value() -> None:
@@ -129,10 +129,10 @@ def test_readonly_iter_value() -> None:
     """Test that the returned value is converted to a read-only type."""
     data = tuple(range(10))
     obj = DataType(iter(data))
-    assert obj.prop == data
+    assert cast(tuple[int, ...], obj.prop) == data
     with pytest.raises(AttributeError):
         obj.prop.append(10)  # type: ignore[attr-defined]
-    assert obj.prop == data
+    assert cast(tuple[int, ...], obj.prop) == data
 
 
 def test_readonly_property() -> None:
