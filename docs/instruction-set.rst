@@ -688,7 +688,9 @@ The definition of the Z80's prefixes looks like this:
    $FD     .           . ixf;iyf := %01
 
 
-Here two flags are defined: ``ixf`` and ``iyf``\ , which select the ``IX`` and ``IY`` register overrides respectively. The prefix byte ``$DD`` before an instruction will set the ``ixf`` flag and the prefix byte ``$FD`` will set the ``iyf`` flag. These two flags are mutually exclusive and only the flag set by the last encountered prefix counts. The mnemonic field is empty, since the prefix is implied by the registers used in the operands: there are no keywords to select prefixes in Z80 assembly.
+Here two flags are defined: ``ixf`` and ``iyf``\ , which select the ``IX`` and ``IY`` register overrides respectively. The prefix byte ``$DD`` before an instruction will set the ``ixf`` flag and the prefix byte ``$FD`` will set the ``iyf`` flag. These two Z80 decode flags are mutually exclusive: only the flag set by the last encountered prefix counts, which is modeled by assigning a zero bit to the other flag in the semantics field.
+
+The mnemonic field is empty, since the prefix is implied by the instruction's operands: the use of the ``IX`` or ``IY`` register. This kind of prefix that changes how operands are decoded is called an `override prefix`. The Z80 only has these two override prefixes, but for example the x86 has other kinds of prefixes as well, with mnemonic keywords such as ``rep`` and ``lock``.
 
 Decode flags are considered to be zero at the start of the decoding of each instruction. If you want to model a persistent flag, you should instead define a register and one or more instructions to change that register.
 
