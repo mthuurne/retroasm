@@ -539,6 +539,12 @@ In the first entry of ``reg16af``\ , the context field is used to match accordin
 
 When multiple entries match the same encoding, the later entry fully replaces the earlier entry. In mode ``reg16af`` in the example above, not only does the encoding ``%11`` map to the mnemonic ``af``\ , but the mnemonic ``sp`` does not occur at all in mode ``reg16af``.
 
+When there is more than one way of encoding the same instruction, the assembler will use the following priorities:
+
+- shorter encodings are always picked over longer ones
+- later entries in mode tables are picked over earlier entries
+- if there is still a tie, the lowest possible encoding is picked
+
 In the encoding, mnemonic and semantics field, the placeholder represents that same field in the matched entry from the included mode. For example, the ``R`` in the encoding field represents the encoding of the matched entry, while the ``R`` in the mnemonic field represents the mnemonic of the matched entry.
 
 Placeholders can be used in expressions, for example to define the Z80 flag tests:
