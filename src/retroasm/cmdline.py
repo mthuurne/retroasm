@@ -92,22 +92,6 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
         instrSet.getDecoder(frozenset(flags)).dump(submodes=submodes)
 
 
-def checkInstrSet(
-    path: Traversable, dumpNoSubs: bool, dumpSubs: bool, logger: Logger
-) -> int:
-
-    logger.info("checking: %s", path)
-    instrSet = loadInstructionSet(path, logger)
-    if instrSet is None:
-        return 1
-
-    if dumpNoSubs:
-        dumpDecoders(instrSet, False)
-    if dumpSubs:
-        dumpDecoders(instrSet, True)
-    return 0
-
-
 @command()
 @option(
     "--dump-decoders",
@@ -130,7 +114,7 @@ def checkdef(
     """
 
     files: list[Traversable] = []
-    exit_code = 0
+    errors = False
     for name in instr:
         path = Path(name)
         if path.is_dir():
@@ -147,22 +131,23 @@ def checkdef(
             files.append(builtinInstructionSetPath(name))
         else:
             print("Instruction set not found:", name, file=sys.stderr)
-            exit_code = 1
+            errors = True
 
-    if not files:
+    if files:
+        logger = setupLogging(INFO)
+        for instr_file in files:
+            logger.info("checking: %s", instr_file)
+            instr_set = loadInstructionSet(instr_file, logger)
+            if instr_set is None:
+                errors = True
+                continue
+            if dump_decoders:
+                dumpDecoders(instr_set, False)
+            if dump_decoders_subs:
+                dumpDecoders(instr_set, True)
+    else:
         print("No files to check", file=sys.stderr)
-        get_current_context().exit(exit_code)
-
-    logger = setupLogging(INFO)
-    get_current_context().exit(
-        max(
-            (
-                checkInstrSet(path, dump_decoders, dump_decoders_subs, logger)
-                for path in files
-            ),
-            default=exit_code,
-        )
-    )
+    get_current_context().exit(1 if errors else 0)
 
 
 def determineBinaryFormat(
