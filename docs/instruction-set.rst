@@ -520,7 +520,49 @@ The simplest use of the context field is to define immediate values, using the s
 
 The names ``N`` and ``A`` that are declared in the context are used in the other fields; these uses are called placeholders. A placeholder represents a value that will substituted at a later time. In the examples above, that value will be an 8-bit unsigned integer.
 
-It is possible to include a mode defined earlier as part of a new mode, using the syntax ``<mode> <name>`` in the context field:
+The context field can contain multiple items, separated by commas. It is possible to define constants and references, similar to the ``def`` keyword in functions: constants are defined using ``<type> <name> = <expr>`` and references are defined using ``<type>& <name> = <expr>``. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
+
+.. code-block::
+
+   N       . A         . A         . s8 N, u16 A = pc + N
+
+
+A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
+
+Context: Decode Flags
+^^^^^^^^^^^^^^^^^^^^^
+
+A final use of the context field is to filter on instruction decode flags, using the syntax ``?<name>``. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
+
+.. code-block::
+
+   %100    . h
+   %100    . ixh       .               . ?ix
+   %100    . iyh       .               . ?iy
+   %101    . l
+   %101    . ixl       .               . ?ix
+   %101    . iyl       .               . ?iy
+
+
+The entries that test decode flags are placed after the corresponding entries that don't test flags, since the last matched entry is picked when decoding.
+
+Here is an example that defines Z80 indexed addressing, using a combination of a decode flag filter and an immediate:
+
+.. code-block::
+
+   %110    . (hl)      . mem[hl]
+   %110, N . (ix + N)  . mem[ix + N]   . ?ix, s8 N
+   %110, N . (iy + N)  . mem[iy + N]   . ?iy, s8 N
+
+
+If there are multiple decode flags tested in the context of a single mode entry, that entry will only be matched if all of those flags are set.
+
+Currently the only way to set decode flags is by using `prefixes`_.
+
+Extending Modes
+^^^^^^^^^^^^^^^
+
+Placeholders make it possible to include a mode defined earlier as part of a new mode, using the syntax ``<mode> <name>`` in the context field:
 
 .. code-block::
 
@@ -535,15 +577,7 @@ It is possible to include a mode defined earlier as part of a new mode, using th
    %11     . af
 
 
-In the first entry of ``reg16af``\ , the context field is used to match according to the ``reg16`` mode and use the match as-is. The second entry then replaces ``sp`` with ``af``.
-
-When multiple entries match the same encoding, the later entry fully replaces the earlier entry. In mode ``reg16af`` in the example above, not only does the encoding ``%11`` map to the mnemonic ``af``\ , but the mnemonic ``sp`` does not occur at all in mode ``reg16af``.
-
-When there is more than one way of encoding the same instruction, the assembler will use the following priorities:
-
-- shorter encodings are always picked over longer ones
-- later entries in mode tables are picked over earlier entries
-- if there is still a tie, the lowest possible encoding is picked
+In the first entry of mode ``reg16af``\ , the context field is used to match according to the ``reg16`` mode and use the match as-is. The second entry then replaces ``sp`` with ``af``. In general, when more than one mode entry matches during instruction encoding or decoding, the later one is picked; see `Matching Rules`_ for details.
 
 In the encoding, mnemonic and semantics field, the placeholder represents that same field in the matched entry from the included mode. For example, the ``R`` in the encoding field represents the encoding of the matched entry, while the ``R`` in the mnemonic field represents the mnemonic of the matched entry.
 
@@ -566,15 +600,6 @@ Placeholders can be used in expressions, for example to define the Z80 flag test
 
 
 In the above example, the placeholder ``C`` represents the match made in the ``cond2`` mode table. Let's say that the third entry in ``cond2`` was the one matched. In the first entry of ``cond3``\ , the ``C`` in the second column reproduces the matched mnemonic ``nc`` as-is, while the ``C`` in the third column reproduces the semantic expression ``!cf`` as-is. In the first column, ``C`` matches the encoding ``%10`` which is concatenated to a fixed bit of 0 to form the 3-bit encoding ``%010``.
-
-The context field can contain multiple items, separated by commas. It is possible to define constants and references, similar to the ``def`` keyword in functions: constants are defined using ``<type> <name> = <expr>`` and references are defined using ``<type>& <name> = <expr>``. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
-
-.. code-block::
-
-   N       . A         . A         . s8 N, u16 A = pc + N
-
-
-A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
 
 In instruction sets with variable instruction lengths, some mode entries can have more than one encoding item. A placeholder in the encoding field represents the first encoding item of the matched mode entry. Any unclaimed additional encoding elements are included by adding ``@`` as a suffix to the placeholder. The following theoretical example shows various ways of including encoding elements from one mode into another:
 
@@ -605,32 +630,6 @@ The mode ``relative`` defines relative addressing using a 16-bit base addresses 
 
 Similarly, ``D`` in the encoding of mode ``relative`` matches the 2-bit pattern that selects the offset to use. ``D@`` is empty when the offset is one of the 8-bit registers ``a``\ , ``b`` or ``c``\ , while it contains the 8-bit immediate offset if the fourth entry in the ``offset`` mode is matched.
 
-Context: Decode Flags
-^^^^^^^^^^^^^^^^^^^^^
-
-A final use of the context field is to filter on instruction decode flags, using the syntax ``?<name>``. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
-
-.. code-block::
-
-   %100    . h
-   %100    . ixh       .               . ?ix
-   %100    . iyh       .               . ?iy
-   %101    . l
-   %101    . ixl       .               . ?ix
-   %101    . iyl       .               . ?iy
-
-
-Here is an example that defines Z80 indexed addressing, using a combination of a decode flag filter and an immediate:
-
-.. code-block::
-
-   %110    . (hl)      . mem[hl]
-   %110, N . (ix + N)  . mem[ix + N]   . ?ix, s8 N
-   %110, N . (iy + N)  . mem[iy + N]   . ?iy, s8 N
-
-
-If there are multiple decode flags tested in the context of a single mode entry, that entry will only be considered a match if all of those flags are set.
-
 Instructions
 ------------
 
@@ -651,8 +650,8 @@ The mnemonic base is prepended to the mnemonic field of every entry. For example
 .. code-block::
 
    instr ld
-   %01;D;S             . D,S       . D := S        . reg8 D, reg8 S
-   %00;D;%110, N       . D,N       . D := N        . reg8 D, u8 N
+   %01;D;S             . D,S       . D := S    . reg8 D, reg8 S
+   %00;D;%110, N       . D,N       . D := N    . reg8 D, u8 N
 
 
 The mnemonic ``ld b,h`` is matched by the first entry (\ ``D`` matching ``b`` and ``S`` matching ``h``\ ), while ``ld b,12`` is matched by the second entry (\ ``D`` matching ``b`` and ``N`` matching ``12``\ ).
@@ -669,6 +668,36 @@ The mnemonic base can be empty if you want to define separate instructions in a 
    %101;%110;%00       . clv       . v := 0
    %110;%110;%00       . cld       . d := 0
    %111;%110;%00       . sed       . d := 1
+
+Matching Rules
+--------------
+
+When multiple instruction/mode table entries match the same encoding, the later entry fully replaces the earlier entry. Let's look at how the Z80 encodes its ``push`` and ``pop`` instructions:
+
+.. code-block::
+
+   mode u16& reg16
+   %00                 . bc
+   %01                 . de
+   %10                 . hl
+   %11                 . sp
+
+   mode u16& reg16af
+   R                   . R         . R         . reg16 R
+   %11                 . af
+
+   instr
+   %11;R;%0101         . push R    . push(R)   . reg16af R
+   %11;R;%0001         . pop R     . pop(R)    . reg16af R
+
+
+In mode ``reg16af``\ , not only does the encoding ``%11`` map to the mnemonic ``af``\ , but the mnemonic ``sp`` does not occur at all in mode ``reg16af``. Therefore ``push sp`` is considered to be an invalid instruction rather than an instruction that is impossible to encode.
+
+When there is more than one way of encoding the same instruction, the assembler will use the following priorities:
+
+- shorter encodings are always picked over longer ones
+- later entries in instruction/mode tables are picked over earlier entries
+- if there is still a tie, the lowest possible encoding is picked
 
 Adding New Instruction Sets
 ---------------------------
