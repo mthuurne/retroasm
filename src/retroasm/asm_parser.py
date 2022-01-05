@@ -4,7 +4,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .asm_directives import DataDirective, OriginDirective
+from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import Expression, IntLiteral, truncate
 from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
@@ -157,32 +157,50 @@ _data_widths = {
 
 def parse_directive(
     name: InputLocation, tokens: Tokenizer[AsmToken], instr_set: InstructionSet
-) -> DataDirective | OriginDirective:
+) -> DataDirective | OriginDirective | StringDirective:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
     keyword = name.text.casefold()
     if (width := _data_widths.get(keyword)) is not None:
         data_type = IntType.u(width)
-        data = []
+        data_class: type[DataDirective | StringDirective] = DataDirective
+        data: list[FixedValueReference | bytes] = []
         while True:
-            value = parse_value(tokens)
-            # TODO: I don't like the use of truncation here, since it might silence
-            #       errors.
-            #       One alternative would be to add an expression node that performs
-            #       a range check. Perhaps this could also store the location (see
-            #       TODO at the top of this function).
-            #       Another alternative would be to not use FixedValueReference for
-            #       storing the values. Instead, we could store expressions (ignore
-            #       width, since it's implied by the directive) or we could store
-            #       ASTs (preserves more of the original code when reformatting).
-            data.append(FixedValueReference(truncate(value, width), data_type))
+            if (location := tokens.eat(AsmToken.string)) is not None:
+                if width != 8:
+                    raise ParseError(
+                        f'the "{keyword}" directive does not support string literals',
+                        location,
+                    )
+                data_class = StringDirective
+                text = location.text
+                assert text[0] == text[-1], text
+                # TODO: Support other encodings?
+                try:
+                    data.append(text[1:-1].encode("ascii"))
+                except UnicodeError as ex:
+                    raise ParseError(
+                        f"string literal is not pure ASCII: {ex}", location
+                    ) from None
+            else:
+                value = parse_value(tokens)
+                # TODO: I don't like the use of truncation here, since it might silence
+                #       errors.
+                #       One alternative would be to add an expression node that performs
+                #       a range check. Perhaps this could also store the location (see
+                #       TODO at the top of this function).
+                #       Another alternative would be to not use FixedValueReference for
+                #       storing the values. Instead, we could store expressions (ignore
+                #       width, since it's implied by the directive) or we could store
+                #       ASTs (preserves more of the original code when reformatting).
+                data.append(FixedValueReference(truncate(value, width), data_type))
             if tokens.end:
                 break
             if tokens.eat(AsmToken.symbol, ",") is None:
                 raise ParseError.withText(
                     "unexpected token after value", tokens.location
                 )
-        return DataDirective(*data)
+        return data_class(*data)  # type: ignore[arg-type]
     elif keyword == "org":
         addr = parse_value(tokens)
         if tokens.end:
