@@ -214,7 +214,6 @@ def parse_directive(
 
 
 def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
-    instr_set.dumpMnemonicTree()
     instruction_names = instr_set.instructionNames
 
     for line in reader:

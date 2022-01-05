@@ -103,9 +103,17 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
     is_flag=True,
     help="Dump the instruction decoder tree, including submodes.",
 )
+@option(
+    "--dump-mnemonics",
+    is_flag=True,
+    help="Dump the mnemonic matching tree.",
+)
 @argument("instr", nargs=-1, type=str)
 def checkdef(
-    instr: Iterable[str], dump_decoders: bool, dump_decoders_subs: bool
+    instr: Iterable[str],
+    dump_decoders: bool,
+    dump_decoders_subs: bool,
+    dump_mnemonics: bool,
 ) -> NoReturn:
     """
     Check instruction set definition files.
@@ -143,8 +151,13 @@ def checkdef(
                 continue
             if dump_decoders:
                 dumpDecoders(instr_set, False)
+                print()
             if dump_decoders_subs:
                 dumpDecoders(instr_set, True)
+                print()
+            if dump_mnemonics:
+                instr_set.dumpMnemonicTree()
+                print()
     else:
         print("No files to check", file=sys.stderr)
     get_current_context().exit(1 if errors else 0)
