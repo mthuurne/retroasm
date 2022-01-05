@@ -796,7 +796,7 @@ def _checkAuxEncodingWidth(
     """
     firstAux: list[object] = [None, None]
 
-    def checkAux(width: int | None, location: InputLocation) -> None:
+    def checkAux(width: Width | None, location: InputLocation) -> None:
         auxWidth, auxLoc = firstAux
         if auxWidth is None:
             firstAux[0] = width
@@ -874,18 +874,13 @@ def _combinePlaceholderEncodings(
         assert immWidth is not None, placeholderSpec
         decoding = []
         problems = []
-        prev = 0
+        prev: Width = 0
         for immIdx, encSegment in sorted(slices):
             width = encSegment.segment.width
-            # TODO: Does it make sense to support unlimited width?
-            #       If not, at which point should we exclude it from the type?
-            assert isinstance(width, int), width
             if prev < immIdx:
                 problems.append(f"gap at [{prev:d}:{immIdx:d}]")
             elif prev > immIdx:
-                problems.append(
-                    f"overlap at [{immIdx:d}:{min(immIdx + width, prev):d}]"
-                )
+                problems.append(f"overlap at [{immIdx:d}:{min(immIdx + width, prev)}]")
             prev = max(immIdx + width, prev)
             decoding.append(encSegment)
         if prev < immWidth:

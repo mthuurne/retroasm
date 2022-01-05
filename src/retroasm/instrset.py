@@ -29,7 +29,7 @@ from .mode import EncodingExpr, ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
-from .types import IntType
+from .types import IntType, Width
 from .utils import const_property
 
 
@@ -39,7 +39,7 @@ class PrefixMapping:
     initCode: CodeBlock
     flagForVar: Mapping[Storage, str]
     prefixForFlag: Mapping[str, Prefix]
-    encodingWidth: int | None
+    encodingWidth: Width | None
 
 
 def flagsSetByCode(code: CodeBlock) -> Iterator[Storage]:
@@ -65,7 +65,7 @@ class PrefixMappingFactory:
         self._initBuilder = SemanticsCodeBlockBuilder()
         self._flagForVar: dict[Storage, str] = {}
         self._prefixForFlag: dict[str, Prefix] = {}
-        self._encodingWidth: int | None = None
+        self._encodingWidth: Width | None = None
 
     def hasFlag(self, name: str) -> bool:
         """

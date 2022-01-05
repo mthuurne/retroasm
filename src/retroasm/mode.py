@@ -32,7 +32,7 @@ from .reference import (
     int_reference,
 )
 from .storage import ArgStorage, Storage
-from .types import IntType, ReferenceType, unlimited
+from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
 
 
@@ -51,12 +51,8 @@ class EncodingExpr:
         return self._location
 
     @property
-    def encodingWidth(self) -> int:
-        width = self._bits.width
-        # TODO: Is it indeed impossible to create an unlimited-width
-        #       EncodingExpr?
-        assert isinstance(width, int)
-        return width
+    def encodingWidth(self) -> Width:
+        return self._bits.width
 
     @property
     def encodingType(self) -> IntType:
@@ -144,14 +140,14 @@ class EncodingMultiMatch:
         return self._location
 
     @property
-    def encodingWidth(self) -> int | None:
+    def encodingWidth(self) -> Width | None:
         if self._start == 0:
             return self._mode.encodingWidth
         else:
             return self._mode.auxEncodingWidth
 
     @property
-    def auxEncodingWidth(self) -> int | None:
+    def auxEncodingWidth(self) -> Width | None:
         return self._mode.auxEncodingWidth
 
     def __init__(self, name: str, mode: Mode, start: int, location: InputLocation):
@@ -337,7 +333,7 @@ class Encoding:
         return Encoding((item.rename(nameMap) for item in self._items), self._location)
 
     @property
-    def encodingWidth(self) -> int | None:
+    def encodingWidth(self) -> Width | None:
         """
         The width in bits a first encoding unit matched by this encoding
         definition would have, or None if this encoding definition always
@@ -353,7 +349,7 @@ class Encoding:
         return self._location if len(items) == 0 else items[0].location
 
     @property
-    def auxEncodingWidth(self) -> int | None:
+    def auxEncodingWidth(self) -> Width | None:
         """
         The width in bits that all non-first encoding units matched by this
         encoding definition would have, or None if a match cannot contain more
@@ -719,11 +715,11 @@ class ModeMatch:
                 bad_type(mnemElem)
 
 
-def _formatEncodingWidth(width: int | None) -> str:
+def _formatEncodingWidth(width: Width | None) -> str:
     return "empty encoding" if width is None else f"encoding width {width}"
 
 
-def _formatAuxEncodingWidth(width: int | None) -> str:
+def _formatAuxEncodingWidth(width: Width | None) -> str:
     return (
         "no auxiliary encoding items"
         if width is None
@@ -791,26 +787,19 @@ class ModeTable:
     """Abstract base class for mode tables."""
 
     @property
-    def encodingWidth(self) -> int | None:
+    def encodingWidth(self) -> Width | None:
         return self._encWidth
 
     @property
-    def auxEncodingWidth(self) -> int | None:
+    def auxEncodingWidth(self) -> Width | None:
         return self._auxEncWidth
 
     def __init__(
         self,
-        encWidth: int | None,
-        auxEncWidth: int | None,
+        encWidth: Width | None,
+        auxEncWidth: Width | None,
         entries: Iterable[ModeEntry],
     ):
-        if (
-            encWidth is unlimited  # type: ignore[comparison-overlap]
-            or auxEncWidth is unlimited  # type: ignore[comparison-overlap]
-        ):
-            # TODO: With unlimited encoding width we can't produce binaries,
-            #       but is that enough reason to disallow it?
-            raise ValueError("unlimited width is not allowed for encoding")
         self._encWidth = encWidth
         self._auxEncWidth = auxEncWidth
         self._entries = entries = tuple(entries)
