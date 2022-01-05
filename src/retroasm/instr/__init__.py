@@ -10,6 +10,10 @@ from ..instrset_parser import parseInstrSet
 from . import defs
 
 
+def builtinInstructionSetPath(name: str) -> Traversable:
+    return files(defs) / f"{name}.instr"
+
+
 def loadInstructionSet(
     path: Traversable, logger: Logger, wantSemantics: bool = True
 ) -> InstructionSet | None:
@@ -24,7 +28,7 @@ def loadInstructionSetByName(
     name: str, logger: Logger, wantSemantics: bool = True
 ) -> InstructionSet | None:
     logger.info("Loading instruction set: %s", name)
-    path = files(defs) / f"{name}.instr"
+    path = builtinInstructionSetPath(name)
     return loadInstructionSet(path, logger, wantSemantics)
 
 

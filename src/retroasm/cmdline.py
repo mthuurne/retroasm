@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
@@ -34,7 +35,12 @@ from .binfmt import (
 )
 from .disasm import Instruction, disassemble, formatAsm
 from .fetch import ImageFetcher
-from .instr import builtinInstructionSets, loadInstructionSet, loadInstructionSetByName
+from .instr import (
+    builtinInstructionSetPath,
+    builtinInstructionSets,
+    loadInstructionSet,
+    loadInstructionSetByName,
+)
 from .instrset import InstructionSet
 from .linereader import DelayedError, LineReaderFormatter
 from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredDataSection
@@ -86,7 +92,9 @@ def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
         instrSet.getDecoder(frozenset(flags)).dump(submodes=submodes)
 
 
-def checkInstrSet(path: Path, dumpNoSubs: bool, dumpSubs: bool, logger: Logger) -> int:
+def checkInstrSet(
+    path: Traversable, dumpNoSubs: bool, dumpSubs: bool, logger: Logger
+) -> int:
 
     logger.info("checking: %s", path)
     instrSet = loadInstructionSet(path, logger)
@@ -111,28 +119,48 @@ def checkInstrSet(path: Path, dumpNoSubs: bool, dumpSubs: bool, logger: Logger) 
     is_flag=True,
     help="Dump the instruction decoder tree, including submodes.",
 )
-@argument("instr", nargs=-1, type=PathArg(exists=True))
+@argument("instr", nargs=-1, type=str)
 def checkdef(
     instr: Iterable[str], dump_decoders: bool, dump_decoders_subs: bool
 ) -> NoReturn:
-    """Check instruction set definition files."""
+    """
+    Check instruction set definition files.
 
-    files: list[Path] = []
-    for pathName in instr:
-        path = Path(pathName)
+    INSTR can be one or more files, directories or built-in instruction set names.
+    """
+
+    files: list[Traversable] = []
+    exit_code = 0
+    for name in instr:
+        path = Path(name)
         if path.is_dir():
-            files += path.glob("**/*.instr")
-        else:
+            files_in_dir = list(path.glob("**/*.instr"))
+            if files_in_dir:
+                files += files_in_dir
+            else:
+                print(
+                    "No definition files (*.instr) in directory:", path, file=sys.stderr
+                )
+        elif path.is_file():
             files.append(path)
+        elif "/" not in name and "\\" not in name and "." not in name:
+            files.append(builtinInstructionSetPath(name))
+        else:
+            print("Instruction set not found:", name, file=sys.stderr)
+            exit_code = 1
+
     if not files:
-        print("No definition files found (*.instr)", file=sys.stderr)
-        get_current_context().exit(1)
+        print("No files to check", file=sys.stderr)
+        get_current_context().exit(exit_code)
 
     logger = setupLogging(INFO)
     get_current_context().exit(
         max(
-            checkInstrSet(path, dump_decoders, dump_decoders_subs, logger)
-            for path in files
+            (
+                checkInstrSet(path, dump_decoders, dump_decoders_subs, logger)
+                for path in files
+            ),
+            default=exit_code,
         )
     )
 
