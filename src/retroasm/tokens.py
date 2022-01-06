@@ -106,11 +106,21 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         """The input location of the current token."""
         return self._location
 
-    def __init__(self, tokens: Iterable[tuple[TokenT | None, InputLocation]]):
+    def __init__(
+        self, tokens: Iterable[tuple[TokenT | None, InputLocation]], start: int = 0
+    ):
         """Use `TokenEnum.scan()` instead of calling this directly."""
         self._tokens = tuple(tokens)
-        self._tokenIndex = 0
+        self._tokenIndex = start
         self._advance()
+
+    def copy(self) -> Tokenizer[TokenT]:
+        """
+        Make a copy of this tokenizer at its current position.
+
+        The original and the copy can be used independently.
+        """
+        return Tokenizer(self._tokens, self._tokenIndex - 1)
 
     def __next__(self) -> tuple[TokenT, InputLocation]:
         kind = self._kind
