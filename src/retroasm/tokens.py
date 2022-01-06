@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, EnumMeta
-from typing import TYPE_CHECKING, Any, Iterator, Pattern, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Pattern, TypeVar, cast
 import re
 
 from .linereader import InputLocation
@@ -46,14 +46,36 @@ class TokenEnum(Enum, metaclass=TokenMeta):
 
     @classmethod
     def scan(cls: type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
-        """Splits an input string into tokens."""
-        return Tokenizer(cls, location)
+        """Split an input string into tokens."""
+        return Tokenizer(cls._iterTokens(location))
+
+    @classmethod
+    def _iterTokens(
+        cls: type[TokenT], location: InputLocation
+    ) -> Iterator[tuple[TokenT | None, InputLocation]]:
+        for match in location.findMatches(cls.pattern):
+            if match.groupName is None:
+                # Skip whitespace.
+                continue
+            name = match.groupName
+            assert name is not None
+            matchLocation = match.group(name)
+            assert matchLocation is not None
+            yield cls[name], matchLocation
+        # Sentinel.
+        yield None, location.endLocation
 
 
 TokenT = TypeVar("TokenT", bound=TokenEnum)
 
 
 class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
+    """
+    Specialized iterator for tokenized text.
+
+    Can be used like any other Python iterator, but the `eat()` method is often
+    more convenient to check for and consume expected tokens.
+    """
 
     _kind: TokenT | None
     _location: InputLocation
@@ -84,14 +106,9 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         """The input location of the current token."""
         return self._location
 
-    def __init__(self, tokenClass: type[TokenT], location: InputLocation):
-        self._tokenClass = tokenClass
-        self._fullLocation = location
-        self._tokens = tuple(
-            match
-            for match in location.findMatches(tokenClass.pattern)
-            if match.groupName is not None  # skip whitespace
-        )
+    def __init__(self, tokens: Iterable[tuple[TokenT | None, InputLocation]]):
+        """Use `TokenEnum.scan()` instead of calling this directly."""
+        self._tokens = tuple(tokens)
         self._tokenIndex = 0
         self._advance()
 
@@ -105,18 +122,9 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
     def _advance(self) -> None:
         index = self._tokenIndex
-        if index == len(self._tokens):
-            self._kind = None
-            self._location = self._fullLocation.endLocation
-        else:
-            match = self._tokens[index]
+        self._kind, self._location = self._tokens[index]
+        if index != len(self._tokens):
             self._tokenIndex = index + 1
-            name = match.groupName
-            assert name is not None
-            self._kind = self._tokenClass[name]
-            matchLocation = match.group(name)
-            assert matchLocation is not None
-            self._location = matchLocation
 
     def peek(self, kind: TokenT, value: str | None = None) -> bool:
         """
