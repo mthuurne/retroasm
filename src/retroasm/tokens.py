@@ -85,9 +85,14 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         return self._location
 
     def __init__(self, tokenClass: type[TokenT], location: InputLocation):
-        self._tokens = location.findMatches(tokenClass.pattern)
         self._tokenClass = tokenClass
         self._fullLocation = location
+        self._tokens = tuple(
+            match
+            for match in location.findMatches(tokenClass.pattern)
+            if match.groupName is not None  # skip whitespace
+        )
+        self._tokenIndex = 0
         self._advance()
 
     def __next__(self) -> tuple[TokenT, InputLocation]:
@@ -99,24 +104,19 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         return kind, location
 
     def _advance(self) -> None:
-        while True:
-            try:
-                match = next(self._tokens)
-            except StopIteration:
-                kind = None
-                location = self._fullLocation.endLocation
-            else:
-                name = match.groupName
-                if name is None:
-                    # Skip whitespace.
-                    continue
-                kind = self._tokenClass[name]
-                matchLocation = match.group(name)
-                assert matchLocation is not None
-                location = matchLocation
-            break
-        self._kind = kind
-        self._location = location
+        index = self._tokenIndex
+        if index == len(self._tokens):
+            self._kind = None
+            self._location = self._fullLocation.endLocation
+        else:
+            match = self._tokens[index]
+            self._tokenIndex = index + 1
+            name = match.groupName
+            assert name is not None
+            self._kind = self._tokenClass[name]
+            matchLocation = match.group(name)
+            assert matchLocation is not None
+            self._location = matchLocation
 
     def peek(self, kind: TokenT, value: str | None = None) -> bool:
         """
