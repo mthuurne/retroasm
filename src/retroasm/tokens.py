@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, EnumMeta
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, Pattern, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Pattern, TypeVar
 import re
 
 from .linereader import InputLocation
@@ -20,9 +20,12 @@ class TokenMeta(EnumMeta):
         bases: tuple[type, ...],
         namespace: dict[str, Any],
     ) -> TokenMeta:
-        newClass = cast(type["TokenEnum"], super().__new__(cls, name, bases, namespace))
-        newClass.pattern = newClass.compilePattern()
+        newClass = super().__new__(cls, name, bases, namespace)
+        newClass.pattern = newClass._compilePattern()
         return newClass
+
+    def _compilePattern(cls) -> Pattern[str]:
+        raise NotImplementedError
 
 
 class TokenEnum(Enum, metaclass=TokenMeta):
@@ -37,7 +40,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         self.regex = regex
 
     @classmethod
-    def compilePattern(cls) -> Pattern[str]:
+    def _compilePattern(cls) -> Pattern[str]:
         patterns = [r"(\s+)"]
         patterns += (
             f"(?P<{name}>{token.regex})" for name, token in cls.__members__.items()
