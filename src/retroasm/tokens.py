@@ -20,11 +20,11 @@ class TokenMeta(EnumMeta):
         bases: tuple[type, ...],
         namespace: dict[str, Any],
     ) -> TokenMeta:
-        newClass = super().__new__(cls, name, bases, namespace)
-        newClass.pattern = newClass._compilePattern()
-        return newClass
+        new_class = super().__new__(cls, name, bases, namespace)
+        new_class.pattern = new_class._compile_pattern()
+        return new_class
 
-    def _compilePattern(cls) -> Pattern[str]:
+    def _compile_pattern(cls) -> Pattern[str]:
         raise NotImplementedError
 
 
@@ -40,7 +40,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         self.regex = regex
 
     @classmethod
-    def _compilePattern(cls) -> Pattern[str]:
+    def _compile_pattern(cls) -> Pattern[str]:
         patterns = [r"(\s+)"]
         patterns += (
             f"(?P<{name}>{token.regex})" for name, token in cls.__members__.items()
@@ -50,10 +50,10 @@ class TokenEnum(Enum, metaclass=TokenMeta):
     @classmethod
     def scan(cls: type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
         """Split an input string into tokens."""
-        return Tokenizer(cls._iterTokens(location))
+        return Tokenizer(cls._iter_tokens(location))
 
     @classmethod
-    def _iterTokens(
+    def _iter_tokens(
         cls: type[TokenT], location: InputLocation
     ) -> Iterator[tuple[TokenT | None, InputLocation]]:
         for match in location.findMatches(cls.pattern):
@@ -62,9 +62,9 @@ class TokenEnum(Enum, metaclass=TokenMeta):
                 continue
             name = match.groupName
             assert name is not None
-            matchLocation = match.group(name)
-            assert matchLocation is not None
-            yield cls[name], matchLocation
+            match_location = match.group(name)
+            assert match_location is not None
+            yield cls[name], match_location
         # Sentinel.
         yield None, location.endLocation
 
@@ -114,7 +114,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
     ):
         """Use `TokenEnum.scan()` instead of calling this directly."""
         self._tokens = tuple(tokens)
-        self._tokenIndex = start
+        self._token_index = start
         self._advance()
 
     def copy(self) -> Tokenizer[TokenT]:
@@ -123,7 +123,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
         The original and the copy can be used independently.
         """
-        return Tokenizer(self._tokens, self._tokenIndex - 1)
+        return Tokenizer(self._tokens, self._token_index - 1)
 
     def __next__(self) -> tuple[TokenT, InputLocation]:
         kind = self._kind
@@ -134,10 +134,10 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         return kind, location
 
     def _advance(self) -> None:
-        index = self._tokenIndex
+        index = self._token_index
         self._kind, self._location = self._tokens[index]
         if index != len(self._tokens):
-            self._tokenIndex = index + 1
+            self._token_index = index + 1
 
     def peek(self, kind: TokenT, value: str | None = None) -> bool:
         """
