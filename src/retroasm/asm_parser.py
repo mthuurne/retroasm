@@ -213,6 +213,25 @@ def parse_directive(
         )
 
 
+def parse_label(tokens: Tokenizer[AsmToken]) -> InputLocation | None:
+    """Consume and return a label if one is defined at the start of this line."""
+    lookahead = tokens.copy()
+    label = lookahead.eat(AsmToken.word)
+    if label is None:
+        return None
+    elif lookahead.peek(AsmToken.symbol, ":"):
+        # Explicit label declaration.
+        tokens.eat(AsmToken.word)
+        tokens.eat(AsmToken.symbol)
+        return label
+    elif lookahead.peek(AsmToken.word) and tokens.value.lower() == "equ":
+        # EQU directive.
+        tokens.eat(AsmToken.word)
+        return label
+    else:
+        return None
+
+
 def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
     instruction_names = instr_set.instructionNames
 
@@ -220,23 +239,12 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
         tokens = AsmToken.scan(line)
 
         # Look for a label.
-        label = None
-        first_word = tokens.eat(AsmToken.word)
-        if first_word is not None and (
-            # explicit label declaration
-            tokens.eat(AsmToken.symbol, ":") is not None
-            # EQU directive
-            or (tokens.peek(AsmToken.word) and tokens.value.casefold() == "equ")
-            # local label
-            or first_word.text.startswith(".")
-        ):
-            label = first_word.text
-            first_word = tokens.eat(AsmToken.word)
+        label = parse_label(tokens)
         if label is not None:
-            reader.info("label: %s", label)
+            reader.info("label: %s", label.text, location=label)
 
         # Look for a directive or instruction.
-        if first_word is not None:
+        if (first_word := tokens.eat(AsmToken.word)) is not None:
             if first_word.text.casefold() in instruction_names:
                 build_instruction(first_word, tokens, reader)
             else:
