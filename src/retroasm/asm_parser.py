@@ -61,10 +61,9 @@ def parse_number(location: InputLocation) -> NumberNode:
 
 
 def create_match_sequence(
-    name: InputLocation, nodes: Iterable[IdentifierNode | NumberNode]
+    nodes: Iterable[IdentifierNode | NumberNode],
 ) -> Iterator[type[int] | str]:
     """Convert tokens to a match sequence."""
-    yield name.text
     for node in nodes:
         if isinstance(node, IdentifierNode):
             yield node.name
@@ -110,14 +109,11 @@ def parse_instruction(
             assert False, kind
 
 
-def build_instruction(
-    name: InputLocation, tokens: Tokenizer[AsmToken], reader: LineReader
-) -> None:
+def build_instruction(tokens: Tokenizer[AsmToken], reader: LineReader) -> None:
+    name = tokens.location
     try:
         with reader.checkErrors():
-            match_seq = tuple(
-                create_match_sequence(name, parse_instruction(tokens, reader))
-            )
+            match_seq = tuple(create_match_sequence(parse_instruction(tokens, reader)))
     except DelayedError:
         return
 
@@ -156,10 +152,12 @@ _data_widths = {
 
 
 def parse_directive(
-    name: InputLocation, tokens: Tokenizer[AsmToken], instr_set: InstructionSet
+    tokens: Tokenizer[AsmToken], instr_set: InstructionSet
 ) -> DataDirective | OriginDirective | StringDirective:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
+    name = tokens.eat(AsmToken.word)
+    assert name is not None
     keyword = name.text.casefold()
     if (width := _data_widths.get(keyword)) is not None:
         data_type = IntType.u(width)
@@ -244,16 +242,17 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
             reader.info("label: %s", label.text, location=label)
 
         # Look for a directive or instruction.
-        if (first_word := tokens.eat(AsmToken.word)) is not None:
-            if first_word.text.casefold() in instruction_names:
-                build_instruction(first_word, tokens, reader)
+        if tokens.peek(AsmToken.word):
+            if tokens.value.casefold() in instruction_names:
+                build_instruction(tokens, reader)
             else:
+                location = tokens.location
                 try:
-                    directive = parse_directive(first_word, tokens, instr_set)
+                    directive = parse_directive(tokens, instr_set)
                 except ParseError as ex:
                     reader.error("%s", ex, location=ex.locations)
                 else:
-                    reader.info("directive: %s", directive, location=first_word)
+                    reader.info("directive: %s", directive, location=location)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end:
