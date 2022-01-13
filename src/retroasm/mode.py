@@ -558,7 +558,7 @@ class ModeEntry:
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
-            f"{self.semantics!r}, {self.placeholders!r}, {self.flagsRequired!r})"
+            f"{self._semantics!r}, {self.placeholders!r}, {self.flagsRequired!r})"
         )
 
     @property
