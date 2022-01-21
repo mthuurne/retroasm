@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Mapping, cast
+from collections.abc import Iterable, Iterator, Mapping
+from typing import cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral

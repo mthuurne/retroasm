@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Mapping, Sequence, cast
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import cast
 
 from .asm_directives import DataDirective
 from .asm_formatter import Formatter

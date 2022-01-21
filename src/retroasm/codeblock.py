@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import AbstractSet, Callable, Iterable, Mapping, cast
+from collections.abc import Callable, Iterable, Mapping
+from typing import AbstractSet, cast
 
 from .expression import Expression
 from .linereader import InputLocation

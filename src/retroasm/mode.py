@@ -1,20 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import (
-    AbstractSet,
-    Any,
-    Callable,
-    Iterable,
-    Iterator,
-    Mapping,
-    Sequence,
-    Union,
-    cast,
-    overload,
-)
+from typing import AbstractSet, Any, Union, cast, overload
 
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from .codeblock import AccessNode, CodeBlock, Load, Store
 from .codeblock_simplifier import CodeBlockSimplifier

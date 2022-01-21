@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import (
-    AbstractSet,
+from collections.abc import (
     Callable,
     Collection,
     Iterable,
@@ -10,8 +8,9 @@ from typing import (
     Mapping,
     MutableSet,
     Sequence,
-    cast,
 )
+from dataclasses import dataclass
+from typing import AbstractSet, cast
 
 from .codeblock import CodeBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder

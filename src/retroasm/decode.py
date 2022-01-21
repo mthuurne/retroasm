@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Callable, DefaultDict, Iterable, Mapping, Sequence, Union, cast
+from typing import DefaultDict, Union, cast
 
 from .codeblock import CodeBlock
 from .expression import IntLiteral

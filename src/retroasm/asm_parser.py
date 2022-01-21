@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from logging import getLogger
 from pathlib import Path
-from typing import Iterable, Iterator
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import Expression, IntLiteral, truncate

@@ -1,18 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from importlib.abc import Traversable
 from logging import WARNING, Logger, getLogger
-from typing import (
-    AbstractSet,
-    Callable,
-    DefaultDict,
-    Iterable,
-    Iterator,
-    Mapping,
-    Sequence,
-    cast,
-)
+from typing import AbstractSet, DefaultDict, cast
 import re
 
 from .codeblock import CodeBlock

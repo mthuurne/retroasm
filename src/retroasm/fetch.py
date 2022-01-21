@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import partial
-from typing import Callable
 
 from .binfmt import Image
 from .section import ByteOrder

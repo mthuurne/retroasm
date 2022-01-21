@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Iterable, Iterator, NoReturn, Union, cast
+from typing import NoReturn, Union, cast
 
 from .utils import Singleton, Unique
 

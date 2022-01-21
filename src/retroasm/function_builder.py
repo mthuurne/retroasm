@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterator, Mapping, cast
+from collections.abc import Iterator, Mapping
+from typing import cast
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements

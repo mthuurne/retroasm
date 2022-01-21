@@ -1,19 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import astuple, dataclass, replace
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
-from typing import (
-    Any,
-    ClassVar,
-    Collection,
-    Iterable,
-    Iterator,
-    Protocol,
-    TypeVar,
-    overload,
-)
+from typing import Any, ClassVar, Protocol, TypeVar, overload
 
 from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection

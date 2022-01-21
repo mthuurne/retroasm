@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, MutableMapping, MutableSequence, MutableSet
+from collections.abc import (
+    Callable,
+    Iterator,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+)
 from functools import update_wrapper
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 from weakref import WeakValueDictionary
 
 

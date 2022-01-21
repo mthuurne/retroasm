@@ -1,20 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from importlib.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
-from typing import (
-    IO,
-    Any,
-    Iterable,
-    Iterator,
-    Match,
-    Pattern,
-    Sequence,
-    TypeVar,
-    Union,
-    cast,
-)
+from re import Match, Pattern
+from typing import IO, Any, TypeVar, Union, cast
 import re
 
 

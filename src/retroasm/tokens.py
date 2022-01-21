@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from enum import Enum, EnumMeta
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, Pattern, TypeVar
+from re import Pattern
+from typing import TYPE_CHECKING, Any, TypeVar
 import re
 
 from .linereader import InputLocation

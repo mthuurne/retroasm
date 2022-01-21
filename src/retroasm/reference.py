@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, Sequence, cast
+from collections.abc import Callable, Iterator, Sequence
+from typing import TYPE_CHECKING, cast
 
 from .expression import (
     AddOperator,

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
 from itertools import chain
-from typing import Callable, Iterable, Iterator, Sequence, TypeVar, cast
+from typing import TypeVar, cast
 
 from .types import (
     Width,

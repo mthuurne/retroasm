@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
 from enum import Enum, auto
-from typing import Iterable, Iterator, Sequence, Union
+from typing import Union
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .types import Width, unlimited

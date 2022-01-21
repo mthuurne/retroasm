@@ -7,7 +7,8 @@ assembly do we care about syntax.
 
 from __future__ import annotations
 
-from typing import Iterator, Protocol
+from collections.abc import Iterator
+from typing import Protocol
 
 from .reference import FixedValueReference, int_reference, symbol_reference
 from .types import IntType, Width

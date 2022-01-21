@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, cast
+from collections.abc import Callable, Iterator
+from typing import cast
 
 from .expression import Expression
 from .types import IntType, Width

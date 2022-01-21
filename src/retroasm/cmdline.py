@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
 from importlib.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-from typing import IO, Iterable, Iterator, NoReturn, Sequence, cast
+from typing import IO, NoReturn, cast
 import sys
 
 from click import (

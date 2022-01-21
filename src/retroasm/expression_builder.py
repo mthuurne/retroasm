@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence, cast
+from collections.abc import Iterable, Sequence
+from typing import cast
 
 from .codeblock import Load, Store
 from .expression import (

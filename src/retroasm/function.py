@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from .codeblock import CodeBlock
 from .reference import BitString

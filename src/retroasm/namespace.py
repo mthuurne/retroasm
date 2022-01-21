@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import ItemsView, KeysView, Sequence, Union, ValuesView
+from collections.abc import ItemsView, KeysView, Sequence, ValuesView
+from typing import Union
 
 from .codeblock import CodeBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
