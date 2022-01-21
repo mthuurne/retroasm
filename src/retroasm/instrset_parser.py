@@ -1051,7 +1051,7 @@ def _parseModeEntries(
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     modeType: None | IntType | ReferenceType,
-    mnemBase: tuple[MnemItem, ...],
+    mnemBase: tuple[str, ...],
     parseSem: Callable[
         [DefLineReader, InputLocation, LocalNamespace, None | IntType | ReferenceType],
         Reference | None,
@@ -1338,7 +1338,14 @@ def _parseInstr(
     modes: Mapping[str, Mode],
     wantSemantics: bool,
 ) -> Iterator[ParsedModeEntry]:
-    mnemBase = tuple(_parseMnemonic(args, {}, reader))
+    mnemBase = []
+    for mnemItem in _parseMnemonic(args, {}, reader):
+        if isinstance(mnemItem, str):
+            mnemBase.append(mnemItem)
+        else:
+            # TODO: The main reason to disallow this is that it would complicate
+            #       the code to support it. Is that a good enough reason?
+            reader.error("the mnemonic base cannot contain numbers", location=args)
 
     for instr in _parseModeEntries(
         reader,
@@ -1346,7 +1353,7 @@ def _parseInstr(
         prefixes,
         modes,
         None,
-        mnemBase,
+        tuple(mnemBase),
         _parseInstrSemantics,
         wantSemantics,
     ):
