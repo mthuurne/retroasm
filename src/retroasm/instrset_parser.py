@@ -1057,7 +1057,7 @@ def _parseModeEntries(
     reader: DefLineReader,
     globalNamespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
-    modes: dict[str, Mode],
+    modes: Mapping[str, Mode],
     modeType: None | IntType | ReferenceType,
     mnemBase: tuple[MnemItem, ...],
     parseSem: Callable[
@@ -1343,7 +1343,7 @@ def _parseInstr(
     args: InputLocation,
     globalNamespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
-    modes: dict[str, Mode],
+    modes: Mapping[str, Mode],
     wantSemantics: bool,
 ) -> Iterator[ParsedModeEntry]:
     mnemBase = tuple(_parseMnemonic(args, {}, reader))
