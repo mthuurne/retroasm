@@ -10,4 +10,4 @@ def set_memory_limit(size: int) -> None:
     setrlimit(RLIMIT_AS, (size, hard))
 
 
-set_memory_limit(MEM_LIMIT_GB * 1024 ** 3)
+set_memory_limit(MEM_LIMIT_GB * 1024**3)
