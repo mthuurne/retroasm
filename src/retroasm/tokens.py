@@ -22,7 +22,13 @@ class TokenMeta(EnumMeta):
         bases: tuple[type, ...],
         namespace: dict[str, Any],
     ) -> TokenMeta:
-        new_class = super().__new__(cls, name, bases, namespace)
+        new_class = super().__new__(
+            cls,
+            name,
+            bases,
+            # Work around typeshed using a private type for 'namespace'.
+            namespace,  # type: ignore[arg-type]
+        )
         new_class.pattern = new_class._compile_pattern()
         return new_class
 
