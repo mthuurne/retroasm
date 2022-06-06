@@ -66,13 +66,6 @@ def lint(c, src=None):
 
 
 @task
-def isort(c):
-    """Sort imports."""
-    print("Sorting imports...")
-    c.run(f"isort {SRC_DIR} {TEST_DIR} {__file__}", pty=True)
-
-
-@task
 def upgrade(c):
     """Upgrade sources to take advantage of new Python features."""
     print("Upgrading sources...")
