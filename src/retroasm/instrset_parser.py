@@ -461,7 +461,7 @@ def _parseModeContext(
                 if isinstance(node, DefinitionNode):
                     reader.error(
                         "filter values for mode placeholders are not supported yet",
-                        location=mergeSpan(node.location, node.value.treeLocation),
+                        location=mergeSpan(node.location, node.value.tree_location),
                     )
             else:
                 try:
@@ -580,7 +580,7 @@ def _parseEncodingExpr(
                         f'in encoding field, since mode "{spec.mode.name}" '
                         f"has an empty encoding sequence",
                         *ex.locations,
-                        spec.decl.treeLocation,
+                        spec.decl.tree_location,
                     ) from None
                 if spec.value is not None:
                     raise BadInput(
@@ -588,30 +588,30 @@ def _parseEncodingExpr(
                         f"in encoding field, since its value is "
                         f"computed in the context",
                         *ex.locations,
-                        spec.value.treeLocation,
+                        spec.value.tree_location,
                     ) from None
         raise BadInput(
-            f"error in encoding: {ex}", encNode.treeLocation, *ex.locations
+            f"error in encoding: {ex}", encNode.tree_location, *ex.locations
         ) from ex
 
     code = namespace.builder.createCodeBlock((encRef.bits,))
     if len(code.nodes) != 0:
         raise BadInput(
-            "encoding expression accesses state or performs I/O", encNode.treeLocation
+            "encoding expression accesses state or performs I/O", encNode.tree_location
         )
     (encBits,) = code.returned
     for storage in encBits.iter_storages():
         if isinstance(storage, Variable):
             raise BadInput(
-                "encoding expression references register", encNode.treeLocation
+                "encoding expression references register", encNode.tree_location
             )
         if isinstance(storage, IOStorage):
             raise BadInput(
                 f"encoding expression references storage location "
                 f'on I/O channel "{storage.channel.name}"',
-                encNode.treeLocation,
+                encNode.tree_location,
             )
-    return EncodingExpr(encBits, encNode.treeLocation)
+    return EncodingExpr(encBits, encNode.tree_location)
 
 
 def _parseMultiMatch(
@@ -629,18 +629,18 @@ def _parseMultiMatch(
         placeholder = placeholderSpecs[name]
     except KeyError:
         raise BadInput(
-            f'placeholder "{name}" does not exist in context', encNode.treeLocation
+            f'placeholder "{name}" does not exist in context', encNode.tree_location
         ) from None
     if not isinstance(placeholder, MatchPlaceholderSpec):
         raise BadInput(
             f'placeholder "{name}" does not represent a mode match',
-            encNode.treeLocation,
-            placeholder.decl.treeLocation,
+            encNode.tree_location,
+            placeholder.decl.tree_location,
         )
 
     mode = placeholder.mode
     start = 1 if name in identifiers else 0
-    return EncodingMultiMatch(name, mode, start, encNode.treeLocation)
+    return EncodingMultiMatch(name, mode, start, encNode.tree_location)
 
 
 def _parseModeEncoding(
@@ -702,7 +702,7 @@ def _checkEmptyMultiMatches(
                     mode.name,
                     location=(
                         encItem.location,
-                        placeholderSpecs[encItem.name].decl.treeLocation,
+                        placeholderSpecs[encItem.name].decl.tree_location,
                     ),
                 )
             elif encItem.start >= 1 and mode.auxEncodingWidth is None:
@@ -711,7 +711,7 @@ def _checkEmptyMultiMatches(
                     mode.name,
                     location=(
                         encItem.location,
-                        placeholderSpecs[encItem.name].decl.treeLocation,
+                        placeholderSpecs[encItem.name].decl.tree_location,
                     ),
                 )
 
@@ -749,7 +749,7 @@ def _checkMissingPlaceholders(
                 logger.error(
                     'value placeholder "%s" does not occur in encoding',
                     name,
-                    location=(location, spec.decl.treeLocation),
+                    location=(location, spec.decl.tree_location),
                 )
         elif isinstance(spec, MatchPlaceholderSpec):
             mode = spec.mode
@@ -764,7 +764,7 @@ def _checkMissingPlaceholders(
                     'no placeholder "%s" for mode "%s" in encoding',
                     name,
                     mode.name,
-                    location=(location, spec.decl.treeLocation),
+                    location=(location, spec.decl.tree_location),
                 )
             if mode.auxEncodingWidth is not None:
                 logger.error(
@@ -772,7 +772,7 @@ def _checkMissingPlaceholders(
                     'is no "%s@" placeholder for them',
                     mode.name,
                     name,
-                    location=(location, spec.decl.treeLocation),
+                    location=(location, spec.decl.tree_location),
                 )
         else:
             bad_type(spec)
@@ -884,7 +884,7 @@ def _combinePlaceholderEncodings(
                 'cannot decode value for "%s": %s',
                 name,
                 ", ".join(problems),
-                location=placeholderSpec.decl.treeLocation,
+                location=placeholderSpec.decl.tree_location,
             )
         else:
             yield name, tuple(decoding)
@@ -933,7 +933,7 @@ def _checkDecodingOrder(
                 mode.name,
                 name,
                 name,
-                location=[placeholderSpec.decl.treeLocation, matcher.location]
+                location=[placeholderSpec.decl.tree_location, matcher.location]
                 + [encoding[idx].location for idx in badIdx],
             )
 

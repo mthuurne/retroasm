@@ -142,7 +142,7 @@ def convertDefinition(
         if typ.type.width != ref.width:
             raise BadExpression.withText(
                 f"{ref.width}-bit value does not match " f'declared type "{typ.type}"',
-                value.treeLocation,
+                value.tree_location,
             )
         return ref
     else:
@@ -209,12 +209,12 @@ def _convertFunctionCall(
                 raise BadExpression.withText(
                     f"{ref.width}-bit reference passed for "
                     f'reference argument "{decl} {name}"',
-                    argNode.treeLocation,
+                    argNode.tree_location,
                 )
             bits = ref.bits
         else:
             # Value arguments must be evaluated and truncated when passed.
-            value = ref.emit_load(builder, argNode.treeLocation)
+            value = ref.emit_load(builder, argNode.tree_location)
             argWidth = decl.width
             if width_for_mask(value.mask) > argWidth:
                 value = truncate(value, argWidth)
@@ -222,7 +222,7 @@ def _convertFunctionCall(
         argMap[name] = bits
 
     # Inline function call.
-    retBits = builder.inlineFunctionCall(func, argMap, callNode.treeLocation)
+    retBits = builder.inlineFunctionCall(func, argMap, callNode.tree_location)
     if retBits is None:
         return None
     else:
@@ -289,21 +289,21 @@ def _convertExpressionOperator(
         ref = _convertFunctionCall(node, namespace)
         if ref is None:
             raise BadExpression(
-                "function does not return anything; expected value", node.treeLocation
+                "function does not return anything; expected value", node.tree_location
             )
         else:
-            return ref.emit_load(namespace.builder, node.treeLocation)
+            return ref.emit_load(namespace.builder, node.tree_location)
     elif operator is Operator.lookup:
         return _convertReferenceLookup(node, namespace).emit_load(
-            namespace.builder, node.treeLocation
+            namespace.builder, node.tree_location
         )
     elif operator is Operator.slice:
         return _convertReferenceSlice(node, namespace).emit_load(
-            namespace.builder, node.treeLocation
+            namespace.builder, node.tree_location
         )
     elif operator is Operator.concatenation:
         return _convertReferenceConcat(node, namespace).emit_load(
-            namespace.builder, node.treeLocation
+            namespace.builder, node.tree_location
         )
     else:
         return _convertArithmetic(node, namespace)
@@ -324,16 +324,16 @@ def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
         return _convertExpressionOperator(node, namespace)
     elif isinstance(node, DeclarationNode):
         raise BadExpression(
-            "variable declaration is not allowed here", node.treeLocation
+            "variable declaration is not allowed here", node.tree_location
         )
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
-            "definition must be only statement on a line", node.treeLocation
+            "definition must be only statement on a line", node.tree_location
         )
     elif isinstance(node, MultiMatchNode):
         raise BadExpression(
             "multi-match can only be used as a standalone encoding item",
-            node.treeLocation,
+            node.tree_location,
         )
     else:
         raise TypeError(type(node).__name__)
@@ -421,7 +421,7 @@ def _convertReferenceConcat(
         raise BadExpression.withText(
             "only the first concatenation operand is allowed to have "
             "unlimited width",
-            nonFirstNode.treeLocation,
+            nonFirstNode.tree_location,
         )
     bits = ConcatenatedBits(ref2.bits, ref1.bits)
     width = bits.width
@@ -449,7 +449,7 @@ def _convertReferenceOperator(
         if ref is None:
             raise BadExpression(
                 "function does not return anything; expected reference",
-                node.treeLocation,
+                node.tree_location,
             )
         else:
             return ref
@@ -472,7 +472,7 @@ def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
         return declareVariable(node, namespace)
     elif isinstance(node, DefinitionNode):
         raise BadExpression(
-            "definition must be only statement on a line", node.treeLocation
+            "definition must be only statement on a line", node.tree_location
         )
     elif isinstance(node, IdentifierNode):
         ident = _convertIdentifier(node, namespace)
@@ -485,7 +485,7 @@ def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
     elif isinstance(node, MultiMatchNode):
         raise BadExpression(
             "multi-match can only be used as a standalone encoding item",
-            node.treeLocation,
+            node.tree_location,
         )
     elif isinstance(node, OperatorNode):
         return _convertReferenceOperator(node, namespace)
@@ -528,7 +528,7 @@ def buildStatementEval(
             )
             return
 
-        lhs.emit_store(builder, rhs, node.lhs.treeLocation)
+        lhs.emit_store(builder, rhs, node.lhs.tree_location)
 
     elif isinstance(node, EmptyNode):
         # Empty statement (NOP).
@@ -566,7 +566,7 @@ def buildStatementEval(
             stateChanged = True
     if not stateChanged:
         reader.warning(
-            "statement in %s has no effect", whereDesc, location=node.treeLocation
+            "statement in %s has no effect", whereDesc, location=node.tree_location
         )
 
 
@@ -644,7 +644,7 @@ def emitCodeFromStatements(
             # the condition to be computed.
             value = Negation(buildExpression(node.cond, namespace))
             ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emit_store(namespace.builder, value, node.cond.treeLocation)
+            ref.emit_store(namespace.builder, value, node.cond.tree_location)
 
         elif isinstance(node, LabelNode):
             # TODO: Add support.

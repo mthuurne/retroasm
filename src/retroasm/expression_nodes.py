@@ -9,11 +9,11 @@ from .types import Width, unlimited
 
 
 class ParseNode:
-    __slots__ = ("location", "treeLocation")
+    __slots__ = ("location", "tree_location")
 
     def __init__(self, location: InputLocation):
         self.location = location
-        self.treeLocation = location
+        self.tree_location = location
         """
         Location information, where the span includes to the entire tree
         under this node.
@@ -61,7 +61,7 @@ class BranchNode(ParseNode):
         ParseNode.__init__(self, location)
         self.cond = cond
         self.target = target
-        self.treeLocation = mergeSpan(location, target.treeLocation)
+        self.tree_location = mergeSpan(location, target.tree_location)
 
 
 class AssignmentNode(ParseNode):
@@ -71,7 +71,7 @@ class AssignmentNode(ParseNode):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
-        self.treeLocation = mergeSpan(lhs.treeLocation, rhs.treeLocation)
+        self.tree_location = mergeSpan(lhs.tree_location, rhs.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -114,7 +114,7 @@ class OperatorNode(ParseNode):
         ParseNode.__init__(self, location)
         self.operator = operator
         self.operands: Sequence[ParseNode | None] = tuple(operands)
-        self.treeLocation = self._treeLocation()
+        self.tree_location = self._tree_location()
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -122,14 +122,14 @@ class OperatorNode(ParseNode):
             if operand is not None:
                 yield from operand
 
-    def _treeLocation(self) -> InputLocation:
+    def _tree_location(self) -> InputLocation:
         location = self.location
         baseLocation = location.updateSpan((0, 0))
         treeStart, treeEnd = location.span
         for operand in self.operands:
             if operand is None:
                 continue
-            location = operand.treeLocation
+            location = operand.tree_location
             assert location.updateSpan((0, 0)) == baseLocation
             start, end = location.span
             treeStart = min(treeStart, start)
@@ -173,7 +173,7 @@ class DeclarationNode(ParseNode):
         self.kind = kind
         self.type = typ
         self.name = name
-        self.treeLocation = mergeSpan(location, name.treeLocation)
+        self.tree_location = mergeSpan(location, name.tree_location)
 
 
 class DefinitionNode(ParseNode):
@@ -185,7 +185,7 @@ class DefinitionNode(ParseNode):
         ParseNode.__init__(self, location)
         self.decl = decl
         self.value = value
-        self.treeLocation = mergeSpan(decl.treeLocation, value.treeLocation)
+        self.tree_location = mergeSpan(decl.tree_location, value.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
