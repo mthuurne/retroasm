@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from enum import Enum, auto
-from typing import Union
+from typing import Union, cast
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .types import Width, unlimited
@@ -22,7 +22,10 @@ class ParseNode:
     def __repr__(self) -> str:
         attrStr = ", ".join(
             f"{slot}={getattr(self, slot)}"
-            for cls in self.__class__.__mro__[:-2]  # drop ParseNode, object
+            for cls in cast(
+                Iterable[type[ParseNode]],
+                self.__class__.__mro__[:-2],  # drop ParseNode, object
+            )
             for slot in cls.__slots__
         )
         return f"{self.__class__.__name__}({attrStr})"
