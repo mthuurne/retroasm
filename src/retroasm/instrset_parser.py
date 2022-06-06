@@ -460,7 +460,7 @@ def _parseModeContext(
                 placeholder = MatchPlaceholderSpec(decl, mode)
                 if isinstance(node, DefinitionNode):
                     reader.error(
-                        "filter values for mode placeholders are " "not supported yet",
+                        "filter values for mode placeholders are not supported yet",
                         location=mergeSpan(node.location, node.value.treeLocation),
                     )
             else:

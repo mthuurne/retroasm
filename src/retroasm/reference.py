@@ -270,7 +270,7 @@ class ConcatenatedBits(BitString):
         for sub in subs:
             if width is unlimited:
                 raise ValueError(
-                    "unlimited width is only allowed on most significant " "bit string"
+                    "unlimited width is only allowed on most significant bit string"
                 )
             width += cast(int, sub.width)
         BitString.__init__(self, width)

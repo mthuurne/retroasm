@@ -179,7 +179,7 @@ def determineBinaryFormat(
         binfmt = detectBinaryFormat(image, fileName)
         if binfmt is None:
             logger.error(
-                "Detection of binary format failed, " "please specify one with --binfmt"
+                "Detection of binary format failed, please specify one with --binfmt"
             )
         else:
             logger.info(
@@ -221,7 +221,7 @@ def disassembleBinary(
         sections.append(section)
     if len(sections) == 0:
         logger.warning(
-            "No sections; you can manually define them using the --section " "argument"
+            "No sections; you can manually define them using the --section argument"
         )
         return
     try:
