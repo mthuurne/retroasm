@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Any, cast
+from typing import Any, Union, cast
 
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
-    ContextNode,
     DeclarationKind,
     DeclarationNode,
-    DefDeclNode,
     DefinitionNode,
     EmptyNode,
     FlagTestNode,
@@ -26,6 +24,9 @@ from .expression_nodes import (
 )
 from .linereader import InputLocation, mergeSpan
 from .tokens import TokenEnum
+
+DefDeclNode = Union[DeclarationNode, DefinitionNode]
+ContextNode = Union[DeclarationNode, DefinitionNode, FlagTestNode]
 
 
 class ExprToken(TokenEnum):

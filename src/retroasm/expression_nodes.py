@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from enum import Enum, auto
-from typing import Union, cast
+from typing import cast
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .types import Width, unlimited
@@ -200,10 +200,6 @@ class NumberNode(ParseNode):
         ParseNode.__init__(self, location)
         self.value = value
         self.width = width
-
-
-DefDeclNode = Union[DeclarationNode, DefinitionNode]
-ContextNode = Union[DeclarationNode, DefinitionNode, FlagTestNode]
 
 
 class ParseError(BadInput):
