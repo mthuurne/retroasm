@@ -47,7 +47,7 @@ def parse_number(location: InputLocation) -> NumberNode:
         digit_width = 4 if value[1] in "xX" else 1
     elif value[-1].isdigit():
         # Decimal numbers have no integer per-digit width.
-        return NumberNode(parseDigits(value, 10), unlimited, location)
+        return NumberNode(location, parseDigits(value, 10), unlimited)
     else:
         digits = value[:-1]
         try:
@@ -56,7 +56,7 @@ def parse_number(location: InputLocation) -> NumberNode:
             raise ValueError(f'bad number suffix "{value[-1]}"') from None
 
     return NumberNode(
-        parseDigits(digits, 1 << digit_width), len(digits) * digit_width, location
+        location, parseDigits(digits, 1 << digit_width), len(digits) * digit_width
     )
 
 
@@ -78,10 +78,10 @@ def parse_instruction(
 ) -> Iterator[IdentifierNode | NumberNode]:
     for kind, location in tokens:
         if kind is AsmToken.word:
-            yield IdentifierNode(location.text, location)
+            yield IdentifierNode(location, location.text)
         elif kind is AsmToken.symbol:
             # TODO: Treating symbols as identifiers is weird, but it works for now.
-            yield IdentifierNode(location.text, location)
+            yield IdentifierNode(location, location.text)
         elif kind is AsmToken.number:
             try:
                 yield parse_number(location)
@@ -97,7 +97,7 @@ def parse_instruction(
             if len(value) == 2:
                 reader.error("empty string in instruction operand", location=location)
             elif len(value) == 3:
-                yield NumberNode(ord(value[1]), 8, location)
+                yield NumberNode(location, ord(value[1]), 8)
             else:
                 reader.error(
                     "multi-character string in instruction operand",

@@ -1,84 +1,60 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import cast
 
 from .linereader import BadInput, InputLocation, mergeSpan
 from .types import Width, unlimited
 
 
+@dataclass(frozen=True, slots=True)
 class ParseNode:
-    __slots__ = ("location",)
+    location: InputLocation
+    """Location information for this node itself."""
 
     @property
     def tree_location(self) -> InputLocation:
         """Location information for the tree rooted at this node."""
         return self.location
 
-    def __init__(self, location: InputLocation):
-        self.location = location
-        """Location information for this node itself."""
-
-    def __repr__(self) -> str:
-        attrStr = ", ".join(
-            f"{slot}={getattr(self, slot)}"
-            for cls in cast(
-                Iterable[type[ParseNode]],
-                self.__class__.__mro__[:-2],  # drop ParseNode, object
-            )
-            for slot in cls.__slots__
-        )
-        return f"{self.__class__.__name__}({attrStr})"
-
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
 
 
+@dataclass(frozen=True, slots=True)
 class EmptyNode(ParseNode):
-    __slots__ = ()
+    pass
 
 
+@dataclass(frozen=True, slots=True)
 class LabelNode(ParseNode):
-    __slots__ = ("name",)
-
-    def __init__(self, name: str, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.name = name
+    name: str
 
 
+@dataclass(frozen=True, slots=True)
 class FlagTestNode(ParseNode):
-    __slots__ = ("name",)
-
-    def __init__(self, name: str, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.name = name
+    name: str
 
 
+@dataclass(frozen=True, slots=True)
 class BranchNode(ParseNode):
-    __slots__ = ("cond", "target")
+    cond: ParseNode
+    target: LabelNode
 
     @property
     def tree_location(self) -> InputLocation:
         return mergeSpan(self.location, self.target.tree_location)
 
-    def __init__(self, cond: ParseNode, target: LabelNode, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.cond = cond
-        self.target = target
 
-
+@dataclass(frozen=True, slots=True)
 class AssignmentNode(ParseNode):
-    __slots__ = ("lhs", "rhs")
+    lhs: ParseNode
+    rhs: ParseNode
 
     @property
     def tree_location(self) -> InputLocation:
         return mergeSpan(self.lhs.tree_location, self.rhs.tree_location)
-
-    def __init__(self, lhs: ParseNode, rhs: ParseNode, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.lhs = lhs
-        self.rhs = rhs
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -109,8 +85,10 @@ class Operator(Enum):
     call = auto()
 
 
+@dataclass(frozen=True, slots=True)
 class OperatorNode(ParseNode):
-    __slots__ = ("operator", "operands")
+    operator: Operator
+    operands: tuple[ParseNode | None, ...]
 
     @property
     def tree_location(self) -> InputLocation:
@@ -127,16 +105,6 @@ class OperatorNode(ParseNode):
             tree_end = max(tree_end, end)
         return base_location.updateSpan((tree_start, tree_end))
 
-    def __init__(
-        self,
-        operator: Operator,
-        operands: Iterable[ParseNode | None],
-        location: InputLocation,
-    ):
-        ParseNode.__init__(self, location)
-        self.operator = operator
-        self.operands: Sequence[ParseNode | None] = tuple(operands)
-
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         for operand in self.operands:
@@ -144,20 +112,14 @@ class OperatorNode(ParseNode):
                 yield from operand
 
 
+@dataclass(frozen=True, slots=True)
 class IdentifierNode(ParseNode):
-    __slots__ = ("name",)
-
-    def __init__(self, name: str, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.name = name
+    name: str
 
 
+@dataclass(frozen=True, slots=True)
 class MultiMatchNode(ParseNode):
-    __slots__ = ("name",)
-
-    def __init__(self, name: str, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.name = name
+    name: str
 
 
 class DeclarationKind(Enum):
@@ -166,39 +128,25 @@ class DeclarationKind(Enum):
     reference = auto()
 
 
+@dataclass(frozen=True, slots=True)
 class DeclarationNode(ParseNode):
-    __slots__ = ("kind", "type", "name")
+    kind: DeclarationKind
+    type: IdentifierNode | None
+    name: IdentifierNode
 
     @property
     def tree_location(self) -> InputLocation:
         return mergeSpan(self.location, self.name.tree_location)
 
-    def __init__(
-        self,
-        kind: DeclarationKind,
-        typ: IdentifierNode | None,
-        name: IdentifierNode,
-        location: InputLocation,
-    ):
-        ParseNode.__init__(self, location)
-        self.kind = kind
-        self.type = typ
-        self.name = name
 
-
+@dataclass(frozen=True, slots=True)
 class DefinitionNode(ParseNode):
-    __slots__ = ("decl", "value")
+    decl: DeclarationNode
+    value: ParseNode
 
     @property
     def tree_location(self) -> InputLocation:
         return mergeSpan(self.decl.tree_location, self.value.tree_location)
-
-    def __init__(
-        self, decl: DeclarationNode, value: ParseNode, location: InputLocation
-    ):
-        ParseNode.__init__(self, location)
-        self.decl = decl
-        self.value = value
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -206,13 +154,10 @@ class DefinitionNode(ParseNode):
         yield from self.value
 
 
+@dataclass(frozen=True, slots=True)
 class NumberNode(ParseNode):
-    __slots__ = ("value", "width")
-
-    def __init__(self, value: int, width: Width, location: InputLocation):
-        ParseNode.__init__(self, location)
-        self.value = value
-        self.width = width
+    value: int
+    width: Width
 
 
 class ParseError(BadInput):
