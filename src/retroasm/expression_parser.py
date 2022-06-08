@@ -230,11 +230,9 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 )
 
     def parseGroup() -> ParseNode:
-        openLocation = tokens.eat(ExprToken.bracket, "(")
-        if openLocation is not None:
+        if tokens.eat(ExprToken.bracket, "(") is not None:
             expr = parseExprTop()
-            if (closeLocation := tokens.eat(ExprToken.bracket, ")")) is not None:
-                expr.tree_location = mergeSpan(openLocation, closeLocation)
+            if tokens.eat(ExprToken.bracket, ")") is not None:
                 return expr
             raise badTokenKind("parenthesized", ")")
 

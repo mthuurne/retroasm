@@ -9,15 +9,16 @@ from .types import Width, unlimited
 
 
 class ParseNode:
-    __slots__ = ("location", "tree_location")
+    __slots__ = ("location",)
+
+    @property
+    def tree_location(self) -> InputLocation:
+        """Location information for the tree rooted at this node."""
+        return self.location
 
     def __init__(self, location: InputLocation):
         self.location = location
-        self.tree_location = location
-        """
-        Location information, where the span includes to the entire tree
-        under this node.
-        """
+        """Location information for this node itself."""
 
     def __repr__(self) -> str:
         attrStr = ", ".join(
@@ -57,21 +58,27 @@ class FlagTestNode(ParseNode):
 class BranchNode(ParseNode):
     __slots__ = ("cond", "target")
 
+    @property
+    def tree_location(self) -> InputLocation:
+        return mergeSpan(self.location, self.target.tree_location)
+
     def __init__(self, cond: ParseNode, target: LabelNode, location: InputLocation):
         ParseNode.__init__(self, location)
         self.cond = cond
         self.target = target
-        self.tree_location = mergeSpan(location, target.tree_location)
 
 
 class AssignmentNode(ParseNode):
     __slots__ = ("lhs", "rhs")
 
+    @property
+    def tree_location(self) -> InputLocation:
+        return mergeSpan(self.lhs.tree_location, self.rhs.tree_location)
+
     def __init__(self, lhs: ParseNode, rhs: ParseNode, location: InputLocation):
         ParseNode.__init__(self, location)
         self.lhs = lhs
         self.rhs = rhs
-        self.tree_location = mergeSpan(lhs.tree_location, rhs.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -105,6 +112,21 @@ class Operator(Enum):
 class OperatorNode(ParseNode):
     __slots__ = ("operator", "operands")
 
+    @property
+    def tree_location(self) -> InputLocation:
+        location = self.location
+        base_location = location.updateSpan((0, 0))
+        tree_start, tree_end = location.span
+        for operand in self.operands:
+            if operand is None:
+                continue
+            location = operand.tree_location
+            assert location.updateSpan((0, 0)) == base_location
+            start, end = location.span
+            tree_start = min(tree_start, start)
+            tree_end = max(tree_end, end)
+        return base_location.updateSpan((tree_start, tree_end))
+
     def __init__(
         self,
         operator: Operator,
@@ -114,27 +136,12 @@ class OperatorNode(ParseNode):
         ParseNode.__init__(self, location)
         self.operator = operator
         self.operands: Sequence[ParseNode | None] = tuple(operands)
-        self.tree_location = self._tree_location()
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         for operand in self.operands:
             if operand is not None:
                 yield from operand
-
-    def _tree_location(self) -> InputLocation:
-        location = self.location
-        baseLocation = location.updateSpan((0, 0))
-        treeStart, treeEnd = location.span
-        for operand in self.operands:
-            if operand is None:
-                continue
-            location = operand.tree_location
-            assert location.updateSpan((0, 0)) == baseLocation
-            start, end = location.span
-            treeStart = min(treeStart, start)
-            treeEnd = max(treeEnd, end)
-        return baseLocation.updateSpan((treeStart, treeEnd))
 
 
 class IdentifierNode(ParseNode):
@@ -162,6 +169,10 @@ class DeclarationKind(Enum):
 class DeclarationNode(ParseNode):
     __slots__ = ("kind", "type", "name")
 
+    @property
+    def tree_location(self) -> InputLocation:
+        return mergeSpan(self.location, self.name.tree_location)
+
     def __init__(
         self,
         kind: DeclarationKind,
@@ -173,11 +184,14 @@ class DeclarationNode(ParseNode):
         self.kind = kind
         self.type = typ
         self.name = name
-        self.tree_location = mergeSpan(location, name.tree_location)
 
 
 class DefinitionNode(ParseNode):
     __slots__ = ("decl", "value")
+
+    @property
+    def tree_location(self) -> InputLocation:
+        return mergeSpan(self.decl.tree_location, self.value.tree_location)
 
     def __init__(
         self, decl: DeclarationNode, value: ParseNode, location: InputLocation
@@ -185,7 +199,6 @@ class DefinitionNode(ParseNode):
         ParseNode.__init__(self, location)
         self.decl = decl
         self.value = value
-        self.tree_location = mergeSpan(decl.tree_location, value.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
