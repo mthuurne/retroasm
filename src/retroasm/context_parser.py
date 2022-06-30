@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
+from typing import TypeAlias, Union
 
 from .expression_nodes import DeclarationNode, ParseNode
 from .mode import Mode
 from .types import IntType, ReferenceType, Width
 
-PlaceholderSpec = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
+PlaceholderSpec: TypeAlias = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
 
 
 @dataclass(frozen=True)

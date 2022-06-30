@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import AbstractSet, Any, Union, cast, overload
+from typing import AbstractSet, Any, TypeAlias, Union, cast, overload
 
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -195,7 +195,7 @@ def _findFirstAuxIndex(encoding: Sequence[EncodingItem]) -> int | None:
         return 1
 
 
-EncodingItem = Union[EncodingExpr, EncodingMultiMatch]
+EncodingItem: TypeAlias = Union[EncodingExpr, EncodingMultiMatch]
 
 
 class Encoding:
@@ -387,7 +387,9 @@ class Encoding:
         return total
 
 
-MnemItem = Union[str, FixedValueReference, "MatchPlaceholder", "ValuePlaceholder"]
+MnemItem: TypeAlias = Union[
+    str, FixedValueReference, "MatchPlaceholder", "ValuePlaceholder"
+]
 
 
 class Mnemonic:
@@ -717,7 +719,7 @@ def _formatAuxEncodingWidth(width: Width | None) -> str:
     )
 
 
-MnemMatch = Union[str, type[int], "Mode"]
+MnemMatch: TypeAlias = Union[str, type[int], "Mode"]
 
 
 class _MnemTreeNode:

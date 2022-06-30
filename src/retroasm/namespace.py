@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
-from typing import Union
+from typing import TypeAlias, Union
 
 from .codeblock import CodeBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -12,7 +12,7 @@ from .reference import BitString, Reference, SingleStorage
 from .storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
 from .types import IntType
 
-NamespaceValue = Union[Reference, IOChannel, Function]
+NamespaceValue: TypeAlias = Union[Reference, IOChannel, Function]
 
 
 class Namespace:
