@@ -66,12 +66,13 @@ def create_match_sequence(
 ) -> Iterator[type[int] | str]:
     """Convert tokens to a match sequence."""
     for node in nodes:
-        if isinstance(node, IdentifierNode):
-            yield node.name
-        elif isinstance(node, NumberNode):
-            yield int
-        else:
-            bad_type(node)
+        match node:
+            case IdentifierNode(name=name):
+                yield name
+            case NumberNode():
+                yield int
+            case node:
+                bad_type(node)
 
 
 def parse_instruction(

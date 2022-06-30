@@ -69,52 +69,55 @@ class CodeBlockSimplifier(CodeBlock):
                     node.storage = storage = newStorage
 
             value = currentValues.get(storage)
-            if isinstance(node, Load):
-                if value is not None:
-                    # Use known value instead of loading it.
-                    loadReplacements[node.expr] = value
-                    if not storage.canLoadHaveSideEffect():
-                        del nodes[i]
-                        continue
-                elif storage.isLoadConsistent():
-                    # Remember loaded value.
-                    currentValues[storage] = node.expr
-            elif isinstance(node, Store):
-                expr = node.expr
+            match node:
+                case Load(expr=expr):
+                    if value is not None:
+                        # Use known value instead of loading it.
+                        loadReplacements[expr] = value
+                        if not storage.canLoadHaveSideEffect():
+                            del nodes[i]
+                            continue
+                    elif storage.isLoadConsistent():
+                        # Remember loaded value.
+                        currentValues[storage] = expr
+                case Store(expr=expr):
+                    # Apply load replacements to stored expression.
+                    if loadReplacements:
+                        newExpr = expr.substitute(replaceLoadedValues)
+                        if newExpr is not expr:
+                            node.expr = expr = newExpr
 
-                # Apply load replacements to stored expression.
-                if loadReplacements:
-                    newExpr = expr.substitute(replaceLoadedValues)
-                    if newExpr is not expr:
-                        node.expr = expr = newExpr
+                    if value == expr:
+                        # Current value is rewritten.
+                        if not storage.canStoreHaveSideEffect():
+                            del nodes[i]
+                            continue
+                    elif storage.isSticky():
+                        # Remember stored value.
+                        currentValues[storage] = expr
 
-                if value == expr:
-                    # Current value is rewritten.
-                    if not storage.canStoreHaveSideEffect():
-                        del nodes[i]
-                        continue
-                elif storage.isSticky():
-                    # Remember stored value.
-                    currentValues[storage] = expr
-
-                # Remove values for storages that might be aliases.
-                for storage2 in list(currentValues.keys()):
-                    if storage != storage2 and storage.mightBeSame(storage2):
-                        # However, if the store wouldn't alter the value,
-                        # there is no need to remove it.
-                        if currentValues[storage2] != expr:
-                            del currentValues[storage2]
+                    # Remove values for storages that might be aliases.
+                    for storage2 in list(currentValues.keys()):
+                        if storage != storage2 and storage.mightBeSame(storage2):
+                            # However, if the store wouldn't alter the value,
+                            # there is no need to remove it.
+                            if currentValues[storage2] != expr:
+                                del currentValues[storage2]
             i += 1
 
         # Fixate variables and apply load replacements in returned bit strings.
         returned = self.returned
         for i, retBits in enumerate(returned):
 
-            def fixateVariables(storage: Storage) -> FixedValue | None:
-                if isinstance(storage, Variable) and storage.scope == 1:
-                    return FixedValue(currentValues[storage], storage.width)
-                else:
-                    return None
+            def fixateVariables(  # type: ignore[return]
+                # https://github.com/python/mypy/issues/12534
+                storage: Storage,
+            ) -> FixedValue | None:
+                match storage:
+                    case Variable(scope=scope, width=width) as storage if scope == 1:
+                        return FixedValue(currentValues[storage], width)
+                    case _:
+                        return None
 
             newBits = retBits.substitute(fixateVariables, replaceLoadedValues)
             if newBits is not retBits:
@@ -137,17 +140,18 @@ class CodeBlockSimplifier(CodeBlock):
             node = nodes[i]
             storage = node.storage
             if not storage.canStoreHaveSideEffect():
-                if isinstance(node, Load):
-                    assert not (
-                        isinstance(storage, Variable) and storage.scope == 1
-                    ), storage
-                    willBeOverwritten.discard(storage)
-                elif isinstance(node, Store):
-                    if storage in willBeOverwritten or (
-                        isinstance(storage, Variable) and storage.scope == 1
-                    ):
-                        del nodes[i]
-                    willBeOverwritten.add(storage)
+                match node:
+                    case Load():
+                        assert not (
+                            isinstance(storage, Variable) and storage.scope == 1
+                        ), storage
+                        willBeOverwritten.discard(storage)
+                    case Store():
+                        if storage in willBeOverwritten or (
+                            isinstance(storage, Variable) and storage.scope == 1
+                        ):
+                            del nodes[i]
+                        willBeOverwritten.add(storage)
 
     def removeUnusedLoads(self) -> None:
         """Remove side-effect-free loads of which the LoadedValue is unused."""
@@ -172,11 +176,9 @@ class CodeBlockSimplifier(CodeBlock):
 
         # Remove unnecesary Loads.
         for i in range(len(nodes) - 1, -1, -1):
-            node = nodes[i]
-            if isinstance(node, Load):
-                if useCounts[node.expr] == 0:
-                    storage = node.storage
-                    if not storage.canLoadHaveSideEffect():
+            match nodes[i]:
+                case Load(expr=expr, storage=storage):
+                    if useCounts[expr] == 0 and not storage.canLoadHaveSideEffect():
                         del nodes[i]
                         # Update useCounts, so we can remove earlier Loads that
                         # became unused because the Load we just removed was

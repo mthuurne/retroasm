@@ -85,26 +85,23 @@ def decomposeEncoding(
             start = 0
             for base, base_seg in encElem.bits.decompose():
                 segment = Segment(start, base_seg.width)
-                if isinstance(base, SingleStorage):
-                    storage = base.storage
-                    if isinstance(storage, ArgStorage):
-                        decodeMap[storage.name].append(
+                match base:
+                    case SingleStorage(storage=ArgStorage(name=name)):
+                        decodeMap[name].append(
                             (base_seg.start, EncodedSegment(encIdx, segment))
                         )
-                    else:
+                    case SingleStorage(storage=storage):
                         raise ValueError(
                             f"unsupported storage type in encoding: "
                             f"{storage.__class__.__name__}"
                         )
-                elif isinstance(base, FixedValue):
-                    expr = base.expr
-                    if isinstance(expr, IntLiteral):
+                    case FixedValue(expr=IntLiteral(value=value)):
                         fixedMask |= segment.mask
-                        fixedValue |= base_seg.cut(expr.value) << start
-                    else:
+                        fixedValue |= base_seg.cut(value) << start
+                    case FixedValue():
                         raise ValueError("unsupported operation in encoding")
-                else:
-                    bad_type(base)
+                    case base:
+                        bad_type(base)
                 # Note: It is possible for the width to be unlimited, but only
                 #       at the end of a string, in which case we don't use
                 #       the start offset anymore.
@@ -230,17 +227,18 @@ class FixedPatternDecoder(Decoder):
         return self._next
 
     @classmethod
-    def create(
+    def create(  # type: ignore[return]
         cls, index: int, mask: int, value: int, nxt: Decoder
     ) -> FixedPatternDecoder:
-        if isinstance(nxt, FixedPatternDecoder) and nxt.index == index:
-            # Combine two masks checks into one decoder.
-            assert mask & nxt.mask == 0
-            mask |= nxt.mask
-            value |= nxt.value
-            return cls(index, mask, value, nxt.next)
-        else:
-            return cls(index, mask, value, nxt)
+        match nxt:
+            case FixedPatternDecoder(
+                index=nindex, value=nvalue, mask=nmask, next=nnxt
+            ) if nindex == index:
+                # Combine two masks checks into one decoder.
+                assert mask & nmask == 0
+                return cls(index, mask | nmask, value | nvalue, nnxt)
+            case nxt:
+                return cls(index, mask, value, nxt)
 
     def __init__(self, index: int, mask: int, value: int, nxt: Decoder):
         self._index = index
@@ -400,20 +398,20 @@ def _createEntryDecoder(
     # Typically these are matched on decode flags.
     match = EncodeMatch(entry)
     for placeholder in entry.placeholders:
-        if isinstance(placeholder, MatchPlaceholder):
-            name = placeholder.name
-            if name not in decoding and name not in multiMatches:
-                sub = factory.createDecoder(placeholder.mode.name, name)
-                if isinstance(sub, NoMatchDecoder):
-                    return sub
-                elif isinstance(sub, MatchFoundDecoder):
-                    match[name] = sub.match
-                else:
-                    # A submode match that is not represented in the encoding
-                    # will either always match or never match, so if the
-                    # simplifications of the sub-decoder were effective, only
-                    # MatchFoundDecoder and NoMatchDecoder are possible.
-                    assert False, sub
+        match placeholder:
+            case MatchPlaceholder(name=name, mode=mode):
+                if name not in decoding and name not in multiMatches:
+                    match factory.createDecoder(mode.name, name):
+                        case NoMatchDecoder() as no_match:
+                            return no_match
+                        case MatchFoundDecoder(match=found):
+                            match[name] = found
+                        case sub:
+                            # A submode match that is not represented in the encoding
+                            # will either always match or never match, so if the
+                            # simplifications of the sub-decoder were effective, only
+                            # MatchFoundDecoder and NoMatchDecoder are possible.
+                            assert False, sub
     entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
@@ -426,24 +424,25 @@ def _createEntryDecoder(
     for name, encodedSegments in decoding.items():
         if name is not None:
             placeholder = placeholder_map[name]
-            if isinstance(placeholder, ValuePlaceholder):
-                valuePlaceholders.append(placeholder)
-            elif isinstance(placeholder, MatchPlaceholder):
-                lastIdx = max(seg.encIdx for seg in encodedSegments)
-                multiMatchIdx = multiMatches.get(placeholder.name)
-                if multiMatchIdx is None:
-                    matcher = placeholder
-                else:
-                    lastIdx = max(lastIdx, multiMatchIdx)
-                    matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
-                    if matcher.encodedLength is None and lastIdx > multiMatchIdx:
-                        raise ValueError(
-                            f"Variable-length matcher at index "
-                            f"{multiMatchIdx:d} depends on index {lastIdx:d}"
-                        )
-                matchersByIndex[lastIdx].append(matcher)
-            else:
-                bad_type(placeholder)
+            match placeholder:
+                case ValuePlaceholder():
+                    valuePlaceholders.append(placeholder)
+                case MatchPlaceholder():
+                    lastIdx = max(seg.encIdx for seg in encodedSegments)
+                    multiMatchIdx = multiMatches.get(placeholder.name)
+                    if multiMatchIdx is None:
+                        matcher = placeholder
+                    else:
+                        lastIdx = max(lastIdx, multiMatchIdx)
+                        matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
+                        if matcher.encodedLength is None and lastIdx > multiMatchIdx:
+                            raise ValueError(
+                                f"Variable-length matcher at index "
+                                f"{multiMatchIdx:d} depends on index {lastIdx:d}"
+                            )
+                    matchersByIndex[lastIdx].append(matcher)
+                case placeholder:
+                    bad_type(placeholder)
     # Insert multi-matchers without slices.
     for encIdx in multiMatches.values():
         matcher = cast(EncodingMultiMatch, encoding[encIdx])
@@ -457,14 +456,15 @@ def _createEntryDecoder(
         return tuple((seg.encIdx, -seg.segment.start) for seg in decoding[name])
 
     def matcherKey(matcher: EncodingMatcher) -> tuple[tuple[int, ...], ...]:
-        if isinstance(matcher, MatchPlaceholder):
-            return slicesKey(matcher.name)
-        elif isinstance(matcher, EncodingMultiMatch):
-            return ((matcher.start,),)
-        elif isinstance(matcher, FixedEncoding):
-            return ((matcher.encIdx, -matcher.fixedMask),)
-        else:
-            bad_type(matcher)
+        match matcher:
+            case MatchPlaceholder(name=name):
+                return slicesKey(name)
+            case EncodingMultiMatch(start=start):
+                return ((start,),)
+            case FixedEncoding(encIdx=idx, fixedMask=mask):
+                return ((idx, -mask),)
+            case matcher:
+                bad_type(matcher)
 
     def valueKey(placeholder: ValuePlaceholder) -> tuple[tuple[int, int], ...]:
         return slicesKey(placeholder.name)
@@ -479,15 +479,14 @@ def _createEntryDecoder(
         # fetched and the index that should be requested from the fetcher.
         whenIdx = fetchIdx = fixedEncoding.encIdx
         while whenIdx != 0:
-            encItem = encoding[whenIdx - 1]
-            if isinstance(encItem, EncodingMultiMatch):
-                encodedLength = encItem.encodedLength
-                if encodedLength is None:
-                    # Can't move past variable-length matcher.
-                    break
-                else:
-                    # Adjust index.
-                    fetchIdx += encodedLength - 1
+            match encoding[whenIdx - 1]:
+                case EncodingMultiMatch(encodedLength=enc_len):
+                    if enc_len is None:
+                        # Can't move past variable-length matcher.
+                        break
+                    else:
+                        # Adjust index.
+                        fetchIdx += enc_len - 1
             whenIdx -= 1
         matchersByIndex[whenIdx].append(
             FixedEncoding(fetchIdx, fixedEncoding.fixedMask, fixedEncoding.fixedValue)
@@ -506,18 +505,17 @@ def _createEntryDecoder(
     # Add match placeholders, from high index to low.
     for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
         for matcher in matchers:
-            if isinstance(matcher, MatchPlaceholder):
-                multiMatch = False
-            elif isinstance(matcher, EncodingMultiMatch):
-                multiMatch = True
-            elif isinstance(matcher, FixedEncoding):
-                # Add fixed pattern matcher.
-                decoder = FixedPatternDecoder.create(
-                    matcher.encIdx, matcher.fixedMask, matcher.fixedValue, decoder
-                )
-                continue
-            else:
-                bad_type(matcher)
+            match matcher:
+                case MatchPlaceholder():
+                    multiMatch = False
+                case EncodingMultiMatch():
+                    multiMatch = True
+                case FixedEncoding(encIdx=idx, fixedMask=mask, fixedValue=value):
+                    # Add fixed pattern matcher.
+                    decoder = FixedPatternDecoder.create(idx, mask, value, decoder)
+                    continue
+                case matcher:
+                    bad_type(matcher)
             # Add submode matcher.
             name = matcher.name
             auxIdx = multiMatches[name] if multiMatch else None
@@ -535,10 +533,11 @@ def _createEntryDecoder(
                     encSegs = tuple(
                         encSeg.adjust_unit(auxIdx, adjust) for encSeg in encSegs
                     )
-            sub = factory.createDecoder(matcher.mode.name, name)
-            if isinstance(sub, NoMatchDecoder):
-                return sub
-            decoder = PlaceholderDecoder(name, encSegs, decoder, sub, auxIdx)
+            match factory.createDecoder(matcher.mode.name, name):
+                case NoMatchDecoder() as no_match:
+                    return no_match
+                case sub:
+                    decoder = PlaceholderDecoder(name, encSegs, decoder, sub, auxIdx)
 
     return decoder
 
@@ -550,12 +549,13 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
     """
     decoders: list[Decoder] = []
     for decoder in orgDecoders:
-        if isinstance(decoder, NoMatchDecoder):
-            # Drop decoder that will never match.
-            continue
-        if isinstance(decoder, MatchFoundDecoder):
-            # Drop all decoders overridden by a guaranteed match.
-            decoders = []
+        match decoder:
+            case NoMatchDecoder():
+                # Drop decoder that will never match.
+                continue
+            case MatchFoundDecoder():
+                # Drop all decoders overridden by a guaranteed match.
+                decoders = []
         decoders.append(decoder)
 
     # Handle edge cases.
@@ -577,11 +577,12 @@ def _createDecoder(orgDecoders: Iterable[Decoder]) -> Decoder:
     # Find segments that are present in all masks.
     commonMask = -1
     for decoder in decoders:
-        if isinstance(decoder, FixedPatternDecoder) and decoder.index == encIdx:
-            commonMask &= decoder.mask
-        else:
-            commonMask = 0
-            break
+        match decoder:
+            case FixedPatternDecoder(index=index, mask=mask) if index == encIdx:
+                commonMask &= mask
+            case _:
+                commonMask = 0
+                break
 
     if commonMask != 0:
         # Pick the upper segment: for correctness any segment will do,

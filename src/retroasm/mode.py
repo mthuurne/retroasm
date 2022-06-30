@@ -78,10 +78,11 @@ class EncodingExpr:
         """
 
         def substPlaceholder(storage: Storage) -> BitString | None:
-            if isinstance(storage, ArgStorage):
-                return func(storage.name)
-            else:
-                return None
+            match storage:
+                case ArgStorage(name=name):
+                    return func(name)
+                case _:
+                    return None
 
         bits = self._bits
         newBits = bits.substitute(storage_func=substPlaceholder)
@@ -97,10 +98,11 @@ class EncodingExpr:
         """
 
         def renameValArg(storage: Storage) -> SingleStorage | None:
-            if isinstance(storage, ArgStorage):
-                return SingleStorage(ArgStorage(nameMap[storage.name], storage.width))
-            else:
-                return None
+            match storage:
+                case ArgStorage(name=name, width=width):
+                    return SingleStorage(ArgStorage(nameMap[name], width))
+                case _:
+                    return None
 
         return EncodingExpr(
             self._bits.substitute(storage_func=renameValArg), self._location
@@ -275,44 +277,46 @@ class Encoding:
                 value = match[name]
             except KeyError:
                 return None
-            if isinstance(value, EncodeMatch):
-                # We're called to substitute into an EncodingExpr and those
-                # always match the first encoding item of the submode.
-                firstItem = getSubEncoding(name, value)[0]
-                if isinstance(firstItem, EncodingExpr):
-                    return firstItem.bits
-                elif isinstance(firstItem, EncodingMultiMatch):
-                    # TODO: Add support.
-                    #       I think this will happen in practice, for example
-                    #       when the entire encoding field is one multi-match
-                    #       (full delegation to submode, possibly selected by
-                    #       decode flag).
-                    #       Note that this can only happen when the submode
-                    #       still has unresolved match placeholders, so it
-                    #       will only break in the case of partial fills,
-                    #       which we don't use yet.
-                    assert False, firstItem
-                else:
-                    bad_type(firstItem)
-            elif isinstance(value, int):
-                assert False, value
-            else:
-                bad_type(value)
+            match value:
+                case EncodeMatch() as sub_match:
+                    # We're called to substitute into an EncodingExpr and those
+                    # always match the first encoding item of the submode.
+                    firstItem = getSubEncoding(name, sub_match)[0]
+                    match firstItem:
+                        case EncodingExpr(bits=bits):
+                            return bits
+                        case EncodingMultiMatch():
+                            # TODO: Add support.
+                            #       I think this will happen in practice, for example
+                            #       when the entire encoding field is one multi-match
+                            #       (full delegation to submode, possibly selected by
+                            #       decode flag).
+                            #       Note that this can only happen when the submode
+                            #       still has unresolved match placeholders, so it
+                            #       will only break in the case of partial fills,
+                            #       which we don't use yet.
+                            assert False, firstItem
+                        case item:
+                            bad_type(item)
+                case int():
+                    assert False, value
+                case value:
+                    bad_type(value)
 
         items: list[EncodingItem] = []
         for item in self._items:
-            if isinstance(item, EncodingExpr):
-                items.append(item.substitute(substPlaceholder))
-            elif isinstance(item, EncodingMultiMatch):
-                name = item.name
-                try:
-                    subMatch = cast(EncodeMatch, match[name])
-                except KeyError:
-                    items.append(item)
-                else:
-                    items += getSubEncoding(name, subMatch)[item.start :]
-            else:
-                bad_type(item)
+            match item:
+                case EncodingExpr():
+                    items.append(item.substitute(substPlaceholder))
+                case EncodingMultiMatch(name=name):
+                    try:
+                        subMatch = cast(EncodeMatch, match[name])
+                    except KeyError:
+                        items.append(item)
+                    else:
+                        items += getSubEncoding(name, subMatch)[item.start :]
+                case item:
+                    bad_type(item)
         return Encoding(items, self._location)
 
     def rename(self, nameMap: Mapping[str, str]) -> Encoding:
@@ -420,27 +424,28 @@ class Mnemonic:
         """
         items: list[MnemItem] = []
         for item in self._items:
-            if isinstance(item, MatchPlaceholder):
-                # Submode match.
-                try:
-                    subMatch = cast(EncodeMatch, match[item.name])
-                except KeyError:
+            match item:
+                case MatchPlaceholder(name=name) as item:
+                    # Submode match.
+                    try:
+                        subMatch = cast(EncodeMatch, match[name])
+                    except KeyError:
+                        items.append(item)
+                    else:
+                        items += subMatch.entry.mnemonic.fillPlaceholders(subMatch)
+                case ValuePlaceholder(name=name, type=typ) as item:
+                    # Immediate value.
+                    try:
+                        value = cast(int, match[name])
+                    except KeyError:
+                        # TODO: Apply substitutions inside computed values.
+                        #       See ModeMatch.fromEncodeMatch() for a blueprint.
+                        items.append(item)
+                    else:
+                        items.append(int_reference(value, typ))
+                case item:
+                    # Fixed item.
                     items.append(item)
-                else:
-                    items += subMatch.entry.mnemonic.fillPlaceholders(subMatch)
-            elif isinstance(item, ValuePlaceholder):
-                # Immediate value.
-                try:
-                    value = cast(int, match[item.name])
-                except KeyError:
-                    # TODO: Apply substitutions inside computed values.
-                    #       See ModeMatch.fromEncodeMatch() for a blueprint.
-                    items.append(item)
-                else:
-                    items.append(int_reference(value, item.type))
-            else:
-                # Fixed item.
-                items.append(item)
         return Mnemonic(items)
 
     def rename(self, nameMap: Mapping[str, str]) -> Mnemonic:
@@ -485,19 +490,20 @@ class CodeTemplate:
             except KeyError:
                 unfilled.append(placeholder)
             else:
-                if isinstance(value, EncodeMatch):
-                    subSem = value.entry.semantics.fillPlaceholders(value)
-                    fillCode = subSem.code
-                    # TODO: Support submode semantics with side effects.
-                    assert len(fillCode.nodes) == 0, name
-                    values[name] = fillCode.returned[0]
-                elif isinstance(value, int):
-                    values[name] = FixedValue(
-                        IntLiteral(value),
-                        cast(ValuePlaceholder, placeholder).type.width,
-                    )
-                else:
-                    bad_type(value)
+                match value:
+                    case EncodeMatch() as value:
+                        subSem = value.entry.semantics.fillPlaceholders(value)
+                        fillCode = subSem.code
+                        # TODO: Support submode semantics with side effects.
+                        assert len(fillCode.nodes) == 0, name
+                        values[name] = fillCode.returned[0]
+                    case int() as value:
+                        values[name] = FixedValue(
+                            IntLiteral(value),
+                            cast(ValuePlaceholder, placeholder).type.width,
+                        )
+                    case value:
+                        bad_type(value)
 
         builder = SemanticsCodeBlockBuilder()
         returned = builder.inlineBlock(self.code, values.get)
@@ -605,18 +611,18 @@ class ModeMatch:
         values: dict[str, BitString] = {}
         subs = {}
         for placeholder in placeholders:
-            name = placeholder.name
-            if isinstance(placeholder, MatchPlaceholder):
-                subMatch = cast(EncodeMatch, match[name])
-                subs[name] = cls.fromEncodeMatch(subMatch)
-            elif isinstance(placeholder, ComputedPlaceholder):
-                values[name] = placeholder.computeValue(builder, values.__getitem__)
-            elif isinstance(placeholder, ValuePlaceholder):
-                values[name] = FixedValue(
-                    IntLiteral(cast(int, match[name])), placeholder.type.width
-                )
-            else:
-                bad_type(placeholder)
+            match placeholder:
+                case MatchPlaceholder(name=name):
+                    subMatch = cast(EncodeMatch, match[name])
+                    subs[name] = cls.fromEncodeMatch(subMatch)
+                case ComputedPlaceholder(name=name) as placeholder:
+                    values[name] = placeholder.computeValue(builder, values.__getitem__)
+                case ValuePlaceholder(name=name, type=typ):
+                    values[name] = FixedValue(
+                        IntLiteral(cast(int, match[name])), typ.width
+                    )
+                case placeholder:
+                    bad_type(placeholder)
 
         return cls(entry, values, subs)
 
@@ -654,14 +660,17 @@ class ModeMatch:
             return next(self._subs[name].iterBits())
 
         for encItem in self._entry.encoding:
-            if isinstance(encItem, EncodingExpr):
-                yield encItem.substitute(subst).bits
-            else:
-                subBits = self._subs[encItem.name].iterBits()
-                if encItem.start != 0:
-                    for _ in subBits:
-                        break
-                yield from subBits
+            match encItem:
+                case EncodingExpr() as expr:
+                    yield expr.substitute(subst).bits
+                case EncodingMultiMatch(name=name, start=start):
+                    subBits = self._subs[name].iterBits()
+                    if start != 0:
+                        for _ in subBits:
+                            break
+                    yield from subBits
+                case item:
+                    bad_type(item)
 
     def substPC(self, pc: Reference, pcVal: Expression) -> ModeMatch:
         """
@@ -695,16 +704,17 @@ class ModeMatch:
         values = self._values
 
         for mnemElem in entry.mnemonic:
-            if isinstance(mnemElem, (str, FixedValueReference)):
-                yield mnemElem
-            elif isinstance(mnemElem, MatchPlaceholder):
-                yield from subs[mnemElem.name].mnemonic
-            elif isinstance(mnemElem, ValuePlaceholder):
-                value = values[mnemElem.name]
-                assert isinstance(value, FixedValue), value
-                yield FixedValueReference(value.expr, mnemElem.type)
-            else:
-                bad_type(mnemElem)
+            match mnemElem:
+                case str() | FixedValueReference() as elem:
+                    yield elem
+                case MatchPlaceholder(name=name):
+                    yield from subs[name].mnemonic
+                case ValuePlaceholder(name=name, type=typ):
+                    value = values[name]
+                    assert isinstance(value, FixedValue), value
+                    yield FixedValueReference(value.expr, typ)
+                case elem:
+                    bad_type(elem)
 
 
 def _formatEncodingWidth(width: Width | None) -> str:
@@ -739,15 +749,16 @@ class _MnemTreeNode:
 
     @staticmethod
     def _matchKey(match: MnemMatch) -> tuple[int, str | None]:
-        if isinstance(match, str):
-            return 0, match
-        elif isinstance(match, Mode):
-            return 1, match.name
-        elif isinstance(match, type):
-            assert match is int
-            return 2, None
-        else:
-            bad_type(match)
+        match match:
+            case str() as text:
+                return 0, text
+            case Mode(name=name):
+                return 1, name
+            case type() as typ:
+                assert typ is int
+                return 2, None
+            case match:
+                bad_type(match)
 
     def dump(self, indent: str) -> None:
         for entry in self._leaves:
@@ -763,14 +774,15 @@ class _MnemTreeNode:
         node = self
         for token in entry.mnemonic:
             match: MnemMatch
-            if isinstance(token, str):
-                match = token
-            elif isinstance(token, (FixedValueReference, ValuePlaceholder)):
-                match = int
-            elif isinstance(token, MatchPlaceholder):
-                match = token.mode
-            else:
-                bad_type(token)
+            match token:
+                case str() as text:
+                    match = text
+                case FixedValueReference() | ValuePlaceholder():
+                    match = int
+                case MatchPlaceholder(mode=mode):
+                    match = mode
+                case token:
+                    bad_type(token)
             node = node._children[match]
         node._leaves.append(entry)
 
@@ -1010,11 +1022,12 @@ class EncodeMatch:
         mapping = self._mapping
         length = 0
         for encItem in encDef:
-            if isinstance(encItem, EncodingExpr):
-                length += 1
-            elif isinstance(encItem, EncodingMultiMatch):
-                match = cast(EncodeMatch, mapping[encItem.name])
-                length += match.encodedLength - encItem.start
-            else:
-                bad_type(encItem)
+            match encItem:
+                case EncodingExpr():
+                    length += 1
+                case EncodingMultiMatch(name=name, start=start):
+                    match = cast(EncodeMatch, mapping[name])
+                    length += match.encodedLength - start
+                case _ as obj:
+                    bad_type(obj)
         return length

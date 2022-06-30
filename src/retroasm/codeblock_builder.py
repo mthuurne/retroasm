@@ -122,13 +122,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         ununitializedLoads = []
         initializedVariables: set[Variable] = set()
         for node in code.nodes:
-            storage = node.storage
-            if isinstance(storage, Variable) and storage.scope == 1:
-                if isinstance(node, Load):
-                    if storage not in initializedVariables:
+            match node:
+                case Load(storage=Variable(scope=scope) as var) if scope == 1:
+                    if var not in initializedVariables:
                         ununitializedLoads.append(node)
-                elif isinstance(node, Store):
-                    initializedVariables.add(storage)
+                case Store(storage=Variable(scope=scope) as var) if scope == 1:
+                    initializedVariables.add(var)
         if ununitializedLoads:
             if log is not None:
                 for load in ununitializedLoads:
@@ -144,12 +143,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         # Check for returning of uninitialized variables.
         for retBits in returned:
             for storage in retBits.iter_storages():
-                if isinstance(storage, Variable) and storage.scope == 1:
-                    if storage not in initializedVariables:
-                        msg = "code block returns uninitialized variable(s)"
-                        if log is not None:
-                            log.error(msg, location=location)
-                        raise ValueError(msg)
+                match storage:
+                    case Variable(scope=scope) as var if scope == 1:
+                        if var not in initializedVariables:
+                            msg = "code block returns uninitialized variable(s)"
+                            if log is not None:
+                                log.error(msg, location=location)
+                            raise ValueError(msg)
 
         # Finalize code block.
         code.simplify()
@@ -214,15 +214,16 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return expr.substitute(loadResults.get)
 
         def importStorageUncached(storage: Storage) -> BitString | SingleStorage:
-            if isinstance(storage, ArgStorage):
-                bits = argFetcher(storage.name)
-                if bits is not None:
-                    assert storage.width == bits.width, (storage.width, bits.width)
-                    return bits
-                newStorage: Storage = storage
-            else:
-                newStorage = storage.substituteExpressions(importExpr)
-            return SingleStorage(newStorage)
+            match storage:
+                case ArgStorage(name=name) as arg:
+                    bits = argFetcher(name)
+                    if bits is None:
+                        return SingleStorage(arg)
+                    else:
+                        assert arg.width == bits.width, (arg.width, bits.width)
+                        return bits
+                case storage:
+                    return SingleStorage(storage.substituteExpressions(importExpr))
 
         storageCache: dict[Storage, BitString] = {}
 
@@ -240,14 +241,15 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         # Copy nodes.
         for node in code.nodes:
             bits = importStorage(node.storage)
-            if isinstance(node, Load):
-                value = bits.emit_load(self, node.location)
-                loadResults[node.expr] = value
-            elif isinstance(node, Store):
-                newExpr = importExpr(node.expr)
-                bits.emit_store(self, newExpr, node.location)
-            else:
-                assert False, node
+            match node:
+                case Load(expr=expr, location=location):
+                    value = bits.emit_load(self, location)
+                    loadResults[expr] = value
+                case Store(expr=expr, location=location):
+                    newExpr = importExpr(expr)
+                    bits.emit_store(self, newExpr, location)
+                case node:
+                    assert False, node
 
         # Determine return value.
         return [

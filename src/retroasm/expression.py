@@ -257,30 +257,26 @@ class AndOperator(MultiExpression):
         self._tryDistributeAndOverOr = True
 
     def __str__(self) -> str:
-        exprs = self.exprs
-        last = exprs[-1]
-        if isinstance(last, IntLiteral):
-            value = last.value
-            width = width_for_mask(value)
-            if width is not unlimited and mask_for_width(width) == value:
-                assert isinstance(width, int)
-                # Special formatting for truncation and slicing.
-                if len(exprs) == 2:
-                    first = exprs[0]
-                    if isinstance(first, RShift):
-                        offset = first.offset
-                        if width == 1:
-                            return f"{first.expr}[{offset:d}]"
-                        else:
-                            return f"{first.expr}[{offset:d}:{offset + width:d}]"
-                    else:
-                        if width == 1:
-                            return f"{first}[0]"
-                        else:
-                            return f"{first}[:{width:d}]"
-                else:
-                    conjuction = " & ".join(str(expr) for expr in exprs[:-1])
-                    return f"({conjuction})[:{width:d}]"
+        match self.exprs:
+            case [*terms, IntLiteral(value=value)]:
+                width = width_for_mask(value)
+                if width is not unlimited and mask_for_width(width) == value:
+                    assert isinstance(width, int)
+                    # Special formatting for truncation and slicing.
+                    match terms:
+                        case [RShift(expr=expr, offset=offset)]:
+                            if width == 1:
+                                return f"{expr}[{offset:d}]"
+                            else:
+                                return f"{expr}[{offset:d}:{offset + width:d}]"
+                        case [expr]:
+                            if width == 1:
+                                return f"{expr}[0]"
+                            else:
+                                return f"{expr}[:{width:d}]"
+                        case terms:
+                            conjuction = " & ".join(str(expr) for expr in terms)
+                            return f"({conjuction})[:{width:d}]"
         return super().__str__()
 
     @classmethod
@@ -373,10 +369,11 @@ class AddOperator(MultiExpression):
         exprs = self._exprs
         fragments = [str(exprs[0])]
         for expr in exprs[1:]:
-            if isinstance(expr, Complement):
-                fragments += ("-", str(expr.expr))
-            else:
-                fragments += ("+", str(expr))
+            match expr:
+                case Complement(expr=expr):
+                    fragments += ("-", str(expr))
+                case expr:
+                    fragments += ("+", str(expr))
         return f"({' '.join(fragments)})"
 
 

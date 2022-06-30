@@ -8,6 +8,7 @@ from .expression import IntLiteral
 from .reference import FixedValueReference
 from .symbol import SymbolValue
 from .types import IntType, Width, unlimited
+from .utils import bad_type
 
 
 class Formatter:
@@ -75,14 +76,21 @@ class Formatter:
 
     def mnemonic(self, mnemonic: Iterable[str | FixedValueReference]) -> str:
         parts = []
-        for mnemElem in mnemonic:
-            if isinstance(mnemElem, str):
-                parts.append(mnemElem)
-            else:
-                parts.append(self.expression(mnemElem))
-                # Shorten "X+-N" to just "X-N".
-                if len(parts) >= 2 and parts[-1].startswith("-") and parts[-2] == "+":
-                    del parts[-2]
+        for mnem_elem in mnemonic:
+            match mnem_elem:
+                case str() as text:
+                    parts.append(text)
+                case FixedValueReference() as ref:
+                    parts.append(self.expression(ref))
+                    # Shorten "X+-N" to just "X-N".
+                    if (
+                        len(parts) >= 2
+                        and parts[-1].startswith("-")
+                        and parts[-2] == "+"
+                    ):
+                        del parts[-2]
+                case elem:
+                    bad_type(elem)
 
         localLabel = ""
         return self._lineFormat.format(
@@ -93,24 +101,23 @@ class Formatter:
         """
         Format the given expression.
         """
-        expr = ref.expr
-        if isinstance(expr, SymbolValue):
-            return expr.name
-        elif isinstance(expr, IntLiteral):
-            value = expr.value
-            exprType = ref.type
-            width = exprType.width
-            if exprType.signed:
-                if width != 0 and width is not unlimited:
-                    assert isinstance(width, int)
-                    if value & 1 << (width - 1):
-                        value -= 1 << width
-            return self.value(value, exprType)
-        else:
-            # TODO: Use a recursive expression pretty printer.
-            #       Once we start formatting actual sources instead of only
-            #       disassembly, we will encounter operators as well.
-            raise NotImplementedError
+        match ref.expr:
+            case SymbolValue(name=name):
+                return name
+            case IntLiteral(value=value):
+                exprType = ref.type
+                width = exprType.width
+                if exprType.signed:
+                    if width != 0 and width is not unlimited:
+                        assert isinstance(width, int)
+                        if value & 1 << (width - 1):
+                            value -= 1 << width
+                return self.value(value, exprType)
+            case _:
+                # TODO: Use a recursive expression pretty printer.
+                #       Once we start formatting actual sources instead of only
+                #       disassembly, we will encounter operators as well.
+                raise NotImplementedError
 
     orgKeyword = "org"
 

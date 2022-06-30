@@ -158,12 +158,13 @@ def _convertIdentifier(
         value = namespace[name]
     except KeyError:
         raise UnknownNameError(name, f'unknown name "{name}"', node.location) from None
-    if isinstance(value, Function):
-        raise BadExpression(f'function "{name}" is not called', node.location)
-    elif isinstance(value, (IOChannel, Reference)):
-        return value
-    else:
-        bad_type(value)
+    match value:
+        case Function():
+            raise BadExpression(f'function "{name}" is not called', node.location)
+        case IOChannel() | Reference():
+            return value
+        case value:
+            bad_type(value)
 
 
 def _convertFunctionCall(
@@ -202,23 +203,24 @@ def _convertFunctionCall(
                 f'in call to function "{funcName}", argument "{name}": {ex}',
                 *ex.locations,
             ) from ex
-        if isinstance(decl, ReferenceType):
-            # For reference arguments, we demand the passed width to match the
-            # argument width, so truncation is never required.
-            if ref.width != decl.type.width:
-                raise BadExpression.withText(
-                    f"{ref.width}-bit reference passed for "
-                    f'reference argument "{decl} {name}"',
-                    argNode.tree_location,
-                )
-            bits = ref.bits
-        else:
-            # Value arguments must be evaluated and truncated when passed.
-            value = ref.emit_load(builder, argNode.tree_location)
-            argWidth = decl.width
-            if width_for_mask(value.mask) > argWidth:
-                value = truncate(value, argWidth)
-            bits = FixedValue(value, argWidth)
+        match decl:
+            case ReferenceType():
+                # For reference arguments, we demand the passed width to match the
+                # argument width, so truncation is never required.
+                if ref.width != decl.type.width:
+                    raise BadExpression.withText(
+                        f"{ref.width}-bit reference passed for "
+                        f'reference argument "{decl} {name}"',
+                        argNode.tree_location,
+                    )
+                bits = ref.bits
+            case _:
+                # Value arguments must be evaluated and truncated when passed.
+                value = ref.emit_load(builder, argNode.tree_location)
+                argWidth = decl.width
+                if width_for_mask(value.mask) > argWidth:
+                    value = truncate(value, argWidth)
+                bits = FixedValue(value, argWidth)
         argMap[name] = bits
 
     # Inline function call.
@@ -226,117 +228,118 @@ def _convertFunctionCall(
     if retBits is None:
         return None
     else:
-        retType = func.retType
-        if isinstance(retType, ReferenceType):
-            retType = retType.type
-        else:
-            # If retType is None, retBits would be None too.
-            assert retType is not None, func
-        return Reference(retBits, retType)
+        match func.retType:
+            case None:
+                # If retType is None, retBits would be None too.
+                # assert False, func
+                return None
+            case ReferenceType(type=retType) | retType:
+                return Reference(retBits, retType)
 
 
 def _convertArithmetic(node: OperatorNode, namespace: BuilderNamespace) -> Expression:
-    operator = node.operator
     exprs: Sequence[Expression] = tuple(
         buildExpression(cast(ParseNode, node), namespace) for node in node.operands
     )
-    if operator is Operator.bitwise_and:
-        return AndOperator(*exprs)
-    elif operator is Operator.bitwise_or:
-        return OrOperator(*exprs)
-    elif operator is Operator.bitwise_xor:
-        return XorOperator(*exprs)
-    elif operator is Operator.shift_left:
-        return LVShift(*exprs)
-    elif operator is Operator.shift_right:
-        return RVShift(*exprs)
-    elif operator is Operator.add:
-        return AddOperator(*exprs)
-    elif operator is Operator.sub:
-        expr1, expr2 = exprs
-        return AddOperator(expr1, Complement(expr2))
-    elif operator is Operator.complement:
-        return Complement(*exprs)
-    elif operator is Operator.bitwise_complement:
-        return XorOperator(IntLiteral(-1), *exprs)
-    elif operator is Operator.negation:
-        return Negation(*exprs)
-    elif operator is Operator.equal:
-        return Negation(XorOperator(*exprs))
-    elif operator is Operator.unequal:
-        return Negation(Negation(XorOperator(*exprs)))
-    elif operator is Operator.lesser:
-        expr1, expr2 = exprs
-        return SignTest(AddOperator(expr1, Complement(expr2)))
-    elif operator is Operator.greater:
-        expr1, expr2 = exprs
-        return SignTest(AddOperator(expr2, Complement(expr1)))
-    elif operator is Operator.lesser_equal:
-        expr1, expr2 = exprs
-        return Negation(SignTest(AddOperator(expr2, Complement(expr1))))
-    elif operator is Operator.greater_equal:
-        expr1, expr2 = exprs
-        return Negation(SignTest(AddOperator(expr1, Complement(expr2))))
-    else:
-        assert False, operator
+    match node.operator:
+        case Operator.bitwise_and:
+            return AndOperator(*exprs)
+        case Operator.bitwise_or:
+            return OrOperator(*exprs)
+        case Operator.bitwise_xor:
+            return XorOperator(*exprs)
+        case Operator.shift_left:
+            return LVShift(*exprs)
+        case Operator.shift_right:
+            return RVShift(*exprs)
+        case Operator.add:
+            return AddOperator(*exprs)
+        case Operator.sub:
+            expr1, expr2 = exprs
+            return AddOperator(expr1, Complement(expr2))
+        case Operator.complement:
+            return Complement(*exprs)
+        case Operator.bitwise_complement:
+            return XorOperator(IntLiteral(-1), *exprs)
+        case Operator.negation:
+            return Negation(*exprs)
+        case Operator.equal:
+            return Negation(XorOperator(*exprs))
+        case Operator.unequal:
+            return Negation(Negation(XorOperator(*exprs)))
+        case Operator.lesser:
+            expr1, expr2 = exprs
+            return SignTest(AddOperator(expr1, Complement(expr2)))
+        case Operator.greater:
+            expr1, expr2 = exprs
+            return SignTest(AddOperator(expr2, Complement(expr1)))
+        case Operator.lesser_equal:
+            expr1, expr2 = exprs
+            return Negation(SignTest(AddOperator(expr2, Complement(expr1))))
+        case Operator.greater_equal:
+            expr1, expr2 = exprs
+            return Negation(SignTest(AddOperator(expr1, Complement(expr2))))
+        case operator:
+            assert False, operator
 
 
 def _convertExpressionOperator(
     node: OperatorNode, namespace: BuilderNamespace
 ) -> Expression:
-    operator = node.operator
-    if operator is Operator.call:
-        ref = _convertFunctionCall(node, namespace)
-        if ref is None:
-            raise BadExpression(
-                "function does not return anything; expected value", node.tree_location
+    match node.operator:
+        case Operator.call:
+            ref = _convertFunctionCall(node, namespace)
+            if ref is None:
+                raise BadExpression(
+                    "function does not return anything; expected value",
+                    node.tree_location,
+                )
+            else:
+                return ref.emit_load(namespace.builder, node.tree_location)
+        case Operator.lookup:
+            return _convertReferenceLookup(node, namespace).emit_load(
+                namespace.builder, node.tree_location
             )
-        else:
-            return ref.emit_load(namespace.builder, node.tree_location)
-    elif operator is Operator.lookup:
-        return _convertReferenceLookup(node, namespace).emit_load(
-            namespace.builder, node.tree_location
-        )
-    elif operator is Operator.slice:
-        return _convertReferenceSlice(node, namespace).emit_load(
-            namespace.builder, node.tree_location
-        )
-    elif operator is Operator.concatenation:
-        return _convertReferenceConcat(node, namespace).emit_load(
-            namespace.builder, node.tree_location
-        )
-    else:
-        return _convertArithmetic(node, namespace)
+        case Operator.slice:
+            return _convertReferenceSlice(node, namespace).emit_load(
+                namespace.builder, node.tree_location
+            )
+        case Operator.concatenation:
+            return _convertReferenceConcat(node, namespace).emit_load(
+                namespace.builder, node.tree_location
+            )
+        case _:
+            return _convertArithmetic(node, namespace)
 
 
 def buildExpression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
-    if isinstance(node, NumberNode):
-        return IntLiteral(node.value)
-    elif isinstance(node, IdentifierNode):
-        ident = _convertIdentifier(node, namespace)
-        if isinstance(ident, IOChannel):
+    match node:
+        case NumberNode(value=value):
+            return IntLiteral(value)
+        case IdentifierNode() as ident_node:
+            ident = _convertIdentifier(ident_node, namespace)
+            match ident:
+                case IOChannel():
+                    raise BadExpression(
+                        f'I/O channel "{ident_node.name}" can only be used for lookup',
+                        ident_node.location,
+                    )
+                case Reference() as ref:
+                    return ref.emit_load(namespace.builder, node.location)
+                case ident:
+                    bad_type(ident)
+        case OperatorNode():
+            return _convertExpressionOperator(node, namespace)
+        case DeclarationNode(tree_location=location):
+            raise BadExpression("variable declaration is not allowed here", location)
+        case DefinitionNode(tree_location=location):
+            raise BadExpression("definition must be only statement on a line", location)
+        case MultiMatchNode(tree_location=location):
             raise BadExpression(
-                f'I/O channel "{node.name}" can only be used for lookup', node.location
+                "multi-match can only be used as a standalone encoding item", location
             )
-        else:
-            return ident.emit_load(namespace.builder, node.location)
-    elif isinstance(node, OperatorNode):
-        return _convertExpressionOperator(node, namespace)
-    elif isinstance(node, DeclarationNode):
-        raise BadExpression(
-            "variable declaration is not allowed here", node.tree_location
-        )
-    elif isinstance(node, DefinitionNode):
-        raise BadExpression(
-            "definition must be only statement on a line", node.tree_location
-        )
-    elif isinstance(node, MultiMatchNode):
-        raise BadExpression(
-            "multi-match can only be used as a standalone encoding item",
-            node.tree_location,
-        )
-    else:
-        raise TypeError(type(node).__name__)
+        case node:
+            raise TypeError(type(node).__name__)
 
 
 def _convertReferenceLookup(
@@ -345,11 +348,10 @@ def _convertReferenceLookup(
     exprNode, indexNode = node.operands
     assert indexNode is not None, node
     if isinstance(exprNode, IdentifierNode):
-        ident = _convertIdentifier(exprNode, namespace)
-        if isinstance(ident, IOChannel):
-            channel = ident
-            index = buildExpression(indexNode, namespace)
-            return createIOReference(channel, index)
+        match _convertIdentifier(exprNode, namespace):
+            case IOChannel() as channel:
+                index = buildExpression(indexNode, namespace)
+                return createIOReference(channel, index)
     else:
         assert exprNode is not None, node
 
@@ -389,11 +391,11 @@ def _convertReferenceSlice(
         if widthExpr is None:
             width: Width = unlimited
         else:
-            widthExpr = simplifyExpression(widthExpr)
-            if isinstance(widthExpr, IntLiteral):
-                width = widthExpr.value
-            else:
-                raise ValueError("slice width cannot be determined")
+            match simplifyExpression(widthExpr):
+                case IntLiteral(value=value):
+                    width = value
+                case _:
+                    raise ValueError("slice width cannot be determined")
         bits = SlicedBits(ref.bits, startExpr, width)
     except ValueError as ex:
         raise BadExpression(f"invalid slice: {ex}", node.location) from ex
@@ -466,31 +468,32 @@ def _convertReferenceOperator(
 
 
 def buildReference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
-    if isinstance(node, NumberNode):
-        return int_reference(node.value, IntType(node.width, node.width is unlimited))
-    elif isinstance(node, DeclarationNode):
-        return declareVariable(node, namespace)
-    elif isinstance(node, DefinitionNode):
-        raise BadExpression(
-            "definition must be only statement on a line", node.tree_location
-        )
-    elif isinstance(node, IdentifierNode):
-        ident = _convertIdentifier(node, namespace)
-        if isinstance(ident, IOChannel):
+    match node:
+        case NumberNode(value=value, width=width):
+            return int_reference(value, IntType(width, width is unlimited))
+        case DeclarationNode() as decl:
+            return declareVariable(decl, namespace)
+        case DefinitionNode(tree_location=location):
+            raise BadExpression("definition must be only statement on a line", location)
+        case IdentifierNode() as ident_node:
+            ident = _convertIdentifier(ident_node, namespace)
+            match ident:
+                case IOChannel():
+                    raise BadExpression(
+                        f'I/O channel "{ident_node.name}" can only be used for lookup',
+                        ident_node.location,
+                    )
+                case ident:
+                    return ident
+        case MultiMatchNode(tree_location=location):
             raise BadExpression(
-                f'I/O channel "{node.name}" can only be used for lookup', node.location
+                "multi-match can only be used as a standalone encoding item",
+                location,
             )
-        else:
-            return ident
-    elif isinstance(node, MultiMatchNode):
-        raise BadExpression(
-            "multi-match can only be used as a standalone encoding item",
-            node.tree_location,
-        )
-    elif isinstance(node, OperatorNode):
-        return _convertReferenceOperator(node, namespace)
-    else:
-        assert False, node
+        case OperatorNode() as operator:
+            return _convertReferenceOperator(operator, namespace)
+        case node:
+            raise TypeError(type(node).__name__)
 
 
 def buildStatementEval(
@@ -505,65 +508,67 @@ def buildStatementEval(
     builder = namespace.builder
     numNodesBefore = len(builder.nodes)
 
-    if isinstance(node, AssignmentNode):
-        try:
-            lhs = buildReference(node.lhs, namespace)
-        except BadExpression as ex:
-            reader.error(
-                "bad expression on left hand side of assignment in %s: %s",
-                whereDesc,
-                ex,
-                location=ex.locations,
-            )
+    match node:
+        case AssignmentNode():
+            try:
+                lhs = buildReference(node.lhs, namespace)
+            except BadExpression as ex:
+                reader.error(
+                    "bad expression on left hand side of assignment in %s: %s",
+                    whereDesc,
+                    ex,
+                    location=ex.locations,
+                )
+                return
+
+            try:
+                rhs = buildExpression(node.rhs, namespace)
+            except BadExpression as ex:
+                reader.error(
+                    "bad expression on right hand side of assignment in %s: %s",
+                    whereDesc,
+                    ex,
+                    location=ex.locations,
+                )
+                return
+
+            lhs.emit_store(builder, rhs, node.lhs.tree_location)
+
+        case EmptyNode():
+            # Empty statement (NOP).
+            # This is supposed to have no effect, so skip no-effect check.
             return
 
-        try:
-            rhs = buildExpression(node.rhs, namespace)
-        except BadExpression as ex:
-            reader.error(
-                "bad expression on right hand side of assignment in %s: %s",
-                whereDesc,
-                ex,
-                location=ex.locations,
-            )
+        case OperatorNode(operator=Operator.call):
+            # Function call.
+            try:
+                ref_ = _convertFunctionCall(node, namespace)
+            except BadExpression as ex:
+                reader.error("%s", ex, location=ex.locations)
+            # Skip no-effect check: if a function does nothing, it likely either
+            # does so on purpose or a warning will already have been issued there.
             return
 
-        lhs.emit_store(builder, rhs, node.lhs.tree_location)
-
-    elif isinstance(node, EmptyNode):
-        # Empty statement (NOP).
-        # This is supposed to have no effect, so skip no-effect check.
-        return
-
-    elif isinstance(node, OperatorNode) and node.operator is Operator.call:
-        # Function call.
-        try:
-            ref_ = _convertFunctionCall(node, namespace)
-        except BadExpression as ex:
-            reader.error("%s", ex, location=ex.locations)
-        # Skip no-effect check: if a function does nothing, it likely either
-        # does so on purpose or a warning will already have been issued there.
-        return
-
-    else:
-        # Evaluate statement for its side effects.
-        try:
-            buildExpression(node, namespace)
-        except BadExpression as ex:
-            reader.error(
-                "bad expression in statement in %s: %s",
-                whereDesc,
-                ex,
-                location=ex.locations,
-            )
-            return
+        case expr:
+            # Evaluate statement for its side effects.
+            try:
+                buildExpression(expr, namespace)
+            except BadExpression as ex:
+                reader.error(
+                    "bad expression in statement in %s: %s",
+                    whereDesc,
+                    ex,
+                    location=ex.locations,
+                )
+                return
 
     stateChanged = False
     for execNode in builder.nodes[numNodesBefore:]:
-        if isinstance(execNode, Load):
-            stateChanged |= execNode.storage.canLoadHaveSideEffect()
-        elif isinstance(execNode, Store):
-            stateChanged = True
+        match execNode:
+            case Load(storage=storage):
+                stateChanged |= storage.canLoadHaveSideEffect()
+            case Store():
+                stateChanged = True
     if not stateChanged:
         reader.warning(
             "statement in %s has no effect", whereDesc, location=node.tree_location
@@ -583,72 +588,72 @@ def emitCodeFromStatements(
     description of the statement's origin.
     """
     for node in statements:
-        if isinstance(node, DefinitionNode):
-            # Constant/reference definition.
-            decl = node.decl
-            kind = decl.kind
-            nameNode = decl.name
-            typeNode = decl.type
-            if typeNode is None:
-                # For a function returning a reference, the reference type
-                # is declared in the function header rather than on the
-                # definition line.
-                assert kind == DeclarationKind.reference, kind
-                assert nameNode.name == "ret", nameNode.name
-                if not isinstance(retType, ReferenceType):
-                    desc = "nothing" if retType is None else "value"
-                    reader.error(
-                        f'"ret" defined as reference in function that returns {desc}',
-                        location=decl.location,
-                    )
-                    continue
-                typ: IntType | ReferenceType = retType
-            else:
-                # Determine type.
+        match node:
+            case DefinitionNode(decl=decl, value=value):
+                # Constant/reference definition.
+                kind = decl.kind
+                nameNode = decl.name
+                typeNode = decl.type
+                if typeNode is None:
+                    # For a function returning a reference, the reference type
+                    # is declared in the function header rather than on the
+                    # definition line.
+                    assert kind == DeclarationKind.reference, kind
+                    assert nameNode.name == "ret", nameNode.name
+                    if not isinstance(retType, ReferenceType):
+                        reader.error(
+                            '"ret" defined as reference in function that returns %s',
+                            "nothing" if retType is None else "value",
+                            location=decl.location,
+                        )
+                        continue
+                    typ: IntType | ReferenceType = retType
+                else:
+                    # Determine type.
+                    try:
+                        typ = parse_type_decl(typeNode.name)
+                    except ValueError as ex:
+                        raise BadExpression(
+                            f"bad type name in definition: {ex}", typeNode.location
+                        ) from ex
+                # Evaluate value.
+                name = nameNode.name
                 try:
-                    typ = parse_type_decl(typeNode.name)
-                except ValueError as ex:
-                    raise BadExpression(
-                        f"bad type name in definition: {ex}", typeNode.location
-                    ) from ex
-            # Evaluate value.
-            name = nameNode.name
-            try:
-                ref = convertDefinition(kind, name, typ, node.value, namespace)
-            except BadExpression as ex:
-                reader.error(str(ex), location=ex.locations)
-                ref = bad_reference(typ)
-            # Add definition to namespace.
-            try:
-                namespace.define(name, ref, nameNode.location)
-            except NameExistsError as ex:
-                reader.error(
-                    'failed to define %s "%s %s": %s',
-                    kind.name,
-                    typ,
-                    name,
-                    ex,
-                    location=ex.locations,
-                )
+                    ref = convertDefinition(kind, name, typ, value, namespace)
+                except BadExpression as ex:
+                    reader.error(str(ex), location=ex.locations)
+                    ref = bad_reference(typ)
+                # Add definition to namespace.
+                try:
+                    namespace.define(name, ref, nameNode.location)
+                except NameExistsError as ex:
+                    reader.error(
+                        'failed to define %s "%s %s": %s',
+                        kind.name,
+                        typ,
+                        name,
+                        ex,
+                        location=ex.locations,
+                    )
 
-        elif isinstance(node, DeclarationNode):
-            # Variable declaration.
-            try:
-                declareVariable(node, namespace)
-            except BadExpression as ex:
-                reader.error(str(ex), location=ex.locations)
+            case DeclarationNode() as decl:
+                # Variable declaration.
+                try:
+                    declareVariable(decl, namespace)
+                except BadExpression as ex:
+                    reader.error(str(ex), location=ex.locations)
 
-        elif isinstance(node, BranchNode):
-            # Conditional branch.
-            # We don't have actual branching support yet, but we can force
-            # the condition to be computed.
-            value = Negation(buildExpression(node.cond, namespace))
-            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emit_store(namespace.builder, value, node.cond.tree_location)
+            case BranchNode(cond=cond):
+                # Conditional branch.
+                # We don't have actual branching support yet, but we can force
+                # the condition to be computed.
+                cond_value = Negation(buildExpression(cond, namespace))
+                ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
+                ref.emit_store(namespace.builder, cond_value, cond.tree_location)
 
-        elif isinstance(node, LabelNode):
-            # TODO: Add support.
-            pass
+            case LabelNode():
+                # TODO: Add support.
+                pass
 
-        else:
-            buildStatementEval(reader, whereDesc, namespace, node)
+            case stmt:
+                buildStatementEval(reader, whereDesc, namespace, stmt)

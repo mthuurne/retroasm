@@ -158,15 +158,17 @@ def verifyLoads(
     loads: set[Load] = set()
     for node in nodes:
         # Check that all expected loads have occurred.
-        if isinstance(node, Store):
-            for value in node.expr.iterInstances(LoadedValue):
-                assert value.load in loads, value
+        match node:
+            case Store(expr=expr):
+                for value in expr.iterInstances(LoadedValue):
+                    assert value.load in loads, value
         for expr in node.storage.iter_expressions():
             for value in expr.iterInstances(LoadedValue):
                 assert value.load in loads, value
         # Remember this load.
-        if isinstance(node, Load):
-            loads.add(node)
+        match node:
+            case Load() as load:
+                loads.add(load)
     # Check I/O indices in the returned bit string.
     for retBits in returned:
         for storage in retBits.iter_storages():
@@ -240,13 +242,10 @@ class CodeBlock:
     def _gatherArguments(self) -> Mapping[str, ArgStorage]:
         args: dict[str, ArgStorage] = {}
         for storage in self.storages:
-            if isinstance(storage, ArgStorage):
-                name = storage.name
-                prev = args.get(name)
-                if prev is None:
-                    args[name] = storage
-                elif prev is not storage:
-                    raise ValueError(f'multiple arguments named "{name}"')
+            match storage:
+                case ArgStorage(name=name) as arg:
+                    if args.setdefault(name, arg) is not arg:
+                        raise ValueError(f'multiple arguments named "{name}"')
         return args
 
     @const_property
@@ -274,11 +273,11 @@ class CodeBlock:
                 node.storage = newStorage
 
             # Update node with new expression.
-            if isinstance(node, Store):
-                expr = node.expr
-                newExpr = expr.substitute(substFunc)
-                if newExpr is not expr:
-                    node.expr = newExpr
+            match node:
+                case Store(expr=expr) as store:
+                    newExpr = expr.substitute(substFunc)
+                    if newExpr is not expr:
+                        store.expr = newExpr
 
         # Update returned bit string.
         returned = self.returned

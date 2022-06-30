@@ -106,40 +106,48 @@ def _parseRegs(
                 continue
             lastTypeLocation = typeLocation
 
-            if isinstance(node, DeclarationNode):
-                # Define base register.
-                if isinstance(regType, ReferenceType):
-                    reader.error(
-                        "base register cannot have a reference type",
-                        location=(decl.name.location, typeLocation),
-                    )
-                else:
+            match node:
+                case DeclarationNode():
+                    # Define base register.
+                    match regType:
+                        case ReferenceType():
+                            reader.error(
+                                "base register cannot have a reference type",
+                                location=(decl.name.location, typeLocation),
+                            )
+                        case typ:
+                            try:
+                                globalNamespace.addVariable(
+                                    decl.name.name, typ, decl.name.location
+                                )
+                            except NameExistsError as ex:
+                                reader.error(
+                                    "bad base register definition: %s",
+                                    ex,
+                                    location=ex.locations,
+                                )
+                case DefinitionNode(value=value):
+                    # Define register alias.
+                    name = decl.name.name
                     try:
-                        globalNamespace.addVariable(
-                            decl.name.name, regType, decl.name.location
+                        ref = convertDefinition(
+                            decl.kind, name, regType, value, globalNamespace
                         )
+                    except BadExpression as ex:
+                        reader.error(
+                            "bad register alias: %s", ex, location=ex.locations
+                        )
+                        ref = bad_reference(regType)
+                    try:
+                        globalNamespace.define(name, ref, decl.name.location)
                     except NameExistsError as ex:
                         reader.error(
-                            "bad base register definition: %s",
+                            "failed to define register alias: %s",
                             ex,
                             location=ex.locations,
                         )
-            else:
-                # Define register alias.
-                name = decl.name.name
-                try:
-                    ref = convertDefinition(
-                        decl.kind, name, regType, node.value, globalNamespace
-                    )
-                except BadExpression as ex:
-                    reader.error("bad register alias: %s", ex, location=ex.locations)
-                    ref = bad_reference(regType)
-                try:
-                    globalNamespace.define(name, ref, decl.name.location)
-                except NameExistsError as ex:
-                    reader.error(
-                        "failed to define register alias: %s", ex, location=ex.locations
-                    )
+                case node:
+                    bad_type(node)
 
 
 _reCommaSep = re.compile(r"\s*,\s*")
@@ -200,19 +208,24 @@ def _parsePrefix(
             for argType, argTypeLoc, argNameLoc in _parse_typedArgs(
                 reader, args, "decode flag"
             ):
-                if isinstance(argType, ReferenceType):
-                    reader.error(
-                        "decode flag cannot be declared as a reference type",
-                        location=argTypeLoc,
-                    )
-                    continue
-                if argType is not flagType:
-                    # Maybe in the future we'll support other types.
-                    reader.error(
-                        'decode flag of type "%s", expected "u1"',
-                        argType,
-                        location=argTypeLoc,
-                    )
+                match argType:
+                    case ReferenceType():
+                        reader.error(
+                            "decode flag cannot be declared as a reference type",
+                            location=argTypeLoc,
+                        )
+                        continue
+                    case IntType() as typ:
+                        if typ is not flagType:
+                            # Maybe in the future we'll support other types.
+                            reader.error(
+                                'decode flag of type "%s", expected "%s"',
+                                argType,
+                                flagType,
+                                location=argTypeLoc,
+                            )
+                    case typ:
+                        bad_type(typ)
                 argName = argNameLoc.text
                 try:
                     namespace.addVariable(argName, argType, argNameLoc)
@@ -446,56 +459,57 @@ def _parseModeContext(
     placeholderSpecs = {}
     flagsRequired = set()
     for node in parseContext(ctxLoc):
-        if isinstance(node, (DeclarationNode, DefinitionNode)):
-            decl = node if isinstance(node, DeclarationNode) else node.decl
-            name = decl.name.name
-            declType = decl.type
-            assert declType is not None
-            typeName = declType.name
+        match node:
+            case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
+                name = decl.name.name
+                declType = decl.type
+                assert declType is not None
+                typeName = declType.name
 
-            # Figure out whether the name is a mode or type.
-            mode = modes.get(typeName)
-            placeholder: PlaceholderSpec
-            if mode is not None:
-                placeholder = MatchPlaceholderSpec(decl, mode)
-                if isinstance(node, DefinitionNode):
+                # Figure out whether the name is a mode or type.
+                mode = modes.get(typeName)
+                placeholder: PlaceholderSpec
+                if mode is not None:
+                    placeholder = MatchPlaceholderSpec(decl, mode)
+                    if isinstance(node, DefinitionNode):
+                        reader.error(
+                            "filter values for mode placeholders are not supported yet",
+                            location=mergeSpan(node.location, node.value.tree_location),
+                        )
+                else:
+                    try:
+                        # TODO: While the documentation says we do support defining
+                        #       references in the context, parse_type() rejects
+                        #       "<type>&"; we'd have to use parse_type_decl() instead.
+                        typ = parse_type(typeName)
+                    except ValueError:
+                        reader.error(
+                            'there is no type or mode named "%s"',
+                            typeName,
+                            location=declType.location,
+                        )
+                        continue
+                    value = node.value if isinstance(node, DefinitionNode) else None
+                    placeholder = ValuePlaceholderSpec(decl, typ, value)
+                if name in placeholderSpecs:
                     reader.error(
-                        "filter values for mode placeholders are not supported yet",
-                        location=mergeSpan(node.location, node.value.tree_location),
+                        'multiple placeholders named "%s"',
+                        name,
+                        location=decl.name.location,
                     )
-            else:
-                try:
-                    # TODO: While the documentation says we do support defining
-                    #       references in the context, parse_type() rejects
-                    #       "<type>&"; we'd have to use parse_type_decl() instead.
-                    typ = parse_type(typeName)
-                except ValueError:
+                else:
+                    placeholderSpecs[name] = placeholder
+            case FlagTestNode(name=name):
+                if prefixes.hasFlag(name):
+                    flagsRequired.add(name)
+                else:
                     reader.error(
-                        'there is no type or mode named "%s"',
-                        typeName,
-                        location=declType.location,
+                        'there is no decode flag named "%s"',
+                        name,
+                        location=node.location,
                     )
-                    continue
-                value = node.value if isinstance(node, DefinitionNode) else None
-                placeholder = ValuePlaceholderSpec(decl, typ, value)
-            if name in placeholderSpecs:
-                reader.error(
-                    'multiple placeholders named "%s"',
-                    name,
-                    location=decl.name.location,
-                )
-            else:
-                placeholderSpecs[name] = placeholder
-        elif isinstance(node, FlagTestNode):
-            name = node.name
-            if prefixes.hasFlag(name):
-                flagsRequired.add(name)
-            else:
-                reader.error(
-                    'there is no decode flag named "%s"', name, location=node.location
-                )
-        else:
-            bad_type(node)
+            case node:
+                bad_type(node)
 
     return placeholderSpecs, flagsRequired
 
@@ -528,31 +542,30 @@ def _buildPlaceholders(
                 code = placeholderNamespace.createCodeBlock(ref)
 
         if semType is not None:
-            if isinstance(semType, ReferenceType):
-                argType = semType.type
-            elif isinstance(semType, IntType):
-                argType = semType
-            else:
-                bad_type(semType)
-            try:
-                semNamespace.addArgument(name, argType, decl.name.location)
-            except NameExistsError as ex:
-                reader.error("%s", ex, location=ex.locations)
-                continue
+            match semType:
+                case ReferenceType(type=argType) | (IntType() as argType):
+                    try:
+                        semNamespace.addArgument(name, argType, decl.name.location)
+                    except NameExistsError as ex:
+                        reader.error("%s", ex, location=ex.locations)
+                        continue
+                case typ:
+                    bad_type(typ)
 
-        if isinstance(spec, ValuePlaceholderSpec):
-            if semType is not None:
-                # TODO: We don't actually support references types yet.
-                #       See TODO in _parseModeContext().
-                assert isinstance(semType, IntType), semType
-                if code is None:
-                    yield ValuePlaceholder(name, semType)
-                else:
-                    yield ComputedPlaceholder(name, semType, code)
-        elif isinstance(spec, MatchPlaceholderSpec):
-            yield MatchPlaceholder(name, spec.mode)
-        else:
-            bad_type(spec)
+        match spec:
+            case ValuePlaceholderSpec():
+                if semType is not None:
+                    # TODO: We don't actually support references types yet.
+                    #       See TODO in _parseModeContext().
+                    assert isinstance(semType, IntType), semType
+                    if code is None:
+                        yield ValuePlaceholder(name, semType)
+                    else:
+                        yield ComputedPlaceholder(name, semType, code)
+            case MatchPlaceholderSpec(mode=mode):
+                yield MatchPlaceholder(name, mode)
+            case spec:
+                bad_type(spec)
 
 
 def _parseEncodingExpr(
@@ -601,16 +614,17 @@ def _parseEncodingExpr(
         )
     (encBits,) = code.returned
     for storage in encBits.iter_storages():
-        if isinstance(storage, Variable):
-            raise BadInput(
-                "encoding expression references register", encNode.tree_location
-            )
-        if isinstance(storage, IOStorage):
-            raise BadInput(
-                f"encoding expression references storage location "
-                f'on I/O channel "{storage.channel.name}"',
-                encNode.tree_location,
-            )
+        match storage:
+            case Variable():
+                raise BadInput(
+                    "encoding expression references register", encNode.tree_location
+                )
+            case IOStorage(channel=channel):
+                raise BadInput(
+                    f"encoding expression references storage location "
+                    f'on I/O channel "{channel.name}"',
+                    encNode.tree_location,
+                )
     return EncodingExpr(encBits, encNode.tree_location)
 
 
@@ -694,26 +708,26 @@ def _checkEmptyMultiMatches(
     the user intended.
     """
     for encItem in encItems:
-        if isinstance(encItem, EncodingMultiMatch):
-            mode = encItem.mode
-            if mode.encodingWidth is None:
-                logger.warning(
-                    'mode "%s" does not contain encoding elements',
-                    mode.name,
-                    location=(
-                        encItem.location,
-                        placeholderSpecs[encItem.name].decl.tree_location,
-                    ),
-                )
-            elif encItem.start >= 1 and mode.auxEncodingWidth is None:
-                logger.warning(
-                    'mode "%s" does not match auxiliary encoding units',
-                    mode.name,
-                    location=(
-                        encItem.location,
-                        placeholderSpecs[encItem.name].decl.tree_location,
-                    ),
-                )
+        match encItem:
+            case EncodingMultiMatch(mode=mode):
+                if mode.encodingWidth is None:
+                    logger.warning(
+                        'mode "%s" does not contain encoding elements',
+                        mode.name,
+                        location=(
+                            encItem.location,
+                            placeholderSpecs[encItem.name].decl.tree_location,
+                        ),
+                    )
+                elif encItem.start >= 1 and mode.auxEncodingWidth is None:
+                    logger.warning(
+                        'mode "%s" does not match auxiliary encoding units',
+                        mode.name,
+                        location=(
+                            encItem.location,
+                            placeholderSpecs[encItem.name].decl.tree_location,
+                        ),
+                    )
 
 
 def _checkMissingPlaceholders(
@@ -730,52 +744,53 @@ def _checkMissingPlaceholders(
     identifiers = set()
     multiMatches = set()
     for encItem in encItems:
-        if isinstance(encItem, EncodingExpr):
-            for storage in encItem.bits.iter_storages():
-                if isinstance(storage, ArgStorage):
-                    identifiers.add(storage.name)
-        elif isinstance(encItem, EncodingMultiMatch):
-            multiMatches.add(encItem.name)
-        else:
-            bad_type(encItem)
+        match encItem:
+            case EncodingExpr(bits=bits):
+                for storage in bits.iter_storages():
+                    if isinstance(storage, ArgStorage):
+                        identifiers.add(storage.name)
+            case EncodingMultiMatch(name=name):
+                multiMatches.add(name)
+            case item:
+                bad_type(item)
 
     # Check whether all placeholders from the context occur in the encoding.
     for name, spec in placeholderSpecs.items():
-        if isinstance(spec, ValuePlaceholderSpec):
-            if spec.value is not None:
-                # The value is computed, so we don't need to encode it.
-                continue
-            if name not in identifiers:
-                logger.error(
-                    'value placeholder "%s" does not occur in encoding',
-                    name,
-                    location=(location, spec.decl.tree_location),
-                )
-        elif isinstance(spec, MatchPlaceholderSpec):
-            mode = spec.mode
-            if mode.encodingWidth is None:
-                # Mode has empty encoding, no match needed.
-                continue
-            if name in multiMatches:
-                # Mode is matched using "X@" syntax.
-                continue
-            if name not in identifiers:
-                logger.error(
-                    'no placeholder "%s" for mode "%s" in encoding',
-                    name,
-                    mode.name,
-                    location=(location, spec.decl.tree_location),
-                )
-            if mode.auxEncodingWidth is not None:
-                logger.error(
-                    'mode "%s" matches auxiliary encoding units, but there '
-                    'is no "%s@" placeholder for them',
-                    mode.name,
-                    name,
-                    location=(location, spec.decl.tree_location),
-                )
-        else:
-            bad_type(spec)
+        match spec:
+            case ValuePlaceholderSpec(value=value, decl=decl):
+                if value is not None:
+                    # The value is computed, so we don't need to encode it.
+                    continue
+                if name not in identifiers:
+                    logger.error(
+                        'value placeholder "%s" does not occur in encoding',
+                        name,
+                        location=(location, decl.tree_location),
+                    )
+            case MatchPlaceholderSpec(mode=mode, decl=decl):
+                if mode.encodingWidth is None:
+                    # Mode has empty encoding, no match needed.
+                    continue
+                if name in multiMatches:
+                    # Mode is matched using "X@" syntax.
+                    continue
+                if name not in identifiers:
+                    logger.error(
+                        'no placeholder "%s" for mode "%s" in encoding',
+                        name,
+                        mode.name,
+                        location=(location, decl.tree_location),
+                    )
+                if mode.auxEncodingWidth is not None:
+                    logger.error(
+                        'mode "%s" matches auxiliary encoding units, but there '
+                        'is no "%s@" placeholder for them',
+                        mode.name,
+                        name,
+                        location=(location, decl.tree_location),
+                    )
+            case spec:
+                bad_type(spec)
 
 
 def _checkAuxEncodingWidth(
@@ -803,29 +818,32 @@ def _checkAuxEncodingWidth(
                 location=(location, first_aux_location),
             )
 
-    firstUnitMatched = False
+    first = True
     for encItem in encItems:
-        encLoc = encItem.location
-        if isinstance(encItem, EncodingExpr):
-            if firstUnitMatched:
-                checkAux(encItem.encodingWidth, encLoc)
-            else:
-                firstUnitMatched = True
-        elif isinstance(encItem, EncodingMultiMatch):
-            mode = encItem.mode
-            modeAuxWidth = mode.auxEncodingWidth
-            if firstUnitMatched:
-                if encItem.start == 0:
-                    checkAux(mode.encodingWidth, encLoc)
-                if modeAuxWidth is not None:
-                    checkAux(modeAuxWidth, encLoc)
-            else:
-                if modeAuxWidth is not None:
-                    if encItem.encodedLength != 1:
-                        checkAux(modeAuxWidth, encLoc)
-                firstUnitMatched = True
-        else:
-            bad_type(encItem)
+        match encItem:
+            case EncodingExpr() if first:
+                pass
+            case EncodingExpr(encodingWidth=enc_width, location=loc):
+                checkAux(enc_width, loc)
+            case EncodingMultiMatch(
+                mode=Mode(auxEncodingWidth=aux_width),
+                encodedLength=enc_len,
+                location=loc,
+            ) if first:
+                if enc_len != 1 and aux_width is not None:
+                    checkAux(aux_width, loc)
+            case EncodingMultiMatch(
+                mode=Mode(encodingWidth=enc_width, auxEncodingWidth=aux_width),
+                start=start,
+                location=loc,
+            ):
+                if start == 0:
+                    checkAux(enc_width, loc)
+                if aux_width is not None:
+                    checkAux(aux_width, loc)
+            case item:
+                bad_type(item)
+        first = False
 
 
 def _checkDuplicateMultiMatches(
@@ -837,16 +855,16 @@ def _checkDuplicateMultiMatches(
     """
     claimedMultiMatches: dict[str, InputLocation] = {}
     for encItem in encItems:
-        if isinstance(encItem, EncodingMultiMatch):
-            name = encItem.name
-            if name in claimedMultiMatches:
-                logger.error(
-                    'duplicate multi-match placeholder "%s@"',
-                    name,
-                    location=(encItem.location, claimedMultiMatches[name]),
-                )
-            else:
-                claimedMultiMatches[name] = encItem.location
+        match encItem:
+            case EncodingMultiMatch(name=name, location=location):
+                if name in claimedMultiMatches:
+                    logger.error(
+                        'duplicate multi-match placeholder "%s@"',
+                        name,
+                        location=(location, claimedMultiMatches[name]),
+                    )
+                else:
+                    claimedMultiMatches[name] = location
 
 
 def _combinePlaceholderEncodings(
@@ -1145,15 +1163,13 @@ def _parseModeEntries(
                     try:
                         # Define placeholders in semantics builder.
                         for name, spec in placeholderSpecs.items():
-                            location = spec.decl.name.location
-                            semType = spec.type
-                            if isinstance(semType, ReferenceType):
-                                argType = semType.type
-                            else:
-                                # TODO: Is this guaranteed not None?
-                                assert semType is not None
-                                argType = semType
-                            semNamespace.addArgument(name, argType, location)
+                            match spec.type:
+                                case None:
+                                    # TODO: Is this guaranteed impossible?
+                                    assert False
+                                case ReferenceType(type=argType) | argType:
+                                    location = spec.decl.name.location
+                                    semNamespace.addArgument(name, argType, location)
 
                         if len(semLoc) == 0:
                             # Parse mnemonic field as semantics.

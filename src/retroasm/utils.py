@@ -97,15 +97,16 @@ else:
                 name = self._name
                 value = getattr(obj, name, None)
                 if value is None:
-                    value = self._getter(obj)
-
                     # Convert to read-only type.
-                    if isinstance(value, (Iterator, MutableSequence)):
-                        value = tuple(value)
-                    elif isinstance(value, MutableSet):
-                        value = frozenset(value)
-                    elif isinstance(value, MutableMapping):
-                        value = MappingProxyType(value)
+                    match self._getter(obj):
+                        case (Iterator() | MutableSequence()) as seq:
+                            value = tuple(seq)
+                        case MutableSet() as mset:
+                            value = frozenset(mset)
+                        case MutableMapping() as mapping:
+                            value = MappingProxyType(mapping)
+                        case value:
+                            pass
 
                     setattr(obj, name, value)
                 return value

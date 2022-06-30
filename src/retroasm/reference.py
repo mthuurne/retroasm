@@ -224,20 +224,23 @@ class SingleStorage(BitString):
     ) -> BitString:
         storage = self._storage
         if storage_func is not None:
-            newBits = storage_func(storage)
-            if newBits is not None:
-                if isinstance(newBits, SingleStorage) and newBits._storage is storage:
+            match storage_func(storage):
+                case SingleStorage(_storage=new_storage) if new_storage is storage:
                     return self
-                else:
-                    return newBits
+                case newBits:
+                    # Checking for None first would be clearer and faster,
+                    # but mypy currently does not understand that.
+                    #   https://github.com/python/mypy/issues/13046
+                    if newBits is not None:
+                        return newBits
 
         if expression_func is None:
             return self
-        newStorage = storage.substituteExpressions(expression_func)
-        if newStorage is storage:
+        new_storage = storage.substituteExpressions(expression_func)
+        if new_storage is storage:
             return self
         else:
-            return SingleStorage(newStorage)
+            return SingleStorage(new_storage)
 
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
@@ -352,13 +355,14 @@ class SlicedBits(BitString):
         """Creates a slice of the given bit string."""
         self._bits = bits
 
-        offset = simplifyExpression(offset)
         # Some invalid offsets can only be detected upon use, but others we
         # can detect on definition and rejecting them early is likely helpful
         # towards the user.
-        if isinstance(offset, IntLiteral) and offset.value < 0:
-            raise ValueError("slice offset must not be negative")
-        self._offset = offset
+        match simplifyExpression(offset):
+            case IntLiteral(value=value) if value < 0:
+                raise ValueError("slice offset must not be negative")
+            case offset:
+                self._offset = offset
 
         BitString.__init__(self, width)
 
@@ -366,19 +370,18 @@ class SlicedBits(BitString):
         return f"SlicedBits({self._bits!r}, {self._offset!r}, {self._width})"
 
     def __str__(self) -> str:
-        offset = self._offset
         width = self._width
-        if isinstance(offset, IntLiteral):
-            offset_val = offset.value
-            start = "" if offset_val == 0 else offset_val
-            end = "" if width is unlimited else offset_val + width
-        else:
-            start = str(offset)
-            end = (
-                ""
-                if width is unlimited
-                else str(AddOperator(offset, IntLiteral(cast(int, width))))
-            )
+        match self._offset:
+            case IntLiteral(value=offset_val):
+                start = "" if offset_val == 0 else offset_val
+                end = "" if width is unlimited else offset_val + width
+            case offset:
+                start = str(offset)
+                end = (
+                    ""
+                    if width is unlimited
+                    else str(AddOperator(offset, IntLiteral(cast(int, width))))
+                )
         return f"{self._bits}[{start}:{end}]"
 
     def iter_expressions(self) -> Iterator[Expression]:
