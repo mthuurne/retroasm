@@ -786,20 +786,21 @@ def _checkAuxEncodingWidth(
     for all auxiliary encoding items.
     Violations are logged as errors on the given logger.
     """
-    firstAux: list[object] = [None, None]
+    first_aux_width: Width | None = None
+    first_aux_location: InputLocation | None = None
 
     def checkAux(width: Width | None, location: InputLocation) -> None:
-        auxWidth, auxLoc = firstAux
-        if auxWidth is None:
-            firstAux[0] = width
-            firstAux[1] = location
-        elif width != auxWidth:
+        nonlocal first_aux_width, first_aux_location
+        if first_aux_width is None:
+            first_aux_width = width
+            first_aux_location = location
+        elif width != first_aux_width:
             logger.error(
                 "encoding item matches width %s, while first auxiliary "
                 "encoding match has width %s",
                 width,
-                auxWidth,
-                location=(location, auxLoc),
+                first_aux_width,
+                location=(location, first_aux_location),
             )
 
     firstUnitMatched = False
