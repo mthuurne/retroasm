@@ -13,11 +13,8 @@ from typing import TYPE_CHECKING, NoReturn
 from weakref import WeakValueDictionary
 
 
-class _Impossible:
-    pass
-
-
-def bad_type(value: _Impossible) -> NoReturn:
+# TODO: In Python 3.11, the argument type can become typing.Never.
+def bad_type(value: NoReturn) -> NoReturn:
     """
     Report a type error.
 
