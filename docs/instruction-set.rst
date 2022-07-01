@@ -443,7 +443,7 @@ There can be as many dot-separated lines as necessary to define all entries of a
 Encoding, Mnemonic, Semantics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The encoding field contains the literals used to encode the operand in instructions. This is typically not a full instruction, but only the bits that for example select the register to operate on.
+The encoding field contains the integer values used to encode the operand in instructions. This is typically not a full instruction, but for example only the bits that select the register to operate on.
 
 The mnemonic field contains the syntax used in assembly language. It is split into words and symbols. Whitespace can be used to separate words and is otherwise ignored. Words consist of one or more letters, numbers and underscores. All characters that are not whitespace and not allowed in words are considered symbols, which each such character being an individual symbol. For example ``ld (hl),R`` is split into the word ``"ld"``\ , the symbol ``'('``\ , the word ``"hl"``\ , the symbol ``')'``\ , the symbol ``','`` and the word ``"R"``.
 
