@@ -598,7 +598,7 @@ class ModeMatch:
     into this match.
     """
 
-    __slots__ = ("_entry", "_values", "_subs", "_encoding", "_mnemonic", "_semantics")
+    __slots__ = ("_entry", "_values", "_subs", "_mnemonic")
 
     @classmethod
     def fromEncodeMatch(cls, match: EncodeMatch) -> ModeMatch:
