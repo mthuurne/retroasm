@@ -18,9 +18,9 @@ from .mode import (
     ModeEntry,
     ValuePlaceholder,
 )
-from .reference import FixedValue, SingleStorage
+from .reference import FixedValue, FixedValueReference, SingleStorage, int_reference
 from .storage import ArgStorage
-from .types import Segment, mask_for_width, mask_to_segments
+from .types import IntType, Segment, mask_for_width, mask_to_segments
 from .utils import Singleton, bad_type
 
 
@@ -315,9 +315,14 @@ class PlaceholderDecoder(Decoder):
                 offset += width
 
         # Decode placeholder.
+        decoded: EncodeMatch | FixedValueReference | None
         sub = self._sub
         if sub is None:
-            decoded: EncodeMatch | int | None = value
+            if value is None:
+                decoded = None
+            else:
+                # TODO: We support signed placeholders in encoding as well.
+                decoded = int_reference(value, IntType.u(offset))
         else:
             auxIdx = self._auxIdx
             decoded = sub.tryDecode(ModeFetcher(value, fetcher, auxIdx))

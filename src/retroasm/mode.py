@@ -9,7 +9,7 @@ from typing import AbstractSet, Any, TypeAlias, Union, cast, overload
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
-from .expression import Expression, IntLiteral
+from .expression import Expression
 from .expression_simplifier import simplifyExpression
 from .linereader import InputLocation, mergeSpan
 from .reference import (
@@ -19,7 +19,6 @@ from .reference import (
     Reference,
     SingleStorage,
     decode_int,
-    int_reference,
 )
 from .storage import ArgStorage, Storage
 from .types import IntType, ReferenceType, Width
@@ -298,7 +297,7 @@ class Encoding:
                             assert False, firstItem
                         case item:
                             bad_type(item)
-                case int():
+                case FixedValueReference():
                     assert False, value
                 case value:
                     bad_type(value)
@@ -433,16 +432,16 @@ class Mnemonic:
                         items.append(item)
                     else:
                         items += subMatch.entry.mnemonic.fillPlaceholders(subMatch)
-                case ValuePlaceholder(name=name, type=typ) as item:
+                case ValuePlaceholder(name=name) as item:
                     # Immediate value.
                     try:
-                        value = cast(int, match[name])
+                        value = cast(FixedValueReference, match[name])
                     except KeyError:
                         # TODO: Apply substitutions inside computed values.
                         #       See ModeMatch.fromEncodeMatch() for a blueprint.
                         items.append(item)
                     else:
-                        items.append(int_reference(value, typ))
+                        items.append(value)
                 case item:
                     # Fixed item.
                     items.append(item)
@@ -497,11 +496,8 @@ class CodeTemplate:
                         # TODO: Support submode semantics with side effects.
                         assert len(fillCode.nodes) == 0, name
                         values[name] = fillCode.returned[0]
-                    case int() as value:
-                        values[name] = FixedValue(
-                            IntLiteral(value),
-                            cast(ValuePlaceholder, placeholder).type.width,
-                        )
+                    case FixedValueReference(bits=bits):
+                        values[name] = bits
                     case value:
                         bad_type(value)
 
@@ -617,10 +613,8 @@ class ModeMatch:
                     subs[name] = cls.fromEncodeMatch(subMatch)
                 case ComputedPlaceholder(name=name) as placeholder:
                     values[name] = placeholder.computeValue(builder, values.__getitem__)
-                case ValuePlaceholder(name=name, type=typ):
-                    values[name] = FixedValue(
-                        IntLiteral(cast(int, match[name])), typ.width
-                    )
+                case ValuePlaceholder(name=name):
+                    values[name] = cast(FixedValueReference, match[name]).bits
                 case placeholder:
                     bad_type(placeholder)
 
@@ -969,15 +963,15 @@ class EncodeMatch:
 
     def __init__(self, entry: ModeEntry):
         self._entry = entry
-        self._mapping: dict[str, EncodeMatch | int] = {}
+        self._mapping: dict[str, EncodeMatch | FixedValueReference] = {}
 
     def __repr__(self) -> str:
         return f"EncodeMatch({self._entry!r}, {self._mapping!r})"
 
-    def __getitem__(self, key: str) -> EncodeMatch | int:
+    def __getitem__(self, key: str) -> EncodeMatch | FixedValueReference:
         return self._mapping[key]
 
-    def __setitem__(self, key: str, value: EncodeMatch | int) -> None:
+    def __setitem__(self, key: str, value: EncodeMatch | FixedValueReference) -> None:
         assert key not in self._mapping, key
         self._mapping[key] = value
 
