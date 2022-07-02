@@ -482,8 +482,8 @@ def _createEntryDecoder(
         decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
 
     # Add match placeholders, from high index to low.
-    for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
-        for matcher in matchers:
+    for encIdx in reversed(range(len(matchersByIndex))):
+        for matcher in matchersByIndex[encIdx]:
             match matcher:
                 case MatchPlaceholder():
                     multiMatch = False
