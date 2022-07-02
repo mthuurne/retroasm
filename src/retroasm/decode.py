@@ -10,14 +10,12 @@ from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
 from .linereader import BadInput
 from .mode import (
-    ComputedPlaceholder,
     EncodeMatch,
     Encoding,
     EncodingExpr,
     EncodingMultiMatch,
     MatchPlaceholder,
     ModeEntry,
-    ValuePlaceholder,
 )
 from .reference import FixedValue, FixedValueReference, SingleStorage, int_reference
 from .storage import ArgStorage
@@ -408,45 +406,44 @@ def _createEntryDecoder(
     # Match placeholders that are not represented in the encoding.
     # Typically these are matched on decode flags.
     match = EncodeMatch(entry)
-    for placeholder in entry.placeholders:
-        match placeholder:
-            case MatchPlaceholder(name=name, mode=mode):
-                if name not in decoding and name not in multiMatches:
-                    match factory.createDecoder(mode.name, name):
-                        case NoMatchDecoder() as no_match:
-                            return no_match
-                        case MatchFoundDecoder(match=found):
-                            match.add_submatch(name, found)
-                        case sub:
-                            # A submode match that is not represented in the encoding
-                            # will either always match or never match, so if the
-                            # simplifications of the sub-decoder were effective, only
-                            # MatchFoundDecoder and NoMatchDecoder are possible.
-                            assert False, sub
+    for match_placeholder in entry.match_placeholders:
+        name = match_placeholder.name
+        if name not in decoding and name not in multiMatches:
+            match factory.createDecoder(match_placeholder.mode.name, name):
+                case NoMatchDecoder() as no_match:
+                    return no_match
+                case MatchFoundDecoder(match=found):
+                    match.add_submatch(name, found)
+                case sub:
+                    # A submode match that is not represented in the encoding
+                    # will either always match or never match, so if the
+                    # simplifications of the sub-decoder were effective, only
+                    # MatchFoundDecoder and NoMatchDecoder are possible.
+                    assert False, sub
     entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
-    matcher: EncodingMatcher
-    placeholder_map = {p.name: p for p in entry.placeholders}
+    placeholder_map = {p.name: p for p in entry.match_placeholders}
     encoding = entry.encoding
     matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
     for name, encodedSegments in decoding.items():
         if name is not None:
-            match placeholder_map[name]:
-                case MatchPlaceholder() as placeholder:
-                    lastIdx = max(seg.encIdx for seg in encodedSegments)
-                    multiMatchIdx = multiMatches.get(placeholder.name)
-                    if multiMatchIdx is None:
-                        matcher = placeholder
-                    else:
-                        lastIdx = max(lastIdx, multiMatchIdx)
-                        matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
-                        if matcher.encodedLength is None and lastIdx > multiMatchIdx:
-                            raise ValueError(
-                                f"Variable-length matcher at index "
-                                f"{multiMatchIdx:d} depends on index {lastIdx:d}"
-                            )
-                    matchersByIndex[lastIdx].append(matcher)
+            try:
+                matcher: EncodingMatcher = placeholder_map[name]
+            except KeyError:
+                pass
+            else:
+                lastIdx = max(seg.encIdx for seg in encodedSegments)
+                multiMatchIdx = multiMatches.get(name)
+                if multiMatchIdx is not None:
+                    lastIdx = max(lastIdx, multiMatchIdx)
+                    matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
+                    if matcher.encodedLength is None and lastIdx > multiMatchIdx:
+                        raise ValueError(
+                            f"Variable-length matcher at index "
+                            f"{multiMatchIdx:d} depends on index {lastIdx:d}"
+                        )
+                matchersByIndex[lastIdx].append(matcher)
     # Insert multi-matchers without slices.
     for encIdx in multiMatches.values():
         matcher = cast(EncodingMultiMatch, encoding[encIdx])
@@ -478,12 +475,9 @@ def _createEntryDecoder(
     # Add value placeholders.
     # Since these do not cause rejections, it is most efficient to do them last,
     # when we are certain that this entry matches.
-    for placeholder in entry.placeholders:
-        match placeholder:
-            case ComputedPlaceholder():
-                pass
-            case ValuePlaceholder(name=name):
-                decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
+    for placeholder in entry.value_placeholders:
+        name = placeholder.name
+        decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
 
     # Add match placeholders, from high index to low.
     for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):

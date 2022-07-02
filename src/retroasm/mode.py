@@ -553,6 +553,23 @@ class ModeEntry:
         )
 
     @property
+    def match_placeholders(self) -> Iterator[MatchPlaceholder]:
+        for placeholder in self.placeholders:
+            match placeholder:
+                case MatchPlaceholder():
+                    yield placeholder
+
+    @property
+    def value_placeholders(self) -> Iterator[ValuePlaceholder]:
+        """The non-computed value placeholders in this entry."""
+        for placeholder in self.placeholders:
+            match placeholder:
+                case ComputedPlaceholder():
+                    pass
+                case ValuePlaceholder():
+                    yield placeholder
+
+    @property
     def computed_placeholders(self) -> Iterator[ComputedPlaceholder]:
         for placeholder in self.placeholders:
             match placeholder:
