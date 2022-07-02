@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import AbstractSet, Any, TypeAlias, Union, overload
 
 from .codeblock import CodeBlock
@@ -859,11 +858,6 @@ class Mode(ModeTable):
 
     def __str__(self) -> str:
         return f"mode {self._semType} {self._name}"
-
-
-class PlaceholderRole(Enum):
-    code_addr = auto()
-    data_addr = auto()
 
 
 @dataclass(frozen=True)
