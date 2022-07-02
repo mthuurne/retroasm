@@ -453,29 +453,6 @@ def _createEntryDecoder(
         if matcher.start == 0:
             matchersByIndex[encIdx].append(matcher)
 
-    # Sort matchers.
-    # The sorting is just to make dumps more readable and consistent between
-    # runs, it doesn't impact correctness.
-    def slicesKey(name: str) -> tuple[tuple[int, int], ...]:
-        return tuple((seg.encIdx, -seg.segment.start) for seg in decoding[name])
-
-    def matcherKey(matcher: EncodingMatcher) -> tuple[tuple[int, ...], ...]:
-        match matcher:
-            case MatchPlaceholder(name=name):
-                return slicesKey(name)
-            case EncodingMultiMatch(start=start):
-                return ((start,),)
-            case FixedEncoding(encIdx=idx, fixedMask=mask):
-                return ((idx, -mask),)
-            case matcher:
-                bad_type(matcher)
-
-    def valueKey(placeholder: ValuePlaceholder) -> tuple[tuple[int, int], ...]:
-        return slicesKey(placeholder.name)
-
-    for matchers in matchersByIndex:
-        matchers.sort(key=matcherKey, reverse=True)
-
     # Insert fixed pattern matchers as early as possible.
     for fixedEncoding in sorted(fixedMatcher, reverse=True):
         # Find the earliest index at which the given encoding index can be
