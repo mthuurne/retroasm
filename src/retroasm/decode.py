@@ -339,8 +339,13 @@ class PlaceholderDecoder(Decoder):
         # Decode remainder.
         match = self._next.tryDecode(fetcher)
         if match is not None:
-            assert decoded is not None
-            match[self._name] = decoded
+            match decoded:
+                case EncodeMatch() as submatch:
+                    match.add_submatch(self._name, submatch)
+                case FixedValueReference() as ref:
+                    match.add_value(self._name, ref)
+                case None:
+                    assert False
         return match
 
 
@@ -410,7 +415,7 @@ def _createEntryDecoder(
                         case NoMatchDecoder() as no_match:
                             return no_match
                         case MatchFoundDecoder(match=found):
-                            match[name] = found
+                            match.add_submatch(name, found)
                         case sub:
                             # A submode match that is not represented in the encoding
                             # will either always match or never match, so if the

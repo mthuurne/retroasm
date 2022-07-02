@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import AbstractSet, Any, TypeAlias, Union, cast, overload
+from typing import AbstractSet, Any, TypeAlias, Union, overload
 
 from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -273,34 +273,28 @@ class Encoding:
 
         def substPlaceholder(name: str) -> BitString | None:
             try:
-                value = match[name]
+                submatch = match.get_submatch(name)
             except KeyError:
                 return None
-            match value:
-                case EncodeMatch() as submatch:
-                    # We're called to substitute into an EncodingExpr and those
-                    # always match the first encoding item of the submode.
-                    firstItem = getSubEncoding(name, submatch)[0]
-                    match firstItem:
-                        case EncodingExpr(bits=bits):
-                            return bits
-                        case EncodingMultiMatch():
-                            # TODO: Add support.
-                            #       I think this will happen in practice, for example
-                            #       when the entire encoding field is one multi-match
-                            #       (full delegation to submode, possibly selected by
-                            #       decode flag).
-                            #       Note that this can only happen when the submode
-                            #       still has unresolved match placeholders, so it
-                            #       will only break in the case of partial fills,
-                            #       which we don't use yet.
-                            assert False, firstItem
-                        case item:
-                            bad_type(item)
-                case FixedValueReference():
-                    assert False, value
-                case value:
-                    bad_type(value)
+            # We're called to substitute into an EncodingExpr and those
+            # always match the first encoding item of the submode.
+            firstItem = getSubEncoding(name, submatch)[0]
+            match firstItem:
+                case EncodingExpr(bits=bits):
+                    return bits
+                case EncodingMultiMatch():
+                    # TODO: Add support.
+                    #       I think this will happen in practice, for example
+                    #       when the entire encoding field is one multi-match
+                    #       (full delegation to submode, possibly selected by
+                    #       decode flag).
+                    #       Note that this can only happen when the submode
+                    #       still has unresolved match placeholders, so it
+                    #       will only break in the case of partial fills,
+                    #       which we don't use yet.
+                    assert False, firstItem
+                case item:
+                    bad_type(item)
 
         items: list[EncodingItem] = []
         for item in self._items:
@@ -309,7 +303,7 @@ class Encoding:
                     items.append(item.substitute(substPlaceholder))
                 case EncodingMultiMatch(name=name):
                     try:
-                        submatch = cast(EncodeMatch, match[name])
+                        submatch = match.get_submatch(name)
                     except KeyError:
                         items.append(item)
                     else:
@@ -427,7 +421,7 @@ class Mnemonic:
                 case MatchPlaceholder(name=name) as item:
                     # Submode match.
                     try:
-                        submatch = cast(EncodeMatch, match[name])
+                        submatch = match.get_submatch(name)
                     except KeyError:
                         items.append(item)
                     else:
@@ -435,7 +429,7 @@ class Mnemonic:
                 case ValuePlaceholder(name=name) as item:
                     # Immediate value.
                     try:
-                        value = cast(FixedValueReference, match[name])
+                        value = match.get_value(name)
                     except KeyError:
                         # TODO: Apply substitutions inside computed values.
                         #       See EncodeMatch.complete() for a blueprint.
@@ -480,26 +474,30 @@ class CodeTemplate:
         match results, if available.
         """
 
-        unfilled = []
-        values = {}
+        unfilled: list[MatchPlaceholder | ValuePlaceholder] = []
+        values: dict[str, BitString] = {}
         for placeholder in self.placeholders:
-            name = placeholder.name
-            try:
-                value = match[name]
-            except KeyError:
-                unfilled.append(placeholder)
-            else:
-                match value:
-                    case EncodeMatch() as value:
-                        subSem = value.entry.semantics.fillPlaceholders(value)
+            match placeholder:
+                case MatchPlaceholder(name=name):
+                    try:
+                        submatch = match.get_submatch(name)
+                    except KeyError:
+                        unfilled.append(placeholder)
+                    else:
+                        subSem = submatch.entry.semantics.fillPlaceholders(submatch)
                         fillCode = subSem.code
                         # TODO: Support submode semantics with side effects.
                         assert len(fillCode.nodes) == 0, name
                         values[name] = fillCode.returned[0]
-                    case FixedValueReference(bits=bits):
-                        values[name] = bits
-                    case value:
-                        bad_type(value)
+                case ValuePlaceholder(name=name):
+                    try:
+                        value = match.get_value(name)
+                    except KeyError:
+                        unfilled.append(placeholder)
+                    else:
+                        values[name] = value.bits
+                case placeholder:
+                    bad_type(placeholder)
 
         builder = SemanticsCodeBlockBuilder()
         returned = builder.inlineBlock(self.code, values.get)
@@ -938,17 +936,27 @@ class EncodeMatch:
 
     def __init__(self, entry: ModeEntry):
         self._entry = entry
-        self._mapping: dict[str, EncodeMatch | FixedValueReference] = {}
+        self._subs: dict[str, EncodeMatch] = {}
+        self._values: dict[str, FixedValueReference] = {}
 
     def __repr__(self) -> str:
-        return f"EncodeMatch({self._entry!r}, {self._mapping!r})"
+        return f"EncodeMatch({self._entry!r}, {self._subs!r}, {self._values!r})"
 
-    def __getitem__(self, key: str) -> EncodeMatch | FixedValueReference:
-        return self._mapping[key]
+    def add_submatch(self, name: str, submatch: EncodeMatch) -> None:
+        assert name not in self._subs, name
+        assert name not in self._values, name
+        self._subs[name] = submatch
 
-    def __setitem__(self, key: str, value: EncodeMatch | FixedValueReference) -> None:
-        assert key not in self._mapping, key
-        self._mapping[key] = value
+    def add_value(self, name: str, value: FixedValueReference) -> None:
+        assert name not in self._subs, name
+        assert name not in self._values, name
+        self._values[name] = value
+
+    def get_submatch(self, name: str) -> EncodeMatch:
+        return self._subs[name]
+
+    def get_value(self, name: str) -> FixedValueReference:
+        return self._values[name]
 
     def complete(self) -> ModeMatch:
         """Construct a ModeMatch using the captured data."""
@@ -959,11 +967,11 @@ class EncodeMatch:
         for placeholder in self._entry.placeholders:
             match placeholder:
                 case MatchPlaceholder(name=name):
-                    subs[name] = cast(EncodeMatch, self._mapping[name]).complete()
+                    subs[name] = self._subs[name].complete()
                 case ComputedPlaceholder(name=name) as placeholder:
                     values[name] = placeholder.computeValue(builder, values.__getitem__)
                 case ValuePlaceholder(name=name):
-                    values[name] = cast(FixedValueReference, self._mapping[name]).bits
+                    values[name] = self._values[name].bits
                 case placeholder:
                     bad_type(placeholder)
 
@@ -978,22 +986,23 @@ class EncodeMatch:
         """
 
         entry = self._entry
-        mapping = self._mapping
-        if not mapping:
+        subs = self._subs
+        values = self._values
+        if not subs and not values:
             # Skip no-op substitution for efficiency's sake.
             return entry
 
         encoding = entry.encoding.fillPlaceholders(self)
         mnemonic = entry.mnemonic.fillPlaceholders(self)
         semantics = entry.semantics.fillPlaceholders(self)
-        unfilled = (p for p in entry.placeholders if p.name not in mapping)
+        unfilled = (
+            placeholder
+            for placeholder in entry.placeholders
+            if (name := placeholder.name) not in subs and name not in values
+        )
 
         flagsRequired = entry.flagsRequired.union(
-            *(
-                match.entry.flagsRequired
-                for match in self._mapping.values()
-                if isinstance(match, EncodeMatch)
-            )
+            *(match.entry.flagsRequired for match in self._subs.values())
         )
 
         return ModeEntry(encoding, mnemonic, semantics, unfilled, flagsRequired)
@@ -1007,15 +1016,14 @@ class EncodeMatch:
             return length
 
         # Mode entry has variable encoded length.
-        mapping = self._mapping
+        subs = self._subs
         length = 0
         for encItem in encDef:
             match encItem:
                 case EncodingExpr():
                     length += 1
                 case EncodingMultiMatch(name=name, start=start):
-                    match = cast(EncodeMatch, mapping[name])
-                    length += match.encodedLength - start
+                    length += subs[name].encodedLength - start
                 case _ as obj:
                     bad_type(obj)
         return length
