@@ -396,10 +396,12 @@ def _createEntryDecoder(
 ) -> Decoder:
     """Returns a Decoder instance that decodes this entry."""
 
+    encoding = entry.encoding
+
     # Find all indices that contain multi-matches.
     multiMatches = {
         encItem.name: encIdx
-        for encIdx, encItem in enumerate(entry.encoding)
+        for encIdx, encItem in enumerate(encoding)
         if isinstance(encItem, EncodingMultiMatch)
     }
 
@@ -424,7 +426,6 @@ def _createEntryDecoder(
 
     # Insert matchers at the last index they need.
     placeholder_map = {p.name: p for p in entry.match_placeholders}
-    encoding = entry.encoding
     matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
     for name, encodedSegments in decoding.items():
         if name is not None:
