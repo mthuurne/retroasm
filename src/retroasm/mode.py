@@ -438,7 +438,7 @@ class Mnemonic:
                         value = cast(FixedValueReference, match[name])
                     except KeyError:
                         # TODO: Apply substitutions inside computed values.
-                        #       See ModeMatch.fromEncodeMatch() for a blueprint.
+                        #       See EncodeMatch.complete() for a blueprint.
                         items.append(item)
                     else:
                         items.append(value)
@@ -595,30 +595,6 @@ class ModeMatch:
     """
 
     __slots__ = ("_entry", "_values", "_subs", "_mnemonic")
-
-    @classmethod
-    def fromEncodeMatch(cls, match: EncodeMatch) -> ModeMatch:
-        """Construct a ModeMatch using the data captured in an EncodeMatch."""
-        entry = match.entry
-        placeholders = entry.placeholders
-
-        builder = SemanticsCodeBlockBuilder()
-
-        values: dict[str, BitString] = {}
-        subs = {}
-        for placeholder in placeholders:
-            match placeholder:
-                case MatchPlaceholder(name=name):
-                    subMatch = cast(EncodeMatch, match[name])
-                    subs[name] = cls.fromEncodeMatch(subMatch)
-                case ComputedPlaceholder(name=name) as placeholder:
-                    values[name] = placeholder.computeValue(builder, values.__getitem__)
-                case ValuePlaceholder(name=name):
-                    values[name] = cast(FixedValueReference, match[name]).bits
-                case placeholder:
-                    bad_type(placeholder)
-
-        return cls(entry, values, subs)
 
     def __init__(
         self,
@@ -974,6 +950,25 @@ class EncodeMatch:
     def __setitem__(self, key: str, value: EncodeMatch | FixedValueReference) -> None:
         assert key not in self._mapping, key
         self._mapping[key] = value
+
+    def complete(self) -> ModeMatch:
+        """Construct a ModeMatch using the captured data."""
+
+        values: dict[str, BitString] = {}
+        subs = {}
+        builder = SemanticsCodeBlockBuilder()
+        for placeholder in self._entry.placeholders:
+            match placeholder:
+                case MatchPlaceholder(name=name):
+                    subs[name] = cast(EncodeMatch, self._mapping[name]).complete()
+                case ComputedPlaceholder(name=name) as placeholder:
+                    values[name] = placeholder.computeValue(builder, values.__getitem__)
+                case ValuePlaceholder(name=name):
+                    values[name] = cast(FixedValueReference, self._mapping[name]).bits
+                case placeholder:
+                    bad_type(placeholder)
+
+        return ModeMatch(self._entry, values, subs)
 
     def fillPlaceholders(self) -> ModeEntry:
         """

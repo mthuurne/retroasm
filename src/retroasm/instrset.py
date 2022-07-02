@@ -254,7 +254,7 @@ class InstructionSet(ModeTable):
             modeMatch = None
         else:
             encodedLength += encMatch.encodedLength
-            modeMatch = ModeMatch.fromEncodeMatch(encMatch)
+            modeMatch = encMatch.complete()
 
         return encodedLength, modeMatch
 
