@@ -10,6 +10,7 @@ from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
 from .linereader import BadInput
 from .mode import (
+    ComputedPlaceholder,
     EncodeMatch,
     Encoding,
     EncodingExpr,
@@ -425,19 +426,14 @@ def _createEntryDecoder(
     entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
-    # Gather value placeholders them.
     matcher: EncodingMatcher
     placeholder_map = {p.name: p for p in entry.placeholders}
     encoding = entry.encoding
     matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
-    valuePlaceholders = []
     for name, encodedSegments in decoding.items():
         if name is not None:
-            placeholder = placeholder_map[name]
-            match placeholder:
-                case ValuePlaceholder():
-                    valuePlaceholders.append(placeholder)
-                case MatchPlaceholder():
+            match placeholder_map[name]:
+                case MatchPlaceholder() as placeholder:
                     lastIdx = max(seg.encIdx for seg in encodedSegments)
                     multiMatchIdx = multiMatches.get(placeholder.name)
                     if multiMatchIdx is None:
@@ -451,15 +447,13 @@ def _createEntryDecoder(
                                 f"{multiMatchIdx:d} depends on index {lastIdx:d}"
                             )
                     matchersByIndex[lastIdx].append(matcher)
-                case placeholder:
-                    bad_type(placeholder)
     # Insert multi-matchers without slices.
     for encIdx in multiMatches.values():
         matcher = cast(EncodingMultiMatch, encoding[encIdx])
         if matcher.start == 0:
             matchersByIndex[encIdx].append(matcher)
 
-    # Sort matchers and value placeholders.
+    # Sort matchers.
     # The sorting is just to make dumps more readable and consistent between
     # runs, it doesn't impact correctness.
     def slicesKey(name: str) -> tuple[tuple[int, int], ...]:
@@ -481,7 +475,6 @@ def _createEntryDecoder(
 
     for matchers in matchersByIndex:
         matchers.sort(key=matcherKey, reverse=True)
-    valuePlaceholders.sort(key=valueKey, reverse=True)
 
     # Insert fixed pattern matchers as early as possible.
     for fixedEncoding in sorted(fixedMatcher, reverse=True):
@@ -506,11 +499,14 @@ def _createEntryDecoder(
     decoder: Decoder = MatchFoundDecoder(entry)
 
     # Add value placeholders.
-    # Since these do not cause rejections, it is most efficient to do them
-    # last, when we are certain that this entry matches.
-    for placeholder in valuePlaceholders:
-        name = placeholder.name
-        decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
+    # Since these do not cause rejections, it is most efficient to do them last,
+    # when we are certain that this entry matches.
+    for placeholder in entry.placeholders:
+        match placeholder:
+            case ComputedPlaceholder():
+                pass
+            case ValuePlaceholder(name=name):
+                decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
 
     # Add match placeholders, from high index to low.
     for encIdx, matchers in reversed(list(enumerate(matchersByIndex))):
