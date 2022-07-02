@@ -391,8 +391,8 @@ EncodingMatcher: TypeAlias = Union[MatchPlaceholder, EncodingMultiMatch, FixedEn
 
 def _createEntryDecoder(
     entry: ModeEntry,
-    fixedMatcher: Sequence[FixedEncoding],
     decoding: Mapping[str, Sequence[EncodedSegment]],
+    fixedMatcher: Sequence[FixedEncoding],
     factory: DecoderFactory,
 ) -> Decoder:
     """Returns a Decoder instance that decodes this entry."""
@@ -650,7 +650,7 @@ class ParsedModeEntry:
 
 def _qualifyNames(
     parsedEntry: ParsedModeEntry, branchName: str | None
-) -> tuple[ModeEntry, Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
+) -> tuple[ModeEntry, Mapping[str, Sequence[EncodedSegment]]]:
     """
     Returns a pair containing a ModeEntry and decode mapping, where each
     name starts with the given branch name.
@@ -660,7 +660,7 @@ def _qualifyNames(
     placeholders = entry.placeholders
     if branchName is None or len(placeholders) == 0:
         # Do not rename.
-        return parsedEntry.entry, parsedEntry.fixedMatcher, parsedEntry.decoding
+        return parsedEntry.entry, parsedEntry.decoding
     elif len(placeholders) == 1:
         # Replace current name with branch name.
         nameMap = {placeholders[0].name: branchName}
@@ -672,7 +672,7 @@ def _qualifyNames(
     renamedDecoding = {
         nameMap[name]: value for name, value in parsedEntry.decoding.items()
     }
-    return renamedEntry, parsedEntry.fixedMatcher, renamedDecoding
+    return renamedEntry, renamedDecoding
 
 
 class DecoderFactory:
@@ -694,7 +694,9 @@ class DecoderFactory:
             flagsAreSet = self._flags.issuperset
             decoder = _createDecoder(
                 _createEntryDecoder(
-                    *_qualifyNames(parsedEntry, branchName), factory=self
+                    *_qualifyNames(parsedEntry, branchName),
+                    parsedEntry.fixedMatcher,
+                    factory=self,
                 )
                 for parsedEntry in parsedEntries
                 if flagsAreSet(parsedEntry.entry.flagsRequired)
