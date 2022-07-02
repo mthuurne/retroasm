@@ -425,26 +425,27 @@ def _createEntryDecoder(
     entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
-    placeholder_map = {p.name: p for p in entry.match_placeholders}
     matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
-    for name, encodedSegments in decoding.items():
-        if name is not None:
-            try:
-                matcher: EncodingMatcher = placeholder_map[name]
-            except KeyError:
-                pass
+    for match_placeholder in entry.match_placeholders:
+        name = match_placeholder.name
+        try:
+            encodedSegments = decoding[name]
+        except KeyError:
+            pass
+        else:
+            lastIdx = max(seg.encIdx for seg in encodedSegments)
+            multiMatchIdx = multiMatches.get(name)
+            if multiMatchIdx is None:
+                matcher: EncodingMatcher = match_placeholder
             else:
-                lastIdx = max(seg.encIdx for seg in encodedSegments)
-                multiMatchIdx = multiMatches.get(name)
-                if multiMatchIdx is not None:
-                    lastIdx = max(lastIdx, multiMatchIdx)
-                    matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
-                    if matcher.encodedLength is None and lastIdx > multiMatchIdx:
-                        raise ValueError(
-                            f"Variable-length matcher at index "
-                            f"{multiMatchIdx:d} depends on index {lastIdx:d}"
-                        )
-                matchersByIndex[lastIdx].append(matcher)
+                lastIdx = max(lastIdx, multiMatchIdx)
+                matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
+                if matcher.encodedLength is None and lastIdx > multiMatchIdx:
+                    raise ValueError(
+                        f"Variable-length matcher at index "
+                        f"{multiMatchIdx:d} depends on index {lastIdx:d}"
+                    )
+            matchersByIndex[lastIdx].append(matcher)
     # Insert multi-matchers without slices.
     for encIdx in multiMatches.values():
         matcher = cast(EncodingMultiMatch, encoding[encIdx])
