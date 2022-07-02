@@ -263,11 +263,11 @@ class Encoding:
         # multiple times, so cache them.
         subEncodings: dict[str, Encoding] = {}
 
-        def getSubEncoding(name: str, subMatch: EncodeMatch) -> Encoding:
+        def getSubEncoding(name: str, submatch: EncodeMatch) -> Encoding:
             try:
                 return subEncodings[name]
             except KeyError:
-                subEnc = subMatch.entry.encoding.fillPlaceholders(subMatch)
+                subEnc = submatch.entry.encoding.fillPlaceholders(submatch)
                 subEncodings[name] = subEnc
                 return subEnc
 
@@ -277,10 +277,10 @@ class Encoding:
             except KeyError:
                 return None
             match value:
-                case EncodeMatch() as sub_match:
+                case EncodeMatch() as submatch:
                     # We're called to substitute into an EncodingExpr and those
                     # always match the first encoding item of the submode.
-                    firstItem = getSubEncoding(name, sub_match)[0]
+                    firstItem = getSubEncoding(name, submatch)[0]
                     match firstItem:
                         case EncodingExpr(bits=bits):
                             return bits
@@ -309,11 +309,11 @@ class Encoding:
                     items.append(item.substitute(substPlaceholder))
                 case EncodingMultiMatch(name=name):
                     try:
-                        subMatch = cast(EncodeMatch, match[name])
+                        submatch = cast(EncodeMatch, match[name])
                     except KeyError:
                         items.append(item)
                     else:
-                        items += getSubEncoding(name, subMatch)[item.start :]
+                        items += getSubEncoding(name, submatch)[item.start :]
                 case item:
                     bad_type(item)
         return Encoding(items, self._location)
@@ -427,11 +427,11 @@ class Mnemonic:
                 case MatchPlaceholder(name=name) as item:
                     # Submode match.
                     try:
-                        subMatch = cast(EncodeMatch, match[name])
+                        submatch = cast(EncodeMatch, match[name])
                     except KeyError:
                         items.append(item)
                     else:
-                        items += subMatch.entry.mnemonic.fillPlaceholders(subMatch)
+                        items += submatch.entry.mnemonic.fillPlaceholders(submatch)
                 case ValuePlaceholder(name=name) as item:
                     # Immediate value.
                     try:
@@ -613,8 +613,8 @@ class ModeMatch:
     def flagsRequired(self) -> AbstractSet[str]:
         """The prefix flags that must be set to match this mode entry."""
         flags = self._entry.flagsRequired
-        for subMatch in self._subs.values():
-            flags |= subMatch.flagsRequired
+        for submatch in self._subs.values():
+            flags |= submatch.flagsRequired
         return flags
 
     def iterBits(self) -> Iterator[BitString]:
@@ -661,8 +661,7 @@ class ModeMatch:
             values[name] = value
 
         subs = {
-            subName: subMatch.substPC(pc, pcVal)
-            for subName, subMatch in self._subs.items()
+            name: submatch.substPC(pc, pcVal) for name, submatch in self._subs.items()
         }
 
         return ModeMatch(entry, values, subs)
