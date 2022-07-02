@@ -961,19 +961,14 @@ class EncodeMatch:
     def complete(self) -> ModeMatch:
         """Construct a ModeMatch using the captured data."""
 
-        values: dict[str, BitString] = {}
-        subs = {}
+        subs = {name: value.complete() for name, value in self._subs.items()}
+        values = {name: value.bits for name, value in self._values.items()}
+
         builder = SemanticsCodeBlockBuilder()
         for placeholder in self._entry.placeholders:
             match placeholder:
-                case MatchPlaceholder(name=name):
-                    subs[name] = self._subs[name].complete()
                 case ComputedPlaceholder(name=name) as placeholder:
                     values[name] = placeholder.computeValue(builder, values.__getitem__)
-                case ValuePlaceholder(name=name):
-                    values[name] = self._values[name].bits
-                case placeholder:
-                    bad_type(placeholder)
 
         return ModeMatch(self._entry, values, subs)
 
