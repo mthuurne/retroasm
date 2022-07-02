@@ -554,6 +554,13 @@ class ModeEntry:
         )
 
     @property
+    def computed_placeholders(self) -> Iterator[ComputedPlaceholder]:
+        for placeholder in self.placeholders:
+            match placeholder:
+                case ComputedPlaceholder():
+                    yield placeholder
+
+    @property
     def semantics(self) -> CodeTemplate:
         """
         The semantics of this mode entry.
@@ -647,16 +654,14 @@ class ModeMatch:
         """
 
         entry = self._entry
-        placeholders = {p.name: p for p in entry.placeholders}
 
-        values: dict[str, BitString] = {}
-        for name, value in self._values.items():
-            placeholder = placeholders[name]
-            if isinstance(placeholder, ComputedPlaceholder):
-                builder = SemanticsCodeBlockBuilder()
-                pc.emit_store(builder, pcVal, None)
-                value = placeholder.computeValue(builder, values.__getitem__)
-            values[name] = value
+        values = dict(self._values)
+        for placeholder in entry.computed_placeholders:
+            builder = SemanticsCodeBlockBuilder()
+            pc.emit_store(builder, pcVal, None)
+            values[placeholder.name] = placeholder.computeValue(
+                builder, values.__getitem__
+            )
 
         subs = {
             name: submatch.substPC(pc, pcVal) for name, submatch in self._subs.items()
@@ -965,10 +970,10 @@ class EncodeMatch:
         values = {name: value.bits for name, value in self._values.items()}
 
         builder = SemanticsCodeBlockBuilder()
-        for placeholder in self._entry.placeholders:
-            match placeholder:
-                case ComputedPlaceholder(name=name) as placeholder:
-                    values[name] = placeholder.computeValue(builder, values.__getitem__)
+        for placeholder in self._entry.computed_placeholders:
+            values[placeholder.name] = placeholder.computeValue(
+                builder, values.__getitem__
+            )
 
         return ModeMatch(self._entry, values, subs)
 
