@@ -385,7 +385,7 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
         return None
 
 
-EncodingMatcher: TypeAlias = Union[MatchPlaceholder, EncodingMultiMatch, FixedEncoding]
+_EncodingMatcher: TypeAlias = Union[MatchPlaceholder, EncodingMultiMatch, FixedEncoding]
 
 
 def _createEntryDecoder(
@@ -425,7 +425,7 @@ def _createEntryDecoder(
     entry = match.fillPlaceholders()
 
     # Insert matchers at the last index they need.
-    matchersByIndex: list[list[EncodingMatcher]] = [[] for _ in range(len(encoding))]
+    matchersByIndex: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding))]
     for match_placeholder in entry.match_placeholders:
         name = match_placeholder.name
         try:
@@ -436,7 +436,7 @@ def _createEntryDecoder(
             lastIdx = max(seg.encIdx for seg in encodedSegments)
             multiMatchIdx = multiMatches.get(name)
             if multiMatchIdx is None:
-                matcher: EncodingMatcher = match_placeholder
+                matcher: _EncodingMatcher = match_placeholder
             else:
                 lastIdx = max(lastIdx, multiMatchIdx)
                 matcher = cast(EncodingMultiMatch, encoding[multiMatchIdx])
