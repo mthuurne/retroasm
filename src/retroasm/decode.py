@@ -358,10 +358,6 @@ class MatchFoundDecoder(Decoder):
     def entry(self) -> ModeEntry:
         return self._entry
 
-    @property
-    def match(self) -> EncodeMatch:
-        return EncodeMatch(self._entry)
-
     def __init__(self, entry: ModeEntry):
         self._entry = entry
 
@@ -414,8 +410,8 @@ def _createEntryDecoder(
             match factory.createDecoder(match_placeholder.mode.name, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
-                case MatchFoundDecoder(match=found):
-                    match.add_submatch(name, found)
+                case MatchFoundDecoder(entry=entry):
+                    match.add_submatch(name, EncodeMatch(entry))
                 case sub:
                     # A submode match that is not represented in the encoding
                     # will either always match or never match, so if the
