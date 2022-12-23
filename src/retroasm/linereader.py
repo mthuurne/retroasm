@@ -171,15 +171,13 @@ def merge_span(
     given 'from' location and ends at the end of the given 'to' location.
     Both given locations must be on the same line.
     """
-    fromSpan = from_location.span
-    toSpan = to_location.span
-    mergedSpan = (fromSpan[0], toSpan[1])
-    mergedLocation = from_location.update_span(mergedSpan)
-    assert mergedLocation == to_location.update_span(mergedSpan), (
+    merged_span = (from_location.span[0], to_location.span[1])
+    merged_location = from_location.update_span(merged_span)
+    assert merged_location == to_location.update_span(merged_span), (
         from_location,
         to_location,
     )
-    return mergedLocation
+    return merged_location
 
 
 class DelayedError(Exception):
@@ -204,7 +202,7 @@ class BadInput(Exception):
     """
 
     @classmethod
-    def withText(cls, msg: str, location: InputLocation) -> BadInput:
+    def with_text(cls, msg: str, location: InputLocation) -> BadInput:
         """
         Returns an instance of the BadInput (sub)class it is called on,
         with the input text in the location's span appended after the error

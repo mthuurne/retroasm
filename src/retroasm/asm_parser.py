@@ -136,7 +136,7 @@ def parse_value(tokens: Tokenizer[AsmToken]) -> Expression:
         raise ParseError("missing value", tokens.location)
     else:
         # TODO: Implement.
-        raise ParseError.withText(
+        raise ParseError.with_text(
             "unexpected token; expression parsing not implemented yet", tokens.location
         )
 
@@ -197,7 +197,7 @@ def parse_directive(
             if tokens.end:
                 break
             if tokens.eat(AsmToken.symbol, ",") is None:
-                raise ParseError.withText(
+                raise ParseError.with_text(
                     "unexpected token after value", tokens.location
                 )
         return data_class(*data)  # type: ignore[arg-type]
@@ -206,9 +206,9 @@ def parse_directive(
         if tokens.end:
             return OriginDirective(FixedValueReference(addr, instr_set.addrType))
         else:
-            raise ParseError.withText("unexpected token after value", tokens.location)
+            raise ParseError.with_text("unexpected token after value", tokens.location)
     else:
-        raise ParseError.withText(
+        raise ParseError.with_text(
             "statement is not a known instruction or directive", name
         )
 

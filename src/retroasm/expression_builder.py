@@ -140,7 +140,7 @@ def convertDefinition(
             ) from ex
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
-            raise BadExpression.withText(
+            raise BadExpression.with_text(
                 f"{ref.width}-bit value does not match " f'declared type "{typ.type}"',
                 value.tree_location,
             )
@@ -208,7 +208,7 @@ def _convertFunctionCall(
                 # For reference arguments, we demand the passed width to match the
                 # argument width, so truncation is never required.
                 if ref.width != decl.type.width:
-                    raise BadExpression.withText(
+                    raise BadExpression.with_text(
                         f"{ref.width}-bit reference passed for "
                         f'reference argument "{decl} {name}"',
                         argNode.tree_location,
@@ -420,7 +420,7 @@ def _convertReferenceConcat(
         ):
             assert nonFirstNode.operands[0] is not None, node
             nonFirstNode = nonFirstNode.operands[0]
-        raise BadExpression.withText(
+        raise BadExpression.with_text(
             "only the first concatenation operand is allowed to have "
             "unlimited width",
             nonFirstNode.tree_location,
