@@ -65,11 +65,10 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         cls: type[TokenT], location: InputLocation
     ) -> Iterator[tuple[TokenT | None, InputLocation]]:
         for match in location.find_matches(cls.pattern):
-            if match.group_name is None:
+            name = match.group_name
+            if name is None:
                 # Skip whitespace.
                 continue
-            name = match.group_name
-            assert name is not None
             match_location = match.group(name)
             assert match_location is not None
             yield cls[name], match_location
