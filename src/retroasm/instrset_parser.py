@@ -43,7 +43,7 @@ from .expression_parser import (
 )
 from .function_builder import createFunc
 from .instrset import InstructionSet, PrefixMappingFactory
-from .linereader import BadInput, DefLineReader, DelayedError, InputLocation, mergeSpan
+from .linereader import BadInput, DefLineReader, DelayedError, InputLocation, merge_span
 from .mode import (
     CodeTemplate,
     ComputedPlaceholder,
@@ -390,7 +390,7 @@ def _parseFunc(
     # Parse return type.
     retType: IntType | ReferenceType | None
     retTypeLoc: InputLocation | None
-    if match.hasGroup(1):
+    if match.has_group(1):
         retTypeLoc = match.group(1)
         try:
             retType = parse_type_decl(retTypeLoc.text)
@@ -474,7 +474,9 @@ def _parseModeContext(
                     if isinstance(node, DefinitionNode):
                         reader.error(
                             "filter values for mode placeholders are not supported yet",
-                            location=mergeSpan(node.location, node.value.tree_location),
+                            location=merge_span(
+                                node.location, node.value.tree_location
+                            ),
                         )
                 else:
                     try:
@@ -1036,7 +1038,7 @@ def _parseMnemonic(
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}
     seenPlaceholders: dict[str, InputLocation] = {}
-    for mnemElem in mnemLoc.findLocations(_reMnemonic):
+    for mnemElem in mnemLoc.find_locations(_reMnemonic):
         text = mnemElem.text
         placeholder = placeholder_map.get(text)
         if placeholder is None:
@@ -1086,7 +1088,7 @@ def _parseModeEntries(
         if len(fields) > 4:
             reader.error("too many fields (%d) in mode line", len(fields))
             continue
-        fields += [line.endLocation] * (4 - len(fields))
+        fields += [line.end_location] * (4 - len(fields))
         encLoc, mnemLoc, semLoc, ctxLoc = fields
 
         try:
@@ -1422,7 +1424,7 @@ def parseInstrSet(
                 reader.error("malformed line outside block")
                 continue
             keyword = match.group(1)
-            args = match.group(2) if match.hasGroup(2) else header.endLocation
+            args = match.group(2) if match.has_group(2) else header.end_location
             defType = keyword.text
             if defType == "reg":
                 _parseRegs(reader, args, globalNamespace)

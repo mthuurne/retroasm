@@ -22,7 +22,7 @@ from .expression_nodes import (
     ParseNode,
     parseInt,
 )
-from .linereader import InputLocation, mergeSpan
+from .linereader import InputLocation, merge_span
 from .tokens import TokenEnum
 
 DefDeclNode: TypeAlias = Union[DeclarationNode, DefinitionNode]
@@ -211,7 +211,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 if closeLocation is None:
                     raise badTokenKind("slice/lookup", '":" or "]"')
                 expr = OperatorNode(
-                    mergeSpan(openLocation, closeLocation),
+                    merge_span(openLocation, closeLocation),
                     Operator.lookup,
                     (expr, start),
                 )
@@ -224,7 +224,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 else:
                     end = None
                 expr = OperatorNode(
-                    mergeSpan(openLocation, closeLocation),
+                    merge_span(openLocation, closeLocation),
                     Operator.slice,
                     (expr, start, end),
                 )
@@ -303,7 +303,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if tokens.location.span[0] == location.span[1]:
                 ampLocation = tokens.eat(ExprToken.operator, "&")
                 if ampLocation is not None:
-                    location = mergeSpan(location, ampLocation)
+                    location = merge_span(location, ampLocation)
 
             nameLocation = tokens.eat(ExprToken.identifier)
             if nameLocation is None:
@@ -361,11 +361,11 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         if tokens.location.span[0] == typeLocation.span[1]:
             ampLocation = tokens.eat(ExprToken.operator, "&")
             if ampLocation is not None:
-                typeLocation = mergeSpan(typeLocation, ampLocation)
+                typeLocation = merge_span(typeLocation, ampLocation)
                 if kind is DeclarationKind.variable:
                     raise ParseError(
                         'references can only be defined using the "def" keyword',
-                        mergeSpan(startLocation, ampLocation),
+                        merge_span(startLocation, ampLocation),
                     )
                 kind = DeclarationKind.reference
 
@@ -402,7 +402,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
                 if tokens.eat(ExprToken.separator, ",") is None:
                     raise badTokenKind("function call arguments", '"," or ")"')
 
-        location = mergeSpan(openLocation, closeLocation)
+        location = merge_span(openLocation, closeLocation)
         return OperatorNode(location, Operator.call, tuple(exprs))
 
     def parse_number() -> NumberNode:

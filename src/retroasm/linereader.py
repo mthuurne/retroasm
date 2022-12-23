@@ -47,7 +47,7 @@ class InputLocation:
         start, end = self.span
         return end - start
 
-    def updateSpan(self, span: tuple[int, int]) -> InputLocation:
+    def update_span(self, span: tuple[int, int]) -> InputLocation:
         """
         Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
@@ -55,10 +55,10 @@ class InputLocation:
         return InputLocation(self.path, self.lineno, self.line, span)
 
     @property
-    def endLocation(self) -> InputLocation:
+    def end_location(self) -> InputLocation:
         """A zero-length location marking the end point of this location."""
         end = self.span[1]
-        return self.updateSpan((end, end))
+        return self.update_span((end, end))
 
     @property
     def text(self) -> str:
@@ -74,7 +74,7 @@ class InputLocation:
         match = pattern.match(self.line, *self.span)
         return None if match is None else InputMatch(self, match)
 
-    def findLocations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
+    def find_locations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
         """
         Searches the text in this location for the given compiled regular
         expression pattern.
@@ -82,9 +82,9 @@ class InputLocation:
         match.
         """
         for match in pattern.finditer(self.line, *self.span):
-            yield self.updateSpan(match.span(0))
+            yield self.update_span(match.span(0))
 
-    def findMatches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
+    def find_matches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
         """
         Searches the text in this location for the given compiled regular
         expression pattern.
@@ -101,13 +101,13 @@ class InputLocation:
         Returns an iterator yielding InputLocations representing the text
         between the separators.
         """
-        searchStart, searchEnd = self.span
-        curr = searchStart
-        for match in pattern.finditer(self.line, searchStart, searchEnd):
-            sepStart, sepEnd = match.span(0)
-            yield self.updateSpan((curr, sepStart))
-            curr = sepEnd
-        yield self.updateSpan((curr, searchEnd))
+        search_start, search_end = self.span
+        curr = search_start
+        for match in pattern.finditer(self.line, search_start, search_end):
+            sep_start, sep_end = match.span(0)
+            yield self.update_span((curr, sep_start))
+            curr = sep_end
+        yield self.update_span((curr, search_end))
 
 
 class InputMatch:
@@ -123,7 +123,7 @@ class InputMatch:
         self._location = location
         self._match = match
 
-    def hasGroup(self, index: int | str) -> bool:
+    def has_group(self, index: int | str) -> bool:
         """
         Returns `True` iff a group matched at the given index,
         which can be name or a numeric index with the first group being 1.
@@ -143,7 +143,7 @@ class InputMatch:
             name = f"{index}" if isinstance(index, int) else f'"{index}"'
             raise ValueError(f"group {name} was not part of the match")
         else:
-            return self._location.updateSpan(span)
+            return self._location.update_span(span)
 
     @property
     def groups(self) -> Iterator[InputLocation]:
@@ -155,7 +155,7 @@ class InputMatch:
             yield self.group(i + 1)
 
     @property
-    def groupName(self) -> str | None:
+    def group_name(self) -> str | None:
         """
         The name of the last matched group, or None if last matched group
         was nameless or no groups were matched.
@@ -163,19 +163,21 @@ class InputMatch:
         return self._match.lastgroup
 
 
-def mergeSpan(fromLocation: InputLocation, toLocation: InputLocation) -> InputLocation:
+def merge_span(
+    from_location: InputLocation, to_location: InputLocation
+) -> InputLocation:
     """
     Returns a new location of which the span starts at the start of the
     given 'from' location and ends at the end of the given 'to' location.
     Both given locations must be on the same line.
     """
-    fromSpan = fromLocation.span
-    toSpan = toLocation.span
+    fromSpan = from_location.span
+    toSpan = to_location.span
     mergedSpan = (fromSpan[0], toSpan[1])
-    mergedLocation = fromLocation.updateSpan(mergedSpan)
-    assert mergedLocation == toLocation.updateSpan(mergedSpan), (
-        fromLocation,
-        toLocation,
+    mergedLocation = from_location.update_span(mergedSpan)
+    assert mergedLocation == to_location.update_span(mergedSpan), (
+        from_location,
+        to_location,
     )
     return mergedLocation
 

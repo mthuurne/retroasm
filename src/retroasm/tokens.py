@@ -64,17 +64,17 @@ class TokenEnum(Enum, metaclass=TokenMeta):
     def _iter_tokens(
         cls: type[TokenT], location: InputLocation
     ) -> Iterator[tuple[TokenT | None, InputLocation]]:
-        for match in location.findMatches(cls.pattern):
-            if match.groupName is None:
+        for match in location.find_matches(cls.pattern):
+            if match.group_name is None:
                 # Skip whitespace.
                 continue
-            name = match.groupName
+            name = match.group_name
             assert name is not None
             match_location = match.group(name)
             assert match_location is not None
             yield cls[name], match_location
         # Sentinel.
-        yield None, location.endLocation
+        yield None, location.end_location
 
 
 TokenT = TypeVar("TokenT", bound=TokenEnum)

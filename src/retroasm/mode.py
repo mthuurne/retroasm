@@ -10,7 +10,7 @@ from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression
 from .expression_simplifier import simplifyExpression
-from .linereader import InputLocation, mergeSpan
+from .linereader import InputLocation, merge_span
 from .reference import (
     BitString,
     FixedValue,
@@ -363,9 +363,9 @@ class Encoding:
         firstAuxIndex = self._firstAuxIndex
         if firstAuxIndex is None:
             location = self._location if len(items) == 0 else items[0].location
-            return location.endLocation
+            return location.end_location
         else:
-            return mergeSpan(items[firstAuxIndex].location, items[-1].location)
+            return merge_span(items[firstAuxIndex].location, items[-1].location)
 
     @const_property
     def encodedLength(self) -> int | None:

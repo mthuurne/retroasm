@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from .linereader import BadInput, InputLocation, mergeSpan
+from .linereader import BadInput, InputLocation, merge_span
 from .types import Width, unlimited
 
 
@@ -44,7 +44,7 @@ class BranchNode(ParseNode):
 
     @property
     def tree_location(self) -> InputLocation:
-        return mergeSpan(self.location, self.target.tree_location)
+        return merge_span(self.location, self.target.tree_location)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +54,7 @@ class AssignmentNode(ParseNode):
 
     @property
     def tree_location(self) -> InputLocation:
-        return mergeSpan(self.lhs.tree_location, self.rhs.tree_location)
+        return merge_span(self.lhs.tree_location, self.rhs.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -93,17 +93,17 @@ class OperatorNode(ParseNode):
     @property
     def tree_location(self) -> InputLocation:
         location = self.location
-        base_location = location.updateSpan((0, 0))
+        base_location = location.update_span((0, 0))
         tree_start, tree_end = location.span
         for operand in self.operands:
             if operand is None:
                 continue
             location = operand.tree_location
-            assert location.updateSpan((0, 0)) == base_location
+            assert location.update_span((0, 0)) == base_location
             start, end = location.span
             tree_start = min(tree_start, start)
             tree_end = max(tree_end, end)
-        return base_location.updateSpan((tree_start, tree_end))
+        return base_location.update_span((tree_start, tree_end))
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
@@ -136,7 +136,7 @@ class DeclarationNode(ParseNode):
 
     @property
     def tree_location(self) -> InputLocation:
-        return mergeSpan(self.location, self.name.tree_location)
+        return merge_span(self.location, self.name.tree_location)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +146,7 @@ class DefinitionNode(ParseNode):
 
     @property
     def tree_location(self) -> InputLocation:
-        return mergeSpan(self.decl.tree_location, self.value.tree_location)
+        return merge_span(self.decl.tree_location, self.value.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
