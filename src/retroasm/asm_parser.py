@@ -114,7 +114,7 @@ def parse_instruction(
 def build_instruction(tokens: Tokenizer[AsmToken], reader: LineReader) -> None:
     name = tokens.location
     try:
-        with reader.checkErrors():
+        with reader.check_errors():
             match_seq = tuple(create_match_sequence(parse_instruction(tokens, reader)))
     except DelayedError:
         return
@@ -267,6 +267,6 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
 
 def read_source(path: Path, instr_set: InstructionSet) -> None:
     with LineReader.open(path, logger) as reader:
-        with reader.checkErrors():
+        with reader.check_errors():
             parse_asm(reader, instr_set)
             reader.summarize()

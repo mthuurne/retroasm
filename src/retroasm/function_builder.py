@@ -21,7 +21,7 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
     The full block is parsed, even in the presence of errors.
     Errors are appended to `reader` as they are discovered.
     """
-    for line in reader.iterBlock():
+    for line in reader.iter_block():
         try:
             yield parseStatement(line)
         except ParseError as ex:
@@ -61,7 +61,7 @@ def createFunc(
         retRef = namespace.addVariable("ret", retType, retTypeLocation)
 
     try:
-        with reader.checkErrors():
+        with reader.check_errors():
             bodyNodes = _parseBody(reader)
             emitCodeFromStatements(
                 reader, "function body", namespace, bodyNodes, retType

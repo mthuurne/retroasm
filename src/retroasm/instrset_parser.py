@@ -83,7 +83,7 @@ def _parseRegs(
     if args:
         reader.error("register definition must have no arguments", location=args)
 
-    for line in reader.iterBlock():
+    for line in reader.iter_block():
         try:
             nodes = parseRegs(line)
         except BadInput as ex:
@@ -203,7 +203,7 @@ def _parsePrefix(
     # Parse header line.
     decodeFlags = []
     try:
-        with reader.checkErrors():
+        with reader.check_errors():
             flagType = IntType.u(1)
             for argType, argTypeLoc, argNameLoc in _parse_typedArgs(
                 reader, args, "decode flag"
@@ -238,12 +238,12 @@ def _parsePrefix(
                 else:
                     decodeFlags.append(argName)
     except DelayedError:
-        reader.skipBlock()
+        reader.skip_block()
         return
 
     # Parse body.
     prefixes = []
-    for line in reader.iterBlock():
+    for line in reader.iter_block():
         # Split line into 3 fields.
         fields = tuple(line.split(_reDotSep))
         try:
@@ -258,7 +258,7 @@ def _parsePrefix(
 
         # Parse encoding.
         try:
-            with reader.checkErrors():
+            with reader.check_errors():
                 if len(encLoc) == 0:
                     reader.error("prefix encoding cannot be empty", location=encLoc)
                 else:
@@ -291,7 +291,7 @@ def _parsePrefix(
         # Parse semantics.
         semantics: CodeBlock | None
         try:
-            with reader.checkErrors():
+            with reader.check_errors():
                 if len(semLoc) == 0:
                     reader.error(
                         'prefix semantics cannot be empty; use "nop" instead',
@@ -339,7 +339,7 @@ def _parseIO(
     if args:
         reader.error("I/O definition must have no arguments", location=args)
 
-    for line in reader.iterBlock():
+    for line in reader.iter_block():
         match = line.match(_reIOLine)
         if match is None:
             reader.error("invalid I/O definition line")
@@ -384,7 +384,7 @@ def _parseFunc(
     match = headerArgs.match(_reFuncHeader)
     if match is None:
         reader.error("invalid function header line", location=headerArgs)
-        reader.skipBlock()
+        reader.skip_block()
         return
 
     # Parse return type.
@@ -396,7 +396,7 @@ def _parseFunc(
             retType = parse_type_decl(retTypeLoc.text)
         except ValueError as ex:
             reader.error("bad return type: %s", ex, location=retTypeLoc)
-            reader.skipBlock()
+            reader.skip_block()
             return
     else:
         retTypeLoc = None
@@ -405,7 +405,7 @@ def _parseFunc(
     # Parse arguments.
     args = {}
     try:
-        with reader.checkErrors():
+        with reader.check_errors():
             nameLocations: dict[str, InputLocation] = {}
             for i, (argType, argTypeLoc_, argNameLoc) in enumerate(
                 _parse_typedArgs(reader, match.group(3), "function argument"), 1
@@ -429,7 +429,7 @@ def _parseFunc(
                     args[argName] = argType
                     nameLocations[argName] = argNameLoc
     except DelayedError:
-        reader.skipBlock()
+        reader.skip_block()
         return
 
     if wantSemantics:
@@ -447,7 +447,7 @@ def _parseFunc(
         except NameExistsError as ex:
             reader.error("error declaring function: %s", ex, location=ex.locations)
     else:
-        reader.skipBlock()
+        reader.skip_block()
 
 
 def _parseModeContext(
@@ -975,12 +975,12 @@ def _parseModeDecoding(
         reader.error("%s", ex, location=ex.locations)
         return None
     try:
-        with reader.checkErrors():
+        with reader.check_errors():
             # Create a mapping to extract immediate values from encoded items.
             sequentialMap = dict(
                 _combinePlaceholderEncodings(decodeMap, placeholderSpecs, reader)
             )
-        with reader.checkErrors():
+        with reader.check_errors():
             # Check whether unknown-length multi-matches are blocking decoding.
             _checkDecodingOrder(encoding, sequentialMap, placeholderSpecs, reader)
     except DelayedError:
@@ -1079,7 +1079,7 @@ def _parseModeEntries(
     ],
     wantSemantics: bool,
 ) -> Iterator[ParsedModeEntry]:
-    for line in reader.iterBlock():
+    for line in reader.iter_block():
         # Split mode line into 4 fields.
         fields = list(line.split(_reDotSep))
         if len(fields) < 2:
@@ -1092,11 +1092,11 @@ def _parseModeEntries(
         encLoc, mnemLoc, semLoc, ctxLoc = fields
 
         try:
-            with reader.checkErrors():
+            with reader.check_errors():
                 # Parse context.
                 if len(ctxLoc) != 0:
                     try:
-                        with reader.checkErrors():
+                        with reader.check_errors():
                             placeholderSpecs, flagsRequired = _parseModeContext(
                                 ctxLoc, prefixes, modes, reader
                             )
@@ -1127,13 +1127,13 @@ def _parseModeEntries(
                     encoding = None
                 else:
                     try:
-                        with reader.checkErrors():
+                        with reader.check_errors():
                             encItems = tuple(
                                 _parseModeEncoding(
                                     encNodes, placeholderSpecs, globalNamespace, reader
                                 )
                             )
-                        with reader.checkErrors():
+                        with reader.check_errors():
                             _checkAuxEncodingWidth(encItems, reader)
                             _checkEmptyMultiMatches(encItems, placeholderSpecs, reader)
                             _checkDuplicateMultiMatches(encItems, reader)
@@ -1295,7 +1295,7 @@ def _parseMode(
         reader.error(
             'invalid mode arguments, expected "mode <type> <name>"', location=args
         )
-        reader.skipBlock()
+        reader.skip_block()
         return
     modeTypeLoc, modeNameLoc = match.groups
     semType: None | IntType | ReferenceType
@@ -1450,7 +1450,7 @@ def parseInstrSet(
                 )
             else:
                 reader.error('unknown definition type "%s"', defType, location=keyword)
-                reader.skipBlock()
+                reader.skip_block()
 
         # Check that the program counter was defined.
         try:

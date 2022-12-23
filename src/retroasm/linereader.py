@@ -253,7 +253,7 @@ class LineReader:
     def __iter__(self) -> Iterator[InputLocation]:
         return self
 
-    def _nextLine(self) -> str:
+    def _next_line(self) -> str:
         self._lastline = None  # in case next() raises StopIteration
         line = next(self._lines).rstrip("\n")
         self._lastline = line
@@ -261,7 +261,7 @@ class LineReader:
         return line
 
     def __next__(self) -> InputLocation:
-        self._nextLine()
+        self._next_line()
         return self.location
 
     @property
@@ -297,16 +297,16 @@ class LineReader:
         self.__log(ERROR, "ERROR: " + msg, *args, **kwargs)
 
     @contextmanager
-    def checkErrors(self) -> Iterator[LineReader]:
+    def check_errors(self) -> Iterator[LineReader]:
         """
         Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.
         """
-        errorsBefore = self.errors
+        errors_before = self.errors
         yield self
-        numErrors = self.errors - errorsBefore
-        if numErrors != 0:
-            raise DelayedError(f"{numErrors:d} errors were logged")
+        num_errors = self.errors - errors_before
+        if num_errors != 0:
+            raise DelayedError(f"{num_errors:d} errors were logged")
 
     def summarize(self) -> None:
         """Log a message containing the error and warning counts."""
@@ -331,7 +331,7 @@ class LineReader:
             logger.log(level, msg, *args, extra=extra, **kwargs)
 
 
-_reComment = re.compile(r"(?<!\\)#")
+_RE_COMMENT = re.compile(r"(?<!\\)#")
 
 
 class DefLineReader(LineReader):
@@ -345,8 +345,8 @@ class DefLineReader(LineReader):
 
     def __next__(self) -> InputLocation:
         while True:
-            line = self._nextLine().rstrip()
-            match = _reComment.search(line)
+            line = self._next_line().rstrip()
+            match = _RE_COMMENT.search(line)
             if match is None:
                 span = (0, len(line))
             else:
@@ -360,7 +360,7 @@ class DefLineReader(LineReader):
                 span = (0, end)
             return InputLocation(self._path, self._lineno, line, span)
 
-    def iterBlock(self) -> Iterator[InputLocation]:
+    def iter_block(self) -> Iterator[InputLocation]:
         """Iterates through the lines of the current block."""
         while True:
             try:
@@ -371,9 +371,9 @@ class DefLineReader(LineReader):
                 break
             yield line
 
-    def skipBlock(self) -> None:
+    def skip_block(self) -> None:
         """Skips the remainder of the current block."""
-        for _ in self.iterBlock():
+        for _ in self.iter_block():
             pass
 
 
@@ -388,10 +388,10 @@ class LineReaderFormatter(Formatter):
             Union[None, InputLocation, Sequence[InputLocation]],
             getattr(record, "location", None),
         )
-        return "\n".join(_formatParts(_iterParts(msg, location)))
+        return "\n".join(_format_parts(_iter_parts(msg, location)))
 
 
-def _formatParts(
+def _format_parts(
     parts: Iterable[
         tuple[
             str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]
@@ -411,7 +411,7 @@ def _formatParts(
             yield line
 
             length = len(line) + 1
-            spanLine = " " * length
+            span_line = " " * length
             last = len(spans) - 1
             for i, span in enumerate(reversed(spans)):
                 start, end = span
@@ -423,13 +423,13 @@ def _formatParts(
                     # Highlight empty span using single character.
                     end = start + 1
                 highlight = ("^" if i == last else "~") * (end - start)
-                spanLine = spanLine[:start] + highlight + spanLine[end:]
-            spanLine = spanLine.rstrip()
-            if spanLine:
-                yield spanLine
+                span_line = span_line[:start] + highlight + span_line[end:]
+            span_line = span_line.rstrip()
+            if span_line:
+                yield span_line
 
 
-def _iterParts(
+def _iter_parts(
     msg: str, location: None | InputLocation | Sequence[InputLocation]
 ) -> Iterator[
     tuple[str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]]
@@ -440,7 +440,7 @@ def _iterParts(
         loc = location
         yield msg, loc.path, loc.lineno, loc.line, [loc.span]
     else:
-        multiMsg: str | None = msg
+        multi_msg: str | None = msg
         i = 0
         while i < len(location):
             # Merge spans of following locations on the same line.
@@ -455,5 +455,5 @@ def _iterParts(
             ):
                 spans.append(location[i].span)
                 i += 1
-            yield multiMsg, loc.path, lineno, loc.line, spans
-            multiMsg = None
+            yield multi_msg, loc.path, lineno, loc.line, spans
+            multi_msg = None
