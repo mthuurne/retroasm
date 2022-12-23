@@ -36,7 +36,12 @@ class InputLocation:
     """The contents of the input line that this location describes."""
 
     span: tuple[int, int]
-    """The column span information of this location."""
+    """
+    The column span information of this location.
+
+    This acts as a typical Python slice: first column index is zero, start index is
+    inclusive start and end index is exclusive.
+    """
 
     def __len__(self) -> int:
         start, end = self.span
@@ -57,10 +62,7 @@ class InputLocation:
 
     @property
     def text(self) -> str:
-        """
-        Returns the text described by this location: the spanned substring
-        if span information is available, otherwise the full line.
-        """
+        """The text described by this location: the spanned substring."""
         return self.line[slice(*self.span)]
 
     def match(self, pattern: Pattern[str]) -> InputMatch | None:
