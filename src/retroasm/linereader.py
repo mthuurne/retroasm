@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from importlib.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from re import Match, Pattern
@@ -9,6 +10,7 @@ from typing import IO, Any, TypeVar, Union, cast
 import re
 
 
+@dataclass(frozen=True, slots=True)
 class InputLocation:
     """
     Describes a particular location in an input text file.
@@ -16,64 +18,28 @@ class InputLocation:
     the value of the 'location' argument to the log methods of LineReader.
     """
 
-    __slots__ = ("_path", "_lineno", "_line", "_span")
+    path: Traversable
+    """
+    The path to the input text file.
 
-    @property
-    def path(self) -> Traversable:
-        """
-        The path to the input text file.
+    This path might not exist on the file system, for example when reading from
+    a resource.
+    """
 
-        This path might not exist on the file system, for example when reading from
-        a resource.
-        """
-        return self._path
+    lineno: int
+    """
+    The number of this location's line in the input file,
+    where line 1 is the first line.
+    """
 
-    @property
-    def line(self) -> str:
-        """The contents of the input line that this location describes."""
-        return self._line
+    line: str
+    """The contents of the input line that this location describes."""
 
-    @property
-    def lineno(self) -> int:
-        """
-        The number of this location's line in the input file,
-        where line 1 is the first line.
-        """
-        return self._lineno
-
-    @property
-    def span(self) -> tuple[int, int]:
-        """The column span information of this location."""
-        return self._span
-
-    def __init__(
-        self, path: Traversable, lineno: int, line: str, span: tuple[int, int]
-    ):
-        self._path = path
-        self._lineno = lineno
-        self._line = line
-        self._span = span
-
-    def __repr__(self) -> str:
-        return (
-            f"InputLocation({self._path!r}, {self._lineno!r}, "
-            f"{self._line!r}, {self._span!r})"
-        )
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, InputLocation):
-            # pylint: disable=protected-access
-            return (
-                self._path == other._path
-                and self._lineno == other._lineno
-                and self._line == other._line
-                and self._span == other._span
-            )
-        else:
-            return NotImplemented
+    span: tuple[int, int]
+    """The column span information of this location."""
 
     def __len__(self) -> int:
-        start, end = self._span
+        start, end = self.span
         return end - start
 
     def updateSpan(self, span: tuple[int, int]) -> InputLocation:
@@ -81,12 +47,12 @@ class InputLocation:
         Adds or updates the column span information of a location.
         Returns an updated location object; the original is unmodified.
         """
-        return InputLocation(self._path, self._lineno, self._line, span)
+        return InputLocation(self.path, self.lineno, self.line, span)
 
     @property
     def endLocation(self) -> InputLocation:
         """A zero-length location marking the end point of this location."""
-        end = self._span[1]
+        end = self.span[1]
         return self.updateSpan((end, end))
 
     @property
@@ -95,7 +61,7 @@ class InputLocation:
         Returns the text described by this location: the spanned substring
         if span information is available, otherwise the full line.
         """
-        return self._line[slice(*self._span)]
+        return self.line[slice(*self.span)]
 
     def match(self, pattern: Pattern[str]) -> InputMatch | None:
         """
@@ -103,7 +69,7 @@ class InputLocation:
         expression pattern.
         Returns an InputMatch object, or None if no match was found.
         """
-        match = pattern.match(self._line, *self._span)
+        match = pattern.match(self.line, *self.span)
         return None if match is None else InputMatch(self, match)
 
     def findLocations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
@@ -113,7 +79,7 @@ class InputLocation:
         Returns an iterator that yields an InputLocation object for each
         match.
         """
-        for match in pattern.finditer(self._line, *self._span):
+        for match in pattern.finditer(self.line, *self.span):
             yield self.updateSpan(match.span(0))
 
     def findMatches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
@@ -123,7 +89,7 @@ class InputLocation:
         Returns an iterator that yields an InputMatch object for each
         match.
         """
-        for match in pattern.finditer(self._line, *self._span):
+        for match in pattern.finditer(self.line, *self.span):
             yield InputMatch(self, match)
 
     def split(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
@@ -133,9 +99,9 @@ class InputLocation:
         Returns an iterator yielding InputLocations representing the text
         between the separators.
         """
-        searchStart, searchEnd = self._span
+        searchStart, searchEnd = self.span
         curr = searchStart
-        for match in pattern.finditer(self._line, searchStart, searchEnd):
+        for match in pattern.finditer(self.line, searchStart, searchEnd):
             sepStart, sepEnd = match.span(0)
             yield self.updateSpan((curr, sepStart))
             curr = sepEnd
