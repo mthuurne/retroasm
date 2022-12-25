@@ -75,7 +75,7 @@ class Load(AccessNode):
     def __str__(self) -> str:
         return f"load from {self._storage}"
 
-    @property
+    @property  # type: ignore[override]  # https://github.com/python/mypy/issues/14301
     def expr(self) -> LoadedValue:
         return cast(LoadedValue, self._expr)
 
