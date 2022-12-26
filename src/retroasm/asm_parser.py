@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from logging import getLogger
 from pathlib import Path
-from typing import TypeAlias
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import Expression, IntLiteral, truncate
@@ -25,9 +24,6 @@ class AsmToken(TokenEnum):
     string = r'"[^"]*"|\'[^\']*\''
     comment = r";.*$"
     symbol = r"."
-
-
-Token: TypeAlias = tuple[AsmToken, InputLocation]
 
 
 def parse_number(location: InputLocation) -> NumberNode:
