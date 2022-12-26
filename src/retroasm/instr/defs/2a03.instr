@@ -265,6 +265,37 @@ instr
 %110;%100;%00, A        . bne A         . jmp_cond(A, !z)   . relative A
 %111;%100;%00, A        . beq A         . jmp_cond(A,  z)   . relative A
 
+func brk()
+    i := 1
+    push(pc[8:])
+    push(pc[:8])
+    push(p)
+    def u8 ISR_L = mem[$FFFE]
+    def u8 ISR_H = mem[$FFFF]
+    pc := ISR_H;ISR_L
+
+func jsr(u16 A)
+    # The third opcode byte hasn't been read yet by the time PC is pushed.
+    def u16 RA = pc - 1
+    push(RA[8:])
+    push(RA[:8])
+    pc := A
+
+func rti()
+    pull(p)
+    pull(pc[:8])
+    pull(pc[8:])
+
+func rts()
+    pull(pc[:8])
+    pull(pc[8:])
+    pc := pc + 1
+
+instr
+%000;%000;%00, N            . brk N     . brk()             . immediate N
+%001;%000;%00, A[:8], A[8:] . jsr A     . jsr(A)            . u16 A
+%100;%000;%00               . rti       . rti()
+%101;%000;%00               . rts       . rts()
 
 ### Push and pull
 
