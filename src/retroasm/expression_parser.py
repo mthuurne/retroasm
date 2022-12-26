@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Any, TypeAlias, Union, cast
+from typing import Any, TypeAlias, cast
 
 from .expression_nodes import (
     AssignmentNode,
@@ -25,8 +25,8 @@ from .expression_nodes import (
 from .linereader import InputLocation, merge_span
 from .tokens import TokenEnum
 
-DefDeclNode: TypeAlias = Union[DeclarationNode, DefinitionNode]
-ContextNode: TypeAlias = Union[DeclarationNode, DefinitionNode, FlagTestNode]
+DefDeclNode: TypeAlias = DeclarationNode | DefinitionNode
+ContextNode: TypeAlias = DeclarationNode | DefinitionNode | FlagTestNode
 
 
 class ExprToken(TokenEnum):

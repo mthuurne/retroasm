@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import DefaultDict, TypeAlias, Union, cast
+from typing import DefaultDict, TypeAlias, cast
 
 from .codeblock import CodeBlock
 from .expression import IntLiteral
@@ -381,7 +381,7 @@ class NoMatchDecoder(Decoder, metaclass=Singleton):
         return None
 
 
-_EncodingMatcher: TypeAlias = Union[MatchPlaceholder, EncodingMultiMatch, FixedEncoding]
+_EncodingMatcher: TypeAlias = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
 
 
 def _createEntryDecoder(

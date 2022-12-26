@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import NoReturn, TypeAlias, Union, cast
+from typing import NoReturn, TypeAlias, cast
 
 from .utils import Singleton, Unique
 
@@ -79,7 +79,7 @@ class Unlimited(metaclass=Singleton):
 
 unlimited = Unlimited()
 
-Width: TypeAlias = Union[int, Unlimited]
+Width: TypeAlias = int | Unlimited
 
 
 def mask_for_width(width: Width) -> int:

@@ -195,7 +195,7 @@ def _findFirstAuxIndex(encoding: Sequence[EncodingItem]) -> int | None:
         return 1
 
 
-EncodingItem: TypeAlias = Union[EncodingExpr, EncodingMultiMatch]
+EncodingItem: TypeAlias = EncodingExpr | EncodingMultiMatch
 
 
 class Encoding:
