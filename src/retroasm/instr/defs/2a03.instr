@@ -10,8 +10,8 @@ u8 a
 # index registers
 u8 x, y
 # flags
-u1 n, v, b, d, i, z, c
-u8& p = n;v;%1;b;d;i;z;c
+u1 n, v, d, i, z, c
+u8& p = n;v;%11;d;i;z;c
 # stack pointer
 u8 s
 u16& sp = $01;s
