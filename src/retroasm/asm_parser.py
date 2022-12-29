@@ -150,12 +150,18 @@ def parse_value(tokens: AsmTokenizer) -> Expression:
 _data_widths = {
     "db": 8,
     "defb": 8,
+    "byt": 8,
+    "byte": 8,
     "dw": 16,
     "defw": 16,
+    "word": 16,
     "dd": 32,
     "defd": 32,
+    "dword": 32,
     "dq": 64,
     "defq": 64,
+    "qword": 64,
+    "quad": 64,
 }
 
 
