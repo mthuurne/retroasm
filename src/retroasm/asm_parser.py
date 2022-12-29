@@ -170,6 +170,46 @@ _data_widths = {
 }
 
 
+def parse_data_directive(
+    tokens: AsmTokenizer, data_type: IntType, allow_strings: bool = False
+) -> DataDirective | StringDirective:
+    data_class: type[DataDirective | StringDirective] = DataDirective
+    data: list[FixedValueReference | bytes] = []
+    width = data_type.width
+    while True:
+        if (location := tokens.eat_string()) is not None:
+            if not allow_strings:
+                raise ParseError(
+                    "string literals are not supported by this directive",
+                    location,
+                )
+            data_class = StringDirective
+            # TODO: Support other encodings?
+            try:
+                data.append(location.text.encode("ascii"))
+            except UnicodeError as ex:
+                raise ParseError(
+                    f"string literal is not pure ASCII: {ex}", location
+                ) from None
+        else:
+            value = parse_value(tokens)
+            # TODO: I don't like the use of truncation here, since it might silence
+            #       errors.
+            #       One alternative would be to add an expression node that performs
+            #       a range check. Perhaps this could also store the location (see
+            #       TODO at the top of this function).
+            #       Another alternative would be to not use FixedValueReference for
+            #       storing the values. Instead, we could store expressions (ignore
+            #       width, since it's implied by the directive) or we could store
+            #       ASTs (preserves more of the original code when reformatting).
+            data.append(FixedValueReference(truncate(value, width), data_type))
+        if tokens.end:
+            break
+        if tokens.eat(AsmToken.symbol, ",") is None:
+            raise ParseError.with_text("unexpected token after value", tokens.location)
+    return data_class(*data)  # type: ignore[arg-type]
+
+
 def parse_directive(
     tokens: AsmTokenizer, instr_set: InstructionSet
 ) -> DataDirective | StringDirective | OriginDirective | BinaryIncludeDirective:
@@ -181,43 +221,9 @@ def parse_directive(
     if keyword[0] == ".":
         keyword = keyword[1:]
     if (width := _data_widths.get(keyword)) is not None:
-        data_type = IntType.u(width)
-        data_class: type[DataDirective | StringDirective] = DataDirective
-        data: list[FixedValueReference | bytes] = []
-        while True:
-            if (location := tokens.eat_string()) is not None:
-                if width != 8:
-                    raise ParseError(
-                        f'the "{keyword}" directive does not support string literals',
-                        location,
-                    )
-                data_class = StringDirective
-                # TODO: Support other encodings?
-                try:
-                    data.append(location.text.encode("ascii"))
-                except UnicodeError as ex:
-                    raise ParseError(
-                        f"string literal is not pure ASCII: {ex}", location
-                    ) from None
-            else:
-                value = parse_value(tokens)
-                # TODO: I don't like the use of truncation here, since it might silence
-                #       errors.
-                #       One alternative would be to add an expression node that performs
-                #       a range check. Perhaps this could also store the location (see
-                #       TODO at the top of this function).
-                #       Another alternative would be to not use FixedValueReference for
-                #       storing the values. Instead, we could store expressions (ignore
-                #       width, since it's implied by the directive) or we could store
-                #       ASTs (preserves more of the original code when reformatting).
-                data.append(FixedValueReference(truncate(value, width), data_type))
-            if tokens.end:
-                break
-            if tokens.eat(AsmToken.symbol, ",") is None:
-                raise ParseError.with_text(
-                    "unexpected token after value", tokens.location
-                )
-        return data_class(*data)  # type: ignore[arg-type]
+        return parse_data_directive(tokens, IntType.u(width), width == 8)
+    elif keyword == "addr":
+        return parse_data_directive(tokens, instr_set.addrType)
     elif keyword == "incbin":
         if (location := tokens.eat_string()) is not None:
             return BinaryIncludeDirective(Path(location.text))
