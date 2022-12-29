@@ -210,9 +210,20 @@ def parse_data_directive(
     return data_class(*data)  # type: ignore[arg-type]
 
 
+class DummyDirective:
+    def __str__(self) -> str:
+        return "(not implemented yet)"
+
+
 def parse_directive(
     tokens: AsmTokenizer, instr_set: InstructionSet
-) -> DataDirective | StringDirective | OriginDirective | BinaryIncludeDirective:
+) -> (
+    DataDirective
+    | StringDirective
+    | OriginDirective
+    | BinaryIncludeDirective
+    | DummyDirective
+):
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
     name = tokens.eat(AsmToken.word)
@@ -235,6 +246,10 @@ def parse_directive(
             return OriginDirective(FixedValueReference(addr, instr_set.addrType))
         else:
             raise ParseError.with_text("unexpected token after value", tokens.location)
+    elif keyword in ("export", "import", "global"):
+        return DummyDirective()
+    elif keyword in ("segment", "code", "data", "rodata", "bss"):
+        return DummyDirective()
     else:
         raise ParseError.with_text(
             "statement is not a known instruction or directive", name
