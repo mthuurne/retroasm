@@ -8,6 +8,8 @@ assembly do we care about syntax.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from .reference import FixedValueReference, int_reference, symbol_reference
@@ -90,6 +92,16 @@ class StringDirective:
     def __repr__(self) -> str:
         args_str = ", ".join(repr(item) for item in self._data)
         return f"{self.__class__.__name__}({args_str})"
+
+
+@dataclass(frozen=True, slots=True)
+class BinaryIncludeDirective:
+    """Data definition directive that inserts a binary file in the output as-is."""
+
+    path: Path
+
+    def __str__(self) -> str:
+        return f"incbin {self.path}"
 
 
 class StructuredData(Protocol):

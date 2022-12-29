@@ -4,7 +4,12 @@ from collections.abc import Iterable, Iterator
 from logging import getLogger
 from pathlib import Path
 
-from .asm_directives import DataDirective, OriginDirective, StringDirective
+from .asm_directives import (
+    BinaryIncludeDirective,
+    DataDirective,
+    OriginDirective,
+    StringDirective,
+)
 from .expression import Expression, IntLiteral, truncate
 from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
@@ -167,7 +172,7 @@ _data_widths = {
 
 def parse_directive(
     tokens: AsmTokenizer, instr_set: InstructionSet
-) -> DataDirective | OriginDirective | StringDirective:
+) -> DataDirective | StringDirective | OriginDirective | BinaryIncludeDirective:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
     name = tokens.eat(AsmToken.word)
@@ -213,6 +218,11 @@ def parse_directive(
                     "unexpected token after value", tokens.location
                 )
         return data_class(*data)  # type: ignore[arg-type]
+    elif keyword == "incbin":
+        if (location := tokens.eat_string()) is not None:
+            return BinaryIncludeDirective(Path(location.text))
+        else:
+            raise ParseError.with_text("expected file path", tokens.location)
     elif keyword == "org":
         addr = parse_value(tokens)
         if tokens.end:
