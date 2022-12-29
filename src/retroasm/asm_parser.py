@@ -173,6 +173,8 @@ def parse_directive(
     name = tokens.eat(AsmToken.word)
     assert name is not None
     keyword = name.text.casefold()
+    if keyword[0] == ".":
+        keyword = keyword[1:]
     if (width := _data_widths.get(keyword)) is not None:
         data_type = IntType.u(width)
         data_class: type[DataDirective | StringDirective] = DataDirective
