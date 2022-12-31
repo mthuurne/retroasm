@@ -43,6 +43,26 @@ class InputLocation:
     inclusive start and end index is exclusive.
     """
 
+    def __getitem__(self, item: int | slice) -> InputLocation:
+        span_start, span_end = self.span
+        span_len = span_end - span_start
+
+        if isinstance(item, int):
+            index = item + span_len if item < 0 else item
+            if 0 <= index < span_len:
+                new_span_start = span_start + index
+                new_span_end = new_span_start + 1
+            else:
+                raise IndexError(f"index {item} out of range for length {span_len}")
+        else:
+            start, stop, step = item.indices(span_len)
+            if step != 1:
+                raise IndexError("step sizes other than 1 are not supported")
+            new_span_start = span_start + start
+            new_span_end = max(span_start + stop, new_span_start)
+
+        return self.update_span((new_span_start, new_span_end))
+
     def __len__(self) -> int:
         start, end = self.span
         return end - start
