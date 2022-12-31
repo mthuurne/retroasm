@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from enum import Enum, EnumMeta
 from re import Pattern
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 import re
 
 from .linereader import InputLocation
@@ -12,8 +12,7 @@ from .linereader import InputLocation
 class TokenMeta(EnumMeta):
     """Metaclass for `TokenEnum`."""
 
-    if TYPE_CHECKING:
-        pattern: Pattern[str]
+    pattern: Pattern[str]
 
     def __new__(
         # pylint: disable=arguments-differ
