@@ -104,6 +104,16 @@ class BinaryIncludeDirective:
         return f"incbin {self.path}"
 
 
+@dataclass(frozen=True, slots=True)
+class SourceIncludeDirective:
+    """Directive that inserts the contents of one assembly source file into another."""
+
+    path: Path
+
+    def __str__(self) -> str:
+        return f"include {self.path}"
+
+
 class StructuredData(Protocol):
     """Protocol for data areas with a struct-like layout."""
 

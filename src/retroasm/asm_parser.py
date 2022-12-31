@@ -8,6 +8,7 @@ from .asm_directives import (
     BinaryIncludeDirective,
     DataDirective,
     OriginDirective,
+    SourceIncludeDirective,
     StringDirective,
 )
 from .expression import Expression, IntLiteral, truncate
@@ -222,6 +223,7 @@ def parse_directive(
     | StringDirective
     | OriginDirective
     | BinaryIncludeDirective
+    | SourceIncludeDirective
     | DummyDirective
 ):
     # TODO: It would be good to store the expression locations, so we can print
@@ -238,6 +240,11 @@ def parse_directive(
     elif keyword == "incbin":
         if (location := tokens.eat_string()) is not None:
             return BinaryIncludeDirective(Path(location.text))
+        else:
+            raise ParseError.with_text("expected file path", tokens.location)
+    elif keyword == "include":
+        if (location := tokens.eat_string()) is not None:
+            return SourceIncludeDirective(Path(location.text))
         else:
             raise ParseError.with_text("expected file path", tokens.location)
     elif keyword == "org":
