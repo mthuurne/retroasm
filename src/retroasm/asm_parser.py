@@ -27,7 +27,13 @@ class AsmToken(TokenEnum):
 
 
 class AsmTokenizer(Tokenizer[AsmToken]):
-    pass
+    def eat_string(self) -> InputLocation | None:
+        """
+        Consume a string token and return the quoted value,
+        or `None` if the current token is not a string.
+        """
+        token = self.eat(AsmToken.string)
+        return None if token is None else token[1:-1]
 
 
 def parse_number(location: InputLocation) -> NumberNode:
@@ -166,18 +172,16 @@ def parse_directive(
         data_class: type[DataDirective | StringDirective] = DataDirective
         data: list[FixedValueReference | bytes] = []
         while True:
-            if (location := tokens.eat(AsmToken.string)) is not None:
+            if (location := tokens.eat_string()) is not None:
                 if width != 8:
                     raise ParseError(
                         f'the "{keyword}" directive does not support string literals',
                         location,
                     )
                 data_class = StringDirective
-                text = location.text
-                assert text[0] == text[-1], text
                 # TODO: Support other encodings?
                 try:
-                    data.append(text[1:-1].encode("ascii"))
+                    data.append(location.text.encode("ascii"))
                 except UnicodeError as ex:
                     raise ParseError(
                         f"string literal is not pure ASCII: {ex}", location
