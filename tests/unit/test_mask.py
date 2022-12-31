@@ -124,14 +124,14 @@ def test_mask_to_segments_properties(mask: int) -> None:
 def test_segment_validation() -> None:
     """Segment construction refuses out-of-range arguments."""
 
-    with raises(ValueError, match="^Segment start cannot be negative: -5$"):
+    with raises(ValueError, match=r"^Segment start cannot be negative: -5$"):
         Segment(-5, 2)
-    with raises(ValueError, match="^Segment width cannot be negative: -8$"):
+    with raises(ValueError, match=r"^Segment width cannot be negative: -8$"):
         Segment(0, -8)
 
-    with raises(ValueError, match="^Segment start cannot be negative: -1$"):
+    with raises(ValueError, match=r"^Segment start cannot be negative: -1$"):
         replace(Segment(12, 4), start=-1)
-    with raises(ValueError, match="^Segment width cannot be negative: -16$"):
+    with raises(ValueError, match=r"^Segment width cannot be negative: -16$"):
         replace(Segment(3, 7), width=-16)
 
 

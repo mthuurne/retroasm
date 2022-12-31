@@ -31,7 +31,7 @@ def test_inttype_range_check_unsigned_unlimited() -> None:
     # Near zero.
     uint.check_range(0)
     uint.check_range(1)
-    with raises(ValueError, match="^value -1 does not fit in type uint$"):
+    with raises(ValueError, match=r"^value -1 does not fit in type uint$"):
         uint.check_range(-1)
 
     # Big numbers.
@@ -46,20 +46,20 @@ def test_inttype_range_check_unsigned() -> None:
     # Near zero.
     IntType.u(8).check_range(0)
     IntType.u(8).check_range(1)
-    with raises(ValueError, match="^value -1 does not fit in type u123$"):
+    with raises(ValueError, match=r"^value -1 does not fit in type u123$"):
         IntType.u(123).check_range(-1)
 
     # Near upper bound.
     IntType.u(8).check_range(255)
-    with raises(ValueError, match="^value 256 does not fit in type u8$"):
+    with raises(ValueError, match=r"^value 256 does not fit in type u8$"):
         IntType.u(8).check_range(256)
     IntType.u(9).check_range(256)
 
     # The type u0 only contains the value zero.
     IntType.u(0).check_range(0)
-    with raises(ValueError, match="^value 1 does not fit in type u0$"):
+    with raises(ValueError, match=r"^value 1 does not fit in type u0$"):
         IntType.u(0).check_range(1)
-    with raises(ValueError, match="^value -1 does not fit in type u0$"):
+    with raises(ValueError, match=r"^value -1 does not fit in type u0$"):
         IntType.u(0).check_range(-1)
 
 
@@ -73,27 +73,27 @@ def test_inttype_range_check_signed() -> None:
 
     # Near upper bound.
     IntType.s(8).check_range(127)
-    with raises(ValueError, match="^value 128 does not fit in type s8$"):
+    with raises(ValueError, match=r"^value 128 does not fit in type s8$"):
         IntType.s(8).check_range(128)
     IntType.s(9).check_range(128)
 
     # Near lower bound.
     IntType.s(8).check_range(-128)
-    with raises(ValueError, match="^value -129 does not fit in type s8$"):
+    with raises(ValueError, match=r"^value -129 does not fit in type s8$"):
         IntType.s(8).check_range(-129)
     IntType.s(9).check_range(-129)
 
     # The type s0 only contains the value 0.
     IntType.s(0).check_range(0)
-    with raises(ValueError, match="^value 1 does not fit in type s0$"):
+    with raises(ValueError, match=r"^value 1 does not fit in type s0$"):
         IntType.s(0).check_range(1)
-    with raises(ValueError, match="^value -1 does not fit in type s0$"):
+    with raises(ValueError, match=r"^value -1 does not fit in type s0$"):
         IntType.s(0).check_range(-1)
 
     # The type s1 contains the values 0 and -1.
     IntType.s(1).check_range(0)
     IntType.s(1).check_range(-1)
-    with raises(ValueError, match="^value 1 does not fit in type s1$"):
+    with raises(ValueError, match=r"^value 1 does not fit in type s1$"):
         IntType.s(1).check_range(1)
-    with raises(ValueError, match="^value -2 does not fit in type s1$"):
+    with raises(ValueError, match=r"^value -2 does not fit in type s1$"):
         IntType.s(1).check_range(-2)
