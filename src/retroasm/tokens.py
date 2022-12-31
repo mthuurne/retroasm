@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from enum import Enum, EnumMeta
 from re import Pattern
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeAlias, TypeVar, cast
 import re
 
 from .linereader import InputLocation
@@ -55,14 +55,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         return re.compile("|".join(patterns))
 
     @classmethod
-    def scan(cls: type[TokenT], location: InputLocation) -> Tokenizer[TokenT]:
-        """Split an input string into tokens."""
-        return Tokenizer(cls._iter_tokens(location))
-
-    @classmethod
-    def _iter_tokens(
-        cls: type[TokenT], location: InputLocation
-    ) -> Iterator[tuple[TokenT | None, InputLocation]]:
+    def _iter_tokens(cls: type[TokenT], location: InputLocation) -> TokenStream[TokenT]:
         for match in location.find_matches(cls.pattern):
             name = match.group_name
             if name is None:
@@ -75,7 +68,9 @@ class TokenEnum(Enum, metaclass=TokenMeta):
         yield None, location.end_location
 
 
+T = TypeVar("T")
 TokenT = TypeVar("TokenT", bound=TokenEnum)
+TokenStream: TypeAlias = Iterable[tuple[TokenT | None, InputLocation]]
 
 
 class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
@@ -85,6 +80,33 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
     Can be used like any other Python iterator, but the `eat()` method is often
     more convenient to check for and consume expected tokens.
     """
+
+    _token_class: type[TokenT]
+
+    def __class_getitem__(cls, item: type[TokenT]) -> type[Tokenizer[TokenT]]:
+        class SpecializedTokenizer(
+            super().__class_getitem__(item)  # type: ignore[misc]
+        ):
+            _token_class = item
+
+        return SpecializedTokenizer
+
+    @classmethod
+    def get_token_class(cls) -> type[TokenT]:
+        try:
+            return cls._token_class
+        except AttributeError:
+            raise TypeError(
+                "Tokenizer must be specialized first, "
+                "for example Tokenizer[MyTokenEnum]"
+            ) from None
+
+    @classmethod
+    def scan(cls: type[T], location: InputLocation) -> T:
+        """Split an input string into tokens."""
+        token_class = cast(Tokenizer[TokenT], cls).get_token_class()
+        constructor = cast(Callable[[TokenStream[TokenT]], T], cls)
+        return constructor(token_class._iter_tokens(location))
 
     _kind: TokenT | None
     _location: InputLocation
@@ -118,18 +140,20 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
     def __init__(
         self, tokens: Iterable[tuple[TokenT | None, InputLocation]], start: int = 0
     ):
-        """Use `TokenEnum.scan()` instead of calling this directly."""
+        """Use `scan()` instead of calling this directly."""
         self._tokens = tuple(tokens)
         self._token_index = start
         self._advance()
 
-    def copy(self) -> Tokenizer[TokenT]:
+    def copy(self: T) -> T:
         """
         Make a copy of this tokenizer at its current position.
 
         The original and the copy can be used independently.
         """
-        return Tokenizer(self._tokens, self._token_index - 1)
+        constructor = cast(Callable[[TokenStream[TokenT], int], T], self.__class__)
+        assert isinstance(self, Tokenizer)
+        return constructor(self._tokens, self._token_index - 1)
 
     def __next__(self) -> tuple[TokenT, InputLocation]:
         kind = self._kind

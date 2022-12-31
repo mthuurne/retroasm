@@ -26,6 +26,10 @@ class AsmToken(TokenEnum):
     symbol = r"."
 
 
+class AsmTokenizer(Tokenizer[AsmToken]):
+    pass
+
+
 def parse_number(location: InputLocation) -> NumberNode:
     """
     Parse a numeric literal in one of several formats.
@@ -72,7 +76,7 @@ def create_match_sequence(
 
 
 def parse_instruction(
-    tokens: Tokenizer[AsmToken], reader: LineReader
+    tokens: AsmTokenizer, reader: LineReader
 ) -> Iterator[IdentifierNode | NumberNode]:
     for kind, location in tokens:
         if kind is AsmToken.word:
@@ -107,7 +111,7 @@ def parse_instruction(
             assert False, kind
 
 
-def build_instruction(tokens: Tokenizer[AsmToken], reader: LineReader) -> None:
+def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
     name = tokens.location
     try:
         with reader.check_errors():
@@ -120,7 +124,7 @@ def build_instruction(tokens: Tokenizer[AsmToken], reader: LineReader) -> None:
     )
 
 
-def parse_value(tokens: Tokenizer[AsmToken]) -> Expression:
+def parse_value(tokens: AsmTokenizer) -> Expression:
     if (location := tokens.eat(AsmToken.number)) is not None:
         number = parse_number(location)
         return IntLiteral(number.value)
@@ -150,7 +154,7 @@ _data_widths = {
 
 
 def parse_directive(
-    tokens: Tokenizer[AsmToken], instr_set: InstructionSet
+    tokens: AsmTokenizer, instr_set: InstructionSet
 ) -> DataDirective | OriginDirective | StringDirective:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
@@ -209,7 +213,7 @@ def parse_directive(
         )
 
 
-def parse_label(tokens: Tokenizer[AsmToken]) -> InputLocation | None:
+def parse_label(tokens: AsmTokenizer) -> InputLocation | None:
     """Consume and return a label if one is defined at the start of this line."""
     lookahead = tokens.copy()
     label = lookahead.eat(AsmToken.word)
@@ -232,7 +236,7 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
     instruction_names = instr_set.instructionNames
 
     for line in reader:
-        tokens = AsmToken.scan(line)
+        tokens = AsmTokenizer.scan(line)
 
         # Look for a label.
         label = parse_label(tokens)

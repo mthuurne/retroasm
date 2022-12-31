@@ -23,7 +23,7 @@ from .expression_nodes import (
     parseInt,
 )
 from .linereader import InputLocation, merge_span
-from .tokens import TokenEnum
+from .tokens import TokenEnum, Tokenizer
 
 DefDeclNode: TypeAlias = DeclarationNode | DefinitionNode
 ContextNode: TypeAlias = DeclarationNode | DefinitionNode | FlagTestNode
@@ -44,6 +44,10 @@ class ExprToken(TokenEnum):
     other = r"."
 
 
+class ExprTokenizer(Tokenizer[ExprToken]):
+    pass
+
+
 class _ParseMode(Enum):
     single = auto()
     multi = auto()
@@ -53,7 +57,7 @@ class _ParseMode(Enum):
 
 
 def _parse(location: InputLocation, mode: _ParseMode) -> Any:
-    tokens = ExprToken.scan(location)
+    tokens = ExprTokenizer.scan(location)
 
     def badTokenKind(where: str, expected: str) -> ParseError:
         if tokens.end:
