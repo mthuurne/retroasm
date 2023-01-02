@@ -6,7 +6,7 @@ from typing import cast
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression_builder import emitCodeFromStatements
 from .expression_nodes import ParseError, ParseNode
-from .expression_parser import parseStatement
+from .expression_parser import parse_statement
 from .function import Function
 from .linereader import DefLineReader, DelayedError, InputLocation
 from .namespace import GlobalNamespace, LocalNamespace
@@ -23,7 +23,7 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
     """
     for line in reader.iter_block():
         try:
-            yield parseStatement(line)
+            yield parse_statement(line)
         except ParseError as ex:
             reader.error("failed to parse statement: %s", ex, location=ex.locations)
 

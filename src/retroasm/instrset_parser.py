@@ -35,11 +35,11 @@ from .expression_nodes import (
     parseInt,
 )
 from .expression_parser import (
-    parseContext,
-    parseExpr,
-    parseExprList,
-    parseRegs,
-    parseStatement,
+    parse_context,
+    parse_expr,
+    parse_expr_list,
+    parse_regs,
+    parse_statement,
 )
 from .function_builder import createFunc
 from .instrset import InstructionSet, PrefixMappingFactory
@@ -77,7 +77,7 @@ _typeTok = r"\s*(" + _namePat + r"&?)\s*"
 _reDotSep = re.compile(r"\s*\.\s*")
 
 
-def _parseRegs(
+def _parse_regs(
     reader: DefLineReader, args: InputLocation, globalNamespace: GlobalNamespace
 ) -> None:
     if args:
@@ -85,7 +85,7 @@ def _parseRegs(
 
     for line in reader.iter_block():
         try:
-            nodes = parseRegs(line)
+            nodes = parse_regs(line)
         except BadInput as ex:
             reader.error("bad register definition line: %s", ex, location=ex.locations)
             continue
@@ -263,7 +263,7 @@ def _parsePrefix(
                     reader.error("prefix encoding cannot be empty", location=encLoc)
                 else:
                     try:
-                        encNodes = parseExprList(encLoc)
+                        encNodes = parse_expr_list(encLoc)
                     except BadInput as ex:
                         reader.error(
                             "bad prefix encoding: %s", ex, location=ex.locations
@@ -458,7 +458,7 @@ def _parseModeContext(
 ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
     placeholderSpecs = {}
     flagsRequired = set()
-    for node in parseContext(ctxLoc):
+    for node in parse_context(ctxLoc):
         match node:
             case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
                 name = decl.name.name
@@ -997,7 +997,7 @@ def _parseModeSemantics(
     semNamespace: LocalNamespace,
     modeType: None | IntType | ReferenceType,
 ) -> Reference | None:
-    semantics = parseExpr(semLoc)
+    semantics = parse_expr(semLoc)
     if isinstance(modeType, ReferenceType):
         ref = buildReference(semantics, semNamespace)
         if ref.type != modeType.type:
@@ -1024,7 +1024,7 @@ def _parseInstrSemantics(
     modeType: None | IntType | ReferenceType = None,
 ) -> None:
     assert modeType is None, modeType
-    node = parseStatement(semLoc)
+    node = parse_statement(semLoc)
     buildStatementEval(reader, "semantics field", namespace, node)
 
 
@@ -1117,7 +1117,7 @@ def _parseModeEntries(
                 if len(encLoc) != 0:
                     try:
                         # Parse encoding field.
-                        encNodes = parseExprList(encLoc)
+                        encNodes = parse_expr_list(encLoc)
                     except BadInput as ex:
                         reader.error("error in encoding: %s", ex, location=ex.locations)
                         encNodes = None
@@ -1427,7 +1427,7 @@ def parseInstrSet(
             args = match.group(2) if match.has_group(2) else header.end_location
             defType = keyword.text
             if defType == "reg":
-                _parseRegs(reader, args, globalNamespace)
+                _parse_regs(reader, args, globalNamespace)
             elif defType == "io":
                 _parseIO(reader, args, globalNamespace)
             elif defType == "prefix":
