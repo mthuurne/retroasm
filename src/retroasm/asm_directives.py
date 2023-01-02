@@ -131,24 +131,15 @@ class StructuredData(Protocol):
         return len(self.encoded)
 
 
+@dataclass(frozen=True, slots=True)
 class OriginDirective:
     """Defines the address that code is expected to execute at."""
 
-    __slots__ = ("_addr",)
-
-    @property
-    def addr(self) -> FixedValueReference:
-        return self._addr
+    addr: FixedValueReference
 
     @classmethod
     def from_int(cls, addr: int, typ: IntType) -> OriginDirective:
         return cls(int_reference(addr, typ))
 
-    def __init__(self, addr: FixedValueReference):
-        self._addr = addr
-
     def __str__(self) -> str:
-        return f"org {self._addr}"
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._addr!r})"
+        return f"org {self.addr}"
