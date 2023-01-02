@@ -235,6 +235,40 @@ class BadInput(Exception):
         self.locations = locations
 
 
+@dataclass(slots=True)
+class ProblemCounter:
+    """Error and warning counts."""
+
+    num_errors: int = 0
+    num_warnings: int = 0
+
+    @property
+    def level(self) -> int:
+        """Logging level corresponding to the problems counted."""
+        if self.num_errors > 0:
+            return ERROR
+        elif self.num_warnings > 0:
+            return WARNING
+        else:
+            return INFO
+
+    def __str__(self) -> str:
+        return (
+            f"{_pluralize(self.num_errors, 'error')} and "
+            f"{_pluralize(self.num_warnings, 'warning')}"
+        )
+
+    def __add__(self, other: ProblemCounter) -> ProblemCounter:
+        return ProblemCounter(
+            self.num_errors + other.num_errors, self.num_warnings + other.num_warnings
+        )
+
+    def __iadd__(self, other: ProblemCounter) -> ProblemCounter:
+        self.num_errors += other.num_errors
+        self.num_warnings += other.num_warnings
+        return self
+
+
 LineReaderT = TypeVar("LineReaderT", bound="LineReader")
 
 
@@ -267,8 +301,7 @@ class LineReader:
 
         self._lastline: str | None = None
         self._lineno = 0
-        self.num_warnings = 0
-        self.num_errors = 0
+        self.problem_counter = ProblemCounter()
 
     def __iter__(self) -> Iterator[InputLocation]:
         return self
@@ -308,12 +341,12 @@ class LineReader:
 
     def warning(self, msg: str, *args: object, **kwargs: object) -> None:
         """Log a message at the WARNING level and increase the warning count."""
-        self.num_warnings += 1
+        self.problem_counter.num_warnings += 1
         self.__log(WARNING, "warning: " + msg, *args, **kwargs)
 
     def error(self, msg: str, *args: object, **kwargs: object) -> None:
         """Log a message at the ERROR level and increase the error count."""
-        self.num_errors += 1
+        self.problem_counter.num_errors += 1
         self.__log(ERROR, "ERROR: " + msg, *args, **kwargs)
 
     @contextmanager
@@ -322,24 +355,16 @@ class LineReader:
         Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.
         """
-        num_errors_before = self.num_errors
+        num_errors_before = self.problem_counter.num_errors
         yield self
-        num_errors = self.num_errors - num_errors_before
+        num_errors = self.problem_counter.num_errors - num_errors_before
         if num_errors != 0:
             raise DelayedError(f"{num_errors:d} errors were logged")
 
     def summarize(self) -> None:
         """Log a message containing the error and warning counts."""
-        level = (
-            ERROR
-            if self.num_errors > 0
-            else (WARNING if self.num_warnings > 0 else INFO)
-        )
-        msg = (
-            f"{_pluralize(self.num_errors, 'error')} and "
-            f"{_pluralize(self.num_warnings, 'warning')}"
-        )
-        self.__log(level, msg, location=None)
+        problem_counter = self.problem_counter
+        self.__log(problem_counter.level, "%s", problem_counter, location=None)
 
     def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
         logger = self.logger

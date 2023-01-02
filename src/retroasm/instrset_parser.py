@@ -1470,7 +1470,7 @@ def parseInstrSet(
         prefixMapping = prefixes.createMapping()
 
         instrSet = None
-        if reader.num_errors == 0:
+        if reader.problem_counter.num_errors == 0:
             try:
                 if encWidth is None:
                     # Since the last instruction with an identical encoding overrides
