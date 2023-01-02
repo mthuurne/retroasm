@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from logging import getLogger
 from pathlib import Path
+from typing import TypeAlias
 
 from .asm_directives import (
     BinaryIncludeDirective,
@@ -14,7 +15,7 @@ from .asm_directives import (
 from .expression import Expression, IntLiteral, truncate
 from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
 from .instrset import InstructionSet
-from .linereader import DelayedError, InputLocation, LineReader
+from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
 from .reference import FixedValueReference
 from .symbol import SymbolValue
 from .tokens import TokenEnum, Tokenizer
@@ -216,16 +217,17 @@ class DummyDirective:
         return "(not implemented yet)"
 
 
-def parse_directive(
-    tokens: AsmTokenizer, instr_set: InstructionSet
-) -> (
+Directive: TypeAlias = (
     DataDirective
     | StringDirective
     | OriginDirective
     | BinaryIncludeDirective
     | SourceIncludeDirective
     | DummyDirective
-):
+)
+
+
+def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directive:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
     name = tokens.eat(AsmToken.word)
@@ -282,7 +284,38 @@ def parse_label(tokens: AsmTokenizer) -> InputLocation | None:
         return None
 
 
-def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
+class AsmSource:
+    """
+    The parsed contents of a single assembly source file.
+
+    The contents may be incomplete if any errors were encountered during parsing.
+    """
+
+    def __init__(self) -> None:
+        self._statements: list[Directive] = []
+        self.problem_counter = ProblemCounter()
+
+    def __iter__(self) -> Iterator[Directive]:
+        return iter(self._statements)
+
+    def add_directive(self, directive: Directive) -> None:
+        self._statements.append(directive)
+
+    def iter_source_includes(self) -> Iterator[Path]:
+        """
+        Iterate through the unresolved paths of source files included by this
+        assembly file.
+
+        As the paths are unresolved, it is possible the files do not exist or
+        that the same file is referenced through different paths.
+        """
+        for statement in self._statements:
+            if isinstance(statement, SourceIncludeDirective):
+                yield statement.path
+
+
+def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
+    source = AsmSource()
     instruction_names = instr_set.instructionNames
 
     for line in reader:
@@ -305,6 +338,7 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
                     reader.error("%s", ex, location=ex.locations)
                 else:
                     reader.info("directive: %s", directive, location=location)
+                    source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end:
@@ -314,9 +348,49 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> None:
                 location=tokens.location,
             )
 
+    return source
 
-def read_source(path: Path, instr_set: InstructionSet) -> None:
-    with LineReader.open(path, logger) as reader:
-        with reader.check_errors():
-            parse_asm(reader, instr_set)
+
+def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
+    """
+    Parse the given source file.
+
+    Errors will be logged and counted; no exceptions will be raised.
+    Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
+    so know whether the source is complete.
+    """
+    try:
+        with LineReader.open(path, logger) as reader:
+            source = parse_asm(reader, instr_set)
+            source.problem_counter += reader.problem_counter
             reader.summarize()
+    except OSError as ex:
+        logger.error("%s: Error reading source: %s", path, ex)
+        source = AsmSource()
+        source.problem_counter.num_errors += 1
+    return source
+
+
+def read_sources(
+    paths: Iterable[Path], instr_set: InstructionSet
+) -> dict[Path, AsmSource]:
+    """
+    Parse the given source files, plus any other source files included by them.
+
+    Errors will be logged and counted; no exceptions will be raised.
+    Inspect the `problem_counter.num_errors` on the returned `AsmSource` objects
+    so know whether the sources are complete.
+
+    Returns a dictionary mapping a resolved path to its parsed contents.
+    """
+    paths_remaining = {path.resolve() for path in paths}
+    paths_done = {}
+    while paths_remaining:
+        source_path = paths_remaining.pop()
+        source = read_source(source_path, instr_set)
+        paths_done[source_path] = source
+        for path in source.iter_source_includes():
+            path = source_path.parent.joinpath(path).resolve()
+            if path not in paths_done:
+                paths_remaining.add(path)
+    return paths_done

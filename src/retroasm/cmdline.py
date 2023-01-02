@@ -25,7 +25,7 @@ from click import (
 
 from .asm_directives import DataDirective, OriginDirective
 from .asm_formatter import Formatter
-from .asm_parser import read_source
+from .asm_parser import read_sources
 from .binfmt import (
     BinaryFormat,
     EntryPoint,
@@ -43,7 +43,7 @@ from .instr import (
     loadInstructionSetByName,
 )
 from .instrset import InstructionSet
-from .linereader import DelayedError, LineReaderFormatter
+from .linereader import LineReaderFormatter, ProblemCounter
 from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredDataSection
 from .types import Unlimited, unlimited
 
@@ -60,8 +60,8 @@ def setupLogging(rootLevel: int) -> Logger:
 
 @command()
 @option("-i", "--instr", required=True, help="Instruction set.")
-@argument("source", type=PathArg(exists=True))
-def asm(instr: str, source: str) -> None:
+@argument("sources", nargs=-1, type=PathArg(exists=True))
+def asm(instr: str, sources: tuple[str, ...]) -> None:
     """Assembler using the RetroAsm toolkit."""
 
     logger = setupLogging(INFO)
@@ -70,13 +70,13 @@ def asm(instr: str, source: str) -> None:
     if instrSet is None:
         get_current_context().exit(1)
 
-    sourcePath = Path(source)
-    try:
-        read_source(sourcePath, instrSet)
-    except OSError as ex:
-        logger.error('Failed to read source "%s": %s', ex.filename, ex.strerror)
-        get_current_context().exit(1)
-    except DelayedError:
+    parsed = read_sources((Path(source) for source in sources), instrSet)
+
+    problems = ProblemCounter()
+    for source in parsed.values():
+        problems += source.problem_counter
+    logger.log(problems.level, "%s in %d source files", problems, len(parsed))
+    if problems.num_errors > 0:
         get_current_context().exit(1)
 
 

@@ -364,7 +364,7 @@ class LineReader:
     def summarize(self) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
-        self.__log(problem_counter.level, "%s", problem_counter, location=None)
+        self.logger.log(problem_counter.level, "%s: %s", self._path, problem_counter)
 
     def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
         logger = self.logger
