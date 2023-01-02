@@ -267,8 +267,8 @@ class LineReader:
 
         self._lastline: str | None = None
         self._lineno = 0
-        self.warnings = 0
-        self.errors = 0
+        self.num_warnings = 0
+        self.num_errors = 0
 
     def __iter__(self) -> Iterator[InputLocation]:
         return self
@@ -308,12 +308,12 @@ class LineReader:
 
     def warning(self, msg: str, *args: object, **kwargs: object) -> None:
         """Log a message at the WARNING level and increase the warning count."""
-        self.warnings += 1
+        self.num_warnings += 1
         self.__log(WARNING, "warning: " + msg, *args, **kwargs)
 
     def error(self, msg: str, *args: object, **kwargs: object) -> None:
         """Log a message at the ERROR level and increase the error count."""
-        self.errors += 1
+        self.num_errors += 1
         self.__log(ERROR, "ERROR: " + msg, *args, **kwargs)
 
     @contextmanager
@@ -322,18 +322,22 @@ class LineReader:
         Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.
         """
-        errors_before = self.errors
+        num_errors_before = self.num_errors
         yield self
-        num_errors = self.errors - errors_before
+        num_errors = self.num_errors - num_errors_before
         if num_errors != 0:
             raise DelayedError(f"{num_errors:d} errors were logged")
 
     def summarize(self) -> None:
         """Log a message containing the error and warning counts."""
-        level = ERROR if self.errors > 0 else (WARNING if self.warnings > 0 else INFO)
+        level = (
+            ERROR
+            if self.num_errors > 0
+            else (WARNING if self.num_warnings > 0 else INFO)
+        )
         msg = (
-            f"{_pluralize(self.errors, 'error')} and "
-            f"{_pluralize(self.warnings, 'warning')}"
+            f"{_pluralize(self.num_errors, 'error')} and "
+            f"{_pluralize(self.num_warnings, 'warning')}"
         )
         self.__log(level, msg, location=None)
 
