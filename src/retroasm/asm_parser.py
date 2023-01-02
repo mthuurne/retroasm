@@ -205,7 +205,7 @@ def parse_data_directive(
             #       width, since it's implied by the directive) or we could store
             #       ASTs (preserves more of the original code when reformatting).
             data.append(FixedValueReference(truncate(value, width), data_type))
-        if tokens.end:
+        if tokens.end or tokens.peek(AsmToken.comment):
             break
         if tokens.eat(AsmToken.symbol, ",") is None:
             raise ParseError.with_text("unexpected token after value", tokens.location)
