@@ -333,10 +333,14 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
 
         # Look for a label.
         location = tokens.location
-        label = parse_label(tokens)
-        if label is not None:
-            reader.info("label: %s", label, location=location)
-            source.add_directive(label)
+        try:
+            label = parse_label(tokens)
+        except ParseError as ex:
+            reader.error("error parsing label: %s", ex, location=ex.locations)
+        else:
+            if label is not None:
+                reader.info("label: %s", label, location=location)
+                source.add_directive(label)
 
         # Look for a directive or instruction.
         if tokens.peek(AsmToken.word):
