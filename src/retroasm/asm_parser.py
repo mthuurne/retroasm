@@ -35,6 +35,22 @@ class AsmToken(TokenEnum):
 
 
 class AsmTokenizer(Tokenizer[AsmToken]):
+    @property
+    def end_of_statement(self) -> bool:
+        """
+        Has the end of the statement been reached?
+
+        A statement ends at end-of-line or at a comment.
+        """
+        return self.end or self.kind is AsmToken.comment
+
+    def eat_remainder(self) -> None:
+        """
+        Consume and discard all tokens until end-of-statement has been reached.
+        """
+        while not self.end_of_statement:
+            self._advance()
+
     def eat_string(self) -> InputLocation | None:
         """
         Consume a string token and return the quoted value,
@@ -150,8 +166,10 @@ def parse_value(tokens: AsmTokenizer) -> Expression:
         raise ParseError("missing value", tokens.location)
     else:
         # TODO: Implement.
+        location = tokens.location
+        tokens.eat_remainder()
         raise ParseError.with_text(
-            "unexpected token; expression parsing not implemented yet", tokens.location
+            "unexpected token; expression parsing not implemented yet", location
         )
 
 
@@ -206,7 +224,7 @@ def parse_data_directive(
             #       width, since it's implied by the directive) or we could store
             #       ASTs (preserves more of the original code when reformatting).
             data.append(FixedValueReference(truncate(value, width), data_type))
-        if tokens.end or tokens.peek(AsmToken.comment):
+        if tokens.end_of_statement:
             break
         if tokens.eat(AsmToken.symbol, ",") is None:
             raise ParseError.with_text("unexpected token after value", tokens.location)
