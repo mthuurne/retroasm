@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from .expression import Expression
 from .reference import FixedValueReference, int_reference, symbol_reference
 from .types import IntType, Width
 
@@ -143,3 +144,14 @@ class OriginDirective:
 
     def __str__(self) -> str:
         return f"org {self.addr}"
+
+
+@dataclass(frozen=True, slots=True)
+class LabelDirective:
+    """Defines a label."""
+
+    name: str
+    value: Expression
+
+    def __str__(self) -> str:
+        return f"{self.name}: equ {self.value}"

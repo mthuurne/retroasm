@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .expression import Expression
 from .types import Width, mask_for_width
+from .utils import Singleton
 
 
 class SymbolValue(Expression):
@@ -51,6 +52,33 @@ class SymbolValue(Expression):
 
     def __str__(self) -> str:
         return self._name
+
+    @property
+    def complexity(self) -> int:
+        return 1
+
+
+class CurrentAddress(Expression, metaclass=Singleton):
+    """
+    A placeholder for the current program counter value at a certain location in
+    the program.
+    """
+
+    __slots__ = ()
+
+    @property
+    def mask(self) -> int:
+        return -1
+
+    def _ctorargs(self) -> tuple[()]:
+        return ()
+
+    def _equals(self, other: CurrentAddress) -> bool:
+        # Depending on the location in the program, the value will differ.
+        return False
+
+    def __str__(self) -> str:
+        return "$"
 
     @property
     def complexity(self) -> int:

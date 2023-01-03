@@ -8,6 +8,7 @@ from typing import TypeAlias
 from .asm_directives import (
     BinaryIncludeDirective,
     DataDirective,
+    LabelDirective,
     OriginDirective,
     SourceIncludeDirective,
     StringDirective,
@@ -17,7 +18,7 @@ from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigit
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
 from .reference import FixedValueReference
-from .symbol import SymbolValue
+from .symbol import CurrentAddress, SymbolValue
 from .tokens import TokenEnum, Tokenizer
 from .types import IntType, unlimited
 from .utils import bad_type
@@ -221,6 +222,7 @@ Directive: TypeAlias = (
     DataDirective
     | StringDirective
     | OriginDirective
+    | LabelDirective
     | BinaryIncludeDirective
     | SourceIncludeDirective
     | DummyDirective
@@ -265,21 +267,29 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
         )
 
 
-def parse_label(tokens: AsmTokenizer) -> InputLocation | None:
+def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
     """Consume and return a label if one is defined at the start of this line."""
     lookahead = tokens.copy()
-    label = lookahead.eat(AsmToken.word)
-    if label is None:
+    name = lookahead.eat(AsmToken.word)
+    if name is None:
         return None
     elif lookahead.peek(AsmToken.symbol, ":"):
-        # Explicit label declaration.
         tokens.eat(AsmToken.word)
         tokens.eat(AsmToken.symbol)
-        return label
-    elif lookahead.peek(AsmToken.word) and tokens.value.lower() == "equ":
-        # EQU directive.
+        if tokens.peek(AsmToken.word) and tokens.value.casefold() == "equ":
+            # EQU directive with colon.
+            tokens.eat(AsmToken.word)
+            value = parse_value(tokens)
+        else:
+            # Label for current address.
+            value = CurrentAddress()
+        return LabelDirective(name.text, value)
+    elif lookahead.peek(AsmToken.word) and lookahead.value.casefold() == "equ":
+        # EQU directive without colon.
         tokens.eat(AsmToken.word)
-        return label
+        tokens.eat(AsmToken.word)
+        value = parse_value(tokens)
+        return LabelDirective(name.text, value)
     else:
         return None
 
@@ -322,9 +332,11 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
         tokens = AsmTokenizer.scan(line)
 
         # Look for a label.
+        location = tokens.location
         label = parse_label(tokens)
         if label is not None:
-            reader.info("label: %s", label.text, location=label)
+            reader.info("label: %s", label, location=location)
+            source.add_directive(label)
 
         # Look for a directive or instruction.
         if tokens.peek(AsmToken.word):
