@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .expression import Expression
+from .expression import Expression, IntLiteral
 from .reference import FixedValueReference, int_reference, symbol_reference
 from .types import IntType, Width
 
@@ -93,6 +93,17 @@ class StringDirective:
     def __repr__(self) -> str:
         args_str = ", ".join(repr(item) for item in self._data)
         return f"{self.__class__.__name__}({args_str})"
+
+
+@dataclass(frozen=True, slots=True)
+class SpaceDirective:
+    """Data directive that fills an area with a single byte value."""
+
+    size: Expression
+    value: Expression = IntLiteral(0)
+
+    def __str__(self) -> str:
+        return f"defs {self.size},{self.value}"
 
 
 @dataclass(frozen=True, slots=True)

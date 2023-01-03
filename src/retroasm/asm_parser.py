@@ -11,6 +11,7 @@ from .asm_directives import (
     LabelDirective,
     OriginDirective,
     SourceIncludeDirective,
+    SpaceDirective,
     StringDirective,
 )
 from .expression import Expression, IntLiteral, truncate
@@ -231,6 +232,15 @@ def parse_data_directive(
     return data_class(*data)  # type: ignore[arg-type]
 
 
+def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
+    size = parse_value(tokens)
+    if tokens.eat(AsmToken.symbol, ",") is None:
+        return SpaceDirective(size)
+    else:
+        value = parse_value(tokens)
+        return SpaceDirective(size, value)
+
+
 class DummyDirective:
     def __str__(self) -> str:
         return "(not implemented yet)"
@@ -239,6 +249,7 @@ class DummyDirective:
 Directive: TypeAlias = (
     DataDirective
     | StringDirective
+    | SpaceDirective
     | OriginDirective
     | LabelDirective
     | BinaryIncludeDirective
@@ -259,6 +270,8 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
         return parse_data_directive(tokens, IntType.u(width), width == 8)
     elif keyword == "addr":
         return parse_data_directive(tokens, instr_set.addrType)
+    elif keyword in ("ds", "defs"):
+        return parse_space_directive(tokens)
     elif keyword == "incbin":
         if (location := tokens.eat_string()) is not None:
             return BinaryIncludeDirective(Path(location.text))
