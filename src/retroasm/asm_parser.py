@@ -30,11 +30,17 @@ logger = getLogger("parse-asm")
 
 
 class AsmToken(TokenEnum):
-    number = r"\$\w+|%\w+|\d\w*|0[xXbB]\w+"
-    word = r"[\w.]+"
+    # In theory there could be confusion whether a '%' character is a binary prefix
+    # or the modulo operator, but as 'modulo 0' is undefined and 'modulo 1' is
+    # useless, we can assume that '%0' and '%1' are always the start of a number.
+    number = r"\$\w+|%[01]+|\d\w*|0[xXbB]\w+"
+    word = r"[\w.]+|\$"
     string = r'"[^"]*"|\'[^\']*\''
+    operator = r"<<|>>|!=|<=|>=|&&|\|\||[<>=&|\^+\-*/%~!]"
+    bracket = r"[\[\]()]"
+    separator = r"[:,]"
     comment = r";.*$"
-    symbol = r"."
+    other = r"."
 
 
 class AsmTokenizer(Tokenizer[AsmToken]):
@@ -114,9 +120,6 @@ def parse_instruction(
     for kind, location in tokens:
         if kind is AsmToken.word:
             yield IdentifierNode(location, location.text)
-        elif kind is AsmToken.symbol:
-            # TODO: Treating symbols as identifiers is weird, but it works for now.
-            yield IdentifierNode(location, location.text)
         elif kind is AsmToken.number:
             try:
                 yield parse_number(location)
@@ -141,7 +144,8 @@ def parse_instruction(
         elif kind is AsmToken.comment:
             pass
         else:
-            assert False, kind
+            # TODO: Treating symbols etc. as identifiers is weird, but it works for now.
+            yield IdentifierNode(location, location.text)
 
 
 def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
@@ -231,14 +235,14 @@ def parse_data_directive(
             data.append(FixedValueReference(truncate(value, width), data_type))
         if tokens.end_of_statement:
             break
-        if tokens.eat(AsmToken.symbol, ",") is None:
+        if tokens.eat(AsmToken.separator, ",") is None:
             raise ParseError.with_text("unexpected token after value", tokens.location)
     return data_class(*data)  # type: ignore[arg-type]
 
 
 def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
     size = parse_value(tokens)
-    if tokens.eat(AsmToken.symbol, ",") is None:
+    if tokens.eat(AsmToken.separator, ",") is None:
         return SpaceDirective(size)
     else:
         value = parse_value(tokens)
@@ -318,9 +322,9 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
     name = lookahead.eat(AsmToken.word)
     if name is None:
         return None
-    elif lookahead.peek(AsmToken.symbol, ":"):
+    elif lookahead.peek(AsmToken.separator, ":"):
         tokens.eat(AsmToken.word)
-        tokens.eat(AsmToken.symbol)
+        tokens.eat(AsmToken.separator)
         if tokens.peek(AsmToken.word) and tokens.value.casefold() == "equ":
             # EQU directive with colon.
             tokens.eat(AsmToken.word)
