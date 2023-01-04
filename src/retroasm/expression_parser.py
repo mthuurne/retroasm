@@ -61,10 +61,10 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
 
     def bad_token_kind(where: str, expected: str) -> ParseError:
         if tokens.end:
-            gotDesc = "end of input"
+            got_desc = "end of input"
         else:
-            gotDesc = f'{tokens.kind.name} "{tokens.value}"'
-        msg = f"bad {where} expression: expected {expected}, got {gotDesc}"
+            got_desc = f'{tokens.kind.name} "{tokens.value}"'
+        msg = f"bad {where} expression: expected {expected}, got {got_desc}"
         return ParseError(msg, tokens.location)
 
     def parse_statement_top() -> ParseNode:
@@ -201,38 +201,38 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
     def parse_indexed() -> ParseNode:
         expr = parse_group()
         while True:
-            openLocation = tokens.eat(ExprToken.bracket, "[")
-            if openLocation is None:
+            open_location = tokens.eat(ExprToken.bracket, "[")
+            if open_location is None:
                 return expr
 
             start: ParseNode | None
-            sepLocation = tokens.eat(ExprToken.separator, ":")
-            if sepLocation is None:
+            sep_location = tokens.eat(ExprToken.separator, ":")
+            if sep_location is None:
                 start = parse_expr_top()
-                sepLocation = tokens.eat(ExprToken.separator, ":")
+                sep_location = tokens.eat(ExprToken.separator, ":")
             else:
                 start = None
 
             end: ParseNode | None
-            closeLocation = tokens.eat(ExprToken.bracket, "]")
-            if sepLocation is None:
-                if closeLocation is None:
+            close_location = tokens.eat(ExprToken.bracket, "]")
+            if sep_location is None:
+                if close_location is None:
                     raise bad_token_kind("slice/lookup", '":" or "]"')
                 expr = OperatorNode(
-                    merge_span(openLocation, closeLocation),
+                    merge_span(open_location, close_location),
                     Operator.lookup,
                     (expr, start),
                 )
             else:
-                if closeLocation is None:
+                if close_location is None:
                     end = parse_expr_top()
-                    closeLocation = tokens.eat(ExprToken.bracket, "]")
-                    if closeLocation is None:
+                    close_location = tokens.eat(ExprToken.bracket, "]")
+                    if close_location is None:
                         raise bad_token_kind("slice", '"]"')
                 else:
                     end = None
                 expr = OperatorNode(
-                    merge_span(openLocation, closeLocation),
+                    merge_span(open_location, close_location),
                     Operator.slice,
                     (expr, start, end),
                 )
@@ -252,51 +252,51 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         if tokens.peek(ExprToken.identifier):
             ident = parse_ident()
             if isinstance(ident, IdentifierNode) and ident.name == "ret":
-                if (defLocation := tokens.eat(ExprToken.definition)) is not None:
-                    declNode = DeclarationNode(
+                if (def_location := tokens.eat(ExprToken.definition)) is not None:
+                    decl_node = DeclarationNode(
                         ident.location, DeclarationKind.reference, None, ident
                     )
-                    return DefinitionNode(defLocation, declNode, parse_expr_top())
+                    return DefinitionNode(def_location, decl_node, parse_expr_top())
             return ident
 
         if tokens.peek(ExprToken.number):
             return parse_number()
 
-        if (multimatchLocation := tokens.eat(ExprToken.multimatch)) is not None:
-            value = multimatchLocation.text
-            assert value[-1] == "@", multimatchLocation
-            return MultiMatchNode(multimatchLocation, value[:-1])
+        if (multimatch_location := tokens.eat(ExprToken.multimatch)) is not None:
+            value = multimatch_location.text
+            assert value[-1] == "@", multimatch_location
+            return MultiMatchNode(multimatch_location, value[:-1])
 
         raise bad_token_kind("innermost", "identifier, number or function call")
 
     def parse_definition() -> DefDeclNode:
         # Keyword.
-        keywordLocation = tokens.eat(ExprToken.keyword)
-        assert keywordLocation is not None, tokens.location
+        keyword_location = tokens.eat(ExprToken.keyword)
+        assert keyword_location is not None, tokens.location
 
         # Declaration.
-        declNode = parse_decl(keywordLocation.text, keywordLocation)
+        decl_node = parse_decl(keyword_location.text, keyword_location)
 
         # Value.
-        defLocation = tokens.eat(ExprToken.definition)
-        if declNode.kind is DeclarationKind.variable:
-            if defLocation is not None:
+        def_location = tokens.eat(ExprToken.definition)
+        if decl_node.kind is DeclarationKind.variable:
+            if def_location is not None:
                 raise ParseError(
                     "variables can only get values through assignment "
                     '(use ":=" instead of "=")',
-                    defLocation,
+                    def_location,
                 )
-            return declNode
+            return decl_node
         else:
-            if defLocation is None:
-                raise bad_token_kind(f"{declNode.kind.name} value", '"="')
-            return DefinitionNode(defLocation, declNode, parse_expr_top())
+            if def_location is None:
+                raise bad_token_kind(f"{decl_node.kind.name} value", '"="')
+            return DefinitionNode(def_location, decl_node, parse_expr_top())
 
     def parse_regs_top() -> Iterable[DefDeclNode]:
         defs: list[DefDeclNode] = []
-        typeNode: IdentifierNode | None = None
+        type_node: IdentifierNode | None = None
         while True:
-            startLocation = tokens.location
+            start_location = tokens.location
 
             # Parse type (optional) or name.
             # If type declaration is omitted, the previous type is re-used.
@@ -304,51 +304,51 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if location is None:
                 raise bad_token_kind(
                     "register definition",
-                    "type name" if typeNode is None else "type or register name",
+                    "type name" if type_node is None else "type or register name",
                 )
 
             # Merge reference indicator '&' into type.
             if tokens.location.span[0] == location.span[1]:
-                ampLocation = tokens.eat(ExprToken.operator, "&")
-                if ampLocation is not None:
-                    location = merge_span(location, ampLocation)
+                amp_location = tokens.eat(ExprToken.operator, "&")
+                if amp_location is not None:
+                    location = merge_span(location, amp_location)
 
-            nameLocation = tokens.eat(ExprToken.identifier)
-            if nameLocation is None:
+            name_location = tokens.eat(ExprToken.identifier)
+            if name_location is None:
                 # No second identifier; assume omitted type declaration.
-                nameLocation = location
-                if typeNode is None:
+                name_location = location
+                if type_node is None:
                     raise bad_token_kind("register definition", "type name")
-                if nameLocation.text.endswith("&"):
+                if name_location.text.endswith("&"):
                     raise bad_token_kind("register definition", "register name")
             else:
                 # Second identifier; first identifier is a type declaration.
-                typeNode = IdentifierNode(location, location.text)
+                type_node = IdentifierNode(location, location.text)
 
-            nameNode = IdentifierNode(nameLocation, nameLocation.text)
+            name_node = IdentifierNode(name_location, name_location.text)
 
             # Complete the declaration node.
             if tokens.peek(ExprToken.definition):
-                if typeNode.name.endswith("&"):
+                if type_node.name.endswith("&"):
                     kind = DeclarationKind.reference
                 else:
                     kind = DeclarationKind.constant
             else:
                 kind = DeclarationKind.variable
-            declNode = DeclarationNode(startLocation, kind, typeNode, nameNode)
+            decl_node = DeclarationNode(start_location, kind, type_node, name_node)
 
             # Finish definition.
-            defLocation = tokens.eat(ExprToken.definition)
+            def_location = tokens.eat(ExprToken.definition)
             defs.append(
-                declNode
-                if defLocation is None
-                else DefinitionNode(defLocation, declNode, parse_expr_top())
+                decl_node
+                if def_location is None
+                else DefinitionNode(def_location, decl_node, parse_expr_top())
             )
 
             if tokens.eat(ExprToken.separator, ",") is None:
                 return defs
 
-    def parse_decl(keyword: str, startLocation: InputLocation) -> DeclarationNode:
+    def parse_decl(keyword: str, start_location: InputLocation) -> DeclarationNode:
         kind = {
             "ctx": DeclarationKind.constant,
             "def": DeclarationKind.constant,
@@ -356,36 +356,36 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         }[keyword]
 
         # Type.
-        typeLocation = tokens.eat(ExprToken.identifier)
-        if typeLocation is None:
-            kindDesc = {
+        type_location = tokens.eat(ExprToken.identifier)
+        if type_location is None:
+            kind_desc = {
                 "ctx": "context",
                 "def": "constant/reference",
                 "var": "variable",
             }[keyword]
-            raise bad_token_kind(f"{kindDesc} definition", "type name")
+            raise bad_token_kind(f"{kind_desc} definition", "type name")
 
         # Merge reference indicator '&' into type.
-        if tokens.location.span[0] == typeLocation.span[1]:
-            ampLocation = tokens.eat(ExprToken.operator, "&")
-            if ampLocation is not None:
-                typeLocation = merge_span(typeLocation, ampLocation)
+        if tokens.location.span[0] == type_location.span[1]:
+            amp_location = tokens.eat(ExprToken.operator, "&")
+            if amp_location is not None:
+                type_location = merge_span(type_location, amp_location)
                 if kind is DeclarationKind.variable:
                     raise ParseError(
                         'references can only be defined using the "def" keyword',
-                        merge_span(startLocation, ampLocation),
+                        merge_span(start_location, amp_location),
                     )
                 kind = DeclarationKind.reference
 
-        typeNode = IdentifierNode(typeLocation, typeLocation.text)
+        type_node = IdentifierNode(type_location, type_location.text)
 
         # Name.
-        nameLocation = tokens.eat(ExprToken.identifier)
-        if nameLocation is None:
+        name_location = tokens.eat(ExprToken.identifier)
+        if name_location is None:
             raise bad_token_kind(f"{kind.name} definition", f"{kind.name} name")
-        nameNode = IdentifierNode(nameLocation, nameLocation.text)
+        name_node = IdentifierNode(name_location, name_location.text)
 
-        return DeclarationNode(startLocation, kind, typeNode, nameNode)
+        return DeclarationNode(start_location, kind, type_node, name_node)
 
     def parse_ident() -> IdentifierNode | OperatorNode:
         location = tokens.eat(ExprToken.identifier)
@@ -398,19 +398,19 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             return identifier
 
     def parse_function_call(name: IdentifierNode) -> OperatorNode:
-        openLocation = tokens.eat(ExprToken.bracket, "(")
-        assert openLocation is not None, tokens.location
+        open_location = tokens.eat(ExprToken.bracket, "(")
+        assert open_location is not None, tokens.location
 
         exprs: list[ParseNode] = [name]
-        closeLocation = tokens.eat(ExprToken.bracket, ")")
-        while closeLocation is None:
+        close_location = tokens.eat(ExprToken.bracket, ")")
+        while close_location is None:
             exprs.append(parse_expr_top())
-            closeLocation = tokens.eat(ExprToken.bracket, ")")
-            if closeLocation is None:
+            close_location = tokens.eat(ExprToken.bracket, ")")
+            if close_location is None:
                 if tokens.eat(ExprToken.separator, ",") is None:
                     raise bad_token_kind("function call arguments", '"," or ")"')
 
-        location = merge_span(openLocation, closeLocation)
+        location = merge_span(open_location, close_location)
         return OperatorNode(location, Operator.call, tuple(exprs))
 
     def parse_number() -> NumberNode:
