@@ -117,35 +117,38 @@ def create_match_sequence(
 def parse_instruction(
     tokens: AsmTokenizer, reader: LineReader
 ) -> Iterator[IdentifierNode | NumberNode]:
-    for kind, location in tokens:
-        if kind is AsmToken.word:
-            yield IdentifierNode(location, location.text)
-        elif kind is AsmToken.number:
-            try:
-                yield parse_number(location)
-            except ValueError as ex:
-                reader.error("%s", ex, location=location)
-        elif kind is AsmToken.string:
-            # Arbitrary strings are not allowed as instruction
-            # operands, but single characters should be replaced
-            # by their character numbers.
-            value = location.text
-            assert len(value) >= 2, value
-            assert value[0] == value[-1], value
-            if len(value) == 2:
-                reader.error("empty string in instruction operand", location=location)
-            elif len(value) == 3:
-                yield NumberNode(location, ord(value[1]), 8)
-            else:
-                reader.error(
-                    "multi-character string in instruction operand",
-                    location=location,
-                )
-        elif kind is AsmToken.comment:
-            pass
-        else:
-            # TODO: Treating symbols etc. as identifiers is weird, but it works for now.
-            yield IdentifierNode(location, location.text)
+    while not tokens.end_of_statement:
+        kind, location = next(tokens)
+        match kind:
+            case AsmToken.word:
+                yield IdentifierNode(location, location.text)
+            case AsmToken.number:
+                try:
+                    yield parse_number(location)
+                except ValueError as ex:
+                    reader.error("%s", ex, location=location)
+            case AsmToken.string:
+                # Arbitrary strings are not allowed as instruction
+                # operands, but single characters should be replaced
+                # by their character numbers.
+                value = location.text
+                assert len(value) >= 2, value
+                assert value[0] == value[-1], value
+                if len(value) == 2:
+                    reader.error(
+                        "empty string in instruction operand", location=location
+                    )
+                elif len(value) == 3:
+                    yield NumberNode(location, ord(value[1]), 8)
+                else:
+                    reader.error(
+                        "multi-character string in instruction operand",
+                        location=location,
+                    )
+            case _:
+                # TODO: Treating symbols etc. as identifiers is weird,
+                #       but it works for now.
+                yield IdentifierNode(location, location.text)
 
 
 def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
