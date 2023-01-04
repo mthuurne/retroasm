@@ -144,6 +144,29 @@ class StructuredData(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class ConditionalDirective:
+    """
+    Marks the start of a block of statements that may or may not be assembled
+    depending on a condition.
+    """
+
+    cond: Expression
+    """
+    Condition that must evaluate to true (non-zero) for the following block
+    to be assembled.
+    """
+
+    chain: bool
+    """
+    Is this a follow-up condition (ELSEIF/ELSE) in a chain?
+    """
+
+
+class ConditionalEnd:
+    """Marks the end of a conditional block."""
+
+
+@dataclass(frozen=True, slots=True)
 class OriginDirective:
     """Defines the address that code is expected to execute at."""
 

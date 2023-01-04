@@ -7,6 +7,8 @@ from typing import TypeAlias
 
 from .asm_directives import (
     BinaryIncludeDirective,
+    ConditionalDirective,
+    ConditionalEnd,
     DataDirective,
     LabelDirective,
     OriginDirective,
@@ -256,6 +258,8 @@ Directive: TypeAlias = (
     | LabelDirective
     | BinaryIncludeDirective
     | SourceIncludeDirective
+    | ConditionalDirective
+    | ConditionalEnd
     | DummyDirective
 )
 
@@ -284,6 +288,14 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
             return SourceIncludeDirective(Path(location.text))
         else:
             raise ParseError.with_text("expected file path", tokens.location)
+    elif keyword == "if":
+        return ConditionalDirective(parse_value(tokens), False)
+    elif keyword == "elseif":
+        return ConditionalDirective(parse_value(tokens), True)
+    elif keyword == "else":
+        return ConditionalDirective(IntLiteral(1), True)
+    elif keyword == "endif":
+        return ConditionalEnd()
     elif keyword == "org":
         addr = parse_value(tokens)
         if tokens.end:
