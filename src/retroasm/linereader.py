@@ -74,6 +74,23 @@ class InputLocation:
         """
         return InputLocation(self.path, self.lineno, self.line, span)
 
+    @staticmethod
+    def merge_span(
+        from_location: InputLocation, to_location: InputLocation
+    ) -> InputLocation:
+        """
+        Returns a new location of which the span starts at the start of the
+        given 'from' location and ends at the end of the given 'to' location.
+        Both given locations must be on the same line.
+        """
+        merged_span = (from_location.span[0], to_location.span[1])
+        merged_location = from_location.update_span(merged_span)
+        assert merged_location == to_location.update_span(merged_span), (
+            from_location,
+            to_location,
+        )
+        return merged_location
+
     @property
     def end_location(self) -> InputLocation:
         """A zero-length location marking the end point of this location."""
@@ -181,23 +198,6 @@ class InputMatch:
         was nameless or no groups were matched.
         """
         return self._match.lastgroup
-
-
-def merge_span(
-    from_location: InputLocation, to_location: InputLocation
-) -> InputLocation:
-    """
-    Returns a new location of which the span starts at the start of the
-    given 'from' location and ends at the end of the given 'to' location.
-    Both given locations must be on the same line.
-    """
-    merged_span = (from_location.span[0], to_location.span[1])
-    merged_location = from_location.update_span(merged_span)
-    assert merged_location == to_location.update_span(merged_span), (
-        from_location,
-        to_location,
-    )
-    return merged_location
 
 
 class DelayedError(Exception):

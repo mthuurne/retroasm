@@ -43,7 +43,7 @@ from .expression_parser import (
 )
 from .function_builder import createFunc
 from .instrset import InstructionSet, PrefixMappingFactory
-from .linereader import BadInput, DefLineReader, DelayedError, InputLocation, merge_span
+from .linereader import BadInput, DefLineReader, DelayedError, InputLocation
 from .mode import (
     CodeTemplate,
     ComputedPlaceholder,
@@ -474,7 +474,7 @@ def _parseModeContext(
                     if isinstance(node, DefinitionNode):
                         reader.error(
                             "filter values for mode placeholders are not supported yet",
-                            location=merge_span(
+                            location=InputLocation.merge_span(
                                 node.location, node.value.tree_location
                             ),
                         )
