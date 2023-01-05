@@ -10,11 +10,11 @@ from .types import Width, unlimited
 
 @dataclass(frozen=True, slots=True)
 class ParseNode:
-    location: InputLocation
+    location: InputLocation | None
     """Location information for this node itself."""
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         """Location information for the tree rooted at this node."""
         return self.location
 
@@ -43,7 +43,7 @@ class BranchNode(ParseNode):
     target: LabelNode
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.location, self.target.tree_location)
 
 
@@ -53,7 +53,7 @@ class AssignmentNode(ParseNode):
     rhs: ParseNode
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.lhs.tree_location, self.rhs.tree_location)
 
     def __iter__(self) -> Iterator[ParseNode]:
@@ -91,7 +91,7 @@ class OperatorNode(ParseNode):
     operands: tuple[ParseNode | None, ...]
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
             self.location,
             *(
@@ -131,7 +131,7 @@ class DeclarationNode(ParseNode):
     name: IdentifierNode
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.location, self.name.tree_location)
 
 
@@ -141,7 +141,7 @@ class DefinitionNode(ParseNode):
     value: ParseNode
 
     @property
-    def tree_location(self) -> InputLocation:
+    def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
             self.decl.tree_location, self.value.tree_location
         )

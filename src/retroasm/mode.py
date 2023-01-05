@@ -35,7 +35,7 @@ class EncodingExpr:
         return self._bits
 
     @property
-    def location(self) -> InputLocation:
+    def location(self) -> InputLocation | None:
         return self._location
 
     @property
@@ -54,7 +54,7 @@ class EncodingExpr:
     def encodedLength(self) -> int:
         return 1
 
-    def __init__(self, bits: BitString, location: InputLocation):
+    def __init__(self, bits: BitString, location: InputLocation | None):
         self._bits = bits
         self._location = location
 
@@ -126,7 +126,7 @@ class EncodingMultiMatch:
         return self._start
 
     @property
-    def location(self) -> InputLocation:
+    def location(self) -> InputLocation | None:
         return self._location
 
     @property
@@ -140,7 +140,9 @@ class EncodingMultiMatch:
     def auxEncodingWidth(self) -> Width | None:
         return self._mode.auxEncodingWidth
 
-    def __init__(self, name: str, mode: Mode, start: int, location: InputLocation):
+    def __init__(
+        self, name: str, mode: Mode, start: int, location: InputLocation | None
+    ):
         self._name = name
         self._mode = mode
         self._start = start
@@ -329,7 +331,7 @@ class Encoding:
         return None if len(items) == 0 else items[0].encodingWidth
 
     @property
-    def encodingLocation(self) -> InputLocation:
+    def encodingLocation(self) -> InputLocation | None:
         """The InputLocation of the first item in this encoding definition."""
         items = self._items
         return self._location if len(items) == 0 else items[0].location
@@ -353,7 +355,7 @@ class Encoding:
             return self._items[1].encodingWidth
 
     @property
-    def auxEncodingLocation(self) -> InputLocation:
+    def auxEncodingLocation(self) -> InputLocation | None:
         """
         The InputLocation of the auxiliary encoding items in this mode
         entry. If there are no auxiliary encoding items, the end of the
@@ -363,7 +365,7 @@ class Encoding:
         firstAuxIndex = self._firstAuxIndex
         if firstAuxIndex is None:
             location = self._location if len(items) == 0 else items[0].location
-            return location.end_location
+            return None if location is None else location.end_location
         else:
             return InputLocation.merge_span(
                 items[firstAuxIndex].location, items[-1].location

@@ -75,7 +75,7 @@ class UnknownNameError(BadExpression):
     in any of its surrounding namespaces.
     """
 
-    def __init__(self, name: str, msg: str, location: InputLocation):
+    def __init__(self, name: str, msg: str, location: InputLocation | None):
         BadExpression.__init__(self, msg, location)
         self.name = name
 

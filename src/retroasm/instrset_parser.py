@@ -806,7 +806,7 @@ def _checkAuxEncodingWidth(
     first_aux_width: Width | None = None
     first_aux_location: InputLocation | None = None
 
-    def checkAux(width: Width | None, location: InputLocation) -> None:
+    def checkAux(width: Width | None, location: InputLocation | None) -> None:
         nonlocal first_aux_width, first_aux_location
         if first_aux_width is None:
             first_aux_width = width
@@ -855,7 +855,7 @@ def _checkDuplicateMultiMatches(
     Checks whether more than one multi-matcher exists for the same
     placeholder. If they exist, they are reported as errors on the given logger.
     """
-    claimedMultiMatches: dict[str, InputLocation] = {}
+    claimedMultiMatches: dict[str, InputLocation | None] = {}
     for encItem in encItems:
         match encItem:
             case EncodingMultiMatch(name=name, location=location):

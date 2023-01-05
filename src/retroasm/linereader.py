@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from importlib.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from re import Match, Pattern
-from typing import IO, Any, TypeVar, cast
+from typing import IO, Any, TypeVar, cast, overload
 import re
 
 
@@ -74,8 +74,18 @@ class InputLocation:
         """
         return InputLocation(self.path, self.lineno, self.line, span)
 
+    @overload
     @staticmethod
     def merge_span(*locations: InputLocation) -> InputLocation:
+        ...
+
+    @overload
+    @staticmethod
+    def merge_span(*locations: InputLocation | None) -> InputLocation | None:
+        ...
+
+    @staticmethod
+    def merge_span(*locations: InputLocation | None) -> InputLocation | None:
         """
         Return a new location with a minimal span that includes all of the given
         locations.
@@ -83,6 +93,8 @@ class InputLocation:
         """
         base_location: InputLocation | None = None
         for location in locations:
+            if location is None:
+                continue
             if base_location is None:
                 base_location = location
                 merged_start, merged_end = base_location.span
@@ -93,8 +105,9 @@ class InputLocation:
                 merged_start = min(merged_start, start)
                 merged_end = max(merged_end, end)
         if base_location is None:
-            raise ValueError("Cannot merge 0 locations")
-        return base_location.update_span((merged_start, merged_end))
+            return None
+        else:
+            return base_location.update_span((merged_start, merged_end))
 
     @property
     def end_location(self) -> InputLocation:
@@ -221,23 +234,25 @@ class BadInput(Exception):
     """
     An exception which contains information about the part of the input
     file which is considered to violate a rule.
-    The 'location' attribute contains an InputLocation object describing
-    the location in the input file that triggered the exception, or None if
-    this information is not available.
+    The `locations` attribute can contain `InputLocation` objects describing
+    the location(s) in the input file that triggered the exception.
     """
 
     @classmethod
-    def with_text(cls, msg: str, location: InputLocation) -> BadInput:
+    def with_text(cls, msg: str, location: InputLocation | None) -> BadInput:
         """
         Returns an instance of the BadInput (sub)class it is called on,
         with the input text in the location's span appended after the error
         message.
         """
-        return cls(f"{msg}: {location.text}", location)
+        if location is None:
+            return cls(msg)
+        else:
+            return cls(f"{msg}: {location.text}", location)
 
-    def __init__(self, msg: str, *locations: InputLocation):
+    def __init__(self, msg: str, *locations: InputLocation | None):
         Exception.__init__(self, msg)
-        self.locations = locations
+        self.locations = tuple(loc for loc in locations if loc is not None)
 
 
 @dataclass(slots=True)
