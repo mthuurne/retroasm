@@ -92,18 +92,14 @@ class OperatorNode(ParseNode):
 
     @property
     def tree_location(self) -> InputLocation:
-        location = self.location
-        base_location = location.update_span((0, 0))
-        tree_start, tree_end = location.span
-        for operand in self.operands:
-            if operand is None:
-                continue
-            location = operand.tree_location
-            assert location.update_span((0, 0)) == base_location
-            start, end = location.span
-            tree_start = min(tree_start, start)
-            tree_end = max(tree_end, end)
-        return base_location.update_span((tree_start, tree_end))
+        return InputLocation.merge_span(
+            self.location,
+            *(
+                operand.tree_location
+                for operand in self.operands
+                if operand is not None
+            ),
+        )
 
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
