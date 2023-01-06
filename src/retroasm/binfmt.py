@@ -9,7 +9,6 @@ from typing import Any, ClassVar, Protocol, TypeVar, overload
 
 from .asm_directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
-from .types import IntType
 from .utils import const_property
 
 logger = getLogger("binfmt")
@@ -249,11 +248,11 @@ class MSXROMHeader(StructuredData):
             value: int = getattr(self, name)
             if value == 0:
                 # TODO: Add comment with the entry point name.
-                yield DataDirective.u16(0)
+                yield DataDirective.literal(16, 0)
             else:
-                yield DataDirective.symbol(IntType.u(16), name)
+                yield DataDirective.symbol(16, name)
         if remaining > 0:
-            yield DataDirective.u8(*self.reserved[:remaining])
+            yield DataDirective.literal(8, *self.reserved[:remaining])
 
     def __len__(self) -> int:
         return self.size

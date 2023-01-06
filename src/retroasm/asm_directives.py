@@ -12,61 +12,38 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .expression import Expression, IntLiteral
-from .reference import FixedValueReference, int_reference, symbol_reference
-from .types import IntType, Width
+from .expression_nodes import IdentifierNode, NumberNode, ParseNode
+from .types import Width
 
 
 class DataDirective:
     """Data definition directive like DB, DW etc."""
 
-    __slots__ = ("_data",)
+    __slots__ = ("_data", "_width")
 
     @classmethod
-    def symbol(cls, typ: IntType, *names: str) -> DataDirective:
-        return cls(*(symbol_reference(name, typ) for name in names))
+    def symbol(cls, width: Width, *names: str) -> DataDirective:
+        return cls(width, *(IdentifierNode(name) for name in names))
 
     @classmethod
-    def literal(cls, typ: IntType, *values: int) -> DataDirective:
-        return cls(*(int_reference(value, typ) for value in values))
-
-    @classmethod
-    def u8(cls, *values: int) -> DataDirective:
-        return cls.literal(IntType.u(8), *values)
-
-    @classmethod
-    def u16(cls, *values: int) -> DataDirective:
-        return cls.literal(IntType.u(16), *values)
-
-    @classmethod
-    def u32(cls, *values: int) -> DataDirective:
-        return cls.literal(IntType.u(32), *values)
-
-    @classmethod
-    def u64(cls, *values: int) -> DataDirective:
-        return cls.literal(IntType.u(64), *values)
+    def literal(cls, width: Width, *values: int) -> DataDirective:
+        return cls(width, *(NumberNode(value, width) for value in values))
 
     @property
     def width(self) -> Width:
-        return self._data[0].width
+        return self._width
 
     @property
-    def data(self) -> tuple[FixedValueReference, ...]:
+    def data(self) -> tuple[ParseNode, ...]:
         return self._data
 
-    def __init__(self, *data: FixedValueReference):
-        widths = {ref.width for ref in data}
-        if len(widths) != 1:
-            if widths:
-                widths_str = ", ".join(str(width for width in sorted(widths)))
-                raise ValueError(f"inconsistent widths: {widths_str}")
-            else:
-                raise ValueError("no data")
+    def __init__(self, width: Width, *data: ParseNode):
+        self._width = width
         self._data = data
 
     def __str__(self) -> str:
-        args_str = ", ".join(str(ref.bits) for ref in self._data)
-        return f"def{self.width} {args_str}"
+        args_str = ", ".join(str(elem) for elem in self._data)
+        return f"def{self._width} {args_str}"
 
     def __repr__(self) -> str:
         args_str = ", ".join(repr(ref) for ref in self._data)
@@ -77,15 +54,15 @@ class StringDirective:
     """Data definition directive that can contain bytestrings."""
 
     @property
-    def data(self) -> tuple[FixedValueReference | bytes, ...]:
+    def data(self) -> tuple[ParseNode | bytes, ...]:
         return self._data
 
-    def __init__(self, *data: FixedValueReference | bytes):
+    def __init__(self, *data: ParseNode | bytes):
         self._data = data
 
     def __str__(self) -> str:
         args_str = ", ".join(
-            str(item.bits) if isinstance(item, FixedValueReference) else repr(item)
+            str(item) if isinstance(item, ParseNode) else repr(item)
             for item in self._data
         )
         return f"defb {args_str}"
@@ -99,11 +76,14 @@ class StringDirective:
 class SpaceDirective:
     """Data directive that fills an area with a single byte value."""
 
-    size: Expression
-    value: Expression = IntLiteral(0)
+    size: ParseNode
+    value: ParseNode | None = None
 
     def __str__(self) -> str:
-        return f"defs {self.size},{self.value}"
+        if self.value is None:
+            return f"defs {self.size}"
+        else:
+            return f"defs {self.size},{self.value}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,10 +130,10 @@ class ConditionalDirective:
     depending on a condition.
     """
 
-    cond: Expression
+    cond: ParseNode | None
     """
     Condition that must evaluate to true (non-zero) for the following block
-    to be assembled.
+    to be assembled, or None for an unconditional final clause (ELSE).
     """
 
     chain: bool
@@ -170,11 +150,7 @@ class ConditionalEnd:
 class OriginDirective:
     """Defines the address that code is expected to execute at."""
 
-    addr: FixedValueReference
-
-    @classmethod
-    def from_int(cls, addr: int, typ: IntType) -> OriginDirective:
-        return cls(int_reference(addr, typ))
+    addr: ParseNode
 
     def __str__(self) -> str:
         return f"org {self.addr}"
@@ -185,7 +161,10 @@ class LabelDirective:
     """Defines a label."""
 
     name: str
-    value: Expression
+    value: ParseNode | None
 
     def __str__(self) -> str:
-        return f"{self.name}: equ {self.value}"
+        if self.value is None:
+            return f"{self.name}:"
+        else:
+            return f"{self.name}: equ {self.value}"

@@ -5,6 +5,7 @@ from typing import cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
+from .expression_nodes import ParseNode
 from .reference import FixedValueReference
 from .symbol import SymbolValue
 from .types import IntType, Width, unlimited
@@ -74,7 +75,9 @@ class Formatter:
     def label(self, label: str) -> str:
         return label + ":"
 
-    def mnemonic(self, mnemonic: Iterable[str | FixedValueReference]) -> str:
+    def mnemonic(
+        self, mnemonic: Iterable[str | FixedValueReference | ParseNode]
+    ) -> str:
         parts = []
         for mnem_elem in mnemonic:
             match mnem_elem:
@@ -89,6 +92,9 @@ class Formatter:
                         and parts[-2] == "+"
                     ):
                         del parts[-2]
+                case ParseNode() as node:
+                    # TODO: Proper formatting.
+                    parts.append(str(node))
                 case elem:
                     bad_type(elem)
 
@@ -130,9 +136,9 @@ class Formatter:
         keyword = self.dataKeywords[
             directive.width if isinstance(directive, DataDirective) else 8
         ]
-        words: list[str | FixedValueReference] = [keyword]
+        words: list[str | ParseNode] = [keyword]
         for data in directive.data:
-            items: Iterable[str | FixedValueReference]
+            items: Iterable[str | ParseNode]
             if isinstance(data, bytes):
                 items = self._stringLiteral(data)
             else:

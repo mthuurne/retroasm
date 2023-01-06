@@ -112,6 +112,9 @@ class OperatorNode(ParseNode):
 class IdentifierNode(ParseNode):
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
 
 @dataclass(frozen=True, slots=True)
 class MultiMatchNode(ParseNode):
@@ -156,6 +159,14 @@ class DefinitionNode(ParseNode):
 class NumberNode(ParseNode):
     value: int
     width: Width
+
+    def __str__(self) -> str:
+        width = self.width
+        if width is unlimited:
+            return f"{self.value:d}"
+        else:
+            assert isinstance(width, int)
+            return f"${{:0{(width + 3) // 4:d}x}}".format(self.value)
 
 
 class ParseError(BadInput):

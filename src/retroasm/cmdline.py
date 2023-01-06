@@ -35,6 +35,7 @@ from .binfmt import (
     iterBinaryFormatNames,
 )
 from .disasm import Instruction, disassemble, formatAsm
+from .expression_nodes import NumberNode
 from .fetch import ImageFetcher
 from .instr import (
     builtinInstructionSetPath,
@@ -342,7 +343,8 @@ def disassembleBinary(
             assert isinstance(section, CodeSection), section
             instrSet = builtinInstructionSets[section.instrSetName]
             assert instrSet is not None
-            org = OriginDirective.from_int(section.base, instrSet.addrType)
+            org_addr = NumberNode(section.base, instrSet.addrType.width)
+            org = OriginDirective(org_addr)
             print(formatter.origin(org), file=out)
             print(file=out)
             for line in formatAsm(formatter, decoded[section], labels):

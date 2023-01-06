@@ -16,12 +16,15 @@ from .asm_directives import (
     SpaceDirective,
     StringDirective,
 )
-from .expression import Expression, IntLiteral, truncate
-from .expression_nodes import IdentifierNode, NumberNode, ParseError, parseDigits
+from .expression_nodes import (
+    IdentifierNode,
+    NumberNode,
+    ParseError,
+    ParseNode,
+    parseDigits,
+)
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
-from .reference import FixedValueReference
-from .symbol import CurrentAddress, SymbolValue
 from .tokens import TokenEnum, Tokenizer
 from .types import IntType, unlimited
 from .utils import bad_type
@@ -166,15 +169,12 @@ def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
     )
 
 
-def parse_value(tokens: AsmTokenizer) -> Expression:
+def parse_value(tokens: AsmTokenizer) -> ParseNode:
     if (location := tokens.eat(AsmToken.number)) is not None:
-        number = parse_number(location)
-        return IntLiteral(number.value)
+        return parse_number(location)
     elif (location := tokens.eat(AsmToken.word)) is not None:
-        # We don't know at this stage whether a symbol is a label or a constant,
-        # so assume the width is unlimited.
-        return SymbolValue(location.text, unlimited)
-    elif tokens.end:
+        return IdentifierNode(location.text, location=location)
+    elif tokens.end_of_statement:
         raise ParseError("missing value", tokens.location)
     else:
         # TODO: Implement.
@@ -209,7 +209,7 @@ def parse_data_directive(
     tokens: AsmTokenizer, data_type: IntType, allow_strings: bool = False
 ) -> DataDirective | StringDirective:
     data_class: type[DataDirective | StringDirective] = DataDirective
-    data: list[FixedValueReference | bytes] = []
+    data: list[ParseNode | bytes] = []
     width = data_type.width
     while True:
         if (location := tokens.eat_string()) is not None:
@@ -227,22 +227,12 @@ def parse_data_directive(
                     f"string literal is not pure ASCII: {ex}", location
                 ) from None
         else:
-            value = parse_value(tokens)
-            # TODO: I don't like the use of truncation here, since it might silence
-            #       errors.
-            #       One alternative would be to add an expression node that performs
-            #       a range check. Perhaps this could also store the location (see
-            #       TODO at the top of this function).
-            #       Another alternative would be to not use FixedValueReference for
-            #       storing the values. Instead, we could store expressions (ignore
-            #       width, since it's implied by the directive) or we could store
-            #       ASTs (preserves more of the original code when reformatting).
-            data.append(FixedValueReference(truncate(value, width), data_type))
+            data.append(parse_value(tokens))
         if tokens.end_of_statement:
             break
         if tokens.eat(AsmToken.separator, ",") is None:
             raise ParseError.with_text("unexpected token after value", tokens.location)
-    return data_class(*data)  # type: ignore[arg-type]
+    return data_class(width, *data)  # type: ignore[arg-type]
 
 
 def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
@@ -302,15 +292,11 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
     elif keyword == "elseif":
         return ConditionalDirective(parse_value(tokens), True)
     elif keyword == "else":
-        return ConditionalDirective(IntLiteral(1), True)
+        return ConditionalDirective(None, True)
     elif keyword == "endif":
         return ConditionalEnd()
     elif keyword == "org":
-        addr = parse_value(tokens)
-        if tokens.end:
-            return OriginDirective(FixedValueReference(addr, instr_set.addrType))
-        else:
-            raise ParseError.with_text("unexpected token after value", tokens.location)
+        return OriginDirective(parse_value(tokens))
     elif keyword in ("export", "import", "global"):
         return DummyDirective()
     elif keyword in ("segment", "code", "data", "rodata", "bss"):
@@ -334,10 +320,10 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
             # EQU directive with colon.
             tokens.eat(AsmToken.word)
             value = parse_value(tokens)
+            return LabelDirective(name.text, value)
         else:
             # Label for current address.
-            value = CurrentAddress()
-        return LabelDirective(name.text, value)
+            return LabelDirective(name.text, None)
     elif lookahead.peek(AsmToken.word) and lookahead.value.casefold() == "equ":
         # EQU directive without colon.
         tokens.eat(AsmToken.word)
