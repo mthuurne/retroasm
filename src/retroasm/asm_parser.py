@@ -87,7 +87,7 @@ def parse_number(location: InputLocation) -> NumberNode:
         digit_width = 4 if value[1] in "xX" else 1
     elif value[-1].isdigit():
         # Decimal numbers have no integer per-digit width.
-        return NumberNode(location, parseDigits(value, 10), unlimited)
+        return NumberNode(parseDigits(value, 10), unlimited, location=location)
     else:
         digits = value[:-1]
         try:
@@ -96,7 +96,9 @@ def parse_number(location: InputLocation) -> NumberNode:
             raise ValueError(f'bad number suffix "{value[-1]}"') from None
 
     return NumberNode(
-        location, parseDigits(digits, 1 << digit_width), len(digits) * digit_width
+        parseDigits(digits, 1 << digit_width),
+        len(digits) * digit_width,
+        location=location,
     )
 
 
@@ -121,7 +123,7 @@ def parse_instruction(
         kind, location = next(tokens)
         match kind:
             case AsmToken.word:
-                yield IdentifierNode(location, location.text)
+                yield IdentifierNode(location.text, location=location)
             case AsmToken.number:
                 try:
                     yield parse_number(location)
@@ -139,7 +141,7 @@ def parse_instruction(
                         "empty string in instruction operand", location=location
                     )
                 elif len(value) == 3:
-                    yield NumberNode(location, ord(value[1]), 8)
+                    yield NumberNode(ord(value[1]), 8, location=location)
                 else:
                     reader.error(
                         "multi-character string in instruction operand",
@@ -148,7 +150,7 @@ def parse_instruction(
             case _:
                 # TODO: Treating symbols etc. as identifiers is weird,
                 #       but it works for now.
-                yield IdentifierNode(location, location.text)
+                yield IdentifierNode(location.text, location=location)
 
 
 def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:

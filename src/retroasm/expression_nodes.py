@@ -8,9 +8,9 @@ from .linereader import BadInput, InputLocation
 from .types import Width, unlimited
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ParseNode:
-    location: InputLocation | None
+    location: InputLocation | None = None
     """Location information for this node itself."""
 
     @property
