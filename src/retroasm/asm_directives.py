@@ -141,9 +141,21 @@ class ConditionalDirective:
     Is this a follow-up condition (ELSEIF/ELSE) in a chain?
     """
 
+    def __str__(self) -> str:
+        cond = self.cond
+        if cond is None:
+            return "else"
+        elif self.chain:
+            return f"elseif {cond}"
+        else:
+            return f"if {cond}"
+
 
 class ConditionalEnd:
     """Marks the end of a conditional block."""
+
+    def __str__(self) -> str:
+        return "endif"
 
 
 @dataclass(frozen=True, slots=True)
