@@ -107,6 +107,9 @@ class OperatorNode(ParseNode):
             if operand is not None:
                 yield from operand
 
+    def __str__(self) -> str:
+        return f"{self.operator.name}({', '.join(str(op) for op in self.operands)})"
+
 
 @dataclass(frozen=True, slots=True)
 class IdentifierNode(ParseNode):
