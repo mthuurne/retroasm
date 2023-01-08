@@ -28,7 +28,7 @@ from .expression_nodes import (
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
 from .tokens import TokenEnum, Tokenizer
-from .types import IntType, unlimited
+from .types import IntType, Width, unlimited
 
 logger = getLogger("parse-asm")
 
@@ -298,18 +298,25 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
         assert location is not None, tokens.location
 
         value = location.text
+        width: Width
         if value[0] == "$":
             digits = value[1:]
-            digit_width = 4
+            radix = 16
+            width = 4 * len(digits)
         elif value[0] == "%":
             digits = value[1:]
-            digit_width = 1
+            radix = 2
+            width = len(digits)
         elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
             digits = value[2:]
             digit_width = 4 if value[1] in "xX" else 1
+            radix = 1 << digit_width
+            width = digit_width * len(digits)
         elif value[-1].isdigit():
+            digits = value
+            radix = 10
             # Decimal numbers have no integer per-digit width.
-            return NumberNode(parseDigits(value, 10), unlimited, location=location)
+            width = unlimited
         else:
             digits = value[:-1]
             try:
@@ -318,12 +325,16 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
                 raise ParseError(
                     f'bad number suffix "{value[-1]}"', location[-1:]
                 ) from None
+            radix = 1 << digit_width
+            width = digit_width * len(digits)
 
-        return NumberNode(
-            parseDigits(digits, 1 << digit_width),
-            len(digits) * digit_width,
-            location=location,
-        )
+        try:
+            num_val = parseDigits(digits, radix)
+        except ValueError as ex:
+            # TODO: Have the span point to the first offending character.
+            raise ParseError(f"{ex}", location) from None
+        else:
+            return NumberNode(num_val, width, location=location)
 
     parse_expr_top = parse_or
 
