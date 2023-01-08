@@ -315,7 +315,9 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
             try:
                 digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
             except KeyError:
-                raise ParseError(f'bad number suffix "{value[-1]}"', location) from None
+                raise ParseError(
+                    f'bad number suffix "{value[-1]}"', location[-1:]
+                ) from None
 
         return NumberNode(
             parseDigits(digits, 1 << digit_width),
