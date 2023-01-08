@@ -19,6 +19,8 @@ from .asm_directives import (
 from .expression_nodes import (
     IdentifierNode,
     NumberNode,
+    Operator,
+    OperatorNode,
     ParseError,
     ParseNode,
     parseDigits,
@@ -27,7 +29,6 @@ from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
 from .tokens import TokenEnum, Tokenizer
 from .types import IntType, unlimited
-from .utils import bad_type
 
 logger = getLogger("parse-asm")
 
@@ -37,7 +38,7 @@ class AsmToken(TokenEnum):
     # or the modulo operator, but as 'modulo 0' is undefined and 'modulo 1' is
     # useless, we can assume that '%0' and '%1' are always the start of a number.
     number = r"\$\w+|%[01]+|\d\w*|0[xXbB]\w+"
-    word = r"[\w.]+|\$"
+    word = r"[\w.]+'?|\$"
     string = r'"[^"]*"|\'[^\']*\''
     operator = r"<<|>>|!=|<=|>=|&&|\|\||[<>=&|\^+\-*/%~!]"
     bracket = r"[\[\]()]"
@@ -72,42 +73,7 @@ class AsmTokenizer(Tokenizer[AsmToken]):
         return None if token is None else token[1:-1]
 
 
-def parse_number(location: InputLocation) -> NumberNode:
-    """
-    Parse a numeric literal in one of several formats.
-    Raise `ValueError` if the location does not contain a valid number.
-    """
-
-    value = location.text
-    if value[0] == "$":
-        digits = value[1:]
-        digit_width = 4
-    elif value[0] == "%":
-        digits = value[1:]
-        digit_width = 1
-    elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
-        digits = value[2:]
-        digit_width = 4 if value[1] in "xX" else 1
-    elif value[-1].isdigit():
-        # Decimal numbers have no integer per-digit width.
-        return NumberNode(parseDigits(value, 10), unlimited, location=location)
-    else:
-        digits = value[:-1]
-        try:
-            digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
-        except KeyError:
-            raise ValueError(f'bad number suffix "{value[-1]}"') from None
-
-    return NumberNode(
-        parseDigits(digits, 1 << digit_width),
-        len(digits) * digit_width,
-        location=location,
-    )
-
-
-def create_match_sequence(
-    nodes: Iterable[IdentifierNode | NumberNode],
-) -> Iterator[type[int] | str]:
+def create_match_sequence(nodes: Iterable[ParseNode]) -> Iterator[type[int] | str]:
     """Convert tokens to a match sequence."""
     for node in nodes:
         match node:
@@ -115,45 +81,28 @@ def create_match_sequence(
                 yield name
             case NumberNode():
                 yield int
-            case node:
-                bad_type(node)
-
-
-def parse_instruction(
-    tokens: AsmTokenizer, reader: LineReader
-) -> Iterator[IdentifierNode | NumberNode]:
-    while not tokens.end_of_statement:
-        kind, location = next(tokens)
-        match kind:
-            case AsmToken.word:
-                yield IdentifierNode(location.text, location=location)
-            case AsmToken.number:
-                try:
-                    yield parse_number(location)
-                except ValueError as ex:
-                    reader.error("%s", ex, location=location)
-            case AsmToken.string:
-                # Arbitrary strings are not allowed as instruction
-                # operands, but single characters should be replaced
-                # by their character numbers.
-                value = location.text
-                assert len(value) >= 2, value
-                assert value[0] == value[-1], value
-                if len(value) == 2:
-                    reader.error(
-                        "empty string in instruction operand", location=location
-                    )
-                elif len(value) == 3:
-                    yield NumberNode(ord(value[1]), 8, location=location)
-                else:
-                    reader.error(
-                        "multi-character string in instruction operand",
-                        location=location,
-                    )
+            case OperatorNode():
+                yield int
             case _:
-                # TODO: Treating symbols etc. as identifiers is weird,
-                #       but it works for now.
-                yield IdentifierNode(location.text, location=location)
+                assert False, node
+
+
+def parse_instruction(tokens: AsmTokenizer, reader: LineReader) -> Iterator[ParseNode]:
+    # TODO: Treating keywords and separators as identifiers is weird,
+    #       but it works for now.
+    instr_name = tokens.eat(AsmToken.word)
+    assert instr_name is not None
+    yield IdentifierNode(instr_name.text, location=instr_name)
+
+    while not tokens.end_of_statement:
+        try:
+            yield parse_value(tokens)
+        except ParseError as ex:
+            reader.error("error parsing operand: %s", ex, location=ex.locations)
+            tokens.eat_remainder()
+            return
+        if (separator := tokens.eat(AsmToken.separator)) is not None:
+            yield IdentifierNode(separator.text, location=separator)
 
 
 def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
@@ -170,19 +119,213 @@ def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
 
 
 def parse_value(tokens: AsmTokenizer) -> ParseNode:
-    if (location := tokens.eat(AsmToken.number)) is not None:
-        return parse_number(location)
-    elif (location := tokens.eat(AsmToken.word)) is not None:
+    def bad_token_kind(where: str, expected: str) -> ParseError:
+        if tokens.end_of_statement:
+            got_desc = "end of statement"
+        else:
+            got_desc = f'{tokens.kind.name} "{tokens.value}"'
+        msg = f"bad {where} expression: expected {expected}, got {got_desc}"
+        return ParseError(msg, tokens.location)
+
+    def parse_or() -> ParseNode:
+        expr = parse_xor()
+        if (location := tokens.eat(AsmToken.operator, "|")) is not None:
+            return OperatorNode(
+                Operator.bitwise_or, (expr, parse_or()), location=location
+            )
+        return expr
+
+    def parse_xor() -> ParseNode:
+        expr = parse_and()
+        if (location := tokens.eat(AsmToken.operator, "^")) is not None:
+            return OperatorNode(
+                Operator.bitwise_xor, (expr, parse_xor()), location=location
+            )
+        return expr
+
+    def parse_and() -> ParseNode:
+        expr = parse_equal()
+        if (location := tokens.eat(AsmToken.operator, "&")) is not None:
+            return OperatorNode(
+                Operator.bitwise_and, (expr, parse_and()), location=location
+            )
+        return expr
+
+    def parse_equal() -> ParseNode:
+        expr = parse_compare()
+        if (location := tokens.eat(AsmToken.operator, "=")) is not None:
+            return OperatorNode(
+                Operator.equal, (expr, parse_equal()), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, "!=")) is not None:
+            return OperatorNode(
+                Operator.unequal, (expr, parse_equal()), location=location
+            )
+        return expr
+
+    def parse_compare() -> ParseNode:
+        expr = parse_shift()
+        if (location := tokens.eat(AsmToken.operator, "<")) is not None:
+            return OperatorNode(
+                Operator.lesser, (expr, parse_compare()), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, "<=")) is not None:
+            return OperatorNode(
+                Operator.lesser_equal, (expr, parse_compare()), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, ">=")) is not None:
+            return OperatorNode(
+                Operator.greater_equal, (expr, parse_compare()), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, ">")) is not None:
+            return OperatorNode(
+                Operator.greater, (expr, parse_compare()), location=location
+            )
+        return expr
+
+    def parse_shift() -> ParseNode:
+        expr = parse_add_sub()
+        if (location := tokens.eat(AsmToken.operator, "<<")) is not None:
+            return OperatorNode(
+                Operator.shift_left, (expr, parse_shift()), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, ">>")) is not None:
+            return OperatorNode(
+                Operator.shift_right, (expr, parse_shift()), location=location
+            )
+        return expr
+
+    def parse_add_sub(expr: ParseNode | None = None) -> ParseNode:
+        if expr is None:
+            expr = parse_unary()
+        if (location := tokens.eat(AsmToken.operator, "+")) is not None:
+            return parse_add_sub(
+                OperatorNode(Operator.add, (expr, parse_unary()), location=location)
+            )
+        if (location := tokens.eat(AsmToken.operator, "-")) is not None:
+            return parse_add_sub(
+                OperatorNode(Operator.sub, (expr, parse_unary()), location=location)
+            )
+        return expr
+
+    def parse_unary() -> ParseNode:
+        if (location := tokens.eat(AsmToken.operator, "-")) is not None:
+            return OperatorNode(
+                Operator.complement, (parse_unary(),), location=location
+            )
+        if (location := tokens.eat(AsmToken.operator, "!")) is not None:
+            return OperatorNode(Operator.negation, (parse_unary(),), location=location)
+        if (location := tokens.eat(AsmToken.operator, "~")) is not None:
+            return OperatorNode(
+                Operator.bitwise_complement, (parse_unary(),), location=location
+            )
+        return parse_indexed()
+
+    def parse_indexed() -> ParseNode:
+        expr = parse_group()
+        while True:
+            open_location = tokens.eat(AsmToken.bracket, "[")
+            if open_location is None:
+                return expr
+
+            start: ParseNode | None
+            sep_location = tokens.eat(AsmToken.separator, ":")
+            if sep_location is None:
+                start = parse_expr_top()
+                sep_location = tokens.eat(AsmToken.separator, ":")
+            else:
+                start = None
+
+            end: ParseNode | None
+            close_location = tokens.eat(AsmToken.bracket, "]")
+            if sep_location is None:
+                if close_location is None:
+                    raise bad_token_kind("slice/lookup", '":" or "]"')
+                expr = OperatorNode(
+                    Operator.lookup,
+                    (expr, start),
+                    location=InputLocation.merge_span(open_location, close_location),
+                )
+            else:
+                if close_location is None:
+                    end = parse_expr_top()
+                    close_location = tokens.eat(AsmToken.bracket, "]")
+                    if close_location is None:
+                        raise bad_token_kind("slice", '"]"')
+                else:
+                    end = None
+                expr = OperatorNode(
+                    Operator.slice,
+                    (expr, start, end),
+                    location=InputLocation.merge_span(open_location, close_location),
+                )
+
+    def parse_group() -> ParseNode:
+        if tokens.eat(AsmToken.bracket, "(") is not None:
+            expr = parse_expr_top()
+            if tokens.eat(AsmToken.bracket, ")") is not None:
+                return expr
+            raise bad_token_kind("parenthesized", ")")
+
+        if tokens.peek(AsmToken.word):
+            return parse_ident()
+
+        if tokens.peek(AsmToken.number):
+            return parse_number()
+
+        if (location := tokens.eat_string()) is not None:
+            # Arbitrary strings are not allowed as instruction
+            # operands, but single characters should be replaced
+            # by their character numbers.
+            try:
+                value = ord(location.text)
+            except TypeError:
+                desc = "empty" if len(location) == 0 else "multi-character"
+                raise ParseError(f"{desc} string in expression", location) from None
+            else:
+                return NumberNode(value, 8, location=location)
+
+        raise bad_token_kind("innermost", "identifier or number")
+
+    def parse_ident() -> IdentifierNode | OperatorNode:
+        location = tokens.eat(AsmToken.word)
+        assert location is not None, tokens.location
+
         return IdentifierNode(location.text, location=location)
-    elif tokens.end_of_statement:
-        raise ParseError("missing value", tokens.location)
-    else:
-        # TODO: Implement.
-        location = tokens.location
-        tokens.eat_remainder()
-        raise ParseError.with_text(
-            "unexpected token; expression parsing not implemented yet", location
+
+    def parse_number() -> NumberNode:
+        location = tokens.eat(AsmToken.number)
+        assert location is not None, tokens.location
+
+        value = location.text
+        if value[0] == "$":
+            digits = value[1:]
+            digit_width = 4
+        elif value[0] == "%":
+            digits = value[1:]
+            digit_width = 1
+        elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
+            digits = value[2:]
+            digit_width = 4 if value[1] in "xX" else 1
+        elif value[-1].isdigit():
+            # Decimal numbers have no integer per-digit width.
+            return NumberNode(parseDigits(value, 10), unlimited, location=location)
+        else:
+            digits = value[:-1]
+            try:
+                digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
+            except KeyError:
+                raise ParseError(f'bad number suffix "{value[-1]}"', location) from None
+
+        return NumberNode(
+            parseDigits(digits, 1 << digit_width),
+            len(digits) * digit_width,
+            location=location,
         )
+
+    parse_expr_top = parse_or
+
+    return parse_expr_top()
 
 
 _data_widths = {
@@ -397,7 +540,7 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
                     source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
-        elif not tokens.end:
+        elif not tokens.end_of_statement:
             reader.error(
                 "expected directive or instruction, got %s",
                 tokens.kind.name,
