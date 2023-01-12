@@ -197,14 +197,33 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
 
     def parse_add_sub(expr: ParseNode | None = None) -> ParseNode:
         if expr is None:
-            expr = parse_unary()
+            expr = parse_mul_div()
         if (location := tokens.eat(AsmToken.operator, "+")) is not None:
             return parse_add_sub(
-                OperatorNode(Operator.add, (expr, parse_unary()), location=location)
+                OperatorNode(Operator.add, (expr, parse_mul_div()), location=location)
             )
         if (location := tokens.eat(AsmToken.operator, "-")) is not None:
             return parse_add_sub(
-                OperatorNode(Operator.sub, (expr, parse_unary()), location=location)
+                OperatorNode(Operator.sub, (expr, parse_mul_div()), location=location)
+            )
+        return expr
+
+    def parse_mul_div(expr: ParseNode | None = None) -> ParseNode:
+        if expr is None:
+            expr = parse_unary()
+        if (location := tokens.eat(AsmToken.operator, "*")) is not None:
+            return parse_mul_div(
+                OperatorNode(
+                    Operator.multiply, (expr, parse_unary()), location=location
+                )
+            )
+        if (location := tokens.eat(AsmToken.operator, "/")) is not None:
+            return parse_mul_div(
+                OperatorNode(Operator.divide, (expr, parse_unary()), location=location)
+            )
+        if (location := tokens.eat(AsmToken.operator, "%")) is not None:
+            return parse_mul_div(
+                OperatorNode(Operator.modulo, (expr, parse_unary()), location=location)
             )
         return expr
 
