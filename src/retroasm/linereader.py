@@ -396,8 +396,7 @@ class LineReader:
                 )
             except KeyError:
                 location = self.location
-            extra = dict(location=location)
-            logger.log(level, msg, *args, extra=extra, **kwargs)
+            logger.log(level, msg, *args, extra={"location": location}, **kwargs)
 
 
 _RE_COMMENT = re.compile(r"(?<!\\)#")
