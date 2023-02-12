@@ -15,11 +15,11 @@ class TokenMeta(EnumMeta):
     pattern: Pattern[str]
 
     def __new__(
-        # pylint: disable=arguments-differ
         mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
+        **kwargs: Any,
     ) -> TokenMeta:
         new_class = super().__new__(
             mcs,
@@ -27,6 +27,7 @@ class TokenMeta(EnumMeta):
             bases,
             # Work around typeshed using a private type for 'namespace'.
             namespace,  # type: ignore[arg-type]
+            **kwargs,
         )
         new_class.pattern = new_class._compile_pattern()
         return new_class
