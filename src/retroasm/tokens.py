@@ -16,13 +16,13 @@ class TokenMeta(EnumMeta):
 
     def __new__(
         # pylint: disable=arguments-differ
-        cls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
     ) -> TokenMeta:
         new_class = super().__new__(
-            cls,
+            mcs,
             name,
             bases,
             # Work around typeshed using a private type for 'namespace'.
