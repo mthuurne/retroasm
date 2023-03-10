@@ -93,10 +93,8 @@ def width_for_mask(mask: int) -> Width:
 def trailing_zeroes(n: int) -> Width:
     if n == 0:
         return unlimited
-    count = 0
-    while (n >> count) & 1 == 0:
-        count += 1
-    return count
+    else:
+        return (n ^ (n - 1)).bit_length() - 1
 
 
 @dataclass(order=True, frozen=True)
