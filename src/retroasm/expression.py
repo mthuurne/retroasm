@@ -81,7 +81,7 @@ class Expression:
         """
         raise NotImplementedError
 
-    def iterInstances(self, cls: type[ExprT]) -> Iterator[ExprT]:
+    def iter_instances(self, cls: type[ExprT]) -> Iterator[ExprT]:
         """
         Yields the subexpressions of this expression that are instances of
         the given Python type.
@@ -90,7 +90,7 @@ class Expression:
             yield self
         for value in self._ctorargs():
             if isinstance(value, Expression):
-                yield from value.iterInstances(cls)
+                yield from value.iter_instances(cls)
 
     def substitute(self, func: Callable[[Expression], Expression | None]) -> Expression:
         """
@@ -198,7 +198,7 @@ class MultiExpression(Expression):
     identity: int
     absorber: int | None
 
-    nodeComplexity = 1
+    node_complexity = 1
     """Contribution of the expression node itself to expression complexity."""
 
     @property
@@ -216,19 +216,19 @@ class MultiExpression(Expression):
 
     @const_property
     def mask(self) -> int:
-        return self.computeMask(self._exprs)
+        return self.compute_mask(self._exprs)
 
     @classmethod
-    def computeMask(cls, exprs: Iterable[Expression]) -> int:
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         """Returns the bit mask for the composition of the given expressions."""
         raise NotImplementedError
 
     @property
     def complexity(self) -> int:
-        return self.nodeComplexity + sum(expr.complexity for expr in self._exprs)
+        return self.node_complexity + sum(expr.complexity for expr in self._exprs)
 
     @classmethod
-    def combineLiterals(cls, *values: int) -> int:
+    def combine_literals(cls, *values: int) -> int:
         """Combine the given literal values into a single value."""
         raise NotImplementedError
 
@@ -280,11 +280,11 @@ class AndOperator(MultiExpression):
         return super().__str__()
 
     @classmethod
-    def computeMask(cls, exprs: Iterable[Expression]) -> int:
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__and__, (expr.mask for expr in exprs), -1)
 
     @classmethod
-    def combineLiterals(cls, *values: int) -> int:
+    def combine_literals(cls, *values: int) -> int:
         return reduce(int.__and__, values, -1)
 
 
@@ -302,11 +302,11 @@ class OrOperator(MultiExpression):
         self._tryDistributeOrOverAnd = True
 
     @classmethod
-    def computeMask(cls, exprs: Iterable[Expression]) -> int:
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
-    def combineLiterals(cls, *values: int) -> int:
+    def combine_literals(cls, *values: int) -> int:
         return reduce(int.__or__, values, 0)
 
 
@@ -318,13 +318,13 @@ class XorOperator(MultiExpression):
     absorber = None
 
     @classmethod
-    def computeMask(cls, exprs: Iterable[Expression]) -> int:
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         # Note: OR not XOR, since we don't know whether a bit is set in an
         #       even or an odd number of subexpressions.
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
-    def combineLiterals(cls, *values: int) -> int:
+    def combine_literals(cls, *values: int) -> int:
         return reduce(int.__xor__, values, 0)
 
 
@@ -336,33 +336,33 @@ class AddOperator(MultiExpression):
     absorber = None
 
     @classmethod
-    def computeMask(cls, exprs: Iterable[Expression]) -> int:
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         result = 0
-        cmbValue: Width = 0
-        cmbMask = 0
+        cmb_value: Width = 0
+        cmb_mask = 0
         for segment in sorted(
             chain.from_iterable(mask_to_segments(expr.mask) for expr in exprs)
         ):
             # Compute bit mask for this segment.
-            segMask = segment.mask
+            seg_mask = segment.mask
             # If masks don't overlap, restart adding.
-            if (segMask & cmbMask) == 0:
-                cmbStart = segment.start
-                cmbValue = 0
+            if (seg_mask & cmb_mask) == 0:
+                cmb_start = segment.start
+                cmb_value = 0
             # Maximum value is when the value is equal to the mask.
-            if segMask >= 0:
-                cmbValue += segMask
+            if seg_mask >= 0:
+                cmb_value += seg_mask
             else:
-                cmbValue = unlimited
+                cmb_value = unlimited
             # Compute bit mask for maximum combined value.
-            cmbMask = -1 << cmbStart
-            if cmbValue is not unlimited:
-                cmbMask &= (1 << cast(int, cmbValue).bit_length()) - 1
-            result |= cmbMask
+            cmb_mask = -1 << cmb_start
+            if cmb_value is not unlimited:
+                cmb_mask &= (1 << cast(int, cmb_value).bit_length()) - 1
+            result |= cmb_mask
         return result
 
     @classmethod
-    def combineLiterals(cls, *values: int) -> int:
+    def combine_literals(cls, *values: int) -> int:
         return sum(values)
 
     def __str__(self) -> str:
@@ -414,8 +414,8 @@ class Complement(SingleExpression):
 
     @const_property
     def mask(self) -> int:
-        exprMask = self._expr.mask
-        return 0 if exprMask == 0 else -1 << cast(int, trailing_zeroes(exprMask))
+        expr_mask = self._expr.mask
+        return 0 if expr_mask == 0 else -1 << cast(int, trailing_zeroes(expr_mask))
 
 
 class Negation(SingleExpression):
@@ -508,12 +508,12 @@ class LShift(SingleExpression):
 
     @const_property
     def mask(self) -> int:
-        exprMask = self._expr.mask
-        if exprMask == 0:
+        expr_mask = self._expr.mask
+        if expr_mask == 0:
             return 0
         offset = self._offset
         if offset < _SHIFT_LIMIT_BITS:
-            return exprMask << offset
+            return expr_mask << offset
         else:
             return -1 << _SHIFT_LIMIT_BITS
 
@@ -581,24 +581,24 @@ class LVShift(Expression):
 
     @const_property
     def mask(self) -> int:
-        exprMask = self._expr.mask
-        if exprMask == 0:
+        expr_mask = self._expr.mask
+        if expr_mask == 0:
             return 0
-        offsetMask = self._offset.mask
+        offset_mask = self._offset.mask
         width = cast(
-            int, width_for_mask(offsetMask if offsetMask >= 0 else ~offsetMask)
+            int, width_for_mask(offset_mask if offset_mask >= 0 else ~offset_mask)
         )
-        mask = exprMask
+        mask = expr_mask
         for i in range(width):
             if 1 << i >= _SHIFT_LIMIT_BITS:
                 mask |= -1 << (1 << i)
                 break
-            if (offsetMask >> i) & 1:
+            if (offset_mask >> i) & 1:
                 mask |= mask << (1 << i)
         return (
             mask
-            if offsetMask >= 0
-            else mask | (-1 << ((1 << width) + cast(int, trailing_zeroes(exprMask))))
+            if offset_mask >= 0
+            else mask | (-1 << ((1 << width) + cast(int, trailing_zeroes(expr_mask))))
         )
 
     def _ctorargs(self) -> tuple[Expression, Expression]:
@@ -638,23 +638,23 @@ class RVShift(Expression):
 
     @const_property
     def mask(self) -> int:
-        exprMask = self._expr.mask
-        offsetMask = self._offset.mask
-        if offsetMask >= 0:
+        expr_mask = self._expr.mask
+        offset_mask = self._offset.mask
+        if offset_mask >= 0:
             # There is a limited number of possible offsets.
-            offsetWidth = cast(int, width_for_mask(offsetMask))
-        elif exprMask >= 0:
+            offset_width = cast(int, width_for_mask(offset_mask))
+        elif expr_mask >= 0:
             # There is an unlimited number of possible offsets, but only
             # offsets below the width of the expression mask contribute.
-            exprWidth = cast(int, width_for_mask(exprMask))
-            offsetWidth = cast(int, width_for_mask(exprWidth))
+            expr_width = cast(int, width_for_mask(expr_mask))
+            offset_width = cast(int, width_for_mask(expr_width))
         else:
             # There is no value we can rule out.
-            assert exprMask < 0 and offsetMask < 0, self
+            assert expr_mask < 0 and offset_mask < 0, self
             return -1
-        mask = exprMask
-        for i in range(offsetWidth):
-            if (offsetMask >> i) & 1:
+        mask = expr_mask
+        for i in range(offset_width):
+            if (offset_mask >> i) & 1:
                 mask |= mask >> (1 << i)
         return mask
 
@@ -672,7 +672,7 @@ def truncate(expr: Expression, width: Width) -> Expression:
     return AndOperator(expr, IntLiteral(mask_for_width(width)))
 
 
-def optSlice(expr: Expression, index: int, width: Width) -> Expression:
+def opt_slice(expr: Expression, index: int, width: Width) -> Expression:
     """
     Return a slice of the given expression, at the given index with the given width,
     without adding any unnecessary operations.

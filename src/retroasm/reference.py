@@ -15,7 +15,7 @@ from .expression import (
     RVShift,
     SignExtension,
     XorOperator,
-    optSlice,
+    opt_slice,
     truncate,
 )
 from .expression_simplifier import simplifyExpression
@@ -329,7 +329,7 @@ class ConcatenatedBits(BitString):
         offset = 0
         for sub in self._subs:
             width = cast(int, sub.width)
-            value_slice = optSlice(value, offset, width)
+            value_slice = opt_slice(value, offset, width)
             sub.emit_store(builder, value_slice, location)
             offset += width
 

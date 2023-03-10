@@ -160,10 +160,10 @@ def verifyLoads(
         # Check that all expected loads have occurred.
         match node:
             case Store(expr=expr):
-                for value in expr.iterInstances(LoadedValue):
+                for value in expr.iter_instances(LoadedValue):
                     assert value.load in loads, value
         for expr in node.storage.iter_expressions():
-            for value in expr.iterInstances(LoadedValue):
+            for value in expr.iter_instances(LoadedValue):
                 assert value.load in loads, value
         # Remember this load.
         match node:
@@ -173,7 +173,7 @@ def verifyLoads(
     for retBits in returned:
         for storage in retBits.iter_storages():
             for expr in storage.iter_expressions():
-                for value in expr.iterInstances(LoadedValue):
+                for value in expr.iter_instances(LoadedValue):
                     assert value.load in loads, value
 
 

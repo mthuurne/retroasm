@@ -5,7 +5,7 @@ from typing import TypeAlias
 
 from .codeblock import CodeBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
-from .expression import Expression, optSlice
+from .expression import Expression, opt_slice
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, Reference, SingleStorage
@@ -247,7 +247,7 @@ def _rejectPC(name: str, location: InputLocation | None) -> None:
 
 def createIOReference(channel: IOChannel, index: Expression) -> Reference:
     addrWidth = channel.addrType.width
-    truncatedIndex = optSlice(index, 0, addrWidth)
+    truncatedIndex = opt_slice(index, 0, addrWidth)
     storage = IOStorage(channel, truncatedIndex)
     bits = SingleStorage(storage)
     return Reference(bits, channel.elemType)

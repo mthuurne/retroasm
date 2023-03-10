@@ -19,7 +19,7 @@ from .expression import (
     SignExtension,
     SignTest,
     XorOperator,
-    optSlice,
+    opt_slice,
 )
 from .types import mask_for_width, width_for_mask
 
@@ -61,7 +61,7 @@ def _simplifyAlgebraic(cls: type[MultiExpression], exprs: list[Expression]) -> b
 
     # Merge literals.
     if len(exprs) - firstLiteral >= 2:
-        value = cls.combineLiterals(
+        value = cls.combine_literals(
             *(cast(IntLiteral, expr).value for expr in exprs[firstLiteral:])
         )
         exprs[firstLiteral:] = [IntLiteral(value)]
@@ -156,7 +156,7 @@ def _customSimplifyAnd(node: AndOperator, exprs: list[Expression]) -> bool:
             explicitMask = -1
             orgMaskLiteral = None
 
-    exprMask = node.computeMask(exprs)
+    exprMask = node.compute_mask(exprs)
     mask = exprMask & explicitMask
 
     # Try to simplify individual subexpressions by applying bit mask.
@@ -188,7 +188,7 @@ def _customSimplifyAnd(node: AndOperator, exprs: list[Expression]) -> bool:
         return True
 
     if node._tryDistributeAndOverOr:
-        myComplexity = node.nodeComplexity + sum(expr.complexity for expr in exprs)
+        myComplexity = node.node_complexity + sum(expr.complexity for expr in exprs)
         for i, expr in enumerate(exprs):
             match expr:
                 case OrOperator(exprs=terms):
@@ -212,7 +212,7 @@ def _customSimplifyOr(node: OrOperator, exprs: list[Expression]) -> bool:
         return False
 
     if node._tryDistributeOrOverAnd:
-        myComplexity = node.nodeComplexity + sum(expr.complexity for expr in exprs)
+        myComplexity = node.node_complexity + sum(expr.complexity for expr in exprs)
         for i, expr in enumerate(exprs):
             match expr:
                 case AndOperator(exprs=terms):
@@ -381,7 +381,7 @@ def _simplifySignTest(signTest: SignTest) -> Expression:  # type: ignore[return]
         case IntLiteral(value=value):
             return IntLiteral(1 if value < 0 else 0)
         case SignExtension(expr=expr, width=width):
-            return simplifyExpression(optSlice(expr, width - 1, 1))
+            return simplifyExpression(opt_slice(expr, width - 1, 1))
         case expr:
             if expr is signTest.expr:
                 return signTest

@@ -161,7 +161,7 @@ class CodeBlockSimplifier(CodeBlock):
         useCounts = DefaultDict[LoadedValue, int](int)
 
         def updateCounts(expr: Expression, delta: int = 1) -> None:
-            for loaded in expr.iterInstances(LoadedValue):
+            for loaded in expr.iter_instances(LoadedValue):
                 useCounts[loaded] += delta
 
         # Compute initial use counts.
