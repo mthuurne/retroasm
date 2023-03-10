@@ -566,7 +566,7 @@ def buildStatementEval(
     for execNode in builder.nodes[numNodesBefore:]:
         match execNode:
             case Load(storage=storage):
-                stateChanged |= storage.canLoadHaveSideEffect()
+                stateChanged |= storage.can_load_have_side_effect()
             case Store():
                 stateChanged = True
     if not stateChanged:

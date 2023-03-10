@@ -140,8 +140,8 @@ class TestNamespace(LocalNamespace):
         else:
             # Check that existing global namespace entry is this channel.
             assert isinstance(channel, IOChannel), channel
-            assert channel.elemType is elemType, channel
-            assert channel.addrType is addrType, channel
+            assert channel.elem_type is elemType, channel
+            assert channel.addr_type is addrType, channel
         # Import channel from global namespace into local namespace.
         localChannel = self[channelName]
         assert localChannel is channel

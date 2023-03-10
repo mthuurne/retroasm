@@ -10,45 +10,45 @@ from .types import IntType, Width
 class IOChannel:
     """A channel through which a CPU can do input and output."""
 
-    __slots__ = ("_name", "_elemType", "_addrType")
+    __slots__ = ("_name", "_elem_type", "_addr_type")
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def elemType(self) -> IntType:
-        return self._elemType
+    def elem_type(self) -> IntType:
+        return self._elem_type
 
     @property
-    def addrType(self) -> IntType:
-        return self._addrType
+    def addr_type(self) -> IntType:
+        return self._addr_type
 
     @staticmethod
-    def checkInstance(channel: IOChannel) -> IOChannel:
+    def check_instance(channel: IOChannel) -> IOChannel:
         if not isinstance(channel, IOChannel):
             raise TypeError(
                 f"expected IOChannel subclass, got {type(channel).__name__}"
             )
         return channel
 
-    def __init__(self, name: str, elemType: IntType, addrType: IntType):
+    def __init__(self, name: str, elem_type: IntType, addr_type: IntType):
         self._name = name
-        self._elemType = elemType
-        self._addrType = addrType
+        self._elem_type = elem_type
+        self._addr_type = addr_type
 
     def __repr__(self) -> str:
-        return f"IOChannel({self._name!r}, {self._elemType!r}, {self._addrType!r})"
+        return f"IOChannel({self._name!r}, {self._elem_type!r}, {self._addr_type!r})"
 
     def __str__(self) -> str:
-        return f"{self._elemType} {self._name}[{self._addrType}]"
+        return f"{self._elem_type} {self._name}[{self._addr_type}]"
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
 
     # pylint: disable=unused-argument
 
-    def canLoadHaveSideEffect(self, index: Expression) -> bool:
+    def can_load_have_side_effect(self, index: Expression) -> bool:
         """
         Returns True if reading from this channel at the given index
         might have an effect other than fetching the value. For example
@@ -58,7 +58,7 @@ class IOChannel:
         """
         return True
 
-    def canStoreHaveSideEffect(self, index: Expression) -> bool:
+    def can_store_have_side_effect(self, index: Expression) -> bool:
         """
         Returns True if writing to this channel at the given index
         might have an effect other than setting the value. For example
@@ -68,7 +68,7 @@ class IOChannel:
         """
         return True
 
-    def isLoadConsistent(self, index: Expression) -> bool:
+    def is_load_consistent(self, index: Expression) -> bool:
         """
         Returns True if reading from this channel at the given index
         twice in succession will return the same value both times.
@@ -77,7 +77,7 @@ class IOChannel:
         """
         return False
 
-    def isSticky(self, index: Expression) -> bool:
+    def is_sticky(self, index: Expression) -> bool:
         """
         Returns True if reading from this channel at the give index after
         it is written at that same index will return the written value.
@@ -88,7 +88,7 @@ class IOChannel:
         """
         return False
 
-    def mightBeSame(self, index1: Expression, index2: Expression) -> bool:
+    def might_be_same(self, index1: Expression, index2: Expression) -> bool:
         """
         Returns True if the storages at the two given indices might be the
         same, either because the indices might be equal or because multiple
@@ -113,7 +113,7 @@ class Storage:
                 f"storage width must not be negative: {cast(int, width):d}"
             )
 
-    def canLoadHaveSideEffect(self) -> bool:
+    def can_load_have_side_effect(self) -> bool:
         """
         Returns True if reading from this storage might have an effect
         other than fetching the value. For example reading a peripheral's
@@ -121,7 +121,7 @@ class Storage:
         """
         raise NotImplementedError
 
-    def canStoreHaveSideEffect(self) -> bool:
+    def can_store_have_side_effect(self) -> bool:
         """
         Returns True if writing to this storage might have an effect
         other than setting the value. For example writing a peripheral's
@@ -129,21 +129,21 @@ class Storage:
         """
         raise NotImplementedError
 
-    def isLoadConsistent(self) -> bool:
+    def is_load_consistent(self) -> bool:
         """
         Returns True if reading this storage twice in succession will
         return the same value both times.
         """
         raise NotImplementedError
 
-    def isSticky(self) -> bool:
+    def is_sticky(self) -> bool:
         """
         Returns True if reading this storage after it is written will
         return the written value.
         """
         raise NotImplementedError
 
-    def mightBeSame(self, other: Storage) -> bool:
+    def might_be_same(self, other: Storage) -> bool:
         """
         Returns True if the given storage might be the same storage as
         this one: if it is either certainly the same or if it might be an
@@ -155,7 +155,7 @@ class Storage:
         """Iterates through the expressions in this storage, if any."""
         return iter(())
 
-    def substituteExpressions(
+    def substitute_expressions(
         # pylint: disable=unused-argument
         # The default implementation doesn't use the argument, but subclasses do.
         self,
@@ -193,19 +193,19 @@ class Variable(Storage):
     def __str__(self) -> str:
         return f"var{self._width}@{id(self):x}"
 
-    def canLoadHaveSideEffect(self) -> bool:
+    def can_load_have_side_effect(self) -> bool:
         return False
 
-    def canStoreHaveSideEffect(self) -> bool:
+    def can_store_have_side_effect(self) -> bool:
         return False
 
-    def isLoadConsistent(self) -> bool:
+    def is_load_consistent(self) -> bool:
         return True
 
-    def isSticky(self) -> bool:
+    def is_sticky(self) -> bool:
         return True
 
-    def mightBeSame(self, other: Storage) -> bool:
+    def might_be_same(self, other: Storage) -> bool:
         return self is other or (
             # Global variable might be passed by reference.
             self._scope == 0
@@ -236,19 +236,19 @@ class ArgStorage(Storage):
     def __str__(self) -> str:
         return self._name
 
-    def canLoadHaveSideEffect(self) -> bool:
+    def can_load_have_side_effect(self) -> bool:
         return True
 
-    def canStoreHaveSideEffect(self) -> bool:
+    def can_store_have_side_effect(self) -> bool:
         return True
 
-    def isLoadConsistent(self) -> bool:
+    def is_load_consistent(self) -> bool:
         return False
 
-    def isSticky(self) -> bool:
+    def is_sticky(self) -> bool:
         return False
 
-    def mightBeSame(self, other: Storage) -> bool:
+    def might_be_same(self, other: Storage) -> bool:
         # We don't have nested function scopes, so a variable that is known
         # in our scope can only be referenced via arguments if it is defined
         # in the global scope.
@@ -269,9 +269,9 @@ class IOStorage(Storage):
         return self._index
 
     def __init__(self, channel: IOChannel, index: Expression):
-        self._channel = IOChannel.checkInstance(channel)
+        self._channel = IOChannel.check_instance(channel)
         self._index = index
-        Storage.__init__(self, channel.elemType.width)
+        Storage.__init__(self, channel.elem_type.width)
 
     def __repr__(self) -> str:
         return f"IOStorage({self._channel!r}, {self._index!r})"
@@ -289,22 +289,22 @@ class IOStorage(Storage):
     def __hash__(self) -> int:
         return hash((self._channel, self._index))
 
-    def canLoadHaveSideEffect(self) -> bool:
-        return self._channel.canLoadHaveSideEffect(self._index)
+    def can_load_have_side_effect(self) -> bool:
+        return self._channel.can_load_have_side_effect(self._index)
 
-    def canStoreHaveSideEffect(self) -> bool:
-        return self._channel.canStoreHaveSideEffect(self._index)
+    def can_store_have_side_effect(self) -> bool:
+        return self._channel.can_store_have_side_effect(self._index)
 
-    def isLoadConsistent(self) -> bool:
-        return self._channel.isLoadConsistent(self._index)
+    def is_load_consistent(self) -> bool:
+        return self._channel.is_load_consistent(self._index)
 
-    def isSticky(self) -> bool:
-        return self._channel.isSticky(self._index)
+    def is_sticky(self) -> bool:
+        return self._channel.is_sticky(self._index)
 
-    def mightBeSame(self, other: Storage) -> bool:
+    def might_be_same(self, other: Storage) -> bool:
         if isinstance(other, IOStorage):
             # pylint: disable=protected-access
-            return self._channel == other._channel and self._channel.mightBeSame(
+            return self._channel == other._channel and self._channel.might_be_same(
                 self._index, other._index
             )
         else:
@@ -313,15 +313,15 @@ class IOStorage(Storage):
     def iter_expressions(self) -> Iterator[Expression]:
         yield self._index
 
-    def substituteExpressions(
+    def substitute_expressions(
         self, func: Callable[[Expression], Expression | None]
     ) -> IOStorage:
         index = self._index
-        newIndex = index.substitute(func)
-        if newIndex is index:
+        new_index = index.substitute(func)
+        if new_index is index:
             return self
         else:
-            return IOStorage(self._channel, newIndex)
+            return IOStorage(self._channel, new_index)
 
 
 class Keeper(Storage):
@@ -338,17 +338,17 @@ class Keeper(Storage):
     def __str__(self) -> str:
         return f"keep{self._width}"
 
-    def canLoadHaveSideEffect(self) -> bool:
+    def can_load_have_side_effect(self) -> bool:
         return True
 
-    def canStoreHaveSideEffect(self) -> bool:
+    def can_store_have_side_effect(self) -> bool:
         return True
 
-    def isLoadConsistent(self) -> bool:
+    def is_load_consistent(self) -> bool:
         return False
 
-    def isSticky(self) -> bool:
+    def is_sticky(self) -> bool:
         return False
 
-    def mightBeSame(self, other: Storage) -> bool:
+    def might_be_same(self, other: Storage) -> bool:
         return self is other

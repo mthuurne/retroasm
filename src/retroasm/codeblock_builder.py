@@ -223,7 +223,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                         assert arg.width == bits.width, (arg.width, bits.width)
                         return bits
                 case storage:
-                    return SingleStorage(storage.substituteExpressions(importExpr))
+                    return SingleStorage(storage.substitute_expressions(importExpr))
 
         storageCache: dict[Storage, BitString] = {}
 

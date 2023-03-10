@@ -236,7 +236,7 @@ class SingleStorage(BitString):
 
         if expression_func is None:
             return self
-        new_storage = storage.substituteExpressions(expression_func)
+        new_storage = storage.substitute_expressions(expression_func)
         if new_storage is storage:
             return self
         else:

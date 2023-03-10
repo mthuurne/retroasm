@@ -268,7 +268,7 @@ class CodeBlock:
         for node in self.nodes:
             # Update indices for I/O storages.
             storage = node.storage
-            newStorage = storage.substituteExpressions(substFunc)
+            newStorage = storage.substitute_expressions(substFunc)
             if newStorage is not storage:
                 node.storage = newStorage
 

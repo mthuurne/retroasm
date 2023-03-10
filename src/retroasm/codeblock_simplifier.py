@@ -64,7 +64,7 @@ class CodeBlockSimplifier(CodeBlock):
 
             # Apply load replacements to storage.
             if loadReplacements:
-                newStorage = storage.substituteExpressions(replaceLoadedValues)
+                newStorage = storage.substitute_expressions(replaceLoadedValues)
                 if newStorage is not storage:
                     node.storage = storage = newStorage
 
@@ -74,10 +74,10 @@ class CodeBlockSimplifier(CodeBlock):
                     if value is not None:
                         # Use known value instead of loading it.
                         loadReplacements[expr] = value
-                        if not storage.canLoadHaveSideEffect():
+                        if not storage.can_load_have_side_effect():
                             del nodes[i]
                             continue
-                    elif storage.isLoadConsistent():
+                    elif storage.is_load_consistent():
                         # Remember loaded value.
                         currentValues[storage] = expr
                 case Store(expr=expr):
@@ -89,16 +89,16 @@ class CodeBlockSimplifier(CodeBlock):
 
                     if value == expr:
                         # Current value is rewritten.
-                        if not storage.canStoreHaveSideEffect():
+                        if not storage.can_store_have_side_effect():
                             del nodes[i]
                             continue
-                    elif storage.isSticky():
+                    elif storage.is_sticky():
                         # Remember stored value.
                         currentValues[storage] = expr
 
                     # Remove values for storages that might be aliases.
                     for storage2 in list(currentValues.keys()):
-                        if storage != storage2 and storage.mightBeSame(storage2):
+                        if storage != storage2 and storage.might_be_same(storage2):
                             # However, if the store wouldn't alter the value,
                             # there is no need to remove it.
                             if currentValues[storage2] != expr:
@@ -139,7 +139,7 @@ class CodeBlockSimplifier(CodeBlock):
         for i in range(len(nodes) - 1, -1, -1):
             node = nodes[i]
             storage = node.storage
-            if not storage.canStoreHaveSideEffect():
+            if not storage.can_store_have_side_effect():
                 match node:
                     case Load():
                         assert not (
@@ -178,7 +178,7 @@ class CodeBlockSimplifier(CodeBlock):
         for i in range(len(nodes) - 1, -1, -1):
             match nodes[i]:
                 case Load(expr=expr, storage=storage):
-                    if useCounts[expr] == 0 and not storage.canLoadHaveSideEffect():
+                    if useCounts[expr] == 0 and not storage.can_load_have_side_effect():
                         del nodes[i]
                         # Update useCounts, so we can remove earlier Loads that
                         # became unused because the Load we just removed was

@@ -246,8 +246,8 @@ def _rejectPC(name: str, location: InputLocation | None) -> None:
 
 
 def createIOReference(channel: IOChannel, index: Expression) -> Reference:
-    addrWidth = channel.addrType.width
+    addrWidth = channel.addr_type.width
     truncatedIndex = opt_slice(index, 0, addrWidth)
     storage = IOStorage(channel, truncatedIndex)
     bits = SingleStorage(storage)
-    return Reference(bits, channel.elemType)
+    return Reference(bits, channel.elem_type)

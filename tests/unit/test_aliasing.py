@@ -6,15 +6,15 @@ from retroasm.types import IntType
 
 
 def assertAlias(storage1: Storage, storage2: Storage) -> None:
-    assert storage1.mightBeSame(storage2), f"{storage1} does not alias {storage2}"
-    assert storage2.mightBeSame(
+    assert storage1.might_be_same(storage2), f"{storage1} does not alias {storage2}"
+    assert storage2.might_be_same(
         storage1
     ), f"{storage1} does alias {storage2}, but not vice versa"
 
 
 def assertNoAlias(storage1: Storage, storage2: Storage) -> None:
-    assert not storage1.mightBeSame(storage2), f"{storage1} does alias {storage2}"
-    assert not storage2.mightBeSame(
+    assert not storage1.might_be_same(storage2), f"{storage1} does alias {storage2}"
+    assert not storage2.might_be_same(
         storage1
     ), f"{storage1} does not alias {storage2}, but vice versa it does"
 
