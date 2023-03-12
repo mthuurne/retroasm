@@ -169,11 +169,11 @@ class FixedValue(BitString):
         if expression_func is None:
             return self
         expr = self._expr
-        newExpr = expr.substitute(expression_func)
-        if newExpr is expr:
+        new_expr = expr.substitute(expression_func)
+        if new_expr is expr:
             return self
         else:
-            return FixedValue(newExpr, self._width)
+            return FixedValue(new_expr, self._width)
 
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
@@ -304,9 +304,9 @@ class ConcatenatedBits(BitString):
         changed = False
         subs = []
         for sub in self._subs:
-            newBits = sub.substitute(storage_func, expression_func)
-            subs.append(newBits)
-            changed |= newBits is not sub
+            new_bits = sub.substitute(storage_func, expression_func)
+            subs.append(new_bits)
+            changed |= new_bits is not sub
         return ConcatenatedBits(*subs) if changed else self
 
     def emit_load(

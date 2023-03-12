@@ -21,7 +21,7 @@ class ValuePlaceholderSpec:
         return self.decl.name.name
 
     @property
-    def encodingWidth(self) -> Width:
+    def encoding_width(self) -> Width:
         return self.type.width
 
     def __str__(self) -> str:
@@ -38,7 +38,7 @@ class MatchPlaceholderSpec:
         return self.decl.name.name
 
     @property
-    def encodingWidth(self) -> Width | None:
+    def encoding_width(self) -> Width | None:
         return self.mode.encodingWidth
 
     @property

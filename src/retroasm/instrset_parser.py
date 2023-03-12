@@ -20,10 +20,10 @@ from .decode import (
 from .expression_builder import (
     BadExpression,
     UnknownNameError,
-    buildExpression,
-    buildReference,
-    buildStatementEval,
-    convertDefinition,
+    build_expression,
+    build_reference,
+    build_statement_eval,
+    convert_definition,
 )
 from .expression_nodes import (
     DeclarationNode,
@@ -32,7 +32,7 @@ from .expression_nodes import (
     IdentifierNode,
     MultiMatchNode,
     ParseNode,
-    parseInt,
+    parse_int,
 )
 from .expression_parser import (
     parse_context,
@@ -130,7 +130,7 @@ def _parse_regs(
                     # Define register alias.
                     name = decl.name.name
                     try:
-                        ref = convertDefinition(
+                        ref = convert_definition(
                             decl.kind, name, regType, value, globalNamespace
                         )
                     except BadExpression as ex:
@@ -535,7 +535,7 @@ def _buildPlaceholders(
                 semNamespace, SemanticsCodeBlockBuilder()
             )
             try:
-                ref = convertDefinition(
+                ref = convert_definition(
                     decl.kind, decl.name.name, semType, value, placeholderNamespace
                 )
             except BadExpression as ex:
@@ -582,12 +582,12 @@ def _parseEncodingExpr(
     """
     namespace = LocalNamespace(encNamespace, SemanticsCodeBlockBuilder())
     try:
-        encRef = buildReference(encNode, namespace)
+        encRef = build_reference(encNode, namespace)
     except BadInput as ex:
         if isinstance(ex, UnknownNameError):
             spec = placeholderSpecs.get(ex.name)
             if spec is not None:
-                if spec.encodingWidth is None:
+                if spec.encoding_width is None:
                     # Only MatchPlaceholderSpec.encodingWidth can return None.
                     assert isinstance(spec, MatchPlaceholderSpec), spec
                     raise BadInput(
@@ -669,7 +669,7 @@ def _parseModeEncoding(
     encNamespace = ContextNamespace(globalNamespace)
     for name, spec in placeholderSpecs.items():
         if spec.value is None:
-            encWidth = spec.encodingWidth
+            encWidth = spec.encoding_width
             if encWidth is not None:
                 encType = IntType.u(encWidth)
                 location = spec.decl.name.location
@@ -882,7 +882,7 @@ def _combinePlaceholderEncodings(
     """
     for name, slices in decodeMap.items():
         placeholderSpec = placeholderSpecs[name]
-        immWidth = placeholderSpec.encodingWidth
+        immWidth = placeholderSpec.encoding_width
         # TODO: Can this actually never happen?
         assert immWidth is not None, placeholderSpec
         decoding = []
@@ -999,7 +999,7 @@ def _parseModeSemantics(
 ) -> Reference | None:
     semantics = parse_expr(semLoc)
     if isinstance(modeType, ReferenceType):
-        ref = buildReference(semantics, semNamespace)
+        ref = build_reference(semantics, semNamespace)
         if ref.type != modeType.type:
             raise BadInput(
                 f"semantics type {ref.type} does not match mode type {modeType.type}",
@@ -1008,7 +1008,7 @@ def _parseModeSemantics(
         semNamespace.define("ret", ref, semLoc)
         return ref
     else:
-        expr = buildExpression(semantics, semNamespace)
+        expr = build_expression(semantics, semNamespace)
         # Note that modeType can be None because of earlier errors.
         if modeType is None:
             return None
@@ -1025,7 +1025,7 @@ def _parseInstrSemantics(
 ) -> None:
     assert modeType is None, modeType
     node = parse_statement(semLoc)
-    buildStatementEval(reader, "semantics field", namespace, node)
+    build_statement_eval(reader, "semantics field", namespace, node)
 
 
 _reMnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
@@ -1044,7 +1044,7 @@ def _parseMnemonic(
         if placeholder is None:
             if "0" <= text[0] <= "9" or text[0] in "$%":
                 try:
-                    value, width = parseInt(text)
+                    value, width = parse_int(text)
                 except ValueError as ex:
                     reader.error("%s", ex, location=mnemElem)
                 else:

@@ -4,7 +4,7 @@ from collections.abc import Iterator, Mapping
 from typing import cast
 
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .expression_builder import emitCodeFromStatements
+from .expression_builder import emit_code_from_statements
 from .expression_nodes import ParseError, ParseNode
 from .expression_parser import parse_statement
 from .function import Function
@@ -63,7 +63,7 @@ def createFunc(
     try:
         with reader.check_errors():
             bodyNodes = _parseBody(reader)
-            emitCodeFromStatements(
+            emit_code_from_statements(
                 reader, "function body", namespace, bodyNodes, retType
             )
     except DelayedError:

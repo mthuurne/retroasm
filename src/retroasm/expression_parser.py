@@ -20,7 +20,7 @@ from .expression_nodes import (
     OperatorNode,
     ParseError,
     ParseNode,
-    parseInt,
+    parse_int,
 )
 from .linereader import InputLocation
 from .tokens import TokenEnum, Tokenizer
@@ -443,14 +443,14 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         location = tokens.eat(ExprToken.number)
         assert location is not None, tokens.location
         try:
-            value, width = parseInt(location.text)
+            value, width = parse_int(location.text)
         except ValueError as ex:
             raise ParseError(f"{ex}", location) from ex
         else:
             return NumberNode(value, width, location=location)
 
     parse_expr_top = parse_or
-    topForMode = {
+    top_for_mode = {
         _ParseMode.single: parse_expr_top,
         _ParseMode.multi: parse_list,
         _ParseMode.registers: parse_regs_top,
@@ -458,7 +458,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         _ParseMode.statement: parse_statement_top,
     }
 
-    expr = topForMode[mode]()
+    expr = top_for_mode[mode]()
     if tokens.peek(ExprToken.other):
         raise ParseError(
             f'unexpected character "{tokens.value}" in expression', tokens.location

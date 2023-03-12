@@ -179,23 +179,23 @@ class ParseError(BadInput):
     """Raised when the input text cannot be parsed into an expression."""
 
 
-def parseInt(valueStr: str) -> tuple[int, Width]:
+def parse_int(value_str: str) -> tuple[int, Width]:
     """
     Parse the given string as a binary, decimal or hexadecimal integer.
     Returns a pair containing the value and the width of the literal in bits.
     Raises ValueError if the given string does not represent an integer.
     """
-    if valueStr[0] == "$":
-        return parseDigits(valueStr[1:], 16), (len(valueStr) - 1) * 4
-    elif valueStr[0] == "%":
-        return parseDigits(valueStr[1:], 2), len(valueStr) - 1
-    elif valueStr[0] == "0" and len(valueStr) != 1:
-        raise ValueError(f"leading zeroes not allowed on decimal number: {valueStr}")
+    if value_str[0] == "$":
+        return parse_digits(value_str[1:], 16), (len(value_str) - 1) * 4
+    elif value_str[0] == "%":
+        return parse_digits(value_str[1:], 2), len(value_str) - 1
+    elif value_str[0] == "0" and len(value_str) != 1:
+        raise ValueError(f"leading zeroes not allowed on decimal number: {value_str}")
     else:
-        return parseDigits(valueStr, 10), unlimited
+        return parse_digits(value_str, 10), unlimited
 
 
-def parseDigits(digits: str, base: int) -> int:
+def parse_digits(digits: str, base: int) -> int:
     """
     Wrapper around the "int" constructor that generates a slightly more
     detailed ValueError message if the given string contains characters that
@@ -204,5 +204,5 @@ def parseDigits(digits: str, base: int) -> int:
     try:
         return int(digits, base)
     except ValueError:
-        baseDesc = {2: "binary", 10: "decimal", 16: "hexadecimal"}
-        raise ValueError(f"bad {baseDesc[base]} number: {digits}") from None
+        base_desc = {2: "binary", 10: "decimal", 16: "hexadecimal"}
+        raise ValueError(f"bad {base_desc[base]} number: {digits}") from None

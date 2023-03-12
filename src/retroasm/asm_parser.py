@@ -23,7 +23,7 @@ from .expression_nodes import (
     OperatorNode,
     ParseError,
     ParseNode,
-    parseDigits,
+    parse_digits,
 )
 from .instrset import InstructionSet
 from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
@@ -348,7 +348,7 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
             width = digit_width * len(digits)
 
         try:
-            num_val = parseDigits(digits, radix)
+            num_val = parse_digits(digits, radix)
         except ValueError as ex:
             # TODO: Have the span point to the first offending character.
             raise ParseError(f"{ex}", location) from None
