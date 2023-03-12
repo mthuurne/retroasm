@@ -49,13 +49,13 @@ from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredData
 from .types import Unlimited, unlimited
 
 
-def setupLogging(rootLevel: int) -> Logger:
+def setup_logging(root_level: int) -> Logger:
     handler = StreamHandler()
     formatter = LineReaderFormatter()
     handler.setFormatter(formatter)
     logger = getLogger()
     logger.addHandler(handler)
-    logger.setLevel(rootLevel)
+    logger.setLevel(root_level)
     return logger
 
 
@@ -65,13 +65,13 @@ def setupLogging(rootLevel: int) -> Logger:
 def asm(instr: str, sources: tuple[str, ...]) -> None:
     """Assembler using the RetroAsm toolkit."""
 
-    logger = setupLogging(INFO)
+    logger = setup_logging(INFO)
 
-    instrSet = loadInstructionSetByName(instr, logger, wantSemantics=False)
-    if instrSet is None:
+    instr_set = loadInstructionSetByName(instr, logger, wantSemantics=False)
+    if instr_set is None:
         get_current_context().exit(1)
 
-    parsed = read_sources((Path(source) for source in sources), instrSet)
+    parsed = read_sources((Path(source) for source in sources), instr_set)
 
     problems = ProblemCounter()
     for source in parsed.values():
@@ -81,17 +81,17 @@ def asm(instr: str, sources: tuple[str, ...]) -> None:
         get_current_context().exit(1)
 
 
-def dumpDecoders(instrSet: InstructionSet, submodes: bool) -> None:
+def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
 
-    flagCombos = sorted(sorted(flags) for flags in instrSet.decodeFlagCombinations)
-    for flags in flagCombos:
+    flag_combos = sorted(sorted(flags) for flags in instr_set.decodeFlagCombinations)
+    for flags in flag_combos:
         print()
         if flags:
             print(
                 f"with decode flag{'' if len(flags) == 1 else 's'} {', '.join(flags)}:"
             )
             print()
-        instrSet.getDecoder(frozenset(flags)).dump(submodes=submodes)
+        instr_set.getDecoder(frozenset(flags)).dump(submodes=submodes)
 
 
 @command()
@@ -144,7 +144,7 @@ def checkdef(
             errors = True
 
     if files:
-        logger = setupLogging(INFO)
+        logger = setup_logging(INFO)
         for instr_file in files:
             logger.info("checking: %s", instr_file)
             instr_set = loadInstructionSet(instr_file, logger)
@@ -152,10 +152,10 @@ def checkdef(
                 errors = True
                 continue
             if dump_decoders:
-                dumpDecoders(instr_set, False)
+                print_decoders(instr_set, False)
                 print()
             if dump_decoders_subs:
-                dumpDecoders(instr_set, True)
+                print_decoders(instr_set, True)
                 print()
             if dump_mnemonics:
                 instr_set.dumpMnemonicTree()
@@ -165,8 +165,8 @@ def checkdef(
     get_current_context().exit(1 if errors else 0)
 
 
-def determineBinaryFormat(
-    image: Image, fileName: str, formatName: str | None, logger: Logger
+def determine_binary_format(
+    image: Image, file_name: str, format_name: str | None, logger: Logger
 ) -> BinaryFormat | None:
     """
     Determines the right binary format for the given open file object.
@@ -176,8 +176,8 @@ def determineBinaryFormat(
     not be determined.
     """
 
-    if formatName is None:
-        binfmt = detectBinaryFormat(image, fileName)
+    if format_name is None:
+        binfmt = detectBinaryFormat(image, file_name)
         if binfmt is None:
             logger.error(
                 "Detection of binary format failed, please specify one with --binfmt"
@@ -188,24 +188,24 @@ def determineBinaryFormat(
             )
     else:
         try:
-            binfmtClass = getBinaryFormat(formatName)
+            binfmt_class = getBinaryFormat(format_name)
         except KeyError:
-            logger.error("Unknown binary format: %s", formatName)
+            logger.error("Unknown binary format: %s", format_name)
             binfmt = None
         else:
             logger.debug(
                 "User-specified binary format: %s (%s)",
-                binfmtClass.name,
-                binfmtClass.description,
+                binfmt_class.name,
+                binfmt_class.description,
             )
-            binfmt = binfmtClass.autodetect(image)
+            binfmt = binfmt_class.autodetect(image)
     return binfmt
 
 
-def disassembleBinary(
+def disassemble_binary(
     binary: BinaryFormat,
-    userSections: Iterable[Section],
-    userEntryPoints: Iterable[EntryPoint],
+    user_sections: Iterable[Section],
+    user_entry_points: Iterable[EntryPoint],
     out: IO[str],
     logger: Logger,
 ) -> None:
@@ -214,7 +214,7 @@ def disassembleBinary(
 
     # Merge user-defined sections with sections from binary format.
     sections = []
-    for section in userSections:
+    for section in user_sections:
         logger.debug("user-defined section: %s", section)
         sections.append(section)
     for section in binary.iterSections():
@@ -226,20 +226,20 @@ def disassembleBinary(
         )
         return
     try:
-        sectionMap = SectionMap(sections)
+        section_map = SectionMap(sections)
     except ValueError as ex:
         logger.error("Invalid section map: %s", ex)
         return
 
     # Merge user-defined entry points with entry points from binary format.
-    entryPoints = []
-    for entryPoint in userEntryPoints:
-        logger.debug("user-defined entry: %s", entryPoint)
-        entryPoints.append(entryPoint)
-    for entryPoint in binary.iterEntryPoints():
-        logger.debug("binfmt-defined entry: %s", entryPoint)
-        entryPoints.append(entryPoint)
-    if len(entryPoints) == 0:
+    entry_points = []
+    for entry_point in user_entry_points:
+        logger.debug("user-defined entry: %s", entry_point)
+        entry_points.append(entry_point)
+    for entry_point in binary.iterEntryPoints():
+        logger.debug("binfmt-defined entry: %s", entry_point)
+        entry_points.append(entry_point)
+    if len(entry_points) == 0:
         logger.warning(
             "No entry points; you can manually define them using the --entry "
             "argument"
@@ -250,12 +250,12 @@ def disassembleBinary(
     logger.info("Disassembling...")
     decoded: dict[CodeSection, Sequence[tuple[int, DataDirective | Instruction]]] = {}
     labels: dict[int, str] = {}
-    for entryPoint in entryPoints:
-        offset = entryPoint.offset
+    for entry_point in entry_points:
+        offset = entry_point.offset
 
         # Find section.
-        entrySection = sectionMap.sectionAt(offset)
-        if entrySection is None:
+        entry_section = section_map.sectionAt(offset)
+        if entry_section is None:
             logger.warning(
                 "Skipping disassembly of offset 0x%x because it does not "
                 "belong to any section",
@@ -264,26 +264,26 @@ def disassembleBinary(
             continue
 
         # Find instruction set.
-        if not isinstance(entrySection, CodeSection):
+        if not isinstance(entry_section, CodeSection):
             logger.warning(
                 "Skipping disassembly of offset 0x%x because its section does "
                 "not specify an instruction set",
                 offset,
             )
             continue
-        instrSetName = entrySection.instrSetName
-        instrSet = builtinInstructionSets[instrSetName]
-        if instrSet is None:
+        instr_set_name = entry_section.instrSetName
+        instr_set = builtinInstructionSets[instr_set_name]
+        if instr_set is None:
             logger.warning(
                 "Skipping disassembly of offset 0x%x due to unknown "
                 'instruction set "%s"',
                 offset,
-                instrSetName,
+                instr_set_name,
             )
             continue
 
         # Find end point.
-        end = min(entrySection.end, len(image))
+        end = min(entry_section.end, len(image))
         assert isinstance(end, int), end
         if offset >= end:
             logger.warning(
@@ -295,22 +295,22 @@ def disassembleBinary(
             continue
 
         # Remember label.
-        addr = entrySection.base + offset - entrySection.start
-        label = entryPoint.label
+        addr = entry_section.base + offset - entry_section.start
+        label = entry_point.label
         if label is not None:
             labels[addr] = label
 
         # TODO: For now, we disassemble full sections instead of tracing execution
         #       from the entry points.
-        offset = entrySection.start
-        addr = entrySection.base
+        offset = entry_section.start
+        addr = entry_section.base
 
         # Create instruction fetcher.
         try:
-            instrWidth = instrSet.encodingWidth
-            if instrWidth is None:
+            instr_width = instr_set.encodingWidth
+            if instr_width is None:
                 raise ValueError("unknown instruction width")
-            fetcherFactory = ImageFetcher.factory(instrWidth, entrySection.byteOrder)
+            fetcher_factory = ImageFetcher.factory(instr_width, entry_section.byteOrder)
         except ValueError as ex:
             logger.warning(
                 "Skipping disassembly of offset 0x%x because no instruction fetcher "
@@ -319,31 +319,31 @@ def disassembleBinary(
                 ex,
             )
             continue
-        fetcher = fetcherFactory(image, offset, end)
+        fetcher = fetcher_factory(image, offset, end)
 
-        if entrySection not in decoded:
-            decoded[entrySection] = tuple(disassemble(instrSet, fetcher, addr))
+        if entry_section not in decoded:
+            decoded[entry_section] = tuple(disassemble(instr_set, fetcher, addr))
 
     # Output assembly.
     logger.info("Writing output...")
     formatter = Formatter()
-    imageOffsetWidth = len(image).bit_length()
+    image_offset_width = len(image).bit_length()
     print(formatter.comment("Disassembled by RetroAsm"), file=out)
-    for section, data in _iterImageSections(image, sectionMap):
+    for section, data in _iter_image_sections(image, section_map):
         print(file=out)
         print(
             formatter.comment(
                 f"{section.description.title()} section: "
-                f"{formatter.hexRange(section.start, section.end, imageOffsetWidth)}"
+                f"{formatter.hexRange(section.start, section.end, image_offset_width)}"
             ),
             file=out,
         )
         print(file=out)
         if section in decoded:
             assert isinstance(section, CodeSection), section
-            instrSet = builtinInstructionSets[section.instrSetName]
-            assert instrSet is not None
-            org_addr = NumberNode(section.base, instrSet.addrType.width)
+            instr_set = builtinInstructionSets[section.instrSetName]
+            assert instr_set is not None
+            org_addr = NumberNode(section.base, instr_set.addrType.width)
             org = OriginDirective(org_addr)
             print(formatter.origin(org), file=out)
             print(file=out)
@@ -357,7 +357,7 @@ def disassembleBinary(
                 print(line, file=out)
 
 
-def _iterImageSections(
+def _iter_image_sections(
     image: Image, sections: SectionMap
 ) -> Iterator[tuple[Section, bytes]]:
     """
@@ -367,19 +367,19 @@ def _iterImageSections(
     Sections that are entirely outside of the image will be ignored.
     The last section could be partially outside of the image.
     """
-    imageEnd = len(image)
+    image_end = len(image)
     offset = 0
     for section in sections:
-        prevEnd = min(section.start, imageEnd)
-        if offset < prevEnd:
-            yield Section(offset, prevEnd, "gap"), image[offset:prevEnd]
-        if prevEnd == imageEnd:
+        prev_end = min(section.start, image_end)
+        if offset < prev_end:
+            yield Section(offset, prev_end, "gap"), image[offset:prev_end]
+        if prev_end == image_end:
             break
-        end = cast(int, min(section.end, imageEnd))
-        yield section, image[prevEnd:end]
+        end = cast(int, min(section.end, image_end))
+        yield section, image[prev_end:end]
         offset = end
-    if offset < imageEnd:
-        yield Section(offset, imageEnd, "gap"), image[offset:imageEnd]
+    if offset < image_end:
+        yield Section(offset, image_end, "gap"), image[offset:image_end]
 
 
 def _parse_number(number: str) -> int:
@@ -403,12 +403,12 @@ class EntryPointParamType(ParamType):
 
         label: str | None
         if "," in value:
-            offsetStr, label = value.split(",")
+            offset_str, label = value.split(",")
         else:
-            offsetStr, label = value, None
+            offset_str, label = value, None
 
         try:
-            offset = _parse_number(offsetStr)
+            offset = _parse_number(offset_str)
         except ValueError as ex:
             raise BadParameter(f'Bad entry point definition "{value}": {ex}') from ex
         else:
@@ -430,7 +430,7 @@ class SectionParamType(ParamType):
         self, value: str, param: Parameter | None, ctx: Context | None
     ) -> Section:
 
-        instrSetName: str | None = None
+        instr_set_name: str | None = None
         byteorder = ByteOrder.undefined
         start = 0
         end: int | Unlimited = unlimited
@@ -439,15 +439,15 @@ class SectionParamType(ParamType):
             if not opt:
                 pass
             elif ".." in opt:
-                startStr, endStr = opt.split("..")
+                start_str, end_str = opt.split("..")
                 try:
-                    start = _parse_number(startStr)
+                    start = _parse_number(start_str)
                 except ValueError as ex:
-                    raise BadParameter(f'Bad section start "{startStr}": {ex}') from ex
+                    raise BadParameter(f'Bad section start "{start_str}": {ex}') from ex
                 try:
-                    end = _parse_number(endStr)
+                    end = _parse_number(end_str)
                 except ValueError as ex:
-                    raise BadParameter(f'Bad section end "{endStr}": {ex}') from ex
+                    raise BadParameter(f'Bad section end "{end_str}": {ex}') from ex
             elif opt[0].isdigit():
                 try:
                     base = _parse_number(opt)
@@ -457,26 +457,26 @@ class SectionParamType(ParamType):
                     ) from ex
             else:
                 if "," in opt:
-                    instrSetName, byteorderStr = opt.split(",")
-                    if byteorderStr == "be":
+                    instr_set_name, byteorder_str = opt.split(",")
+                    if byteorder_str == "be":
                         byteorder = ByteOrder.big
-                    elif byteorderStr == "le":
+                    elif byteorder_str == "le":
                         byteorder = ByteOrder.little
                     else:
-                        raise BadParameter(f'Unknown byte order "{byteorderStr}"')
+                        raise BadParameter(f'Unknown byte order "{byteorder_str}"')
                 else:
-                    instrSetName = opt
+                    instr_set_name = opt
 
-        if instrSetName is None:
+        if instr_set_name is None:
             return Section(start, end)
         else:
-            return CodeSection(start, end, base, instrSetName, byteorder)
+            return CodeSection(start, end, base, instr_set_name, byteorder)
 
 
 SECTION = SectionParamType()
 
 
-def listSupported(
+def list_supported(
     ctx: Context,
     param: Parameter | Option,  # pylint: disable=unused-argument
     value: bool,
@@ -490,10 +490,10 @@ def listSupported(
 
     print("Binary formats:")
     names = sorted(iterBinaryFormatNames())
-    lineFormatter = f"  %-{max(len(name) for name in names)}s : %s"
+    line_formatter = f"  %-{max(len(name) for name in names)}s : %s"
     for name in names:
         binfmt = getBinaryFormat(name)
-        print(lineFormatter % (name, binfmt.description))
+        print(line_formatter % (name, binfmt.description))
     print("")
 
     print("Instruction sets:")
@@ -528,7 +528,7 @@ example:     0..0x1000:0x80000000:mips-i,le
     is_flag=True,
     is_eager=True,
     expose_value=False,
-    callback=listSupported,
+    callback=list_supported,
     help="List available binary formats and instruction sets, then exit.",
 )
 @option(
@@ -568,7 +568,7 @@ def disasm(
     """Disassembler using the RetroAsm toolkit."""
 
     # Set logging level.
-    setupLogging(INFO if verbose < 2 else DEBUG)
+    setup_logging(INFO if verbose < 2 else DEBUG)
     logger = getLogger("disasm")
     if verbose > 0:
         logger.setLevel(DEBUG)
@@ -576,12 +576,12 @@ def disasm(
 
     # Disassemble binary file.
     try:
-        with open(binary, "rb") as binFile:
-            with mmap(binFile.fileno(), 0, access=ACCESS_READ) as image:
-                binaryFormat = determineBinaryFormat(image, binary, binfmt, logger)
-                if binaryFormat is None:
+        with open(binary, "rb") as bin_file:
+            with mmap(bin_file.fileno(), 0, access=ACCESS_READ) as image:
+                binary_format = determine_binary_format(image, binary, binfmt, logger)
+                if binary_format is None:
                     get_current_context().exit(1)
-                disassembleBinary(binaryFormat, sections, entries, sys.stdout, logger)
+                disassemble_binary(binary_format, sections, entries, sys.stdout, logger)
     except OSError as ex:
         if ex.filename == binary:
             logger.error('Failed to read binary "%s": %s', binary, ex.strerror)
