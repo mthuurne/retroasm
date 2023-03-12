@@ -94,10 +94,10 @@ class PrefixMappingFactory:
         for prefix in prefixes:
             for enc_item in prefix.encoding:
                 if enc_width is None:
-                    enc_width = enc_item.encodingWidth
-                elif enc_width != enc_item.encodingWidth:
+                    enc_width = enc_item.encoding_width
+                elif enc_width != enc_item.encoding_width:
                     raise BadInput(
-                        f"encoding item has width {enc_item.encodingWidth} "
+                        f"encoding item has width {enc_item.encoding_width} "
                         f"while previous item(s) have width {enc_width}",
                         enc_item.location,
                     )
@@ -152,12 +152,12 @@ class InstructionSet(ModeTable):
     """Contains all definitions for a processor's instruction set."""
 
     @property
-    def encodingWidth(self) -> int:
+    def encoding_width(self) -> int:
         return cast(int, self._enc_width)
 
     @property
     def encoding_type(self) -> IntType:
-        return IntType.u(self.encodingWidth)
+        return IntType.u(self.encoding_width)
 
     @property
     def global_namespace(self) -> GlobalNamespace:
@@ -227,7 +227,7 @@ class InstructionSet(ModeTable):
         encoded_length = 0
         while (prefix := decode_prefix(fetcher)) is not None:
             prefixes.append(prefix)
-            prefix_enc_len = prefix.encoding.encodedLength
+            prefix_enc_len = prefix.encoding.encoded_length
             assert prefix_enc_len is not None, prefix
             fetcher = fetcher.advance(prefix_enc_len)
             encoded_length += prefix_enc_len
@@ -253,7 +253,7 @@ class InstructionSet(ModeTable):
         if enc_match is None:
             mode_match = None
         else:
-            encoded_length += enc_match.encodedLength
+            encoded_length += enc_match.encoded_length
             mode_match = enc_match.complete()
 
         return encoded_length, mode_match
@@ -262,13 +262,13 @@ class InstructionSet(ModeTable):
         # Emit prefixes.
         # TODO: When there can be more than one prefix, alphabetical sorting
         #       may not be the right order.
-        for name in sorted(mode_match.flagsRequired):
+        for name in sorted(mode_match.flags_required):
             prefix = self._prefix_mapping.prefix_for_flag[name]
             for enc_item in prefix.encoding:
                 assert isinstance(enc_item, EncodingExpr), enc_item
                 yield enc_item.bits.int_value
 
-        for bits in mode_match.iterBits():
+        for bits in mode_match.iter_bits():
             yield bits.int_value
 
     @const_property

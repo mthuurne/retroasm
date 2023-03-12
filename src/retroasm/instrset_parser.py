@@ -41,7 +41,7 @@ from .expression_parser import (
     parse_regs,
     parse_statement,
 )
-from .function_builder import createFunc
+from .function_builder import create_func
 from .instrset import InstructionSet, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, InputLocation
 from .mode import (
@@ -440,7 +440,7 @@ def _parse_func(
         func_name = func_name_loc.text
 
         # Parse body lines.
-        func = createFunc(
+        func = create_func(
             reader,
             func_name_loc,
             ret_type,
@@ -721,7 +721,7 @@ def _check_empty_multi_matches(
     for enc_item in enc_items:
         match enc_item:
             case EncodingMultiMatch(mode=mode):
-                if mode.encodingWidth is None:
+                if mode.encoding_width is None:
                     logger.warning(
                         'mode "%s" does not contain encoding elements',
                         mode.name,
@@ -730,7 +730,7 @@ def _check_empty_multi_matches(
                             placeholder_specs[enc_item.name].decl.tree_location,
                         ),
                     )
-                elif enc_item.start >= 1 and mode.auxEncodingWidth is None:
+                elif enc_item.start >= 1 and mode.aux_encoding_width is None:
                     logger.warning(
                         'mode "%s" does not match auxiliary encoding units',
                         mode.name,
@@ -779,7 +779,7 @@ def _check_missing_placeholders(
                         location=(location, decl.tree_location),
                     )
             case MatchPlaceholderSpec(mode=mode, decl=decl):
-                if mode.encodingWidth is None:
+                if mode.encoding_width is None:
                     # Mode has empty encoding, no match needed.
                     continue
                 if name in multi_matches:
@@ -792,7 +792,7 @@ def _check_missing_placeholders(
                         mode.name,
                         location=(location, decl.tree_location),
                     )
-                if mode.auxEncodingWidth is not None:
+                if mode.aux_encoding_width is not None:
                     logger.error(
                         'mode "%s" matches auxiliary encoding units, but there '
                         'is no "%s@" placeholder for them',
@@ -834,17 +834,17 @@ def _check_aux_encoding_width(
         match enc_item:
             case EncodingExpr() if first:
                 pass
-            case EncodingExpr(encodingWidth=enc_width, location=loc):
+            case EncodingExpr(encoding_width=enc_width, location=loc):
                 check_aux(enc_width, loc)
             case EncodingMultiMatch(
-                mode=Mode(auxEncodingWidth=aux_width),
-                encodedLength=enc_len,
+                mode=Mode(aux_encoding_width=aux_width),
+                encoded_length=enc_len,
                 location=loc,
             ) if first:
                 if enc_len != 1 and aux_width is not None:
                     check_aux(aux_width, loc)
             case EncodingMultiMatch(
-                mode=Mode(encodingWidth=enc_width, auxEncodingWidth=aux_width),
+                mode=Mode(encoding_width=enc_width, aux_encoding_width=aux_width),
                 start=start,
                 location=loc,
             ):
@@ -948,7 +948,7 @@ def _check_decoding_order(
         if multi_idx is None:
             continue
         matcher = encoding[multi_idx]
-        if matcher.encodedLength is not None:
+        if matcher.encoded_length is not None:
             continue
 
         # Are any parts of the placeholder are located after the multi-match?
@@ -1252,7 +1252,7 @@ def _determine_encoding_width(
     If the entries represent instructions, pass None for the mode name.
     """
 
-    width_attr = "auxEncodingWidth" if aux else "encodingWidth"
+    width_attr = "aux_encoding_width" if aux else "encoding_width"
 
     width_freqs: DefaultDict[int | None, int] = defaultdict(int)
     for entry in entries:
@@ -1289,7 +1289,9 @@ def _determine_encoding_width(
                         else f'in mode "{mode_name}"'
                     ),
                     location=(
-                        enc_def.auxEncodingLocation if aux else enc_def.encodingLocation
+                        enc_def.aux_encoding_location
+                        if aux
+                        else enc_def.encoding_location
                     ),
                 )
                 bad_entry_indices.append(idx)
@@ -1399,23 +1401,23 @@ def _parse_instr(
         want_semantics,
     ):
         enc_def = instr.entry.encoding
-        enc_width = enc_def.encodingWidth
+        enc_width = enc_def.encoding_width
         if enc_width is None:
             reader.error(
                 "instruction encoding must not be empty",
-                location=enc_def.encodingLocation,
+                location=enc_def.encoding_location,
             )
             # Do not yield the instruction, to avoid this problem from being
             # reporting again as a width inconsistency.
             continue
-        aux_encoding_width = enc_def.auxEncodingWidth
+        aux_encoding_width = enc_def.aux_encoding_width
         if aux_encoding_width not in (enc_width, None):
             reader.error(
                 "auxiliary instruction encoding units are %s bits wide, "
                 "while first unit is %s bits wide",
                 aux_encoding_width,
                 enc_width,
-                location=enc_def.auxEncodingLocation,
+                location=enc_def.aux_encoding_location,
             )
         yield instr
 

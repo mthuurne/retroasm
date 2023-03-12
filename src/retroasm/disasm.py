@@ -125,7 +125,7 @@ def disassemble(
             pre_addr = fetcher.addr
             fetcher.update(reencoded_len)
             post_addr = fetcher.addr
-            mode_match = mode_match.substPC(pc, IntLiteral(post_addr))
+            mode_match = mode_match.subst_pc(pc, IntLiteral(post_addr))
             yield pre_addr, Instruction(mode_match.mnemonic)
 
 

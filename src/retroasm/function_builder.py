@@ -15,7 +15,7 @@ from .storage import ArgStorage
 from .types import IntType, ReferenceType
 
 
-def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
+def _parse_body(reader: DefLineReader) -> Iterator[ParseNode]:
     """
     Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
@@ -28,83 +28,83 @@ def _parseBody(reader: DefLineReader) -> Iterator[ParseNode]:
             reader.error("failed to parse statement: %s", ex, location=ex.locations)
 
 
-def createFunc(
+def create_func(
     reader: DefLineReader,
-    funcNameLocation: InputLocation,
-    retType: None | IntType | ReferenceType,
-    retTypeLocation: InputLocation | None,
+    func_name_location: InputLocation,
+    ret_type: None | IntType | ReferenceType,
+    ret_type_location: InputLocation | None,
     args: Mapping[str, IntType | ReferenceType],
-    argNameLocations: Mapping[str, InputLocation],
-    globalNamespace: GlobalNamespace,
+    arg_name_locations: Mapping[str, InputLocation],
+    global_namespace: GlobalNamespace,
 ) -> Function:
 
     builder = SemanticsCodeBlockBuilder()
-    namespace = LocalNamespace(globalNamespace, builder)
-    for argName, argDecl in args.items():
-        argLoc = argNameLocations[argName]
-        if isinstance(argDecl, ReferenceType):
+    namespace = LocalNamespace(global_namespace, builder)
+    for arg_name, arg_decl in args.items():
+        arg_loc = arg_name_locations[arg_name]
+        if isinstance(arg_decl, ReferenceType):
             # Pass-by-reference.
-            namespace.add_argument(argName, argDecl.type, argLoc)
+            namespace.add_argument(arg_name, arg_decl.type, arg_loc)
         else:
             # Pass-by-value.
             # Create reference to passed argument.
-            storage = ArgStorage(argName, argDecl.width)
-            argRef = Reference(SingleStorage(storage), argDecl)
+            storage = ArgStorage(arg_name, arg_decl.width)
+            arg_ref = Reference(SingleStorage(storage), arg_decl)
             # Add local variable.
-            varRef = namespace.add_variable(argName, argDecl, argLoc)
+            var_ref = namespace.add_variable(arg_name, arg_decl, arg_loc)
             # Store initial value.
-            value = argRef.emit_load(builder, argLoc)
-            varRef.emit_store(builder, value, argLoc)
-    retRef: Reference | None
-    if retType is not None and not isinstance(retType, ReferenceType):
-        assert retTypeLocation is not None, retType
-        retRef = namespace.add_variable("ret", retType, retTypeLocation)
+            value = arg_ref.emit_load(builder, arg_loc)
+            var_ref.emit_store(builder, value, arg_loc)
+    ret_ref: Reference | None
+    if ret_type is not None and not isinstance(ret_type, ReferenceType):
+        assert ret_type_location is not None, ret_type
+        ret_ref = namespace.add_variable("ret", ret_type, ret_type_location)
 
     try:
         with reader.check_errors():
-            bodyNodes = _parseBody(reader)
+            body_nodes = _parse_body(reader)
             emit_code_from_statements(
-                reader, "function body", namespace, bodyNodes, retType
+                reader, "function body", namespace, body_nodes, ret_type
             )
     except DelayedError:
         code = None
     else:
-        if retType is None:
-            retRef = None
-        elif isinstance(retType, ReferenceType):
-            retRef = cast(Reference, namespace.elements["ret"])
+        if ret_type is None:
+            ret_ref = None
+        elif isinstance(ret_type, ReferenceType):
+            ret_ref = cast(Reference, namespace.elements["ret"])
 
         try:
             code = namespace.create_code_block(
-                retRef, log=reader, location=funcNameLocation
+                ret_ref, log=reader, location=func_name_location
             )
         except ValueError:
             code = None
 
     try:
-        func = Function(retType, args, code)
+        func = Function(ret_type, args, code)
     except ValueError as ex:
         reader.error(
             'error in function "%s": %s',
-            funcNameLocation.text,
+            func_name_location.text,
             ex,
-            location=funcNameLocation,
+            location=func_name_location,
         )
         code = None
-        func = Function(retType, args, code)
+        func = Function(ret_type, args, code)
 
     if code is not None:
         # Warn about unused arguments.
         # Note that simplification can remove usage that has no effect on
         # execution, but it is probably a good idea to warn about that too.
-        codeArgs = code.arguments
-        for argName in args.keys():
-            if argName not in codeArgs:
+        code_args = code.arguments
+        for arg_name in args.keys():
+            if arg_name not in code_args:
                 reader.warning(
                     'unused argument "%s" in function "%s"',
-                    argName,
-                    funcNameLocation.text,
-                    location=argNameLocations[argName],
+                    arg_name,
+                    func_name_location.text,
+                    location=arg_name_locations[arg_name],
                 )
 
     return func

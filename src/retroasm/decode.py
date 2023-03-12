@@ -331,7 +331,7 @@ class PlaceholderDecoder(Decoder):
                 # Note: When there are encoded segments, the multi-matcher
                 #       won't match the first unit, since they have been
                 #       matched by single matcher(s) already.
-                delta = decoded.encodedLength - (1 if encoded_segments is None else 2)
+                delta = decoded.encoded_length - (1 if encoded_segments is None else 2)
                 if delta != 0:
                     fetcher = AfterModeFetcher(fetcher, aux_idx, delta)
 
@@ -418,7 +418,7 @@ def _create_entry_decoder(
                     # simplifications of the sub-decoder were effective, only
                     # MatchFoundDecoder and NoMatchDecoder are possible.
                     assert False, sub
-    entry = match.fillPlaceholders()
+    entry = match.fill_placeholders()
 
     # Insert matchers at the last index they need.
     matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding))]
@@ -436,7 +436,7 @@ def _create_entry_decoder(
             else:
                 last_idx = max(last_idx, multi_match_idx)
                 matcher = cast(EncodingMultiMatch, encoding[multi_match_idx])
-                if matcher.encodedLength is None and last_idx > multi_match_idx:
+                if matcher.encoded_length is None and last_idx > multi_match_idx:
                     raise ValueError(
                         f"Variable-length matcher at index "
                         f"{multi_match_idx:d} depends on index {last_idx:d}"
@@ -455,7 +455,7 @@ def _create_entry_decoder(
         when_idx = fetch_idx = fixed_encoding.enc_idx
         while when_idx != 0:
             match encoding[when_idx - 1]:
-                case EncodingMultiMatch(encodedLength=enc_len):
+                case EncodingMultiMatch(encoded_length=enc_len):
                     if enc_len is None:
                         # Can't move past variable-length matcher.
                         break
@@ -503,7 +503,7 @@ def _create_entry_decoder(
                 assert enc_segs is not None
                 assert aux_idx is not None
                 assert aux_idx < enc_idx, matcher
-                aux_len = encoding[aux_idx].encodedLength
+                aux_len = encoding[aux_idx].encoded_length
                 assert aux_len is not None
                 adjust = aux_len - 1
                 if adjust != 0:
@@ -666,7 +666,7 @@ class DecoderFactory:
                     factory=self,
                 )
                 for parsedEntry in parsed_entries
-                if flags_are_set(parsedEntry.entry.flagsRequired)
+                if flags_are_set(parsedEntry.entry.flags_required)
             )
             cache[key] = decoder
         return decoder
@@ -740,9 +740,9 @@ def create_prefix_decoder(
         for idx, fixed_encoding in enumerate(sorted(fixed_matcher)):
             enc_idx = fixed_encoding.enc_idx
             assert idx == enc_idx, (idx, enc_idx)
-            assert encoding.encodingWidth is not None
-            assert fixed_encoding.fixed_mask == mask_for_width(encoding.encodingWidth)
+            assert encoding.encoding_width is not None
+            assert fixed_encoding.fixed_mask == mask_for_width(encoding.encoding_width)
             values.append(fixed_encoding.fixed_value)
-        assert len(values) == encoding.encodedLength
+        assert len(values) == encoding.encoded_length
         root.add_prefix(values, prefix)
     return root.try_decode

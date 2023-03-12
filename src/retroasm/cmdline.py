@@ -158,7 +158,7 @@ def checkdef(
                 print_decoders(instr_set, True)
                 print()
             if dump_mnemonics:
-                instr_set.dumpMnemonicTree()
+                instr_set.dump_mnemonic_tree()
                 print()
     else:
         print("No files to check", file=sys.stderr)
@@ -307,7 +307,7 @@ def disassemble_binary(
 
         # Create instruction fetcher.
         try:
-            instr_width = instr_set.encodingWidth
+            instr_width = instr_set.encoding_width
             if instr_width is None:
                 raise ValueError("unknown instruction width")
             fetcher_factory = ImageFetcher.factory(

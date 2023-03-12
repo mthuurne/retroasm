@@ -39,19 +39,19 @@ class EncodingExpr:
         return self._location
 
     @property
-    def encodingWidth(self) -> Width:
+    def encoding_width(self) -> Width:
         return self._bits.width
 
     @property
-    def encodingType(self) -> IntType:
-        return IntType.u(self.encodingWidth)
+    def encoding_type(self) -> IntType:
+        return IntType.u(self.encoding_width)
 
     @property
     def reference(self) -> Reference:
-        return Reference(self.bits, self.encodingType)
+        return Reference(self.bits, self.encoding_type)
 
     @property
-    def encodedLength(self) -> int:
+    def encoded_length(self) -> int:
         return 1
 
     def __init__(self, bits: BitString, location: InputLocation | None):
@@ -75,7 +75,7 @@ class EncodingExpr:
         to preserve the placeholder.
         """
 
-        def substPlaceholder(storage: Storage) -> BitString | None:
+        def subst_placeholder(storage: Storage) -> BitString | None:
             match storage:
                 case ArgStorage(name=name):
                     return func(name)
@@ -83,27 +83,27 @@ class EncodingExpr:
                     return None
 
         bits = self._bits
-        newBits = bits.substitute(storage_func=substPlaceholder)
-        if bits is newBits:
+        new_bits = bits.substitute(storage_func=subst_placeholder)
+        if bits is new_bits:
             return self
         else:
-            return EncodingExpr(newBits, self._location)
+            return EncodingExpr(new_bits, self._location)
 
-    def rename(self, nameMap: Mapping[str, str]) -> EncodingExpr:
+    def rename(self, name_map: Mapping[str, str]) -> EncodingExpr:
         """
         Returns a new EncodingExpr, with placeholder names substituted by
         their value in the given mapping.
         """
 
-        def renameValArg(storage: Storage) -> SingleStorage | None:
+        def rename_val_arg(storage: Storage) -> SingleStorage | None:
             match storage:
                 case ArgStorage(name=name, width=width):
-                    return SingleStorage(ArgStorage(nameMap[name], width))
+                    return SingleStorage(ArgStorage(name_map[name], width))
                 case _:
                     return None
 
         return EncodingExpr(
-            self._bits.substitute(storage_func=renameValArg), self._location
+            self._bits.substitute(storage_func=rename_val_arg), self._location
         )
 
 
@@ -130,15 +130,15 @@ class EncodingMultiMatch:
         return self._location
 
     @property
-    def encodingWidth(self) -> Width | None:
+    def encoding_width(self) -> Width | None:
         if self._start == 0:
-            return self._mode.encodingWidth
+            return self._mode.encoding_width
         else:
-            return self._mode.auxEncodingWidth
+            return self._mode.aux_encoding_width
 
     @property
-    def auxEncodingWidth(self) -> Width | None:
-        return self._mode.auxEncodingWidth
+    def aux_encoding_width(self) -> Width | None:
+        return self._mode.aux_encoding_width
 
     def __init__(
         self, name: str, mode: Mode, start: int, location: InputLocation | None
@@ -157,22 +157,22 @@ class EncodingMultiMatch:
             f" {self._start!r}, {self._location!r})"
         )
 
-    def rename(self, nameMap: Mapping[str, str]) -> EncodingMultiMatch:
+    def rename(self, name_map: Mapping[str, str]) -> EncodingMultiMatch:
         """
         Returns a new EncodingMultiMatch, with the placeholder name
         substituted by its value in the given mapping.
         """
         return EncodingMultiMatch(
-            nameMap[self._name], self._mode, self._start, self._location
+            name_map[self._name], self._mode, self._start, self._location
         )
 
     @const_property
-    def encodedLength(self) -> int | None:
-        length = self._mode.encodedLength
+    def encoded_length(self) -> int | None:
+        length = self._mode.encoded_length
         return None if length is None else length - self._start
 
 
-def _findFirstAuxIndex(encoding: Sequence[EncodingItem]) -> int | None:
+def _find_first_aux_index(encoding: Sequence[EncodingItem]) -> int | None:
     """
     Returns the index of the first encoding item that can match auxiliary
     encoding units, or None if no auxiliary encoding units can be matched.
@@ -182,18 +182,18 @@ def _findFirstAuxIndex(encoding: Sequence[EncodingItem]) -> int | None:
     if len(encoding) == 0:
         # No units matched because there are no matchers.
         return None
-    firstLen = encoding[0].encodedLength
-    assert firstLen is not None, encoding
-    if firstLen >= 2:
+    first_len = encoding[0].encoded_length
+    assert first_len is not None, encoding
+    if first_len >= 2:
         # First element can match multiple encoding units.
         return 0
-    assert firstLen != 0, encoding
+    assert first_len != 0, encoding
     if len(encoding) == 1:
         # First element matches 1 encoding unit, no second element.
         return None
     else:
         # The second element will match the second unit.
-        assert encoding[1].encodedLength != 0, encoding
+        assert encoding[1].encoded_length != 0, encoding
         return 1
 
 
@@ -214,21 +214,21 @@ class Encoding:
         # Filter out zero-length encoding items.
         # There is no good reason to ban them, but keeping them around would
         # unnecessarily complicate the code.
-        nonEmptyItems: Sequence[EncodingItem] = tuple(
-            item for item in items if item.encodedLength != 0
+        non_empty_items: Sequence[EncodingItem] = tuple(
+            item for item in items if item.encoded_length != 0
         )
-        self._items = nonEmptyItems
-        self._firstAuxIndex = _findFirstAuxIndex(nonEmptyItems)
+        self._items = non_empty_items
+        self._first_aux_index = _find_first_aux_index(non_empty_items)
 
         # Verify that all auxiliary units have the same width.
-        auxWidth = self.auxEncodingWidth
-        if auxWidth is not None:
+        aux_width = self.aux_encoding_width
+        if aux_width is not None:
             consistent = True
-            for idx, item in enumerate(nonEmptyItems):
+            for idx, item in enumerate(non_empty_items):
                 if idx != 0:
-                    consistent &= item.encodingWidth == auxWidth
+                    consistent &= item.encoding_width == aux_width
                 if isinstance(item, EncodingMultiMatch):
-                    consistent &= item.auxEncodingWidth in (None, auxWidth)
+                    consistent &= item.aux_encoding_width in (None, aux_width)
             if not consistent:
                 raise ValueError("inconsistent widths among auxiliary encoding units")
 
@@ -254,7 +254,7 @@ class Encoding:
     def __getitem__(self, index: int | slice) -> Any:
         return self._items[index]
 
-    def fillPlaceholders(self, match: EncodeMatch) -> Encoding:
+    def fill_placeholders(self, match: EncodeMatch) -> Encoding:
         """
         Return a new encoding, in which placeholders are replaced by
         match results, if available.
@@ -262,25 +262,25 @@ class Encoding:
 
         # In the case of multi-matches, we might need a filled submode encoding
         # multiple times, so cache them.
-        subEncodings: dict[str, Encoding] = {}
+        sub_encodings: dict[str, Encoding] = {}
 
-        def getSubEncoding(name: str, submatch: EncodeMatch) -> Encoding:
+        def get_sub_encoding(name: str, submatch: EncodeMatch) -> Encoding:
             try:
-                return subEncodings[name]
+                return sub_encodings[name]
             except KeyError:
-                subEnc = submatch.entry.encoding.fillPlaceholders(submatch)
-                subEncodings[name] = subEnc
-                return subEnc
+                sub_enc = submatch.entry.encoding.fill_placeholders(submatch)
+                sub_encodings[name] = sub_enc
+                return sub_enc
 
-        def substPlaceholder(name: str) -> BitString | None:
+        def subst_placeholder(name: str) -> BitString | None:
             try:
                 submatch = match.get_submatch(name)
             except KeyError:
                 return None
             # We're called to substitute into an EncodingExpr and those
             # always match the first encoding item of the submode.
-            firstItem = getSubEncoding(name, submatch)[0]
-            match firstItem:
+            first_item = get_sub_encoding(name, submatch)[0]
+            match first_item:
                 case EncodingExpr(bits=bits):
                     return bits
                 case EncodingMultiMatch():
@@ -293,7 +293,7 @@ class Encoding:
                     #       still has unresolved match placeholders, so it
                     #       will only break in the case of partial fills,
                     #       which we don't use yet.
-                    assert False, firstItem
+                    assert False, first_item
                 case item:
                     bad_type(item)
 
@@ -301,78 +301,78 @@ class Encoding:
         for item in self._items:
             match item:
                 case EncodingExpr():
-                    items.append(item.substitute(substPlaceholder))
+                    items.append(item.substitute(subst_placeholder))
                 case EncodingMultiMatch(name=name):
                     try:
                         submatch = match.get_submatch(name)
                     except KeyError:
                         items.append(item)
                     else:
-                        items += getSubEncoding(name, submatch)[item.start :]
+                        items += get_sub_encoding(name, submatch)[item.start :]
                 case item:
                     bad_type(item)
         return Encoding(items, self._location)
 
-    def rename(self, nameMap: Mapping[str, str]) -> Encoding:
+    def rename(self, name_map: Mapping[str, str]) -> Encoding:
         """
         Returns a new Encoding, in which all placeholder names are
         substituted by their value in the given mapping.
         """
-        return Encoding((item.rename(nameMap) for item in self._items), self._location)
+        return Encoding((item.rename(name_map) for item in self._items), self._location)
 
     @property
-    def encodingWidth(self) -> Width | None:
+    def encoding_width(self) -> Width | None:
         """
         The width in bits a first encoding unit matched by this encoding
         definition would have, or None if this encoding definition always
         matches zero encoding units.
         """
         items = self._items
-        return None if len(items) == 0 else items[0].encodingWidth
+        return None if len(items) == 0 else items[0].encoding_width
 
     @property
-    def encodingLocation(self) -> InputLocation | None:
+    def encoding_location(self) -> InputLocation | None:
         """The InputLocation of the first item in this encoding definition."""
         items = self._items
         return self._location if len(items) == 0 else items[0].location
 
     @property
-    def auxEncodingWidth(self) -> Width | None:
+    def aux_encoding_width(self) -> Width | None:
         """
         The width in bits that all non-first encoding units matched by this
         encoding definition would have, or None if a match cannot contain more
         than one encoding unit.
         """
-        firstAuxIndex = self._firstAuxIndex
-        if firstAuxIndex is None:
+        first_aux_index = self._first_aux_index
+        if first_aux_index is None:
             return None
-        elif firstAuxIndex == 0:
+        elif first_aux_index == 0:
             item = self._items[0]
             assert isinstance(item, EncodingMultiMatch), item
-            return item.auxEncodingWidth
+            return item.aux_encoding_width
         else:
-            assert firstAuxIndex == 1, firstAuxIndex
-            return self._items[1].encodingWidth
+            assert first_aux_index == 1, first_aux_index
+            return self._items[1].encoding_width
 
     @property
-    def auxEncodingLocation(self) -> InputLocation | None:
+    def aux_encoding_location(self) -> InputLocation | None:
         """
         The InputLocation of the auxiliary encoding items in this mode
         entry. If there are no auxiliary encoding items, the end of the
         encoding field is returned.
         """
         items = self._items
-        firstAuxIndex = self._firstAuxIndex
-        if firstAuxIndex is None:
+        first_aux_index = self._first_aux_index
+        if first_aux_index is None:
             location = self._location if len(items) == 0 else items[0].location
             return None if location is None else location.end_location
         else:
             return InputLocation.merge_span(
-                items[firstAuxIndex].location, items[-1].location
+                items[first_aux_index].location, items[-1].location
             )
 
     @const_property
-    def encodedLength(self) -> int | None:
+    def encoded_length(self) -> int | None:
         """
         The number of encoded units (bytes, words etc.) that this encoding
         definitions matches, or None if that number may vary depending on which
@@ -380,7 +380,7 @@ class Encoding:
         """
         total = 0
         for item in self._items:
-            length = item.encodedLength
+            length = item.encoded_length
             if length is None:
                 return None
             total += length
@@ -413,7 +413,7 @@ class Mnemonic:
     def __getitem__(self, index: int) -> MnemItem:
         return self._items[index]
 
-    def fillPlaceholders(self, match: EncodeMatch) -> Mnemonic:
+    def fill_placeholders(self, match: EncodeMatch) -> Mnemonic:
         """
         Return a new mnemonic, in which placeholders are replaced by
         match results, if available.
@@ -428,7 +428,7 @@ class Mnemonic:
                     except KeyError:
                         items.append(item)
                     else:
-                        items += submatch.entry.mnemonic.fillPlaceholders(submatch)
+                        items += submatch.entry.mnemonic.fill_placeholders(submatch)
                 case ValuePlaceholder(name=name) as item:
                     # Immediate value.
                     try:
@@ -444,13 +444,13 @@ class Mnemonic:
                     items.append(item)
         return Mnemonic(items)
 
-    def rename(self, nameMap: Mapping[str, str]) -> Mnemonic:
+    def rename(self, name_map: Mapping[str, str]) -> Mnemonic:
         """
         Returns a new Mnemonic, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         return Mnemonic(
-            item.rename(nameMap[item.name])
+            item.rename(name_map[item.name])
             if isinstance(item, (MatchPlaceholder, ValuePlaceholder))
             else item
             for item in self._items
@@ -471,7 +471,7 @@ class CodeTemplate:
         self.code = code
         self.placeholders = tuple(placeholders)
 
-    def fillPlaceholders(self, match: EncodeMatch) -> CodeTemplate:
+    def fill_placeholders(self, match: EncodeMatch) -> CodeTemplate:
         """
         Return a new code template, in which placeholders are replaced by
         match results, if available.
@@ -487,11 +487,11 @@ class CodeTemplate:
                     except KeyError:
                         unfilled.append(placeholder)
                     else:
-                        subSem = submatch.entry.semantics.fillPlaceholders(submatch)
-                        fillCode = subSem.code
+                        sub_sem = submatch.entry.semantics.fill_placeholders(submatch)
+                        fill_code = sub_sem.code
                         # TODO: Support submode semantics with side effects.
-                        assert len(fillCode.nodes) == 0, name
-                        values[name] = fillCode.returned[0]
+                        assert len(fill_code.nodes) == 0, name
+                        values[name] = fill_code.returned[0]
                 case ValuePlaceholder(name=name):
                     try:
                         value = match.get_value(name)
@@ -504,33 +504,33 @@ class CodeTemplate:
 
         builder = SemanticsCodeBlockBuilder()
         returned = builder.inline_block(self.code, values.get)
-        newCode = builder.create_code_block(returned)
+        new_code = builder.create_code_block(returned)
 
-        return CodeTemplate(newCode, unfilled)
+        return CodeTemplate(new_code, unfilled)
 
-    def rename(self, nameMap: Mapping[str, str]) -> CodeTemplate:
+    def rename(self, name_map: Mapping[str, str]) -> CodeTemplate:
         """
         Returns a new CodeTemplate, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         code = self.code
-        argMap = {
+        arg_map = {
             storage.name: SingleStorage(
-                storage.__class__(nameMap[storage.name], storage.width)
+                storage.__class__(name_map[storage.name], storage.width)
             )
             for storage in code.storages
             if isinstance(storage, ArgStorage)
         }
         builder = SemanticsCodeBlockBuilder()
-        builder.inline_block(code, argMap.__getitem__)
-        newCode = builder.create_code_block(())
+        builder.inline_block(code, arg_map.__getitem__)
+        new_code = builder.create_code_block(())
 
-        newPlaceholders = (
-            placeholder.rename(nameMap[placeholder.name])
+        new_placeholders = (
+            placeholder.rename(name_map[placeholder.name])
             for placeholder in self.placeholders
         )
 
-        return CodeTemplate(newCode, newPlaceholders)
+        return CodeTemplate(new_code, new_placeholders)
 
 
 class ModeEntry:
@@ -542,18 +542,18 @@ class ModeEntry:
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
         placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-        flagsRequired: AbstractSet[str],
+        flags_required: AbstractSet[str],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self.placeholders = tuple(placeholders)
-        self.flagsRequired = frozenset(flagsRequired)
+        self.flags_required = frozenset(flags_required)
 
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
-            f"{self._semantics!r}, {self.placeholders!r}, {self.flagsRequired!r})"
+            f"{self._semantics!r}, {self.placeholders!r}, {self.flags_required!r})"
         )
 
     @property
@@ -597,18 +597,18 @@ class ModeEntry:
             raise RuntimeError("Missing semantics")
         return semantics
 
-    def rename(self, nameMap: Mapping[str, str]) -> ModeEntry:
+    def rename(self, name_map: Mapping[str, str]) -> ModeEntry:
         """
         Returns a new ModeEntry, in which all placeholder names are
         substituted by their value in the given mapping.
         """
         semantics = self._semantics
         return ModeEntry(
-            self.encoding.rename(nameMap),
-            self.mnemonic.rename(nameMap),
-            None if semantics is None else semantics.rename(nameMap),
-            (p.rename(nameMap[p.name]) for p in self.placeholders),
-            self.flagsRequired,
+            self.encoding.rename(name_map),
+            self.mnemonic.rename(name_map),
+            None if semantics is None else semantics.rename(name_map),
+            (p.rename(name_map[p.name]) for p in self.placeholders),
+            self.flags_required,
         )
 
 
@@ -635,14 +635,14 @@ class ModeMatch:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
 
     @property
-    def flagsRequired(self) -> AbstractSet[str]:
+    def flags_required(self) -> AbstractSet[str]:
         """The prefix flags that must be set to match this mode entry."""
-        flags = self._entry.flagsRequired
+        flags = self._entry.flags_required
         for submatch in self._subs.values():
-            flags |= submatch.flagsRequired
+            flags |= submatch.flags_required
         return flags
 
-    def iterBits(self) -> Iterator[BitString]:
+    def iter_bits(self) -> Iterator[BitString]:
         """
         Yield the encoding of this match as bit strings.
         Each yielded item has the instruction set's encoding width.
@@ -652,22 +652,22 @@ class ModeMatch:
             value = self._values.get(name)
             if value is not None:
                 return value
-            return next(self._subs[name].iterBits())
+            return next(self._subs[name].iter_bits())
 
-        for encItem in self._entry.encoding:
-            match encItem:
+        for enc_item in self._entry.encoding:
+            match enc_item:
                 case EncodingExpr() as expr:
                     yield expr.substitute(subst).bits
                 case EncodingMultiMatch(name=name, start=start):
-                    subBits = self._subs[name].iterBits()
+                    sub_bits = self._subs[name].iter_bits()
                     if start != 0:
-                        for _ in subBits:
+                        for _ in sub_bits:
                             break
-                    yield from subBits
+                    yield from sub_bits
                 case item:
                     bad_type(item)
 
-    def substPC(self, pc: Reference, pcVal: Expression) -> ModeMatch:
+    def subst_pc(self, pc: Reference, pc_val: Expression) -> ModeMatch:
         """
         Return a new mode match with the value `pcVal` substituted for
         the program counter `pc`.
@@ -678,13 +678,13 @@ class ModeMatch:
         values = dict(self._values)
         for placeholder in entry.computed_placeholders:
             builder = SemanticsCodeBlockBuilder()
-            pc.emit_store(builder, pcVal, None)
-            values[placeholder.name] = placeholder.computeValue(
+            pc.emit_store(builder, pc_val, None)
+            values[placeholder.name] = placeholder.compute_value(
                 builder, values.__getitem__
             )
 
         subs = {
-            name: submatch.substPC(pc, pcVal) for name, submatch in self._subs.items()
+            name: submatch.subst_pc(pc, pc_val) for name, submatch in self._subs.items()
         }
 
         return ModeMatch(entry, values, subs)
@@ -695,8 +695,8 @@ class ModeMatch:
         subs = self._subs
         values = self._values
 
-        for mnemElem in entry.mnemonic:
-            match mnemElem:
+        for mnem_elem in entry.mnemonic:
+            match mnem_elem:
                 case str() | FixedValueReference() as elem:
                     yield elem
                 case MatchPlaceholder(name=name):
@@ -709,11 +709,11 @@ class ModeMatch:
                     bad_type(elem)
 
 
-def _formatEncodingWidth(width: Width | None) -> str:
+def _format_encoding_width(width: Width | None) -> str:
     return "empty encoding" if width is None else f"encoding width {width}"
 
 
-def _formatAuxEncodingWidth(width: Width | None) -> str:
+def _format_aux_encoding_width(width: Width | None) -> str:
     return (
         "no auxiliary encoding items"
         if width is None
@@ -740,7 +740,7 @@ class _MnemTreeNode:
         return f"{self.__class__.__name__}({self._children!r}, {self._leaves!r})"
 
     @staticmethod
-    def _matchKey(match: MnemMatch) -> tuple[int, str | None]:
+    def _match_key(match: MnemMatch) -> tuple[int, str | None]:
         match match:
             case str() as text:
                 return 0, text
@@ -757,11 +757,11 @@ class _MnemTreeNode:
             tokens = " ".join(str(token) for token in entry.mnemonic)
             print(f"{indent}= {tokens}")
         children = self._children
-        for match in sorted(children.keys(), key=self._matchKey):
+        for match in sorted(children.keys(), key=self._match_key):
             print(f"{indent}+ {match}")
             children[match].dump(" " * len(indent) + "`---")
 
-    def addModeEntry(self, entry: ModeEntry) -> None:
+    def add_mode_entry(self, entry: ModeEntry) -> None:
         """Add the given mode entry to this tree."""
         node = self
         for token in entry.mnemonic:
@@ -783,45 +783,46 @@ class ModeTable:
     """Abstract base class for mode tables."""
 
     @property
-    def encodingWidth(self) -> Width | None:
+    def encoding_width(self) -> Width | None:
         return self._enc_width
 
     @property
-    def auxEncodingWidth(self) -> Width | None:
-        return self._auxEncWidth
+    def aux_encoding_width(self) -> Width | None:
+        return self._aux_enc_width
 
     def __init__(
         self,
-        encWidth: Width | None,
-        auxEncWidth: Width | None,
+        enc_width: Width | None,
+        aux_enc_width: Width | None,
         entries: Iterable[ModeEntry],
     ):
-        self._enc_width = encWidth
-        self._auxEncWidth = auxEncWidth
+        self._enc_width = enc_width
+        self._aux_enc_width = aux_enc_width
         self._entries = entries = tuple(entries)
 
         for entry in entries:
-            encDef = entry.encoding
-            if encDef.encodingWidth != encWidth:
+            enc_def = entry.encoding
+            if enc_def.encoding_width != enc_width:
                 raise ValueError(
-                    f"mode with {_formatEncodingWidth(encWidth)} contains "
-                    f"entry with {_formatEncodingWidth(encDef.encodingWidth)}"
+                    f"mode with {_format_encoding_width(enc_width)} contains "
+                    f"entry with {_format_encoding_width(enc_def.encoding_width)}"
                 )
-            if encDef.auxEncodingWidth not in (None, auxEncWidth):
+            if enc_def.aux_encoding_width not in (None, aux_enc_width):
                 raise ValueError(
-                    f"mode with {_formatAuxEncodingWidth(auxEncWidth)} contains "
-                    f"entry with {_formatAuxEncodingWidth(encDef.auxEncodingWidth)}"
+                    f"mode with {_format_aux_encoding_width(aux_enc_width)}"
+                    " contains entry with "
+                    f"{_format_aux_encoding_width(enc_def.aux_encoding_width)}"
                 )
 
-        self._mnem_tree = mnemTree = _MnemTreeNode()
+        self._mnem_tree = mnem_tree = _MnemTreeNode()
         for entry in entries:
-            mnemTree.addModeEntry(entry)
+            mnem_tree.add_mode_entry(entry)
 
-    def dumpMnemonicTree(self) -> None:
+    def dump_mnemonic_tree(self) -> None:
         self._mnem_tree.dump("")
 
     @const_property
-    def encodedLength(self) -> int | None:
+    def encoded_length(self) -> int | None:
         """
         The number of encoded data units (bytes, words etc.) that all
         entries in this mode use, or None if that number may vary depending
@@ -829,20 +830,20 @@ class ModeTable:
         """
         if self._enc_width is None:
             return 0
-        if self._auxEncWidth is None:
+        if self._aux_enc_width is None:
             return 1
-        commonLen: int | None = None
+        common_len: int | None = None
         for entry in self._entries:
-            entryLen = entry.encoding.encodedLength
-            if entryLen is None:
+            entry_len = entry.encoding.encoded_length
+            if entry_len is None:
                 return None
-            if entryLen != commonLen:
-                if commonLen is None:
-                    commonLen = entryLen
+            if entry_len != common_len:
+                if common_len is None:
+                    common_len = entry_len
                 else:
                     return None
-        assert commonLen is not None, self
-        return commonLen
+        assert common_len is not None, self
+        return common_len
 
 
 class Mode(ModeTable):
@@ -856,8 +857,8 @@ class Mode(ModeTable):
         return self._name
 
     @property
-    def semanticsType(self) -> None | IntType | ReferenceType:
-        return self._semType
+    def semantics_type(self) -> None | IntType | ReferenceType:
+        return self._sem_type
 
     @property
     def location(self) -> InputLocation:
@@ -866,19 +867,19 @@ class Mode(ModeTable):
     def __init__(
         self,
         name: str,
-        encWidth: int | None,
-        auxEncWidth: int | None,
-        semType: None | IntType | ReferenceType,
+        enc_width: int | None,
+        aux_enc_width: int | None,
+        sem_type: None | IntType | ReferenceType,
         location: InputLocation,
         entries: Iterable[ModeEntry],
     ):
-        ModeTable.__init__(self, encWidth, auxEncWidth, entries)
+        ModeTable.__init__(self, enc_width, aux_enc_width, entries)
         self._name = name
-        self._semType = semType
+        self._sem_type = sem_type
         self._location = location
 
     def __str__(self) -> str:
-        return f"mode {self._semType} {self._name}"
+        return f"mode {self._sem_type} {self._name}"
 
 
 @dataclass(frozen=True)
@@ -907,10 +908,10 @@ class ComputedPlaceholder(ValuePlaceholder):
     def rename(self, name: str) -> ComputedPlaceholder:
         return ComputedPlaceholder(name, self.type, self.code)
 
-    def computeValue(
+    def compute_value(
         self,
         builder: SemanticsCodeBlockBuilder,
-        argFetcher: Callable[[str], BitString | None],
+        arg_fetcher: Callable[[str], BitString | None],
     ) -> FixedValue:
         """
         Computes the value of this placeholder.
@@ -920,14 +921,14 @@ class ComputedPlaceholder(ValuePlaceholder):
         See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
         fetching works.
         """
-        returned = builder.inline_block(self.code, argFetcher)
-        computeCode = CodeBlockSimplifier(builder.nodes, returned)
-        computeCode.simplify()
-        (valBits,) = computeCode.returned
-        assert isinstance(valBits, FixedValue), valBits
-        valType = self.type
-        valExpr = decode_int(valBits.expr, valType)
-        return FixedValue(simplify_expression(valExpr), valType.width)
+        returned = builder.inline_block(self.code, arg_fetcher)
+        compute_code = CodeBlockSimplifier(builder.nodes, returned)
+        compute_code.simplify()
+        (val_bits,) = compute_code.returned
+        assert isinstance(val_bits, FixedValue), val_bits
+        val_type = self.type
+        val_expr = decode_int(val_bits.expr, val_type)
+        return FixedValue(simplify_expression(val_expr), val_type.width)
 
 
 @dataclass(frozen=True)
@@ -986,13 +987,13 @@ class EncodeMatch:
 
         builder = SemanticsCodeBlockBuilder()
         for placeholder in self._entry.computed_placeholders:
-            values[placeholder.name] = placeholder.computeValue(
+            values[placeholder.name] = placeholder.compute_value(
                 builder, values.__getitem__
             )
 
         return ModeMatch(self._entry, values, subs)
 
-    def fillPlaceholders(self) -> ModeEntry:
+    def fill_placeholders(self) -> ModeEntry:
         """
         Return a new entry, in which those placeholders that are present
         in this match are replaced by the mode/value they are mapped to.
@@ -1007,25 +1008,25 @@ class EncodeMatch:
             # Skip no-op substitution for efficiency's sake.
             return entry
 
-        encoding = entry.encoding.fillPlaceholders(self)
-        mnemonic = entry.mnemonic.fillPlaceholders(self)
-        semantics = entry.semantics.fillPlaceholders(self)
+        encoding = entry.encoding.fill_placeholders(self)
+        mnemonic = entry.mnemonic.fill_placeholders(self)
+        semantics = entry.semantics.fill_placeholders(self)
         unfilled = (
             placeholder
             for placeholder in entry.placeholders
             if (name := placeholder.name) not in subs and name not in values
         )
 
-        flagsRequired = entry.flagsRequired.union(
-            *(match.entry.flagsRequired for match in self._subs.values())
+        flags_required = entry.flags_required.union(
+            *(match.entry.flags_required for match in self._subs.values())
         )
 
-        return ModeEntry(encoding, mnemonic, semantics, unfilled, flagsRequired)
+        return ModeEntry(encoding, mnemonic, semantics, unfilled, flags_required)
 
     @const_property
-    def encodedLength(self) -> int:
-        encDef = self._entry.encoding
-        length = encDef.encodedLength
+    def encoded_length(self) -> int:
+        enc_def = self._entry.encoding
+        length = enc_def.encoded_length
         if length is not None:
             # Mode entry has fixed encoded length.
             return length
@@ -1033,12 +1034,12 @@ class EncodeMatch:
         # Mode entry has variable encoded length.
         subs = self._subs
         length = 0
-        for encItem in encDef:
-            match encItem:
+        for enc_item in enc_def:
+            match enc_item:
                 case EncodingExpr():
                     length += 1
                 case EncodingMultiMatch(name=name, start=start):
-                    length += subs[name].encodedLength - start
+                    length += subs[name].encoded_length - start
                 case _ as obj:
                     bad_type(obj)
         return length
