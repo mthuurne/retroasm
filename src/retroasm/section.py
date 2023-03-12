@@ -90,12 +90,12 @@ class CodeSection(Section):
     """Section that contains code and possibly also data."""
 
     @property
-    def instrSetName(self) -> str:
-        return self._instrSetName
+    def instr_set_name(self) -> str:
+        return self._instr_set_name
 
     @property
-    def byteOrder(self) -> ByteOrder:
-        return self._byteOrder
+    def byte_order(self) -> ByteOrder:
+        return self._byte_order
 
     @property
     def base(self) -> int:
@@ -106,13 +106,13 @@ class CodeSection(Section):
         start: int,
         end: int | Unlimited,
         base: int,
-        instrSetName: str,
-        byteOrder: ByteOrder,
+        instr_set_name: str,
+        byte_order: ByteOrder,
         description: str = "code",
     ):
         super().__init__(start, end, description)
-        self._instrSetName = instrSetName
-        self._byteOrder = byteOrder
+        self._instr_set_name = instr_set_name
+        self._byte_order = byte_order
         self._base = base
 
         if base < 0:
@@ -120,14 +120,14 @@ class CodeSection(Section):
 
     def __repr__(self) -> str:
         end = self._end
-        endRepr = "unlimited" if end is unlimited else f"{end:#x}"
+        end_repr = "unlimited" if end is unlimited else f"{end:#x}"
         return (
-            f"CodeSection({self._start:#x}, {endRepr}, "
-            f"{self._base:#x}, {self._instrSetName!r}, "
-            f"ByteOrder.{self._byteOrder.name})"
+            f"CodeSection({self._start:#x}, {end_repr}, "
+            f"{self._base:#x}, {self._instr_set_name!r}, "
+            f"ByteOrder.{self._byte_order.name})"
         )
 
-    def offsetForAddr(self, addr: int) -> int:
+    def offset_for_addr(self, addr: int) -> int:
         """
         Return the offset in the image at which the given address can be found.
 
@@ -167,7 +167,7 @@ class SectionMap:
     def __repr__(self) -> str:
         return f"SectionMap({self._sections!r})"
 
-    def sectionAt(self, offset: int) -> Section | None:
+    def section_at(self, offset: int) -> Section | None:
         """
         Return the section at the given offset, or None if there is no section
         at that offset.

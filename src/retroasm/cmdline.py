@@ -30,9 +30,9 @@ from .binfmt import (
     BinaryFormat,
     EntryPoint,
     Image,
-    detectBinaryFormat,
-    getBinaryFormat,
-    iterBinaryFormatNames,
+    detect_binary_format,
+    get_binary_format,
+    iter_binary_format_names,
 )
 from .disasm import Instruction, disassemble, formatAsm
 from .expression_nodes import NumberNode
@@ -177,7 +177,7 @@ def determine_binary_format(
     """
 
     if format_name is None:
-        binfmt = detectBinaryFormat(image, file_name)
+        binfmt = detect_binary_format(image, file_name)
         if binfmt is None:
             logger.error(
                 "Detection of binary format failed, please specify one with --binfmt"
@@ -188,7 +188,7 @@ def determine_binary_format(
             )
     else:
         try:
-            binfmt_class = getBinaryFormat(format_name)
+            binfmt_class = get_binary_format(format_name)
         except KeyError:
             logger.error("Unknown binary format: %s", format_name)
             binfmt = None
@@ -217,7 +217,7 @@ def disassemble_binary(
     for section in user_sections:
         logger.debug("user-defined section: %s", section)
         sections.append(section)
-    for section in binary.iterSections():
+    for section in binary.iter_sections():
         logger.debug("binfmt-defined section: %s", section)
         sections.append(section)
     if len(sections) == 0:
@@ -236,7 +236,7 @@ def disassemble_binary(
     for entry_point in user_entry_points:
         logger.debug("user-defined entry: %s", entry_point)
         entry_points.append(entry_point)
-    for entry_point in binary.iterEntryPoints():
+    for entry_point in binary.iter_entry_points():
         logger.debug("binfmt-defined entry: %s", entry_point)
         entry_points.append(entry_point)
     if len(entry_points) == 0:
@@ -254,7 +254,7 @@ def disassemble_binary(
         offset = entry_point.offset
 
         # Find section.
-        entry_section = section_map.sectionAt(offset)
+        entry_section = section_map.section_at(offset)
         if entry_section is None:
             logger.warning(
                 "Skipping disassembly of offset 0x%x because it does not "
@@ -271,7 +271,7 @@ def disassemble_binary(
                 offset,
             )
             continue
-        instr_set_name = entry_section.instrSetName
+        instr_set_name = entry_section.instr_set_name
         instr_set = builtinInstructionSets[instr_set_name]
         if instr_set is None:
             logger.warning(
@@ -310,7 +310,9 @@ def disassemble_binary(
             instr_width = instr_set.encodingWidth
             if instr_width is None:
                 raise ValueError("unknown instruction width")
-            fetcher_factory = ImageFetcher.factory(instr_width, entry_section.byteOrder)
+            fetcher_factory = ImageFetcher.factory(
+                instr_width, entry_section.byte_order
+            )
         except ValueError as ex:
             logger.warning(
                 "Skipping disassembly of offset 0x%x because no instruction fetcher "
@@ -341,7 +343,7 @@ def disassemble_binary(
         print(file=out)
         if section in decoded:
             assert isinstance(section, CodeSection), section
-            instr_set = builtinInstructionSets[section.instrSetName]
+            instr_set = builtinInstructionSets[section.instr_set_name]
             assert instr_set is not None
             org_addr = NumberNode(section.base, instr_set.addrType.width)
             org = OriginDirective(org_addr)
@@ -489,10 +491,10 @@ def list_supported(
     print("")
 
     print("Binary formats:")
-    names = sorted(iterBinaryFormatNames())
+    names = sorted(iter_binary_format_names())
     line_formatter = f"  %-{max(len(name) for name in names)}s : %s"
     for name in names:
-        binfmt = getBinaryFormat(name)
+        binfmt = get_binary_format(name)
         print(line_formatter % (name, binfmt.description))
     print("")
 
