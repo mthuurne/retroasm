@@ -4,7 +4,7 @@ from typing import AbstractSet, DefaultDict
 
 from .codeblock import CodeBlock, Load, LoadedValue, Store
 from .expression import Expression
-from .expression_simplifier import simplifyExpression
+from .expression_simplifier import simplify_expression
 from .reference import FixedValue
 from .storage import Storage, Variable
 
@@ -30,7 +30,7 @@ class CodeBlockSimplifier(CodeBlock):
         # Peform initial simplification of all expressions.
         # This allows remove_redundant_nodes() to only simplify expressions when
         # it changes them.
-        self._update_expressions(simplifyExpression)
+        self._update_expressions(simplify_expression)
 
         # This mainly collapses incremental updates to variables.
         self.remove_redundant_nodes()
@@ -51,7 +51,7 @@ class CodeBlockSimplifier(CodeBlock):
         def replace_loaded_values(expr: Expression) -> Expression:
             new_expr = expr.substitute(load_replacements.get)
             if new_expr is not expr:
-                new_expr = simplifyExpression(new_expr)
+                new_expr = simplify_expression(new_expr)
             return new_expr
 
         # Remove redundant loads and stores by keeping track of the current

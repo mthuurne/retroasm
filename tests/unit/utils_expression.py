@@ -12,7 +12,7 @@ from retroasm.expression import (
     RShift,
     truncate,
 )
-from retroasm.expression_simplifier import simplifyExpression
+from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, Width
 
 
@@ -54,13 +54,13 @@ class TestValue(Expression):
         return 3
 
 
-def assertIntLiteral(expr: Expression, value: int) -> None:
+def assert_int_literal(expr: Expression, value: int) -> None:
     """Assert that the given expression is an int literal with the given value."""
     assert isinstance(expr, IntLiteral)
     assert expr.value == value
 
 
-def assertAnd(expr: Expression, *args: Expression) -> None:
+def assert_and(expr: Expression, *args: Expression) -> None:
     assert isinstance(expr, AndOperator)
     exprs = expr.exprs
     assert len(exprs) == len(args)
@@ -81,7 +81,7 @@ def assertAnd(expr: Expression, *args: Expression) -> None:
         )
 
 
-def assertOr(expr: Expression, *args: Expression) -> None:
+def assert_or(expr: Expression, *args: Expression) -> None:
     assert isinstance(expr, OrOperator)
     exprs = expr.exprs
     assert len(exprs) == len(args)
@@ -102,45 +102,45 @@ def assertOr(expr: Expression, *args: Expression) -> None:
         )
 
 
-def assertConcat(
+def assert_concat(
     expr: Expression, subExprs: Sequence[tuple[Expression, Width]]
 ) -> None:
     compExprs = []
     offset = 0
     for term, width in reversed(subExprs):
-        shifted = simplifyExpression(LShift(term, offset))
+        shifted = simplify_expression(LShift(term, offset))
         if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
             compExprs.append(shifted)
         offset += cast(int, width)
-    assertOr(expr, *compExprs)
+    assert_or(expr, *compExprs)
 
 
-def assertSlice(
+def assert_slice(
     expr: Expression, subExpr: Expression, subWidth: Width, index: int, width: Width
 ) -> None:
-    needsShift = index != 0
-    shift = RShift(subExpr, index) if needsShift else subExpr
-    needsTrunc = subWidth > index + width
-    trunc = truncate(shift, width) if needsTrunc else shift
+    needs_shift = index != 0
+    shift = RShift(subExpr, index) if needs_shift else subExpr
+    needs_trunc = subWidth > index + width
+    trunc = truncate(shift, width) if needs_trunc else shift
     assert str(expr) == str(trunc)
     assert expr == trunc
     assert isinstance(expr, type(trunc))
-    if needsTrunc:
+    if needs_trunc:
         assert isinstance(expr, MultiExpression), expr
-        shiftExpr = expr.exprs[0]
+        shift_expr = expr.exprs[0]
     else:
-        shiftExpr = expr
-    if needsShift:
-        assert str(shiftExpr) == str(shift)
-        assert shiftExpr == shift
-        assert isinstance(shiftExpr, RShift)
-        assert shiftExpr.offset == index
-        assert shiftExpr.expr == subExpr
+        shift_expr = expr
+    if needs_shift:
+        assert str(shift_expr) == str(shift)
+        assert shift_expr == shift
+        assert isinstance(shift_expr, RShift)
+        assert shift_expr.offset == index
+        assert shift_expr.expr == subExpr
     else:
-        assert shiftExpr == subExpr
+        assert shift_expr == subExpr
 
 
-def assertTrunc(
+def assert_trunc(
     expr: Expression, subExpr: Expression, subWidth: Width, width: Width
 ) -> None:
-    assertSlice(expr, subExpr, subWidth, 0, width)
+    assert_slice(expr, subExpr, subWidth, 0, width)

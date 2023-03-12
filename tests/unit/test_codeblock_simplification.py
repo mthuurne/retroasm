@@ -12,7 +12,7 @@ from retroasm.expression import (
     OrOperator,
     truncate,
 )
-from retroasm.expression_simplifier import simplifyExpression
+from retroasm.expression_simplifier import simplify_expression
 from retroasm.reference import (
     ConcatenatedBits,
     FixedValue,
@@ -30,7 +30,7 @@ from .utils_codeblock import (
     assert_ret_val,
     get_ret_val,
 )
-from .utils_expression import assertIntLiteral, assertOr, assertTrunc, makeConcat
+from .utils_expression import assert_int_literal, assert_or, assert_trunc, makeConcat
 
 verbose = False
 
@@ -108,7 +108,7 @@ def test_unused_load(namespace: TestNamespace) -> None:
     node = code.nodes[0]
     assert isinstance(node, Store)
     assert node.storage is ref_a.bits.storage
-    assertIntLiteral(node.expr, 0)
+    assert_int_literal(node.expr, 0)
 
 
 def test_unused_load_nonremoval(namespace: TestNamespace) -> None:
@@ -163,9 +163,9 @@ def test_redundant_load_after_store(namespace: TestNamespace) -> None:
     assert store1.storage == ref_a.bits.storage
     assert store2.storage == ref_b.bits.storage
     assert store1.expr == store2.expr
-    assertTrunc(
-        simplifyExpression(store1.expr),
-        simplifyExpression(inc_a).substitute(
+    assert_trunc(
+        simplify_expression(store1.expr),
+        simplify_expression(inc_a).substitute(
             lambda expr: load.expr if expr is load_a1 else None
         ),
         inc_a.mask.bit_length(),
@@ -307,7 +307,7 @@ def test_return_value(namespace: TestNamespace) -> None:
     value_v = code.nodes[0].expr
     value_a = code.nodes[1].expr
     assert ret_width == 8
-    assertOr(ret_val, simplifyExpression(value_a), simplifyExpression(value_v))
+    assert_or(ret_val, simplify_expression(value_a), simplify_expression(value_v))
 
 
 def test_ret_bits_override(namespace: TestNamespace) -> None:
@@ -336,7 +336,7 @@ def test_return_io_index(namespace: TestNamespace) -> None:
     assert ret_bits.width == 8
     storage = ret_bits.storage
     assert isinstance(storage, IOStorage)
-    assertIntLiteral(storage.index, 2)
+    assert_int_literal(storage.index, 2)
 
 
 def test_return_redundant_load_index(namespace: TestNamespace) -> None:
@@ -354,7 +354,7 @@ def test_return_redundant_load_index(namespace: TestNamespace) -> None:
     assert ret_bits.width == 8
     storage = ret_bits.storage
     assert isinstance(storage, IOStorage)
-    assertIntLiteral(storage.index, 0x4120)
+    assert_int_literal(storage.index, 0x4120)
 
 
 def test_return_fixed_value_ref(namespace: TestNamespace) -> None:
@@ -368,7 +368,7 @@ def test_return_fixed_value_ref(namespace: TestNamespace) -> None:
     (ret_bits,) = code.returned
     assert isinstance(ret_bits, FixedValue)
     assert ret_bits.width == 8
-    assertIntLiteral(ret_bits.expr, 3)
+    assert_int_literal(ret_bits.expr, 3)
 
 
 def test_return_complex_ref(namespace: TestNamespace) -> None:

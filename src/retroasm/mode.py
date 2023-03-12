@@ -9,7 +9,7 @@ from .codeblock import CodeBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import CodeBlockSimplifier
 from .expression import Expression
-from .expression_simplifier import simplifyExpression
+from .expression_simplifier import simplify_expression
 from .linereader import InputLocation
 from .reference import (
     BitString,
@@ -927,7 +927,7 @@ class ComputedPlaceholder(ValuePlaceholder):
         assert isinstance(valBits, FixedValue), valBits
         valType = self.type
         valExpr = decode_int(valBits.expr, valType)
-        return FixedValue(simplifyExpression(valExpr), valType.width)
+        return FixedValue(simplify_expression(valExpr), valType.width)
 
 
 @dataclass(frozen=True)

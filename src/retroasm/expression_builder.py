@@ -33,7 +33,7 @@ from .expression_nodes import (
     OperatorNode,
     ParseNode,
 )
-from .expression_simplifier import simplifyExpression
+from .expression_simplifier import simplify_expression
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
 from .namespace import (
@@ -391,7 +391,7 @@ def _convertReferenceSlice(
         if widthExpr is None:
             width: Width = unlimited
         else:
-            match simplifyExpression(widthExpr):
+            match simplify_expression(widthExpr):
                 case IntLiteral(value=value):
                     width = value
                 case _:

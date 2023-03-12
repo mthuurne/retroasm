@@ -18,7 +18,7 @@ from .expression import (
     opt_slice,
     truncate,
 )
-from .expression_simplifier import simplifyExpression
+from .expression_simplifier import simplify_expression
 from .linereader import InputLocation
 from .storage import Storage
 from .symbol import SymbolValue
@@ -358,7 +358,7 @@ class SlicedBits(BitString):
         # Some invalid offsets can only be detected upon use, but others we
         # can detect on definition and rejecting them early is likely helpful
         # towards the user.
-        match simplifyExpression(offset):
+        match simplify_expression(offset):
             case IntLiteral(value=value) if value < 0:
                 raise ValueError("slice offset must not be negative")
             case offset:
@@ -430,7 +430,7 @@ class SlicedBits(BitString):
         mask_lit = AndOperator(full_mask, XorOperator(IntLiteral(-1), value_mask))
         combined = OrOperator(AndOperator(prev_value, mask_lit), LVShift(value, offset))
 
-        bits.emit_store(builder, simplifyExpression(combined), location)
+        bits.emit_store(builder, simplify_expression(combined), location)
 
     def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
         # Note that the offset was already simplified.
