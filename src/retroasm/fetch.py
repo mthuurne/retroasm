@@ -70,11 +70,11 @@ class FetcherBase(Fetcher):
 class ImageFetcher(FetcherBase, AdvancingFetcher):
     """Abstract base class for instruction fetchers that read from an image."""
 
-    __slots__ = ("_image", "_offset", "_end", "_numBytes")
+    __slots__ = ("_image", "_offset", "_end", "_num_bytes")
 
     @staticmethod
     def factory(
-        width: int, byteOrder: ByteOrder
+        width: int, byte_order: ByteOrder
     ) -> Callable[[Image, int, int], ImageFetcher]:
         """
         Return a factory which builds instruction fetchers using the given instruction
@@ -87,22 +87,22 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
         """
         if width % 8 != 0:
             raise ValueError(f"expected width to be a multiple of 8 bits, got {width}")
-        numBytes = width // 8
-        if numBytes == 1:
+        num_bytes = width // 8
+        if num_bytes == 1:
             return ByteFetcher
-        elif byteOrder is ByteOrder.big:
-            return partial(BigEndianFetcher, numBytes=numBytes)
-        elif byteOrder is ByteOrder.little:
-            return partial(LittleEndianFetcher, numBytes=numBytes)
+        elif byte_order is ByteOrder.big:
+            return partial(BigEndianFetcher, num_bytes=num_bytes)
+        elif byte_order is ByteOrder.little:
+            return partial(LittleEndianFetcher, num_bytes=num_bytes)
         else:
-            assert byteOrder is ByteOrder.undefined, byteOrder
+            assert byte_order is ByteOrder.undefined, byte_order
             raise ValueError("byte order unknown")
 
-    def __init__(self, image: Image, start: int, end: int, numBytes: int):
+    def __init__(self, image: Image, start: int, end: int, num_bytes: int):
         self._image = image
         self._offset = start
         self._end = end
-        self._numBytes = numBytes
+        self._num_bytes = num_bytes
         super().__init__()
 
     def __repr__(self) -> str:
@@ -110,7 +110,7 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
             f"{self.__class__.__name__}({self._image!r}, "
             f"{self._offset:d}, "
             f"{self._end:d}, "
-            f"{self._numBytes:d})"
+            f"{self._num_bytes:d})"
         )
 
     @property
@@ -126,8 +126,8 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
         return self._end
 
     @property
-    def numBytes(self) -> int:
-        return self._numBytes
+    def num_bytes(self) -> int:
+        return self._num_bytes
 
     def _fetch(self, index: int) -> int | None:
         raise NotImplementedError
@@ -139,9 +139,9 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
         """
         return self.__class__(
             self._image,
-            self._offset + steps * self._numBytes,
+            self._offset + steps * self._num_bytes,
             self._end,
-            self._numBytes,
+            self._num_bytes,
         )
 
 
@@ -150,8 +150,8 @@ class ByteFetcher(ImageFetcher):
 
     __slots__ = ()
 
-    def __init__(self, image: Image, start: int, end: int, numBytes: int = 1):
-        ImageFetcher.__init__(self, image, start, end, numBytes)
+    def __init__(self, image: Image, start: int, end: int, num_bytes: int = 1):
+        ImageFetcher.__init__(self, image, start, end, num_bytes)
 
     def _fetch(self, index: int) -> int | None:
         offset = self._offset + index
@@ -167,15 +167,15 @@ class MultiByteFetcher(ImageFetcher):
     __slots__ = ()
 
     def _fetch(self, index: int) -> int | None:
-        numBytes = self._numBytes
-        offset = self._offset + index * numBytes
-        after = offset + numBytes
+        num_bytes = self._num_bytes
+        offset = self._offset + index * num_bytes
+        after = offset + num_bytes
         if after > self._end:
             return None
         else:
-            return self._fetchRange(offset, after)
+            return self._fetch_range(offset, after)
 
-    def _fetchRange(self, start: int, end: int) -> int:
+    def _fetch_range(self, start: int, end: int) -> int:
         """Returns the data unit between the given byte offsets."""
         raise NotImplementedError
 
@@ -188,7 +188,7 @@ class BigEndianFetcher(MultiByteFetcher):
 
     __slots__ = ()
 
-    def _fetchRange(self, start: int, end: int) -> int:
+    def _fetch_range(self, start: int, end: int) -> int:
         image = self._image
         value = 0
         for byte in image[start:end]:
@@ -205,7 +205,7 @@ class LittleEndianFetcher(MultiByteFetcher):
 
     __slots__ = ()
 
-    def _fetchRange(self, start: int, end: int) -> int:
+    def _fetch_range(self, start: int, end: int) -> int:
         image = self._image
         value = 0
         shift = 0
@@ -218,12 +218,12 @@ class LittleEndianFetcher(MultiByteFetcher):
 class ModeFetcher(FetcherBase):
     """Instruction fetcher for looking up an entry in a mode table."""
 
-    __slots__ = ("_first", "_auxFetcher", "_auxIndex")
+    __slots__ = ("_first", "_aux_fetcher", "_aux_index")
 
-    def __init__(self, first: int | None, auxFetcher: Fetcher, auxIndex: int | None):
+    def __init__(self, first: int | None, aux_fetcher: Fetcher, aux_index: int | None):
         self._first = first
-        self._auxFetcher = auxFetcher
-        self._auxIndex = auxIndex
+        self._aux_fetcher = aux_fetcher
+        self._aux_index = aux_index
         super().__init__()
 
     def _fetch(self, index: int) -> int | None:
@@ -234,11 +234,11 @@ class ModeFetcher(FetcherBase):
             else:
                 index -= 1
 
-        auxIndex = self._auxIndex
-        if auxIndex is None:
+        aux_index = self._aux_index
+        if aux_index is None:
             return None
         else:
-            return self._auxFetcher[auxIndex + index]
+            return self._aux_fetcher[aux_index + index]
 
 
 class AfterModeFetcher(FetcherBase):
@@ -246,9 +246,9 @@ class AfterModeFetcher(FetcherBase):
 
     __slots__ = ("_fetcher", "_auxIndex", "_delta")
 
-    def __init__(self, fetcher: Fetcher, auxIndex: int, delta: int):
+    def __init__(self, fetcher: Fetcher, aux_index: int, delta: int):
         self._fetcher = fetcher
-        self._auxIndex = auxIndex
+        self._auxIndex = aux_index
         self._delta = delta
         super().__init__()
 

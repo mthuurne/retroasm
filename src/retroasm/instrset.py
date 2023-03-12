@@ -19,7 +19,7 @@ from .decode import (
     DecoderFactory,
     ParsedModeEntry,
     Prefix,
-    createPrefixDecoder,
+    create_prefix_decoder,
 )
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
@@ -196,7 +196,7 @@ class InstructionSet(ModeTable):
 
     @const_property
     def prefixDecodeFunc(self) -> Callable[[Fetcher], Prefix | None]:
-        return createPrefixDecoder(self._prefixMapping.prefixes)
+        return create_prefix_decoder(self._prefixMapping.prefixes)
 
     def getDecoder(self, flags: AbstractSet[str] = frozenset()) -> Decoder:
         """
@@ -208,7 +208,7 @@ class InstructionSet(ModeTable):
         decoder = decoders.get(flags)
         if decoder is None:
             decoderFactory = DecoderFactory(self._modeEntries, flags)
-            decoder = decoderFactory.createDecoder(None, None)
+            decoder = decoderFactory.create_decoder(None, None)
             decoders[flags] = decoder
         return decoder
 
@@ -249,7 +249,7 @@ class InstructionSet(ModeTable):
 
         # Decode instruction.
         decoder = self.getDecoder(flags)
-        encMatch = decoder.tryDecode(fetcher)
+        encMatch = decoder.try_decode(fetcher)
         if encMatch is None:
             modeMatch = None
         else:

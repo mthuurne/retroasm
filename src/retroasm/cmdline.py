@@ -34,7 +34,7 @@ from .binfmt import (
     get_binary_format,
     iter_binary_format_names,
 )
-from .disasm import Instruction, disassemble, formatAsm
+from .disasm import Instruction, disassemble, format_asm
 from .expression_nodes import NumberNode
 from .fetch import ImageFetcher
 from .instr import (
@@ -336,7 +336,7 @@ def disassemble_binary(
         print(
             formatter.comment(
                 f"{section.description.title()} section: "
-                f"{formatter.hexRange(section.start, section.end, image_offset_width)}"
+                f"{formatter.hex_range(section.start, section.end, image_offset_width)}"
             ),
             file=out,
         )
@@ -349,7 +349,7 @@ def disassemble_binary(
             org = OriginDirective(org_addr)
             print(formatter.origin(org), file=out)
             print(file=out)
-            for line in formatAsm(formatter, decoded[section], labels):
+            for line in format_asm(formatter, decoded[section], labels):
                 print(line, file=out)
         elif isinstance(section, StructuredDataSection):
             for directive in section.data.directives:

@@ -15,11 +15,11 @@ from .utils import bad_type
 class Formatter:
 
     margin = 20
-    operationWidth = 8
+    operation_width = 8
 
     def __init__(self) -> None:
         # pylint: disable=consider-using-f-string
-        self._lineFormat = "{:%d}{:%d}{}" % (self.margin, self.operationWidth)
+        self._line_format = "{:%d}{:%d}{}" % (self.margin, self.operation_width)
 
     def value(self, value: int, typ: IntType) -> str:
         if typ.signed:
@@ -34,17 +34,17 @@ class Formatter:
                 width = value.bit_length()
             else:
                 assert isinstance(width, int)
-            return self.hexValue(value, width)
+            return self.hex_value(value, width)
 
-    def hexValue(self, value: int, width: int) -> str:
+    def hex_value(self, value: int, width: int) -> str:
         return f"${{:0{(width + 3) // 4:d}x}}".format(value)
 
-    def hexRange(self, start: int, end: Width, width: int) -> str:
-        startStr = self.hexValue(start, width)
-        endStr = "" if end is unlimited else self.hexValue(cast(int, end), width)
-        return f"{startStr}-{endStr}"
+    def hex_range(self, start: int, end: Width, width: int) -> str:
+        start_str = self.hex_value(start, width)
+        end_str = "" if end is unlimited else self.hex_value(cast(int, end), width)
+        return f"{start_str}-{end_str}"
 
-    def _stringLiteral(self, string: bytes) -> Iterator[str]:
+    def _string_literal(self, string: bytes) -> Iterator[str]:
         idx = 0
         end = len(string)
         while idx < end:
@@ -55,18 +55,18 @@ class Formatter:
                 yield f'"{string[start:idx].decode()}"'
             if idx < end:
                 value = string[idx]
-                yield "0" if value == 0 else self.hexValue(value, 8)
+                yield "0" if value == 0 else self.hex_value(value, 8)
                 idx += 1
 
     def _operands(self, operands: Iterable[str]) -> str:
-        prevWord = False
+        prev_word = False
         parts = []
         for operand in operands:
-            isWord = operand[0].isalnum() or operand[0] in "_$%"
-            if prevWord and isWord:
+            is_word = operand[0].isalnum() or operand[0] in "_$%"
+            if prev_word and is_word:
                 parts.append(" ")
             parts.append(operand)
-            prevWord = isWord
+            prev_word = is_word
         return "".join(parts)
 
     def comment(self, comment: str) -> str:
@@ -98,9 +98,9 @@ class Formatter:
                 case elem:
                     bad_type(elem)
 
-        localLabel = ""
-        return self._lineFormat.format(
-            localLabel, parts[0], self._operands(parts[1:])
+        local_label = ""
+        return self._line_format.format(
+            local_label, parts[0], self._operands(parts[1:])
         ).rstrip()
 
     def expression(self, ref: FixedValueReference) -> str:
@@ -111,36 +111,36 @@ class Formatter:
             case SymbolValue(name=name):
                 return name
             case IntLiteral(value=value):
-                exprType = ref.type
-                width = exprType.width
-                if exprType.signed:
+                expr_type = ref.type
+                width = expr_type.width
+                if expr_type.signed:
                     if width != 0 and width is not unlimited:
                         assert isinstance(width, int)
                         if value & 1 << (width - 1):
                             value -= 1 << width
-                return self.value(value, exprType)
+                return self.value(value, expr_type)
             case _:
                 # TODO: Use a recursive expression pretty printer.
                 #       Once we start formatting actual sources instead of only
                 #       disassembly, we will encounter operators as well.
                 raise NotImplementedError
 
-    orgKeyword = "org"
+    org_keyword = "org"
 
     def origin(self, directive: OriginDirective) -> str:
-        return self.mnemonic((self.orgKeyword, directive.addr))
+        return self.mnemonic((self.org_keyword, directive.addr))
 
-    dataKeywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
+    data_keywords: Mapping[Width, str] = {8: "db", 16: "dw", 32: "dd", 64: "dq"}
 
     def data(self, directive: DataDirective | StringDirective) -> str:
-        keyword = self.dataKeywords[
+        keyword = self.data_keywords[
             directive.width if isinstance(directive, DataDirective) else 8
         ]
         words: list[str | ParseNode] = [keyword]
         for data in directive.data:
             items: Iterable[str | ParseNode]
             if isinstance(data, bytes):
-                items = self._stringLiteral(data)
+                items = self._string_literal(data)
             else:
                 items = (data,)
             for item in items:
@@ -151,13 +151,14 @@ class Formatter:
 
     def raw(self, data: bytes) -> Iterator[str]:
         """Format data with no known structure using data directives."""
-        directive = self.dataKeywords[8]
-        chunkSize = 16
-        for offset in range(0, len(data), chunkSize):
-            yield self._lineFormat.format(
+        directive = self.data_keywords[8]
+        chunk_size = 16
+        for offset in range(0, len(data), chunk_size):
+            yield self._line_format.format(
                 "",
                 directive,
                 ", ".join(
-                    self.hexValue(byte, 8) for byte in data[offset : offset + chunkSize]
+                    self.hex_value(byte, 8)
+                    for byte in data[offset : offset + chunk_size]
                 ),
             )

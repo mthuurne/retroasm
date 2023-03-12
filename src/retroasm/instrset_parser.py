@@ -15,7 +15,7 @@ from .decode import (
     FixedEncoding,
     ParsedModeEntry,
     Prefix,
-    decomposeEncoding,
+    decompose_encoding,
 )
 from .expression_builder import (
     BadExpression,
@@ -942,7 +942,9 @@ def _checkDecodingOrder(
 
         # Are any parts of the placeholder are located after the multi-match?
         badIdx = [
-            encEegment.encIdx for encEegment in decoding if encEegment.encIdx > multiIdx
+            encEegment.enc_idx
+            for encEegment in decoding
+            if encEegment.enc_idx > multiIdx
         ]
         if badIdx:
             mode = placeholderSpec.mode
@@ -970,7 +972,7 @@ def _parseModeDecoding(
     """
     try:
         # Decompose the encoding expressions.
-        fixedMatcher, decodeMap = decomposeEncoding(encoding)
+        fixedMatcher, decodeMap = decompose_encoding(encoding)
     except BadInput as ex:
         reader.error("%s", ex, location=ex.locations)
         return None

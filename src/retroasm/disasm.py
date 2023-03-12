@@ -27,7 +27,7 @@ class DisasmFetcher(AdvancingFetcher):
 
     @classmethod
     def from_image_fetcher(cls, fetcher: ImageFetcher, addr: int) -> DisasmFetcher:
-        return cls(fetcher, 0, addr, fetcher.numBytes)
+        return cls(fetcher, 0, addr, fetcher.num_bytes)
 
     def __init__(
         self, fetcher: AdvancingFetcher, delta: int, addr: int, addr_step: int
@@ -73,20 +73,20 @@ class DisasmFetcher(AdvancingFetcher):
 
 
 def disassemble(
-    instrSet: InstructionSet, imageFetcher: ImageFetcher, startAddr: int
+    instr_set: InstructionSet, image_fetcher: ImageFetcher, start_addr: int
 ) -> Iterator[tuple[int, DataDirective | Instruction]]:
     """
     Disassemble instructions from the given fetcher.
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     """
-    pc = cast(Reference, instrSet.globalNamespace["pc"])
-    fetcher = DisasmFetcher.from_image_fetcher(imageFetcher, startAddr)
+    pc = cast(Reference, instr_set.globalNamespace["pc"])
+    fetcher = DisasmFetcher.from_image_fetcher(image_fetcher, start_addr)
 
     while fetcher[0] is not None:
-        encodedLength, modeMatch = instrSet.decodeInstruction(fetcher)
+        encoded_length, mode_match = instr_set.decodeInstruction(fetcher)
 
-        if modeMatch is None:
+        if mode_match is None:
             # Disassemble to data directives a number of encoding items equal to
             # how far the instruction decoder looked ahead.
             unused = fetcher.looked_ahead
@@ -95,17 +95,17 @@ def disassemble(
             # Verify that the opcodes produced when assembling are the same as
             # the ones we disassembled. This is not a given: there can be more
             # than one way to encode the same instruction.
-            reencoded = tuple(instrSet.encodeInstruction(modeMatch))
-            reencodedLen = len(reencoded)
-            unused = encodedLength - reencodedLen
+            reencoded = tuple(instr_set.encodeInstruction(mode_match))
+            reencoded_len = len(reencoded)
+            unused = encoded_length - reencoded_len
             if unused < 0 or any(
                 fetcher[unused + idx] != enc for idx, enc in enumerate(reencoded)
             ):
                 # Reject the match because it would break round trips.
                 # TODO: Maybe this should be an option: there might be use cases where
                 #       round trips are not important.
-                modeMatch = None
-                unused = encodedLength
+                mode_match = None
+                unused = encoded_length
 
         # Disassemble unused encoding items to data directives.
         unused_items = []
@@ -116,20 +116,20 @@ def disassemble(
             unused_items.append(value)
         if unused_items:
             yield fetcher.addr, DataDirective.literal(
-                instrSet.encodingType.width, *unused_items
+                instr_set.encodingType.width, *unused_items
             )
         fetcher.update(unused)
 
         # Disassemble instruction.
-        if modeMatch is not None:
+        if mode_match is not None:
             pre_addr = fetcher.addr
-            fetcher.update(reencodedLen)
+            fetcher.update(reencoded_len)
             post_addr = fetcher.addr
-            modeMatch = modeMatch.substPC(pc, IntLiteral(post_addr))
-            yield pre_addr, Instruction(modeMatch.mnemonic)
+            mode_match = mode_match.substPC(pc, IntLiteral(post_addr))
+            yield pre_addr, Instruction(mode_match.mnemonic)
 
 
-def formatAsm(
+def format_asm(
     formatter: Formatter,
     decoded: Iterable[tuple[int, DataDirective | Instruction]],
     labels: Mapping[int, str],
