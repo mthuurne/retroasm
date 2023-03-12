@@ -784,7 +784,7 @@ class ModeTable:
 
     @property
     def encodingWidth(self) -> Width | None:
-        return self._encWidth
+        return self._enc_width
 
     @property
     def auxEncodingWidth(self) -> Width | None:
@@ -796,7 +796,7 @@ class ModeTable:
         auxEncWidth: Width | None,
         entries: Iterable[ModeEntry],
     ):
-        self._encWidth = encWidth
+        self._enc_width = encWidth
         self._auxEncWidth = auxEncWidth
         self._entries = entries = tuple(entries)
 
@@ -813,12 +813,12 @@ class ModeTable:
                     f"entry with {_formatAuxEncodingWidth(encDef.auxEncodingWidth)}"
                 )
 
-        self._mnemTree = mnemTree = _MnemTreeNode()
+        self._mnem_tree = mnemTree = _MnemTreeNode()
         for entry in entries:
             mnemTree.addModeEntry(entry)
 
     def dumpMnemonicTree(self) -> None:
-        self._mnemTree.dump("")
+        self._mnem_tree.dump("")
 
     @const_property
     def encodedLength(self) -> int | None:
@@ -827,7 +827,7 @@ class ModeTable:
         entries in this mode use, or None if that number may vary depending
         on which match is made.
         """
-        if self._encWidth is None:
+        if self._enc_width is None:
             return 0
         if self._auxEncWidth is None:
             return 1

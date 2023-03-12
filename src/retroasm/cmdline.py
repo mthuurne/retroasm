@@ -38,10 +38,10 @@ from .disasm import Instruction, disassemble, format_asm
 from .expression_nodes import NumberNode
 from .fetch import ImageFetcher
 from .instr import (
-    builtinInstructionSetPath,
-    builtinInstructionSets,
-    loadInstructionSet,
-    loadInstructionSetByName,
+    builtin_instruction_set_path,
+    builtin_instruction_sets,
+    load_instruction_set,
+    load_instruction_set_by_name,
 )
 from .instrset import InstructionSet
 from .linereader import LineReaderFormatter, ProblemCounter
@@ -67,7 +67,7 @@ def asm(instr: str, sources: tuple[str, ...]) -> None:
 
     logger = setup_logging(INFO)
 
-    instr_set = loadInstructionSetByName(instr, logger, wantSemantics=False)
+    instr_set = load_instruction_set_by_name(instr, logger, want_semantics=False)
     if instr_set is None:
         get_current_context().exit(1)
 
@@ -83,7 +83,7 @@ def asm(instr: str, sources: tuple[str, ...]) -> None:
 
 def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
 
-    flag_combos = sorted(sorted(flags) for flags in instr_set.decodeFlagCombinations)
+    flag_combos = sorted(sorted(flags) for flags in instr_set.decode_flag_combinations)
     for flags in flag_combos:
         print()
         if flags:
@@ -91,7 +91,7 @@ def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
                 f"with decode flag{'' if len(flags) == 1 else 's'} {', '.join(flags)}:"
             )
             print()
-        instr_set.getDecoder(frozenset(flags)).dump(submodes=submodes)
+        instr_set.get_decoder(frozenset(flags)).dump(submodes=submodes)
 
 
 @command()
@@ -138,7 +138,7 @@ def checkdef(
         elif path.is_file():
             files.append(path)
         elif "/" not in name and "\\" not in name and "." not in name:
-            files.append(builtinInstructionSetPath(name))
+            files.append(builtin_instruction_set_path(name))
         else:
             print("Instruction set not found:", name, file=sys.stderr)
             errors = True
@@ -147,7 +147,7 @@ def checkdef(
         logger = setup_logging(INFO)
         for instr_file in files:
             logger.info("checking: %s", instr_file)
-            instr_set = loadInstructionSet(instr_file, logger)
+            instr_set = load_instruction_set(instr_file, logger)
             if instr_set is None:
                 errors = True
                 continue
@@ -272,7 +272,7 @@ def disassemble_binary(
             )
             continue
         instr_set_name = entry_section.instr_set_name
-        instr_set = builtinInstructionSets[instr_set_name]
+        instr_set = builtin_instruction_sets[instr_set_name]
         if instr_set is None:
             logger.warning(
                 "Skipping disassembly of offset 0x%x due to unknown "
@@ -343,9 +343,9 @@ def disassemble_binary(
         print(file=out)
         if section in decoded:
             assert isinstance(section, CodeSection), section
-            instr_set = builtinInstructionSets[section.instr_set_name]
+            instr_set = builtin_instruction_sets[section.instr_set_name]
             assert instr_set is not None
-            org_addr = NumberNode(section.base, instr_set.addrType.width)
+            org_addr = NumberNode(section.base, instr_set.addr_type.width)
             org = OriginDirective(org_addr)
             print(formatter.origin(org), file=out)
             print(file=out)
@@ -499,7 +499,7 @@ def list_supported(
     print("")
 
     print("Instruction sets:")
-    for name in sorted(builtinInstructionSets):
+    for name in sorted(builtin_instruction_sets):
         print(f"  {name}")
     print("")
 

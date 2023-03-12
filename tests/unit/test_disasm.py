@@ -9,11 +9,11 @@ from retroasm.asm_formatter import Formatter
 from retroasm.binfmt import Image
 from retroasm.disasm import disassemble
 from retroasm.fetch import ImageFetcher
-from retroasm.instr import builtinInstructionSets
+from retroasm.instr import builtin_instruction_sets
 from retroasm.instrset import InstructionSet
 from retroasm.section import ByteOrder
 
-z80 = cast(InstructionSet, builtinInstructionSets["z80"])
+z80 = cast(InstructionSet, builtin_instruction_sets["z80"])
 create_z80_fetcher = ImageFetcher.factory(8, ByteOrder.little)
 
 formatter = Formatter()

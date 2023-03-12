@@ -6,30 +6,30 @@ from importlib.resources import files
 from logging import Logger, getLogger
 
 from ..instrset import InstructionSet
-from ..instrset_parser import parseInstrSet
+from ..instrset_parser import parse_instr_set
 from . import defs
 
 
-def builtinInstructionSetPath(name: str) -> Traversable:
+def builtin_instruction_set_path(name: str) -> Traversable:
     return files(defs) / f"{name}.instr"
 
 
-def loadInstructionSet(
-    path: Traversable, logger: Logger, wantSemantics: bool = True
+def load_instruction_set(
+    path: Traversable, logger: Logger, want_semantics: bool = True
 ) -> InstructionSet | None:
     try:
-        return parseInstrSet(path, wantSemantics=wantSemantics)
+        return parse_instr_set(path, want_semantics=want_semantics)
     except OSError as ex:
         logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
         return None
 
 
-def loadInstructionSetByName(
-    name: str, logger: Logger, wantSemantics: bool = True
+def load_instruction_set_by_name(
+    name: str, logger: Logger, want_semantics: bool = True
 ) -> InstructionSet | None:
     logger.info("Loading instruction set: %s", name)
-    path = builtinInstructionSetPath(name)
-    return loadInstructionSet(path, logger, wantSemantics)
+    path = builtin_instruction_set_path(name)
+    return load_instruction_set(path, logger, want_semantics)
 
 
 class InstructionSetProvider:
@@ -68,9 +68,9 @@ class InstructionSetDirectory(InstructionSetProvider):
             logger = self._logger
             logger.info("Loading instruction set: %s", name)
             path = self._path / f"{name}.instr"
-            instrSet = loadInstructionSet(path, logger)
-            self._cache[name] = instrSet
-            return instrSet
+            instr_set = load_instruction_set(path, logger)
+            self._cache[name] = instr_set
+            return instr_set
 
     def __iter__(self) -> Iterator[str]:
         for path in self._path.iterdir():
@@ -80,7 +80,7 @@ class InstructionSetDirectory(InstructionSetProvider):
                     yield name[:-6]
 
 
-builtinInstructionSets = InstructionSetDirectory(files(defs), getLogger(__name__))
+builtin_instruction_sets = InstructionSetDirectory(files(defs), getLogger(__name__))
 """
 Provider for instruction sets from the RetroAsm installation.
 """

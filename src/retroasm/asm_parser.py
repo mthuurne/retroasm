@@ -449,7 +449,7 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
     if (width := _data_widths.get(keyword)) is not None:
         return parse_data_directive(tokens, IntType.u(width), width == 8)
     elif keyword == "addr":
-        return parse_data_directive(tokens, instr_set.addrType)
+        return parse_data_directive(tokens, instr_set.addr_type)
     elif keyword in ("ds", "defs"):
         return parse_space_directive(tokens)
     elif keyword == "incbin":
@@ -541,7 +541,7 @@ class AsmSource:
 
 def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
     source = AsmSource()
-    instruction_names = instr_set.instructionNames
+    instruction_names = instr_set.instruction_names
 
     for line in reader:
         tokens = AsmTokenizer.scan(line)

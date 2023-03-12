@@ -80,11 +80,11 @@ def disassemble(
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     """
-    pc = cast(Reference, instr_set.globalNamespace["pc"])
+    pc = cast(Reference, instr_set.global_namespace["pc"])
     fetcher = DisasmFetcher.from_image_fetcher(image_fetcher, start_addr)
 
     while fetcher[0] is not None:
-        encoded_length, mode_match = instr_set.decodeInstruction(fetcher)
+        encoded_length, mode_match = instr_set.decode_instruction(fetcher)
 
         if mode_match is None:
             # Disassemble to data directives a number of encoding items equal to
@@ -95,7 +95,7 @@ def disassemble(
             # Verify that the opcodes produced when assembling are the same as
             # the ones we disassembled. This is not a given: there can be more
             # than one way to encode the same instruction.
-            reencoded = tuple(instr_set.encodeInstruction(mode_match))
+            reencoded = tuple(instr_set.encode_instruction(mode_match))
             reencoded_len = len(reencoded)
             unused = encoded_length - reencoded_len
             if unused < 0 or any(
@@ -116,7 +116,7 @@ def disassemble(
             unused_items.append(value)
         if unused_items:
             yield fetcher.addr, DataDirective.literal(
-                instr_set.encodingType.width, *unused_items
+                instr_set.encoding_type.width, *unused_items
             )
         fetcher.update(unused)
 
