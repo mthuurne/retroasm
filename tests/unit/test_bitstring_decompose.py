@@ -25,39 +25,39 @@ def namespace() -> TestNamespace:
     return TestNamespace()
 
 
-def sliceBits(bits: BitString, offset: int, width: Width) -> SlicedBits:
+def slice_bits(bits: BitString, offset: int, width: Width) -> SlicedBits:
     return SlicedBits(bits, IntLiteral(offset), width)
 
 
-def decomposeExpr(expr: Expression) -> Iterator[tuple[Expression, int, Width, int]]:
+def decompose_expr(expr: Expression) -> Iterator[tuple[Expression, int, Width, int]]:
     assert isinstance(expr, Expression)
     if isinstance(expr, AndOperator):
         assert len(expr.exprs) == 2
-        subExpr, maskExpr = expr.exprs
-        assert isinstance(maskExpr, IntLiteral)
-        mask = maskExpr.value
-        maskWidth = width_for_mask(mask)
-        assert mask_for_width(maskWidth) == mask
-        for dex, offset, width, shift in decomposeExpr(subExpr):
-            width = min(width, maskWidth - shift)
+        sub_expr, mask_expr = expr.exprs
+        assert isinstance(mask_expr, IntLiteral)
+        mask = mask_expr.value
+        mask_width = width_for_mask(mask)
+        assert mask_for_width(mask_width) == mask
+        for dex, offset, width, shift in decompose_expr(sub_expr):
+            width = min(width, mask_width - shift)
             if width > 0:
                 yield dex, offset, width, shift
     elif isinstance(expr, OrOperator):
-        for subExpr in expr.exprs:
-            yield from decomposeExpr(subExpr)
+        for sub_expr in expr.exprs:
+            yield from decompose_expr(sub_expr)
     elif isinstance(expr, LShift):
-        for dex, offset, width, shift in decomposeExpr(expr.expr):
+        for dex, offset, width, shift in decompose_expr(expr.expr):
             yield dex, offset, width, shift + expr.offset
     elif isinstance(expr, RVShift):
         assert isinstance(expr.offset, IntLiteral)
-        rvOffset = expr.offset.value
-        for dex, offset, width, shift in decomposeExpr(expr.expr):
-            shift -= rvOffset
+        rv_offset = expr.offset.value
+        for dex, offset, width, shift in decompose_expr(expr.expr):
+            shift -= rv_offset
             if shift < 0:
-                droppedBits = -shift
+                dropped_bits = -shift
                 shift = 0
-                offset += droppedBits
-                width -= droppedBits
+                offset += dropped_bits
+                width -= dropped_bits
                 if width <= 0:
                     continue
             yield dex, offset, width, shift
@@ -65,20 +65,20 @@ def decomposeExpr(expr: Expression) -> Iterator[tuple[Expression, int, Width, in
         yield expr, 0, width_for_mask(expr.mask), 0
 
 
-def iterSlices(bits: BitString) -> Iterator[SlicedBits]:
+def iter_slices(bits: BitString) -> Iterator[SlicedBits]:
     """Iterate through the SlicedBits contained in the given bit string."""
     if isinstance(bits, SingleStorage):
         pass
     elif isinstance(bits, ConcatenatedBits):
         for sub in bits:
-            yield from iterSlices(sub)
+            yield from iter_slices(sub)
     elif isinstance(bits, SlicedBits):
         yield bits
     else:
         raise TypeError(f"Unsupported BitString subtype: {type(bits).__name__}")
 
 
-def iterSliceLoads(bits: BitString) -> Iterator[Storage]:
+def iter_slice_loads(bits: BitString) -> Iterator[Storage]:
     """
     Iterate through the storages that must be loaded when storing into
     a bit string that may contain slicing.
@@ -88,12 +88,12 @@ def iterSliceLoads(bits: BitString) -> Iterator[Storage]:
     To avoid losing updates, each node must complete its load-combine-store
     cycle before other nodes can be processed.
     """
-    for sliceBits in iterSlices(bits):
-        yield from sliceBits.iter_storages()
-        yield from iterSliceLoads(sliceBits.bits)
+    for slice_bits in iter_slices(bits):
+        yield from slice_bits.iter_storages()
+        yield from iter_slice_loads(slice_bits.bits)
 
 
-def checkFlatten(
+def check_flatten(
     namespace: TestNamespace,
     bits: BitString,
     expected: Sequence[tuple[Storage, Segment]],
@@ -109,7 +109,7 @@ def checkFlatten(
     width: Width = 0
     for base, base_seg in bits.decompose():
         try:
-            expectedItem = expected[i]
+            expected_item = expected[i]
         except IndexError:
             raise AssertionError(
                 f"Bit string produced more than the {len(expected)} expected items"
@@ -117,8 +117,8 @@ def checkFlatten(
         else:
             i += 1
         assert isinstance(base, SingleStorage), base
-        assert base.storage == expectedItem[0]
-        assert base_seg == expectedItem[1]
+        assert base.storage == expected_item[0]
+        assert base_seg == expected_item[1]
         width += base_seg.width
     assert i >= len(
         expected
@@ -126,7 +126,7 @@ def checkFlatten(
     assert width <= bits.width
 
 
-def checkLoad(
+def check_load(
     namespace: TestNamespace,
     bits: BitString,
     expected: Sequence[tuple[Storage, Segment]],
@@ -143,9 +143,9 @@ def checkLoad(
     # Also check that the load order matches the depth-first tree walk.
     # Even storages that are not part of the decomposition should still be
     # loaded from since loading might trigger side effects.
-    allStorages = tuple(bits.iter_storages())
-    loadedStorages = tuple(node.storage for node in nodes)
-    assert allStorages == loadedStorages
+    all_storages = tuple(bits.iter_storages())
+    loaded_storages = tuple(node.storage for node in nodes)
+    assert all_storages == loaded_storages
 
     # Check the loaded value expression's bit mask.
     assert (
@@ -153,27 +153,27 @@ def checkLoad(
     ), "loaded value is wider than bit string"
 
     # Check that the loaded expression's terms don't overlap.
-    decomposedVal = tuple(decomposeExpr(value))
+    decomposed_val = tuple(decompose_expr(value))
     mask = 0
-    for dex, offset, width, shift in decomposedVal:
-        termMask = mask_for_width(width) << shift
-        assert mask & termMask == 0, "loaded terms overlap"
+    for dex, offset, width, shift in decomposed_val:
+        term_mask = mask_for_width(width) << shift
+        assert mask & term_mask == 0, "loaded terms overlap"
 
     # Check loaded value.
-    assert len(decomposedVal) == len(expected)
+    assert len(decomposed_val) == len(expected)
     offset = 0
-    for actualItem, expectedItem in zip(decomposedVal, expected):
-        valExpr, valOffset, valWidth, valShift = actualItem
-        expStorage, expSegment = expectedItem
-        assert isinstance(valExpr, LoadedValue)
-        assert valExpr.load.storage == expStorage
-        assert valShift == offset
-        assert valOffset == expSegment.start
-        assert valWidth == expSegment.width
-        offset += cast(int, valWidth)
+    for actual_item, expected_item in zip(decomposed_val, expected):
+        val_expr, val_offset, val_width, val_shift = actual_item
+        exp_storage, exp_segment = expected_item
+        assert isinstance(val_expr, LoadedValue)
+        assert val_expr.load.storage == exp_storage
+        assert val_shift == offset
+        assert val_offset == exp_segment.start
+        assert val_width == exp_segment.width
+        offset += cast(int, val_width)
 
 
-def checkStore(
+def check_store(
     namespace: TestNamespace,
     bits: BitString,
     expected: Sequence[tuple[Storage, Segment]],
@@ -182,39 +182,39 @@ def checkStore(
 
     # Check that emit_store only emits Load and Store nodes.
     nodes = namespace.builder.nodes
-    valueRef = namespace.add_argument("V", IntType.int)
-    value = namespace.emit_load(valueRef)
-    initIdx = len(nodes)
+    value_ref = namespace.add_argument("V", IntType.int)
+    value = namespace.emit_load(value_ref)
+    init_idx = len(nodes)
     namespace.emit_store(bits, value)
-    loadNodes: list[Load] = []
-    storeNodes: list[Store] = []
-    for node in nodes[initIdx:]:
+    load_nodes: list[Load] = []
+    store_nodes: list[Store] = []
+    for node in nodes[init_idx:]:
         if isinstance(node, Load):
-            loadNodes.append(node)
+            load_nodes.append(node)
         elif isinstance(node, Store):
-            storeNodes.append(node)
+            store_nodes.append(node)
         else:
             assert False, f"unexpected node type: {type(node).__name__}"
 
     # Check that all storages reachable through slicing are loaded from.
     # Also check that the load order is as expected (see iterSliceLoads
     # docstring).
-    slicedStorages = tuple(iterSliceLoads(bits))
-    loadedStorages = tuple(node.storage for node in loadNodes)
-    assert slicedStorages == loadedStorages
+    sliced_storages = tuple(iter_slice_loads(bits))
+    loaded_storages = tuple(node.storage for node in load_nodes)
+    assert sliced_storages == loaded_storages
 
     # Check that all underlying storages are stored to.
     # Also check that the store order matches the depth-first tree walk.
-    allStorages = tuple(bits.iter_storages())
-    storedStorages = tuple(node.storage for node in storeNodes)
-    assert allStorages == storedStorages
+    all_storages = tuple(bits.iter_storages())
+    stored_storages = tuple(node.storage for node in store_nodes)
+    assert all_storages == stored_storages
 
     # Note: Verifying that the right values are being stored based on the
     #       expectation list is quite complex.
     #       We're better off writing a separate test for that.
 
 
-checkParam = mark.parametrize("check", [checkFlatten, checkLoad, checkStore])
+check_param = mark.parametrize("check", [check_flatten, check_load, check_store])
 
 CheckFunc = Callable[
     [TestNamespace, BitString, Sequence[tuple[Storage, Segment]]],
@@ -222,7 +222,7 @@ CheckFunc = Callable[
 ]
 
 
-@checkParam
+@check_param
 def test_decompose_single(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of SingleStorage."""
     ref0 = namespace.add_argument("R0")
@@ -230,7 +230,7 @@ def test_decompose_single(namespace: TestNamespace, check: CheckFunc) -> None:
     check(namespace, ref0.bits, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_basic_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of ConcatenatedBits."""
     ref0 = namespace.add_argument("R0", IntType.u(7))
@@ -241,7 +241,7 @@ def test_decompose_basic_concat(namespace: TestNamespace, check: CheckFunc) -> N
     check(namespace, concat, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_self_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test concatenation of a bit string to itself."""
     ref0 = namespace.add_argument("R0")
@@ -250,67 +250,67 @@ def test_decompose_self_concat(namespace: TestNamespace, check: CheckFunc) -> No
     check(namespace, concat, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_basic_slice(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of SlicedBits."""
     ref0 = namespace.add_argument("R0")
-    sliced = sliceBits(ref0.bits, 2, 3)
+    sliced = slice_bits(ref0.bits, 2, 3)
     expected = namespace.parse("R0[2:5]")
     check(namespace, sliced, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_slice_past_end(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test clipping of slice width against parent width."""
     ref0 = namespace.add_argument("R0")
-    sliced = sliceBits(ref0.bits, 2, 30)
+    sliced = slice_bits(ref0.bits, 2, 30)
     expected = namespace.parse("R0[2:8]")
     check(namespace, sliced, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_slice_outside(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test handling of slice index outside parent width."""
     ref0 = namespace.add_argument("R0")
-    sliced = sliceBits(ref0.bits, 12, 30)
+    sliced = slice_bits(ref0.bits, 12, 30)
     expected = ()
     check(namespace, sliced, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_slice_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test slicing concatenated values."""
     ref0 = namespace.add_argument("R0")
     ref1 = namespace.add_argument("R1")
     ref2 = namespace.add_argument("R2")
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
-    sliced = sliceBits(concat, 5, 13)
+    sliced = slice_bits(concat, 5, 13)
     expected = namespace.parse("R2[5:8]", "R1[0:8]", "R0[0:2]")
     check(namespace, sliced, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_combined(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test combinations of slicing and concatenation."""
     ref0 = namespace.add_argument("R0")
     ref1 = namespace.add_argument("R1")
-    concatA = ConcatenatedBits(ref0.bits, ref1.bits)
-    sliceA = sliceBits(concatA, 5, 6)
+    concat_a = ConcatenatedBits(ref0.bits, ref1.bits)
+    slice_a = slice_bits(concat_a, 5, 6)
     ref2 = namespace.add_argument("R2")
-    concatB = ConcatenatedBits(sliceA, ref2.bits)
-    storage = sliceBits(concatB, 4, 7)
+    concat_b = ConcatenatedBits(slice_a, ref2.bits)
+    storage = slice_bits(concat_b, 4, 7)
     expected = namespace.parse("R1[1:3]", "R2[0:5]")
     check(namespace, storage, expected)
 
 
-@checkParam
+@check_param
 def test_decompose_nested_slice(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test taking a slice from sliced bit strings."""
     ref0 = namespace.add_argument("R0")
     ref1 = namespace.add_argument("R1")
-    slice0 = sliceBits(ref0.bits, 2, 5)
-    slice1 = sliceBits(ref1.bits, 1, 4)
+    slice0 = slice_bits(ref0.bits, 2, 5)
+    slice1 = slice_bits(ref1.bits, 1, 4)
     concat = ConcatenatedBits(slice0, slice1)
-    sliceC = sliceBits(concat, 3, 3)
+    slice_c = slice_bits(concat, 3, 3)
     expected = namespace.parse("R0[5:7]", "R1[1:2]")
-    check(namespace, sliceC, expected)
+    check(namespace, slice_c, expected)
