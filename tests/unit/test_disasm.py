@@ -14,7 +14,7 @@ from retroasm.instrset import InstructionSet
 from retroasm.section import ByteOrder
 
 z80 = cast(InstructionSet, builtinInstructionSets["z80"])
-createZ80Fetcher = ImageFetcher.factory(8, ByteOrder.little)
+create_z80_fetcher = ImageFetcher.factory(8, ByteOrder.little)
 
 formatter = Formatter()
 
@@ -22,7 +22,7 @@ formatter = Formatter()
 def disassemble_image(image: Image, addr: int = 0x4000) -> Iterator[tuple[int, str]]:
     """Disassemble the whole image as Z80 code, yield the statements as addr + text."""
     length = len(image)
-    fetcher = createZ80Fetcher(image, 0, length)
+    fetcher = create_z80_fetcher(image, 0, length)
     for stmt_addr, statement in disassemble(z80, fetcher, addr):
         assert addr <= stmt_addr < addr + length
         if isinstance(statement, DataDirective):

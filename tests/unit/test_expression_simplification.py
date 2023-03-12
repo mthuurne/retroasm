@@ -27,8 +27,8 @@ from .utils_expression import (
     assert_int_literal,
     assert_or,
     assert_slice,
-    makeConcat,
-    makeSlice,
+    make_concat,
+    make_slice,
 )
 
 
@@ -100,7 +100,7 @@ def test_and_width() -> None:
     """Simplifies logical AND expressions using the subexpression widths."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     mask_lo = IntLiteral(0x00F0)
     mask_hi = IntLiteral(0xF000)
     # Test whether (HL & $00F0) cuts off H.
@@ -117,7 +117,7 @@ def test_and_mask_to_slice() -> None:
     """Simplifies logical AND expressions that are essentially slicing."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     # Test whether (HL & $003F) simplifies to L[0:6].
     mask6 = IntLiteral(0x003F)
     assert_slice(simplify_expression(AndOperator(hl, mask6)), l, 8, 0, 6)
@@ -130,7 +130,7 @@ def test_and_mask_concat() -> None:
     """Simplifies logical AND expressions that mask concatenated terms."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     # Test whether (HL & $FF00) simplifies to H;$00.
     expr = simplify_expression(AndOperator(hl, IntLiteral(0xFF00)))
     assert isinstance(expr, LShift)
@@ -325,7 +325,7 @@ def test_complement_subexpr() -> None:
     addr = TestValue("A", IntType.u(16))
     expr = simplify_expression(
         Complement(
-            makeConcat(makeConcat(IntLiteral(0xC0), IntLiteral(0xDE), 8), addr, 16)
+            make_concat(make_concat(IntLiteral(0xC0), IntLiteral(0xDE), 8), addr, 16)
         )
     )
     assert isinstance(expr, Complement)
@@ -344,15 +344,21 @@ def test_negation_int() -> None:
 def test_negation_subexpr() -> None:
     """Negates a simplifiable subexpression."""
     assert_int_literal(
-        simplify_expression(Negation(makeConcat(IntLiteral(0x0), IntLiteral(0x00), 8))),
+        simplify_expression(
+            Negation(make_concat(IntLiteral(0x0), IntLiteral(0x00), 8))
+        ),
         1,
     )
     assert_int_literal(
-        simplify_expression(Negation(makeConcat(IntLiteral(0xB), IntLiteral(0x00), 8))),
+        simplify_expression(
+            Negation(make_concat(IntLiteral(0xB), IntLiteral(0x00), 8))
+        ),
         0,
     )
     assert_int_literal(
-        simplify_expression(Negation(makeConcat(IntLiteral(0x0), IntLiteral(0x07), 8))),
+        simplify_expression(
+            Negation(make_concat(IntLiteral(0x0), IntLiteral(0x07), 8))
+        ),
         0,
     )
 
@@ -479,7 +485,7 @@ def test_sign_extend_mask_concat() -> None:
     """Applies sign extension to concatenated values."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     assert simplify_expression(SignExtension(hl, 8)) == SignExtension(l, 8)
 
 
@@ -487,7 +493,7 @@ def test_sign_extend_clear() -> None:
     """Removes sign extension when sign bit is known to be zero."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hgapl = makeConcat(h, l, 9)
+    hgapl = make_concat(h, l, 9)
     assert simplify_expression(SignExtension(hgapl, 9)) is l
 
 
@@ -541,7 +547,7 @@ def test_arithmetic_add_complement() -> None:
     d = AddOperator(b, a)
     assert_int_literal(simplify_expression(AddOperator(c, Complement(c))), 0)
     assert_int_literal(simplify_expression(AddOperator(c, Complement(d))), 0)
-    e = makeConcat(a, b, 8)
+    e = make_concat(a, b, 8)
     assert_int_literal(simplify_expression(AddOperator(e, Complement(e))), 0)
 
 
@@ -596,7 +602,7 @@ def test_lshift_truncate() -> None:
     """Tests truncation of a left-shifted expression."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     # Shift H and L out of the truncation range.
     expr1 = simplify_expression(truncate(LShift(hl, 8), 8))
     assert_int_literal(expr1, 0)
@@ -651,21 +657,21 @@ def test_concat_literals() -> None:
     im = Complement(ip)
     u4 = IntLiteral(0xD)
     u8 = IntLiteral(0x29)
-    cat_ip_u4 = simplify_expression(makeConcat(ip, u4, 4))
+    cat_ip_u4 = simplify_expression(make_concat(ip, u4, 4))
     assert_int_literal(cat_ip_u4, 0x40 + 0xD)
-    cat_ip_u8 = simplify_expression(makeConcat(ip, u8, 8))
+    cat_ip_u8 = simplify_expression(make_concat(ip, u8, 8))
     assert_int_literal(cat_ip_u8, 0x400 + 0x29)
-    cat_im_u4 = simplify_expression(makeConcat(im, u4, 4))
+    cat_im_u4 = simplify_expression(make_concat(im, u4, 4))
     assert_int_literal(cat_im_u4, -0x40 + 0xD)
-    cat_im_u8 = simplify_expression(makeConcat(im, u8, 8))
+    cat_im_u8 = simplify_expression(make_concat(im, u8, 8))
     assert_int_literal(cat_im_u8, -0x400 + 0x29)
-    cat_u4_u4 = simplify_expression(makeConcat(u4, u4, 4))
+    cat_u4_u4 = simplify_expression(make_concat(u4, u4, 4))
     assert_int_literal(cat_u4_u4, 0xDD)
-    cat_u4_u8 = simplify_expression(makeConcat(u4, u8, 8))
+    cat_u4_u8 = simplify_expression(make_concat(u4, u8, 8))
     assert_int_literal(cat_u4_u8, 0xD29)
-    cat_u8_u4 = simplify_expression(makeConcat(u8, u4, 4))
+    cat_u8_u4 = simplify_expression(make_concat(u8, u4, 4))
     assert_int_literal(cat_u8_u4, 0x29D)
-    cat_u8_u8 = simplify_expression(makeConcat(u8, u8, 8))
+    cat_u8_u8 = simplify_expression(make_concat(u8, u8, 8))
     assert_int_literal(cat_u8_u8, 0x2929)
 
 
@@ -674,18 +680,18 @@ def test_concat_identity() -> None:
     addr = TestValue("A", IntType.u(16))
     # Check whether empty bitstrings are filtered out.
     empty = IntLiteral(0)
-    head = makeConcat(makeConcat(empty, addr, 16), addr, 16)
+    head = make_concat(make_concat(empty, addr, 16), addr, 16)
     assert_concat(simplify_expression(head), ((addr, 16), (addr, 16)))
-    mid = makeConcat(makeConcat(addr, empty, 0), addr, 16)
+    mid = make_concat(make_concat(addr, empty, 0), addr, 16)
     assert_concat(simplify_expression(mid), ((addr, 16), (addr, 16)))
-    tail = makeConcat(makeConcat(addr, addr, 16), empty, 0)
+    tail = make_concat(make_concat(addr, addr, 16), empty, 0)
     assert_concat(simplify_expression(tail), ((addr, 16), (addr, 16)))
-    many = makeConcat(
-        makeConcat(
-            makeConcat(
-                makeConcat(
-                    makeConcat(
-                        makeConcat(makeConcat(empty, empty, 0), addr, 16), empty, 0
+    many = make_concat(
+        make_concat(
+            make_concat(
+                make_concat(
+                    make_concat(
+                        make_concat(make_concat(empty, empty, 0), addr, 16), empty, 0
                     ),
                     empty,
                     0,
@@ -701,17 +707,17 @@ def test_concat_identity() -> None:
     )
     assert_concat(simplify_expression(many), ((addr, 16), (addr, 16)))
     # Check graceful handling when zero subexpressions remain.
-    only = makeConcat(makeConcat(empty, empty, 0), empty, 0)
+    only = make_concat(make_concat(empty, empty, 0), empty, 0)
     assert_int_literal(simplify_expression(only), 0)
     # Check whether non-empty fixed-width zero-valued bitstrings are kept.
     zero_u8 = IntLiteral(0)
-    mid_u8 = makeConcat(makeConcat(addr, zero_u8, 8), addr, 16)
+    mid_u8 = make_concat(make_concat(addr, zero_u8, 8), addr, 16)
     assert_concat(simplify_expression(mid_u8), ((addr, 16), (zero_u8, 8), (addr, 16)))
-    tail_u8 = makeConcat(makeConcat(addr, addr, 16), zero_u8, 8)
+    tail_u8 = make_concat(make_concat(addr, addr, 16), zero_u8, 8)
     assert_concat(simplify_expression(tail_u8), ((addr, 16), (addr, 16), (zero_u8, 8)))
     # Check whether unlimited-width zero-valued bitstrings are kept.
     zero_int = IntLiteral(0)
-    head_int = makeConcat(makeConcat(zero_int, addr, 16), addr, 16)
+    head_int = make_concat(make_concat(zero_int, addr, 16), addr, 16)
     assert_concat(
         simplify_expression(head_int), ((zero_int, unlimited), (addr, 16), (addr, 16))
     )
@@ -720,25 +726,25 @@ def test_concat_identity() -> None:
 def test_concat_associative() -> None:
     """Test simplification using the associativity of concatenation."""
     addr = TestValue("A", IntType.u(16))
-    arg1 = makeConcat(addr, addr, 16)  # (A ; A)
-    arg2 = makeConcat(arg1, arg1, 32)  # ((A ; A) ; (A ; A))
-    arg3 = makeConcat(arg1, arg2, 64)  # ((A ; A) ; ((A ; A) ; (A ; A)))
+    arg1 = make_concat(addr, addr, 16)  # (A ; A)
+    arg2 = make_concat(arg1, arg1, 32)  # ((A ; A) ; (A ; A))
+    arg3 = make_concat(arg1, arg2, 64)  # ((A ; A) ; ((A ; A) ; (A ; A)))
     assert_concat(simplify_expression(arg3), ((addr, 16),) * 6)
 
 
 def test_concat_associative2() -> None:
     """Test simplification using the associativity of concatenation."""
     addr = TestValue("A", IntType.u(16))
-    arg1 = makeConcat(addr, IntLiteral(0x9), 4)  # (A ; $9)
-    arg2 = makeConcat(IntLiteral(0x63), addr, 16)  # ($63 ; A)
-    arg3 = makeConcat(arg1, arg2, 24)  # ((A ; $9) ; ($63 ; A))
+    arg1 = make_concat(addr, IntLiteral(0x9), 4)  # (A ; $9)
+    arg2 = make_concat(IntLiteral(0x63), addr, 16)  # ($63 ; A)
+    arg3 = make_concat(arg1, arg2, 24)  # ((A ; $9) ; ($63 ; A))
     assert_concat(
         simplify_expression(arg3), ((addr, 16), (IntLiteral(0x963), 12), (addr, 16))
     )
 
 
 def simplify_slice(expr: Expression, index: int, width: int) -> Expression:
-    return simplify_expression(makeSlice(expr, index, width))
+    return simplify_expression(make_slice(expr, index, width))
 
 
 def test_slice_literals() -> None:
@@ -783,7 +789,7 @@ def test_slice_leading_zeroes() -> None:
 def test_slice_of_slice() -> None:
     """Slices a range from another slice."""
     addr = TestValue("A", IntType.u(16))
-    expr = simplify_slice(makeSlice(addr, 3, 10), 2, 6)
+    expr = simplify_slice(make_slice(addr, 3, 10), 2, 6)
     assert_slice(expr, addr, 16, 5, 6)
 
 
@@ -793,7 +799,7 @@ def test_slice_concat() -> None:
     b = TestValue("B", IntType.u(8))
     c = TestValue("C", IntType.u(8))
     d = TestValue("D", IntType.u(8))
-    abcd = makeConcat(makeConcat(makeConcat(a, b, 8), c, 8), d, 8)
+    abcd = make_concat(make_concat(make_concat(a, b, 8), c, 8), d, 8)
     # Test slicing out individual values.
     assert simplify_slice(abcd, 0, 8) is d
     assert simplify_slice(abcd, 8, 8) is c
@@ -810,7 +816,7 @@ def test_slice_concat() -> None:
     # Test slice entirely inside one subexpression.
     assert_slice(simplify_slice(abcd, 10, 4), c, 8, 2, 4)
     # Test slice across subexpression boundaries.
-    assert_slice(simplify_slice(abcd, 10, 9), makeConcat(b, RShift(c, 2), 6), 14, 0, 9)
+    assert_slice(simplify_slice(abcd, 10, 9), make_concat(b, RShift(c, 2), 6), 14, 0, 9)
     # Note: Earlier code produced b[:3] ; c[2:] instead of (b ; c[2:])[:9].
     #       The complexity() function considers them equally complex,
     #       although I prefer the former in readability.
@@ -824,7 +830,7 @@ def test_slice_and() -> None:
     """Tests simplification of slicing a logical AND."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     # Test whether slicing cuts off L.
     expr1 = AndOperator(hl, IntLiteral(0xBFFF))
     assert_slice(simplify_slice(expr1, 8, 6), h, 8, 0, 6)
@@ -836,7 +842,7 @@ def test_slice_add() -> None:
     """Tests simplification of slicing an addition."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     expr = AddOperator(hl, IntLiteral(2))
     # Simplifcation fails because index is not 0.
     up8 = simplify_slice(expr, 8, 8)
@@ -860,10 +866,10 @@ def test_slice_complement() -> None:
     """Tests simplification of slicing a complement."""
     h = TestValue("H", IntType.u(8))
     l = TestValue("L", IntType.u(8))
-    hl = makeConcat(h, l, 8)
+    hl = make_concat(h, l, 8)
     expr = Complement(hl)
     # Simplifcation fails because index is not 0.
-    up8 = makeSlice(expr, 8, 8)
+    up8 = make_slice(expr, 8, 8)
     assert_slice(simplify_expression(up8), simplify_expression(expr), unlimited, 8, 8)
     # Successful simplification: slice lowest 8 bits.
     low8 = simplify_slice(expr, 0, 8)
@@ -883,7 +889,7 @@ def test_slice_complement() -> None:
 def test_slice_mixed() -> None:
     """Tests a mixture of slicing, concatenation and leading zeroes."""
     addr = TestValue("A", IntType.u(16))
-    expr_int = makeSlice(makeConcat(IntLiteral(7), makeSlice(addr, 8, 12), 12), 8, 8)
+    expr_int = make_slice(make_concat(IntLiteral(7), make_slice(addr, 8, 12), 12), 8, 8)
     assert_int_literal(simplify_expression(expr_int), 0x70)
-    expr_u8 = makeSlice(makeConcat(IntLiteral(7), makeSlice(addr, 8, 12), 12), 8, 8)
+    expr_u8 = make_slice(make_concat(IntLiteral(7), make_slice(addr, 8, 12), 12), 8, 8)
     assert_int_literal(simplify_expression(expr_u8), 0x70)

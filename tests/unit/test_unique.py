@@ -8,17 +8,17 @@ class DataType(metaclass=Unique):
         self.a = a
 
 
-def assertData(data: DataType, a: object) -> None:
+def assert_data(data: DataType, a: object) -> None:
     assert isinstance(data, DataType)
     assert data.a == a
 
 
 def test_create() -> None:
     """Test that construction creates correct objects."""
-    assertData(DataType(0), 0)
-    assertData(DataType(123), 123)
-    assertData(DataType(None), None)
-    assertData(DataType("foo"), "foo")
+    assert_data(DataType(0), 0)
+    assert_data(DataType(123), 123)
+    assert_data(DataType(None), None)
+    assert_data(DataType("foo"), "foo")
 
 
 def test_id() -> None:

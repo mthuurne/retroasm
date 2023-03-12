@@ -16,11 +16,11 @@ from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, Width
 
 
-def makeConcat(exprH: Expression, exprL: Expression, widthL: int) -> Expression:
-    return OrOperator(exprL, LShift(exprH, widthL))
+def make_concat(expr_h: Expression, expr_l: Expression, width_l: int) -> Expression:
+    return OrOperator(expr_l, LShift(expr_h, width_l))
 
 
-def makeSlice(expr: Expression, index: int, width: Width) -> Expression:
+def make_slice(expr: Expression, index: int, width: Width) -> Expression:
     return truncate(RShift(expr, index), width)
 
 
@@ -103,24 +103,24 @@ def assert_or(expr: Expression, *args: Expression) -> None:
 
 
 def assert_concat(
-    expr: Expression, subExprs: Sequence[tuple[Expression, Width]]
+    expr: Expression, sub_exprs: Sequence[tuple[Expression, Width]]
 ) -> None:
-    compExprs = []
+    comp_exprs = []
     offset = 0
-    for term, width in reversed(subExprs):
+    for term, width in reversed(sub_exprs):
         shifted = simplify_expression(LShift(term, offset))
         if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
-            compExprs.append(shifted)
+            comp_exprs.append(shifted)
         offset += cast(int, width)
-    assert_or(expr, *compExprs)
+    assert_or(expr, *comp_exprs)
 
 
 def assert_slice(
-    expr: Expression, subExpr: Expression, subWidth: Width, index: int, width: Width
+    expr: Expression, sub_expr: Expression, sub_width: Width, index: int, width: Width
 ) -> None:
     needs_shift = index != 0
-    shift = RShift(subExpr, index) if needs_shift else subExpr
-    needs_trunc = subWidth > index + width
+    shift = RShift(sub_expr, index) if needs_shift else sub_expr
+    needs_trunc = sub_width > index + width
     trunc = truncate(shift, width) if needs_trunc else shift
     assert str(expr) == str(trunc)
     assert expr == trunc
@@ -135,12 +135,12 @@ def assert_slice(
         assert shift_expr == shift
         assert isinstance(shift_expr, RShift)
         assert shift_expr.offset == index
-        assert shift_expr.expr == subExpr
+        assert shift_expr.expr == sub_expr
     else:
-        assert shift_expr == subExpr
+        assert shift_expr == sub_expr
 
 
 def assert_trunc(
-    expr: Expression, subExpr: Expression, subWidth: Width, width: Width
+    expr: Expression, sub_expr: Expression, sub_width: Width, width: Width
 ) -> None:
-    assert_slice(expr, subExpr, subWidth, 0, width)
+    assert_slice(expr, sub_expr, sub_width, 0, width)

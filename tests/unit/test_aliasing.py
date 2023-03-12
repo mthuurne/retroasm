@@ -5,14 +5,14 @@ from retroasm.storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
 from retroasm.types import IntType
 
 
-def assertAlias(storage1: Storage, storage2: Storage) -> None:
+def assert_alias(storage1: Storage, storage2: Storage) -> None:
     assert storage1.might_be_same(storage2), f"{storage1} does not alias {storage2}"
     assert storage2.might_be_same(
         storage1
     ), f"{storage1} does alias {storage2}, but not vice versa"
 
 
-def assertNoAlias(storage1: Storage, storage2: Storage) -> None:
+def assert_no_alias(storage1: Storage, storage2: Storage) -> None:
     assert not storage1.might_be_same(storage2), f"{storage1} does alias {storage2}"
     assert not storage2.might_be_same(
         storage1
@@ -27,11 +27,11 @@ def test_register_aliasing() -> None:
     r = ArgStorage("R", 8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
-    assertAlias(a, a)
-    assertNoAlias(a, b)
-    assertNoAlias(a, l)
-    assertAlias(a, r)
-    assertNoAlias(a, m)
+    assert_alias(a, a)
+    assert_no_alias(a, b)
+    assert_no_alias(a, l)
+    assert_alias(a, r)
+    assert_no_alias(a, m)
 
 
 def test_variable_aliasing() -> None:
@@ -42,11 +42,11 @@ def test_variable_aliasing() -> None:
     r = ArgStorage("R", 8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
-    assertAlias(l, l)
-    assertNoAlias(l, l2)
-    assertNoAlias(l, a)
-    assertNoAlias(l, r)
-    assertNoAlias(l, m)
+    assert_alias(l, l)
+    assert_no_alias(l, l2)
+    assert_no_alias(l, a)
+    assert_no_alias(l, r)
+    assert_no_alias(l, m)
 
 
 def test_unknown_storage_aliasing() -> None:
@@ -57,11 +57,11 @@ def test_unknown_storage_aliasing() -> None:
     l = Variable(8, 1)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
-    assertAlias(r, r)
-    assertAlias(r, r2)
-    assertAlias(r, a)
-    assertNoAlias(r, l)
-    assertAlias(r, m)
+    assert_alias(r, r)
+    assert_alias(r, r2)
+    assert_alias(r, a)
+    assert_no_alias(r, l)
+    assert_alias(r, m)
 
 
 def test_io_aliasing() -> None:
@@ -74,9 +74,9 @@ def test_io_aliasing() -> None:
     m = IOStorage(mem, IntLiteral(0xC000))
     i = IOStorage(io, IntLiteral(0xC000))
     m2 = IOStorage(mem, IntLiteral(0xE000))
-    assertAlias(m, m)
-    assertAlias(m, m2)
-    assertNoAlias(m, i)
-    assertNoAlias(m, a)
-    assertNoAlias(m, l)
-    assertAlias(m, r)
+    assert_alias(m, m)
+    assert_alias(m, m2)
+    assert_no_alias(m, i)
+    assert_no_alias(m, a)
+    assert_no_alias(m, l)
+    assert_alias(m, r)

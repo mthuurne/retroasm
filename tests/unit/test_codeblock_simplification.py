@@ -30,7 +30,7 @@ from .utils_codeblock import (
     assert_ret_val,
     get_ret_val,
 )
-from .utils_expression import assert_int_literal, assert_or, assert_trunc, makeConcat
+from .utils_expression import assert_int_literal, assert_or, assert_trunc, make_concat
 
 verbose = False
 
@@ -484,7 +484,7 @@ def test_6502_pull(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_s, inc_s)
     const1 = IntLiteral(1)
     load_s2 = namespace.emit_load(ref_s)
-    ref_m = namespace.add_io_storage("mem", makeConcat(const1, load_s2, 8))
+    ref_m = namespace.add_io_storage("mem", make_concat(const1, load_s2, 8))
     load_m = namespace.emit_load(ref_m)
     namespace.emit_store(ref_d, load_m)
 
