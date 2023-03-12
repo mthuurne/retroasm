@@ -145,7 +145,7 @@ class LoadedValue(Expression):
         return 8
 
 
-def verifyLoads(
+def verify_loads(
     nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()
 ) -> None:
     """
@@ -170,8 +170,8 @@ def verifyLoads(
             case Load() as load:
                 loads.add(load)
     # Check I/O indices in the returned bit string.
-    for retBits in returned:
-        for storage in retBits.iter_storages():
+    for ret_bits in returned:
+        for storage in ret_bits.iter_storages():
             for expr in storage.iter_expressions():
                 for value in expr.iter_instances(LoadedValue):
                     assert value.load in loads, value
@@ -179,16 +179,16 @@ def verifyLoads(
 
 class CodeBlock:
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
-        clonedNodes = []
-        valueMapping: dict[Expression, Expression] = {}
+        cloned_nodes = []
+        value_mapping: dict[Expression, Expression] = {}
         for node in nodes:
             clone = node.clone()
-            clonedNodes.append(clone)
+            cloned_nodes.append(clone)
             if isinstance(node, Load):
-                valueMapping[node.expr] = clone.expr
-        self.nodes = clonedNodes
+                value_mapping[node.expr] = clone.expr
+        self.nodes = cloned_nodes
         self.returned = list(returned)
-        self._updateExpressions(valueMapping.get)
+        self._update_expressions(value_mapping.get)
         assert self.verify()
 
     def verify(self) -> bool:
@@ -197,24 +197,24 @@ class CodeBlock:
         Raises AssertionError if an inconsistency is found.
         Returns True on success, never returns False.
         """
-        verifyLoads(self.nodes, self.returned)
+        verify_loads(self.nodes, self.returned)
         return True
 
     def dump(self) -> None:
         """Prints this code block on stdout."""
         for node in self.nodes:
             node.dump()
-        for retBits in self.returned:
-            print(f"    return {retBits}")
+        for ret_bits in self.returned:
+            print(f"    return {ret_bits}")
 
-    def _gatherExpressions(self) -> set[Expression]:
+    def _gather_expressions(self) -> set[Expression]:
         expressions = set()
         for node in self.nodes:
             if isinstance(node, Store):
                 expressions.add(node.expr)
             expressions.update(node.storage.iter_expressions())
-        for retBits in self.returned:
-            expressions.update(retBits.iter_expressions())
+        for ret_bits in self.returned:
+            expressions.update(ret_bits.iter_expressions())
         return expressions
 
     @const_property
@@ -224,22 +224,22 @@ class CodeBlock:
         Only top-level expressions are included, not all subexpressions of
         those top-level expressions.
         """
-        return self._gatherExpressions()
+        return self._gather_expressions()
 
-    def _gatherStorages(self) -> set[Storage]:
+    def _gather_storages(self) -> set[Storage]:
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
-        for retBits in self.returned:
-            storages.update(retBits.iter_storages())
+        for ret_bits in self.returned:
+            storages.update(ret_bits.iter_storages())
         return storages
 
     @property
     def storages(self) -> AbstractSet[Storage]:
         """A set of all storages that are accessed or referenced by this block."""
-        return self._gatherStorages()
+        return self._gather_storages()
 
-    def _gatherArguments(self) -> Mapping[str, ArgStorage]:
+    def _gather_arguments(self) -> Mapping[str, ArgStorage]:
         args: dict[str, ArgStorage] = {}
         for storage in self.storages:
             match storage:
@@ -254,10 +254,10 @@ class CodeBlock:
         A mapping containing all arguments that occur in this code block.
         ValueError is raised if the same name is used for multiple arguments.
         """
-        return self._gatherArguments()
+        return self._gather_arguments()
 
-    def _updateExpressions(
-        self, substFunc: Callable[[Expression], Expression | None]
+    def _update_expressions(
+        self, subst_func: Callable[[Expression], Expression | None]
     ) -> None:
         """
         Calls the given substitution function with each expression in this
@@ -268,20 +268,20 @@ class CodeBlock:
         for node in self.nodes:
             # Update indices for I/O storages.
             storage = node.storage
-            newStorage = storage.substitute_expressions(substFunc)
-            if newStorage is not storage:
-                node.storage = newStorage
+            new_storage = storage.substitute_expressions(subst_func)
+            if new_storage is not storage:
+                node.storage = new_storage
 
             # Update node with new expression.
             match node:
                 case Store(expr=expr) as store:
-                    newExpr = expr.substitute(substFunc)
-                    if newExpr is not expr:
-                        store.expr = newExpr
+                    new_expr = expr.substitute(subst_func)
+                    if new_expr is not expr:
+                        store.expr = new_expr
 
         # Update returned bit string.
         returned = self.returned
-        for i, retBits in enumerate(returned):
-            newBits = retBits.substitute(expression_func=substFunc)
-            if newBits is not retBits:
-                returned[i] = newBits
+        for i, ret_bits in enumerate(returned):
+            new_bits = ret_bits.substitute(expression_func=subst_func)
+            if new_bits is not ret_bits:
+                returned[i] = new_bits

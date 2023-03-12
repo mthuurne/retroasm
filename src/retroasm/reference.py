@@ -245,7 +245,7 @@ class SingleStorage(BitString):
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        return builder.emit_loadBits(self._storage, location)
+        return builder.emit_load_bits(self._storage, location)
 
     def emit_store(
         self,
@@ -253,7 +253,7 @@ class SingleStorage(BitString):
         value: Expression,
         location: InputLocation | None,
     ) -> None:
-        builder.emit_storeBits(self._storage, value, location)
+        builder.emit_store_bits(self._storage, value, location)
 
     def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
         yield self, Segment(0, self.width)

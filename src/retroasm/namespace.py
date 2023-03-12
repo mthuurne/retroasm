@@ -69,10 +69,10 @@ class Namespace:
         Defines a named item in the this namespace.
         If the name was already taken, NameExistsError is raised.
         """
-        self._checkName(name, value, location)
+        self._check_name(name, value, location)
         if name in self.elements:
             try:
-                oldLocation = self.locations[name]
+                old_location = self.locations[name]
             except KeyError:
                 # No stored location implies this is an imported name.
                 # TODO: Showing the import location would be nice,
@@ -82,11 +82,13 @@ class Namespace:
                     f'imported name "{name}" redefined', location
                 ) from None
             else:
-                raise NameExistsError(f'name "{name}" redefined', location, oldLocation)
+                raise NameExistsError(
+                    f'name "{name}" redefined', location, old_location
+                )
         self.locations[name] = location
         self.elements[name] = value
 
-    def _checkName(
+    def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         """
@@ -96,7 +98,7 @@ class Namespace:
         The default implementation accepts all names.
         """
 
-    def _addNamedStorage(
+    def _add_named_storage(
         self, name: str, storage: Storage, typ: IntType, location: InputLocation | None
     ) -> Reference:
         bits = SingleStorage(storage)
@@ -104,7 +106,7 @@ class Namespace:
         self.define(name, ref, location)
         return ref
 
-    def addArgument(
+    def add_argument(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         """
@@ -112,17 +114,17 @@ class Namespace:
         Returns a reference to the argument's storage.
         """
         storage = ArgStorage(name, typ.width)
-        return self._addNamedStorage(name, storage, typ, location)
+        return self._add_named_storage(name, storage, typ, location)
 
 
 class ContextNamespace(Namespace):
     """A namespace for a mode entry context."""
 
-    def _checkName(
+    def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
-        _rejectPC(name, location)
-        _rejectRet(name, location)
+        _reject_pc(name, location)
+        _reject_ret(name, location)
 
 
 class BuilderNamespace(Namespace):
@@ -145,7 +147,7 @@ class BuilderNamespace(Namespace):
         if "ret" in self.elements:
             print(f"    return {self.elements['ret']}")
 
-    def addVariable(
+    def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         """
@@ -153,7 +155,7 @@ class BuilderNamespace(Namespace):
         Returns a reference to the variable.
         """
         storage = Variable(typ.width, self.scope)
-        return self._addNamedStorage(name, storage, typ, location)
+        return self._add_named_storage(name, storage, typ, location)
 
 
 class GlobalNamespace(BuilderNamespace):
@@ -166,12 +168,12 @@ class GlobalNamespace(BuilderNamespace):
     def __init__(self, builder: CodeBlockBuilder):
         BuilderNamespace.__init__(self, None, builder)
 
-    def _checkName(
+    def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         if not isinstance(value, Reference):
-            _rejectPC(name, location)
-        _rejectRet(name, location)
+            _reject_pc(name, location)
+        _reject_ret(name, location)
 
 
 class LocalNamespace(BuilderNamespace):
@@ -188,14 +190,14 @@ class LocalNamespace(BuilderNamespace):
         super().__init__(parent, builder)
         self.builder: SemanticsCodeBlockBuilder
 
-    def _checkName(
+    def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
-        _rejectPC(name, location)
+        _reject_pc(name, location)
 
-    def createCodeBlock(
+    def create_code_block(
         self,
-        retRef: Reference | None,
+        ret_ref: Reference | None,
         log: LineReader | None = None,
         location: InputLocation | None = None,
     ) -> CodeBlock:
@@ -208,11 +210,11 @@ class LocalNamespace(BuilderNamespace):
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
         """
-        if retRef is None:
+        if ret_ref is None:
             returned: Sequence[BitString] = ()
         else:
-            returned = (retRef.bits,)
-        return self.builder.createCodeBlock(returned, log, location)
+            returned = (ret_ref.bits,)
+        return self.builder.create_code_block(returned, log, location)
 
 
 class NameExistsError(BadInput):
@@ -231,23 +233,23 @@ class NameExistsError(BadInput):
         super().__init__(msg, *locations)
 
 
-def _rejectRet(name: str, location: InputLocation | None) -> None:
+def _reject_ret(name: str, location: InputLocation | None) -> None:
     if name == "ret":
         raise NameExistsError(
             'the name "ret" is reserved for function return values', location
         )
 
 
-def _rejectPC(name: str, location: InputLocation | None) -> None:
+def _reject_pc(name: str, location: InputLocation | None) -> None:
     if name == "pc":
         raise NameExistsError(
             'the name "pc" is reserved for the program counter register', location
         )
 
 
-def createIOReference(channel: IOChannel, index: Expression) -> Reference:
-    addrWidth = channel.addr_type.width
-    truncatedIndex = opt_slice(index, 0, addrWidth)
-    storage = IOStorage(channel, truncatedIndex)
+def create_io_reference(channel: IOChannel, index: Expression) -> Reference:
+    addr_width = channel.addr_type.width
+    truncated_index = opt_slice(index, 0, addr_width)
+    storage = IOStorage(channel, truncated_index)
     bits = SingleStorage(storage)
     return Reference(bits, channel.elem_type)

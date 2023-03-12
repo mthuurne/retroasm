@@ -141,7 +141,7 @@ class PrefixMappingFactory:
         """Create a `PrefixMapping` using the prefixes added so far."""
         return PrefixMapping(
             self._prefixes,
-            self._initBuilder.createCodeBlock(()),
+            self._initBuilder.create_code_block(()),
             dict(self._flagForVar),
             dict(self._prefixForFlag),
             self._encodingWidth,
@@ -236,10 +236,10 @@ class InstructionSet(ModeTable):
         if prefixes:
             prefixMapping = self.prefixMapping
             prefixBuilder = SemanticsCodeBlockBuilder()
-            prefixBuilder.inlineBlock(prefixMapping.initCode)
+            prefixBuilder.inline_block(prefixMapping.initCode)
             for prefix in prefixes:
-                prefixBuilder.inlineBlock(prefix.semantics)
-            prefixCode = prefixBuilder.createCodeBlock(())
+                prefixBuilder.inline_block(prefix.semantics)
+            prefixCode = prefixBuilder.create_code_block(())
             flagForVar = prefixMapping.flagForVar
             flags = frozenset(
                 flagForVar[storage] for storage in flagsSetByCode(prefixCode)
@@ -291,9 +291,9 @@ class InstructionSet(ModeTable):
                 # Build a code block that describes the decoder state changes
                 # from the given code and encountering the current prefix.
                 builder = SemanticsCodeBlockBuilder()
-                builder.inlineBlock(code)
-                builder.inlineBlock(prefix.semantics)
-                newCode = builder.createCodeBlock(())
+                builder.inline_block(code)
+                builder.inline_block(prefix.semantics)
+                newCode = builder.create_code_block(())
 
                 # Figure out which decode flags are set by 'newCode'.
                 newFlags = frozenset(

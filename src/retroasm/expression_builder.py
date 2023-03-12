@@ -40,7 +40,7 @@ from .namespace import (
     BuilderNamespace,
     LocalNamespace,
     NameExistsError,
-    createIOReference,
+    create_io_reference,
 )
 from .reference import (
     ConcatenatedBits,
@@ -101,7 +101,7 @@ def declareVariable(node: DeclarationNode, namespace: BuilderNamespace) -> Refer
 
     # Add declaration to namespace.
     try:
-        return namespace.addVariable(name, typ, nameNode.location)
+        return namespace.add_variable(name, typ, nameNode.location)
     except NameExistsError as ex:
         raise BadExpression(
             f'failed to declare variable "{typ} {name}": {ex}', *ex.locations
@@ -224,7 +224,7 @@ def _convertFunctionCall(
         argMap[name] = bits
 
     # Inline function call.
-    retBits = builder.inlineFunctionCall(func, argMap, callNode.tree_location)
+    retBits = builder.inline_function_call(func, argMap, callNode.tree_location)
     if retBits is None:
         return None
     else:
@@ -351,7 +351,7 @@ def _convertReferenceLookup(
         match _convertIdentifier(exprNode, namespace):
             case IOChannel() as channel:
                 index = buildExpression(indexNode, namespace)
-                return createIOReference(channel, index)
+                return create_io_reference(channel, index)
     else:
         assert exprNode is not None, node
 

@@ -44,21 +44,21 @@ def createFunc(
         argLoc = argNameLocations[argName]
         if isinstance(argDecl, ReferenceType):
             # Pass-by-reference.
-            namespace.addArgument(argName, argDecl.type, argLoc)
+            namespace.add_argument(argName, argDecl.type, argLoc)
         else:
             # Pass-by-value.
             # Create reference to passed argument.
             storage = ArgStorage(argName, argDecl.width)
             argRef = Reference(SingleStorage(storage), argDecl)
             # Add local variable.
-            varRef = namespace.addVariable(argName, argDecl, argLoc)
+            varRef = namespace.add_variable(argName, argDecl, argLoc)
             # Store initial value.
             value = argRef.emit_load(builder, argLoc)
             varRef.emit_store(builder, value, argLoc)
     retRef: Reference | None
     if retType is not None and not isinstance(retType, ReferenceType):
         assert retTypeLocation is not None, retType
-        retRef = namespace.addVariable("ret", retType, retTypeLocation)
+        retRef = namespace.add_variable("ret", retType, retTypeLocation)
 
     try:
         with reader.check_errors():
@@ -75,7 +75,7 @@ def createFunc(
             retRef = cast(Reference, namespace.elements["ret"])
 
         try:
-            code = namespace.createCodeBlock(
+            code = namespace.create_code_block(
                 retRef, log=reader, location=funcNameLocation
             )
         except ValueError:

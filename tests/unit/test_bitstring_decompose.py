@@ -182,7 +182,7 @@ def checkStore(
 
     # Check that emit_store only emits Load and Store nodes.
     nodes = namespace.builder.nodes
-    valueRef = namespace.addArgument("V", IntType.int)
+    valueRef = namespace.add_argument("V", IntType.int)
     value = namespace.emit_load(valueRef)
     initIdx = len(nodes)
     namespace.emit_store(bits, value)
@@ -225,7 +225,7 @@ CheckFunc = Callable[
 @checkParam
 def test_decompose_single(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of SingleStorage."""
-    ref0 = namespace.addArgument("R0")
+    ref0 = namespace.add_argument("R0")
     expected = namespace.parse("R0[0:8]")
     check(namespace, ref0.bits, expected)
 
@@ -233,9 +233,9 @@ def test_decompose_single(namespace: TestNamespace, check: CheckFunc) -> None:
 @checkParam
 def test_decompose_basic_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of ConcatenatedBits."""
-    ref0 = namespace.addArgument("R0", IntType.u(7))
-    ref1 = namespace.addArgument("R1", IntType.u(3))
-    ref2 = namespace.addArgument("R2", IntType.u(13))
+    ref0 = namespace.add_argument("R0", IntType.u(7))
+    ref1 = namespace.add_argument("R1", IntType.u(3))
+    ref2 = namespace.add_argument("R2", IntType.u(13))
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
     expected = namespace.parse("R2[0:13]", "R1[0:3]", "R0[0:7]")
     check(namespace, concat, expected)
@@ -244,7 +244,7 @@ def test_decompose_basic_concat(namespace: TestNamespace, check: CheckFunc) -> N
 @checkParam
 def test_decompose_self_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test concatenation of a bit string to itself."""
-    ref0 = namespace.addArgument("R0")
+    ref0 = namespace.add_argument("R0")
     concat = ConcatenatedBits(ref0.bits, ref0.bits)
     expected = namespace.parse("R0[0:8]", "R0[0:8]")
     check(namespace, concat, expected)
@@ -253,7 +253,7 @@ def test_decompose_self_concat(namespace: TestNamespace, check: CheckFunc) -> No
 @checkParam
 def test_decompose_basic_slice(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test construction of SlicedBits."""
-    ref0 = namespace.addArgument("R0")
+    ref0 = namespace.add_argument("R0")
     sliced = sliceBits(ref0.bits, 2, 3)
     expected = namespace.parse("R0[2:5]")
     check(namespace, sliced, expected)
@@ -262,7 +262,7 @@ def test_decompose_basic_slice(namespace: TestNamespace, check: CheckFunc) -> No
 @checkParam
 def test_decompose_slice_past_end(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test clipping of slice width against parent width."""
-    ref0 = namespace.addArgument("R0")
+    ref0 = namespace.add_argument("R0")
     sliced = sliceBits(ref0.bits, 2, 30)
     expected = namespace.parse("R0[2:8]")
     check(namespace, sliced, expected)
@@ -271,7 +271,7 @@ def test_decompose_slice_past_end(namespace: TestNamespace, check: CheckFunc) ->
 @checkParam
 def test_decompose_slice_outside(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test handling of slice index outside parent width."""
-    ref0 = namespace.addArgument("R0")
+    ref0 = namespace.add_argument("R0")
     sliced = sliceBits(ref0.bits, 12, 30)
     expected = ()
     check(namespace, sliced, expected)
@@ -280,9 +280,9 @@ def test_decompose_slice_outside(namespace: TestNamespace, check: CheckFunc) -> 
 @checkParam
 def test_decompose_slice_concat(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test slicing concatenated values."""
-    ref0 = namespace.addArgument("R0")
-    ref1 = namespace.addArgument("R1")
-    ref2 = namespace.addArgument("R2")
+    ref0 = namespace.add_argument("R0")
+    ref1 = namespace.add_argument("R1")
+    ref2 = namespace.add_argument("R2")
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
     sliced = sliceBits(concat, 5, 13)
     expected = namespace.parse("R2[5:8]", "R1[0:8]", "R0[0:2]")
@@ -292,11 +292,11 @@ def test_decompose_slice_concat(namespace: TestNamespace, check: CheckFunc) -> N
 @checkParam
 def test_decompose_combined(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test combinations of slicing and concatenation."""
-    ref0 = namespace.addArgument("R0")
-    ref1 = namespace.addArgument("R1")
+    ref0 = namespace.add_argument("R0")
+    ref1 = namespace.add_argument("R1")
     concatA = ConcatenatedBits(ref0.bits, ref1.bits)
     sliceA = sliceBits(concatA, 5, 6)
-    ref2 = namespace.addArgument("R2")
+    ref2 = namespace.add_argument("R2")
     concatB = ConcatenatedBits(sliceA, ref2.bits)
     storage = sliceBits(concatB, 4, 7)
     expected = namespace.parse("R1[1:3]", "R2[0:5]")
@@ -306,8 +306,8 @@ def test_decompose_combined(namespace: TestNamespace, check: CheckFunc) -> None:
 @checkParam
 def test_decompose_nested_slice(namespace: TestNamespace, check: CheckFunc) -> None:
     """Test taking a slice from sliced bit strings."""
-    ref0 = namespace.addArgument("R0")
-    ref1 = namespace.addArgument("R1")
+    ref0 = namespace.add_argument("R0")
+    ref1 = namespace.add_argument("R1")
     slice0 = sliceBits(ref0.bits, 2, 5)
     slice1 = sliceBits(ref1.bits, 1, 4)
     concat = ConcatenatedBits(slice0, slice1)

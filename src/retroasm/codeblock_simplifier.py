@@ -12,11 +12,11 @@ from .storage import Storage, Variable
 class CodeBlockSimplifier(CodeBlock):
     @property
     def expressions(self) -> AbstractSet[Expression]:
-        return self._gatherExpressions()
+        return self._gather_expressions()
 
     @property
     def storages(self) -> AbstractSet[Storage]:
-        return self._gatherStorages()
+        return self._gather_storages()
 
     def freeze(self) -> None:
         """
@@ -28,64 +28,64 @@ class CodeBlockSimplifier(CodeBlock):
     def simplify(self) -> None:
         """Attempt to simplify the code block as much as possible."""
         # Peform initial simplification of all expressions.
-        # This allows removeRedundantNodes() to only simplify expressions when
+        # This allows remove_redundant_nodes() to only simplify expressions when
         # it changes them.
-        self._updateExpressions(simplifyExpression)
+        self._update_expressions(simplifyExpression)
 
         # This mainly collapses incremental updates to variables.
-        self.removeRedundantNodes()
+        self.remove_redundant_nodes()
 
         # Removal of unused stores might make some loads unused.
-        self.removeUnusedStores()
+        self.remove_unused_stores()
 
         # Removal of unused loads will not enable any other simplifications.
-        self.removeUnusedLoads()
+        self.remove_unused_loads()
 
         assert self.verify()
 
-    def removeRedundantNodes(self) -> None:
+    def remove_redundant_nodes(self) -> None:
         nodes = self.nodes
 
-        loadReplacements: dict[Expression, Expression] = {}
+        load_replacements: dict[Expression, Expression] = {}
 
-        def replaceLoadedValues(expr: Expression) -> Expression:
-            newExpr = expr.substitute(loadReplacements.get)
-            if newExpr is not expr:
-                newExpr = simplifyExpression(newExpr)
-            return newExpr
+        def replace_loaded_values(expr: Expression) -> Expression:
+            new_expr = expr.substitute(load_replacements.get)
+            if new_expr is not expr:
+                new_expr = simplifyExpression(new_expr)
+            return new_expr
 
         # Remove redundant loads and stores by keeping track of the current
         # value of storages.
-        currentValues: dict[Storage, Expression] = {}
+        current_values: dict[Storage, Expression] = {}
         i = 0
         while i < len(nodes):
             node = nodes[i]
             storage = node.storage
 
             # Apply load replacements to storage.
-            if loadReplacements:
-                newStorage = storage.substitute_expressions(replaceLoadedValues)
-                if newStorage is not storage:
-                    node.storage = storage = newStorage
+            if load_replacements:
+                new_storage = storage.substitute_expressions(replace_loaded_values)
+                if new_storage is not storage:
+                    node.storage = storage = new_storage
 
-            value = currentValues.get(storage)
+            value = current_values.get(storage)
             match node:
                 case Load(expr=expr):
                     if value is not None:
                         # Use known value instead of loading it.
-                        loadReplacements[expr] = value
+                        load_replacements[expr] = value
                         if not storage.can_load_have_side_effect():
                             del nodes[i]
                             continue
                     elif storage.is_load_consistent():
                         # Remember loaded value.
-                        currentValues[storage] = expr
+                        current_values[storage] = expr
                 case Store(expr=expr):
                     # Apply load replacements to stored expression.
-                    if loadReplacements:
-                        newExpr = expr.substitute(replaceLoadedValues)
-                        if newExpr is not expr:
-                            node.expr = expr = newExpr
+                    if load_replacements:
+                        new_expr = expr.substitute(replace_loaded_values)
+                        if new_expr is not expr:
+                            node.expr = expr = new_expr
 
                     if value == expr:
                         # Current value is rewritten.
@@ -94,36 +94,36 @@ class CodeBlockSimplifier(CodeBlock):
                             continue
                     elif storage.is_sticky():
                         # Remember stored value.
-                        currentValues[storage] = expr
+                        current_values[storage] = expr
 
                     # Remove values for storages that might be aliases.
-                    for storage2 in list(currentValues.keys()):
+                    for storage2 in list(current_values.keys()):
                         if storage != storage2 and storage.might_be_same(storage2):
                             # However, if the store wouldn't alter the value,
                             # there is no need to remove it.
-                            if currentValues[storage2] != expr:
-                                del currentValues[storage2]
+                            if current_values[storage2] != expr:
+                                del current_values[storage2]
             i += 1
 
         # Fixate variables and apply load replacements in returned bit strings.
         returned = self.returned
-        for i, retBits in enumerate(returned):
+        for i, ret_bits in enumerate(returned):
 
-            def fixateVariables(  # type: ignore[return]
+            def fixate_variables(  # type: ignore[return]
                 # https://github.com/python/mypy/issues/12534
                 storage: Storage,
             ) -> FixedValue | None:
                 match storage:
                     case Variable(scope=scope, width=width) as storage if scope == 1:
-                        return FixedValue(currentValues[storage], width)
+                        return FixedValue(current_values[storage], width)
                     case _:
                         return None
 
-            newBits = retBits.substitute(fixateVariables, replaceLoadedValues)
-            if newBits is not retBits:
-                returned[i] = newBits
+            new_bits = ret_bits.substitute(fixate_variables, replace_loaded_values)
+            if new_bits is not ret_bits:
+                returned[i] = new_bits
 
-    def removeUnusedStores(self) -> None:
+    def remove_unused_stores(self) -> None:
         """
         Remove side-effect-free stores that will be overwritten or that
         write a variable that will go out of scope.
@@ -131,11 +131,11 @@ class CodeBlockSimplifier(CodeBlock):
         nodes = self.nodes
 
         # Remove stores for which the value is overwritten before it is loaded.
-        # Local variable loads were already eliminated by removeRedundantNodes()
+        # Local variable loads were already eliminated by remove_redundant_nodes()
         # and since variables cease to exist at the end of a block, all local
         # variable stores are at this point considered redundant, unless the
         # variable is part of the returned bit string.
-        willBeOverwritten = set()
+        will_be_overwritten = set()
         for i in range(len(nodes) - 1, -1, -1):
             node = nodes[i]
             storage = node.storage
@@ -145,43 +145,46 @@ class CodeBlockSimplifier(CodeBlock):
                         assert not (
                             isinstance(storage, Variable) and storage.scope == 1
                         ), storage
-                        willBeOverwritten.discard(storage)
+                        will_be_overwritten.discard(storage)
                     case Store():
-                        if storage in willBeOverwritten or (
+                        if storage in will_be_overwritten or (
                             isinstance(storage, Variable) and storage.scope == 1
                         ):
                             del nodes[i]
-                        willBeOverwritten.add(storage)
+                        will_be_overwritten.add(storage)
 
-    def removeUnusedLoads(self) -> None:
+    def remove_unused_loads(self) -> None:
         """Remove side-effect-free loads of which the LoadedValue is unused."""
         nodes = self.nodes
 
         # Keep track of how often each LoadedValue is used.
-        useCounts = DefaultDict[LoadedValue, int](int)
+        use_counts = DefaultDict[LoadedValue, int](int)
 
-        def updateCounts(expr: Expression, delta: int = 1) -> None:
+        def update_counts(expr: Expression, delta: int = 1) -> None:
             for loaded in expr.iter_instances(LoadedValue):
-                useCounts[loaded] += delta
+                use_counts[loaded] += delta
 
         # Compute initial use counts.
         for node in nodes:
             if isinstance(node, Store):
-                updateCounts(node.expr)
+                update_counts(node.expr)
             for expr in node.storage.iter_expressions():
-                updateCounts(expr)
-        for retBits in self.returned:
-            for expr in retBits.iter_expressions():
-                updateCounts(expr)
+                update_counts(expr)
+        for ret_bits in self.returned:
+            for expr in ret_bits.iter_expressions():
+                update_counts(expr)
 
         # Remove unnecesary Loads.
         for i in range(len(nodes) - 1, -1, -1):
             match nodes[i]:
                 case Load(expr=expr, storage=storage):
-                    if useCounts[expr] == 0 and not storage.can_load_have_side_effect():
+                    if (
+                        use_counts[expr] == 0
+                        and not storage.can_load_have_side_effect()
+                    ):
                         del nodes[i]
-                        # Update useCounts, so we can remove earlier Loads that
+                        # Update use_counts, so we can remove earlier Loads that
                         # became unused because the Load we just removed was
                         # the sole user of their LoadedValue.
                         for expr in storage.iter_expressions():
-                            updateCounts(expr, -1)
+                            update_counts(expr, -1)

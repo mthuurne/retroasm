@@ -117,7 +117,7 @@ def _parse_regs(
                             )
                         case typ:
                             try:
-                                globalNamespace.addVariable(
+                                globalNamespace.add_variable(
                                     decl.name.name, typ, decl.name.location
                                 )
                             except NameExistsError as ex:
@@ -228,7 +228,7 @@ def _parsePrefix(
                         bad_type(typ)
                 argName = argNameLoc.text
                 try:
-                    namespace.addVariable(argName, argType, argNameLoc)
+                    namespace.add_variable(argName, argType, argNameLoc)
                 except ValueError as ex:
                     reader.error(str(ex))
                 except NameExistsError as ex:
@@ -308,8 +308,8 @@ def _parsePrefix(
                         )
                     else:
                         try:
-                            semantics = semNamespace.createCodeBlock(
-                                retRef=None, log=reader
+                            semantics = semNamespace.create_code_block(
+                                ret_ref=None, log=reader
                             )
                         except ValueError:
                             # Error was logged inside createCodeBlock().
@@ -541,13 +541,13 @@ def _buildPlaceholders(
             except BadExpression as ex:
                 reader.error("%s", ex, location=ex.locations)
             else:
-                code = placeholderNamespace.createCodeBlock(ref)
+                code = placeholderNamespace.create_code_block(ref)
 
         if semType is not None:
             match semType:
                 case ReferenceType(type=argType) | (IntType() as argType):
                     try:
-                        semNamespace.addArgument(name, argType, decl.name.location)
+                        semNamespace.add_argument(name, argType, decl.name.location)
                     except NameExistsError as ex:
                         reader.error("%s", ex, location=ex.locations)
                         continue
@@ -609,7 +609,7 @@ def _parseEncodingExpr(
             f"error in encoding: {ex}", encNode.tree_location, *ex.locations
         ) from ex
 
-    code = namespace.builder.createCodeBlock((encRef.bits,))
+    code = namespace.builder.create_code_block((encRef.bits,))
     if len(code.nodes) != 0:
         raise BadInput(
             "encoding expression accesses state or performs I/O", encNode.tree_location
@@ -674,7 +674,7 @@ def _parseModeEncoding(
                 encType = IntType.u(encWidth)
                 location = spec.decl.name.location
                 try:
-                    encNamespace.addArgument(name, encType, location)
+                    encNamespace.add_argument(name, encType, location)
                 except NameExistsError as ex:
                     logger.error("bad placeholder: %s", ex, location=ex.locations)
 
@@ -1012,7 +1012,7 @@ def _parseModeSemantics(
         # Note that modeType can be None because of earlier errors.
         if modeType is None:
             return None
-        ref = semNamespace.addVariable("ret", modeType, semLoc)
+        ref = semNamespace.add_variable("ret", modeType, semLoc)
         ref.emit_store(semNamespace.builder, expr, semLoc)
         return ref
 
@@ -1171,7 +1171,7 @@ def _parseModeEntries(
                                     assert False
                                 case ReferenceType(type=argType) | argType:
                                     location = spec.decl.name.location
-                                    semNamespace.addArgument(name, argType, location)
+                                    semNamespace.add_argument(name, argType, location)
 
                         if len(semLoc) == 0:
                             # Parse mnemonic field as semantics.
@@ -1186,8 +1186,8 @@ def _parseModeEntries(
                         continue
                     try:
                         semantics: CodeBlock | None
-                        semantics = semNamespace.createCodeBlock(
-                            retRef=semRef, log=reader
+                        semantics = semNamespace.create_code_block(
+                            ret_ref=semRef, log=reader
                         )
                     except ValueError:
                         # Error was already logged inside createCodeBlock().

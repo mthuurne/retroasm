@@ -14,7 +14,7 @@ from retroasm.namespace import (
     BuilderNamespace,
     GlobalNamespace,
     LocalNamespace,
-    createIOReference,
+    create_io_reference,
 )
 from retroasm.reference import BitString, FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Storage
@@ -32,36 +32,36 @@ class SingleStorageReference(Reference):
     bits: SingleStorage
 
 
-def assertNodes(actualNodes: Sequence[Node], correctNodes: Iterable[Node]) -> None:
-    correctNodes = tuple(correctNodes)
-    loadMap: dict[LoadedValue, LoadedValue] = {}
+def assert_nodes(actual_nodes: Sequence[Node], correct_nodes: Iterable[Node]) -> None:
+    correct_nodes = tuple(correct_nodes)
+    load_map: dict[LoadedValue, LoadedValue] = {}
 
-    def loadSubst(expr: Expression) -> Expression | None:
-        return loadMap.get(cast(LoadedValue, expr))
+    def load_subst(expr: Expression) -> Expression | None:
+        return load_map.get(cast(LoadedValue, expr))
 
-    assert len(actualNodes) == len(correctNodes)
-    for i, (actual, correct) in enumerate(zip(actualNodes, correctNodes)):
-        msg = "node %d of %d" % (i + 1, len(actualNodes))
+    assert len(actual_nodes) == len(correct_nodes)
+    for i, (actual, correct) in enumerate(zip(actual_nodes, correct_nodes)):
+        msg = "node %d of %d" % (i + 1, len(actual_nodes))
         if isinstance(correct, Load):
             assert isinstance(actual, Load), msg
-            loadMap[actual.expr] = correct.expr
+            load_map[actual.expr] = correct.expr
         elif isinstance(correct, Store):
             assert isinstance(actual, Store), msg
-            expr = actual.expr.substitute(loadSubst)
+            expr = actual.expr.substitute(load_subst)
             assert expr == correct.expr, msg
         else:
             raise AssertionError(f"unknown node type: {correct.__class__.__name__}")
         assert actual.storage == correct.storage, msg
 
 
-def getRetVal(code: CodeBlock) -> tuple[Expression, Width]:
-    (retBits,) = code.returned
-    assert isinstance(retBits, FixedValue)
-    return retBits.expr, retBits.width
+def get_ret_val(code: CodeBlock) -> tuple[Expression, Width]:
+    (ret_bits,) = code.returned
+    assert isinstance(ret_bits, FixedValue)
+    return ret_bits.expr, ret_bits.width
 
 
-def assertRetVal(code: CodeBlock, value: int) -> None:
-    expr, width = getRetVal(code)
+def assert_ret_val(code: CodeBlock, value: int) -> None:
+    expr, width = get_ret_val(code)
     assert isinstance(expr, IntLiteral)
     assert expr.value & mask_for_width(width) == value
 
@@ -77,10 +77,10 @@ class TestNamespace(LocalNamespace):
 
     def __init__(self, parent: BuilderNamespace | None = None):
         if parent is None:
-            globalBuilder = StatelessCodeBlockBuilder()
-            parent = GlobalNamespace(globalBuilder)
-        localBuilder = SemanticsCodeBlockBuilder()
-        LocalNamespace.__init__(self, parent, localBuilder)
+            global_builder = StatelessCodeBlockBuilder()
+            parent = GlobalNamespace(global_builder)
+        local_builder = SemanticsCodeBlockBuilder()
+        LocalNamespace.__init__(self, parent, local_builder)
 
     def _parse_one(self, storage_str: str) -> tuple[Storage, Segment]:
         idx = storage_str.index("[")
@@ -101,22 +101,22 @@ class TestNamespace(LocalNamespace):
     def emit_store(self, ref: BitString | Reference, expr: Expression) -> None:
         ref.emit_store(self.builder, expr, None)
 
-    def addRegister(
+    def add_register(
         self, name: str, typ: IntType = IntType.u(8)
     ) -> SingleStorageReference:
         try:
             ref = self[name]
         except KeyError:
             # Insert register into global namespace.
-            self.parent.addVariable(name, typ)
+            self.parent.add_variable(name, typ)
             ref = self[name]
 
         # Check that existing global namespace entry is this register.
-        globalRef = self.parent[name]
-        assert isinstance(globalRef, Reference), globalRef
-        assert isinstance(globalRef.bits, SingleStorage), globalRef.bits
-        assert typ is globalRef.type, globalRef
-        reg = globalRef.bits.storage
+        global_ref = self.parent[name]
+        assert isinstance(global_ref, Reference), global_ref
+        assert isinstance(global_ref.bits, SingleStorage), global_ref.bits
+        assert typ is global_ref.type, global_ref
+        reg = global_ref.bits.storage
         assert isinstance(ref, Reference), ref
         assert isinstance(ref.bits, SingleStorage), ref.bits
         assert ref.bits.storage is reg
@@ -124,63 +124,63 @@ class TestNamespace(LocalNamespace):
 
         return cast(SingleStorageReference, ref)
 
-    def addIOStorage(
+    def add_io_storage(
         self,
-        channelName: str,
+        channel_name: str,
         index: Expression,
-        elemType: IntType = IntType.u(8),
-        addrType: IntType = IntType.u(16),
+        elem_type: IntType = IntType.u(8),
+        addr_type: IntType = IntType.u(16),
     ) -> SingleStorageReference:
         try:
-            channel = self.parent[channelName]
+            channel = self.parent[channel_name]
         except KeyError:
             # Insert channel into global namespace.
-            channel = IOChannel(channelName, elemType, addrType)
-            self.parent.define(channelName, channel)
+            channel = IOChannel(channel_name, elem_type, addr_type)
+            self.parent.define(channel_name, channel)
         else:
             # Check that existing global namespace entry is this channel.
             assert isinstance(channel, IOChannel), channel
-            assert channel.elem_type is elemType, channel
-            assert channel.addr_type is addrType, channel
+            assert channel.elem_type is elem_type, channel
+            assert channel.addr_type is addr_type, channel
         # Import channel from global namespace into local namespace.
-        localChannel = self[channelName]
-        assert localChannel is channel
+        local_channel = self[channel_name]
+        assert local_channel is channel
         # Create I/O storage.
-        ref = createIOReference(channel, index)
+        ref = create_io_reference(channel, index)
         return cast(SingleStorageReference, ref)
 
-    def addArgument(
+    def add_argument(
         self,
         name: str,
         typ: IntType = IntType.u(8),
         location: InputLocation | None = None,
     ) -> SingleStorageReference:
-        ref = super().addArgument(name, typ, location)
+        ref = super().add_argument(name, typ, location)
         return cast(SingleStorageReference, ref)
 
-    def addVariable(
+    def add_variable(
         self,
         name: str,
         typ: IntType = IntType.u(8),
         location: InputLocation | None = None,
     ) -> SingleStorageReference:
-        ref = super().addVariable(name, typ, location)
+        ref = super().add_variable(name, typ, location)
         return cast(SingleStorageReference, ref)
 
-    def addRetReference(self, value: Reference) -> None:
+    def add_ret_reference(self, value: Reference) -> None:
         super().define("ret", value)
 
-    def inlineBlock(
+    def inline_block(
         self,
         code: CodeBlock,
-        argFetcher: Callable[[str], BitString | None] = _arg_fetch_fail,
+        arg_fetcher: Callable[[str], BitString | None] = _arg_fetch_fail,
     ) -> list[BitString]:
-        return self.builder.inlineBlock(code, argFetcher)
+        return self.builder.inline_block(code, arg_fetcher)
 
-    def inlineFunctionCall(
+    def inline_function_call(
         self,
         func: Function,
-        argMap: Mapping[str, BitString | None],
+        arg_map: Mapping[str, BitString | None],
         location: InputLocation | None = None,
     ) -> BitString | None:
-        return self.builder.inlineFunctionCall(func, argMap, location)
+        return self.builder.inline_function_call(func, arg_map, location)

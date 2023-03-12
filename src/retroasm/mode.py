@@ -503,8 +503,8 @@ class CodeTemplate:
                     bad_type(placeholder)
 
         builder = SemanticsCodeBlockBuilder()
-        returned = builder.inlineBlock(self.code, values.get)
-        newCode = builder.createCodeBlock(returned)
+        returned = builder.inline_block(self.code, values.get)
+        newCode = builder.create_code_block(returned)
 
         return CodeTemplate(newCode, unfilled)
 
@@ -522,8 +522,8 @@ class CodeTemplate:
             if isinstance(storage, ArgStorage)
         }
         builder = SemanticsCodeBlockBuilder()
-        builder.inlineBlock(code, argMap.__getitem__)
-        newCode = builder.createCodeBlock(())
+        builder.inline_block(code, argMap.__getitem__)
+        newCode = builder.create_code_block(())
 
         newPlaceholders = (
             placeholder.rename(nameMap[placeholder.name])
@@ -920,7 +920,7 @@ class ComputedPlaceholder(ValuePlaceholder):
         See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
         fetching works.
         """
-        returned = builder.inlineBlock(self.code, argFetcher)
+        returned = builder.inline_block(self.code, argFetcher)
         computeCode = CodeBlockSimplifier(builder.nodes, returned)
         computeCode.simplify()
         (valBits,) = computeCode.returned

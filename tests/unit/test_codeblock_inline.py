@@ -16,21 +16,21 @@ from retroasm.reference import (
 )
 from retroasm.types import IntType
 
-from .utils_codeblock import TestNamespace, assertNodes, assertRetVal, getRetVal
+from .utils_codeblock import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
 
 verbose = False
 
 
-def createSimplifiedCode(namespace: LocalNamespace) -> CodeBlock:
+def create_simplified_code(namespace: LocalNamespace) -> CodeBlock:
     if verbose:
         print("=" * 40)
         namespace.dump()
     if "ret" in namespace:
-        retRef = namespace.elements["ret"]
-        assert isinstance(retRef, Reference), retRef
+        ret_ref = namespace.elements["ret"]
+        assert isinstance(ret_ref, Reference), ret_ref
     else:
-        retRef = None
-    code = namespace.createCodeBlock(retRef)
+        ret_ref = None
+    code = namespace.create_code_block(ret_ref)
     if verbose:
         print("-" * 40)
         code.dump()
@@ -45,60 +45,60 @@ def args(**kvargs: BitString) -> Callable[[str], BitString]:
 def test_inline_easy() -> None:
     """Test whether inlining works when there are no complications."""
     inner = TestNamespace()
-    innerA = inner.addRegister("a", IntType.u(16))
+    inner_a = inner.add_register("a", IntType.u(16))
     const = IntLiteral(12345)
-    inner.emit_store(innerA, const)
+    inner.emit_store(inner_a, const)
 
     # Share the global namespace to make sure that the outer and inner block
     # are using the same registers.
     outer = TestNamespace(inner)
-    outerA = outer.addRegister("a", IntType.u(16))
+    outer_a = outer.add_register("a", IntType.u(16))
     zero = IntLiteral(0)
-    outer.emit_store(outerA, zero)
-    outer.inlineBlock(inner.createCodeBlock(None), args())
-    loadA = outer.emit_load(outerA)
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    outer.emit_store(outerRet, loadA)
+    outer.emit_store(outer_a, zero)
+    outer.inline_block(inner.create_code_block(None), args())
+    load_a = outer.emit_load(outer_a)
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    outer.emit_store(outer_ret, load_a)
 
-    code = createSimplifiedCode(outer)
-    retVal, retWidth = getRetVal(code)
-    correct = (Store(retVal, outerA.bits.storage),)
-    assertNodes(code.nodes, correct)
-    assertRetVal(code, 12345)
-    assert retWidth == 16
+    code = create_simplified_code(outer)
+    ret_val, ret_width = get_ret_val(code)
+    correct = (Store(ret_val, outer_a.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    assert_ret_val(code, 12345)
+    assert ret_width == 16
 
 
 def test_inline_arg_ret() -> None:
     """Test whether inlining works with an argument and return value."""
     inc = TestNamespace()
-    incArgRef = inc.addArgument("V")
-    incArgVal = inc.emit_load(incArgRef)
-    incAdd = AddOperator(incArgVal, IntLiteral(1))
-    incRet = inc.addVariable("ret")
-    inc.emit_store(incRet, incAdd)
-    incCode = inc.createCodeBlock(incRet)
+    inc_arg_ref = inc.add_argument("V")
+    inc_arg_val = inc.emit_load(inc_arg_ref)
+    inc_add = AddOperator(inc_arg_val, IntLiteral(1))
+    inc_ret = inc.add_variable("ret")
+    inc.emit_store(inc_ret, inc_add)
+    inc_code = inc.create_code_block(inc_ret)
 
     outer = TestNamespace()
 
-    def argsV(value: Expression) -> Callable[[str], BitString]:
+    def args_v(value: Expression) -> Callable[[str], BitString]:
         return args(V=FixedValue(value, 8))
 
     step0 = IntLiteral(100)
-    (ret1,) = outer.inlineBlock(incCode, argsV(step0))
+    (ret1,) = outer.inline_block(inc_code, args_v(step0))
     step1 = outer.emit_load(ret1)
-    (ret2,) = outer.inlineBlock(incCode, argsV(step1))
+    (ret2,) = outer.inline_block(inc_code, args_v(step1))
     step2 = outer.emit_load(ret2)
-    (ret3,) = outer.inlineBlock(incCode, argsV(step2))
+    (ret3,) = outer.inline_block(inc_code, args_v(step2))
     step3 = outer.emit_load(ret3)
-    outerRet = outer.addVariable("ret")
-    outer.emit_store(outerRet, step3)
+    outer_ret = outer.add_variable("ret")
+    outer.emit_store(outer_ret, step3)
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = ()
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 103)
-    assert retWidth == 8
+    assert_nodes(code.nodes, correct)
+    ret_val_, ret_width = get_ret_val(code)
+    assert_ret_val(code, 103)
+    assert ret_width == 8
 
 
 def test_inline_multiret() -> None:
@@ -107,332 +107,332 @@ def test_inline_multiret() -> None:
     val0 = IntLiteral(1000)
     val1 = IntLiteral(2000)
     val2 = IntLiteral(3000)
-    innerRet = inner.addVariable("ret", IntType.u(16))
-    inner.emit_store(innerRet, val0)
-    inner.emit_store(innerRet, val1)
-    inner.emit_store(innerRet, val2)
-    innerCode = inner.createCodeBlock(innerRet)
+    inner_ret = inner.add_variable("ret", IntType.u(16))
+    inner.emit_store(inner_ret, val0)
+    inner.emit_store(inner_ret, val1)
+    inner.emit_store(inner_ret, val2)
+    inner_code = inner.create_code_block(inner_ret)
 
     outer = TestNamespace()
-    (inlinedRet,) = outer.inlineBlock(innerCode, args())
-    inlinedVal = outer.emit_load(inlinedRet)
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    outer.emit_store(outerRet, inlinedVal)
+    (inlined_ret,) = outer.inline_block(inner_code, args())
+    inlined_val = outer.emit_load(inlined_ret)
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    outer.emit_store(outer_ret, inlined_val)
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = ()
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 3000)
-    assert retWidth == 16
+    assert_nodes(code.nodes, correct)
+    ret_val_, ret_width = get_ret_val(code)
+    assert_ret_val(code, 3000)
+    assert ret_width == 16
 
 
 def test_ret_truncate() -> None:
     """Test whether the value returned by a block is truncated."""
     inner = TestNamespace()
-    innerVal = IntLiteral(0x8472)
-    innerRet = inner.addVariable("ret")
-    inner.emit_store(innerRet, innerVal)
-    innerCode = inner.createCodeBlock(innerRet)
-    func = Function(IntType.u(8), {}, innerCode)
+    inner_val = IntLiteral(0x8472)
+    inner_ret = inner.add_variable("ret")
+    inner.emit_store(inner_ret, inner_val)
+    inner_code = inner.create_code_block(inner_ret)
+    func = Function(IntType.u(8), {}, inner_code)
 
     outer = TestNamespace()
-    inlineRet = outer.inlineFunctionCall(func, {})
-    assert inlineRet is not None
-    outerVal = outer.emit_load(inlineRet)
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    outer.emit_store(outerRet, outerVal)
+    inline_ret = outer.inline_function_call(func, {})
+    assert inline_ret is not None
+    outer_val = outer.emit_load(inline_ret)
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    outer.emit_store(outer_ret, outer_val)
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = ()
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 0x72)
-    assert retWidth == 16
+    assert_nodes(code.nodes, correct)
+    ret_val_, ret_width = get_ret_val(code)
+    assert_ret_val(code, 0x72)
+    assert ret_width == 16
 
 
 def test_pass_by_reference() -> None:
     """Test whether pass-by-reference arguments work correctly."""
     inc = TestNamespace()
-    incArgRef = inc.addArgument("R")
-    incArgVal = inc.emit_load(incArgRef)
-    incAdd = AddOperator(incArgVal, IntLiteral(1))
-    inc.emit_store(incArgRef, incAdd)
-    incCode = inc.createCodeBlock(None)
+    inc_arg_ref = inc.add_argument("R")
+    inc_arg_val = inc.emit_load(inc_arg_ref)
+    inc_add = AddOperator(inc_arg_val, IntLiteral(1))
+    inc.emit_store(inc_arg_ref, inc_add)
+    inc_code = inc.create_code_block(None)
 
     outer = TestNamespace()
-    outerA = outer.addRegister("a")
-    initA = IntLiteral(100)
-    outer.emit_store(outerA, initA)
-    outer.inlineBlock(incCode, args(R=outerA.bits))
-    outer.inlineBlock(incCode, args(R=outerA.bits))
-    outer.inlineBlock(incCode, args(R=outerA.bits))
-    outerRet = outer.addVariable("ret")
-    finalA = outer.emit_load(outerA)
-    outer.emit_store(outerRet, finalA)
+    outer_a = outer.add_register("a")
+    init_a = IntLiteral(100)
+    outer.emit_store(outer_a, init_a)
+    outer.inline_block(inc_code, args(R=outer_a.bits))
+    outer.inline_block(inc_code, args(R=outer_a.bits))
+    outer.inline_block(inc_code, args(R=outer_a.bits))
+    outer_ret = outer.add_variable("ret")
+    final_a = outer.emit_load(outer_a)
+    outer.emit_store(outer_ret, final_a)
 
-    code = createSimplifiedCode(outer)
-    retVal, retWidth = getRetVal(code)
-    correct = (Store(retVal, outerA.bits.storage),)
-    assertNodes(code.nodes, correct)
-    assertRetVal(code, 103)
-    assert retWidth == 8
+    code = create_simplified_code(outer)
+    ret_val, ret_width = get_ret_val(code)
+    correct = (Store(ret_val, outer_a.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    assert_ret_val(code, 103)
+    assert ret_width == 8
 
 
 def test_pass_concat_by_reference() -> None:
     """Test concatenated storages as pass-by-reference arguments."""
     inc = TestNamespace()
-    incArgRef = inc.addArgument("R", IntType.u(16))
-    incArgVal = inc.emit_load(incArgRef)
-    incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
-    inc.emit_store(incArgRef, incAdd)
-    incCode = inc.createCodeBlock(None)
+    inc_arg_ref = inc.add_argument("R", IntType.u(16))
+    inc_arg_val = inc.emit_load(inc_arg_ref)
+    inc_add = AddOperator(inc_arg_val, IntLiteral(0x1234))
+    inc.emit_store(inc_arg_ref, inc_add)
+    inc_code = inc.create_code_block(None)
 
     outer = TestNamespace()
-    outerH = outer.addRegister("h")
-    outerL = outer.addRegister("l")
-    bitsHL = ConcatenatedBits(outerL.bits, outerH.bits)
+    outer_h = outer.add_register("h")
+    outer_l = outer.add_register("l")
+    bits_hl = ConcatenatedBits(outer_l.bits, outer_h.bits)
 
-    initH = IntLiteral(0xAB)
-    initL = IntLiteral(0xCD)
-    outer.emit_store(outerH, initH)
-    outer.emit_store(outerL, initL)
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    finalHL = outer.emit_load(Reference(bitsHL, IntType.u(16)))
-    outer.emit_store(outerRet, finalHL)
+    init_h = IntLiteral(0xAB)
+    init_l = IntLiteral(0xCD)
+    outer.emit_store(outer_h, init_h)
+    outer.emit_store(outer_l, init_l)
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    final_hl = outer.emit_load(Reference(bits_hl, IntType.u(16)))
+    outer.emit_store(outer_ret, final_hl)
 
-    finalVal = 0xABCD + 3 * 0x1234
-    code = createSimplifiedCode(outer)
+    final_val = 0xABCD + 3 * 0x1234
+    code = create_simplified_code(outer)
     correct = (
-        Store(IntLiteral(finalVal & 0xFF), outerL.bits.storage),
-        Store(IntLiteral(finalVal >> 8), outerH.bits.storage),
+        Store(IntLiteral(final_val & 0xFF), outer_l.bits.storage),
+        Store(IntLiteral(final_val >> 8), outer_h.bits.storage),
     )
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, finalVal)
-    assert retWidth == 16
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, final_val)
+    assert ret_width == 16
 
 
 def test_pass_concat_fixed_by_reference() -> None:
-    """Test concatenated storages arguments containing FixedValues."""
+    """Test concatenated storages arguments containing fixed_values."""
     inc = TestNamespace()
-    incArgRef = inc.addArgument("R", IntType.u(16))
-    incArgVal = inc.emit_load(incArgRef)
-    incAdd = AddOperator(incArgVal, IntLiteral(0x1234))
-    inc.emit_store(incArgRef, incAdd)
-    incCode = inc.createCodeBlock(None)
+    inc_arg_ref = inc.add_argument("R", IntType.u(16))
+    inc_arg_val = inc.emit_load(inc_arg_ref)
+    inc_add = AddOperator(inc_arg_val, IntLiteral(0x1234))
+    inc.emit_store(inc_arg_ref, inc_add)
+    inc_code = inc.create_code_block(None)
 
     outer = TestNamespace()
-    outerH = outer.addRegister("h")
-    outerL = FixedValue(IntLiteral(0xCD), 8)
-    bitsHL = ConcatenatedBits(outerL, outerH.bits)
+    outer_h = outer.add_register("h")
+    outer_l = FixedValue(IntLiteral(0xCD), 8)
+    bits_hl = ConcatenatedBits(outer_l, outer_h.bits)
 
-    initH = IntLiteral(0xAB)
-    outer.emit_store(outerH, initH)
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outer.inlineBlock(incCode, args(R=bitsHL))
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    finalHL = outer.emit_load(Reference(bitsHL, IntType.u(16)))
-    outer.emit_store(outerRet, finalHL)
+    init_h = IntLiteral(0xAB)
+    outer.emit_store(outer_h, init_h)
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer.inline_block(inc_code, args(R=bits_hl))
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    final_hl = outer.emit_load(Reference(bits_hl, IntType.u(16)))
+    outer.emit_store(outer_ret, final_hl)
 
-    finalVal = 0xABCD + 3 * 0x1300
-    code = createSimplifiedCode(outer)
-    correct = (Store(IntLiteral(finalVal >> 8), outerH.bits.storage),)
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, finalVal)
-    assert retWidth == 16
+    final_val = 0xABCD + 3 * 0x1300
+    code = create_simplified_code(outer)
+    correct = (Store(IntLiteral(final_val >> 8), outer_h.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, final_val)
+    assert ret_width == 16
 
 
 def test_pass_slice_by_reference() -> None:
     """Test sliced storages as pass-by-reference arguments."""
     inc = TestNamespace()
-    incArgRef = inc.addArgument("R")
-    incArgVal = inc.emit_load(incArgRef)
-    incAdd = AddOperator(incArgVal, IntLiteral(0x12))
-    inc.emit_store(incArgRef, incAdd)
-    incCode = inc.createCodeBlock(None)
+    inc_arg_ref = inc.add_argument("R")
+    inc_arg_val = inc.emit_load(inc_arg_ref)
+    inc_add = AddOperator(inc_arg_val, IntLiteral(0x12))
+    inc.emit_store(inc_arg_ref, inc_add)
+    inc_code = inc.create_code_block(None)
 
     outer = TestNamespace()
-    outerR = outer.addRegister("r", IntType.u(16))
-    initR = IntLiteral(0xCDEF)
-    outer.emit_store(outerR, initR)
-    sliceR = SlicedBits(outerR.bits, IntLiteral(4), 8)
-    outer.inlineBlock(incCode, args(R=sliceR))
-    outer.inlineBlock(incCode, args(R=sliceR))
-    outer.inlineBlock(incCode, args(R=sliceR))
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    finalR = outer.emit_load(outerR)
-    outer.emit_store(outerRet, finalR)
+    outer_r = outer.add_register("r", IntType.u(16))
+    init_r = IntLiteral(0xCDEF)
+    outer.emit_store(outer_r, init_r)
+    slice_r = SlicedBits(outer_r.bits, IntLiteral(4), 8)
+    outer.inline_block(inc_code, args(R=slice_r))
+    outer.inline_block(inc_code, args(R=slice_r))
+    outer.inline_block(inc_code, args(R=slice_r))
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    final_r = outer.emit_load(outer_r)
+    outer.emit_store(outer_ret, final_r)
 
-    finalVal = 0xC00F | (((0xDE + 3 * 0x12) & 0xFF) << 4)
-    code = createSimplifiedCode(outer)
-    correct = (Store(IntLiteral(finalVal), outerR.bits.storage),)
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, finalVal)
-    assert retWidth == 16
+    final_val = 0xC00F | (((0xDE + 3 * 0x12) & 0xFF) << 4)
+    code = create_simplified_code(outer)
+    correct = (Store(IntLiteral(final_val), outer_r.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, final_val)
+    assert ret_width == 16
 
 
 def test_inline_unsigned_reg() -> None:
     """Test reading of an unsigned register."""
     inner = TestNamespace()
-    innerA = inner.addRegister("a")
-    innerLoad = inner.emit_load(innerA)
-    innerRet = inner.addVariable("ret", IntType.u(16))
-    inner.emit_store(innerRet, innerLoad)
-    innerCode = inner.createCodeBlock(innerRet)
+    inner_a = inner.add_register("a")
+    inner_load = inner.emit_load(inner_a)
+    inner_ret = inner.add_variable("ret", IntType.u(16))
+    inner.emit_store(inner_ret, inner_load)
+    inner_code = inner.create_code_block(inner_ret)
 
     outer = TestNamespace(inner)
-    outerA = outer.addRegister("a")
-    initA = IntLiteral(0xB2)
-    outer.emit_store(outerA, initA)
-    (retBits,) = outer.inlineBlock(innerCode, args())
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    retVal = outer.emit_load(retBits)
-    outer.emit_store(outerRet, retVal)
+    outer_a = outer.add_register("a")
+    init_a = IntLiteral(0xB2)
+    outer.emit_store(outer_a, init_a)
+    (ret_bits,) = outer.inline_block(inner_code, args())
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    ret_val = outer.emit_load(ret_bits)
+    outer.emit_store(outer_ret, ret_val)
 
-    finalVal = 0x00B2
-    code = createSimplifiedCode(outer)
-    correct = (Store(initA, outerA.bits.storage),)
-    assertNodes(code.nodes, correct)
-    assertRetVal(code, finalVal)
+    final_val = 0x00B2
+    code = create_simplified_code(outer)
+    correct = (Store(init_a, outer_a.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    assert_ret_val(code, final_val)
 
 
 def test_inline_signed_reg() -> None:
     """Test reading of a signed register."""
     inner = TestNamespace()
-    innerA = inner.addRegister("a", IntType.s(8))
-    innerLoad = inner.emit_load(innerA)
-    innerRet = inner.addVariable("ret", IntType.u(16))
-    inner.emit_store(innerRet, innerLoad)
-    innerCode = inner.createCodeBlock(innerRet)
+    inner_a = inner.add_register("a", IntType.s(8))
+    inner_load = inner.emit_load(inner_a)
+    inner_ret = inner.add_variable("ret", IntType.u(16))
+    inner.emit_store(inner_ret, inner_load)
+    inner_code = inner.create_code_block(inner_ret)
 
     outer = TestNamespace(inner)
-    outerA = outer.addRegister("a", IntType.s(8))
-    initA = IntLiteral(0xB2)
-    outer.emit_store(outerA, initA)
-    (retBits,) = outer.inlineBlock(innerCode, args())
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    retVal = outer.emit_load(retBits)
-    outer.emit_store(outerRet, retVal)
+    outer_a = outer.add_register("a", IntType.s(8))
+    init_a = IntLiteral(0xB2)
+    outer.emit_store(outer_a, init_a)
+    (ret_bits,) = outer.inline_block(inner_code, args())
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    ret_val = outer.emit_load(ret_bits)
+    outer.emit_store(outer_ret, ret_val)
 
-    finalVal = 0xFFB2
-    code = createSimplifiedCode(outer)
-    correct = (Store(initA, outerA.bits.storage),)
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, finalVal)
-    assert retWidth == 16
+    final_val = 0xFFB2
+    code = create_simplified_code(outer)
+    correct = (Store(init_a, outer_a.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, final_val)
+    assert ret_width == 16
 
 
 def test_load_from_unsigned_reference_arg() -> None:
     """Test reading of a value passed via an unsigned reference."""
     inner = TestNamespace()
-    argRef = inner.addArgument("R")
-    argVal = inner.emit_load(argRef)
-    innerRet = inner.addVariable("ret", IntType.u(16))
-    inner.emit_store(innerRet, argVal)
-    innerCode = inner.createCodeBlock(innerRet)
+    arg_ref = inner.add_argument("R")
+    arg_val = inner.emit_load(arg_ref)
+    inner_ret = inner.add_variable("ret", IntType.u(16))
+    inner.emit_store(inner_ret, arg_val)
+    inner_code = inner.create_code_block(inner_ret)
 
     outer = TestNamespace()
-    fixedVal = FixedValue(IntLiteral(0xA4), 8)
-    (retBits,) = outer.inlineBlock(innerCode, args(R=fixedVal))
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    retVal = outer.emit_load(retBits)
-    outer.emit_store(outerRet, retVal)
+    fixed_val = FixedValue(IntLiteral(0xA4), 8)
+    (ret_bits,) = outer.inline_block(inner_code, args(R=fixed_val))
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    ret_val = outer.emit_load(ret_bits)
+    outer.emit_store(outer_ret, ret_val)
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = ()
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 0x00A4)
-    assert retWidth == 16
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, 0x00A4)
+    assert ret_width == 16
 
 
 def test_load_from_signed_reference_arg() -> None:
     """Test reading of a value passed via a signed reference."""
     inner = TestNamespace()
-    argRef = inner.addArgument("R", IntType.s(8))
-    argVal = inner.emit_load(argRef)
-    innerRet = inner.addVariable("ret", IntType.u(16))
-    inner.emit_store(innerRet, argVal)
-    innerCode = inner.createCodeBlock(innerRet)
+    arg_ref = inner.add_argument("R", IntType.s(8))
+    arg_val = inner.emit_load(arg_ref)
+    inner_ret = inner.add_variable("ret", IntType.u(16))
+    inner.emit_store(inner_ret, arg_val)
+    inner_code = inner.create_code_block(inner_ret)
 
     outer = TestNamespace()
-    fixedVal = FixedValue(IntLiteral(0xA4), 8)
-    (retBits,) = outer.inlineBlock(innerCode, args(R=fixedVal))
-    outerRet = outer.addVariable("ret", IntType.u(16))
-    retVal = outer.emit_load(retBits)
-    outer.emit_store(outerRet, retVal)
+    fixed_val = FixedValue(IntLiteral(0xA4), 8)
+    (ret_bits,) = outer.inline_block(inner_code, args(R=fixed_val))
+    outer_ret = outer.add_variable("ret", IntType.u(16))
+    ret_val = outer.emit_load(ret_bits)
+    outer.emit_store(outer_ret, ret_val)
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = ()
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 0xFFA4)
-    assert retWidth == 16
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, 0xFFA4)
+    assert ret_width == 16
 
 
 def test_return_simple_reference() -> None:
     """Test returning a reference to a global."""
     inner = TestNamespace()
-    innerA = inner.addRegister("a")
-    inner.addRetReference(innerA)
-    innerRet = inner["ret"]
-    assert isinstance(innerRet, Reference), innerRet
-    innerCode = inner.createCodeBlock(innerRet)
-    assert len(innerCode.returned) == 1
+    inner_a = inner.add_register("a")
+    inner.add_ret_reference(inner_a)
+    inner_ret = inner["ret"]
+    assert isinstance(inner_ret, Reference), inner_ret
+    inner_code = inner.create_code_block(inner_ret)
+    assert len(inner_code.returned) == 1
 
     outer = TestNamespace(inner)
-    (retBits,) = outer.inlineBlock(innerCode, args())
-    outerA = outer.addRegister("a")
+    (ret_bits,) = outer.inline_block(inner_code, args())
+    outer_a = outer.add_register("a")
     fake = IntLiteral(0xDC)
-    outer.emit_store(outerA, fake)
+    outer.emit_store(outer_a, fake)
     value = IntLiteral(0xBA)
-    outer.emit_store(retBits, value)
-    outerRet = outer.addVariable("ret")
-    retVal = outer.emit_load(outerA)
-    outer.emit_store(outerRet, retVal)
+    outer.emit_store(ret_bits, value)
+    outer_ret = outer.add_variable("ret")
+    ret_val = outer.emit_load(outer_a)
+    outer.emit_store(outer_ret, ret_val)
 
-    code = createSimplifiedCode(outer)
-    correct = (Store(value, outerA.bits.storage),)
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assertRetVal(code, 0xBA)
-    assert retWidth == 8
+    code = create_simplified_code(outer)
+    correct = (Store(value, outer_a.bits.storage),)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert_ret_val(code, 0xBA)
+    assert ret_width == 8
 
 
 def test_return_io_reference() -> None:
     """Test returning a reference to an index in an I/O channel."""
     inner = TestNamespace()
-    addrArg = inner.addArgument("A", IntType.u(16))
-    addrVal = inner.emit_load(addrArg)
-    memByte = inner.addIOStorage("mem", addrVal)
-    inner.addRetReference(memByte)
-    innerRet = inner["ret"]
-    assert isinstance(innerRet, Reference), innerRet
-    innerCode = inner.createCodeBlock(innerRet)
-    assert len(innerCode.returned) == 1
+    addr_arg = inner.add_argument("A", IntType.u(16))
+    addr_val = inner.emit_load(addr_arg)
+    mem_byte = inner.add_io_storage("mem", addr_val)
+    inner.add_ret_reference(mem_byte)
+    inner_ret = inner["ret"]
+    assert isinstance(inner_ret, Reference), inner_ret
+    inner_code = inner.create_code_block(inner_ret)
+    assert len(inner_code.returned) == 1
 
     outer = TestNamespace()
     addr = FixedValue(IntLiteral(0x4002), 16)
-    (retBits,) = outer.inlineBlock(innerCode, args(A=addr))
-    assert isinstance(retBits, SingleStorage), retBits
-    outerRet = outer.addVariable("ret")
-    retVal = outer.emit_load(retBits)
-    outer.emit_store(outerRet, retVal)
+    (ret_bits,) = outer.inline_block(inner_code, args(A=addr))
+    assert isinstance(ret_bits, SingleStorage), ret_bits
+    outer_ret = outer.add_variable("ret")
+    ret_val = outer.emit_load(ret_bits)
+    outer.emit_store(outer_ret, ret_val)
 
-    code = createSimplifiedCode(outer)
-    correct = (Load(retBits.storage),)
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assert retWidth == 8
-    assert retVal == code.nodes[0].expr
+    code = create_simplified_code(outer)
+    correct = (Load(ret_bits.storage),)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert ret_width == 8
+    assert ret_val == code.nodes[0].expr
 
 
 def test_unique_loads() -> None:
@@ -445,29 +445,29 @@ def test_unique_loads() -> None:
     addr = IntLiteral(0xFFFF)
 
     inner = TestNamespace()
-    memByte = inner.addIOStorage("mem", addr)
-    loadR = inner.emit_load(memByte)
-    innerRet = inner.addVariable("ret")
-    inner.emit_store(innerRet, loadR)
-    innerCode = inner.createCodeBlock(innerRet)
-    assert len(innerCode.returned) == 1
+    mem_byte = inner.add_io_storage("mem", addr)
+    load_r = inner.emit_load(mem_byte)
+    inner_ret = inner.add_variable("ret")
+    inner.emit_store(inner_ret, load_r)
+    inner_code = inner.create_code_block(inner_ret)
+    assert len(inner_code.returned) == 1
 
     outer = TestNamespace()
-    (val1Bits,) = outer.inlineBlock(innerCode)
-    assert isinstance(val1Bits, FixedValue)
-    val1 = val1Bits.expr
-    (val2Bits,) = outer.inlineBlock(innerCode)
-    assert isinstance(val2Bits, FixedValue)
-    val2 = val2Bits.expr
-    outerRet = outer.addVariable("ret")
-    outer.emit_store(outerRet, XorOperator(val1, val2))
+    (val1_bits,) = outer.inline_block(inner_code)
+    assert isinstance(val1_bits, FixedValue)
+    val1 = val1_bits.expr
+    (val2_bits,) = outer.inline_block(inner_code)
+    assert isinstance(val2_bits, FixedValue)
+    val2 = val2_bits.expr
+    outer_ret = outer.add_variable("ret")
+    outer.emit_store(outer_ret, XorOperator(val1, val2))
 
-    code = createSimplifiedCode(outer)
+    code = create_simplified_code(outer)
     correct = (
-        Load(memByte.bits.storage),
-        Load(memByte.bits.storage),
+        Load(mem_byte.bits.storage),
+        Load(mem_byte.bits.storage),
     )
-    assertNodes(code.nodes, correct)
-    retVal, retWidth = getRetVal(code)
-    assert retWidth == 8
-    assert isinstance(retVal, XorOperator)
+    assert_nodes(code.nodes, correct)
+    ret_val, ret_width = get_ret_val(code)
+    assert ret_width == 8
+    assert isinstance(ret_val, XorOperator)
