@@ -2,22 +2,24 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import NoReturn, TypeAlias, cast
+from enum import Enum
+from typing import NoReturn, TypeAlias
 
-from .utils import Singleton, Unique
+from .utils import Unique
 
 
 class DoesNotExist:
     """Used in type annotations when no type is allowed to match."""
 
 
-class Unlimited(metaclass=Singleton):
+class Unlimited(Enum):
     """
     Width value for arbitrary-width integer types.
     Compares as infinity: larger than any integer.
     """
 
-    __slots__ = ()
+    instance = "unlimited"
+    """Singleton instance."""
 
     def __repr__(self) -> str:
         return "unlimited"
@@ -31,7 +33,7 @@ class Unlimited(metaclass=Singleton):
         elif isinstance(other, int):
             return False
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
     def __le__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -39,7 +41,7 @@ class Unlimited(metaclass=Singleton):
         elif isinstance(other, int):
             return False
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
     def __gt__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -47,7 +49,7 @@ class Unlimited(metaclass=Singleton):
         elif isinstance(other, int):
             return True
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
     def __ge__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -55,7 +57,7 @@ class Unlimited(metaclass=Singleton):
         elif isinstance(other, int):
             return True
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
     def __add__(self, other: int | Unlimited) -> Unlimited:
         if self is other:
@@ -63,9 +65,15 @@ class Unlimited(metaclass=Singleton):
         elif isinstance(other, int):
             return self
         else:
-            return NotImplemented
+            return NotImplemented  # type: ignore[unreachable]
 
-    __radd__ = __add__
+    def __radd__(self, other: int | Unlimited) -> Unlimited:
+        if self is other:
+            return self
+        elif isinstance(other, int):
+            return self
+        else:
+            return NotImplemented  # type: ignore[unreachable]
 
     def __sub__(self, other: int) -> Unlimited:
         if isinstance(other, int):
@@ -77,13 +85,13 @@ class Unlimited(metaclass=Singleton):
         raise ArithmeticError('Cannot subtract "unlimited"')
 
 
-unlimited = Unlimited()
+unlimited = Unlimited.instance
 
 Width: TypeAlias = int | Unlimited
 
 
 def mask_for_width(width: Width) -> int:
-    return -1 if width is unlimited else (1 << cast(int, width)) - 1
+    return -1 if width is unlimited else (1 << width) - 1
 
 
 def width_for_mask(mask: int) -> Width:
@@ -238,12 +246,12 @@ class IntType(metaclass=Unique):
             if self._width is unlimited:
                 return "int"
             else:
-                return f"s{cast(int, self._width):d}"
+                return f"s{self._width:d}"
         else:
             if self._width is unlimited:
                 return "uint"
             else:
-                return f"u{cast(int, self._width):d}"
+                return f"u{self._width:d}"
 
     def check_range(self, value: int) -> None:
         """
@@ -258,13 +266,13 @@ class IntType(metaclass=Unique):
             elif width == 0:
                 if value == 0:
                     return
-            elif -1 << (cast(int, width) - 1) <= value < 1 << (cast(int, width) - 1):
+            elif -1 << (width - 1) <= value < 1 << (width - 1):
                 return
         else:
             if width is unlimited:
                 if value >= 0:
                     return
-            elif 0 <= value < 1 << cast(int, width):
+            elif 0 <= value < 1 << width:
                 return
         raise ValueError(f"value {value:d} does not fit in type {self}")
 

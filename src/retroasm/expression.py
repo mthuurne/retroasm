@@ -357,7 +357,7 @@ class AddOperator(MultiExpression):
             # Compute bit mask for maximum combined value.
             cmb_mask = -1 << cmb_start
             if cmb_value is not unlimited:
-                cmb_mask &= (1 << cast(int, cmb_value).bit_length()) - 1
+                cmb_mask &= (1 << cmb_value.bit_length()) - 1
             result |= cmb_mask
         return result
 

@@ -379,7 +379,7 @@ def _convert_reference_slice(
         if ref_width is unlimited:
             end_expr: Expression | None = None
         else:
-            end_expr = IntLiteral(cast(int, ref_width))
+            end_expr = IntLiteral(ref_width)
     else:
         end_expr = build_expression(end_node, namespace)
     width_expr: Expression | None = (

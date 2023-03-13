@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping
-from typing import cast
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
@@ -41,7 +40,7 @@ class Formatter:
 
     def hex_range(self, start: int, end: Width, width: int) -> str:
         start_str = self.hex_value(start, width)
-        end_str = "" if end is unlimited else self.hex_value(cast(int, end), width)
+        end_str = "" if end is unlimited else self.hex_value(end, width)
         return f"{start_str}-{end_str}"
 
     def _string_literal(self, string: bytes) -> Iterator[str]:

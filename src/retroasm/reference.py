@@ -380,7 +380,7 @@ class SlicedBits(BitString):
                 end = (
                     ""
                     if width is unlimited
-                    else str(AddOperator(offset, IntLiteral(cast(int, width))))
+                    else str(AddOperator(offset, IntLiteral(width)))
                 )
         return f"{self._bits}[{start}:{end}]"
 
@@ -460,7 +460,7 @@ def decode_int(encoded: Expression, typ: IntType) -> Expression:
     if typ.signed:
         width = typ.width
         if width is not unlimited:
-            return SignExtension(encoded, cast(int, width))
+            return SignExtension(encoded, width)
     return encoded
 
 
