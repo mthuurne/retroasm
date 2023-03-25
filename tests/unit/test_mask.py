@@ -14,6 +14,7 @@ from hypothesis.strategies import (
 from pytest import raises
 
 from retroasm.types import (
+    CarryMask,
     Segment,
     mask_for_width,
     mask_to_segments,
@@ -194,3 +195,27 @@ def test_segment_intersect_diamond(segment1: Segment, segment2: Segment) -> None
     The mask of a segment intersection is equal to the intersection of the masks.
     """
     assert (segment1 & segment2).mask == segment1.mask & segment2.mask
+
+
+@given(mask=infer)
+def test_carry_mask_round_trip(mask: int) -> None:
+    """
+    A binary pattern mask converted to `CarryMask` and back to integer remains the same.
+    """
+    assert CarryMask.from_pattern(mask).pattern == mask
+
+
+@given(mask=infer, offset=offsets)
+def test_carry_mask_lshift(mask: int, offset: int) -> None:
+    """
+    Left shift of a `CarryMask` is equivalent to that of a pattern mask.
+    """
+    assert (CarryMask.from_pattern(mask) << offset).pattern == mask << offset
+
+
+@given(mask=infer, offset=offsets)
+def test_carry_mask_rshift(mask: int, offset: int) -> None:
+    """
+    Right shift of a `CarryMask` is equivalent to that of a pattern mask.
+    """
+    assert (CarryMask.from_pattern(mask) >> offset).pattern == mask >> offset

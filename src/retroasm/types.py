@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from bisect import bisect
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import NoReturn, TypeAlias
+from itertools import chain
+from operator import itemgetter
+from typing import NoReturn, TypeAlias, cast
 
 from .utils import Unique
 
@@ -194,6 +197,124 @@ def segments_to_mask(segments: Iterable[Segment]) -> int:
     for segment in segments:
         mask |= segment.mask
     return mask
+
+
+class CarryMask:
+    """
+    A more detailed bitmask for the results of addition and multiplication.
+
+    By keeping track of how many carries can occur, we can get a bitmask that is
+    tighter fit than a regular binary bitmask.
+
+    For example, take an addition of two 8-bit values and a 1-bit value.
+    The result will be at most 9 bits wide, but the binary bitmask computation
+    does not take into account that bit 0 can only overflow once in this addition
+    and would therefore produce a mask that is 10 bits wide.
+    """
+
+    @classmethod
+    def from_pattern(cls, mask: int) -> CarryMask:
+        events = []
+        state = 0
+        idx = 0
+        while True:
+            level = mask & 1
+            if level != state:
+                events.append((idx, level))
+                state = level
+            if mask in (0, -1):
+                # Level won't change again.
+                break
+            mask >>= 1
+            idx += 1
+        return cls(events)
+
+    @staticmethod
+    def _merge_events(
+        events1: Iterator[tuple[int, int]], events2: Iterator[tuple[int, int]]
+    ) -> Iterator[tuple[int, int]]:
+        sentinel = (unlimited, 0)
+        next_id1, next_level1 = next(events1, sentinel)
+        next_id2, next_level2 = next(events2, sentinel)
+        level1 = level2 = 0
+        while next_id1 is not unlimited or next_id2 is not unlimited:
+            if next_id1 < next_id2:
+                level1 = next_level1
+                yield cast(int, next_id1), level1 + level2
+                next_id1, next_level1 = next(events1, sentinel)
+            elif next_id1 > next_id2:
+                level2 = next_level2
+                yield cast(int, next_id2), level1 + level2
+                next_id2, next_level2 = next(events2, sentinel)
+            else:
+                level1 = next_level1
+                level2 = next_level2
+                yield cast(int, next_id1), level1 + level2
+                next_id1, next_level1 = next(events1, sentinel)
+                next_id2, next_level2 = next(events2, sentinel)
+
+    def __init__(self, events: Iterable[tuple[int, int]]):
+        self._events = tuple(events)
+        """
+        A sequence of offset-level pairs, with increasing offsets, that denotes
+        the maximum number of times each particular bit can occur in the summed
+        values. The level applies from the index that it is paired with until
+        the index of the next event.
+        """
+
+    def __repr__(self) -> str:
+        return f"{self.__class__}({self._events})"
+
+    def __bool__(self) -> bool:
+        """
+        Return False if this mask is empty (only matches the number zero),
+        True otherwise.
+        """
+        return bool(self._events)
+
+    def __lshift__(self, offset: int) -> CarryMask:
+        return CarryMask((idx + offset, level) for idx, level in self._events)
+
+    def __rshift__(self, offset: int) -> CarryMask:
+        events = self._events
+        cutoff = bisect(events, offset, key=itemgetter(0))
+        shifted = ((idx - offset, level) for idx, level in events[cutoff:])
+        if cutoff == 0 or (level := events[cutoff - 1][1]) == 0:
+            return CarryMask(shifted)
+        else:
+            # Non-zero-level span ends at or below index zero after shift;
+            # truncate it at index zero.
+            return CarryMask(chain(((0, level),), shifted))
+
+    def __add__(self, other: object) -> CarryMask:
+        if isinstance(other, CarryMask):
+            return CarryMask(
+                self._merge_events(iter(self._events), iter(other._events))
+            )
+        else:
+            return NotImplemented
+
+    @property
+    def pattern(self) -> int:
+        """
+        The smallest binary bitmask pattern that matches all values matched by
+        this mask.
+        """
+        idx = 0
+        pattern = 0
+        count = 0
+        state = 0
+        for next_idx, next_state in self._events:
+            while idx < next_idx:
+                count += state
+                if count == 0:
+                    break
+                pattern |= 1 << idx
+                count //= 2
+                idx += 1
+            idx = next_idx
+            state = next_state
+        return pattern | (-1 if state else (1 << count.bit_length()) - 1) << idx
 
 
 class IntType(metaclass=Unique):

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
-from itertools import chain
 from typing import TypeVar, cast
 
 from .types import (
+    CarryMask,
     Width,
     mask_for_width,
-    mask_to_segments,
     trailing_zeroes,
     unlimited,
     width_for_mask,
@@ -337,29 +336,9 @@ class AddOperator(MultiExpression):
 
     @classmethod
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
-        result = 0
-        cmb_value: Width = 0
-        cmb_mask = 0
-        for segment in sorted(
-            chain.from_iterable(mask_to_segments(expr.mask) for expr in exprs)
-        ):
-            # Compute bit mask for this segment.
-            seg_mask = segment.mask
-            # If masks don't overlap, restart adding.
-            if (seg_mask & cmb_mask) == 0:
-                cmb_start = segment.start
-                cmb_value = 0
-            # Maximum value is when the value is equal to the mask.
-            if seg_mask >= 0:
-                cmb_value += seg_mask
-            else:
-                cmb_value = unlimited
-            # Compute bit mask for maximum combined value.
-            cmb_mask = -1 << cmb_start
-            if cmb_value is not unlimited:
-                cmb_mask &= (1 << cmb_value.bit_length()) - 1
-            result |= cmb_mask
-        return result
+        return reduce(
+            CarryMask.__add__, (CarryMask.from_pattern(expr.mask) for expr in exprs)
+        ).pattern
 
     @classmethod
     def combine_literals(cls, *values: int) -> int:
