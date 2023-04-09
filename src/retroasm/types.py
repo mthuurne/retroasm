@@ -276,7 +276,7 @@ class CarryMask:
         return hash(self._events)
 
     def __repr__(self) -> str:
-        return f"{self.__class__}({self._events})"
+        return f"{self.__class__.__name__}({self._events})"
 
     def __bool__(self) -> bool:
         """
