@@ -254,6 +254,10 @@ class CarryMask:
                 next_id2, next_level2 = next(events2, sentinel)
 
     def __init__(self, events: Iterable[tuple[int, int]]):
+        """
+        Do not call this directly; use `from_pattern()` instead.
+        """
+
         self._events = tuple(events)
         """
         A sequence of offset-level pairs, with increasing offsets, that denotes
@@ -261,6 +265,15 @@ class CarryMask:
         values. The level applies from the index that it is paired with until
         the index of the next event.
         """
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, CarryMask):
+            return self._events == other._events
+        else:
+            return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self._events)
 
     def __repr__(self) -> str:
         return f"{self.__class__}({self._events})"
