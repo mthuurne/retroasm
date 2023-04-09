@@ -219,3 +219,15 @@ def test_carry_mask_rshift(mask: int, offset: int) -> None:
     Right shift of a `CarryMask` is equivalent to that of a pattern mask.
     """
     assert (CarryMask.from_pattern(mask) >> offset).pattern == mask >> offset
+
+
+@given(mask1=infer, mask2=infer, value1=infer, value2=infer)
+def test_carry_mask_add(mask1: int, mask2: int, value1: int, value2: int) -> None:
+    """
+    The result of adding two values fits into the additiion of the value's masks.
+    """
+    value1 &= mask1
+    value2 &= mask2
+    value = value1 + value2
+    mask = CarryMask.from_pattern(mask1) + CarryMask.from_pattern(mask2)
+    assert value & mask.pattern == value
