@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from hypothesis import given, infer, note
 from hypothesis.strategies import (
+    DrawFn,
     SearchStrategy,
     builds,
+    composite,
     integers,
     just,
     one_of,
@@ -42,6 +44,26 @@ Strategy for generating bit index segments.
 """
 
 register_type_strategy(Segment, segments)
+
+
+@dataclass(frozen=True)
+class MaskedValue:
+    """
+    A bitmask and a value that falls within that mask.
+    """
+
+    mask: int
+    value: int
+
+
+@composite
+def masked_value(draw: DrawFn) -> MaskedValue:
+    mask = draw(integers())
+    value = draw(integers()) & mask
+    return MaskedValue(mask, value)
+
+
+register_type_strategy(MaskedValue, masked_value())
 
 
 def test_mask_for_width() -> None:
@@ -221,13 +243,11 @@ def test_carry_mask_rshift(mask: int, offset: int) -> None:
     assert (CarryMask.from_pattern(mask) >> offset).pattern == mask >> offset
 
 
-@given(mask1=infer, mask2=infer, value1=infer, value2=infer)
-def test_carry_mask_add(mask1: int, mask2: int, value1: int, value2: int) -> None:
+@given(a=infer, b=infer)
+def test_carry_mask_add(a: MaskedValue, b: MaskedValue) -> None:
     """
     The result of adding two values fits into the additiion of the value's masks.
     """
-    value1 &= mask1
-    value2 &= mask2
-    value = value1 + value2
-    mask = CarryMask.from_pattern(mask1) + CarryMask.from_pattern(mask2)
+    value = a.value + b.value
+    mask = CarryMask.from_pattern(a.mask) + CarryMask.from_pattern(b.mask)
     assert value & mask.pattern == value
