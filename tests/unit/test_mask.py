@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from itertools import pairwise
 
 from hypothesis import given, infer, note
 from hypothesis.strategies import (
@@ -139,9 +140,8 @@ def test_mask_to_segments_properties(mask: int) -> None:
         assert seg.width > 0
 
     # Segments are ascending and don't touch.
-    # TODO: Python 3.10 has itertools.pairwise().
-    for idx in range(len(segments) - 1):
-        assert segments[idx].end < segments[idx + 1].start
+    for seg1, seg2 in pairwise(segments):
+        assert seg1.end < seg2.start
 
 
 def test_segment_validation() -> None:
