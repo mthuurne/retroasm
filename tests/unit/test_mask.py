@@ -244,10 +244,20 @@ def test_carry_mask_rshift(mask: int, offset: int) -> None:
 
 
 @given(a=infer, b=infer)
-def test_carry_mask_add(a: MaskedValue, b: MaskedValue) -> None:
+def test_carry_mask_add_values(a: MaskedValue, b: MaskedValue) -> None:
     """
-    The result of adding two values fits into the additiion of the value's masks.
+    The result of adding two values fits into the additiion of the values' masks.
     """
     value = a.value + b.value
     mask = CarryMask.from_pattern(a.mask) + CarryMask.from_pattern(b.mask)
     assert value & mask.pattern == value
+
+
+@given(mask1=infer, mask2=infer)
+def test_carry_mask_add_symmetry(mask1: int, mask2: int) -> None:
+    """Carry mask addition is symmetrical."""
+    cm1 = CarryMask.from_pattern(mask1)
+    cm2 = CarryMask.from_pattern(mask2)
+    add12 = cm1 + cm2
+    add21 = cm2 + cm1
+    assert add12 == add21
