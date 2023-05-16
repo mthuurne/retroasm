@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from importlib.abc import Traversable
 from importlib.resources import files
+from importlib.resources.abc import Traversable
 from logging import Logger, getLogger
 
 from ..instrset import InstructionSet

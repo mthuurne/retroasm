@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
-from importlib.abc import Traversable
+from importlib.resources.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path

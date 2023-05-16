@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from importlib.abc import Traversable
+from importlib.resources.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from re import Match, Pattern
 from typing import IO, Any, TypeVar, cast, overload
