@@ -11,16 +11,7 @@ from .types import mask_for_width
 from .utils import const_property
 
 
-class Node:
-    """Base class for nodes."""
-
-    __slots__ = ()
-
-    def dump(self) -> None:
-        raise NotImplementedError
-
-
-class AccessNode(Node):
+class AccessNode:
     """Base class for Load and Store."""
 
     __slots__ = ("_expr", "_storage", "_location")

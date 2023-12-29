@@ -4,7 +4,7 @@ from typing import Iterator
 
 from pytest import fixture
 
-from retroasm.codeblock import BasicBlock, Load, Node, Store
+from retroasm.codeblock import AccessNode, BasicBlock, Load, Store
 from retroasm.expression import (
     AddOperator,
     AndOperator,
@@ -133,7 +133,7 @@ def test_redundant_load_after_load(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_b, load_a1)
     namespace.emit_store(ref_c, load_a2)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_a = Load(ref_a.bits.storage)
         yield load_a
         yield Store(load_a.expr, ref_b.bits.storage)
@@ -181,7 +181,7 @@ def test_redundant_same_value_store(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_b, load_a)
     namespace.emit_store(ref_b, load_a)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_a = Load(ref_a.bits.storage)
         yield load_a
         yield Store(load_a.expr, ref_b.bits.storage)
@@ -200,7 +200,7 @@ def test_redundant_other_value_store(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_c, load_a)
     namespace.emit_store(ref_c, load_b)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_b = Load(ref_b.bits.storage)
         yield load_b
         yield Store(load_b.expr, ref_c.bits.storage)
@@ -222,7 +222,7 @@ def test_uncertain_redundant_load(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_b, load_a1)
     namespace.emit_store(ref_c, load_a2)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_a1 = Load(ref_a.bits.storage)
         yield load_a1
         yield Store(const, ref_x.bits.storage)
@@ -245,7 +245,7 @@ def test_same_value_redundant_load(namespace: TestNamespace) -> None:
     load_a2 = namespace.emit_load(ref_a)
     namespace.emit_store(ref_b, load_a2)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_a = Load(ref_a.bits.storage)
         yield load_a
         yield Store(load_a.expr, ref_x.bits.storage)
@@ -265,7 +265,7 @@ def test_local_value(namespace: TestNamespace) -> None:
     load_v = namespace.emit_load(ref_v)
     namespace.emit_store(ref_b, load_v)
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_a = Load(ref_a.bits.storage)
         yield load_a
         yield Store(load_a.expr, ref_b.bits.storage)
@@ -410,7 +410,7 @@ def run_repeated_increase(
 
     code = create_simplified_code(namespace)
     ret_val, ret_width = get_ret_val(code)
-    correct: list[Node] = []
+    correct: list[AccessNode] = []
     if counter_remains:
         correct.insert(0, Store(ret_val, counter_ref.bits.storage))
     assert_nodes(code.nodes, correct)
@@ -493,7 +493,7 @@ def test_6502_pull(namespace: TestNamespace) -> None:
         node.storage for node in code.nodes if isinstance(node.storage, IOStorage)
     )
 
-    def correct() -> Iterator[Node]:
+    def correct() -> Iterator[AccessNode]:
         load_s = Load(ref_s.bits.storage)
         yield load_s
         expr = truncate(inc_s, 8).substitute(
