@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import AbstractSet, DefaultDict
 
-from .codeblock import CodeBlock, Load, LoadedValue, Store
+from .codeblock import BasicBlock, Load, LoadedValue, Store
 from .expression import Expression
 from .expression_simplifier import simplify_expression
 from .reference import FixedValue
 from .storage import Storage, Variable
 
 
-class CodeBlockSimplifier(CodeBlock):
+class CodeBlockSimplifier(BasicBlock):
     @property
     def expressions(self) -> AbstractSet[Expression]:
         return self._gather_expressions()
@@ -23,7 +23,7 @@ class CodeBlockSimplifier(CodeBlock):
         Change the type of this object from CodeBlockSimplifier to CodeBlock,
         to indicate that no further modifications are intended.
         """
-        self.__class__ = CodeBlock  # type: ignore
+        self.__class__ = BasicBlock  # type: ignore
 
     def simplify(self) -> None:
         """Attempt to simplify the code block as much as possible."""

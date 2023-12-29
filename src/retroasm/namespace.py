@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
 from typing import TypeAlias
 
-from .codeblock import CodeBlock
+from .codeblock import BasicBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
@@ -200,7 +200,7 @@ class LocalNamespace(BuilderNamespace):
         ret_ref: Reference | None,
         log: LineReader | None = None,
         location: InputLocation | None = None,
-    ) -> CodeBlock:
+    ) -> BasicBlock:
         """
         Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.

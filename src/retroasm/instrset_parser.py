@@ -7,7 +7,7 @@ from logging import WARNING, Logger, getLogger
 from typing import AbstractSet, DefaultDict, cast
 import re
 
-from .codeblock import CodeBlock
+from .codeblock import BasicBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
 from .context_parser import MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
 from .decode import (
@@ -292,7 +292,7 @@ def _parse_prefix(
             reader.warning("prefix mnemonics are not supported yet", location=mnem_loc)
 
         # Parse semantics.
-        semantics: CodeBlock | None
+        semantics: BasicBlock | None
         try:
             with reader.check_errors():
                 if len(sem_loc) == 0:
@@ -1203,7 +1203,7 @@ def _parse_mode_entries(
                         # This is the last field.
                         continue
                     try:
-                        semantics: CodeBlock | None
+                        semantics: BasicBlock | None
                         semantics = sem_namespace.create_code_block(
                             ret_ref=sem_ref, log=reader
                         )

@@ -177,7 +177,11 @@ def verify_loads(
                     assert value.load in loads, value
 
 
-class CodeBlock:
+class BasicBlock:
+    """
+    A sequence of load/store operations without any branches.
+    """
+
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
         cloned_nodes = []
         value_mapping: dict[Expression, Expression] = {}
@@ -193,7 +197,7 @@ class CodeBlock:
 
     def verify(self) -> bool:
         """
-        Performs consistency checks on this code block.
+        Performs consistency checks on this basic block.
         Raises AssertionError if an inconsistency is found.
         Returns True on success, never returns False.
         """
@@ -201,7 +205,7 @@ class CodeBlock:
         return True
 
     def dump(self) -> None:
-        """Prints this code block on stdout."""
+        """Prints this basic block on stdout."""
         for node in self.nodes:
             node.dump()
         for ret_bits in self.returned:
@@ -251,7 +255,7 @@ class CodeBlock:
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
         """
-        A mapping containing all arguments that occur in this code block.
+        A mapping containing all arguments that occur in this basic block.
         ValueError is raised if the same name is used for multiple arguments.
         """
         return self._gather_arguments()
@@ -261,7 +265,7 @@ class CodeBlock:
     ) -> None:
         """
         Calls the given substitution function with each expression in this
-        code block. If the substitution function returns an expression, that
+        basic block. If the substitution function returns an expression, that
         expression replaces the original expression. If the substitution
         function returns None, the original expression is kept.
         """

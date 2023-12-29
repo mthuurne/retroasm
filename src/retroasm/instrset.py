@@ -12,7 +12,7 @@ from collections.abc import (
 from dataclasses import dataclass
 from typing import AbstractSet, cast
 
-from .codeblock import CodeBlock, Store
+from .codeblock import BasicBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .decode import (
     Decoder,
@@ -35,13 +35,13 @@ from .utils import const_property
 @dataclass(frozen=True)
 class PrefixMapping:
     prefixes: Sequence[Prefix]
-    init_code: CodeBlock
+    init_code: BasicBlock
     flag_for_var: Mapping[Storage, str]
     prefix_for_flag: Mapping[str, Prefix]
     encoding_width: Width | None
 
 
-def flags_set_by_code(code: CodeBlock) -> Iterator[Storage]:
+def flags_set_by_code(code: BasicBlock) -> Iterator[Storage]:
     """
     Yields those storages to which the value 1 is assigned by the given code block.
     """
@@ -283,7 +283,7 @@ class InstructionSet(ModeTable):
 
         flag_sets: MutableSet[AbstractSet[str]] = set()
 
-        def add_recursive(flags: frozenset[str], code: CodeBlock) -> None:
+        def add_recursive(flags: frozenset[str], code: BasicBlock) -> None:
             if flags in flag_sets:
                 return
             flag_sets.add(flags)
