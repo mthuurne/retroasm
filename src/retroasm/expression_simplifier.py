@@ -373,7 +373,7 @@ def _simplify_negation(negation: Negation) -> Expression:
         return negation
 
 
-def _simplify_sign_test(sign_test: SignTest) -> Expression:  # type: ignore[return]
+def _simplify_sign_test(sign_test: SignTest) -> Expression:
     match simplify_expression(sign_test.expr):
         case Expression(mask=mask) if mask >= 0:
             # Negative values must have a negative mask.

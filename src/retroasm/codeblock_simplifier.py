@@ -109,10 +109,7 @@ class CodeBlockSimplifier(BasicBlock):
         returned = self.returned
         for i, ret_bits in enumerate(returned):
 
-            def fixate_variables(  # type: ignore[return]
-                # https://github.com/python/mypy/issues/12534
-                storage: Storage,
-            ) -> FixedValue | None:
+            def fixate_variables(storage: Storage) -> FixedValue | None:
                 match storage:
                     case Variable(scope=scope, width=width) as storage if scope == 1:
                         return FixedValue(current_values[storage], width)

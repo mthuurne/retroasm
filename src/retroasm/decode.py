@@ -226,7 +226,7 @@ class FixedPatternDecoder(Decoder):
         return self._next
 
     @classmethod
-    def create(  # type: ignore[return]
+    def create(
         cls, index: int, mask: int, value: int, nxt: Decoder
     ) -> FixedPatternDecoder:
         match nxt:
