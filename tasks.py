@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from invoke import UnexpectedExit, task
+from invoke import Context, UnexpectedExit, task
 
 TOP_DIR = Path(__file__).parent
 SRC_DIR = TOP_DIR / "src"
@@ -9,7 +9,7 @@ TEST_DIR = TOP_DIR / "tests" / "unit"
 
 
 @task
-def sphinx(c, builder="html"):
+def sphinx(c: Context, builder: str = "html") -> None:
     """Build documentation using Sphinx."""
     dest = OUT_DIR / "docs"
     cmd = ["sphinx-build", "-j auto", f"-d {OUT_DIR}/sphinx-cache", f"-b {builder}"]
@@ -20,7 +20,7 @@ def sphinx(c, builder="html"):
 
 
 @task(post=[sphinx])
-def docs(c):
+def docs(c: Context) -> None:
     """Build documentation."""
     print("Rendering README...")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,14 +31,14 @@ def docs(c):
 
 
 @task
-def test(c):
+def test(c: Context) -> None:
     """Run tests."""
     with c.cd(str(TOP_DIR)):
         c.run("pytest", pty=True)
 
 
 @task
-def types(c, report=False):
+def types(c: Context, report: bool = False) -> None:
     """Type-check sources with mypy."""
     cmd = ["mypy"]
     if report:
@@ -55,7 +55,7 @@ def types(c, report=False):
 
 
 @task
-def lint(c, src=None):
+def lint(c: Context, src: str | None = None) -> None:
     """Check sources with PyLint."""
     print("Linting...")
     sources = (
@@ -66,7 +66,7 @@ def lint(c, src=None):
 
 
 @task
-def upgrade(c):
+def upgrade(c: Context) -> None:
     """Upgrade sources to take advantage of new Python features."""
     print("Upgrading sources...")
     sources = (SRC_DIR / "retroasm").glob("**/*.py")
@@ -74,7 +74,7 @@ def upgrade(c):
 
 
 @task
-def unused(c):
+def unused(c: Context) -> None:
     """Find unused code."""
     print("Scanning sources for unused code...")
     c.run(f"vulture --ignore-names '*_' {SRC_DIR} {TEST_DIR}")
