@@ -204,7 +204,7 @@ class LocalNamespace(BuilderNamespace):
         """
         Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
-        If `retRef` is None, the created code block will not return anything,
+        If `ret_ref` is None, the created code block will not return anything,
         otherwise it returns that reference.
         Raises ValueError if our builder does not represent a valid code block.
         If a log is provided, errors are logged individually as well, using
