@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
-from typing import AbstractSet, cast
+from collections.abc import Callable, Iterable, Mapping, Set
+from typing import cast
 
 from .expression import Expression
 from .linereader import InputLocation
@@ -213,7 +213,7 @@ class BasicBlock:
         return expressions
 
     @const_property
-    def expressions(self) -> AbstractSet[Expression]:
+    def expressions(self) -> Set[Expression]:
         """
         A set of all expressions that are contained in this block.
         Only top-level expressions are included, not all subexpressions of
@@ -230,7 +230,7 @@ class BasicBlock:
         return storages
 
     @property
-    def storages(self) -> AbstractSet[Storage]:
+    def storages(self) -> Set[Storage]:
         """A set of all storages that are accessed or referenced by this block."""
         return self._gather_storages()
 

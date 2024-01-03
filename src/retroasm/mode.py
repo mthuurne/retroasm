@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
-from typing import AbstractSet, Any, TypeAlias, Union, overload
+from typing import Any, TypeAlias, Union, overload
 
 from .codeblock import BasicBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -542,7 +542,7 @@ class ModeEntry:
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
         placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-        flags_required: AbstractSet[str],
+        flags_required: Set[str],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
@@ -635,7 +635,7 @@ class ModeMatch:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
 
     @property
-    def flags_required(self) -> AbstractSet[str]:
+    def flags_required(self) -> Set[str]:
         """The prefix flags that must be set to match this mode entry."""
         flags = self._entry.flags_required
         for submatch in self._subs.values():

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
-from typing import AbstractSet, DefaultDict, cast
+from typing import DefaultDict, cast
 import re
 
 from .codeblock import BasicBlock
@@ -641,7 +641,7 @@ def _parse_encoding_expr(
 
 def _parse_multi_match(
     enc_node: MultiMatchNode,
-    identifiers: AbstractSet[str],
+    identifiers: Set[str],
     placeholder_specs: Mapping[str, PlaceholderSpec],
 ) -> EncodingMultiMatch:
     """

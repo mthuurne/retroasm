@@ -8,9 +8,10 @@ from collections.abc import (
     Mapping,
     MutableSet,
     Sequence,
+    Set,
 )
 from dataclasses import dataclass
-from typing import AbstractSet, cast
+from typing import cast
 
 from .codeblock import BasicBlock, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -198,7 +199,7 @@ class InstructionSet(ModeTable):
     def prefix_decode_func(self) -> Callable[[Fetcher], Prefix | None]:
         return create_prefix_decoder(self._prefix_mapping.prefixes)
 
-    def get_decoder(self, flags: AbstractSet[str] = frozenset()) -> Decoder:
+    def get_decoder(self, flags: Set[str] = frozenset()) -> Decoder:
         """
         Returns an instruction decoder that decodes an instruction for the
         given combination of decode flags.
@@ -272,7 +273,7 @@ class InstructionSet(ModeTable):
             yield bits.int_value
 
     @const_property
-    def decode_flag_combinations(self) -> AbstractSet[AbstractSet[str]]:
+    def decode_flag_combinations(self) -> Set[Set[str]]:
         """
         A set containing all possible combinations of decode flags that can
         be set simultaneously.
@@ -281,7 +282,7 @@ class InstructionSet(ModeTable):
         prefixes = prefix_mapping.prefixes
         flag_for_var = prefix_mapping.flag_for_var
 
-        flag_sets: MutableSet[AbstractSet[str]] = set()
+        flag_sets: MutableSet[Set[str]] = set()
 
         def add_recursive(flags: frozenset[str], code: BasicBlock) -> None:
             if flags in flag_sets:
@@ -310,6 +311,6 @@ class InstructionSet(ModeTable):
         return cast(Reference, self._global_namespace["pc"]).type
 
     @const_property
-    def instruction_names(self) -> AbstractSet[str]:
+    def instruction_names(self) -> Set[str]:
         """A set containing the instruction names (operations)."""
-        return cast(AbstractSet[str], self._mnem_tree._children.keys())
+        return cast(Set[str], self._mnem_tree._children.keys())
