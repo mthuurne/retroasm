@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import DefaultDict
+from collections import defaultdict
 
 from .codeblock import BasicBlock, Load, LoadedValue, Store
 from .expression import Expression
@@ -147,7 +147,7 @@ class CodeBlockSimplifier(BasicBlock):
         nodes = self.nodes
 
         # Keep track of how often each LoadedValue is used.
-        use_counts = DefaultDict[LoadedValue, int](int)
+        use_counts = defaultdict[LoadedValue, int](int)
 
         def update_counts(expr: Expression, delta: int = 1) -> None:
             for loaded in expr.iter_instances(LoadedValue):

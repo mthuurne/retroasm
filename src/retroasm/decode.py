@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import DefaultDict, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from .codeblock import BasicBlock
 from .expression import IntLiteral
@@ -74,7 +74,7 @@ def decompose_encoding(
     Raises BadInput if the given encoding cannot be decomposed.
     """
     fixed_matcher: list[FixedEncoding] = []
-    decode_map: DefaultDict[str, list[tuple[int, EncodedSegment]]] = defaultdict(list)
+    decode_map = defaultdict[str, list[tuple[int, EncodedSegment]]](list)
     for enc_idx, enc_elem in enumerate(encoding):
         if not isinstance(enc_elem, EncodingExpr):
             continue

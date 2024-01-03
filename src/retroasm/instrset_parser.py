@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
-from typing import DefaultDict, cast
+from typing import cast
 import re
 
 from .codeblock import BasicBlock
@@ -1254,7 +1254,7 @@ def _determine_encoding_width(
 
     width_attr = "aux_encoding_width" if aux else "encoding_width"
 
-    width_freqs: DefaultDict[int | None, int] = defaultdict(int)
+    width_freqs = defaultdict[int | None, int](int)
     for entry in entries:
         width_freqs[getattr(entry.entry.encoding, width_attr)] += 1
     if aux:
