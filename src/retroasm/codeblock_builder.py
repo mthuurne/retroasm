@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from .codeblock import AccessNode, BasicBlock, Load, Store
-from .codeblock_simplifier import CodeBlockSimplifier
+from .codeblock_simplifier import BasicBlockSimplifier
 from .expression import Expression
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
@@ -116,7 +116,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
         """
-        code = CodeBlockSimplifier(self.nodes, returned)
+        code = BasicBlockSimplifier(self.nodes, returned)
 
         # Check for reading of uninitialized variables.
         ununitialized_loads = []

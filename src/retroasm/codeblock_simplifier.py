@@ -9,10 +9,10 @@ from .reference import FixedValue
 from .storage import Storage, Variable
 
 
-class CodeBlockSimplifier(BasicBlock):
+class BasicBlockSimplifier(BasicBlock):
     def freeze(self) -> None:
         """
-        Change the type of this object from CodeBlockSimplifier to CodeBlock,
+        Change the type of this object from BasicBlockSimplifier to BasicBlock,
         to indicate that no further modifications are intended.
         """
         self.__class__ = BasicBlock  # type: ignore
