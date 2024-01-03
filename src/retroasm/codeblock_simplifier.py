@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AbstractSet, DefaultDict
+from typing import DefaultDict
 
 from .codeblock import BasicBlock, Load, LoadedValue, Store
 from .expression import Expression
@@ -10,14 +10,6 @@ from .storage import Storage, Variable
 
 
 class CodeBlockSimplifier(BasicBlock):
-    @property
-    def expressions(self) -> AbstractSet[Expression]:
-        return self._gather_expressions()
-
-    @property
-    def storages(self) -> AbstractSet[Storage]:
-        return self._gather_storages()
-
     def freeze(self) -> None:
         """
         Change the type of this object from CodeBlockSimplifier to CodeBlock,
