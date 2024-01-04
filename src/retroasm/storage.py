@@ -171,27 +171,13 @@ class Storage:
         return self
 
 
-class Variable(Storage):
+class _SimpleStorage(Storage):
     """
     A simple piece of named storage.
     Is used for registers as well as variables.
     """
 
-    __slots__ = ("_scope",)
-
-    @property
-    def scope(self) -> int:
-        return self._scope
-
-    def __init__(self, width: Width, scope: int):
-        Storage.__init__(self, width)
-        self._scope = scope
-
-    def __repr__(self) -> str:
-        return f"Variable({self._width}, {self._scope:d})"
-
-    def __str__(self) -> str:
-        return f"var{self._width}@{id(self):x}"
+    __slots__ = ()
 
     def can_load_have_side_effect(self) -> bool:
         return False
@@ -206,11 +192,39 @@ class Variable(Storage):
         return True
 
     def might_be_same(self, other: Storage) -> bool:
-        return self is other or (
-            # Global variable might be passed by reference.
-            self._scope == 0
-            and isinstance(other, ArgStorage)
-        )
+        return self is other
+
+
+class Register(_SimpleStorage):
+    """
+    A processor register.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return f"Register({self._width})"
+
+    def __str__(self) -> str:
+        return f"reg{self._width}@{id(self):x}"
+
+    def might_be_same(self, other: Storage) -> bool:
+        # Register might be passed by reference.
+        return self is other or isinstance(other, ArgStorage)
+
+
+class Variable(_SimpleStorage):
+    """
+    A local variable in a semantics definition.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return f"Variable({self._width})"
+
+    def __str__(self) -> str:
+        return f"var{self._width}@{id(self):x}"
 
 
 class ArgStorage(Storage):
@@ -252,7 +266,7 @@ class ArgStorage(Storage):
         # We don't have nested function scopes, so a variable that is known
         # in our scope can only be referenced via arguments if it is defined
         # in the global scope.
-        return not isinstance(other, Variable) or other._scope == 0
+        return not isinstance(other, Variable)
 
 
 class IOStorage(Storage):

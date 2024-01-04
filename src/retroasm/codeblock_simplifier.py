@@ -103,7 +103,7 @@ class BasicBlockSimplifier(BasicBlock):
 
             def fixate_variables(storage: Storage) -> FixedValue | None:
                 match storage:
-                    case Variable(scope=scope, width=width) as storage if scope == 1:
+                    case Variable(width=width) as storage:
                         return FixedValue(current_values[storage], width)
                     case _:
                         return None
@@ -133,13 +133,11 @@ class BasicBlockSimplifier(BasicBlock):
             if not storage.can_store_have_side_effect():
                 match node:
                     case Load():
-                        assert not (
-                            isinstance(storage, Variable) and storage.scope == 1
-                        ), storage
+                        assert not isinstance(storage, Variable), storage
                         will_be_overwritten.discard(storage)
                     case Store():
-                        if storage in will_be_overwritten or (
-                            isinstance(storage, Variable) and storage.scope == 1
+                        if storage in will_be_overwritten or isinstance(
+                            storage, Variable
                         ):
                             del nodes[i]
                         will_be_overwritten.add(storage)

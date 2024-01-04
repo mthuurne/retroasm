@@ -123,10 +123,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         initialized_variables: set[Variable] = set()
         for node in code.nodes:
             match node:
-                case Load(storage=Variable(scope=scope) as var) if scope == 1:
+                case Load(storage=Variable() as var):
                     if var not in initialized_variables:
                         ununitialized_loads.append(node)
-                case Store(storage=Variable(scope=scope) as var) if scope == 1:
+                case Store(storage=Variable() as var):
                     initialized_variables.add(var)
         if ununitialized_loads:
             if log is not None:
@@ -144,7 +144,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         for ret_bits in returned:
             for storage in ret_bits.iter_storages():
                 match storage:
-                    case Variable(scope=scope) as var if scope == 1:
+                    case Variable() as var:
                         if var not in initialized_variables:
                             msg = "code block returns uninitialized variable(s)"
                             if log is not None:

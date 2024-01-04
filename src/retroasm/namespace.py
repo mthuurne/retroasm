@@ -9,7 +9,7 @@ from .expression import Expression, opt_slice
 from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, Reference, SingleStorage
-from .storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
+from .storage import ArgStorage, IOChannel, IOStorage, Register, Storage, Variable
 from .types import IntType
 
 NamespaceValue: TypeAlias = Reference | IOChannel | Function
@@ -130,10 +130,6 @@ class ContextNamespace(Namespace):
 class BuilderNamespace(Namespace):
     """A namespace with an associated code block builder."""
 
-    @property
-    def scope(self) -> int:
-        raise NotImplementedError
-
     def __init__(self, parent: Namespace | None, builder: CodeBlockBuilder):
         Namespace.__init__(self, parent)
         self.builder = builder
@@ -154,16 +150,11 @@ class BuilderNamespace(Namespace):
         Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
         """
-        storage = Variable(typ.width, self.scope)
-        return self._add_named_storage(name, storage, typ, location)
+        raise NotImplementedError
 
 
 class GlobalNamespace(BuilderNamespace):
     """Namespace for the global scope."""
-
-    @property
-    def scope(self) -> int:
-        return 0
 
     def __init__(self, builder: CodeBlockBuilder):
         BuilderNamespace.__init__(self, None, builder)
@@ -175,16 +166,18 @@ class GlobalNamespace(BuilderNamespace):
             _reject_pc(name, location)
         _reject_ret(name, location)
 
+    def add_variable(
+        self, name: str, typ: IntType, location: InputLocation | None = None
+    ) -> Reference:
+        storage = Register(typ.width)
+        return self._add_named_storage(name, storage, typ, location)
+
 
 class LocalNamespace(BuilderNamespace):
     """
     A namespace for local blocks, that can import entries from its parent
     namespace on demand.
     """
-
-    @property
-    def scope(self) -> int:
-        return 1
 
     def __init__(self, parent: Namespace | None, builder: SemanticsCodeBlockBuilder):
         super().__init__(parent, builder)
@@ -194,6 +187,12 @@ class LocalNamespace(BuilderNamespace):
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         _reject_pc(name, location)
+
+    def add_variable(
+        self, name: str, typ: IntType, location: InputLocation | None = None
+    ) -> Reference:
+        storage = Variable(typ.width)
+        return self._add_named_storage(name, storage, typ, location)
 
     def create_code_block(
         self,

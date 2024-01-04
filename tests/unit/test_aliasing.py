@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from retroasm.expression import IntLiteral
-from retroasm.storage import ArgStorage, IOChannel, IOStorage, Storage, Variable
+from retroasm.storage import (
+    ArgStorage,
+    IOChannel,
+    IOStorage,
+    Register,
+    Storage,
+    Variable,
+)
 from retroasm.types import IntType
 
 
@@ -21,9 +28,9 @@ def assert_no_alias(storage1: Storage, storage2: Storage) -> None:
 
 def test_register_aliasing() -> None:
     """Test when registers might be aliased."""
-    a = Variable(8, 0)
-    b = Variable(8, 0)
-    l = Variable(8, 1)
+    a = Register(8)
+    b = Register(8)
+    l = Variable(8)
     r = ArgStorage("R", 8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
@@ -36,9 +43,9 @@ def test_register_aliasing() -> None:
 
 def test_variable_aliasing() -> None:
     """Test when variables might be aliased."""
-    l = Variable(8, 1)
-    l2 = Variable(8, 1)
-    a = Variable(8, 0)
+    l = Variable(8)
+    l2 = Variable(8)
+    a = Register(8)
     r = ArgStorage("R", 8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
@@ -53,8 +60,8 @@ def test_unknown_storage_aliasing() -> None:
     """Test when unknown storages might be aliased."""
     r = ArgStorage("R", 8)
     r2 = ArgStorage("R2", 8)
-    a = Variable(8, 0)
-    l = Variable(8, 1)
+    a = Register(8)
+    l = Variable(8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     m = IOStorage(mem, IntLiteral(0xC000))
     assert_alias(r, r)
@@ -66,8 +73,8 @@ def test_unknown_storage_aliasing() -> None:
 
 def test_io_aliasing() -> None:
     """Test when I/O storages might be aliased."""
-    a = Variable(8, 0)
-    l = Variable(8, 1)
+    a = Register(8)
+    l = Variable(8)
     r = ArgStorage("R", 8)
     mem = IOChannel("mem", IntType.u(8), IntType.u(16))
     io = IOChannel("io", IntType.u(8), IntType.u(16))
