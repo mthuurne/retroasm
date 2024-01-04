@@ -213,7 +213,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         def import_expr(expr: Expression) -> Expression:
             return expr.substitute(load_results.get)
 
-        def import_storage_uncached(storage: Storage) -> BitString | SingleStorage:
+        def import_storage_uncached(storage: Storage) -> BitString:
             match storage:
                 case ArgStorage(name=name) as arg:
                     bits = arg_fetcher(name)
