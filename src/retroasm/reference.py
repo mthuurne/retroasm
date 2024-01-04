@@ -227,12 +227,11 @@ class SingleStorage(BitString):
             match storage_func(storage):
                 case SingleStorage(_storage=new_storage) if new_storage is storage:
                     return self
-                case newBits:
+                case new_bits if new_bits is not None:
                     # Checking for None first would be clearer and faster,
                     # but mypy currently does not understand that.
-                    #   https://github.com/python/mypy/issues/13046
-                    if newBits is not None:
-                        return newBits
+                    #   https://github.com/python/mypy/issues/12998
+                    return new_bits
 
         if expression_func is None:
             return self
