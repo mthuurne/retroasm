@@ -60,6 +60,7 @@ class BitString:
 
     def substitute(
         self,
+        *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> BitString:
@@ -163,6 +164,7 @@ class FixedValue(BitString):
 
     def substitute(
         self,
+        *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> FixedValue:
@@ -219,6 +221,7 @@ class SingleStorage(BitString):
 
     def substitute(
         self,
+        *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> BitString:
@@ -297,13 +300,16 @@ class ConcatenatedBits(BitString):
 
     def substitute(
         self,
+        *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> ConcatenatedBits:
         changed = False
         subs = []
         for sub in self._subs:
-            new_bits = sub.substitute(storage_func, expression_func)
+            new_bits = sub.substitute(
+                storage_func=storage_func, expression_func=expression_func
+            )
             subs.append(new_bits)
             changed |= new_bits is not sub
         return ConcatenatedBits(*subs) if changed else self
@@ -391,11 +397,14 @@ class SlicedBits(BitString):
 
     def substitute(
         self,
+        *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> SlicedBits:
         bits = self._bits
-        new_bits = bits.substitute(storage_func, expression_func)
+        new_bits = bits.substitute(
+            storage_func=storage_func, expression_func=expression_func
+        )
         if new_bits is bits:
             return self
         else:

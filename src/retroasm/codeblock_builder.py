@@ -253,6 +253,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Determine return value.
         return [
-            ret_bits.substitute(import_storage, import_expr)
+            ret_bits.substitute(
+                storage_func=import_storage, expression_func=import_expr
+            )
             for ret_bits in code.returned
         ]

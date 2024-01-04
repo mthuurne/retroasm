@@ -108,7 +108,9 @@ class BasicBlockSimplifier(BasicBlock):
                     case _:
                         return None
 
-            new_bits = ret_bits.substitute(fixate_variables, replace_loaded_values)
+            new_bits = ret_bits.substitute(
+                storage_func=fixate_variables, expression_func=replace_loaded_values
+            )
             if new_bits is not ret_bits:
                 returned[i] = new_bits
 
