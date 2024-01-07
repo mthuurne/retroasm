@@ -38,7 +38,7 @@ def create_simplified_code(namespace: LocalNamespace) -> BasicBlock:
 
 
 def args(**kvargs: BitString) -> Callable[[str], BitString]:
-    """Argument fetcher helper function for inlineBlock()."""
+    """Argument fetcher helper function for `inline_block()`."""
     return kvargs.__getitem__
 
 

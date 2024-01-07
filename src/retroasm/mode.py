@@ -918,7 +918,7 @@ class ComputedPlaceholder(ValuePlaceholder):
         The builder can already contain nodes, for example to initialize
         registers like the program counter. This placeholder's code will
         be inlined on the builder.
-        See `SemanticsCodeBlockBuilder.inlineBlock` to learn how argument
+        See `SemanticsCodeBlockBuilder.inline_block()` to learn how argument
         fetching works.
         """
         returned = builder.inline_block(self.code, arg_fetcher)
