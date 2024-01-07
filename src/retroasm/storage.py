@@ -177,7 +177,18 @@ class _SimpleStorage(Storage):
     Is used for registers as well as variables.
     """
 
-    __slots__ = ()
+    __slots__ = ("_name",)
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def __init__(self, name: str, width: Width):
+        Storage.__init__(self, width)
+        self._name = name
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._name}, {self._width})"
 
     def can_load_have_side_effect(self) -> bool:
         return False
@@ -202,11 +213,8 @@ class Register(_SimpleStorage):
 
     __slots__ = ()
 
-    def __repr__(self) -> str:
-        return f"Register({self._width})"
-
     def __str__(self) -> str:
-        return f"reg{self._width}@{id(self):x}"
+        return f"reg{self._width} {self._name}"
 
     def might_be_same(self, other: Storage) -> bool:
         # Register might be passed by reference.
@@ -220,11 +228,8 @@ class Variable(_SimpleStorage):
 
     __slots__ = ()
 
-    def __repr__(self) -> str:
-        return f"Variable({self._width})"
-
     def __str__(self) -> str:
-        return f"var{self._width}@{id(self):x}"
+        return f"var{self._width} {self._name}"
 
 
 class ArgStorage(Storage):

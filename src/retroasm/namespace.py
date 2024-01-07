@@ -169,7 +169,7 @@ class GlobalNamespace(BuilderNamespace):
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        storage = Register(typ.width)
+        storage = Register(name, typ.width)
         return self._add_named_storage(name, storage, typ, location)
 
 
@@ -191,7 +191,7 @@ class LocalNamespace(BuilderNamespace):
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        storage = Variable(typ.width)
+        storage = Variable(name, typ.width)
         return self._add_named_storage(name, storage, typ, location)
 
     def create_code_block(
