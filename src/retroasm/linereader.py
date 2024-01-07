@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from importlib.resources.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
 from re import Match, Pattern
-from typing import IO, Any, TypeVar, cast, overload
+from typing import IO, Any, TypeVar, overload
 import re
 
 
@@ -389,13 +389,9 @@ class LineReader:
     def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
         logger = self.logger
         if logger.isEnabledFor(level):
-            try:
-                location = cast(
-                    None | InputLocation | Sequence[InputLocation],
-                    kwargs.pop("location"),
-                )
-            except KeyError:
-                location = self.location
+            location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
+                "location", self.location
+            )
             logger.log(level, msg, *args, extra={"location": location}, **kwargs)
 
 
@@ -452,9 +448,8 @@ def _pluralize(count: int, verb: str) -> str:
 class LineReaderFormatter(Formatter):
     def format(self, record: LogRecord) -> str:
         msg = super().format(record)
-        location = cast(
-            None | InputLocation | Sequence[InputLocation],
-            getattr(record, "location", None),
+        location: None | InputLocation | Sequence[InputLocation] = getattr(
+            record, "location", None
         )
         return "\n".join(_format_parts(_iter_parts(msg, location)))
 
