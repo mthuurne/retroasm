@@ -66,7 +66,12 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
             "ERROR: no program counter defined: "
             'a register or alias named "pc" is required',
         ),
-        ("parse-instr", ERROR, f"{empty_file}: 1 error and 0 warnings"),
+        (
+            "parse-instr",
+            ERROR,
+            "ERROR: no instruction encodings defined",
+        ),
+        ("parse-instr", ERROR, f"{empty_file}: 2 errors and 0 warnings"),
     ]
     assert instr is None
 

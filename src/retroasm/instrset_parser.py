@@ -1476,6 +1476,8 @@ def parse_instr_set(
                 reader.error('unknown definition type "%s"', def_type, location=keyword)
                 reader.skip_block()
 
+        num_parse_errors = reader.problem_counter.num_errors
+
         # Check that the program counter was defined.
         try:
             pc = global_namespace["pc"]
@@ -1494,23 +1496,24 @@ def parse_instr_set(
         prefix_mapping = prefixes.create_mapping()
 
         instr_set = None
-        if reader.problem_counter.num_errors == 0:
-            try:
-                if enc_width is None:
-                    # Since the last instruction with an identical encoding overrides
-                    # earlier ones, only degenerate instruction sets can have an empty
-                    # encoding: either the instruction set is empty or it has a single
-                    # instruction with no encoding.
-                    raise ValueError("no encodings")
-                instr_set = InstructionSet(
-                    enc_width,
-                    aux_enc_width,
-                    global_namespace,
-                    prefix_mapping,
-                    mode_entries,
-                )
-            except ValueError as ex:
-                reader.error("final validation of instruction set failed: %s", ex)
+        if num_parse_errors == 0:
+            if enc_width is None:
+                # Since the last instruction with an identical encoding overrides
+                # earlier ones, only degenerate instruction sets can have an empty
+                # encoding: either the instruction set is empty or it has a single
+                # instruction with no encoding.
+                reader.error("no instruction encodings defined")
+            else:
+                try:
+                    instr_set = InstructionSet(
+                        enc_width,
+                        aux_enc_width,
+                        global_namespace,
+                        prefix_mapping,
+                        mode_entries,
+                    )
+                except ValueError as ex:
+                    reader.error("final validation of instruction set failed: %s", ex)
 
         reader.summarize()
 
