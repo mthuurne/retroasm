@@ -17,6 +17,14 @@ def builtin_instruction_set_path(name: str) -> Traversable:
 def load_instruction_set(
     path: Traversable, logger: Logger, want_semantics: bool = True
 ) -> InstructionSet | None:
+    """
+    Load an instruction set definition from file.
+
+    The best logging is achieved if `LineReaderFormatter` or another formatter
+    that incorporates the `location` extra is used.
+
+    Returns the instruction set, or None if it could not be loaded.
+    """
     try:
         return parse_instr_set(path, want_semantics=want_semantics)
     except OSError as ex:
@@ -27,6 +35,14 @@ def load_instruction_set(
 def load_instruction_set_by_name(
     name: str, logger: Logger, want_semantics: bool = True
 ) -> InstructionSet | None:
+    """
+    Load the named built-in instruction set definition.
+
+    The best logging is achieved if `LineReaderFormatter` or another formatter
+    that incorporates the `location` extra is used.
+
+    Returns the instruction set, or None if it could not be loaded.
+    """
     logger.info("Loading instruction set: %s", name)
     path = builtin_instruction_set_path(name)
     return load_instruction_set(path, logger, want_semantics)
@@ -51,7 +67,7 @@ class InstructionSetProvider:
 
 class InstructionSetDirectory(InstructionSetProvider):
     """
-    Instruction set provider that loads and cachces definitions from a directory.
+    Instruction set provider that loads and caches definitions from a directory.
 
     Instruction sets will be loaded including semantics.
     """
