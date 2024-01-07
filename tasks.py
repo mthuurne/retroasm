@@ -38,6 +38,14 @@ def test(c: Context) -> None:
 
 
 @task
+def cov(c: Context) -> None:
+    """Run tests and report coverage."""
+    with c.cd(str(TOP_DIR)):
+        c.run(f"pytest --cov={SRC_DIR}", pty=True)
+        c.run(f"coverage html -d {OUT_DIR}/coverage --skip-empty", pty=True)
+
+
+@task
 def types(c: Context, report: bool = False) -> None:
     """Type-check sources with mypy."""
     cmd = ["mypy"]

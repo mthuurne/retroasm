@@ -3,6 +3,7 @@ __pycache__/
 /src/retroasm.egg-info/
 /.cache/
 /.hypothesis/
+/.coverage
 /.mypy_cache/
 /build/
 /dist/
