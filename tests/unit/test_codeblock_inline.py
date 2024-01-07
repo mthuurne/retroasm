@@ -18,22 +18,18 @@ from retroasm.types import IntType
 
 from .utils_codeblock import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
 
-verbose = False
-
 
 def create_simplified_code(namespace: LocalNamespace) -> BasicBlock:
-    if verbose:
-        print("=" * 40)
-        namespace.dump()
+    print(">>> Namespace:")
+    namespace.dump()
     if "ret" in namespace:
         ret_ref = namespace.elements["ret"]
         assert isinstance(ret_ref, Reference), ret_ref
     else:
         ret_ref = None
     code = namespace.create_code_block(ret_ref)
-    if verbose:
-        print("-" * 40)
-        code.dump()
+    print(">>> Code:")
+    code.dump()
     return code
 
 
