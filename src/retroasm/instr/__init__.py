@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from importlib.resources import files
 from importlib.resources.abc import Traversable
-from logging import Logger, getLogger
+from logging import ERROR, Logger, getLogger
 
 from ..instrset import InstructionSet
 from ..parser.instrset_parser import parse_instr_set
@@ -27,8 +27,13 @@ def load_instruction_set(
     """
     if logger is None:
         logger = getLogger(__name__)
+    # Log only errors, to avoid confusing the user with informational messages
+    # from the instruction set parser when for example assembling.
+    parser_logger = logger.getChild("parser")
+    parser_logger.setLevel(ERROR)
+
     try:
-        return parse_instr_set(path, want_semantics=want_semantics)
+        return parse_instr_set(path, parser_logger, want_semantics=want_semantics)
     except OSError as ex:
         logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
         return None
