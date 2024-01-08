@@ -11,7 +11,7 @@ from .asm.directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
 from .utils import const_property
 
-logger = getLogger("binfmt")
+logger = getLogger(__name__)
 
 
 class Image(Protocol):

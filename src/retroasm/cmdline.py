@@ -571,10 +571,10 @@ def disasm(
 
     # Set logging level.
     setup_logging(INFO if verbose < 2 else DEBUG)
-    logger = getLogger("disasm")
+    logger = getLogger("retroasm.disasm")
     if verbose > 0:
         logger.setLevel(DEBUG)
-        getLogger("binfmt").setLevel(DEBUG)
+        getLogger("retroasm.binfmt").setLevel(DEBUG)
 
     # Disassemble binary file.
     try:

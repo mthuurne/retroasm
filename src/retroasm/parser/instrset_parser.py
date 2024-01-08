@@ -1429,7 +1429,7 @@ def parse_instr_set(
     path: Traversable, logger: Logger | None = None, want_semantics: bool = True
 ) -> InstructionSet | None:
     if logger is None:
-        logger = getLogger("parse-instr")
+        logger = getLogger(__name__)
         logger.setLevel(WARNING)
 
     global_builder = StatelessCodeBlockBuilder()

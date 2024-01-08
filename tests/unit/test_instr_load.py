@@ -61,17 +61,21 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
     instr = load_instruction_set(empty_file, logger)
     assert caplog.record_tuples == [
         (
-            "parse-instr",
+            "retroasm.parser.instrset_parser",
             ERROR,
             "ERROR: no program counter defined: "
             'a register or alias named "pc" is required',
         ),
         (
-            "parse-instr",
+            "retroasm.parser.instrset_parser",
             ERROR,
             "ERROR: no instruction encodings defined",
         ),
-        ("parse-instr", ERROR, f"{empty_file}: 2 errors and 0 warnings"),
+        (
+            "retroasm.parser.instrset_parser",
+            ERROR,
+            f"{empty_file}: 2 errors and 0 warnings",
+        ),
     ]
     assert instr is None
 

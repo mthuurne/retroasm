@@ -30,7 +30,7 @@ from .directives import (
     StringDirective,
 )
 
-logger = getLogger("parse-asm")
+logger = getLogger(__name__)
 
 
 class AsmToken(TokenEnum):
