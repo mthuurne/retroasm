@@ -15,7 +15,7 @@ def builtin_instruction_set_path(name: str) -> Traversable:
 
 
 def load_instruction_set(
-    path: Traversable, logger: Logger, want_semantics: bool = True
+    path: Traversable, logger: Logger | None = None, want_semantics: bool = True
 ) -> InstructionSet | None:
     """
     Load an instruction set definition from file.
@@ -25,6 +25,8 @@ def load_instruction_set(
 
     Returns the instruction set, or None if it could not be loaded.
     """
+    if logger is None:
+        logger = getLogger(__name__)
     try:
         return parse_instr_set(path, want_semantics=want_semantics)
     except OSError as ex:
@@ -33,7 +35,7 @@ def load_instruction_set(
 
 
 def load_instruction_set_by_name(
-    name: str, logger: Logger, want_semantics: bool = True
+    name: str, logger: Logger | None = None, want_semantics: bool = True
 ) -> InstructionSet | None:
     """
     Load the named built-in instruction set definition.
@@ -43,6 +45,8 @@ def load_instruction_set_by_name(
 
     Returns the instruction set, or None if it could not be loaded.
     """
+    if logger is None:
+        logger = getLogger(__name__)
     logger.info("Loading instruction set: %s", name)
     path = builtin_instruction_set_path(name)
     return load_instruction_set(path, logger, want_semantics)
@@ -72,9 +76,9 @@ class InstructionSetDirectory(InstructionSetProvider):
     Instruction sets will be loaded including semantics.
     """
 
-    def __init__(self, path: Traversable, logger: Logger):
+    def __init__(self, path: Traversable, logger: Logger | None = None):
         self._path = path
-        self._logger = logger
+        self._logger = logger or getLogger(__name__)
         self._cache: dict[str, InstructionSet | None] = {}
 
     def __getitem__(self, name: str) -> InstructionSet | None:
@@ -96,7 +100,7 @@ class InstructionSetDirectory(InstructionSetProvider):
                     yield name[:-6]
 
 
-builtin_instruction_sets = InstructionSetDirectory(files(defs), getLogger(__name__))
+builtin_instruction_sets = InstructionSetDirectory(files(defs))
 """
 Provider for instruction sets from the RetroAsm installation.
 """
