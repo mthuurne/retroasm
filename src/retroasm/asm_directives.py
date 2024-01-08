@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .expression_nodes import IdentifierNode, NumberNode, ParseNode
+from .parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
 from .types import Width
 
 

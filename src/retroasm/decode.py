@@ -8,7 +8,6 @@ from typing import TypeAlias, cast
 from .codeblock import BasicBlock
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
-from .linereader import BadInput
 from .mode import (
     EncodeMatch,
     Encoding,
@@ -17,6 +16,7 @@ from .mode import (
     MatchPlaceholder,
     ModeEntry,
 )
+from .parser.linereader import BadInput
 from .reference import FixedValue, FixedValueReference, SingleStorage, int_reference
 from .storage import ArgStorage
 from .types import IntType, Segment, mask_for_width, mask_to_segments

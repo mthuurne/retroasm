@@ -24,9 +24,9 @@ from .decode import (
 )
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
-from .linereader import BadInput
 from .mode import EncodingExpr, ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
+from .parser.linereader import BadInput
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import IntType, Width

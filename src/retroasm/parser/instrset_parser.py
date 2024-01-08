@@ -7,16 +7,42 @@ from logging import WARNING, Logger, getLogger
 from typing import cast
 import re
 
-from .codeblock import BasicBlock
-from .codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
-from .context_parser import MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
-from .decode import (
+from ..codeblock import BasicBlock
+from ..codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
+from ..decode import (
     EncodedSegment,
     FixedEncoding,
     ParsedModeEntry,
     Prefix,
     decompose_encoding,
 )
+from ..instrset import InstructionSet, PrefixMappingFactory
+from ..mode import (
+    CodeTemplate,
+    ComputedPlaceholder,
+    Encoding,
+    EncodingExpr,
+    EncodingItem,
+    EncodingMultiMatch,
+    MatchPlaceholder,
+    MnemItem,
+    Mnemonic,
+    Mode,
+    ModeEntry,
+    ValuePlaceholder,
+)
+from ..namespace import (
+    ContextNamespace,
+    GlobalNamespace,
+    LocalNamespace,
+    NameExistsError,
+    Namespace,
+)
+from ..reference import Reference, bad_reference, int_reference
+from ..storage import ArgStorage, IOChannel, IOStorage, Variable
+from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
+from ..utils import bad_type
+from .context_parser import MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
 from .expression_builder import (
     BadExpression,
     UnknownNameError,
@@ -42,33 +68,7 @@ from .expression_parser import (
     parse_statement,
 )
 from .function_builder import create_func
-from .instrset import InstructionSet, PrefixMappingFactory
 from .linereader import BadInput, DefLineReader, DelayedError, InputLocation
-from .mode import (
-    CodeTemplate,
-    ComputedPlaceholder,
-    Encoding,
-    EncodingExpr,
-    EncodingItem,
-    EncodingMultiMatch,
-    MatchPlaceholder,
-    MnemItem,
-    Mnemonic,
-    Mode,
-    ModeEntry,
-    ValuePlaceholder,
-)
-from .namespace import (
-    ContextNamespace,
-    GlobalNamespace,
-    LocalNamespace,
-    NameExistsError,
-    Namespace,
-)
-from .reference import Reference, bad_reference, int_reference
-from .storage import ArgStorage, IOChannel, IOStorage, Variable
-from .types import IntType, ReferenceType, Width, parse_type, parse_type_decl
-from .utils import bad_type
 
 _name_pat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _name_tok = r"\s*(" + _name_pat + r")\s*"

@@ -16,7 +16,8 @@ from .asm_directives import (
     SpaceDirective,
     StringDirective,
 )
-from .expression_nodes import (
+from .instrset import InstructionSet
+from .parser.expression_nodes import (
     IdentifierNode,
     NumberNode,
     Operator,
@@ -25,9 +26,8 @@ from .expression_nodes import (
     ParseNode,
     parse_digits,
 )
-from .instrset import InstructionSet
-from .linereader import DelayedError, InputLocation, LineReader, ProblemCounter
-from .tokens import TokenEnum, Tokenizer
+from .parser.linereader import DelayedError, InputLocation, LineReader, ProblemCounter
+from .parser.tokens import TokenEnum, Tokenizer
 from .types import IntType, Width, unlimited
 
 logger = getLogger("parse-asm")

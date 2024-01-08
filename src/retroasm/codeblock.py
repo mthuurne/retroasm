@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable, Mapping, Set
 from typing import cast
 
 from .expression import Expression
-from .linereader import InputLocation
+from .parser.linereader import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
 from .types import mask_for_width

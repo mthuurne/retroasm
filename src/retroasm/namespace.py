@@ -7,7 +7,7 @@ from .codeblock import BasicBlock
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
-from .linereader import BadInput, InputLocation, LineReader
+from .parser.linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, Reference, SingleStorage
 from .storage import ArgStorage, IOChannel, IOStorage, Register, Storage, Variable
 from .types import IntType

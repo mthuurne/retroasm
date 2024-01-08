@@ -35,7 +35,6 @@ from .binfmt import (
     iter_binary_format_names,
 )
 from .disasm import Instruction, disassemble, format_asm
-from .expression_nodes import NumberNode
 from .fetch import ImageFetcher
 from .instr import (
     builtin_instruction_set_path,
@@ -44,7 +43,8 @@ from .instr import (
     load_instruction_set_by_name,
 )
 from .instrset import InstructionSet
-from .linereader import LineReaderFormatter, ProblemCounter
+from .parser.expression_nodes import NumberNode
+from .parser.linereader import LineReaderFormatter, ProblemCounter
 from .section import ByteOrder, CodeSection, Section, SectionMap, StructuredDataSection
 from .types import Unlimited, unlimited
 

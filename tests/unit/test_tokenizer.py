@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pytest import raises
 
-from retroasm.expression_parser import ExprToken, ExprTokenizer
-from retroasm.tokens import Tokenizer
+from retroasm.parser.expression_parser import ExprToken, ExprTokenizer
+from retroasm.parser.tokens import Tokenizer
 
 
 def test_token_class_unspecialized() -> None:

@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias, Union
 
+from ..mode import Mode
+from ..types import IntType, ReferenceType, Width
 from .expression_nodes import DeclarationNode, ParseNode
-from .mode import Mode
-from .types import IntType, ReferenceType, Width
 
 PlaceholderSpec: TypeAlias = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
 

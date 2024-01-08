@@ -6,7 +6,7 @@ from .codeblock import AccessNode, BasicBlock, Load, Store
 from .codeblock_simplifier import BasicBlockSimplifier
 from .expression import Expression
 from .function import Function
-from .linereader import BadInput, InputLocation, LineReader
+from .parser.linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, SingleStorage, bad_reference
 from .storage import ArgStorage, Storage, Variable
 

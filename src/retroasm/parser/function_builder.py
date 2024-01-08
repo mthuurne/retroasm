@@ -3,16 +3,16 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import cast
 
-from .codeblock_builder import SemanticsCodeBlockBuilder
+from ..codeblock_builder import SemanticsCodeBlockBuilder
+from ..function import Function
+from ..namespace import GlobalNamespace, LocalNamespace
+from ..reference import Reference, SingleStorage
+from ..storage import ArgStorage
+from ..types import IntType, ReferenceType
 from .expression_builder import emit_code_from_statements
 from .expression_nodes import ParseError, ParseNode
 from .expression_parser import parse_statement
-from .function import Function
 from .linereader import DefLineReader, DelayedError, InputLocation
-from .namespace import GlobalNamespace, LocalNamespace
-from .reference import Reference, SingleStorage
-from .storage import ArgStorage
-from .types import IntType, ReferenceType
 
 
 def _parse_body(reader: DefLineReader) -> Iterator[ParseNode]:

@@ -6,7 +6,7 @@ from importlib.resources.abc import Traversable
 from logging import Logger, getLogger
 
 from ..instrset import InstructionSet
-from ..instrset_parser import parse_instr_set
+from ..parser.instrset_parser import parse_instr_set
 from . import defs
 
 

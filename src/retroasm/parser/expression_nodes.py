@@ -4,8 +4,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 
+from ..types import Width, unlimited
 from .linereader import BadInput, InputLocation
-from .types import Width, unlimited
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

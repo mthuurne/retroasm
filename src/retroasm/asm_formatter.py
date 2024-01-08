@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator, Mapping
 
 from .asm_directives import DataDirective, OriginDirective, StringDirective
 from .expression import IntLiteral
-from .expression_nodes import ParseNode
+from .parser.expression_nodes import ParseNode
 from .reference import FixedValueReference
 from .symbol import SymbolValue
 from .types import IntType, Width, unlimited

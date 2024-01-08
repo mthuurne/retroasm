@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import cast
 
-from .codeblock import Load, Store
-from .expression import (
+from ..codeblock import Load, Store
+from ..expression import (
     AddOperator,
     AndOperator,
     Complement,
@@ -18,6 +18,35 @@ from .expression import (
     XorOperator,
     truncate,
 )
+from ..expression_simplifier import simplify_expression
+from ..function import Function
+from ..namespace import (
+    BuilderNamespace,
+    LocalNamespace,
+    NameExistsError,
+    create_io_reference,
+)
+from ..reference import (
+    ConcatenatedBits,
+    FixedValue,
+    FixedValueReference,
+    Reference,
+    SingleStorage,
+    SlicedBits,
+    bad_reference,
+    int_reference,
+)
+from ..storage import IOChannel, Keeper
+from ..types import (
+    IntType,
+    ReferenceType,
+    Width,
+    parse_type,
+    parse_type_decl,
+    unlimited,
+    width_for_mask,
+)
+from ..utils import bad_type
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
@@ -33,36 +62,7 @@ from .expression_nodes import (
     OperatorNode,
     ParseNode,
 )
-from .expression_simplifier import simplify_expression
-from .function import Function
 from .linereader import BadInput, InputLocation, LineReader
-from .namespace import (
-    BuilderNamespace,
-    LocalNamespace,
-    NameExistsError,
-    create_io_reference,
-)
-from .reference import (
-    ConcatenatedBits,
-    FixedValue,
-    FixedValueReference,
-    Reference,
-    SingleStorage,
-    SlicedBits,
-    bad_reference,
-    int_reference,
-)
-from .storage import IOChannel, Keeper
-from .types import (
-    IntType,
-    ReferenceType,
-    Width,
-    parse_type,
-    parse_type_decl,
-    unlimited,
-    width_for_mask,
-)
-from .utils import bad_type
 
 
 class BadExpression(BadInput):
