@@ -5,7 +5,20 @@ from logging import getLogger
 from pathlib import Path
 from typing import TypeAlias
 
-from .asm_directives import (
+from ..instrset import InstructionSet
+from ..parser.expression_nodes import (
+    IdentifierNode,
+    NumberNode,
+    Operator,
+    OperatorNode,
+    ParseError,
+    ParseNode,
+    parse_digits,
+)
+from ..parser.linereader import DelayedError, InputLocation, LineReader, ProblemCounter
+from ..parser.tokens import TokenEnum, Tokenizer
+from ..types import IntType, Width, unlimited
+from .directives import (
     BinaryIncludeDirective,
     ConditionalDirective,
     ConditionalEnd,
@@ -16,19 +29,6 @@ from .asm_directives import (
     SpaceDirective,
     StringDirective,
 )
-from .instrset import InstructionSet
-from .parser.expression_nodes import (
-    IdentifierNode,
-    NumberNode,
-    Operator,
-    OperatorNode,
-    ParseError,
-    ParseNode,
-    parse_digits,
-)
-from .parser.linereader import DelayedError, InputLocation, LineReader, ProblemCounter
-from .parser.tokens import TokenEnum, Tokenizer
-from .types import IntType, Width, unlimited
 
 logger = getLogger("parse-asm")
 

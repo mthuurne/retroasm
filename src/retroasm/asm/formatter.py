@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping
 
-from .asm_directives import DataDirective, OriginDirective, StringDirective
-from .expression import IntLiteral
-from .parser.expression_nodes import ParseNode
-from .reference import FixedValueReference
-from .symbol import SymbolValue
-from .types import IntType, Width, unlimited
-from .utils import bad_type
+from ..expression import IntLiteral
+from ..parser.expression_nodes import ParseNode
+from ..reference import FixedValueReference
+from ..symbol import SymbolValue
+from ..types import IntType, Width, unlimited
+from ..utils import bad_type
+from .directives import DataDirective, OriginDirective, StringDirective
 
 
 class Formatter:

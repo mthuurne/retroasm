@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pytest import raises
 
-from retroasm.asm_parser import AsmTokenizer, parse_value
+from retroasm.asm.parser import AsmTokenizer, parse_value
 from retroasm.parser.expression_nodes import NumberNode, ParseError
 from retroasm.parser.linereader import InputLocation
 from retroasm.types import Width, unlimited

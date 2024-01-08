@@ -7,7 +7,7 @@ from pathlib import PurePath
 from struct import Struct
 from typing import Any, ClassVar, Protocol, TypeVar, overload
 
-from .asm_directives import DataDirective, StringDirective, StructuredData
+from .asm.directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
 from .utils import const_property
 

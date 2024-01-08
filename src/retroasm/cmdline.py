@@ -23,9 +23,9 @@ from click import (
     version_option,
 )
 
-from .asm_directives import DataDirective, OriginDirective
-from .asm_formatter import Formatter
-from .asm_parser import read_sources
+from .asm.directives import DataDirective, OriginDirective
+from .asm.formatter import Formatter
+from .asm.parser import read_sources
 from .binfmt import (
     BinaryFormat,
     EntryPoint,

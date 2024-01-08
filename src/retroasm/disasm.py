@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import cast
 
-from .asm_directives import DataDirective
-from .asm_formatter import Formatter
+from .asm.directives import DataDirective
+from .asm.formatter import Formatter
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, ImageFetcher
 from .instrset import InstructionSet

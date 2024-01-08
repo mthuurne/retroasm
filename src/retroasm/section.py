@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from enum import Enum, auto
 
-from .asm_directives import StructuredData
+from .asm.directives import StructuredData
 from .types import Unlimited, Width, unlimited
 from .utils import search
 

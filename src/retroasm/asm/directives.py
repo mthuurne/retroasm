@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
-from .types import Width
+from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
+from ..types import Width
 
 
 class DataDirective:

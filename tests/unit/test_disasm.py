@@ -4,8 +4,8 @@ from typing import Iterator, cast
 
 from pytest import mark
 
-from retroasm.asm_directives import DataDirective
-from retroasm.asm_formatter import Formatter
+from retroasm.asm.directives import DataDirective
+from retroasm.asm.formatter import Formatter
 from retroasm.binfmt import Image
 from retroasm.disasm import disassemble
 from retroasm.fetch import ImageFetcher
