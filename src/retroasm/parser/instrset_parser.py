@@ -410,7 +410,7 @@ def _parse_func(
     try:
         with reader.check_errors():
             name_locations: dict[str, InputLocation] = {}
-            for i, (arg_type, arg_type_loc_, arg_name_loc) in enumerate(
+            for i, (arg_type, _arg_type_loc, arg_name_loc) in enumerate(
                 _parse_typed_args(reader, match.group(3), "function argument"), 1
             ):
                 arg_name = arg_name_loc.text

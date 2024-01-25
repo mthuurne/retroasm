@@ -115,7 +115,7 @@ def test_unused_load_nonremoval(namespace: TestNamespace) -> None:
     """Test whether unused loads are kept for possible side effects."""
     addr = IntLiteral(0xD0D0)
     ref_m = namespace.add_io_storage("mem", addr)
-    load_m_ = namespace.emit_load(ref_m)
+    _load_m = namespace.emit_load(ref_m)
 
     correct = (Load(ref_m.bits.storage),)
 
@@ -278,7 +278,7 @@ def test_unused_storage_removal(namespace: TestNamespace) -> None:
     """Test whether unused storages are removed."""
     ref_a = namespace.add_register("a")
     load_a = namespace.emit_load(ref_a)
-    ref_m_ = namespace.add_io_storage("mem", load_a)
+    _ref_m = namespace.add_io_storage("mem", load_a)
 
     correct = ()
 

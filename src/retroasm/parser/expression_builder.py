@@ -542,7 +542,7 @@ def build_statement_eval(
         case OperatorNode(operator=Operator.call):
             # Function call.
             try:
-                ref_ = _convert_function_call(node, namespace)
+                _ref = _convert_function_call(node, namespace)
             except BadExpression as ex:
                 reader.error("%s", ex, location=ex.locations)
             # Skip no-effect check: if a function does nothing, it likely either
