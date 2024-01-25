@@ -1,26 +1,28 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable, Iterator, Sequence
 from importlib.resources.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
 from typing import IO, NoReturn, cast
-import sys
 
 from click import (
     BadParameter,
     Context,
     Option,
-    ParamType,
     Parameter,
-    Path as PathArg,
+    ParamType,
     argument,
     command,
     get_current_context,
     group,
     option,
     version_option,
+)
+from click import (
+    Path as PathArg,
 )
 
 from .asm.directives import DataDirective, OriginDirective
@@ -82,7 +84,6 @@ def asm(instr: str, sources: tuple[str, ...]) -> None:
 
 
 def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
-
     flag_combos = sorted(sorted(flags) for flags in instr_set.decode_flag_combinations)
     for flags in flag_combos:
         print()
@@ -209,7 +210,6 @@ def disassemble_binary(
     out: IO[str],
     logger: Logger,
 ) -> None:
-
     image = binary.image
 
     # Merge user-defined sections with sections from binary format.
@@ -402,7 +402,6 @@ class EntryPointParamType(ParamType):
     def convert(
         self, value: str, param: Parameter | None, ctx: Context | None
     ) -> EntryPoint:
-
         label: str | None
         if "," in value:
             offset_str, label = value.split(",")
@@ -431,7 +430,6 @@ class SectionParamType(ParamType):
     def convert(
         self, value: str, param: Parameter | None, ctx: Context | None
     ) -> Section:
-
         instr_set_name: str | None = None
         byteorder = ByteOrder.undefined
         start = 0
@@ -483,7 +481,6 @@ def list_supported(
     param: Parameter | Option,  # pylint: disable=unused-argument
     value: bool,
 ) -> None:
-
     if not value or ctx.resilient_parsing:
         return
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
 from typing import cast
-import re
 
 from ..codeblock import BasicBlock
 from ..codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder

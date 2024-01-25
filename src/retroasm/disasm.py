@@ -115,8 +115,9 @@ def disassemble(
                 break
             unused_items.append(value)
         if unused_items:
-            yield fetcher.addr, DataDirective.literal(
-                instr_set.encoding_type.width, *unused_items
+            yield (
+                fetcher.addr,
+                DataDirective.literal(instr_set.encoding_type.width, *unused_items),
             )
         fetcher.update(unused)
 

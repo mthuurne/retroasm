@@ -231,7 +231,8 @@ def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> bool:
 
 
 def _custom_simplify_xor(
-    node: XorOperator, exprs: list[Expression]  # pylint: disable=unused-argument
+    node: XorOperator,  # pylint: disable=unused-argument
+    exprs: list[Expression],
 ) -> bool:
     changed = False
 
@@ -256,7 +257,8 @@ def _custom_simplify_xor(
 
 
 def _custom_simplify_add(
-    node: AddOperator, exprs: list[Expression]  # pylint: disable=unused-argument
+    node: AddOperator,  # pylint: disable=unused-argument
+    exprs: list[Expression],
 ) -> bool:
     changed = False
 
@@ -358,8 +360,10 @@ def _simplify_negation(negation: Negation) -> Expression:
             alt = simplify_expression(AndOperator(*(Negation(term) for term in terms)))
         case RShift(expr=subExpr, offset=offset):
             match subExpr:
-                case AndOperator(exprs=terms) | OrOperator(exprs=terms) | XorOperator(
-                    exprs=terms
+                case (
+                    AndOperator(exprs=terms)
+                    | OrOperator(exprs=terms)
+                    | XorOperator(exprs=terms)
                 ):
                     # Distribute RShift over bitwise operator.
                     alt = simplify_expression(

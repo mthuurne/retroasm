@@ -37,7 +37,6 @@ def create_func(
     arg_name_locations: Mapping[str, InputLocation],
     global_namespace: GlobalNamespace,
 ) -> Function:
-
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(global_namespace, builder)
     for arg_name, arg_decl in args.items():

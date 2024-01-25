@@ -12,7 +12,6 @@ from .directives import DataDirective, OriginDirective, StringDirective
 
 
 class Formatter:
-
     margin = 20
     operation_width = 8
 

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib.resources.abc import Traversable
-from logging import DEBUG, ERROR, INFO, WARNING, Formatter, LogRecord, Logger
+from logging import DEBUG, ERROR, INFO, WARNING, Formatter, Logger, LogRecord
 from re import Match, Pattern
 from typing import IO, Any, TypeVar, overload
-import re
 
 
 @dataclass(frozen=True, slots=True)

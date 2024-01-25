@@ -152,7 +152,6 @@ class BinaryFormat:
 
 
 class GameBoyROM(BinaryFormat):
-
     name = "gbrom"
     description = "Game Boy ROM image"
     extensions = ("gb", "gbc")
@@ -259,7 +258,6 @@ class MSXROMHeader(StructuredData):
 
 
 class MSXROM(BinaryFormat):
-
     name = "msxrom"
     description = "MSX ROM image"
     extensions = ("rom",)
@@ -440,7 +438,6 @@ class PSXEXEHeader:
 
 
 class PSXExecutable(BinaryFormat):
-
     name = "psxexe"
     description = "PlayStation executable"
     extensions = ("exe",)
@@ -483,7 +480,6 @@ class PSXExecutable(BinaryFormat):
 
 
 class RawBinary(BinaryFormat):
-
     name = "raw"
     description = "raw binary image"
     extensions = ("raw", "bin")

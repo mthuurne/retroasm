@@ -74,7 +74,6 @@ def _arg_fetch_fail(name: str) -> NoReturn:
 
 
 class TestNamespace(LocalNamespace):
-
     parent: BuilderNamespace
 
     def __init__(self, parent: BuilderNamespace | None = None):

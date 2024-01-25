@@ -1,14 +1,3 @@
-[tool.black]
-line-length = 88
-target-version = ['py311']
-
-[tool.isort]
-profile = "black"
-line_length = 88
-case_sensitive = true
-combine_as_imports = true
-from_first = true
-
 [tool.poetry]
 name = "retroasm"
 version = "0.1.0"
