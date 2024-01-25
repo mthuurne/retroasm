@@ -87,7 +87,6 @@ def test_and_idempotence() -> None:
 def test_and_or() -> None:
     """Simplifies expressions containing AND and OR."""
     a = TestValue("A", IntType.u(8))
-    b = TestValue("B", IntType.u(8))
     # Test literal merging.
     expr1 = OrOperator(a, IntLiteral(0x5500))
     expr2 = AndOperator(expr1, IntLiteral(0xAAFF))
