@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypeAlias, cast
 
 from .expression import (
     AddOperator,
@@ -63,6 +63,7 @@ class BitString:
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> BitString:
         """
         Applies the given substitution functions to each applicable
@@ -98,7 +99,7 @@ class BitString:
         """
         raise NotImplementedError
 
-    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
+    def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         """
         Decomposes the given bit string into its leaf nodes.
         Yields a series of pairs of base string and segment in the base string.
@@ -167,6 +168,7 @@ class FixedValue(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> FixedValue:
         if expression_func is None:
             return self
@@ -224,6 +226,7 @@ class SingleStorage(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> BitString:
         storage = self._storage
         if storage_func is not None:
@@ -258,6 +261,61 @@ class SingleStorage(BitString):
         builder.emit_store_bits(self._storage, value, location)
 
     def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
+        yield self, Segment(0, self.width)
+
+
+class Variable(BitString):
+    """A local variable."""
+
+    __slots__ = ("_name",)
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def __init__(self, name: str, width: Width):
+        self._name = name
+        super().__init__(width)
+
+    def __repr__(self) -> str:
+        return f"Variable({self._name}, {self._width})"
+
+    def __str__(self) -> str:
+        return f"var{self._width} {self._name}"
+
+    def iter_expressions(self) -> Iterator[Expression]:
+        return iter(())
+
+    def iter_storages(self) -> Iterator[Storage]:
+        return iter(())
+
+    def substitute(
+        self,
+        *,
+        storage_func: Callable[[Storage], BitString | None] | None = None,
+        expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
+    ) -> BitString:
+        if variable_func is not None:
+            new_bits = variable_func(self)
+            if new_bits is not None:
+                return new_bits
+        return self
+
+    def emit_load(
+        self, builder: CodeBlockBuilder, location: InputLocation | None
+    ) -> Expression:
+        return builder.read_variable(self._name, location)
+
+    def emit_store(
+        self,
+        builder: CodeBlockBuilder,
+        value: Expression,
+        location: InputLocation | None,
+    ) -> None:
+        return builder.write_variable(self._name, value, location)
+
+    def decompose(self) -> Iterator[tuple[Variable, Segment]]:
         yield self, Segment(0, self.width)
 
 
@@ -303,12 +361,15 @@ class ConcatenatedBits(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> ConcatenatedBits:
         changed = False
         subs = []
         for sub in self._subs:
             new_bits = sub.substitute(
-                storage_func=storage_func, expression_func=expression_func
+                storage_func=storage_func,
+                expression_func=expression_func,
+                variable_func=variable_func,
             )
             subs.append(new_bits)
             changed |= new_bits is not sub
@@ -338,7 +399,7 @@ class ConcatenatedBits(BitString):
             sub.emit_store(builder, value_slice, location)
             offset += width
 
-    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
+    def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         for sub in self._subs:
             yield from sub.decompose()
 
@@ -400,10 +461,13 @@ class SlicedBits(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
+        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> SlicedBits:
         bits = self._bits
         new_bits = bits.substitute(
-            storage_func=storage_func, expression_func=expression_func
+            storage_func=storage_func,
+            expression_func=expression_func,
+            variable_func=variable_func,
         )
         if new_bits is bits:
             return self
@@ -440,7 +504,7 @@ class SlicedBits(BitString):
 
         bits.emit_store(builder, simplify_expression(combined), location)
 
-    def decompose(self) -> Iterator[tuple[FixedValue | SingleStorage, Segment]]:
+    def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         # Note that the offset was already simplified.
         offset = self.offset
         if not isinstance(offset, IntLiteral):
@@ -458,6 +522,10 @@ class SlicedBits(BitString):
                 # Width can only be unlimited on last component.
                 break
             slice_seg >>= width
+
+
+AtomicBitString: TypeAlias = FixedValue | SingleStorage | Variable
+"""An atomic bit string is one that decomposes into itself."""
 
 
 def decode_int(encoded: Expression, typ: IntType) -> Expression:

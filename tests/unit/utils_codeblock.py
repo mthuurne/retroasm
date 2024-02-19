@@ -64,8 +64,8 @@ def get_ret_val(code: BasicBlock) -> tuple[Expression, Width]:
 
 def assert_ret_val(code: BasicBlock, value: int) -> None:
     expr, width = get_ret_val(code)
-    assert isinstance(expr, IntLiteral)
-    assert expr.value & mask_for_width(width) == value
+    assert isinstance(expr, IntLiteral), expr
+    assert expr.value & mask_for_width(width) == value, (expr.value, width)
 
 
 def _arg_fetch_fail(name: str) -> NoReturn:

@@ -5,8 +5,7 @@ from collections import defaultdict
 from .codeblock import BasicBlock, Load, LoadedValue, Store
 from .expression import Expression
 from .expression_simplifier import simplify_expression
-from .reference import FixedValue
-from .storage import Storage, Variable
+from .storage import Storage
 
 
 class BasicBlockSimplifier(BasicBlock):
@@ -97,20 +96,10 @@ class BasicBlockSimplifier(BasicBlock):
                                 del current_values[storage2]
             i += 1
 
-        # Fixate variables and apply load replacements in returned bit strings.
+        # Apply load replacements in returned bit strings.
         returned = self.returned
         for i, ret_bits in enumerate(returned):
-
-            def fixate_variables(storage: Storage) -> FixedValue | None:
-                match storage:
-                    case Variable(width=width) as storage:
-                        return FixedValue(current_values[storage], width)
-                    case _:
-                        return None
-
-            new_bits = ret_bits.substitute(
-                storage_func=fixate_variables, expression_func=replace_loaded_values
-            )
+            new_bits = ret_bits.substitute(expression_func=replace_loaded_values)
             if new_bits is not ret_bits:
                 returned[i] = new_bits
 
@@ -133,12 +122,9 @@ class BasicBlockSimplifier(BasicBlock):
             if not storage.can_store_have_side_effect():
                 match node:
                     case Load():
-                        assert not isinstance(storage, Variable), storage
                         will_be_overwritten.discard(storage)
                     case Store():
-                        if storage in will_be_overwritten or isinstance(
-                            storage, Variable
-                        ):
+                        if storage in will_be_overwritten:
                             del nodes[i]
                         will_be_overwritten.add(storage)
 

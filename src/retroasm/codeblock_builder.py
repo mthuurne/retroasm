@@ -7,11 +7,15 @@ from .codeblock_simplifier import BasicBlockSimplifier
 from .expression import Expression
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
-from .reference import BitString, SingleStorage, bad_reference
-from .storage import ArgStorage, Storage, Variable
+from .reference import BitString, FixedValue, SingleStorage, Variable, bad_reference
+from .storage import ArgStorage, Storage
 
 
 class CodeBlockBuilder:
+    def __init__(self) -> None:
+        super().__init__()
+        self._variables: dict[str, Expression] = {}
+
     def dump(self) -> None:
         """Prints the current state of this code block builder on stdout."""
 
@@ -33,6 +37,22 @@ class CodeBlockBuilder:
         emitting a Store node on this builder.
         """
         raise NotImplementedError
+
+    def read_variable(self, name: str, location: InputLocation | None) -> Expression:
+        try:
+            return self._variables[name]
+        except KeyError:
+            raise BadInput(
+                f'variable "{name}" is used before it is initialized', location
+            ) from None
+
+    def write_variable(
+        self,
+        name: str,
+        value: Expression,
+        location: InputLocation | None,  # pylint: disable=unused-argument
+    ) -> None:
+        self._variables[name] = value
 
     def inline_function_call(
         self,
@@ -94,6 +114,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def __init__(self) -> None:
+        super().__init__()
         self.nodes: list[AccessNode] = []
 
     def dump(self) -> None:
@@ -116,44 +137,33 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
         """
+
+        uninitialized_variables = set()
+
+        def fixate_variable(var: Variable) -> FixedValue:
+            try:
+                value = self.read_variable(var.name, location)
+            except BadInput as ex:
+                if log:
+                    log.error("%s", ex, location=ex.locations)
+                uninitialized_variables.add(var.name)
+            return FixedValue(value, var.width)
+
+        # Fixate returned variables.
+        returned = [bits.substitute(variable_func=fixate_variable) for bits in returned]
+
         code = BasicBlockSimplifier(self.nodes, returned)
-
-        # Check for reading of uninitialized variables.
-        ununitialized_loads = []
-        initialized_variables: set[Variable] = set()
-        for node in code.nodes:
-            match node:
-                case Load(storage=Variable() as var):
-                    if var not in initialized_variables:
-                        ununitialized_loads.append(node)
-                case Store(storage=Variable() as var):
-                    initialized_variables.add(var)
-        if ununitialized_loads:
-            if log is not None:
-                for load in ununitialized_loads:
-                    log.error(
-                        "variable is read before it is initialized",
-                        location=load.location or location,
-                    )
-            raise ValueError(
-                f"code block reads {len(ununitialized_loads):d} "
-                f"uninitialized variable(s)"
-            )
-
-        # Check for returning of uninitialized variables.
-        for ret_bits in returned:
-            for storage in ret_bits.iter_storages():
-                match storage:
-                    case Variable() as var:
-                        if var not in initialized_variables:
-                            msg = "code block returns uninitialized variable(s)"
-                            if log is not None:
-                                log.error(msg, location=location)
-                            raise ValueError(msg)
 
         # Finalize code block.
         code.simplify()
         code.freeze()
+
+        if uninitialized_variables:
+            raise ValueError(
+                f"{len(uninitialized_variables)} variables were read before they "
+                f"were initialized: {', '.join(uninitialized_variables)}"
+            )
+
         return code
 
     def emit_load_bits(

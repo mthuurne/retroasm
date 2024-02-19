@@ -17,7 +17,13 @@ from .mode import (
     ModeEntry,
 )
 from .parser.linereader import BadInput
-from .reference import FixedValue, FixedValueReference, SingleStorage, int_reference
+from .reference import (
+    FixedValue,
+    FixedValueReference,
+    SingleStorage,
+    Variable,
+    int_reference,
+)
 from .storage import ArgStorage
 from .types import IntType, Segment, mask_for_width, mask_to_segments
 from .utils import Singleton, bad_type
@@ -99,6 +105,8 @@ def decompose_encoding(
                         fixed_value |= base_seg.cut(value) << start
                     case FixedValue():
                         raise ValueError("unsupported operation in encoding")
+                    case Variable():
+                        raise ValueError("local variable cannot be used in encoding")
                     case base:
                         bad_type(base)
                 # Note: It is possible for the width to be unlimited, but only

@@ -8,8 +8,14 @@ from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
-from .reference import BitString, Reference, SingleStorage
-from .storage import ArgStorage, IOChannel, IOStorage, Register, Storage, Variable
+from .reference import BitString, Reference, SingleStorage, Variable
+from .storage import (
+    ArgStorage,
+    IOChannel,
+    IOStorage,
+    Register,
+    Storage,
+)
 from .types import IntType
 
 NamespaceValue: TypeAlias = Reference | IOChannel | Function
@@ -191,8 +197,10 @@ class LocalNamespace(BuilderNamespace):
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        storage = Variable(name, typ.width)
-        return self._add_named_storage(name, storage, typ, location)
+        bits = Variable(name, typ.width)
+        ref = Reference(bits, typ)
+        self.define(name, ref, location)
+        return ref
 
     def create_code_block(
         self,

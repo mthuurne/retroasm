@@ -221,17 +221,6 @@ class Register(_SimpleStorage):
         return self is other or isinstance(other, ArgStorage)
 
 
-class Variable(_SimpleStorage):
-    """
-    A local variable in a semantics definition.
-    """
-
-    __slots__ = ()
-
-    def __str__(self) -> str:
-        return f"var{self._width} {self._name}"
-
-
 class ArgStorage(Storage):
     """
     A placeholder storage location for a storage passed to a function.
@@ -268,10 +257,7 @@ class ArgStorage(Storage):
         return False
 
     def might_be_same(self, other: Storage) -> bool:
-        # We don't have nested function scopes, so a variable that is known
-        # in our scope can only be referenced via arguments if it is defined
-        # in the global scope.
-        return not isinstance(other, Variable)
+        return True
 
 
 class IOStorage(Storage):
