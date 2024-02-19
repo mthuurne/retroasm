@@ -39,7 +39,7 @@ from ..namespace import (
     Namespace,
 )
 from ..reference import Reference, bad_reference, int_reference
-from ..storage import ArgStorage, IOChannel, IOStorage, Variable
+from ..storage import ArgStorage, IOChannel, IOStorage, Register
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
 from .context_parser import MatchPlaceholderSpec, PlaceholderSpec, ValuePlaceholderSpec
@@ -626,7 +626,7 @@ def _parse_encoding_expr(
     (enc_bits,) = code.returned
     for storage in enc_bits.iter_storages():
         match storage:
-            case Variable():
+            case Register():
                 raise BadInput(
                     "encoding expression references register", enc_node.tree_location
                 )
