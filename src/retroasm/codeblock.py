@@ -138,12 +138,14 @@ class LoadedValue(Expression):
 
 def verify_loads(
     nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()
-) -> None:
+) -> bool:
     """
     Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
+    Returns True on success, never returns False.
     """
+
     # Check that every LoadedValue has an associated Load node, which must
     # execute before the LoadedValue is used.
     loads: set[Load] = set()
@@ -160,12 +162,15 @@ def verify_loads(
         match node:
             case Load() as load:
                 loads.add(load)
+
     # Check I/O indices in the returned bit string.
     for ret_bits in returned:
         for storage in ret_bits.iter_storages():
             for expr in storage.iter_expressions():
                 for value in expr.iter_instances(LoadedValue):
                     assert value.load in loads, value
+
+    return True
 
 
 class BasicBlock:
@@ -184,16 +189,7 @@ class BasicBlock:
         self.nodes = cloned_nodes
         self.returned = list(returned)
         self._update_expressions(value_mapping.get)
-        assert self.verify()
-
-    def verify(self) -> bool:
-        """
-        Performs consistency checks on this basic block.
-        Raises AssertionError if an inconsistency is found.
-        Returns True on success, never returns False.
-        """
-        verify_loads(self.nodes, self.returned)
-        return True
+        assert verify_loads(self.nodes, self.returned)
 
     def dump(self) -> None:
         """Prints this basic block on stdout."""

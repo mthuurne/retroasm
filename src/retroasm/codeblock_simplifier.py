@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .codeblock import BasicBlock, Load, LoadedValue, Store
+from .codeblock import BasicBlock, Load, LoadedValue, Store, verify_loads
 from .expression import Expression
 from .expression_simplifier import simplify_expression
 from .storage import Storage
@@ -32,7 +32,7 @@ class BasicBlockSimplifier(BasicBlock):
         # Removal of unused loads will not enable any other simplifications.
         self.remove_unused_loads()
 
-        assert self.verify()
+        assert verify_loads(self.nodes, self.returned)
 
     def remove_redundant_nodes(self) -> None:
         nodes = self.nodes
