@@ -218,7 +218,7 @@ class BasicBlock:
             expressions.update(ret_bits.iter_expressions())
         return expressions
 
-    @property
+    @const_property
     def storages(self) -> Set[Storage]:
         """A set of all storages that are accessed or referenced by this block."""
         storages = set()
