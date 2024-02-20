@@ -202,7 +202,13 @@ class BasicBlock:
         for ret_bits in self.returned:
             print(f"    return {ret_bits}")
 
-    def _gather_expressions(self) -> set[Expression]:
+    @const_property
+    def expressions(self) -> Set[Expression]:
+        """
+        A set of all expressions that are contained in this block.
+        Only top-level expressions are included, not all subexpressions of
+        those top-level expressions.
+        """
         expressions = set()
         for node in self.nodes:
             if isinstance(node, Store):
@@ -212,16 +218,9 @@ class BasicBlock:
             expressions.update(ret_bits.iter_expressions())
         return expressions
 
-    @const_property
-    def expressions(self) -> Set[Expression]:
-        """
-        A set of all expressions that are contained in this block.
-        Only top-level expressions are included, not all subexpressions of
-        those top-level expressions.
-        """
-        return self._gather_expressions()
-
-    def _gather_storages(self) -> set[Storage]:
+    @property
+    def storages(self) -> Set[Storage]:
+        """A set of all storages that are accessed or referenced by this block."""
         storages = set()
         for node in self.nodes:
             storages.add(node.storage)
@@ -229,12 +228,12 @@ class BasicBlock:
             storages.update(ret_bits.iter_storages())
         return storages
 
-    @property
-    def storages(self) -> Set[Storage]:
-        """A set of all storages that are accessed or referenced by this block."""
-        return self._gather_storages()
-
-    def _gather_arguments(self) -> Mapping[str, ArgStorage]:
+    @const_property
+    def arguments(self) -> Mapping[str, ArgStorage]:
+        """
+        A mapping containing all arguments that occur in this basic block.
+        ValueError is raised if the same name is used for multiple arguments.
+        """
         args: dict[str, ArgStorage] = {}
         for storage in self.storages:
             match storage:
@@ -242,14 +241,6 @@ class BasicBlock:
                     if args.setdefault(name, arg) is not arg:
                         raise ValueError(f'multiple arguments named "{name}"')
         return args
-
-    @const_property
-    def arguments(self) -> Mapping[str, ArgStorage]:
-        """
-        A mapping containing all arguments that occur in this basic block.
-        ValueError is raised if the same name is used for multiple arguments.
-        """
-        return self._gather_arguments()
 
     def _update_expressions(
         self, subst_func: Callable[[Expression], Expression | None]
