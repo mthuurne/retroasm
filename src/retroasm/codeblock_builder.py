@@ -64,7 +64,9 @@ class CodeBlockBuilder:
         Inlines a call to the given function with the given arguments.
         All arguments should be passed as references: value arguments should
         have their expression wrapped in a FixedValue.
-        Returns a BitString containing the value returned by the inlined
+        If an argument value is None, that argument won't be substituted and
+        can appear in the inlined body and in the returned reference.
+        Returns a BitString containing the reference returned by the inlined
         function, or None if the function does not return anything.
         """
         raise NotImplementedError
