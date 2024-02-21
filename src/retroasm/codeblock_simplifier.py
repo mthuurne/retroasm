@@ -62,6 +62,10 @@ def _remove_redundant_nodes(nodes: list[AccessNode], returned: list[BitString]) 
 
         value = current_values.get(storage)
         match node:
+            # TODO: Loads and stores with side effects should probably erase
+            #       all traced values for IOStorages, because side effects could
+            #       change the results of future loads at different addresses or
+            #       even channels. For example, a bank switch in a memory mapper.
             case Load(expr=expr):
                 if value is not None:
                     # Use known value instead of loading it.

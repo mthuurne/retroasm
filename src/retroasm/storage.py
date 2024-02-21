@@ -300,6 +300,8 @@ class IOStorage(Storage):
 
     def might_be_same(self, other: Storage) -> bool:
         if isinstance(other, IOStorage):
+            # TODO: This is an oversimplification: some MSX devices have their
+            #       registers both I/O-mapped and memory-mapped.
             # pylint: disable=protected-access
             return self._channel == other._channel and self._channel.might_be_same(
                 self._index, other._index
