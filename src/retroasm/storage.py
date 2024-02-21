@@ -24,14 +24,6 @@ class IOChannel:
     def addr_type(self) -> IntType:
         return self._addr_type
 
-    @staticmethod
-    def check_instance(channel: IOChannel) -> IOChannel:
-        if not isinstance(channel, IOChannel):
-            raise TypeError(
-                f"expected IOChannel subclass, got {type(channel).__name__}"
-            )
-        return channel
-
     def __init__(self, name: str, elem_type: IntType, addr_type: IntType):
         self._name = name
         self._elem_type = elem_type
@@ -274,7 +266,7 @@ class IOStorage(Storage):
         return self._index
 
     def __init__(self, channel: IOChannel, index: Expression):
-        self._channel = IOChannel.check_instance(channel)
+        self._channel = channel
         self._index = index
         Storage.__init__(self, channel.elem_type.width)
 
