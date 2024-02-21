@@ -188,7 +188,7 @@ class BasicBlock:
                 value_mapping[node.expr] = clone.expr
         self.nodes = cloned_nodes
         self.returned = list(returned)
-        self._update_expressions(value_mapping.get)
+        update_expressions_in_block(self.nodes, self.returned, value_mapping.get)
         assert verify_loads(self.nodes, self.returned)
 
     def dump(self) -> None:
@@ -238,32 +238,34 @@ class BasicBlock:
                         raise ValueError(f'multiple arguments named "{name}"')
         return args
 
-    def _update_expressions(
-        self, subst_func: Callable[[Expression], Expression | None]
-    ) -> None:
-        """
-        Calls the given substitution function with each expression in this
-        basic block. If the substitution function returns an expression, that
-        expression replaces the original expression. If the substitution
-        function returns None, the original expression is kept.
-        """
-        for node in self.nodes:
-            # Update indices for I/O storages.
-            storage = node.storage
-            new_storage = storage.substitute_expressions(subst_func)
-            if new_storage is not storage:
-                node.storage = new_storage
 
-            # Update node with new expression.
-            match node:
-                case Store(expr=expr) as store:
-                    new_expr = expr.substitute(subst_func)
-                    if new_expr is not expr:
-                        store.expr = new_expr
+def update_expressions_in_block(
+    nodes: list[AccessNode],
+    returned: list[BitString],
+    subst_func: Callable[[Expression], Expression | None],
+) -> None:
+    """
+    Calls the given substitution function with each expression in the given
+    code block. If the substitution function returns an expression, that
+    expression replaces the original expression. If the substitution
+    function returns None, the original expression is kept.
+    """
+    for node in nodes:
+        # Update indices for I/O storages.
+        storage = node.storage
+        new_storage = storage.substitute_expressions(subst_func)
+        if new_storage is not storage:
+            node.storage = new_storage
 
-        # Update returned bit string.
-        returned = self.returned
-        for i, ret_bits in enumerate(returned):
-            new_bits = ret_bits.substitute(expression_func=subst_func)
-            if new_bits is not ret_bits:
-                returned[i] = new_bits
+        # Update node with new expression.
+        match node:
+            case Store(expr=expr) as store:
+                new_expr = expr.substitute(subst_func)
+                if new_expr is not expr:
+                    store.expr = new_expr
+
+    # Update returned bit string.
+    for i, ret_bits in enumerate(returned):
+        new_bits = ret_bits.substitute(expression_func=subst_func)
+        if new_bits is not ret_bits:
+            returned[i] = new_bits

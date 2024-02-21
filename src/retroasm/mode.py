@@ -7,7 +7,7 @@ from typing import Any, TypeAlias, Union, overload
 
 from .codeblock import BasicBlock
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .codeblock_simplifier import BasicBlockSimplifier
+from .codeblock_simplifier import simplify_block
 from .expression import Expression
 from .expression_simplifier import simplify_expression
 from .parser.linereader import InputLocation
@@ -922,9 +922,8 @@ class ComputedPlaceholder(ValuePlaceholder):
         fetching works.
         """
         returned = builder.inline_block(self.code, arg_fetcher)
-        compute_code = BasicBlockSimplifier(builder.nodes, returned)
-        compute_code.simplify()
-        (val_bits,) = compute_code.returned
+        simplify_block(builder.nodes, returned)
+        (val_bits,) = returned
         assert isinstance(val_bits, FixedValue), val_bits
         val_type = self.type
         val_expr = decode_int(val_bits.expr, val_type)

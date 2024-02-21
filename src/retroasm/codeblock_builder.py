@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from .codeblock import AccessNode, BasicBlock, Load, Store
-from .codeblock_simplifier import BasicBlockSimplifier
+from .codeblock_simplifier import simplify_block
 from .expression import Expression
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
@@ -152,19 +152,16 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         # Fixate returned variables.
         returned = [bits.substitute(variable_func=fixate_variable) for bits in returned]
 
-        code = BasicBlockSimplifier(self.nodes, returned)
-
-        # Finalize code block.
-        code.simplify()
-        code.freeze()
-
         if uninitialized_variables:
             raise ValueError(
                 f"{len(uninitialized_variables)} variables were read before they "
                 f"were initialized: {', '.join(uninitialized_variables)}"
             )
 
-        return code
+        nodes = self.nodes
+        simplify_block(nodes, returned)
+
+        return BasicBlock(nodes, returned)
 
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
