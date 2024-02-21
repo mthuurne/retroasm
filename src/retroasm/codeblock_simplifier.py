@@ -24,11 +24,12 @@ def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     # it changes them.
     update_expressions_in_block(nodes, returned, simplify_expression)
 
-    # This mainly collapses incremental updates to variables.
+    # This mainly collapses incremental updates to registers.
     _remove_redundant_nodes(nodes, returned)
 
-    # Removal of unused stores might make some loads unused.
-    _remove_unused_stores(nodes)
+    # With known-value loads removed, some prior stores to the same storages
+    # may have become redundant as well.
+    _remove_overwritten_stores(nodes)
 
     # Removal of unused loads will not enable any other simplifications.
     _remove_unused_loads(nodes, returned)
@@ -103,17 +104,9 @@ def _remove_redundant_nodes(nodes: list[AccessNode], returned: list[BitString]) 
             returned[i] = new_bits
 
 
-def _remove_unused_stores(nodes: list[AccessNode]) -> None:
-    """
-    Remove side-effect-free stores that will be overwritten or that
-    write a variable that will go out of scope.
-    """
+def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:
+    """Remove side-effect-free stores that will be overwritten."""
 
-    # Remove stores for which the value is overwritten before it is loaded.
-    # Local variable loads were already eliminated by remove_redundant_nodes()
-    # and since variables cease to exist at the end of a block, all local
-    # variable stores are at this point considered redundant, unless the
-    # variable is part of the returned bit string.
     will_be_overwritten = set()
     for i in range(len(nodes) - 1, -1, -1):
         node = nodes[i]
@@ -125,7 +118,8 @@ def _remove_unused_stores(nodes: list[AccessNode]) -> None:
                 case Store():
                     if storage in will_be_overwritten:
                         del nodes[i]
-                    will_be_overwritten.add(storage)
+                    else:
+                        will_be_overwritten.add(storage)
 
 
 def _remove_unused_loads(nodes: list[AccessNode], returned: list[BitString]) -> None:
