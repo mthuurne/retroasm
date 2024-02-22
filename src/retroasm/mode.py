@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from typing import Any, TypeAlias, Union, overload
 
-from .codeblock import BasicBlock
+from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import simplify_block
 from .expression import Expression
@@ -465,7 +465,7 @@ class CodeTemplate:
 
     def __init__(
         self,
-        code: BasicBlock,
+        code: FunctionBody,
         placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
     ):
         self.code = code
@@ -900,7 +900,7 @@ class ValuePlaceholder:
 class ComputedPlaceholder(ValuePlaceholder):
     """An element from a mode context that represents a computed numeric value."""
 
-    code: BasicBlock
+    code: FunctionBody
 
     def __str__(self) -> str:
         return f"{{{self.type} {self.name} = ...}}"

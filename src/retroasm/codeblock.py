@@ -178,7 +178,7 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
+    def __init__(self, nodes: Iterable[AccessNode]):
         cloned_nodes = []
         value_mapping: dict[Expression, Expression] = {}
         for node in nodes:
@@ -186,17 +186,22 @@ class BasicBlock:
             cloned_nodes.append(clone)
             if isinstance(node, Load):
                 value_mapping[node.expr] = clone.expr
+
+        # TODO: I don't think the value mapping should be here, but for now
+        #       it's the easiest way to pass it to FunctionBody.
+        self._value_mapping = value_mapping
+
+        update_expressions_in_nodes(cloned_nodes, value_mapping.get)
+        assert verify_loads(cloned_nodes)
         self.nodes = cloned_nodes
-        self.returned = list(returned)
-        update_expressions_in_block(self.nodes, self.returned, value_mapping.get)
-        assert verify_loads(self.nodes, self.returned)
+
+        # Reject multiple arguments with the same name.
+        self.arguments  # pylint: disable=pointless-statement
 
     def dump(self) -> None:
-        """Prints this basic block on stdout."""
+        """Print this basic block on stdout."""
         for node in self.nodes:
             node.dump()
-        for ret_bits in self.returned:
-            print(f"    return {ret_bits}")
 
     @const_property
     def expressions(self) -> Set[Expression]:
@@ -210,19 +215,12 @@ class BasicBlock:
             if isinstance(node, Store):
                 expressions.add(node.expr)
             expressions.update(node.storage.iter_expressions())
-        for ret_bits in self.returned:
-            expressions.update(ret_bits.iter_expressions())
         return expressions
 
     @const_property
     def storages(self) -> Set[Storage]:
-        """A set of all storages that are accessed or referenced by this block."""
-        storages = set()
-        for node in self.nodes:
-            storages.add(node.storage)
-        for ret_bits in self.returned:
-            storages.update(ret_bits.iter_storages())
-        return storages
+        """A set of all storages that are accessed by this block."""
+        return {node.storage for node in self.nodes}
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
@@ -239,16 +237,55 @@ class BasicBlock:
         return args
 
 
-def update_expressions_in_block(
+class FunctionBody(BasicBlock):
+    """
+    A code block with returned bit strings.
+    """
+
+    def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
+        super().__init__(nodes)
+        self.returned = list(returned)
+        update_expressions_in_bitstrings(self.returned, self._value_mapping.get)
+        assert verify_loads(self.nodes, self.returned)
+
+    def dump(self) -> None:
+        """Print this function body on stdout."""
+        super().dump()
+        for ret_bits in self.returned:
+            print(f"    return {ret_bits}")
+
+    @const_property
+    def expressions(self) -> Set[Expression]:
+        """
+        A set of all expressions that are contained in this function body.
+        Only top-level expressions are included, not all subexpressions of
+        those top-level expressions.
+        """
+        expressions = set(super().expressions)
+        for ret_bits in self.returned:
+            expressions.update(ret_bits.iter_expressions())
+        return expressions
+
+    @const_property
+    def storages(self) -> Set[Storage]:
+        """
+        A set of all storages that are accessed or referenced by this function body.
+        """
+        storages = set(super().storages)
+        for ret_bits in self.returned:
+            storages.update(ret_bits.iter_storages())
+        return storages
+
+
+def update_expressions_in_nodes(
     nodes: list[AccessNode],
-    returned: list[BitString],
     subst_func: Callable[[Expression], Expression | None],
 ) -> None:
     """
-    Calls the given substitution function with each expression in the given
-    code block. If the substitution function returns an expression, that
-    expression replaces the original expression. If the substitution
-    function returns None, the original expression is kept.
+    Calls the given substitution function with each expression in the given nodes.
+    If the substitution function returns an expression, that expression replaces
+    the original expression. If the substitution function returns None, the original
+    expression is kept.
     """
     for node in nodes:
         # Update indices for I/O storages.
@@ -264,7 +301,17 @@ def update_expressions_in_block(
                 if new_expr is not expr:
                     store.expr = new_expr
 
-    # Update returned bit string.
+
+def update_expressions_in_bitstrings(
+    returned: list[BitString],
+    subst_func: Callable[[Expression], Expression | None],
+) -> None:
+    """
+    Calls the given substitution function with each expression in the given bit strings.
+    If the substitution function returns an expression, that expression replaces
+    the original expression. If the substitution function returns None, the original
+    expression is kept.
+    """
     for i, ret_bits in enumerate(returned):
         new_bits = ret_bits.substitute(expression_func=subst_func)
         if new_bits is not ret_bits:

@@ -4,7 +4,7 @@ from typing import Iterator
 
 from pytest import fixture
 
-from retroasm.codeblock import AccessNode, BasicBlock, Load, Store
+from retroasm.codeblock import AccessNode, FunctionBody, Load, Store
 from retroasm.expression import (
     AddOperator,
     AndOperator,
@@ -40,7 +40,7 @@ def namespace() -> TestNamespace:
     return TestNamespace()
 
 
-def create_simplified_code(namespace: TestNamespace) -> BasicBlock:
+def create_simplified_code(namespace: TestNamespace) -> FunctionBody:
     if verbose:
         print("=" * 40)
         namespace.dump()
@@ -63,7 +63,7 @@ def test_no_change(namespace: TestNamespace) -> None:
     load_a = namespace.emit_load(ref_a)
     namespace.emit_store(ref_b, load_a)
 
-    def check_nodes(code: BasicBlock) -> None:
+    def check_nodes(code: FunctionBody) -> None:
         assert len(code.nodes) == 2
         load, store = code.nodes
         assert isinstance(load, Load)

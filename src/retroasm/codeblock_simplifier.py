@@ -7,7 +7,8 @@ from .codeblock import (
     Load,
     LoadedValue,
     Store,
-    update_expressions_in_block,
+    update_expressions_in_bitstrings,
+    update_expressions_in_nodes,
     verify_loads,
 )
 from .expression import Expression
@@ -20,9 +21,10 @@ def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     """Attempt to simplify the given code block as much as possible."""
 
     # Peform initial simplification of all expressions.
-    # This allows remove_redundant_nodes() to only simplify expressions when
+    # This allows _remove_redundant_nodes() to only simplify expressions when
     # it changes them.
-    update_expressions_in_block(nodes, returned, simplify_expression)
+    update_expressions_in_nodes(nodes, simplify_expression)
+    update_expressions_in_bitstrings(returned, simplify_expression)
 
     # This mainly collapses incremental updates to registers.
     _remove_redundant_nodes(nodes, returned)

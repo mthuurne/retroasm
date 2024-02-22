@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from .codeblock import BasicBlock
+from .codeblock import FunctionBody
 from .reference import BitString
 from .storage import Storage
 from .types import IntType, ReferenceType
@@ -13,7 +13,7 @@ class Function:
         self,
         ret_type: None | IntType | ReferenceType,
         args: Mapping[str, IntType | ReferenceType],
-        code: BasicBlock | None,
+        code: FunctionBody | None,
     ):
         if code is not None:
             _check_args(args, code.arguments)

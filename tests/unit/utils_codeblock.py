@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Iterable, Mapping, NoReturn, Sequence, cast
 
-from retroasm.codeblock import AccessNode, BasicBlock, Load, LoadedValue, Store
+from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder,
     StatelessCodeBlockBuilder,
@@ -56,13 +56,13 @@ def assert_nodes(
         assert actual.storage == correct.storage, msg
 
 
-def get_ret_val(code: BasicBlock) -> tuple[Expression, Width]:
+def get_ret_val(code: FunctionBody) -> tuple[Expression, Width]:
     (ret_bits,) = code.returned
     assert isinstance(ret_bits, FixedValue)
     return ret_bits.expr, ret_bits.width
 
 
-def assert_ret_val(code: BasicBlock, value: int) -> None:
+def assert_ret_val(code: FunctionBody, value: int) -> None:
     expr, width = get_ret_val(code)
     assert isinstance(expr, IntLiteral), expr
     assert expr.value & mask_for_width(width) == value, (expr.value, width)
@@ -173,7 +173,7 @@ class TestNamespace(LocalNamespace):
 
     def inline_block(
         self,
-        code: BasicBlock,
+        code: FunctionBody,
         arg_fetcher: Callable[[str], BitString | None] = _arg_fetch_fail,
     ) -> list[BitString]:
         return self.builder.inline_block(code, arg_fetcher)

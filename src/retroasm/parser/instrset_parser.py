@@ -7,7 +7,7 @@ from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
 from typing import cast
 
-from ..codeblock import BasicBlock
+from ..codeblock import FunctionBody
 from ..codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
 from ..decode import (
     EncodedSegment,
@@ -292,7 +292,7 @@ def _parse_prefix(
             reader.warning("prefix mnemonics are not supported yet", location=mnem_loc)
 
         # Parse semantics.
-        semantics: BasicBlock | None
+        semantics: FunctionBody | None
         try:
             with reader.check_errors():
                 if len(sem_loc) == 0:
@@ -1203,7 +1203,7 @@ def _parse_mode_entries(
                         # This is the last field.
                         continue
                     try:
-                        semantics: BasicBlock | None
+                        semantics: FunctionBody | None
                         semantics = sem_namespace.create_code_block(
                             ret_ref=sem_ref, log=reader
                         )

@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TypeAlias, cast
 
-from .codeblock import BasicBlock
+from .codeblock import FunctionBody
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
 from .mode import (
@@ -683,7 +683,7 @@ class DecoderFactory:
 @dataclass(frozen=True)
 class Prefix:
     encoding: Encoding
-    semantics: BasicBlock
+    semantics: FunctionBody
 
 
 class _PrefixDecoder:

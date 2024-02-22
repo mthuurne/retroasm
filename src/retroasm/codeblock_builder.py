@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
-from .codeblock import AccessNode, BasicBlock, Load, Store
+from .codeblock import AccessNode, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression
 from .function import Function
@@ -129,7 +129,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         returned: Iterable[BitString],
         log: LineReader | None = None,
         location: InputLocation | None = None,
-    ) -> BasicBlock:
+    ) -> FunctionBody:
         """
         Returns a CodeBlock object containing the items emitted so far.
         The state of the builder does not change.
@@ -163,7 +163,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         nodes = self.nodes
         simplify_block(nodes, returned)
 
-        return BasicBlock(nodes, returned)
+        return FunctionBody(nodes, returned)
 
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
@@ -205,7 +205,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def inline_block(
         self,
-        code: BasicBlock,
+        code: FunctionBody,
         arg_fetcher: Callable[[str], BitString | None] = lambda name: None,
     ) -> list[BitString]:
         """

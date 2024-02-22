@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from retroasm.codeblock import BasicBlock, Load, Store
+from retroasm.codeblock import FunctionBody, Load, Store
 from retroasm.expression import AddOperator, Expression, IntLiteral, XorOperator
 from retroasm.function import Function
 from retroasm.namespace import LocalNamespace
@@ -19,7 +19,7 @@ from retroasm.types import IntType
 from .utils_codeblock import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
 
 
-def create_simplified_code(namespace: LocalNamespace) -> BasicBlock:
+def create_simplified_code(namespace: LocalNamespace) -> FunctionBody:
     print(">>> Namespace:")
     namespace.dump()
     if "ret" in namespace:
