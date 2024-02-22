@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Set
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from typing import cast
 
 from .expression import Expression
@@ -237,22 +237,27 @@ class BasicBlock:
         return args
 
 
-class FunctionBody(BasicBlock):
+class FunctionBody:
     """
     A code block with returned bit strings.
     """
 
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
-        super().__init__(nodes)
+        self.block = BasicBlock(nodes)
         self.returned = list(returned)
-        update_expressions_in_bitstrings(self.returned, self._value_mapping.get)
+        value_mapping = self.block._value_mapping
+        update_expressions_in_bitstrings(self.returned, value_mapping.get)
         assert verify_loads(self.nodes, self.returned)
 
     def dump(self) -> None:
         """Print this function body on stdout."""
-        super().dump()
+        self.block.dump()
         for ret_bits in self.returned:
             print(f"    return {ret_bits}")
+
+    @property
+    def nodes(self) -> Sequence[AccessNode]:
+        return self.block.nodes
 
     @const_property
     def expressions(self) -> Set[Expression]:
@@ -261,7 +266,7 @@ class FunctionBody(BasicBlock):
         Only top-level expressions are included, not all subexpressions of
         those top-level expressions.
         """
-        expressions = set(super().expressions)
+        expressions = set(self.block.expressions)
         for ret_bits in self.returned:
             expressions.update(ret_bits.iter_expressions())
         return expressions
@@ -271,10 +276,14 @@ class FunctionBody(BasicBlock):
         """
         A set of all storages that are accessed or referenced by this function body.
         """
-        storages = set(super().storages)
+        storages = set(self.block.storages)
         for ret_bits in self.returned:
             storages.update(ret_bits.iter_storages())
         return storages
+
+    @property
+    def arguments(self) -> Mapping[str, ArgStorage]:
+        return self.block.arguments
 
 
 def update_expressions_in_nodes(
