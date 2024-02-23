@@ -178,7 +178,7 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("_nodes", "_expressions", "_storages", "_arguments", "_value_mapping")
+    __slots__ = ("_nodes", "_storages", "_arguments", "_value_mapping")
 
     def __init__(self, nodes: Iterable[AccessNode]):
         cloned_nodes = []
@@ -210,20 +210,6 @@ class BasicBlock:
         return self._nodes
 
     @const_property
-    def expressions(self) -> Set[Expression]:
-        """
-        A set of all expressions that are contained in this block.
-        Only top-level expressions are included, not all subexpressions of
-        those top-level expressions.
-        """
-        expressions = set()
-        for node in self._nodes:
-            if isinstance(node, Store):
-                expressions.add(node.expr)
-            expressions.update(node.storage.iter_expressions())
-        return expressions
-
-    @const_property
     def storages(self) -> Set[Storage]:
         """A set of all storages that are accessed by this block."""
         return {node.storage for node in self._nodes}
@@ -248,7 +234,7 @@ class FunctionBody:
     A code block with returned bit strings.
     """
 
-    __slots__ = ("_block", "_returned", "_expressions", "_storages")
+    __slots__ = ("_block", "_returned", "_storages")
 
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
         self._block = BasicBlock(nodes)
@@ -274,18 +260,6 @@ class FunctionBody:
     @property
     def returned(self) -> Sequence[BitString]:
         return self._returned
-
-    @const_property
-    def expressions(self) -> Set[Expression]:
-        """
-        A set of all expressions that are contained in this function body.
-        Only top-level expressions are included, not all subexpressions of
-        those top-level expressions.
-        """
-        expressions = set(self._block.expressions)
-        for ret_bits in self._returned:
-            expressions.update(ret_bits.iter_expressions())
-        return expressions
 
     @const_property
     def storages(self) -> Set[Storage]:
