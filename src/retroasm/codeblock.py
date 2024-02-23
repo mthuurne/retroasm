@@ -242,22 +242,32 @@ class FunctionBody:
     A code block with returned bit strings.
     """
 
+    __slots__ = ("_block", "_returned", "_expressions", "_storages")
+
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
-        self.block = BasicBlock(nodes)
-        self.returned = list(returned)
-        value_mapping = self.block._value_mapping
-        update_expressions_in_bitstrings(self.returned, value_mapping.get)
-        assert verify_loads(self.nodes, self.returned)
+        self._block = BasicBlock(nodes)
+        self._returned = list(returned)
+        value_mapping = self._block._value_mapping
+        update_expressions_in_bitstrings(self._returned, value_mapping.get)
+        assert verify_loads(self.nodes, self._returned)
 
     def dump(self) -> None:
         """Print this function body on stdout."""
-        self.block.dump()
-        for ret_bits in self.returned:
+        self._block.dump()
+        for ret_bits in self._returned:
             print(f"    return {ret_bits}")
 
     @property
+    def block(self) -> BasicBlock:
+        return self._block
+
+    @property
     def nodes(self) -> Sequence[AccessNode]:
-        return self.block.nodes
+        return self._block.nodes
+
+    @property
+    def returned(self) -> Sequence[BitString]:
+        return self._returned
 
     @const_property
     def expressions(self) -> Set[Expression]:
@@ -266,8 +276,8 @@ class FunctionBody:
         Only top-level expressions are included, not all subexpressions of
         those top-level expressions.
         """
-        expressions = set(self.block.expressions)
-        for ret_bits in self.returned:
+        expressions = set(self._block.expressions)
+        for ret_bits in self._returned:
             expressions.update(ret_bits.iter_expressions())
         return expressions
 
@@ -276,14 +286,14 @@ class FunctionBody:
         """
         A set of all storages that are accessed or referenced by this function body.
         """
-        storages = set(self.block.storages)
-        for ret_bits in self.returned:
+        storages = set(self._block.storages)
+        for ret_bits in self._returned:
             storages.update(ret_bits.iter_storages())
         return storages
 
     @property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        return self.block.arguments
+        return self._block.arguments
 
 
 def update_expressions_in_nodes(
