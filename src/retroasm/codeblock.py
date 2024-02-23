@@ -178,6 +178,8 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
+    __slots__ = ("_nodes", "_expressions", "_storages", "_arguments", "_value_mapping")
+
     def __init__(self, nodes: Iterable[AccessNode]):
         cloned_nodes = []
         value_mapping: dict[Expression, Expression] = {}
@@ -193,15 +195,19 @@ class BasicBlock:
 
         update_expressions_in_nodes(cloned_nodes, value_mapping.get)
         assert verify_loads(cloned_nodes)
-        self.nodes = cloned_nodes
+        self._nodes = cloned_nodes
 
         # Reject multiple arguments with the same name.
         self.arguments  # pylint: disable=pointless-statement
 
     def dump(self) -> None:
         """Print this basic block on stdout."""
-        for node in self.nodes:
+        for node in self._nodes:
             node.dump()
+
+    @property
+    def nodes(self) -> Sequence[AccessNode]:
+        return self._nodes
 
     @const_property
     def expressions(self) -> Set[Expression]:
@@ -211,7 +217,7 @@ class BasicBlock:
         those top-level expressions.
         """
         expressions = set()
-        for node in self.nodes:
+        for node in self._nodes:
             if isinstance(node, Store):
                 expressions.add(node.expr)
             expressions.update(node.storage.iter_expressions())
@@ -220,7 +226,7 @@ class BasicBlock:
     @const_property
     def storages(self) -> Set[Storage]:
         """A set of all storages that are accessed by this block."""
-        return {node.storage for node in self.nodes}
+        return {node.storage for node in self._nodes}
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
