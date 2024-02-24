@@ -104,7 +104,7 @@ class TestNamespace(LocalNamespace):
             ref = self[name]
         except KeyError:
             # Insert register into global namespace.
-            self.parent.add_variable(name, typ)
+            self.parent.add_register(name, typ)
             ref = self[name]
 
         # Check that existing global namespace entry is this register.

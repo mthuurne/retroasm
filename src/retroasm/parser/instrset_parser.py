@@ -117,7 +117,7 @@ def _parse_regs(
                             )
                         case typ:
                             try:
-                                global_namespace.add_variable(
+                                global_namespace.add_register(
                                     decl.name.name, typ, decl.name.location
                                 )
                             except NameExistsError as ex:
@@ -231,7 +231,7 @@ def _parse_prefix(
                         bad_type(typ)
                 arg_name = arg_name_loc.text
                 try:
-                    namespace.add_variable(arg_name, arg_type, arg_name_loc)
+                    namespace.add_register(arg_name, arg_type, arg_name_loc)
                 except ValueError as ex:
                     reader.error(str(ex))
                 except NameExistsError as ex:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
-from typing import TypeAlias
+from typing import NoReturn, TypeAlias
 
 from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -172,11 +172,16 @@ class GlobalNamespace(BuilderNamespace):
             _reject_pc(name, location)
         _reject_ret(name, location)
 
-    def add_variable(
+    def add_register(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         storage = Register(name, typ.width)
         return self._add_named_storage(name, storage, typ, location)
+
+    def add_variable(
+        self, name: str, typ: IntType, location: InputLocation | None = None
+    ) -> NoReturn:
+        raise BadInput("variables are not allowed in global context", location)
 
 
 class LocalNamespace(BuilderNamespace):
