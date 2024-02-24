@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
-from typing import cast
+from typing import NoReturn, cast
 
 from .expression import Expression
 from .parser.linereader import InputLocation
@@ -71,7 +71,7 @@ class Load(AccessNode):
         return cast(LoadedValue, self._expr)
 
     @expr.setter
-    def expr(self, expr: Expression) -> None:
+    def expr(self, expr: Expression) -> NoReturn:
         raise AttributeError("Cannot change expression for Load nodes")
 
     def clone(self) -> Load:
