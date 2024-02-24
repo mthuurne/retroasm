@@ -502,8 +502,12 @@ class CodeTemplate:
                 case placeholder:
                     bad_type(placeholder)
 
+        for name, arg in self.code.arguments.items():
+            if name not in values:
+                values[name] = SingleStorage(arg)
+
         builder = SemanticsCodeBlockBuilder()
-        returned = builder.inline_block(self.code, values.get)
+        returned = builder.inline_block(self.code, values.__getitem__)
         new_code = builder.create_code_block(returned)
 
         return CodeTemplate(new_code, unfilled)
@@ -911,7 +915,7 @@ class ComputedPlaceholder(ValuePlaceholder):
     def compute_value(
         self,
         builder: SemanticsCodeBlockBuilder,
-        arg_fetcher: Callable[[str], BitString | None],
+        arg_fetcher: Callable[[str], BitString],
     ) -> FixedValue:
         """
         Computes the value of this placeholder.

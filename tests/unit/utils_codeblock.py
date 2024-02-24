@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Callable, Iterable, Mapping, NoReturn, Sequence, cast
+from typing import Callable, Iterable, Mapping, Sequence, cast
 
 from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder,
     StatelessCodeBlockBuilder,
+    no_args_to_fetch,
 )
 from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
@@ -66,11 +67,6 @@ def assert_ret_val(code: FunctionBody, value: int) -> None:
     expr, width = get_ret_val(code)
     assert isinstance(expr, IntLiteral), expr
     assert expr.value & mask_for_width(width) == value, (expr.value, width)
-
-
-def _arg_fetch_fail(name: str) -> NoReturn:
-    """Argument fetcher that fails the test when called."""
-    assert False, name
 
 
 class TestNamespace(LocalNamespace):
@@ -174,14 +170,14 @@ class TestNamespace(LocalNamespace):
     def inline_block(
         self,
         code: FunctionBody,
-        arg_fetcher: Callable[[str], BitString | None] = _arg_fetch_fail,
+        arg_fetcher: Callable[[str], BitString] = no_args_to_fetch,
     ) -> list[BitString]:
         return self.builder.inline_block(code, arg_fetcher)
 
     def inline_function_call(
         self,
         func: Function,
-        arg_map: Mapping[str, BitString | None],
+        arg_map: Mapping[str, BitString],
         location: InputLocation | None = None,
     ) -> BitString | None:
         return self.builder.inline_function_call(func, arg_map, location)

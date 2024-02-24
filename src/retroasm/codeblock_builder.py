@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import NoReturn
 
 from .codeblock import AccessNode, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -9,6 +10,11 @@ from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, FixedValue, SingleStorage, Variable, bad_reference
 from .storage import ArgStorage, Storage
+
+
+def no_args_to_fetch(name: str) -> NoReturn:
+    """Argument fetcher that can be used when a function has no arguments."""
+    raise ValueError(f'No arguments provided, "{name}" requested')
 
 
 class CodeBlockBuilder:
@@ -57,7 +63,7 @@ class CodeBlockBuilder:
     def inline_function_call(
         self,
         func: Function,
-        arg_map: Mapping[str, BitString | None],
+        arg_map: Mapping[str, BitString],
         location: InputLocation | None = None,
     ) -> BitString | None:
         """
@@ -180,7 +186,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def inline_function_call(
         self,
         func: Function,
-        arg_map: Mapping[str, BitString | None],
+        arg_map: Mapping[str, BitString],
         location: InputLocation | None = None,
     ) -> BitString | None:
         code = func.code
@@ -206,7 +212,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def inline_block(
         self,
         code: FunctionBody,
-        arg_fetcher: Callable[[str], BitString | None] = lambda name: None,
+        arg_fetcher: Callable[[str], BitString] = no_args_to_fetch,
     ) -> list[BitString]:
         """
         Inlines another code block into this one.
@@ -215,6 +221,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         argument should remain an argument in the inlined block.
         Returns a list of BitStrings containing the values returned by the
         inlined block.
+        Raises ValueError if there is mismatch between arguments and the values
+        fetched for them.
         """
 
         load_results: dict[Expression, Expression] = {}
@@ -225,12 +233,16 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         def import_storage_uncached(storage: Storage) -> BitString:
             match storage:
                 case ArgStorage(name=name) as arg:
-                    bits = arg_fetcher(name)
-                    if bits is None:
-                        return SingleStorage(arg)
-                    else:
-                        assert arg.width == bits.width, (arg.width, bits.width)
-                        return bits
+                    try:
+                        bits = arg_fetcher(name)
+                    except Exception as ex:
+                        raise ValueError(f"Error fetching argument: {ex}") from ex
+                    if arg.width != bits.width:
+                        raise ValueError(
+                            f'Argument "{name}" is {arg.width} bits wide, '
+                            f"but the fetched value is {bits.width} bits wide"
+                        )
+                    return bits
                 case storage:
                     return SingleStorage(storage.substitute_expressions(import_expr))
 
