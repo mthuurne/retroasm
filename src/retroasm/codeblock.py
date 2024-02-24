@@ -198,7 +198,7 @@ class BasicBlock:
         self._nodes = cloned_nodes
 
         # Reject multiple arguments with the same name.
-        self.arguments  # pylint: disable=pointless-statement
+        self._arguments = _find_arguments(self.storages)
 
     def dump(self) -> None:
         """Print this basic block on stdout."""
@@ -214,19 +214,26 @@ class BasicBlock:
         """A set of all storages that are accessed by this block."""
         return {node.storage for node in self._nodes}
 
-    @const_property
+    @property
     def arguments(self) -> Mapping[str, ArgStorage]:
         """
         A mapping containing all arguments that occur in this basic block.
-        ValueError is raised if the same name is used for multiple arguments.
         """
-        args: dict[str, ArgStorage] = {}
-        for storage in self.storages:
-            match storage:
-                case ArgStorage(name=name) as arg:
-                    if args.setdefault(name, arg) is not arg:
-                        raise ValueError(f'multiple arguments named "{name}"')
-        return args
+        return self._arguments
+
+
+def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
+    """
+    A name to storage mapping containing all arguments among the given storages.
+    ValueError is raised if the same name is used for multiple arguments.
+    """
+    args: dict[str, ArgStorage] = {}
+    for storage in storages:
+        match storage:
+            case ArgStorage(name=name) as arg:
+                if args.setdefault(name, arg) is not arg:
+                    raise ValueError(f'multiple arguments named "{name}"')
+    return args
 
 
 class FunctionBody:
