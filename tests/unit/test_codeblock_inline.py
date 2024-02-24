@@ -47,7 +47,7 @@ def test_inline_easy() -> None:
 
     # Share the global namespace to make sure that the outer and inner block
     # are using the same registers.
-    outer = TestNamespace(inner)
+    outer = TestNamespace(inner.parent)
     outer_a = outer.add_register("a", IntType.u(16))
     zero = IntLiteral(0)
     outer.emit_store(outer_a, zero)
@@ -283,7 +283,7 @@ def test_inline_unsigned_reg() -> None:
     inner.emit_store(inner_ret, inner_load)
     inner_code = inner.create_code_block(inner_ret)
 
-    outer = TestNamespace(inner)
+    outer = TestNamespace(inner.parent)
     outer_a = outer.add_register("a")
     init_a = IntLiteral(0xB2)
     outer.emit_store(outer_a, init_a)
@@ -308,7 +308,7 @@ def test_inline_signed_reg() -> None:
     inner.emit_store(inner_ret, inner_load)
     inner_code = inner.create_code_block(inner_ret)
 
-    outer = TestNamespace(inner)
+    outer = TestNamespace(inner.parent)
     outer_a = outer.add_register("a", IntType.s(8))
     init_a = IntLiteral(0xB2)
     outer.emit_store(outer_a, init_a)
@@ -384,7 +384,7 @@ def test_return_simple_reference() -> None:
     inner_code = inner.create_code_block(inner_ret)
     assert len(inner_code.returned) == 1
 
-    outer = TestNamespace(inner)
+    outer = TestNamespace(inner.parent)
     (ret_bits,) = outer.inline_block(inner_code, args())
     outer_a = outer.add_register("a")
     fake = IntLiteral(0xDC)

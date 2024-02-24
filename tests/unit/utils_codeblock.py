@@ -11,7 +11,6 @@ from retroasm.codeblock_builder import (
 from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
 from retroasm.namespace import (
-    BuilderNamespace,
     GlobalNamespace,
     LocalNamespace,
     create_io_reference,
@@ -70,9 +69,9 @@ def assert_ret_val(code: FunctionBody, value: int) -> None:
 
 
 class TestNamespace(LocalNamespace):
-    parent: BuilderNamespace
+    parent: GlobalNamespace
 
-    def __init__(self, parent: BuilderNamespace | None = None):
+    def __init__(self, parent: GlobalNamespace | None = None):
         if parent is None:
             global_builder = StatelessCodeBlockBuilder()
             parent = GlobalNamespace(global_builder)
