@@ -9,12 +9,11 @@ from collections.abc import (
 )
 from functools import update_wrapper
 from types import MappingProxyType
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never, NoReturn
 from weakref import WeakValueDictionary
 
 
-# TODO: In Python 3.11, the argument type can become typing.Never.
-def bad_type(value: NoReturn) -> NoReturn:
+def bad_type(value: Never) -> NoReturn:
     """
     Report a type error.
 
