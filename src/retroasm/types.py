@@ -6,13 +6,9 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 from operator import itemgetter
-from typing import NoReturn, TypeAlias, cast
+from typing import Never, NoReturn, TypeAlias, cast
 
 from .utils import Unique
-
-
-class DoesNotExist:
-    """Used in type annotations when no type is allowed to match."""
 
 
 class Unlimited(Enum):
@@ -84,7 +80,7 @@ class Unlimited(Enum):
         else:
             return NotImplemented  # type: ignore[unreachable]
 
-    def __rsub__(self, other: DoesNotExist) -> NoReturn:
+    def __rsub__(self, other: Never) -> NoReturn:
         raise ArithmeticError('Cannot subtract "unlimited"')
 
 
