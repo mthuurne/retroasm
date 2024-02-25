@@ -1422,6 +1422,55 @@ def _parse_instr(
         yield instr
 
 
+def _finalize_instr_set(
+    logger: DefLineReader,
+    global_namespace: GlobalNamespace,
+    prefixes: PrefixMappingFactory,
+    mode_entries: dict[str | None, list[ParsedModeEntry]],
+) -> InstructionSet | None:
+    """Perform final consistency checks and create the instruction set."""
+
+    num_parse_errors = logger.problem_counter.num_errors
+
+    # Check that the program counter was defined.
+    try:
+        pc = global_namespace["pc"]
+    except KeyError:
+        logger.error(
+            'no program counter defined: a register or alias named "pc" is required'
+        )
+    else:
+        assert isinstance(pc, Reference), pc
+
+    instructions = mode_entries[None]
+    enc_width = _determine_encoding_width(instructions, False, None, logger)
+    any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
+    aux_enc_width = enc_width if any_aux else None
+
+    prefix_mapping = prefixes.create_mapping()
+
+    if num_parse_errors == 0:
+        if enc_width is None:
+            # Since the last instruction with an identical encoding overrides
+            # earlier ones, only degenerate instruction sets can have an empty
+            # encoding: either the instruction set is empty or it has a single
+            # instruction with no encoding.
+            logger.error("no instruction encodings defined")
+        else:
+            try:
+                return InstructionSet(
+                    enc_width,
+                    aux_enc_width,
+                    global_namespace,
+                    prefix_mapping,
+                    mode_entries,
+                )
+            except ValueError as ex:
+                logger.error("final validation of instruction set failed: %s", ex)
+
+    return None
+
+
 _re_header = re.compile(_name_tok + r"(?:\s+(.*\S)\s*)?$")
 
 
@@ -1476,44 +1525,9 @@ def parse_instr_set(
                 reader.error('unknown definition type "%s"', def_type, location=keyword)
                 reader.skip_block()
 
-        num_parse_errors = reader.problem_counter.num_errors
-
-        # Check that the program counter was defined.
-        try:
-            pc = global_namespace["pc"]
-        except KeyError:
-            reader.error(
-                "no program counter defined: "
-                'a register or alias named "pc" is required'
-            )
-        else:
-            assert isinstance(pc, Reference), pc
-
-        enc_width = _determine_encoding_width(instructions, False, None, reader)
-        any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
-        aux_enc_width = enc_width if any_aux else None
-
-        prefix_mapping = prefixes.create_mapping()
-
-        instr_set = None
-        if num_parse_errors == 0:
-            if enc_width is None:
-                # Since the last instruction with an identical encoding overrides
-                # earlier ones, only degenerate instruction sets can have an empty
-                # encoding: either the instruction set is empty or it has a single
-                # instruction with no encoding.
-                reader.error("no instruction encodings defined")
-            else:
-                try:
-                    instr_set = InstructionSet(
-                        enc_width,
-                        aux_enc_width,
-                        global_namespace,
-                        prefix_mapping,
-                        mode_entries,
-                    )
-                except ValueError as ex:
-                    reader.error("final validation of instruction set failed: %s", ex)
+        instr_set = _finalize_instr_set(
+            reader, global_namespace, prefixes, mode_entries
+        )
 
         reader.summarize()
 
