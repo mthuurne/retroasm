@@ -18,12 +18,11 @@ class InputLocation:
     the value of the 'location' argument to the log methods of LineReader.
     """
 
-    path: Traversable
+    path: str
     """
     The path to the input text file.
 
-    This path might not exist on the file system, for example when reading from
-    a resource.
+    This path is only used for logging; it does not need to refer to any real file.
     """
 
     lineno: int
@@ -309,12 +308,12 @@ class LineReader:
         cls: type[LineReaderT], path: Traversable, logger: Logger
     ) -> Iterator[LineReaderT]:
         with path.open() as lines:
-            reader = cls(path, lines, logger)
+            reader = cls(str(path), lines, logger)
             reader.debug("start reading")
             yield reader
             reader.debug("done reading")
 
-    def __init__(self, path: Traversable, lines: IO[str], logger: Logger):
+    def __init__(self, path: str, lines: IO[str], logger: Logger):
         self._path = path
         self._lines = lines
         self.logger = logger
@@ -456,9 +455,7 @@ class LineReaderFormatter(Formatter):
 
 def _format_parts(
     parts: Iterable[
-        tuple[
-            str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]
-        ]
+        tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
     ],
 ) -> Iterator[str]:
     for msg, path, lineno, line, spans in parts:
@@ -495,7 +492,7 @@ def _format_parts(
 def _iter_parts(
     msg: str, location: None | InputLocation | Sequence[InputLocation]
 ) -> Iterator[
-    tuple[str | None, Traversable | None, int, str | None, Sequence[tuple[int, int]]]
+    tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
 ]:
     if location is None:
         yield msg, None, -1, None, []

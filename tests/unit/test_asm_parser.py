@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from pytest import raises
 
 from retroasm.asm.parser import AsmTokenizer, parse_value
@@ -11,7 +9,7 @@ from retroasm.types import Width, unlimited
 
 
 def create_location(text: str) -> InputLocation:
-    return InputLocation(Path("test.asm"), 1, text, (0, len(text)))
+    return InputLocation("test.asm", 1, text, (0, len(text)))
 
 
 def tokenize(text: str) -> AsmTokenizer:
