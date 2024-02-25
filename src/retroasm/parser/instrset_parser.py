@@ -440,21 +440,29 @@ def _parse_func(
         func_name = func_name_loc.text
 
         # Parse body lines.
-        func = create_func(
-            reader,
-            func_name_loc,
-            ret_type,
-            ret_type_loc,
-            args,
-            name_locations,
-            namespace,
-        )
-
-        # Store function in namespace.
         try:
-            namespace.define(func_name, func, func_name_loc)
-        except NameExistsError as ex:
-            reader.error("error declaring function: %s", ex, location=ex.locations)
+            func = create_func(
+                reader,
+                func_name_loc,
+                ret_type,
+                ret_type_loc,
+                args,
+                name_locations,
+                namespace,
+            )
+        except BadInput as ex:
+            reader.error(
+                'error in body of function "%s": %s',
+                func_name,
+                ex,
+                location=ex.locations,
+            )
+        else:
+            # Store function in namespace.
+            try:
+                namespace.define(func_name, func, func_name_loc)
+            except NameExistsError as ex:
+                reader.error("error declaring function: %s", ex, location=ex.locations)
     else:
         reader.skip_block()
 
