@@ -6,7 +6,7 @@ from importlib.resources.abc import Traversable
 from logging import ERROR, Logger, getLogger
 
 from ..instrset import InstructionSet
-from ..parser.instrset_parser import parse_instr_set
+from ..parser.instrset_parser import InstructionSetParser
 from . import defs
 
 
@@ -33,7 +33,9 @@ def load_instruction_set(
     parser_logger.setLevel(ERROR)
 
     try:
-        return parse_instr_set(path, parser_logger, want_semantics=want_semantics)
+        return InstructionSetParser.parse_file(
+            path, parser_logger, want_semantics=want_semantics
+        )
     except OSError as ex:
         logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
         return None

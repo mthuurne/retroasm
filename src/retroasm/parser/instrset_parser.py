@@ -1425,139 +1425,134 @@ def _parse_instr(
 _re_header = re.compile(_name_tok + r"(?:\s+(.*\S)\s*)?$")
 
 
-def _parse_top_level(
-    reader: DefLineReader,
-    global_namespace: GlobalNamespace,
-    prefixes: PrefixMappingFactory,
-    modes: dict[str, Mode],
-    mode_entries: dict[str | None, list[ParsedModeEntry]],
-    *,
-    want_semantics: bool = True,
-) -> None:
-    """Parse the top level of an instruction set definition."""
+class InstructionSetParser:
+    @classmethod
+    def parse_file(
+        cls,
+        path: Traversable,
+        logger: Logger | None = None,
+        *,
+        want_semantics: bool = True,
+    ) -> InstructionSet | None:
+        """Parse a full instruction set from a single definition file."""
 
-    instructions = mode_entries[None]
+        if logger is None:
+            logger = getLogger(__name__)
+            logger.setLevel(WARNING)
 
-    for header in reader:
-        if not header:
-            continue
-        match = header.match(_re_header)
-        if match is None:
-            reader.error("malformed line outside block")
-            continue
-        keyword = match.group(1)
-        args = match.group(2) if match.has_group(2) else header.end_location
-        def_type = keyword.text
-        if def_type == "reg":
-            _parse_regs(reader, args, global_namespace)
-        elif def_type == "io":
-            _parse_io(reader, args, global_namespace)
-        elif def_type == "prefix":
-            _parse_prefix(reader, args, global_namespace, prefixes)
-        elif def_type == "func":
-            _parse_func(reader, args, global_namespace, want_semantics)
-        elif def_type == "mode":
-            _parse_mode(
-                reader,
-                args,
-                global_namespace,
-                prefixes,
-                modes,
-                mode_entries,
-                want_semantics,
-            )
-        elif def_type == "instr":
-            instructions += _parse_instr(
-                reader, args, global_namespace, prefixes, modes, want_semantics
-            )
-        else:
-            reader.error('unknown definition type "%s"', def_type, location=keyword)
-            reader.skip_block()
+        parser = cls(want_semantics=want_semantics)
 
+        with DefLineReader.open(path, logger) as reader:
+            parser.parse(reader)
+            instr_set = parser.finalize(reader)
+            reader.summarize()
 
-def _finalize_instr_set(
-    logger: DefLineReader,
-    global_namespace: GlobalNamespace,
-    prefixes: PrefixMappingFactory,
-    mode_entries: dict[str | None, list[ParsedModeEntry]],
-) -> InstructionSet | None:
-    """Perform final consistency checks and create the instruction set."""
+        return instr_set
 
-    num_parse_errors = logger.problem_counter.num_errors
+    def __init__(self, *, want_semantics: bool = True):
+        self.want_semantics = want_semantics
+        global_builder = StatelessCodeBlockBuilder()
+        self.global_namespace = global_namespace = GlobalNamespace(global_builder)
+        self.prefixes = PrefixMappingFactory(global_namespace)
+        self.modes: dict[str, Mode] = {}
+        self.mode_entries: dict[str | None, list[ParsedModeEntry]] = {None: []}
 
-    # Check that the program counter was defined.
-    try:
-        pc = global_namespace["pc"]
-    except KeyError:
-        logger.error(
-            'no program counter defined: a register or alias named "pc" is required'
-        )
-    else:
-        assert isinstance(pc, Reference), pc
+        self.attempt_creation = True
+        """
+        Should `finalize()` attempt to create an `InstructionSet` object?
+        This flag will be set to `False` when errors are encountered during parsing,
+        to reduce redundant error reporting and to avoid creating an incomplete
+        instruction set.
+        """
 
-    instructions = mode_entries[None]
-    enc_width = _determine_encoding_width(instructions, False, None, logger)
-    any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
-    aux_enc_width = enc_width if any_aux else None
+    def parse(self, reader: DefLineReader) -> None:
+        """Parse the top level of an instruction set definition."""
 
-    prefix_mapping = prefixes.create_mapping()
+        num_errors_start = reader.problem_counter.num_errors
 
-    if num_parse_errors == 0:
-        if enc_width is None:
-            # Since the last instruction with an identical encoding overrides
-            # earlier ones, only degenerate instruction sets can have an empty
-            # encoding: either the instruction set is empty or it has a single
-            # instruction with no encoding.
-            logger.error("no instruction encodings defined")
-        else:
-            try:
-                return InstructionSet(
-                    enc_width,
-                    aux_enc_width,
+        global_namespace = self.global_namespace
+        prefixes = self.prefixes
+        modes = self.modes
+        mode_entries = self.mode_entries
+        instructions = mode_entries[None]
+        want_semantics = self.want_semantics
+
+        for header in reader:
+            if not header:
+                continue
+            match = header.match(_re_header)
+            if match is None:
+                reader.error("malformed line outside block")
+                continue
+            keyword = match.group(1)
+            args = match.group(2) if match.has_group(2) else header.end_location
+            def_type = keyword.text
+            if def_type == "reg":
+                _parse_regs(reader, args, global_namespace)
+            elif def_type == "io":
+                _parse_io(reader, args, global_namespace)
+            elif def_type == "prefix":
+                _parse_prefix(reader, args, global_namespace, prefixes)
+            elif def_type == "func":
+                _parse_func(reader, args, global_namespace, want_semantics)
+            elif def_type == "mode":
+                _parse_mode(
+                    reader,
+                    args,
                     global_namespace,
-                    prefix_mapping,
+                    prefixes,
+                    modes,
                     mode_entries,
+                    want_semantics,
                 )
-            except ValueError as ex:
-                logger.error("final validation of instruction set failed: %s", ex)
+            elif def_type == "instr":
+                instructions += _parse_instr(
+                    reader, args, global_namespace, prefixes, modes, want_semantics
+                )
+            else:
+                reader.error('unknown definition type "%s"', def_type, location=keyword)
+                reader.skip_block()
 
-    return None
+        if reader.problem_counter.num_errors != num_errors_start:
+            self.attempt_creation = False
 
+    def finalize(self, logger: DefLineReader) -> InstructionSet | None:
+        """Perform final consistency checks and create the instruction set."""
 
-def parse_instr_set(
-    path: Traversable, logger: Logger | None = None, *, want_semantics: bool = True
-) -> InstructionSet | None:
-    if logger is None:
-        logger = getLogger(__name__)
-        logger.setLevel(WARNING)
+        # Check that the program counter was defined.
+        try:
+            pc = self.global_namespace["pc"]
+        except KeyError:
+            logger.error(
+                'no program counter defined: a register or alias named "pc" is required'
+            )
+        else:
+            assert isinstance(pc, Reference), pc
 
-    global_builder = StatelessCodeBlockBuilder()
-    global_namespace = GlobalNamespace(global_builder)
-    prefixes = PrefixMappingFactory(global_namespace)
-    modes: dict[str, Mode] = {}
-    mode_entries: dict[str | None, list[ParsedModeEntry]] = {None: []}
+        instructions = self.mode_entries[None]
+        enc_width = _determine_encoding_width(instructions, False, None, logger)
+        any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
+        aux_enc_width = enc_width if any_aux else None
 
-    with DefLineReader.open(path, logger) as reader:
-        _parse_top_level(
-            reader,
-            global_namespace,
-            prefixes,
-            modes,
-            mode_entries,
-            want_semantics=want_semantics,
-        )
+        prefix_mapping = self.prefixes.create_mapping()
 
-        instr_set = _finalize_instr_set(
-            reader, global_namespace, prefixes, mode_entries
-        )
+        if self.attempt_creation:
+            if enc_width is None:
+                # Since the last instruction with an identical encoding overrides
+                # earlier ones, only degenerate instruction sets can have an empty
+                # encoding: either the instruction set is empty or it has a single
+                # instruction with no encoding.
+                logger.error("no instruction encodings defined")
+            else:
+                try:
+                    return InstructionSet(
+                        enc_width,
+                        aux_enc_width,
+                        self.global_namespace,
+                        prefix_mapping,
+                        self.mode_entries,
+                    )
+                except ValueError as ex:
+                    logger.error("final validation of instruction set failed: %s", ex)
 
-        reader.summarize()
-
-    logger.debug(
-        "regs: %s",
-        ", ".join(
-            f"{name} = {value!r}" for name, value in sorted(global_namespace.items())
-        ),
-    )
-
-    return instr_set
+        return None
