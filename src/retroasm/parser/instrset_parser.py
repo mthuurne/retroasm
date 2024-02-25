@@ -1422,6 +1422,59 @@ def _parse_instr(
         yield instr
 
 
+_re_header = re.compile(_name_tok + r"(?:\s+(.*\S)\s*)?$")
+
+
+def _parse_top_level(
+    reader: DefLineReader,
+    global_namespace: GlobalNamespace,
+    prefixes: PrefixMappingFactory,
+    modes: dict[str, Mode],
+    mode_entries: dict[str | None, list[ParsedModeEntry]],
+    *,
+    want_semantics: bool = True,
+) -> None:
+    """Parse the top level of an instruction set definition."""
+
+    instructions = mode_entries[None]
+
+    for header in reader:
+        if not header:
+            continue
+        match = header.match(_re_header)
+        if match is None:
+            reader.error("malformed line outside block")
+            continue
+        keyword = match.group(1)
+        args = match.group(2) if match.has_group(2) else header.end_location
+        def_type = keyword.text
+        if def_type == "reg":
+            _parse_regs(reader, args, global_namespace)
+        elif def_type == "io":
+            _parse_io(reader, args, global_namespace)
+        elif def_type == "prefix":
+            _parse_prefix(reader, args, global_namespace, prefixes)
+        elif def_type == "func":
+            _parse_func(reader, args, global_namespace, want_semantics)
+        elif def_type == "mode":
+            _parse_mode(
+                reader,
+                args,
+                global_namespace,
+                prefixes,
+                modes,
+                mode_entries,
+                want_semantics,
+            )
+        elif def_type == "instr":
+            instructions += _parse_instr(
+                reader, args, global_namespace, prefixes, modes, want_semantics
+            )
+        else:
+            reader.error('unknown definition type "%s"', def_type, location=keyword)
+            reader.skip_block()
+
+
 def _finalize_instr_set(
     logger: DefLineReader,
     global_namespace: GlobalNamespace,
@@ -1471,11 +1524,8 @@ def _finalize_instr_set(
     return None
 
 
-_re_header = re.compile(_name_tok + r"(?:\s+(.*\S)\s*)?$")
-
-
 def parse_instr_set(
-    path: Traversable, logger: Logger | None = None, want_semantics: bool = True
+    path: Traversable, logger: Logger | None = None, *, want_semantics: bool = True
 ) -> InstructionSet | None:
     if logger is None:
         logger = getLogger(__name__)
@@ -1485,45 +1535,17 @@ def parse_instr_set(
     global_namespace = GlobalNamespace(global_builder)
     prefixes = PrefixMappingFactory(global_namespace)
     modes: dict[str, Mode] = {}
-    mode_entries: dict[str | None, list[ParsedModeEntry]] = {}
-    instructions = mode_entries.setdefault(None, [])
+    mode_entries: dict[str | None, list[ParsedModeEntry]] = {None: []}
 
     with DefLineReader.open(path, logger) as reader:
-        for header in reader:
-            if not header:
-                continue
-            match = header.match(_re_header)
-            if match is None:
-                reader.error("malformed line outside block")
-                continue
-            keyword = match.group(1)
-            args = match.group(2) if match.has_group(2) else header.end_location
-            def_type = keyword.text
-            if def_type == "reg":
-                _parse_regs(reader, args, global_namespace)
-            elif def_type == "io":
-                _parse_io(reader, args, global_namespace)
-            elif def_type == "prefix":
-                _parse_prefix(reader, args, global_namespace, prefixes)
-            elif def_type == "func":
-                _parse_func(reader, args, global_namespace, want_semantics)
-            elif def_type == "mode":
-                _parse_mode(
-                    reader,
-                    args,
-                    global_namespace,
-                    prefixes,
-                    modes,
-                    mode_entries,
-                    want_semantics,
-                )
-            elif def_type == "instr":
-                instructions += _parse_instr(
-                    reader, args, global_namespace, prefixes, modes, want_semantics
-                )
-            else:
-                reader.error('unknown definition type "%s"', def_type, location=keyword)
-                reader.skip_block()
+        _parse_top_level(
+            reader,
+            global_namespace,
+            prefixes,
+            modes,
+            mode_entries,
+            want_semantics=want_semantics,
+        )
 
         instr_set = _finalize_instr_set(
             reader, global_namespace, prefixes, mode_entries
