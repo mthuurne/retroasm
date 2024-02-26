@@ -145,7 +145,7 @@ def test_variable_undefined_basic_return(docstring_parser: TestParser) -> None:
 
         func int return_undef()
             var int UNDEF
-            a := mem[UNDEF]
+            ret := UNDEF
 
     - ERROR: error in body of function "return_undef":
       variable "UNDEF" is used before it is initialized
