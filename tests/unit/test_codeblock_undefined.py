@@ -54,6 +54,8 @@ def _parse_docstring(docstring: str) -> tuple[str, Sequence[str]]:
     for code_end in range(code_start, len(lines)):
         if (line := lines[code_end]) and not line[0].isspace():
             break
+    else:
+        code_end = len(lines)
     code = cleandoc("\n".join(lines[code_start:code_end]))
 
     logging = []
@@ -174,6 +176,19 @@ def test_variable_undefined_return_compute(docstring_tester: DocstringTester) ->
             ret := UNDEF + 1
 
     - ERROR: Undefined value of variable "UNDEF" is returned
+    """
+    docstring_tester.check()
+
+
+def test_variable_undefined_return_eliminate(docstring_tester: DocstringTester) -> None:
+    """
+    No error is reported when a variable's undefined value ultimately has no effect.
+
+    .. code-block:: instr
+
+        func int return_undef()
+            var int UNDEF
+            ret := UNDEF & 0
     """
     docstring_tester.check()
 
