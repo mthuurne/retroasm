@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import NoReturn
+from typing import ClassVar, NoReturn
 
-from .codeblock import AccessNode, FunctionBody, Load, Store
+from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, FixedValue, SingleStorage, Variable, bad_reference
-from .storage import ArgStorage, Storage
+from .storage import ArgStorage, IOStorage, Storage
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -18,8 +18,18 @@ def no_args_to_fetch(name: str) -> NoReturn:
 
 
 class CodeBlockBuilder:
+    _next_block_id: ClassVar[int] = 0
+
+    @classmethod
+    def _create_block_id(cls) -> int:
+        """Return a unique identifier for the block we're building."""
+        block_id = cls._next_block_id
+        cls._next_block_id = block_id + 1
+        return block_id
+
     def __init__(self) -> None:
         super().__init__()
+        self._block_id = self._create_block_id()
         self._variables: dict[str, Expression] = {}
 
     def dump(self) -> None:
@@ -44,21 +54,24 @@ class CodeBlockBuilder:
         """
         raise NotImplementedError
 
-    def read_variable(self, name: str, location: InputLocation | None) -> Expression:
+    def read_variable(
+        self, var: Variable, location: InputLocation | None
+    ) -> Expression:
+        name = var.name
         try:
             return self._variables[name]
         except KeyError:
-            raise BadInput(
-                f'variable "{name}" is used before it is initialized', location
-            ) from None
+            initial = InitialValue(var, self._block_id, location)
+            self._variables[name] = initial
+            return initial
 
     def write_variable(
         self,
-        name: str,
+        var: Variable,
         value: Expression,
         location: InputLocation | None,  # pylint: disable=unused-argument
     ) -> None:
-        self._variables[name] = value
+        self._variables[var.name] = value
 
     def inline_function_call(
         self,
@@ -146,28 +159,53 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         the given location if no specific location is known.
         """
 
-        uninitialized_variables = set()
-
         def fixate_variable(var: Variable) -> FixedValue:
-            try:
-                value = self.read_variable(var.name, location)
-            except BadInput as ex:
-                if log:
-                    log.error("%s", ex, location=ex.locations)
-                uninitialized_variables.add(var.name)
+            value = self.read_variable(var, location)
             return FixedValue(value, var.width)
 
         # Fixate returned variables.
         returned = [bits.substitute(variable_func=fixate_variable) for bits in returned]
+
+        nodes = self.nodes
+        simplify_block(nodes, returned)
+
+        # Find remaining uses of uninitialized local variables.
+        uninitialized_variables = set()
+        for node in nodes:
+            if isinstance((storage := node.storage), IOStorage):
+                for value in storage.index.iter_instances(InitialValue):
+                    if log:
+                        log.error(
+                            'Undefined value of variable "%s" is used as an I/O index',
+                            value.name,
+                            location=value.location,
+                        )
+                    uninitialized_variables.add(value.name)
+            if isinstance(node, Store):
+                for value in node.expr.iter_instances(InitialValue):
+                    if log:
+                        log.error(
+                            'Undefined value of variable "%s" is stored',
+                            value.name,
+                            location=value.location,
+                        )
+                    uninitialized_variables.add(value.name)
+        for ret_bits in returned:
+            for expr in ret_bits.iter_expressions():
+                for value in expr.iter_instances(InitialValue):
+                    if log:
+                        log.error(
+                            'Undefined value of variable "%s" is returned',
+                            value.name,
+                            location=value.location,
+                        )
+                    uninitialized_variables.add(value.name)
 
         if uninitialized_variables:
             raise ValueError(
                 f"{len(uninitialized_variables)} variables were read before they "
                 f"were initialized: {', '.join(uninitialized_variables)}"
             )
-
-        nodes = self.nodes
-        simplify_block(nodes, returned)
 
         return FunctionBody(nodes, returned)
 

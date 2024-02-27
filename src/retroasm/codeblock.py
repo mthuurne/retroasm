@@ -5,7 +5,7 @@ from typing import Never, NoReturn, cast
 
 from .expression import Expression
 from .parser.linereader import InputLocation
-from .reference import BitString
+from .reference import BitString, Variable
 from .storage import ArgStorage, Storage
 from .types import mask_for_width
 from .utils import const_property
@@ -234,6 +234,50 @@ def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
                 if args.setdefault(name, arg) is not arg:
                     raise ValueError(f'multiple arguments named "{name}"')
     return args
+
+
+class InitialValue(Expression):
+    """
+    Expression that represents the value of a traced variable at the start
+    of a basic block.
+    """
+
+    __slots__ = ("_variable", "_block_id", "_location")
+
+    @property
+    def location(self) -> InputLocation | None:
+        return self._location
+
+    @property
+    def name(self) -> str:
+        return self._variable.name
+
+    @property
+    def mask(self) -> int:
+        # Note that sign extension is added at the Reference level,
+        # we only need to care about width here.
+        return mask_for_width(self._variable.width)
+
+    def __init__(
+        self, variable: Variable, block_id: int, location: InputLocation | None
+    ):
+        self._variable = variable
+        self._block_id = block_id
+        self._location = location
+        Expression.__init__(self)
+
+    def _ctorargs(self) -> tuple[Variable, int]:
+        return (self._variable, self._block_id)
+
+    def __str__(self) -> str:
+        return f"(initial value of {self._variable} in block {self._block_id})"
+
+    def _equals(self, other: InitialValue) -> bool:
+        return self._variable == other._variable and self._block_id == other._block_id
+
+    @property
+    def complexity(self) -> int:
+        return 8
 
 
 class FunctionBody:

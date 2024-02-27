@@ -305,7 +305,7 @@ class Variable(BitString):
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        return builder.read_variable(self._name, location)
+        return builder.read_variable(self, location)
 
     def emit_store(
         self,
@@ -313,7 +313,7 @@ class Variable(BitString):
         value: Expression,
         location: InputLocation | None,
     ) -> None:
-        return builder.write_variable(self._name, value, location)
+        return builder.write_variable(self, value, location)
 
     def decompose(self) -> Iterator[tuple[Variable, Segment]]:
         yield self, Segment(0, self.width)

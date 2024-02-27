@@ -117,7 +117,7 @@ def docstring_tester(
     return DocstringTester(parser, expected_log, caplog.record_tuples)
 
 
-def test_variable_undefined_basic_compute(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_compute(docstring_tester: DocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used in a computation.
 
@@ -127,13 +127,12 @@ def test_variable_undefined_basic_compute(docstring_tester: DocstringTester) -> 
             var int UNDEF
             a := a + UNDEF
 
-    - ERROR: error in body of function "compute_undef":
-      variable "UNDEF" is used before it is initialized
+    - ERROR: Undefined value of variable "UNDEF" is stored
     """
     docstring_tester.check()
 
 
-def test_variable_undefined_basic_ioindex(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_ioindex(docstring_tester: DocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used as an I/O index.
 
@@ -143,15 +142,14 @@ def test_variable_undefined_basic_ioindex(docstring_tester: DocstringTester) -> 
             var int UNDEF
             a := mem[UNDEF]
 
-    - ERROR: error in body of function "ioindex_undef":
-      variable "UNDEF" is used before it is initialized
+    - ERROR: Undefined value of variable "UNDEF" is used as an I/O index
     """
     docstring_tester.check()
 
 
-def test_variable_undefined_basic_return(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_return_value(docstring_tester: DocstringTester) -> None:
     """
-    An error is reported when a variable's undefined value is returned.
+    An error is reported when a variable's undefined value is returned as a value.
 
     .. code-block:: instr
 
@@ -159,7 +157,37 @@ def test_variable_undefined_basic_return(docstring_tester: DocstringTester) -> N
             var int UNDEF
             ret := UNDEF
 
-    - ERROR: error in body of function "return_undef":
-      variable "UNDEF" is used before it is initialized
+    - ERROR: Undefined value of variable "UNDEF" is returned
+    """
+    docstring_tester.check()
+
+
+def test_variable_undefined_return_compute(docstring_tester: DocstringTester) -> None:
+    """
+    An error is reported when an expression that depends on variable's undefined value
+    is returned as a value.
+
+    .. code-block:: instr
+
+        func int return_undef()
+            var int UNDEF
+            ret := UNDEF + 1
+
+    - ERROR: Undefined value of variable "UNDEF" is returned
+    """
+    docstring_tester.check()
+
+
+def test_variable_undefined_return_reference(docstring_tester: DocstringTester) -> None:
+    """
+    An error is reported when a variable's undefined value is returned as a reference.
+
+    .. code-block:: instr
+
+        func int& return_undef()
+            var int UNDEF
+            ret = UNDEF
+
+    - ERROR: Undefined value of variable "UNDEF" is returned
     """
     docstring_tester.check()
