@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from inspect import cleandoc
 from io import StringIO
 from logging import Logger, getLevelNamesMapping, getLogger
@@ -43,7 +45,7 @@ u32 mem[u32]
     return parser
 
 
-def _parse_docstring(docstring: str) -> tuple[str, list[str]]:
+def _parse_docstring(docstring: str) -> tuple[str, Sequence[str]]:
     """Parse a code block and list of logging messages from the given docstring."""
 
     lines = cleandoc(docstring).split("\n")
@@ -67,10 +69,20 @@ def _parse_docstring(docstring: str) -> tuple[str, list[str]]:
     return code, logging
 
 
+@dataclass
+class DocstringTester:
+    parser: TestParser
+    expected_log: Sequence[tuple[str, int, str]]
+    actual_log: Sequence[tuple[str, int, str]]
+
+    def check(self) -> None:
+        assert self.actual_log == self.expected_log
+
+
 @pytest.fixture
-def docstring_parser(
+def docstring_tester(
     parser: TestParser, request: pytest.FixtureRequest, caplog: pytest.LogCaptureFixture
-) -> TestParser:
+) -> DocstringTester:
     """
     Fixture that parses a code block and list of logging messages from the requesting
     test function's docstring.
@@ -97,17 +109,15 @@ def docstring_parser(
 
     levels_by_name = getLevelNamesMapping()
     logger_name = parser.logger.name
-    expected = []
+    expected_log = []
     for message in logging:
         level = levels_by_name[message[: message.index(":")]]
-        expected.append((logger_name, level, message))
+        expected_log.append((logger_name, level, message))
 
-    assert caplog.record_tuples == expected
-
-    return parser
+    return DocstringTester(parser, expected_log, caplog.record_tuples)
 
 
-def test_variable_undefined_basic_compute(docstring_parser: TestParser) -> None:
+def test_variable_undefined_basic_compute(docstring_tester: DocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used in a computation.
 
@@ -120,9 +130,10 @@ def test_variable_undefined_basic_compute(docstring_parser: TestParser) -> None:
     - ERROR: error in body of function "compute_undef":
       variable "UNDEF" is used before it is initialized
     """
+    docstring_tester.check()
 
 
-def test_variable_undefined_basic_ioindex(docstring_parser: TestParser) -> None:
+def test_variable_undefined_basic_ioindex(docstring_tester: DocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used as an I/O index.
 
@@ -135,9 +146,10 @@ def test_variable_undefined_basic_ioindex(docstring_parser: TestParser) -> None:
     - ERROR: error in body of function "ioindex_undef":
       variable "UNDEF" is used before it is initialized
     """
+    docstring_tester.check()
 
 
-def test_variable_undefined_basic_return(docstring_parser: TestParser) -> None:
+def test_variable_undefined_basic_return(docstring_tester: DocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is returned.
 
@@ -150,3 +162,4 @@ def test_variable_undefined_basic_return(docstring_parser: TestParser) -> None:
     - ERROR: error in body of function "return_undef":
       variable "UNDEF" is used before it is initialized
     """
+    docstring_tester.check()
