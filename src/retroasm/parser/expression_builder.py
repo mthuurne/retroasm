@@ -570,9 +570,12 @@ def build_statement_eval(
             case Store():
                 state_changed = True
     if not state_changed:
-        reader.warning(
-            "statement in %s has no effect", where_desc, location=node.tree_location
-        )
+        # TODO: This warning will be issued when no new nodes are emitted because
+        #       the statement only changed local variables.
+        pass
+        # reader.warning(
+        #     "statement in %s has no effect", where_desc, location=node.tree_location
+        # )
 
 
 def emit_code_from_statements(
