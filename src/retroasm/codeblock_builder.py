@@ -18,6 +18,19 @@ def no_args_to_fetch(name: str) -> NoReturn:
     raise ValueError(f'No arguments provided, "{name}" requested')
 
 
+def _simplify_storage(storage: Storage) -> Storage:
+    """
+    Return a simplified version of the given storage.
+    If no simplification is possible, the given storage is returned.
+    """
+    if isinstance(storage, IOStorage):
+        original_index = storage.index
+        simplified_index = simplify_expression(original_index)
+        if simplified_index is not original_index:
+            return IOStorage(storage.channel, simplified_index)
+    return storage
+
+
 class CodeBlockBuilder:
     _next_block_id: ClassVar[int] = 0
 
@@ -214,9 +227,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
+        stored_values = self._stored_values
+        storage = _simplify_storage(storage)
+
         if storage.can_load_have_side_effect():
             self._handle_side_effects(storage)
-        elif (value := self._stored_values.get(storage)) is not None:
+        elif (value := stored_values.get(storage)) is not None:
             # Use known value instead of loading it.
             return value
 
@@ -225,13 +241,14 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         value = load.expr
         if storage.is_load_consistent():
             # Remember loaded value.
-            self._stored_values[storage] = value
+            stored_values[storage] = value
         return value
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
         stored_values = self._stored_values
+        storage = _simplify_storage(storage)
 
         # Simplifying gets rid of unnecessary truncation.
         value = simplify_expression(value)
