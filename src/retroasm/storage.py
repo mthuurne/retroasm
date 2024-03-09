@@ -163,10 +163,9 @@ class Storage:
         return self
 
 
-class _SimpleStorage(Storage):
+class Register(Storage):
     """
-    A simple piece of named storage.
-    Is used for registers as well as variables.
+    A processor register.
     """
 
     __slots__ = ("_name",)
@@ -178,6 +177,9 @@ class _SimpleStorage(Storage):
     def __init__(self, name: str, width: Width):
         Storage.__init__(self, width)
         self._name = name
+
+    def __str__(self) -> str:
+        return f"reg{self._width} {self._name}"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._name}, {self._width})"
@@ -193,20 +195,6 @@ class _SimpleStorage(Storage):
 
     def is_sticky(self) -> bool:
         return True
-
-    def might_be_same(self, other: Storage) -> bool:
-        return self is other
-
-
-class Register(_SimpleStorage):
-    """
-    A processor register.
-    """
-
-    __slots__ = ()
-
-    def __str__(self) -> str:
-        return f"reg{self._width} {self._name}"
 
     def might_be_same(self, other: Storage) -> bool:
         # Register might be passed by reference.
