@@ -6,10 +6,11 @@ from typing import ClassVar, NoReturn
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression
+from .expression_simplifier import simplify_expression
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
 from .reference import BitString, FixedValue, SingleStorage, Variable, bad_reference
-from .storage import ArgStorage, IOStorage, Storage
+from .storage import ArgStorage, IOStorage, Register, Storage
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -137,6 +138,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def __init__(self) -> None:
         super().__init__()
         self.nodes: list[AccessNode] = []
+        self._stored_values: dict[Storage, Expression] = {}
 
     def dump(self) -> None:
         for node in self.nodes:
@@ -212,14 +214,58 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
+        if storage.can_load_have_side_effect():
+            self._handle_side_effects(storage)
+        elif (value := self._stored_values.get(storage)) is not None:
+            # Use known value instead of loading it.
+            return value
+
         load = Load(storage, location)
         self.nodes.append(load)
-        return load.expr
+        value = load.expr
+        if storage.is_load_consistent():
+            # Remember loaded value.
+            self._stored_values[storage] = value
+        return value
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
+        stored_values = self._stored_values
+
+        # Simplifying gets rid of unnecessary truncation.
+        value = simplify_expression(value)
+
+        if storage.can_store_have_side_effect():
+            self._handle_side_effects(storage)
+        elif stored_values.get(storage) == value:
+            # Current value is rewritten.
+            return
+
         self.nodes.append(Store(value, storage, location))
+        if storage.is_sticky():
+            # Remember stored value.
+            stored_values[storage] = value
+
+        # Remove stored values for storages that might be aliases.
+        for storage2 in list(stored_values.keys()):
+            if storage != storage2 and storage.might_be_same(storage2):
+                # However, if the store wouldn't alter the value,
+                # there is no need to remove it.
+                if stored_values[storage2] != value:
+                    del stored_values[storage2]
+
+    def _handle_side_effects(self, storage: Storage) -> None:
+        """
+        Drop stored values that might be invalidated by an I/O side effect.
+        """
+        stored_values = self._stored_values
+        if isinstance(storage, (IOStorage, ArgStorage)):
+            # A load or store side effect on an I/O channel can affect other addresses
+            # and even other channels, but it wouldn't affect registers.
+            for storage2 in list(stored_values.keys()):
+                if not isinstance(storage2, Register):
+                    del stored_values[storage2]
 
     def inline_function_call(
         self,

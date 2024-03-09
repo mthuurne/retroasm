@@ -14,20 +14,15 @@ from .codeblock import (
 from .expression import Expression
 from .expression_simplifier import simplify_expression
 from .reference import BitString
-from .storage import Storage
 
 
 def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     """Attempt to simplify the given code block as much as possible."""
 
     # Peform initial simplification of all expressions.
-    # This allows _remove_redundant_nodes() to only simplify expressions when
-    # it changes them.
+    # TODO: Can we move this to the builder altogether?
     update_expressions_in_nodes(nodes, simplify_expression)
     update_expressions_in_bitstrings(returned, simplify_expression)
-
-    # This mainly collapses incremental updates to registers.
-    _remove_redundant_nodes(nodes, returned)
 
     # With known-value loads removed, some prior stores to the same storages
     # may have become redundant as well.
@@ -37,77 +32,6 @@ def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     _remove_unused_loads(nodes, returned)
 
     assert verify_loads(nodes, returned)
-
-
-def _remove_redundant_nodes(nodes: list[AccessNode], returned: list[BitString]) -> None:
-    load_replacements: dict[Expression, Expression] = {}
-
-    def replace_loaded_values(expr: Expression) -> Expression:
-        new_expr = expr.substitute(load_replacements.get)
-        if new_expr is not expr:
-            new_expr = simplify_expression(new_expr)
-        return new_expr
-
-    # Remove redundant loads and stores by keeping track of the current
-    # value of storages.
-    current_values: dict[Storage, Expression] = {}
-    i = 0
-    while i < len(nodes):
-        node = nodes[i]
-        storage = node.storage
-
-        # Apply load replacements to storage.
-        if load_replacements:
-            new_storage = storage.substitute_expressions(replace_loaded_values)
-            if new_storage is not storage:
-                node.storage = storage = new_storage
-
-        value = current_values.get(storage)
-        match node:
-            # TODO: Loads and stores with side effects should probably erase
-            #       all traced values for IOStorages, because side effects could
-            #       change the results of future loads at different addresses or
-            #       even channels. For example, a bank switch in a memory mapper.
-            case Load(expr=expr):
-                if value is not None:
-                    # Use known value instead of loading it.
-                    load_replacements[expr] = value
-                    if not storage.can_load_have_side_effect():
-                        del nodes[i]
-                        continue
-                elif storage.is_load_consistent():
-                    # Remember loaded value.
-                    current_values[storage] = expr
-            case Store(expr=expr):
-                # Apply load replacements to stored expression.
-                if load_replacements:
-                    new_expr = expr.substitute(replace_loaded_values)
-                    if new_expr is not expr:
-                        node.expr = expr = new_expr
-
-                if value == expr:
-                    # Current value is rewritten.
-                    if not storage.can_store_have_side_effect():
-                        del nodes[i]
-                        continue
-                elif storage.is_sticky():
-                    # Remember stored value.
-                    current_values[storage] = expr
-
-                # Remove values for storages that might be aliases.
-                for storage2 in list(current_values.keys()):
-                    if storage != storage2 and storage.might_be_same(storage2):
-                        # However, if the store wouldn't alter the value,
-                        # there is no need to remove it.
-                        if current_values[storage2] != expr:
-                            del current_values[storage2]
-        i += 1
-
-    # Apply load replacements in returned bit strings.
-    for i, ret_bits in enumerate(returned):
-        new_bits = ret_bits.substitute(expression_func=replace_loaded_values)
-        if new_bits is not ret_bits:
-            returned[i] = new_bits
 
 
 def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:
