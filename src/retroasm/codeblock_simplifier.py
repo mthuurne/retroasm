@@ -7,7 +7,6 @@ from .codeblock import (
     Load,
     LoadedValue,
     Store,
-    update_expressions_in_bitstrings,
     verify_loads,
 )
 from .expression import Expression
@@ -21,7 +20,7 @@ def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     # Simplify returned expressions.
     # This can also help find additional unused loads, if a loaded value is dropped
     # during simplification because it doesn't affect the expression's value.
-    update_expressions_in_bitstrings(returned, simplify_expression)
+    _update_expressions_in_bitstrings(returned)
 
     # With known-value loads removed by the builder, some prior stores to the same
     # storages may have become redundant.
@@ -31,6 +30,13 @@ def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
     _remove_unused_loads(nodes, returned)
 
     assert verify_loads(nodes, returned)
+
+
+def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
+    """Simplifies each expression in the given bit strings."""
+
+    for i, ret_bits in enumerate(returned):
+        returned[i] = ret_bits.substitute(expression_func=simplify_expression)
 
 
 def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:

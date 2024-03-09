@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
-from typing import Never, NoReturn, cast
+from collections.abc import Iterable, Mapping, Sequence, Set
+from typing import cast
 
 from .expression import Expression
 from .parser.linereader import InputLocation
@@ -27,17 +27,9 @@ class AccessNode:
     def expr(self) -> Expression:
         return self._expr
 
-    @expr.setter
-    def expr(self, expr: Expression) -> None:
-        self._expr = expr
-
     @property
     def storage(self) -> Storage:
         return self._storage
-
-    @storage.setter
-    def storage(self, storage: Storage) -> None:
-        self._storage = storage
 
     @property
     def location(self) -> InputLocation | None:
@@ -66,13 +58,9 @@ class Load(AccessNode):
     def __str__(self) -> str:
         return f"load from {self._storage}"
 
-    @property  # type: ignore[override]  # https://github.com/python/mypy/issues/14301
+    @property
     def expr(self) -> LoadedValue:
         return cast(LoadedValue, self._expr)
-
-    @expr.setter
-    def expr(self, expr: Never) -> NoReturn:
-        raise AttributeError("Cannot change expression for Load nodes")
 
     def clone(self) -> Load:
         return Load(self._storage, self._location)
@@ -181,21 +169,8 @@ class BasicBlock:
     __slots__ = ("_nodes", "_storages", "_arguments", "_value_mapping")
 
     def __init__(self, nodes: Iterable[AccessNode]):
-        cloned_nodes = []
-        value_mapping: dict[Expression, Expression] = {}
-        for node in nodes:
-            clone = node.clone()
-            cloned_nodes.append(clone)
-            if isinstance(node, Load):
-                value_mapping[node.expr] = clone.expr
-
-        # TODO: I don't think the value mapping should be here, but for now
-        #       it's the easiest way to pass it to FunctionBody.
-        self._value_mapping = value_mapping
-
-        update_expressions_in_nodes(cloned_nodes, value_mapping.get)
-        assert verify_loads(cloned_nodes)
-        self._nodes = cloned_nodes
+        self._nodes = list(nodes)
+        assert verify_loads(self._nodes)
 
         # Reject multiple arguments with the same name.
         self._arguments = _find_arguments(self.storages)
@@ -290,8 +265,6 @@ class FunctionBody:
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
         self._block = BasicBlock(nodes)
         self._returned = list(returned)
-        value_mapping = self._block._value_mapping
-        update_expressions_in_bitstrings(self._returned, value_mapping.get)
         assert verify_loads(self.nodes, self._returned)
 
     def dump(self) -> None:
@@ -325,44 +298,3 @@ class FunctionBody:
     @property
     def arguments(self) -> Mapping[str, ArgStorage]:
         return self._block.arguments
-
-
-def update_expressions_in_nodes(
-    nodes: list[AccessNode],
-    subst_func: Callable[[Expression], Expression | None],
-) -> None:
-    """
-    Calls the given substitution function with each expression in the given nodes.
-    If the substitution function returns an expression, that expression replaces
-    the original expression. If the substitution function returns None, the original
-    expression is kept.
-    """
-    for node in nodes:
-        # Update indices for I/O storages.
-        storage = node.storage
-        new_storage = storage.substitute_expressions(subst_func)
-        if new_storage is not storage:
-            node.storage = new_storage
-
-        # Update node with new expression.
-        match node:
-            case Store(expr=expr) as store:
-                new_expr = expr.substitute(subst_func)
-                if new_expr is not expr:
-                    store.expr = new_expr
-
-
-def update_expressions_in_bitstrings(
-    returned: list[BitString],
-    subst_func: Callable[[Expression], Expression | None],
-) -> None:
-    """
-    Calls the given substitution function with each expression in the given bit strings.
-    If the substitution function returns an expression, that expression replaces
-    the original expression. If the substitution function returns None, the original
-    expression is kept.
-    """
-    for i, ret_bits in enumerate(returned):
-        new_bits = ret_bits.substitute(expression_func=subst_func)
-        if new_bits is not ret_bits:
-            returned[i] = new_bits
