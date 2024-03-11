@@ -627,9 +627,9 @@ def _qualify_names(
     parsed_entry: ParsedModeEntry, branch_name: str | None
 ) -> tuple[ModeEntry, Mapping[str, Sequence[EncodedSegment]]]:
     """
-    Returns a pair containing a ModeEntry and decode mapping, where each
+    Returns a pair containing a `ModeEntry` and decode mapping, where each
     name starts with the given branch name.
-    If branchName is None, no renaming is performed.
+    If `branch_name` is `None`, no renaming is performed.
     """
     entry = parsed_entry.entry
     placeholders = entry.placeholders
