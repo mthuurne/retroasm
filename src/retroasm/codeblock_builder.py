@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import ClassVar, NoReturn
+from typing import ClassVar, NoReturn, assert_never
 
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -371,7 +371,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                     new_expr = import_expr(expr)
                     bits.emit_store(self, new_expr, location)
                 case node:
-                    assert False, node
+                    assert_never(node)
 
         # Determine return value.
         return [

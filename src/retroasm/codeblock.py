@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
-from typing import cast
+from dataclasses import dataclass, field
+from typing import TypeAlias
 
 from .expression import Expression
 from .parser.linereader import InputLocation
@@ -11,69 +12,43 @@ from .types import mask_for_width
 from .utils import const_property
 
 
-class AccessNode:
-    """Base class for Load and Store."""
-
-    __slots__ = ("_expr", "_storage", "_location")
-
-    def __init__(
-        self, expr: Expression, storage: Storage, location: InputLocation | None
-    ):
-        self._expr = expr
-        self._storage = storage
-        self._location = location
-
-    @property
-    def expr(self) -> Expression:
-        return self._expr
-
-    @property
-    def storage(self) -> Storage:
-        return self._storage
-
-    @property
-    def location(self) -> InputLocation | None:
-        return self._location
-
-    def dump(self) -> None:
-        print(f"    {self} ({self._storage.width}-bit)")
-
-
-class Load(AccessNode):
+@dataclass(frozen=True, slots=True, eq=False)
+class Load:
     """A node that loads a value from a storage location."""
 
-    __slots__ = ()
+    storage: Storage
+    location: InputLocation | None = None
+    expr: LoadedValue = field(init=False, repr=False)
 
-    def __init__(self, storage: Storage, location: InputLocation | None = None):
-        expr = LoadedValue(self, mask_for_width(storage.width))
-        AccessNode.__init__(self, expr, storage, location)
-
-    def __repr__(self) -> str:
-        return f"Load({self._storage!r}, {self._location!r})"
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "expr", LoadedValue(self, mask_for_width(self.storage.width))
+        )
 
     def __str__(self) -> str:
-        return f"load from {self._storage}"
+        return f"load from {self.storage}"
 
-    @property
-    def expr(self) -> LoadedValue:
-        return cast(LoadedValue, self._expr)
+    def dump(self) -> None:
+        print(f"    {self} ({self.storage.width}-bit)")
 
 
-class Store(AccessNode):
+@dataclass(frozen=True, slots=True, eq=False)
+class Store:
     """A node that stores a value into a storage location."""
 
-    __slots__ = ()
-
-    def __init__(
-        self, expr: Expression, storage: Storage, location: InputLocation | None = None
-    ):
-        AccessNode.__init__(self, expr, storage, location)
-
-    def __repr__(self) -> str:
-        return f"Store({self._expr!r}, {self._storage!r}, {self._location!r})"
+    expr: Expression
+    storage: Storage
+    location: InputLocation | None = None
 
     def __str__(self) -> str:
-        return f"store {self._expr} in {self._storage}"
+        return f"store {self.expr} in {self.storage}"
+
+    def dump(self) -> None:
+        print(f"    {self} ({self.storage.width}-bit)")
+
+
+AccessNode: TypeAlias = Load | Store
+"""A node that transfers a value from or to a storage location."""
 
 
 class LoadedValue(Expression):
