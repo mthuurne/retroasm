@@ -38,10 +38,6 @@ class AccessNode:
     def dump(self) -> None:
         print(f"    {self} ({self._storage.width}-bit)")
 
-    def clone(self) -> AccessNode:
-        """Create a clone of this node."""
-        raise NotImplementedError
-
 
 class Load(AccessNode):
     """A node that loads a value from a storage location."""
@@ -62,9 +58,6 @@ class Load(AccessNode):
     def expr(self) -> LoadedValue:
         return cast(LoadedValue, self._expr)
 
-    def clone(self) -> Load:
-        return Load(self._storage, self._location)
-
 
 class Store(AccessNode):
     """A node that stores a value into a storage location."""
@@ -81,9 +74,6 @@ class Store(AccessNode):
 
     def __str__(self) -> str:
         return f"store {self._expr} in {self._storage}"
-
-    def clone(self) -> Store:
-        return Store(self._expr, self._storage, self._location)
 
 
 class LoadedValue(Expression):
