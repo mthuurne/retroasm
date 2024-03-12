@@ -17,7 +17,7 @@ from retroasm.reference import BitString, ConcatenatedBits, SingleStorage, Slice
 from retroasm.storage import Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width, width_for_mask
 
-from .utils_codeblock import TestNamespace
+from .codeblock.utils import TestNamespace
 
 
 @fixture

@@ -16,7 +16,7 @@ from retroasm.reference import (
 )
 from retroasm.types import IntType
 
-from .utils_codeblock import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
+from .utils import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
 
 
 def create_simplified_code(namespace: LocalNamespace) -> FunctionBody:

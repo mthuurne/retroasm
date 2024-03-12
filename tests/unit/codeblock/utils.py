@@ -20,7 +20,7 @@ from retroasm.reference import BitString, FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width
 
-from .utils_segment import parse_segment
+from ..utils_segment import parse_segment
 
 
 class SingleStorageReference(Reference):

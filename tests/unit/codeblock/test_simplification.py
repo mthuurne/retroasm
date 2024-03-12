@@ -23,14 +23,14 @@ from retroasm.reference import (
 from retroasm.storage import IOStorage
 from retroasm.types import IntType
 
-from .utils_codeblock import (
+from ..utils_expression import assert_int_literal, assert_or, assert_trunc, make_concat
+from .utils import (
     SingleStorageReference,
     TestNamespace,
     assert_nodes,
     assert_ret_val,
     get_ret_val,
 )
-from .utils_expression import assert_int_literal, assert_or, assert_trunc, make_concat
 
 verbose = False
 
