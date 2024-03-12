@@ -218,12 +218,18 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Verify labels.
         defined_labels = self._labels.keys()
+        unused_labels = set(defined_labels)
         undefined_labels = []
         for label, locations in self._branches.items():
-            if label not in defined_labels:
+            if label in defined_labels:
+                unused_labels.remove(label)
+            else:
                 if log:
                     log.error('Label "%s" does not exist', label, location=locations)
                 undefined_labels.append(label)
+        if log:
+            for label in unused_labels:
+                log.warning('Label "%s" is unused', label, location=self._labels[label])
         if undefined_labels:
             raise ValueError(
                 f"Branches to non-existing labels: {', '.join(undefined_labels)}"

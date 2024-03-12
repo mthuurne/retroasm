@@ -31,3 +31,20 @@ def test_branch_label_undefined(docstring_tester: DocstringTester) -> None:
     - ERROR: Label "there" does not exist
     """
     docstring_tester.check()
+
+
+def test_branch_label_unused(docstring_tester: DocstringTester) -> None:
+    """
+    An warning is reported when a label is not used.
+
+    .. code-block:: instr
+
+        func unused_label()
+            @unused
+            branch a == 0 @exit
+            a := a - 1
+            @exit
+
+    - warning: Label "unused" is unused
+    """
+    docstring_tester.check()

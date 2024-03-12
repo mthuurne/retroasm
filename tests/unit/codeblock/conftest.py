@@ -113,7 +113,7 @@ def docstring_tester(
     logger_name = parser.logger.name
     expected_log = []
     for message in logging:
-        level = levels_by_name[message[: message.index(":")]]
+        level = levels_by_name[message[: message.index(":")].upper()]
         expected_log.append((logger_name, level, message))
 
     return DocstringTester(parser, expected_log, caplog.record_tuples)
