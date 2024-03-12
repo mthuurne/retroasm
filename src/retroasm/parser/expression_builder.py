@@ -31,12 +31,11 @@ from ..reference import (
     FixedValue,
     FixedValueReference,
     Reference,
-    SingleStorage,
     SlicedBits,
     bad_reference,
     int_reference,
 )
-from ..storage import IOChannel, Keeper
+from ..storage import IOChannel
 from ..types import (
     IntType,
     ReferenceType,
@@ -646,17 +645,19 @@ def emit_code_from_statements(
                 except BadExpression as ex:
                     reader.error(str(ex), location=ex.locations)
 
-            case BranchNode(cond=cond):
+            case BranchNode(cond=cond, target=label):
                 # Conditional branch.
-                # We don't have actual branching support yet, but we can force
-                # the condition to be computed.
-                cond_value = Negation(build_expression(cond, namespace))
-                ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-                ref.emit_store(namespace.builder, cond_value, cond.tree_location)
+                condition = build_expression(cond, namespace)
+                namespace.builder.add_branch(
+                    label.name,
+                    condition,
+                    label_location=label.location,
+                    condition_location=cond.tree_location,
+                )
 
-            case LabelNode():
-                # TODO: Add support.
-                pass
+            case LabelNode(name=label, location=location):
+                # Label that can be branched to.
+                namespace.builder.add_label(label, location)
 
             case stmt:
                 build_statement_eval(reader, where_desc, namespace, stmt)

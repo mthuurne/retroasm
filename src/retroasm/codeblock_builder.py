@@ -5,12 +5,20 @@ from typing import ClassVar, NoReturn, assert_never
 
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
-from .expression import Expression
+from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .parser.linereader import BadInput, InputLocation, LineReader
-from .reference import BitString, FixedValue, SingleStorage, Variable, bad_reference
-from .storage import ArgStorage, IOStorage, Register, Storage
+from .reference import (
+    BitString,
+    FixedValue,
+    Reference,
+    SingleStorage,
+    Variable,
+    bad_reference,
+)
+from .storage import ArgStorage, IOStorage, Keeper, Register, Storage
+from .types import IntType
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -45,6 +53,8 @@ class CodeBlockBuilder:
         super().__init__()
         self._block_id = self._create_block_id()
         self._variables: dict[str, Expression] = {}
+        self._labels: dict[str, InputLocation | None] = {}
+        self._branches: dict[str, list[InputLocation]] = {}
 
     def dump(self) -> None:
         """Prints the current state of this code block builder on stdout."""
@@ -86,6 +96,38 @@ class CodeBlockBuilder:
         location: InputLocation | None,  # pylint: disable=unused-argument
     ) -> None:
         self._variables[var.name] = value
+
+    def add_label(self, label: str, location: InputLocation | None = None) -> None:
+        """
+        Add a label that identifies the current position in the code block.
+        """
+        if label in self._labels:
+            old_location = self._labels[label]
+            raise BadInput(f'label "{label}" already defined', location, old_location)
+        else:
+            self._labels[label] = location
+
+    def add_branch(
+        self,
+        label: str,
+        condition: Expression | None = None,
+        *,
+        label_location: InputLocation | None = None,
+        condition_location: InputLocation | None = None,
+    ) -> None:
+        """
+        Add a branch to a given label.
+        """
+
+        # Remember used labels so we can verify their existence later.
+        locations = self._branches.setdefault(label, [])
+        if label_location is not None:
+            locations.append(label_location)
+
+        # Force the condition to be computed.
+        if condition is not None:
+            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
+            ref.emit_store(self, Negation(condition), condition_location)
 
     def inline_function_call(
         self,
@@ -173,6 +215,19 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         If a log is provided, errors are logged individually as well, using
         the given location if no specific location is known.
         """
+
+        # Verify labels.
+        defined_labels = self._labels.keys()
+        undefined_labels = []
+        for label, locations in self._branches.items():
+            if label not in defined_labels:
+                if log:
+                    log.error('Label "%s" does not exist', label, location=locations)
+                undefined_labels.append(label)
+        if undefined_labels:
+            raise ValueError(
+                f"Branches to non-existing labels: {', '.join(undefined_labels)}"
+            )
 
         def fixate_variable(var: Variable) -> FixedValue:
             value = self.read_variable(var, location)
