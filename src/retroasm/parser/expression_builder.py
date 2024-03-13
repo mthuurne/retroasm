@@ -623,7 +623,7 @@ def emit_code_from_statements(
                 try:
                     ref = convert_definition(kind, name, typ, value, namespace)
                 except BadExpression as ex:
-                    reader.error(str(ex), location=ex.locations)
+                    reader.error("%s", ex, location=ex.locations)
                     ref = bad_reference(typ)
                 # Add definition to namespace.
                 try:
@@ -643,7 +643,7 @@ def emit_code_from_statements(
                 try:
                     declare_variable(decl, namespace)
                 except BadExpression as ex:
-                    reader.error(str(ex), location=ex.locations)
+                    reader.error("%s", ex, location=ex.locations)
 
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.

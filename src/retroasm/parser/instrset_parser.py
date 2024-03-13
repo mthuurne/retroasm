@@ -233,7 +233,7 @@ def _parse_prefix(
                 try:
                     namespace.add_register(arg_name, arg_type, arg_name_loc)
                 except ValueError as ex:
-                    reader.error(str(ex))
+                    reader.error("%s", ex)
                 except NameExistsError as ex:
                     reader.error(
                         "error defining decode flag: %s", ex, location=ex.locations
