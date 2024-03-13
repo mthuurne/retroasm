@@ -68,7 +68,13 @@ from .expression_parser import (
     parse_statement,
 )
 from .function_builder import create_func
-from .linereader import BadInput, DefLineReader, DelayedError, InputLocation
+from .linereader import (
+    BadInput,
+    DefLineReader,
+    DelayedError,
+    InputLocation,
+    InputLogger,
+)
 
 _name_pat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _name_tok = r"\s*(" + _name_pat + r")\s*"
@@ -78,16 +84,19 @@ _re_dot_sep = re.compile(r"\s*\.\s*")
 
 
 def _parse_regs(
-    reader: DefLineReader, args: InputLocation, global_namespace: GlobalNamespace
+    reader: DefLineReader,
+    logger: InputLogger,
+    args: InputLocation,
+    global_namespace: GlobalNamespace,
 ) -> None:
     if args:
-        reader.error("register definition must have no arguments", location=args)
+        logger.error("register definition must have no arguments", location=args)
 
     for line in reader.iter_block():
         try:
             nodes = parse_regs(line)
         except BadInput as ex:
-            reader.error("bad register definition line: %s", ex, location=ex.locations)
+            logger.error("bad register definition line: %s", ex, location=ex.locations)
             continue
 
         last_type_location = None
@@ -102,7 +111,7 @@ def _parse_regs(
             except ValueError as ex:
                 # Avoid reporting the same error twice.
                 if type_location != last_type_location:
-                    reader.error("%s", ex, location=type_location)
+                    logger.error("%s", ex, location=type_location)
                 continue
             last_type_location = type_location
 
@@ -111,7 +120,7 @@ def _parse_regs(
                     # Define base register.
                     match reg_type:
                         case ReferenceType():
-                            reader.error(
+                            logger.error(
                                 "base register cannot have a reference type",
                                 location=(decl.name.location, type_location),
                             )
@@ -121,7 +130,7 @@ def _parse_regs(
                                     decl.name.name, typ, decl.name.location
                                 )
                             except NameExistsError as ex:
-                                reader.error(
+                                logger.error(
                                     "bad base register definition: %s",
                                     ex,
                                     location=ex.locations,
@@ -134,14 +143,14 @@ def _parse_regs(
                             decl.kind, name, reg_type, value, global_namespace
                         )
                     except BadExpression as ex:
-                        reader.error(
+                        logger.error(
                             "bad register alias: %s", ex, location=ex.locations
                         )
                         ref = bad_reference(reg_type)
                     try:
                         global_namespace.define(name, ref, decl.name.location)
                     except NameExistsError as ex:
-                        reader.error(
+                        logger.error(
                             "failed to define register alias: %s",
                             ex,
                             location=ex.locations,
@@ -155,7 +164,7 @@ _re_arg_decl = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 
 def _parse_typed_args(
-    reader: DefLineReader, args: InputLocation, description: str
+    logger: InputLogger, args: InputLocation, description: str
 ) -> Iterator[tuple[IntType | ReferenceType, InputLocation, InputLocation]]:
     """
     Parses a typed arguments list, yielding a triple for each argument,
@@ -171,7 +180,7 @@ def _parse_typed_args(
     for i, arg_loc in enumerate(arg_locs, 1):
         arg_match = arg_loc.match(_re_arg_decl)
         if arg_match is None:
-            reader.error(
+            logger.error(
                 '%s %d not of the form "<type> <name>"',
                 description,
                 i,
@@ -183,7 +192,7 @@ def _parse_typed_args(
         try:
             arg_type = parse_type_decl(type_loc.text)
         except ValueError as ex:
-            reader.error(
+            logger.error(
                 'bad %s %d ("%s"): %s',
                 description,
                 i,
@@ -197,6 +206,7 @@ def _parse_typed_args(
 
 def _parse_prefix(
     reader: DefLineReader,
+    logger: InputLogger,
     args: InputLocation,
     namespace: GlobalNamespace,
     factory: PrefixMappingFactory,
@@ -206,14 +216,14 @@ def _parse_prefix(
     # Parse header line.
     decode_flags = []
     try:
-        with reader.check_errors():
+        with logger.check_errors():
             flag_type = IntType.u(1)
             for arg_type, arg_type_loc, arg_name_loc in _parse_typed_args(
-                reader, args, "decode flag"
+                logger, args, "decode flag"
             ):
                 match arg_type:
                     case ReferenceType():
-                        reader.error(
+                        logger.error(
                             "decode flag cannot be declared as a reference type",
                             location=arg_type_loc,
                         )
@@ -221,7 +231,7 @@ def _parse_prefix(
                     case IntType() as typ:
                         if typ is not flag_type:
                             # Maybe in the future we'll support other types.
-                            reader.error(
+                            logger.error(
                                 'decode flag of type "%s", expected "%s"',
                                 arg_type,
                                 flag_type,
@@ -233,9 +243,9 @@ def _parse_prefix(
                 try:
                     namespace.add_register(arg_name, arg_type, arg_name_loc)
                 except ValueError as ex:
-                    reader.error("%s", ex)
+                    logger.error("%s", ex, location=reader.location)
                 except NameExistsError as ex:
-                    reader.error(
+                    logger.error(
                         "error defining decode flag: %s", ex, location=ex.locations
                     )
                 else:
@@ -252,23 +262,24 @@ def _parse_prefix(
         try:
             enc_loc, mnem_loc, sem_loc = fields
         except ValueError:
-            reader.error(
+            logger.error(
                 "wrong number of dot-separated fields in prefix line: "
                 "expected 3, got %d",
                 len(fields),
+                location=line,
             )
             continue
 
         # Parse encoding.
         try:
-            with reader.check_errors():
+            with logger.check_errors():
                 if len(enc_loc) == 0:
-                    reader.error("prefix encoding cannot be empty", location=enc_loc)
+                    logger.error("prefix encoding cannot be empty", location=enc_loc)
                 else:
                     try:
                         enc_nodes = parse_expr_list(enc_loc)
                     except BadInput as ex:
-                        reader.error(
+                        logger.error(
                             "bad prefix encoding: %s", ex, location=ex.locations
                         )
                     else:
@@ -279,7 +290,7 @@ def _parse_prefix(
                                     _parse_encoding_expr(enc_node, namespace, {})
                                 )
                             except BadInput as ex:
-                                reader.error(
+                                logger.error(
                                     "bad prefix encoding: %s", ex, location=ex.locations
                                 )
         except DelayedError:
@@ -289,14 +300,14 @@ def _parse_prefix(
 
         # Parse mnemonic.
         if len(mnem_loc) != 0:
-            reader.warning("prefix mnemonics are not supported yet", location=mnem_loc)
+            logger.warning("prefix mnemonics are not supported yet", location=mnem_loc)
 
         # Parse semantics.
         semantics: FunctionBody | None
         try:
-            with reader.check_errors():
+            with logger.check_errors():
                 if len(sem_loc) == 0:
-                    reader.error(
+                    logger.error(
                         'prefix semantics cannot be empty; use "nop" instead',
                         location=sem_loc,
                     )
@@ -304,15 +315,15 @@ def _parse_prefix(
                     sem_builder = SemanticsCodeBlockBuilder()
                     sem_namespace = LocalNamespace(namespace, sem_builder)
                     try:
-                        _parse_instr_semantics(reader, sem_loc, sem_namespace)
+                        _parse_instr_semantics(logger, sem_loc, sem_namespace)
                     except BadInput as ex:
-                        reader.error(
+                        logger.error(
                             "bad prefix semantics: %s", ex, location=ex.locations
                         )
                     else:
                         try:
                             semantics = sem_namespace.create_code_block(
-                                ret_ref=None, log=reader
+                                ret_ref=None, log=logger
                             )
                         except ValueError:
                             # Error was logged inside createCodeBlock().
@@ -326,39 +337,42 @@ def _parse_prefix(
     try:
         factory.add_prefixes(decode_flags, prefixes)
     except ValueError as ex:
-        reader.error(
+        logger.error(
             "validation of prefix block failed: %s", ex, location=header_location
         )
     except BadInput as ex:
-        reader.error("validation of prefix block failed: %s", ex, location=ex.locations)
+        logger.error("validation of prefix block failed: %s", ex, location=ex.locations)
 
 
 _re_io_line = re.compile(_name_tok + r"\s" + _name_tok + r"\[" + _name_tok + r"\]$")
 
 
 def _parse_io(
-    reader: DefLineReader, args: InputLocation, namespace: GlobalNamespace
+    reader: DefLineReader,
+    logger: InputLogger,
+    args: InputLocation,
+    namespace: GlobalNamespace,
 ) -> None:
     if args:
-        reader.error("I/O definition must have no arguments", location=args)
+        logger.error("I/O definition must have no arguments", location=args)
 
     for line in reader.iter_block():
         match = line.match(_re_io_line)
         if match is None:
-            reader.error("invalid I/O definition line")
+            logger.error("invalid I/O definition line", location=line)
         else:
             elem_type_loc, name_loc, addr_type_loc = match.groups
 
             try:
                 elem_type: IntType | None = parse_type(elem_type_loc.text)
             except ValueError as ex:
-                reader.error("bad I/O element type: %s", ex, location=elem_type_loc)
+                logger.error("bad I/O element type: %s", ex, location=elem_type_loc)
                 elem_type = None
 
             try:
                 addr_type: IntType | None = parse_type(addr_type_loc.text)
             except ValueError as ex:
-                reader.error("bad I/O address type: %s", ex, location=addr_type_loc)
+                logger.error("bad I/O address type: %s", ex, location=addr_type_loc)
                 addr_type = None
 
             if elem_type is None or addr_type is None:
@@ -369,7 +383,7 @@ def _parse_io(
             try:
                 namespace.define(name, channel, name_loc)
             except NameExistsError as ex:
-                reader.error(
+                logger.error(
                     "error defining I/O channel: %s", ex, location=ex.locations
                 )
 
@@ -379,6 +393,7 @@ _re_func_header = re.compile(r"(?:" + _type_tok + r"\s)?" + _name_tok + r"\((.*)
 
 def _parse_func(
     reader: DefLineReader,
+    logger: InputLogger,
     header_args: InputLocation,
     namespace: GlobalNamespace,
     want_semantics: bool,
@@ -386,7 +401,7 @@ def _parse_func(
     # Parse header line.
     match = header_args.match(_re_func_header)
     if match is None:
-        reader.error("invalid function header line", location=header_args)
+        logger.error("invalid function header line", location=header_args)
         reader.skip_block()
         return
 
@@ -398,7 +413,7 @@ def _parse_func(
         try:
             ret_type = parse_type_decl(ret_type_loc.text)
         except ValueError as ex:
-            reader.error("bad return type: %s", ex, location=ret_type_loc)
+            logger.error("bad return type: %s", ex, location=ret_type_loc)
             reader.skip_block()
             return
     else:
@@ -408,20 +423,20 @@ def _parse_func(
     # Parse arguments.
     args = {}
     try:
-        with reader.check_errors():
+        with logger.check_errors():
             name_locations: dict[str, InputLocation] = {}
             for i, (arg_type, _arg_type_loc, arg_name_loc) in enumerate(
-                _parse_typed_args(reader, match.group(3), "function argument"), 1
+                _parse_typed_args(logger, match.group(3), "function argument"), 1
             ):
                 arg_name = arg_name_loc.text
                 if arg_name == "ret":
-                    reader.error(
+                    logger.error(
                         '"ret" is reserved for the return value; '
                         "it cannot be used as an argument name",
                         location=arg_name_loc,
                     )
                 elif arg_name in name_locations:
-                    reader.error(
+                    logger.error(
                         "function argument %d has the same name as "
                         "an earlier argument: %s",
                         i,
@@ -443,6 +458,7 @@ def _parse_func(
         try:
             func = create_func(
                 reader,
+                logger,
                 func_name_loc,
                 ret_type,
                 ret_type_loc,
@@ -451,7 +467,7 @@ def _parse_func(
                 namespace,
             )
         except BadInput as ex:
-            reader.error(
+            logger.error(
                 'error in body of function "%s": %s',
                 func_name,
                 ex,
@@ -462,7 +478,7 @@ def _parse_func(
             try:
                 namespace.define(func_name, func, func_name_loc)
             except NameExistsError as ex:
-                reader.error("error declaring function: %s", ex, location=ex.locations)
+                logger.error("error declaring function: %s", ex, location=ex.locations)
     else:
         reader.skip_block()
 
@@ -471,7 +487,7 @@ def _parse_mode_context(
     ctx_loc: InputLocation,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
     placeholder_specs = {}
     flags_required = set()
@@ -489,7 +505,7 @@ def _parse_mode_context(
                 if mode is not None:
                     placeholder = MatchPlaceholderSpec(decl, mode)
                     if isinstance(node, DefinitionNode):
-                        reader.error(
+                        logger.error(
                             "filter values for mode placeholders are not supported yet",
                             location=InputLocation.merge_span(
                                 node.location, node.value.tree_location
@@ -502,7 +518,7 @@ def _parse_mode_context(
                         #       "<type>&"; we'd have to use parse_type_decl() instead.
                         typ = parse_type(type_name)
                     except ValueError:
-                        reader.error(
+                        logger.error(
                             'there is no type or mode named "%s"',
                             type_name,
                             location=decl_type.location,
@@ -511,7 +527,7 @@ def _parse_mode_context(
                     value = node.value if isinstance(node, DefinitionNode) else None
                     placeholder = ValuePlaceholderSpec(decl, typ, value)
                 if name in placeholder_specs:
-                    reader.error(
+                    logger.error(
                         'multiple placeholders named "%s"',
                         name,
                         location=decl.name.location,
@@ -522,7 +538,7 @@ def _parse_mode_context(
                 if prefixes.has_flag(name):
                     flags_required.add(name)
                 else:
-                    reader.error(
+                    logger.error(
                         'there is no decode flag named "%s"',
                         name,
                         location=node.location,
@@ -536,7 +552,7 @@ def _parse_mode_context(
 def _build_placeholders(
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
     sem_namespace = ContextNamespace(global_namespace)
@@ -556,7 +572,7 @@ def _build_placeholders(
                     decl.kind, decl.name.name, sem_type, value, placeholder_namespace
                 )
             except BadExpression as ex:
-                reader.error("%s", ex, location=ex.locations)
+                logger.error("%s", ex, location=ex.locations)
             else:
                 code = placeholder_namespace.create_code_block(ref)
 
@@ -566,7 +582,7 @@ def _build_placeholders(
                     try:
                         sem_namespace.add_argument(name, argType, decl.name.location)
                     except NameExistsError as ex:
-                        reader.error("%s", ex, location=ex.locations)
+                        logger.error("%s", ex, location=ex.locations)
                         continue
                 case typ:
                     bad_type(typ)
@@ -680,7 +696,7 @@ def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    logger: DefLineReader,
+    logger: InputLogger,
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
     enc_namespace = ContextNamespace(global_namespace)
@@ -719,7 +735,7 @@ def _parse_mode_encoding(
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: DefLineReader,
+    logger: InputLogger,
 ) -> None:
     """
     Warn about multi-matches that always match zero elements.
@@ -753,7 +769,7 @@ def _check_missing_placeholders(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     location: InputLocation,
-    logger: DefLineReader,
+    logger: InputLogger,
 ) -> None:
     """
     Check that our encoding field contains sufficient placeholders to be able
@@ -813,7 +829,7 @@ def _check_missing_placeholders(
 
 
 def _check_aux_encoding_width(
-    enc_items: Iterable[EncodingItem], logger: DefLineReader
+    enc_items: Iterable[EncodingItem], logger: InputLogger
 ) -> None:
     """
     Check whether the encoding widths in the given encoding are the same
@@ -866,7 +882,7 @@ def _check_aux_encoding_width(
 
 
 def _check_duplicate_multi_matches(
-    enc_items: Iterable[EncodingItem], logger: DefLineReader
+    enc_items: Iterable[EncodingItem], logger: InputLogger
 ) -> None:
     """
     Checks whether more than one multi-matcher exists for the same
@@ -889,7 +905,7 @@ def _check_duplicate_multi_matches(
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """
     Yield pairs of placeholder name and the locations where the placeholder
@@ -920,7 +936,7 @@ def _combine_placeholder_encodings(
         elif prev > imm_width:
             assert False, (name, slices)
         if problems:
-            reader.error(
+            logger.error(
                 'cannot decode value for "%s": %s',
                 name,
                 ", ".join(problems),
@@ -934,7 +950,7 @@ def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> None:
     """
     Verifies that there is an order in which placeholders can be decoded.
@@ -967,7 +983,7 @@ def _check_decoding_order(
         ]
         if bad_idx:
             mode = placeholder_spec.mode
-            reader.error(
+            logger.error(
                 'cannot match "%s": mode "%s" has a variable encoding length '
                 'and (parts of) the placeholder "%s" are placed after the '
                 'multi-match placeholder "%s@"',
@@ -983,7 +999,7 @@ def _check_decoding_order(
 def _parse_mode_decoding(
     encoding: Encoding,
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
@@ -993,17 +1009,17 @@ def _parse_mode_decoding(
         # Decompose the encoding expressions.
         fixed_matcher, decode_map = decompose_encoding(encoding)
     except BadInput as ex:
-        reader.error("%s", ex, location=ex.locations)
+        logger.error("%s", ex, location=ex.locations)
         return None
     try:
-        with reader.check_errors():
+        with logger.check_errors():
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
-                _combine_placeholder_encodings(decode_map, placeholder_specs, reader)
+                _combine_placeholder_encodings(decode_map, placeholder_specs, logger)
             )
-        with reader.check_errors():
+        with logger.check_errors():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, placeholder_specs, reader)
+            _check_decoding_order(encoding, sequential_map, placeholder_specs, logger)
     except DelayedError:
         return None
     else:
@@ -1011,9 +1027,7 @@ def _parse_mode_decoding(
 
 
 def _parse_mode_semantics(
-    # While 'reader' is not used here, it is part of the signature that
-    # _parse_mode_entries() uses to call this function.
-    reader: DefLineReader,  # pylint: disable=unused-argument
+    _logger: InputLogger,
     sem_loc: InputLocation,
     sem_namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType,
@@ -1039,14 +1053,14 @@ def _parse_mode_semantics(
 
 
 def _parse_instr_semantics(
-    reader: DefLineReader,
+    logger: InputLogger,
     sem_loc: InputLocation,
     namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType = None,
 ) -> None:
     assert mode_type is None, mode_type
     node = parse_statement(sem_loc)
-    build_statement_eval(reader, "semantics field", namespace, node)
+    build_statement_eval(logger, "semantics field", namespace, node)
 
 
 _re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
@@ -1055,7 +1069,7 @@ _re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 def _parse_mnemonic(
     mnem_loc: InputLocation,
     placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-    reader: DefLineReader,
+    logger: InputLogger,
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}
     seen_placeholders: dict[str, InputLocation] = {}
@@ -1067,7 +1081,7 @@ def _parse_mnemonic(
                 try:
                     value, width = parse_int(text)
                 except ValueError as ex:
-                    reader.error("%s", ex, location=mnem_elem)
+                    logger.error("%s", ex, location=mnem_elem)
                 else:
                     yield int_reference(value, IntType.u(width))
             else:
@@ -1077,7 +1091,7 @@ def _parse_mnemonic(
             # meaning that would make sense is that they would all match the
             # same mode entry or expression and I don't know of any situation
             # in which that would be a useful feature.
-            reader.error(
+            logger.error(
                 'placeholder "%s" occurs multiple times in mnemonic',
                 text,
                 location=(mnem_elem, seen_placeholders[text]),
@@ -1089,13 +1103,14 @@ def _parse_mnemonic(
 
 def _parse_mode_entries(
     reader: DefLineReader,
+    logger: InputLogger,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     mode_type: None | IntType | ReferenceType,
     mnem_base: tuple[str, ...],
     parse_sem: Callable[
-        [DefLineReader, InputLocation, LocalNamespace, None | IntType | ReferenceType],
+        [InputLogger, InputLocation, LocalNamespace, None | IntType | ReferenceType],
         Reference | None,
     ],
     want_semantics: bool,
@@ -1104,26 +1119,28 @@ def _parse_mode_entries(
         # Split mode line into 4 fields.
         fields = list(line.split(_re_dot_sep))
         if len(fields) < 2:
-            reader.error('field separator "." missing in mode line')
+            logger.error('field separator "." missing in mode line', location=line)
             continue
         if len(fields) > 4:
-            reader.error("too many fields (%d) in mode line", len(fields))
+            logger.error(
+                "too many fields (%d) in mode line", len(fields), location=line
+            )
             continue
         fields += [line.end_location] * (4 - len(fields))
         enc_loc, mnem_loc, sem_loc, ctx_loc = fields
 
         try:
-            with reader.check_errors():
+            with logger.check_errors():
                 # Parse context.
                 if len(ctx_loc) != 0:
                     try:
-                        with reader.check_errors():
+                        with logger.check_errors():
                             placeholder_specs, flags_required = _parse_mode_context(
-                                ctx_loc, prefixes, modes, reader
+                                ctx_loc, prefixes, modes, logger
                             )
                             placeholders = tuple(
                                 _build_placeholders(
-                                    placeholder_specs, global_namespace, reader
+                                    placeholder_specs, global_namespace, logger
                                 )
                             )
                     except DelayedError:
@@ -1140,7 +1157,7 @@ def _parse_mode_entries(
                         # Parse encoding field.
                         enc_nodes = parse_expr_list(enc_loc)
                     except BadInput as ex:
-                        reader.error("error in encoding: %s", ex, location=ex.locations)
+                        logger.error("error in encoding: %s", ex, location=ex.locations)
                         enc_nodes = None
                 else:
                     enc_nodes = ()
@@ -1148,23 +1165,23 @@ def _parse_mode_entries(
                     encoding = None
                 else:
                     try:
-                        with reader.check_errors():
+                        with logger.check_errors():
                             enc_items = tuple(
                                 _parse_mode_encoding(
                                     enc_nodes,
                                     placeholder_specs,
                                     global_namespace,
-                                    reader,
+                                    logger,
                                 )
                             )
-                        with reader.check_errors():
-                            _check_aux_encoding_width(enc_items, reader)
+                        with logger.check_errors():
+                            _check_aux_encoding_width(enc_items, logger)
                             _check_empty_multi_matches(
-                                enc_items, placeholder_specs, reader
+                                enc_items, placeholder_specs, logger
                             )
-                            _check_duplicate_multi_matches(enc_items, reader)
+                            _check_duplicate_multi_matches(enc_items, logger)
                             _check_missing_placeholders(
-                                enc_items, placeholder_specs, enc_loc, reader
+                                enc_items, placeholder_specs, enc_loc, logger
                             )
                     except DelayedError:
                         encoding = None
@@ -1173,14 +1190,14 @@ def _parse_mode_entries(
                 if encoding is None:
                     decoding = None
                 else:
-                    decoding = _parse_mode_decoding(encoding, placeholder_specs, reader)
+                    decoding = _parse_mode_decoding(encoding, placeholder_specs, logger)
 
                 # Parse mnemonic.
                 mnem_items = mnem_base + tuple(
-                    _parse_mnemonic(mnem_loc, placeholders, reader)
+                    _parse_mnemonic(mnem_loc, placeholders, logger)
                 )
                 if len(mnem_items) == 0:
-                    reader.error("missing mnemonic", location=mnem_loc)
+                    logger.error("missing mnemonic", location=mnem_loc)
                 else:
                     mnemonic = Mnemonic(mnem_items)
 
@@ -1203,9 +1220,9 @@ def _parse_mode_entries(
                             # Parse mnemonic field as semantics.
                             sem_loc = mnem_loc
 
-                        sem_ref = parse_sem(reader, sem_loc, sem_namespace, mode_type)
+                        sem_ref = parse_sem(logger, sem_loc, sem_namespace, mode_type)
                     except BadInput as ex:
-                        reader.error(
+                        logger.error(
                             "error in semantics: %s", ex, location=ex.locations
                         )
                         # This is the last field.
@@ -1213,7 +1230,7 @@ def _parse_mode_entries(
                     try:
                         semantics: FunctionBody | None
                         semantics = sem_namespace.create_code_block(
-                            ret_ref=sem_ref, log=reader
+                            ret_ref=sem_ref, log=logger
                         )
                     except ValueError:
                         # Error was already logged inside createCodeBlock().
@@ -1249,7 +1266,7 @@ def _determine_encoding_width(
     entries: list[ParsedModeEntry],
     aux: bool,
     mode_name: str | None,
-    logger: DefLineReader,
+    logger: InputLogger,
 ) -> int | None:
     """
     Returns the common encoding width for the given list of mode entries.
@@ -1314,6 +1331,7 @@ _re_mode_args = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 def _parse_mode(
     reader: DefLineReader,
+    logger: InputLogger,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1324,7 +1342,7 @@ def _parse_mode(
     # Parse header line.
     match = args.match(_re_mode_args)
     if match is None:
-        reader.error(
+        logger.error(
             'invalid mode arguments, expected "mode <type> <name>"', location=args
         )
         reader.skip_block()
@@ -1334,14 +1352,14 @@ def _parse_mode(
     try:
         sem_type = parse_type_decl(mode_type_loc.text)
     except ValueError as ex:
-        reader.error("bad mode type: %s", ex, location=mode_type_loc)
+        logger.error("bad mode type: %s", ex, location=mode_type_loc)
         sem_type = None
 
     # Check whether it's safe to add mode to namespace.
     mode_name = mode_name_loc.text
     add_mode = False
     if mode_name in modes:
-        reader.error(
+        logger.error(
             'mode "%s" redefined; first definition was on line %d',
             mode_name,
             modes[mode_name].location.lineno,
@@ -1353,7 +1371,7 @@ def _parse_mode(
         except ValueError:
             add_mode = True
         else:
-            reader.error(
+            logger.error(
                 'mode name "%s" conflicts with type', mode_name, location=mode_name_loc
             )
 
@@ -1361,6 +1379,7 @@ def _parse_mode(
     parsed_entries = list(
         _parse_mode_entries(
             reader,
+            logger,
             global_namespace,
             prefixes,
             modes,
@@ -1372,8 +1391,8 @@ def _parse_mode(
     )
 
     # Create and remember mode object.
-    enc_width = _determine_encoding_width(parsed_entries, False, mode_name, reader)
-    aux_enc_width = _determine_encoding_width(parsed_entries, True, mode_name, reader)
+    enc_width = _determine_encoding_width(parsed_entries, False, mode_name, logger)
+    aux_enc_width = _determine_encoding_width(parsed_entries, True, mode_name, logger)
     entries = tuple(parsed_entry.entry for parsed_entry in parsed_entries)
     mode = Mode(mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries)
     if add_mode:
@@ -1383,6 +1402,7 @@ def _parse_mode(
 
 def _parse_instr(
     reader: DefLineReader,
+    logger: InputLogger,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1390,16 +1410,17 @@ def _parse_instr(
     want_semantics: bool,
 ) -> Iterator[ParsedModeEntry]:
     mnem_base = []
-    for mnem_item in _parse_mnemonic(args, {}, reader):
+    for mnem_item in _parse_mnemonic(args, {}, logger):
         if isinstance(mnem_item, str):
             mnem_base.append(mnem_item)
         else:
             # TODO: The main reason to disallow this is that it would complicate
             #       the code to support it. Is that a good enough reason?
-            reader.error("the mnemonic base cannot contain numbers", location=args)
+            logger.error("the mnemonic base cannot contain numbers", location=args)
 
     for instr in _parse_mode_entries(
         reader,
+        logger,
         global_namespace,
         prefixes,
         modes,
@@ -1411,7 +1432,7 @@ def _parse_instr(
         enc_def = instr.entry.encoding
         enc_width = enc_def.encoding_width
         if enc_width is None:
-            reader.error(
+            logger.error(
                 "instruction encoding must not be empty",
                 location=enc_def.encoding_location,
             )
@@ -1420,7 +1441,7 @@ def _parse_instr(
             continue
         aux_encoding_width = enc_def.aux_encoding_width
         if aux_encoding_width not in (enc_width, None):
-            reader.error(
+            logger.error(
                 "auxiliary instruction encoding units are %s bits wide, "
                 "while first unit is %s bits wide",
                 aux_encoding_width,
@@ -1447,13 +1468,14 @@ class InstructionSetParser:
         if logger is None:
             logger = getLogger(__name__)
             logger.setLevel(WARNING)
+        input_logger = InputLogger(str(path), logger)
 
         parser = cls(want_semantics=want_semantics)
 
-        with DefLineReader.open(path, logger) as reader:
-            parser.parse(reader)
-            instr_set = parser.finalize(reader)
-            reader.summarize()
+        with DefLineReader.open(path) as reader:
+            parser.parse(reader, input_logger)
+            instr_set = parser.finalize(input_logger, reader.location)
+            input_logger.summarize()
 
         return instr_set
 
@@ -1473,10 +1495,10 @@ class InstructionSetParser:
         instruction set.
         """
 
-    def parse(self, reader: DefLineReader) -> None:
+    def parse(self, reader: DefLineReader, logger: InputLogger) -> None:
         """Parse the top level of an instruction set definition."""
 
-        num_errors_start = reader.problem_counter.num_errors
+        num_errors_start = logger.problem_counter.num_errors
 
         global_namespace = self.global_namespace
         prefixes = self.prefixes
@@ -1490,22 +1512,23 @@ class InstructionSetParser:
                 continue
             match = header.match(_re_header)
             if match is None:
-                reader.error("malformed line outside block")
+                logger.error("malformed line outside block", location=header)
                 continue
             keyword = match.group(1)
             args = match.group(2) if match.has_group(2) else header.end_location
             def_type = keyword.text
             if def_type == "reg":
-                _parse_regs(reader, args, global_namespace)
+                _parse_regs(reader, logger, args, global_namespace)
             elif def_type == "io":
-                _parse_io(reader, args, global_namespace)
+                _parse_io(reader, logger, args, global_namespace)
             elif def_type == "prefix":
-                _parse_prefix(reader, args, global_namespace, prefixes)
+                _parse_prefix(reader, logger, args, global_namespace, prefixes)
             elif def_type == "func":
-                _parse_func(reader, args, global_namespace, want_semantics)
+                _parse_func(reader, logger, args, global_namespace, want_semantics)
             elif def_type == "mode":
                 _parse_mode(
                     reader,
+                    logger,
                     args,
                     global_namespace,
                     prefixes,
@@ -1515,16 +1538,24 @@ class InstructionSetParser:
                 )
             elif def_type == "instr":
                 instructions += _parse_instr(
-                    reader, args, global_namespace, prefixes, modes, want_semantics
+                    reader,
+                    logger,
+                    args,
+                    global_namespace,
+                    prefixes,
+                    modes,
+                    want_semantics,
                 )
             else:
-                reader.error('unknown definition type "%s"', def_type, location=keyword)
+                logger.error('unknown definition type "%s"', def_type, location=keyword)
                 reader.skip_block()
 
-        if reader.problem_counter.num_errors != num_errors_start:
+        if logger.problem_counter.num_errors != num_errors_start:
             self.attempt_creation = False
 
-    def finalize(self, logger: DefLineReader) -> InstructionSet | None:
+    def finalize(
+        self, logger: InputLogger, location: InputLocation
+    ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 
         # Check that the program counter was defined.
@@ -1532,7 +1563,9 @@ class InstructionSetParser:
             pc = self.global_namespace["pc"]
         except KeyError:
             logger.error(
-                'no program counter defined: a register or alias named "pc" is required'
+                "no program counter defined: "
+                'a register or alias named "pc" is required',
+                location=location,
             )
         else:
             assert isinstance(pc, Reference), pc
@@ -1550,7 +1583,7 @@ class InstructionSetParser:
                 # earlier ones, only degenerate instruction sets can have an empty
                 # encoding: either the instruction set is empty or it has a single
                 # instruction with no encoding.
-                logger.error("no instruction encodings defined")
+                logger.error("no instruction encodings defined", location=location)
             else:
                 try:
                     return InstructionSet(
@@ -1561,6 +1594,10 @@ class InstructionSetParser:
                         self.mode_entries,
                     )
                 except ValueError as ex:
-                    logger.error("final validation of instruction set failed: %s", ex)
+                    logger.error(
+                        "final validation of instruction set failed: %s",
+                        ex,
+                        location=location,
+                    )
 
         return None

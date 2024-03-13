@@ -61,7 +61,7 @@ from .expression_nodes import (
     OperatorNode,
     ParseNode,
 )
-from .linereader import BadInput, InputLocation, LineReader
+from .linereader import BadInput, InputLocation, InputLogger
 
 
 class BadExpression(BadInput):
@@ -496,7 +496,7 @@ def build_reference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
 
 
 def build_statement_eval(
-    reader: LineReader, where_desc: str, namespace: LocalNamespace, node: ParseNode
+    logger: InputLogger, where_desc: str, namespace: LocalNamespace, node: ParseNode
 ) -> None:
     """
     Emits loads and stores on the given namespace that produce the (side)
@@ -512,7 +512,7 @@ def build_statement_eval(
             try:
                 lhs = build_reference(node.lhs, namespace)
             except BadExpression as ex:
-                reader.error(
+                logger.error(
                     "bad expression on left hand side of assignment in %s: %s",
                     where_desc,
                     ex,
@@ -523,7 +523,7 @@ def build_statement_eval(
             try:
                 rhs = build_expression(node.rhs, namespace)
             except BadExpression as ex:
-                reader.error(
+                logger.error(
                     "bad expression on right hand side of assignment in %s: %s",
                     where_desc,
                     ex,
@@ -543,7 +543,7 @@ def build_statement_eval(
             try:
                 _ref = _convert_function_call(node, namespace)
             except BadExpression as ex:
-                reader.error("%s", ex, location=ex.locations)
+                logger.error("%s", ex, location=ex.locations)
             # Skip no-effect check: if a function does nothing, it likely either
             # does so on purpose or a warning will already have been issued there.
             return
@@ -553,7 +553,7 @@ def build_statement_eval(
             try:
                 build_expression(expr, namespace)
             except BadExpression as ex:
-                reader.error(
+                logger.error(
                     "bad expression in statement in %s: %s",
                     where_desc,
                     ex,
@@ -572,13 +572,13 @@ def build_statement_eval(
         # TODO: This warning will be issued when no new nodes are emitted because
         #       the statement only changed local variables.
         pass
-        # reader.warning(
+        # logger.warning(
         #     "statement in %s has no effect", where_desc, location=node.tree_location
         # )
 
 
 def emit_code_from_statements(
-    reader: LineReader,
+    logger: InputLogger,
     where_desc: str,
     namespace: LocalNamespace,
     statements: Iterable[ParseNode],
@@ -603,7 +603,7 @@ def emit_code_from_statements(
                     assert kind == DeclarationKind.reference, kind
                     assert name_node.name == "ret", name_node.name
                     if not isinstance(ret_type, ReferenceType):
-                        reader.error(
+                        logger.error(
                             '"ret" defined as reference in function that returns %s',
                             "nothing" if ret_type is None else "value",
                             location=decl.location,
@@ -623,13 +623,13 @@ def emit_code_from_statements(
                 try:
                     ref = convert_definition(kind, name, typ, value, namespace)
                 except BadExpression as ex:
-                    reader.error("%s", ex, location=ex.locations)
+                    logger.error("%s", ex, location=ex.locations)
                     ref = bad_reference(typ)
                 # Add definition to namespace.
                 try:
                     namespace.define(name, ref, name_node.location)
                 except NameExistsError as ex:
-                    reader.error(
+                    logger.error(
                         'failed to define %s "%s %s": %s',
                         kind.name,
                         typ,
@@ -643,7 +643,7 @@ def emit_code_from_statements(
                 try:
                     declare_variable(decl, namespace)
                 except BadExpression as ex:
-                    reader.error("%s", ex, location=ex.locations)
+                    logger.error("%s", ex, location=ex.locations)
 
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.
@@ -660,4 +660,4 @@ def emit_code_from_statements(
                 namespace.builder.add_label(label, location)
 
             case stmt:
-                build_statement_eval(reader, where_desc, namespace, stmt)
+                build_statement_eval(logger, where_desc, namespace, stmt)

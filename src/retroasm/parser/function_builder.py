@@ -12,24 +12,25 @@ from ..types import IntType, ReferenceType
 from .expression_builder import emit_code_from_statements
 from .expression_nodes import ParseError, ParseNode
 from .expression_parser import parse_statement
-from .linereader import DefLineReader, DelayedError, InputLocation
+from .linereader import DefLineReader, DelayedError, InputLocation, InputLogger
 
 
-def _parse_body(reader: DefLineReader) -> Iterator[ParseNode]:
+def _parse_body(reader: DefLineReader, logger: InputLogger) -> Iterator[ParseNode]:
     """
     Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
-    Errors are appended to `reader` as they are discovered.
+    Errors are appended to `logger` as they are discovered.
     """
     for line in reader.iter_block():
         try:
             yield parse_statement(line)
         except ParseError as ex:
-            reader.error("failed to parse statement: %s", ex, location=ex.locations)
+            logger.error("failed to parse statement: %s", ex, location=ex.locations)
 
 
 def create_func(
     reader: DefLineReader,
+    logger: InputLogger,
     func_name_location: InputLocation,
     ret_type: None | IntType | ReferenceType,
     ret_type_location: InputLocation | None,
@@ -60,10 +61,10 @@ def create_func(
         ret_ref = namespace.add_variable("ret", ret_type, ret_type_location)
 
     try:
-        with reader.check_errors():
-            body_nodes = _parse_body(reader)
+        with logger.check_errors():
+            body_nodes = _parse_body(reader, logger)
             emit_code_from_statements(
-                reader, "function body", namespace, body_nodes, ret_type
+                logger, "function body", namespace, body_nodes, ret_type
             )
     except DelayedError:
         code = None
@@ -75,7 +76,7 @@ def create_func(
 
         try:
             code = namespace.create_code_block(
-                ret_ref, log=reader, location=func_name_location
+                ret_ref, log=logger, location=func_name_location
             )
         except ValueError:
             code = None
@@ -83,7 +84,7 @@ def create_func(
     try:
         func = Function(ret_type, args, code)
     except ValueError as ex:
-        reader.error(
+        logger.error(
             'error in function "%s": %s',
             func_name_location.text,
             ex,
@@ -99,7 +100,7 @@ def create_func(
         code_args = code.arguments
         for arg_name in args.keys():
             if arg_name not in code_args:
-                reader.warning(
+                logger.warning(
                     'unused argument "%s" in function "%s"',
                     arg_name,
                     func_name_location.text,

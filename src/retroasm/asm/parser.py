@@ -15,7 +15,13 @@ from ..parser.expression_nodes import (
     ParseNode,
     parse_digits,
 )
-from ..parser.linereader import DelayedError, InputLocation, LineReader, ProblemCounter
+from ..parser.linereader import (
+    DelayedError,
+    InputLocation,
+    InputLogger,
+    LineReader,
+    ProblemCounter,
+)
 from ..parser.tokens import TokenEnum, Tokenizer
 from ..types import IntType, Width, unlimited
 from .directives import (
@@ -30,7 +36,7 @@ from .directives import (
     StringDirective,
 )
 
-logger = getLogger(__name__)
+asm_parser_logger = getLogger(__name__)
 
 
 class AsmToken(TokenEnum):
@@ -87,7 +93,7 @@ def create_match_sequence(nodes: Iterable[ParseNode]) -> Iterator[type[int] | st
                 assert False, node
 
 
-def parse_instruction(tokens: AsmTokenizer, reader: LineReader) -> Iterator[ParseNode]:
+def parse_instruction(tokens: AsmTokenizer, logger: InputLogger) -> Iterator[ParseNode]:
     # TODO: Treating keywords and separators as identifiers is weird,
     #       but it works for now.
     instr_name = tokens.eat(AsmToken.word)
@@ -98,22 +104,22 @@ def parse_instruction(tokens: AsmTokenizer, reader: LineReader) -> Iterator[Pars
         try:
             yield parse_value(tokens)
         except ParseError as ex:
-            reader.error("error parsing operand: %s", ex, location=ex.locations)
+            logger.error("error parsing operand: %s", ex, location=ex.locations)
             tokens.eat_remainder()
             return
         if (separator := tokens.eat(AsmToken.separator)) is not None:
             yield IdentifierNode(separator.text, location=separator)
 
 
-def build_instruction(tokens: AsmTokenizer, reader: LineReader) -> None:
+def build_instruction(tokens: AsmTokenizer, logger: InputLogger) -> None:
     name = tokens.location
     try:
-        with reader.check_errors():
-            match_seq = tuple(create_match_sequence(parse_instruction(tokens, reader)))
+        with logger.check_errors():
+            match_seq = tuple(create_match_sequence(parse_instruction(tokens, logger)))
     except DelayedError:
         return
 
-    reader.info(
+    logger.info(
         "instruction %s", " ".join(str(elem) for elem in match_seq), location=name
     )
 
@@ -539,7 +545,9 @@ class AsmSource:
                 yield statement.path
 
 
-def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
+def parse_asm(
+    reader: LineReader, logger: InputLogger, instr_set: InstructionSet
+) -> AsmSource:
     source = AsmSource()
     instruction_names = instr_set.instruction_names
 
@@ -551,29 +559,29 @@ def parse_asm(reader: LineReader, instr_set: InstructionSet) -> AsmSource:
         try:
             label = parse_label(tokens)
         except ParseError as ex:
-            reader.error("error parsing label: %s", ex, location=ex.locations)
+            logger.error("error parsing label: %s", ex, location=ex.locations)
         else:
             if label is not None:
-                reader.info("label: %s", label, location=location)
+                logger.info("label: %s", label, location=location)
                 source.add_directive(label)
 
         # Look for a directive or instruction.
         if tokens.peek(AsmToken.word):
             if tokens.value.casefold() in instruction_names:
-                build_instruction(tokens, reader)
+                build_instruction(tokens, logger)
             else:
                 location = tokens.location
                 try:
                     directive = parse_directive(tokens, instr_set)
                 except ParseError as ex:
-                    reader.error("%s", ex, location=ex.locations)
+                    logger.error("%s", ex, location=ex.locations)
                 else:
-                    reader.info("directive: %s", directive, location=location)
+                    logger.info("directive: %s", directive, location=location)
                     source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end_of_statement:
-            reader.error(
+            logger.error(
                 "expected directive or instruction, got %s",
                 tokens.kind.name,
                 location=tokens.location,
@@ -590,13 +598,14 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
     Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
     to know whether the source is complete.
     """
+    logger = InputLogger(str(path), asm_parser_logger)
     try:
-        with LineReader.open(path, logger) as reader:
-            source = parse_asm(reader, instr_set)
-            source.problem_counter += reader.problem_counter
-            reader.summarize()
+        with LineReader.open(path) as reader:
+            source = parse_asm(reader, logger, instr_set)
+            source.problem_counter += logger.problem_counter
+            logger.summarize()
     except OSError as ex:
-        logger.error("%s: Error reading source: %s", path, ex)
+        asm_parser_logger.error("%s: Error reading source: %s", path, ex)
         source = AsmSource()
         source.problem_counter.num_errors += 1
     return source

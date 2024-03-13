@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .parser.linereader import BadInput, InputLocation, LineReader
+from .parser.linereader import BadInput, InputLocation, InputLogger
 from .reference import (
     BitString,
     FixedValue,
@@ -203,7 +203,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def create_code_block(
         self,
         returned: Iterable[BitString],
-        log: LineReader | None = None,
+        log: InputLogger | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
         """

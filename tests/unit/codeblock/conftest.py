@@ -9,7 +9,7 @@ from logging import Logger, getLevelNamesMapping, getLogger
 import pytest
 
 from retroasm.parser.instrset_parser import InstructionSetParser
-from retroasm.parser.linereader import DefLineReader
+from retroasm.parser.linereader import DefLineReader, InputLogger
 
 
 class TestParser(InstructionSetParser):
@@ -19,8 +19,9 @@ class TestParser(InstructionSetParser):
         self.logger = logger
 
     def parse_text(self, text: str) -> None:
-        reader = DefLineReader(self.path, StringIO(text), self.logger)
-        self.parse(reader)
+        reader = DefLineReader(self.path, StringIO(text))
+        logger = InputLogger(self.path, self.logger)
+        self.parse(reader, logger)
 
 
 @pytest.fixture

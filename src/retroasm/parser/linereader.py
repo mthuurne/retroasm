@@ -288,6 +288,75 @@ class ProblemCounter:
         return self
 
 
+class InputLogger:
+    """
+    A logger with support for locations.
+    """
+
+    def __init__(self, path: str, logger: Logger):
+        self._path = path
+        self.logger = logger
+        self.problem_counter = ProblemCounter()
+
+    def debug(self, msg: str, *args: object) -> None:
+        """Log a message at the DEBUG level."""
+        self.__log(DEBUG, msg, *args)
+
+    def info(
+        self,
+        msg: str,
+        *args: object,
+        location: Sequence[InputLocation | None] | InputLocation | None,
+    ) -> None:
+        """Log a message at the INFO level."""
+        self.__log(INFO, msg, *args, location=location)
+
+    def warning(
+        self,
+        msg: str,
+        *args: object,
+        location: Sequence[InputLocation | None] | InputLocation | None,
+    ) -> None:
+        """Log a message at the WARNING level and increase the warning count."""
+        self.problem_counter.num_warnings += 1
+        self.__log(WARNING, "warning: " + msg, *args, location=location)
+
+    def error(
+        self,
+        msg: str,
+        *args: object,
+        location: Sequence[InputLocation | None] | InputLocation | None,
+    ) -> None:
+        """Log a message at the ERROR level and increase the error count."""
+        self.problem_counter.num_errors += 1
+        self.__log(ERROR, "ERROR: " + msg, *args, location=location)
+
+    @contextmanager
+    def check_errors(self) -> Iterator[Self]:
+        """
+        Returns a context manager that raises DelayedError on context close
+        if any errors were logged since the context was opened.
+        """
+        num_errors_before = self.problem_counter.num_errors
+        yield self
+        num_errors = self.problem_counter.num_errors - num_errors_before
+        if num_errors != 0:
+            raise DelayedError(f"{num_errors:d} errors were logged")
+
+    def summarize(self) -> None:
+        """Log a message containing the error and warning counts."""
+        problem_counter = self.problem_counter
+        self.logger.log(problem_counter.level, "%s: %s", self._path, problem_counter)
+
+    def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
+        logger = self.logger
+        if logger.isEnabledFor(level):
+            location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
+                "location", None
+            )
+            logger.log(level, msg, *args, extra={"location": location}, **kwargs)
+
+
 class LineReader:
     """
     Iterates through the lines of a text file.
@@ -301,21 +370,15 @@ class LineReader:
 
     @classmethod
     @contextmanager
-    def open(cls, path: Traversable, logger: Logger) -> Iterator[Self]:
+    def open(cls, path: Traversable) -> Iterator[Self]:
         with path.open() as lines:
-            reader = cls(str(path), lines, logger)
-            reader.debug("start reading")
-            yield reader
-            reader.debug("done reading")
+            yield cls(str(path), lines)
 
-    def __init__(self, path: str, lines: IO[str], logger: Logger):
+    def __init__(self, path: str, lines: IO[str]):
         self._path = path
         self._lines = lines
-        self.logger = logger
-
         self._lastline: str | None = None
         self._lineno = 0
-        self.problem_counter = ProblemCounter()
 
     def __iter__(self) -> Iterator[InputLocation]:
         return self
@@ -344,49 +407,6 @@ class LineReader:
         else:
             span = (0, len(lastline))
         return InputLocation(self._path, self._lineno, lastline, span)
-
-    def debug(self, msg: str, *args: object, **kwargs: object) -> None:
-        """Log a message at the DEBUG level."""
-        self.__log(DEBUG, msg, *args, **kwargs)
-
-    def info(self, msg: str, *args: object, **kwargs: object) -> None:
-        """Log a message at the INFO level."""
-        self.__log(INFO, msg, *args, **kwargs)
-
-    def warning(self, msg: str, *args: object, **kwargs: object) -> None:
-        """Log a message at the WARNING level and increase the warning count."""
-        self.problem_counter.num_warnings += 1
-        self.__log(WARNING, "warning: " + msg, *args, **kwargs)
-
-    def error(self, msg: str, *args: object, **kwargs: object) -> None:
-        """Log a message at the ERROR level and increase the error count."""
-        self.problem_counter.num_errors += 1
-        self.__log(ERROR, "ERROR: " + msg, *args, **kwargs)
-
-    @contextmanager
-    def check_errors(self) -> Iterator[Self]:
-        """
-        Returns a context manager that raises DelayedError on context close
-        if any errors were logged since the context was opened.
-        """
-        num_errors_before = self.problem_counter.num_errors
-        yield self
-        num_errors = self.problem_counter.num_errors - num_errors_before
-        if num_errors != 0:
-            raise DelayedError(f"{num_errors:d} errors were logged")
-
-    def summarize(self) -> None:
-        """Log a message containing the error and warning counts."""
-        problem_counter = self.problem_counter
-        self.logger.log(problem_counter.level, "%s: %s", self._path, problem_counter)
-
-    def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
-        logger = self.logger
-        if logger.isEnabledFor(level):
-            location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
-                "location", self.location
-            )
-            logger.log(level, msg, *args, extra={"location": location}, **kwargs)
 
 
 _RE_COMMENT = re.compile(r"(?<!\\)#")
