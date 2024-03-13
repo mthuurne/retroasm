@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from importlib.resources.abc import Traversable
 from logging import DEBUG, ERROR, INFO, WARNING, Formatter, Logger, LogRecord
 from re import Match, Pattern
-from typing import IO, Any, TypeVar, overload
+from typing import IO, Any, Self, overload
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,9 +288,6 @@ class ProblemCounter:
         return self
 
 
-LineReaderT = TypeVar("LineReaderT", bound="LineReader")
-
-
 class LineReader:
     """
     Iterates through the lines of a text file.
@@ -304,9 +301,7 @@ class LineReader:
 
     @classmethod
     @contextmanager
-    def open(
-        cls: type[LineReaderT], path: Traversable, logger: Logger
-    ) -> Iterator[LineReaderT]:
+    def open(cls, path: Traversable, logger: Logger) -> Iterator[Self]:
         with path.open() as lines:
             reader = cls(str(path), lines, logger)
             reader.debug("start reading")
@@ -369,7 +364,7 @@ class LineReader:
         self.__log(ERROR, "ERROR: " + msg, *args, **kwargs)
 
     @contextmanager
-    def check_errors(self) -> Iterator[LineReader]:
+    def check_errors(self) -> Iterator[Self]:
         """
         Returns a context manager that raises DelayedError on context close
         if any errors were logged since the context was opened.

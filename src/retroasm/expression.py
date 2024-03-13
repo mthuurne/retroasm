@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
-from typing import TypeVar, cast
+from typing import Self, TypeVar, cast
 
 from .types import (
     CarryMask,
@@ -17,7 +17,6 @@ from .utils import const_property
 # pylint: disable=protected-access
 
 ExprT = TypeVar("ExprT", bound="Expression")
-SingleExprT = TypeVar("SingleExprT", bound="SingleExpression")
 
 
 class Expression:
@@ -63,7 +62,7 @@ class Expression:
     def __hash__(self) -> int:
         return hash(self._ctorargs() + (self.__class__,))
 
-    def _equals(self: ExprT, other: ExprT) -> bool:
+    def _equals(self, other: Self) -> bool:
         """
         Returns True if this expression is equal to the other expression,
         False otherwise.
@@ -377,7 +376,7 @@ class SingleExpression(Expression):
     def _ctorargs(self) -> tuple[object, ...]:
         return (self._expr,)
 
-    def _equals(self: SingleExprT, other: SingleExprT) -> bool:
+    def _equals(self, other: Self) -> bool:
         return self._expr == other._expr
 
     @property

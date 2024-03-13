@@ -5,7 +5,7 @@ from dataclasses import astuple, dataclass, replace
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
-from typing import Any, ClassVar, Protocol, TypeVar, overload
+from typing import Any, ClassVar, Protocol, Self, overload
 
 from .asm.directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
@@ -79,9 +79,6 @@ def _yield_entry_point(
         yield EntryPoint(offset, name)
 
 
-BinFmtT = TypeVar("BinFmtT", bound="BinaryFormat")
-
-
 class BinaryFormat:
     """Abstract base class for binary formats."""
 
@@ -95,7 +92,7 @@ class BinaryFormat:
     """File name extensions: lower case, excluding the dot."""
 
     @classmethod
-    def autodetect(cls: type[BinFmtT], image: Image) -> BinFmtT | None:
+    def autodetect(cls, image: Image) -> Self | None:
         """
         Attempt to autodetect the given image as an instance of this binary format.
 
@@ -109,7 +106,7 @@ class BinaryFormat:
         )
 
     @classmethod
-    def detect_all(cls: type[BinFmtT], image: Image) -> Iterator[BinFmtT]:
+    def detect_all(cls, image: Image) -> Iterator[Self]:
         """
         Iterate through plausible intepretations of the given image as this binary
         format.
