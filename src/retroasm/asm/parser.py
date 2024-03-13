@@ -588,7 +588,7 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
 
     Errors will be logged and counted; no exceptions will be raised.
     Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
-    so know whether the source is complete.
+    to know whether the source is complete.
     """
     try:
         with LineReader.open(path, logger) as reader:
@@ -610,7 +610,7 @@ def read_sources(
 
     Errors will be logged and counted; no exceptions will be raised.
     Inspect the `problem_counter.num_errors` on the returned `AsmSource` objects
-    so know whether the sources are complete.
+    to know whether the sources are complete.
 
     Returns a dictionary mapping a resolved path to its parsed contents.
     """
