@@ -63,13 +63,12 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
         (
             "test.parser",
             ERROR,
-            "ERROR: no program counter defined: "
-            'a register or alias named "pc" is required',
+            'no program counter defined: a register or alias named "pc" is required',
         ),
         (
             "test.parser",
             ERROR,
-            "ERROR: no instruction encodings defined",
+            "no instruction encodings defined",
         ),
         (
             "test.parser",

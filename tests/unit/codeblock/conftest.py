@@ -114,8 +114,9 @@ def docstring_tester(
     levels_by_name = getLevelNamesMapping()
     logger_name = parser.logger.name
     expected_log = []
-    for message in logging:
-        level = levels_by_name[message[: message.index(":")].upper()]
-        expected_log.append((logger_name, level, message))
+    for line in logging:
+        level_name, message = line.split(":", 1)
+        level = levels_by_name[level_name.strip().upper()]
+        expected_log.append((logger_name, level, message.strip()))
 
     return DocstringTester(parser, expected_log, caplog.record_tuples)

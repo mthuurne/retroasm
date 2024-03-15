@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, MutableMapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from logging import DEBUG, ERROR, INFO, WARNING, Formatter, Logger, LogRecord
+from logging import ERROR, INFO, WARNING, Formatter, Logger, LoggerAdapter, LogRecord
 from re import Match, Pattern
 from typing import Any, Self, overload
 
@@ -240,7 +240,7 @@ class InputMatch:
         return self._match.lastgroup
 
 
-class InputLogger:
+class InputLogger(LoggerAdapter[Logger]):
     """
     A logger with support for locations.
 
@@ -251,42 +251,28 @@ class InputLogger:
     """
 
     def __init__(self, path: str, logger: Logger):
+        super().__init__(logger)
         self._path = path
-        self.logger = logger
         self.problem_counter = ProblemCounter()
 
-    def debug(self, msg: str, *args: object) -> None:
-        """Log a message at the DEBUG level."""
-        self.__log(DEBUG, msg, *args)
+    def log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
+        # We check the level here instead of in process(), because that method is
+        # only called when logging is enabled for that log level and we need our
+        # error count to be accurate whether the messages reach the log or not.
+        if level == ERROR:
+            self.problem_counter.num_errors += 1
+        elif level == WARNING:
+            self.problem_counter.num_warnings += 1
+        super().log(level, msg, *args, **kwargs)
 
-    def info(
-        self,
-        msg: str,
-        *args: object,
-        location: Sequence[InputLocation | None] | InputLocation | None,
-    ) -> None:
-        """Log a message at the INFO level."""
-        self.__log(INFO, msg, *args, location=location)
-
-    def warning(
-        self,
-        msg: str,
-        *args: object,
-        location: Sequence[InputLocation | None] | InputLocation | None,
-    ) -> None:
-        """Log a message at the WARNING level and increase the warning count."""
-        self.problem_counter.num_warnings += 1
-        self.__log(WARNING, "warning: " + msg, *args, location=location)
-
-    def error(
-        self,
-        msg: str,
-        *args: object,
-        location: Sequence[InputLocation | None] | InputLocation | None,
-    ) -> None:
-        """Log a message at the ERROR level and increase the error count."""
-        self.problem_counter.num_errors += 1
-        self.__log(ERROR, "ERROR: " + msg, *args, location=location)
+    def process(
+        self, msg: Any, kwargs: MutableMapping[str, Any]
+    ) -> tuple[Any, MutableMapping[str, Any]]:
+        location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
+            "location", None
+        )
+        kwargs["extra"] = {"location": location}
+        return msg, kwargs
 
     @contextmanager
     def check_errors(self) -> Iterator[Self]:
@@ -303,15 +289,8 @@ class InputLogger:
     def summarize(self) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
-        self.logger.log(problem_counter.level, "%s: %s", self._path, problem_counter)
-
-    def __log(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
-        logger = self.logger
-        if logger.isEnabledFor(level):
-            location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
-                "location", None
-            )
-            logger.log(level, msg, *args, extra={"location": location}, **kwargs)
+        # Call superclass implementation to skip problem counter update.
+        super().log(problem_counter.level, "%s: %s", self._path, problem_counter)
 
 
 class DelayedError(Exception):
@@ -367,6 +346,10 @@ def _pluralize(count: int, verb: str) -> str:
 class LocationFormatter(Formatter):
     def format(self, record: LogRecord) -> str:
         msg = super().format(record)
+        if record.levelno == ERROR:
+            msg = f"ERROR: {msg}"
+        elif record.levelno == WARNING:
+            msg = f"warning: {msg}"
         location: None | InputLocation | Sequence[InputLocation] = getattr(
             record, "location", None
         )
