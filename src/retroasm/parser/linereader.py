@@ -36,11 +36,15 @@ class LineReader:
         return self
 
     def _next_line(self) -> str:
-        self._lastline = None  # in case next() raises StopIteration
-        line = next(self._lines).rstrip("\n")
-        self._lastline = line
-        self._lineno += 1
-        return line
+        try:
+            line = next(self._lines).rstrip("\n")
+        except StopIteration:
+            self._lastline = None
+            raise
+        else:
+            self._lastline = line
+            self._lineno += 1
+            return line
 
     def __next__(self) -> InputLocation:
         self._next_line()
