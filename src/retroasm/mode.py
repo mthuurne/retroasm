@@ -10,7 +10,7 @@ from .codeblock_builder import SemanticsCodeBlockBuilder
 from .codeblock_simplifier import simplify_block
 from .expression import Expression
 from .expression_simplifier import simplify_expression
-from .parser.linereader import InputLocation
+from .input import InputLocation
 from .reference import (
     BitString,
     FixedValue,

@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from enum import Enum, auto
 from typing import Any, TypeAlias, cast
 
+from ..input import InputLocation
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
@@ -22,7 +23,6 @@ from .expression_nodes import (
     ParseNode,
     parse_int,
 )
-from .linereader import InputLocation
 from .tokens import TokenEnum, Tokenizer
 
 DefDeclNode: TypeAlias = DeclarationNode | DefinitionNode

@@ -20,6 +20,7 @@ from ..expression import (
 )
 from ..expression_simplifier import simplify_expression
 from ..function import Function
+from ..input import BadInput, InputLocation, InputLogger
 from ..namespace import (
     BuilderNamespace,
     LocalNamespace,
@@ -61,7 +62,6 @@ from .expression_nodes import (
     OperatorNode,
     ParseNode,
 )
-from .linereader import BadInput, InputLocation, InputLogger
 
 
 class BadExpression(BadInput):

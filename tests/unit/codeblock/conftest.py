@@ -8,8 +8,9 @@ from logging import Logger, getLevelNamesMapping, getLogger
 
 import pytest
 
+from retroasm.input import InputLogger
 from retroasm.parser.instrset_parser import InstructionSetParser
-from retroasm.parser.linereader import DefLineReader, InputLogger
+from retroasm.parser.linereader import DefLineReader
 
 
 class TestParser(InstructionSetParser):

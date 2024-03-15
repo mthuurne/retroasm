@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .parser.linereader import BadInput, InputLocation, InputLogger
+from .input import BadInput, InputLocation, InputLogger
 from .reference import (
     BitString,
     FixedValue,

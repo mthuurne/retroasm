@@ -19,7 +19,7 @@ from .expression import (
     truncate,
 )
 from .expression_simplifier import simplify_expression
-from .parser.linereader import InputLocation
+from .input import InputLocation
 from .storage import Storage
 from .symbol import SymbolValue
 from .types import (

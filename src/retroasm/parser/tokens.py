@@ -6,7 +6,7 @@ from enum import Enum, EnumMeta
 from re import Pattern
 from typing import Any, TypeAlias, TypeVar, cast
 
-from .linereader import InputLocation
+from ..input import InputLocation
 
 
 class TokenMeta(EnumMeta):

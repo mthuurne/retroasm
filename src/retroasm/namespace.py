@@ -7,7 +7,7 @@ from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
-from .parser.linereader import BadInput, InputLocation, InputLogger
+from .input import BadInput, InputLocation, InputLogger
 from .reference import BitString, Reference, SingleStorage, Variable
 from .storage import (
     ArgStorage,

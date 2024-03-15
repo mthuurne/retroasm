@@ -5,6 +5,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import TypeAlias
 
+from ..input import DelayedError, InputLocation, InputLogger, ProblemCounter
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
     IdentifierNode,
@@ -15,13 +16,7 @@ from ..parser.expression_nodes import (
     ParseNode,
     parse_digits,
 )
-from ..parser.linereader import (
-    DelayedError,
-    InputLocation,
-    InputLogger,
-    LineReader,
-    ProblemCounter,
-)
+from ..parser.linereader import LineReader
 from ..parser.tokens import TokenEnum, Tokenizer
 from ..types import IntType, Width, unlimited
 from .directives import (

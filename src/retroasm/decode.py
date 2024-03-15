@@ -8,6 +8,7 @@ from typing import TypeAlias, cast
 from .codeblock import FunctionBody
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
+from .input import BadInput
 from .mode import (
     EncodeMatch,
     Encoding,
@@ -16,7 +17,6 @@ from .mode import (
     MatchPlaceholder,
     ModeEntry,
 )
-from .parser.linereader import BadInput
 from .reference import (
     FixedValue,
     FixedValueReference,

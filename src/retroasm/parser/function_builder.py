@@ -5,6 +5,7 @@ from typing import cast
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..function import Function
+from ..input import DelayedError, InputLocation, InputLogger
 from ..namespace import GlobalNamespace, LocalNamespace
 from ..reference import Reference, SingleStorage
 from ..storage import ArgStorage
@@ -12,7 +13,7 @@ from ..types import IntType, ReferenceType
 from .expression_builder import emit_code_from_statements
 from .expression_nodes import ParseError, ParseNode
 from .expression_parser import parse_statement
-from .linereader import DefLineReader, DelayedError, InputLocation, InputLogger
+from .linereader import DefLineReader
 
 
 def _parse_body(reader: DefLineReader, logger: InputLogger) -> Iterator[ParseNode]:

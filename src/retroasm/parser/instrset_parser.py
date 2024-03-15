@@ -16,6 +16,7 @@ from ..decode import (
     Prefix,
     decompose_encoding,
 )
+from ..input import BadInput, DelayedError, InputLocation, InputLogger
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
     CodeTemplate,
@@ -68,13 +69,7 @@ from .expression_parser import (
     parse_statement,
 )
 from .function_builder import create_func
-from .linereader import (
-    BadInput,
-    DefLineReader,
-    DelayedError,
-    InputLocation,
-    InputLogger,
-)
+from .linereader import DefLineReader
 
 _name_pat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _name_tok = r"\s*(" + _name_pat + r")\s*"

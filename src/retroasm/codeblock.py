@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import TypeAlias
 
 from .expression import Expression
-from .parser.linereader import InputLocation
+from .input import InputLocation
 from .reference import BitString, Variable
 from .storage import ArgStorage, Storage
 from .types import mask_for_width
