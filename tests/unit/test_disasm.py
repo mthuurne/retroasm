@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterator, cast
+from collections.abc import Iterator
+from typing import cast
 
 from pytest import mark
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from retroasm.codeblock import FunctionBody, Load, Store
 from retroasm.expression import AddOperator, Expression, IntLiteral, XorOperator

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, Sequence, cast
+from collections.abc import Callable, Iterator, Sequence
+from typing import cast
 
 from pytest import fixture, mark
 

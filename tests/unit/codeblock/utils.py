@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Callable, Iterable, Mapping, Sequence, cast
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import cast
 
 from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
