@@ -8,12 +8,12 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.11"
 click = "^8.0"
-coverage = {version = "^7.4.0", extras = ["toml"]}
-pytest-cov = "^4.1.0"
 
 [tool.poetry.dev-dependencies]
 invoke = "^2.0"
 pytest = "^8.0.0"
+coverage = {version = "^7.4.0", extras = ["toml"]}
+pytest-cov = "^4.1.0"
 pylint = "^3.0"
 mypy = "^1.0.0"
 lxml = "^4.3.5"
