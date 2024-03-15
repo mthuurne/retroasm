@@ -73,7 +73,7 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
         (
             "test.parser",
             ERROR,
-            f"{empty_file}: 2 errors and 0 warnings",
+            "2 errors and 0 warnings",
         ),
     ]
     assert instr is None

@@ -290,7 +290,7 @@ class InputLogger(LoggerAdapter[Logger]):
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
-        super().log(problem_counter.level, "%s: %s", self._path, problem_counter)
+        super().log(problem_counter.level, "%s", problem_counter, location=self._path)
 
 
 class DelayedError(Exception):
@@ -350,14 +350,14 @@ class LocationFormatter(Formatter):
             msg = f"ERROR: {msg}"
         elif record.levelno == WARNING:
             msg = f"warning: {msg}"
-        location: None | InputLocation | Sequence[InputLocation] = getattr(
+        location: None | str | InputLocation | Sequence[InputLocation] = getattr(
             record, "location", None
         )
         return "\n".join(_format_parts(_iter_parts(msg, location)))
 
 
 def _iter_parts(
-    msg: str, location: None | InputLocation | Sequence[InputLocation]
+    msg: str, location: None | str | InputLocation | Sequence[InputLocation]
 ) -> Iterator[
     tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
 ]:
@@ -366,6 +366,8 @@ def _iter_parts(
     elif isinstance(location, InputLocation):
         loc = location
         yield msg, loc.path, loc.lineno, loc.line, [loc.span]
+    elif isinstance(location, str):
+        yield msg, location, -1, None, []
     else:
         multi_msg: str | None = msg
         i = 0
@@ -392,14 +394,7 @@ def _format_parts(
     ],
 ) -> Iterator[str]:
     for msg, path, lineno, line, spans in parts:
-        if path is None:
-            assert msg is not None
-            yield msg
-        elif msg is None:
-            yield f"{path}:{lineno:d}:"
-        else:
-            yield f"{path}:{lineno:d}: {msg}"
-
+        yield "".join(_format_message(msg, path, lineno))
         if line is not None:
             yield line
 
@@ -420,3 +415,15 @@ def _format_parts(
             span_line = span_line.rstrip()
             if span_line:
                 yield span_line
+
+
+def _format_message(msg: str | None, path: str | None, lineno: int) -> Iterator[str]:
+    if path is None:
+        assert msg is not None
+        yield msg
+    else:
+        yield f"{path}:"
+        if lineno != -1:
+            yield f"{lineno:d}:"
+        if msg is not None:
+            yield f" {msg}"
