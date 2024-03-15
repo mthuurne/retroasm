@@ -359,7 +359,7 @@ def _pluralize(count: int, verb: str) -> str:
     return f"{count:d} {verb}{'' if count == 1 else 's'}"
 
 
-class LineReaderFormatter(Formatter):
+class LocationFormatter(Formatter):
     def format(self, record: LogRecord) -> str:
         msg = super().format(record)
         location: None | InputLocation | Sequence[InputLocation] = getattr(

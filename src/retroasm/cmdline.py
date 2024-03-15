@@ -38,7 +38,7 @@ from .binfmt import (
 )
 from .disasm import Instruction, disassemble, format_asm
 from .fetch import ImageFetcher
-from .input import LineReaderFormatter, ProblemCounter
+from .input import LocationFormatter, ProblemCounter
 from .instr import (
     builtin_instruction_set_path,
     builtin_instruction_sets,
@@ -53,7 +53,7 @@ from .types import Unlimited, unlimited
 
 def setup_logging(root_level: int) -> Logger:
     handler = StreamHandler()
-    formatter = LineReaderFormatter()
+    formatter = LocationFormatter()
     handler.setFormatter(formatter)
     logger = getLogger()
     logger.addHandler(handler)
