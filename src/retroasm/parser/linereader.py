@@ -13,11 +13,6 @@ class LineReader:
     """
     Iterates through the lines of a text file.
     The lines will not contain a trailing newline character.
-    Log methods on the reader can be used to produce log records with context
-    information: path name and the number and contents of the current line.
-    Errors and warnings reported in this way are counted.
-    The companion class LineReaderFormatter can be used to incorporate the
-    context information in the logging.
     """
 
     @classmethod

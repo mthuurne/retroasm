@@ -243,6 +243,11 @@ class InputMatch:
 class InputLogger:
     """
     A logger with support for locations.
+
+    Log methods can be passed an `InputLocation` with context information.
+    Errors and warnings reported in this way are counted.
+    The companion class `LocationFormatter` can be used to incorporate the
+    context information in the logging.
     """
 
     def __init__(self, path: str, logger: Logger):
