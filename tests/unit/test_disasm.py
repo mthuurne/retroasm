@@ -35,7 +35,7 @@ def disassemble_image(image: Image, addr: int = 0x4000) -> Iterator[tuple[int, s
 
 def test_disasm_empty() -> None:
     """Disassemble an empty image."""
-    disassembled = list(disassemble_image(bytes()))
+    disassembled = list(disassemble_image(b""))
     assert disassembled == []
 
 
