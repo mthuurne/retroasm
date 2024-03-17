@@ -47,28 +47,46 @@ u32 mem[u32]
     return parser
 
 
-def _parse_docstring(docstring: str) -> tuple[str, Sequence[str]]:
+def _parse_docstring(docstring: str) -> tuple[str, str]:
     """Parse a code block and list of logging messages from the given docstring."""
 
     lines = cleandoc(docstring).split("\n")
+    num_lines = len(lines)
 
-    code_start = lines.index(".. code-block:: instr") + 1
-    for code_end in range(code_start, len(lines)):
-        if (line := lines[code_end]) and not line[0].isspace():
-            break
-    else:
-        code_end = len(lines)
-    code = cleandoc("\n".join(lines[code_start:code_end]))
+    def find_block(search_start: int) -> tuple[int, str, str] | None:
+        prefix = ".. code-block::"
+        for idx in range(search_start, num_lines):
+            if (line := lines[idx]).startswith(prefix):
+                language = line[len(prefix) :].strip()
+                block_start = idx + 1
+                break
+        else:
+            return None
 
-    logging = []
-    for idx in range(code_end, len(lines)):
-        line = lines[idx]
-        if not line:
-            continue
-        elif line[0] == "-":
-            logging.append(line[1:].strip())
-        elif line[0].isspace() and logging:
-            logging[-1] += " " + line.strip()
+        for idx in range(block_start, num_lines):
+            if (line := lines[idx]) and not line[0].isspace():
+                block_end = idx
+                break
+        else:
+            block_end = num_lines
+
+        body = cleandoc("\n".join(lines[block_start:block_end]))
+        return block_end, language, body
+
+    blocks = {}
+    idx = 0
+    while block := find_block(idx):
+        idx, language, body = block
+        if language in blocks:
+            raise ValueError(f'Multiple blocks with language "{language}"')
+        blocks[language] = body
+
+    try:
+        code = blocks["instr"]
+    except KeyError:
+        raise ValueError("No code block") from None
+
+    logging = blocks.get("inputlog", "")
 
     return code, logging
 
@@ -108,15 +126,19 @@ def docstring_tester(
             request.fixturename, request, f"error parsing docstring: {ex}"
         ) from ex
 
+    print("> code:")
     print(code)
     parser.parse_text(code)
 
-    levels_by_name = getLevelNamesMapping()
-    logger_name = parser.logger.name
     expected_log = []
-    for line in logging:
-        level_name, message = line.split(":", 1)
-        level = levels_by_name[level_name.strip().upper()]
-        expected_log.append((logger_name, level, message.strip()))
+    if logging:
+        print("> logging:")
+        print(logging)
+        levels_by_name = getLevelNamesMapping()
+        logger_name = parser.logger.name
+        for line in logging.split("\n"):
+            level_name, message = line.split(":", 1)
+            level = levels_by_name[level_name.strip().upper()]
+            expected_log.append((logger_name, level, message.strip()))
 
     return DocstringTester(parser, expected_log, caplog.record_tuples)

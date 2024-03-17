@@ -13,7 +13,9 @@ def test_variable_undefined_compute(docstring_tester: DocstringTester) -> None:
             var int UNDEF
             a := a + UNDEF
 
-    - ERROR: Undefined value of variable "UNDEF" is stored
+    .. code-block:: inputlog
+
+        ERROR: Undefined value of variable "UNDEF" is stored
     """
     docstring_tester.check()
 
@@ -28,7 +30,9 @@ def test_variable_undefined_ioindex(docstring_tester: DocstringTester) -> None:
             var int UNDEF
             a := mem[UNDEF]
 
-    - ERROR: Undefined value of variable "UNDEF" is used as an I/O index
+    .. code-block:: inputlog
+
+        ERROR: Undefined value of variable "UNDEF" is used as an I/O index
     """
     docstring_tester.check()
 
@@ -43,7 +47,9 @@ def test_variable_undefined_return_value(docstring_tester: DocstringTester) -> N
             var int UNDEF
             ret := UNDEF
 
-    - ERROR: Undefined value of variable "UNDEF" is returned
+    .. code-block:: inputlog
+
+        ERROR: Undefined value of variable "UNDEF" is returned
     """
     docstring_tester.check()
 
@@ -59,7 +65,9 @@ def test_variable_undefined_return_compute(docstring_tester: DocstringTester) ->
             var int UNDEF
             ret := UNDEF + 1
 
-    - ERROR: Undefined value of variable "UNDEF" is returned
+    .. code-block:: inputlog
+
+        ERROR: Undefined value of variable "UNDEF" is returned
     """
     docstring_tester.check()
 
@@ -87,6 +95,8 @@ def test_variable_undefined_return_reference(docstring_tester: DocstringTester) 
             var int UNDEF
             ret = UNDEF
 
-    - ERROR: Undefined value of variable "UNDEF" is returned
+    .. code-block:: inputlog
+
+        ERROR: Undefined value of variable "UNDEF" is returned
     """
     docstring_tester.check()

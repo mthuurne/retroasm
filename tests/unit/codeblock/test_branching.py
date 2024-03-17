@@ -14,7 +14,9 @@ def test_branch_label_duplicate(docstring_tester: DocstringTester) -> None:
             a := 0
             @here
 
-    - ERROR: error in body of function "duplicate_label": label "here" already defined
+    .. code-block:: inputlog
+
+        ERROR: error in body of function "duplicate_label": label "here" already defined
     """
     docstring_tester.check()
 
@@ -28,7 +30,9 @@ def test_branch_label_undefined(docstring_tester: DocstringTester) -> None:
         func missing_label()
             branch @there
 
-    - ERROR: Label "there" does not exist
+    .. code-block:: inputlog
+
+        ERROR: Label "there" does not exist
     """
     docstring_tester.check()
 
@@ -45,6 +49,8 @@ def test_branch_label_unused(docstring_tester: DocstringTester) -> None:
             a := a - 1
             @exit
 
-    - warning: Label "unused" is unused
+    .. code-block:: inputlog
+
+        warning: Label "unused" is unused
     """
     docstring_tester.check()
