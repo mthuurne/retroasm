@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from inspect import cleandoc
 from io import StringIO
-from logging import Logger, getLevelNamesMapping, getLogger
+from logging import Logger, getLogger
 
 import pytest
 
-from retroasm.input import InputLogger
+from retroasm.input import InputLogger, LocationFormatter
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
 
@@ -94,8 +93,8 @@ def _parse_docstring(docstring: str) -> tuple[str, str]:
 @dataclass
 class DocstringTester:
     parser: TestParser
-    expected_log: Sequence[tuple[str, int, str]]
-    actual_log: Sequence[tuple[str, int, str]]
+    expected_log: str
+    actual_log: str
 
     def check(self) -> None:
         assert self.actual_log == self.expected_log
@@ -126,19 +125,10 @@ def docstring_tester(
             request.fixturename, request, f"error parsing docstring: {ex}"
         ) from ex
 
+    caplog.handler.setFormatter(LocationFormatter())
+
     print("> code:")
     print(code)
     parser.parse_text(code)
 
-    expected_log = []
-    if logging:
-        print("> logging:")
-        print(logging)
-        levels_by_name = getLevelNamesMapping()
-        logger_name = parser.logger.name
-        for line in logging.split("\n"):
-            level_name, message = line.split(":", 1)
-            level = levels_by_name[level_name.strip().upper()]
-            expected_log.append((logger_name, level, message.strip()))
-
-    return DocstringTester(parser, expected_log, caplog.record_tuples)
+    return DocstringTester(parser, logging, caplog.text.rstrip())
