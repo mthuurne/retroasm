@@ -5,7 +5,7 @@ from typing import cast
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..function import Function
-from ..input import DelayedError, InputLocation, InputLogger
+from ..input import DelayedError, InputLocation, InputLogger, collect_errors
 from ..namespace import GlobalNamespace, LocalNamespace
 from ..reference import Reference, SingleStorage
 from ..storage import ArgStorage
@@ -62,10 +62,10 @@ def create_func(
         ret_ref = namespace.add_variable("ret", ret_type, ret_type_location)
 
     try:
-        with logger.check_errors():
-            body_nodes = _parse_body(reader, logger)
+        with collect_errors(logger) as collector:
+            body_nodes = _parse_body(reader, collector)
             emit_code_from_statements(
-                logger, "function body", namespace, body_nodes, ret_type
+                collector, "function body", namespace, body_nodes, ret_type
             )
     except DelayedError:
         code = None

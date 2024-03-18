@@ -16,7 +16,7 @@ from ..decode import (
     Prefix,
     decompose_encoding,
 )
-from ..input import BadInput, DelayedError, InputLocation, InputLogger
+from ..input import BadInput, DelayedError, InputLocation, InputLogger, collect_errors
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
     CodeTemplate,
@@ -211,14 +211,14 @@ def _parse_prefix(
     # Parse header line.
     decode_flags = []
     try:
-        with logger.check_errors():
+        with collect_errors(logger) as collector:
             flag_type = IntType.u(1)
             for arg_type, arg_type_loc, arg_name_loc in _parse_typed_args(
-                logger, args, "decode flag"
+                collector, args, "decode flag"
             ):
                 match arg_type:
                     case ReferenceType():
-                        logger.error(
+                        collector.error(
                             "decode flag cannot be declared as a reference type",
                             location=arg_type_loc,
                         )
@@ -226,7 +226,7 @@ def _parse_prefix(
                     case IntType() as typ:
                         if typ is not flag_type:
                             # Maybe in the future we'll support other types.
-                            logger.error(
+                            collector.error(
                                 'decode flag of type "%s", expected "%s"',
                                 arg_type,
                                 flag_type,
@@ -238,9 +238,9 @@ def _parse_prefix(
                 try:
                     namespace.add_register(arg_name, arg_type, arg_name_loc)
                 except ValueError as ex:
-                    logger.error("%s", ex, location=reader.location)
+                    collector.error("%s", ex, location=reader.location)
                 except NameExistsError as ex:
-                    logger.error(
+                    collector.error(
                         "error defining decode flag: %s", ex, location=ex.locations
                     )
                 else:
@@ -267,14 +267,14 @@ def _parse_prefix(
 
         # Parse encoding.
         try:
-            with logger.check_errors():
+            with collect_errors(logger) as collector:
                 if len(enc_loc) == 0:
-                    logger.error("prefix encoding cannot be empty", location=enc_loc)
+                    collector.error("prefix encoding cannot be empty", location=enc_loc)
                 else:
                     try:
                         enc_nodes = parse_expr_list(enc_loc)
                     except BadInput as ex:
-                        logger.error(
+                        collector.error(
                             "bad prefix encoding: %s", ex, location=ex.locations
                         )
                     else:
@@ -285,7 +285,7 @@ def _parse_prefix(
                                     _parse_encoding_expr(enc_node, namespace, {})
                                 )
                             except BadInput as ex:
-                                logger.error(
+                                collector.error(
                                     "bad prefix encoding: %s", ex, location=ex.locations
                                 )
         except DelayedError:
@@ -300,9 +300,9 @@ def _parse_prefix(
         # Parse semantics.
         semantics: FunctionBody | None
         try:
-            with logger.check_errors():
+            with collect_errors(logger) as collector:
                 if len(sem_loc) == 0:
-                    logger.error(
+                    collector.error(
                         'prefix semantics cannot be empty; use "nop" instead',
                         location=sem_loc,
                     )
@@ -310,15 +310,15 @@ def _parse_prefix(
                     sem_builder = SemanticsCodeBlockBuilder()
                     sem_namespace = LocalNamespace(namespace, sem_builder)
                     try:
-                        _parse_instr_semantics(logger, sem_loc, sem_namespace)
+                        _parse_instr_semantics(collector, sem_loc, sem_namespace)
                     except BadInput as ex:
-                        logger.error(
+                        collector.error(
                             "bad prefix semantics: %s", ex, location=ex.locations
                         )
                     else:
                         try:
                             semantics = sem_namespace.create_code_block(
-                                ret_ref=None, log=logger
+                                ret_ref=None, log=collector
                             )
                         except ValueError:
                             # Error was logged inside createCodeBlock().
@@ -418,20 +418,20 @@ def _parse_func(
     # Parse arguments.
     args = {}
     try:
-        with logger.check_errors():
+        with collect_errors(logger) as collector:
             name_locations: dict[str, InputLocation] = {}
             for i, (arg_type, _arg_type_loc, arg_name_loc) in enumerate(
-                _parse_typed_args(logger, match.group(3), "function argument"), 1
+                _parse_typed_args(collector, match.group(3), "function argument"), 1
             ):
                 arg_name = arg_name_loc.text
                 if arg_name == "ret":
-                    logger.error(
+                    collector.error(
                         '"ret" is reserved for the return value; '
                         "it cannot be used as an argument name",
                         location=arg_name_loc,
                     )
                 elif arg_name in name_locations:
-                    logger.error(
+                    collector.error(
                         "function argument %d has the same name as "
                         "an earlier argument: %s",
                         i,
@@ -1007,14 +1007,16 @@ def _parse_mode_decoding(
         logger.error("%s", ex, location=ex.locations)
         return None
     try:
-        with logger.check_errors():
+        with collect_errors(logger) as collector:
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
-                _combine_placeholder_encodings(decode_map, placeholder_specs, logger)
+                _combine_placeholder_encodings(decode_map, placeholder_specs, collector)
             )
-        with logger.check_errors():
+        with collect_errors(logger) as collector:
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, placeholder_specs, logger)
+            _check_decoding_order(
+                encoding, sequential_map, placeholder_specs, collector
+            )
     except DelayedError:
         return None
     else:
@@ -1125,17 +1127,17 @@ def _parse_mode_entries(
         enc_loc, mnem_loc, sem_loc, ctx_loc = fields
 
         try:
-            with logger.check_errors():
+            with collect_errors(logger) as collector:
                 # Parse context.
                 if len(ctx_loc) != 0:
                     try:
-                        with logger.check_errors():
+                        with collect_errors(collector) as collector2:
                             placeholder_specs, flags_required = _parse_mode_context(
-                                ctx_loc, prefixes, modes, logger
+                                ctx_loc, prefixes, modes, collector2
                             )
                             placeholders = tuple(
                                 _build_placeholders(
-                                    placeholder_specs, global_namespace, logger
+                                    placeholder_specs, global_namespace, collector2
                                 )
                             )
                     except DelayedError:
@@ -1152,7 +1154,9 @@ def _parse_mode_entries(
                         # Parse encoding field.
                         enc_nodes = parse_expr_list(enc_loc)
                     except BadInput as ex:
-                        logger.error("error in encoding: %s", ex, location=ex.locations)
+                        collector.error(
+                            "error in encoding: %s", ex, location=ex.locations
+                        )
                         enc_nodes = None
                 else:
                     enc_nodes = ()
@@ -1160,23 +1164,23 @@ def _parse_mode_entries(
                     encoding = None
                 else:
                     try:
-                        with logger.check_errors():
+                        with collect_errors(collector) as collector2:
                             enc_items = tuple(
                                 _parse_mode_encoding(
                                     enc_nodes,
                                     placeholder_specs,
                                     global_namespace,
-                                    logger,
+                                    collector2,
                                 )
                             )
-                        with logger.check_errors():
-                            _check_aux_encoding_width(enc_items, logger)
+                        with collect_errors(collector) as collector2:
+                            _check_aux_encoding_width(enc_items, collector2)
                             _check_empty_multi_matches(
-                                enc_items, placeholder_specs, logger
+                                enc_items, placeholder_specs, collector2
                             )
-                            _check_duplicate_multi_matches(enc_items, logger)
+                            _check_duplicate_multi_matches(enc_items, collector2)
                             _check_missing_placeholders(
-                                enc_items, placeholder_specs, enc_loc, logger
+                                enc_items, placeholder_specs, enc_loc, collector2
                             )
                     except DelayedError:
                         encoding = None
@@ -1185,14 +1189,16 @@ def _parse_mode_entries(
                 if encoding is None:
                     decoding = None
                 else:
-                    decoding = _parse_mode_decoding(encoding, placeholder_specs, logger)
+                    decoding = _parse_mode_decoding(
+                        encoding, placeholder_specs, collector
+                    )
 
                 # Parse mnemonic.
                 mnem_items = mnem_base + tuple(
-                    _parse_mnemonic(mnem_loc, placeholders, logger)
+                    _parse_mnemonic(mnem_loc, placeholders, collector)
                 )
                 if len(mnem_items) == 0:
-                    logger.error("missing mnemonic", location=mnem_loc)
+                    collector.error("missing mnemonic", location=mnem_loc)
                 else:
                     mnemonic = Mnemonic(mnem_items)
 
@@ -1215,9 +1221,11 @@ def _parse_mode_entries(
                             # Parse mnemonic field as semantics.
                             sem_loc = mnem_loc
 
-                        sem_ref = parse_sem(logger, sem_loc, sem_namespace, mode_type)
+                        sem_ref = parse_sem(
+                            collector, sem_loc, sem_namespace, mode_type
+                        )
                     except BadInput as ex:
-                        logger.error(
+                        collector.error(
                             "error in semantics: %s", ex, location=ex.locations
                         )
                         # This is the last field.
@@ -1225,7 +1233,7 @@ def _parse_mode_entries(
                     try:
                         semantics: FunctionBody | None
                         semantics = sem_namespace.create_code_block(
-                            ret_ref=sem_ref, log=logger
+                            ret_ref=sem_ref, log=collector
                         )
                     except ValueError:
                         # Error was already logged inside createCodeBlock().

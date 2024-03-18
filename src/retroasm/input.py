@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import ERROR, INFO, WARNING, Formatter, Logger, LoggerAdapter, LogRecord
 from re import Match, Pattern
-from typing import Any, Self, overload
+from typing import Any, overload
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,23 +273,25 @@ class InputLogger(LoggerAdapter[Logger]):
         kwargs["extra"] = {"location": location}
         return msg, kwargs
 
-    @contextmanager
-    def check_errors(self) -> Iterator[Self]:
-        """
-        Returns a context manager that raises DelayedError on context close
-        if any errors were logged since the context was opened.
-        """
-        num_errors_before = self.problem_counter.num_errors
-        yield self
-        num_errors = self.problem_counter.num_errors - num_errors_before
-        if num_errors != 0:
-            raise DelayedError(f"{num_errors:d} errors were logged")
-
     def summarize(self, path: str) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
         super().log(problem_counter.level, "%s", problem_counter, location=path)
+
+
+@contextmanager
+def collect_errors(logger: InputLogger) -> Iterator[InputLogger]:
+    """
+    Create a context and logger that allows reporting multiple errors.
+    Raise `DelayedError` on context close if any errors were logged
+    on the returned logger.
+    """
+    num_errors_before = logger.problem_counter.num_errors
+    yield logger
+    num_errors = logger.problem_counter.num_errors - num_errors_before
+    if num_errors != 0:
+        raise DelayedError(f"{num_errors:d} errors were logged")
 
 
 class DelayedError(Exception):

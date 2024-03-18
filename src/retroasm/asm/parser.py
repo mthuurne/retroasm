@@ -5,7 +5,13 @@ from logging import getLogger
 from pathlib import Path
 from typing import TypeAlias
 
-from ..input import DelayedError, InputLocation, InputLogger, ProblemCounter
+from ..input import (
+    DelayedError,
+    InputLocation,
+    InputLogger,
+    ProblemCounter,
+    collect_errors,
+)
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
     IdentifierNode,
@@ -109,8 +115,10 @@ def parse_instruction(tokens: AsmTokenizer, logger: InputLogger) -> Iterator[Par
 def build_instruction(tokens: AsmTokenizer, logger: InputLogger) -> None:
     name = tokens.location
     try:
-        with logger.check_errors():
-            match_seq = tuple(create_match_sequence(parse_instruction(tokens, logger)))
+        with collect_errors(logger) as collector:
+            match_seq = tuple(
+                create_match_sequence(parse_instruction(tokens, collector))
+            )
     except DelayedError:
         return
 
