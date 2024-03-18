@@ -250,9 +250,8 @@ class InputLogger(LoggerAdapter[Logger]):
     context information in the logging.
     """
 
-    def __init__(self, path: str, logger: Logger):
+    def __init__(self, logger: Logger):
         super().__init__(logger)
-        self._path = path
         self.problem_counter = ProblemCounter()
 
     def log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
@@ -286,11 +285,11 @@ class InputLogger(LoggerAdapter[Logger]):
         if num_errors != 0:
             raise DelayedError(f"{num_errors:d} errors were logged")
 
-    def summarize(self) -> None:
+    def summarize(self, path: str) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
-        super().log(problem_counter.level, "%s", problem_counter, location=self._path)
+        super().log(problem_counter.level, "%s", problem_counter, location=path)
 
 
 class DelayedError(Exception):

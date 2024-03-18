@@ -593,12 +593,12 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
     Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
     to know whether the source is complete.
     """
-    logger = InputLogger(str(path), asm_parser_logger)
+    logger = InputLogger(asm_parser_logger)
     try:
         with LineReader.open(path) as reader:
             source = parse_asm(reader, logger, instr_set)
             source.problem_counter += logger.problem_counter
-            logger.summarize()
+            logger.summarize(str(path))
     except OSError as ex:
         asm_parser_logger.error("%s: Error reading source: %s", path, ex)
         source = AsmSource()

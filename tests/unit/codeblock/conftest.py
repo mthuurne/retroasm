@@ -20,7 +20,7 @@ class TestParser(InstructionSetParser):
 
     def parse_text(self, text: str) -> None:
         reader = DefLineReader(self.path, StringIO(text))
-        logger = InputLogger(self.path, self.logger)
+        logger = InputLogger(self.logger)
         self.parse(reader, logger)
 
 

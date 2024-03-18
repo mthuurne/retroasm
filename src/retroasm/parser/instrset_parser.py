@@ -1463,14 +1463,14 @@ class InstructionSetParser:
         if logger is None:
             logger = getLogger(__name__)
             logger.setLevel(WARNING)
-        input_logger = InputLogger(str(path), logger)
+        input_logger = InputLogger(logger)
 
         parser = cls(want_semantics=want_semantics)
 
         with DefLineReader.open(path) as reader:
             parser.parse(reader, input_logger)
             instr_set = parser.finalize(input_logger, reader.location)
-            input_logger.summarize()
+            input_logger.summarize(str(path))
 
         return instr_set
 
