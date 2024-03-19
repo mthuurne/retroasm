@@ -200,23 +200,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             node.dump()
         super().dump()
 
-    def create_code_block(
-        self,
-        returned: Iterable[BitString],
-        log: InputLogger | None = None,
-        location: InputLocation | None = None,
-    ) -> FunctionBody:
+    def _check_labels(self, log: InputLogger | None) -> None:
         """
-        Returns a CodeBlock object containing the items emitted so far.
-        The state of the builder does not change.
-        The 'returned' sequence contains the bits strings that will be the
-        returned values for the created block.
-        Raises ValueError if this builder does not represent a valid code block.
-        If a log is provided, errors are logged individually as well, using
-        the given location if no specific location is known.
+        Verify that labels are used correctly.
+        Undefined labels are logged as errors, unused labels as warnings.
+        Raises `ValueError` if one or more undefined labels were branched to.
         """
 
-        # Verify labels.
         defined_labels = self._labels.keys()
         unused_labels = set(defined_labels)
         undefined_labels = []
@@ -234,6 +224,24 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             raise ValueError(
                 f"Branches to non-existing labels: {', '.join(undefined_labels)}"
             )
+
+    def create_code_block(
+        self,
+        returned: Iterable[BitString],
+        log: InputLogger | None = None,
+        location: InputLocation | None = None,
+    ) -> FunctionBody:
+        """
+        Returns a CodeBlock object containing the items emitted so far.
+        The state of the builder does not change.
+        The 'returned' sequence contains the bits strings that will be the
+        returned values for the created block.
+        Raises ValueError if this builder does not represent a valid code block.
+        If a log is provided, errors are logged individually as well, using
+        the given location if no specific location is known.
+        """
+
+        self._check_labels(log)
 
         def fixate_variable(var: Variable) -> FixedValue:
             value = self.read_variable(var, location)
