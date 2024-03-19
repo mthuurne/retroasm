@@ -253,6 +253,7 @@ class InputLogger(LoggerAdapter[Logger]):
     def __init__(self, logger: Logger):
         super().__init__(logger)
         self.problem_counter = ProblemCounter()
+        self.errors: list[BadInput] = []
 
     def log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
         # We check the level here instead of in process(), because that method is
@@ -260,6 +261,10 @@ class InputLogger(LoggerAdapter[Logger]):
         # error count to be accurate whether the messages reach the log or not.
         if level == ERROR:
             self.problem_counter.num_errors += 1
+            assert isinstance(msg, str), type(msg)
+            formatted = msg % args
+            location: InputLocation | None = kwargs.get("location")
+            self.errors.append(BadInput(formatted, location))
         elif level == WARNING:
             self.problem_counter.num_warnings += 1
         super().log(level, msg, *args, **kwargs)
@@ -287,14 +292,14 @@ def collect_errors(logger: InputLogger) -> Iterator[InputLogger]:
     Raise `DelayedError` on context close if any errors were logged
     on the returned logger.
     """
-    num_errors_before = logger.problem_counter.num_errors
+    num_errors_before = len(logger.errors)
     yield logger
-    num_errors = logger.problem_counter.num_errors - num_errors_before
-    if num_errors != 0:
-        raise DelayedError(f"{num_errors:d} errors were logged")
+    errors = logger.errors[num_errors_before:]
+    if errors:
+        raise DelayedError(f"{len(errors):d} errors", errors)
 
 
-class DelayedError(Exception):
+class DelayedError(ExceptionGroup[BadInput]):
     """
     Raised when one or more errors were encountered when processing input.
     Since we want to report as many errors as possible in each processing,
