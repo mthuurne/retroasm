@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from logging import ERROR, INFO, WARNING, Formatter, Logger, LoggerAdapter, LogRecord
+from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord
 from re import Match, Pattern
-from typing import Any, overload
+from typing import overload
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,9 +240,9 @@ class InputMatch:
         return self._match.lastgroup
 
 
-class InputLogger(LoggerAdapter[Logger]):
+class ErrorCollector:
     """
-    A logger with support for locations.
+    A wrapper for a logger with support for locations.
 
     Log methods can be passed an `InputLocation` with context information.
     Errors and warnings reported in this way are counted.
@@ -251,50 +251,63 @@ class InputLogger(LoggerAdapter[Logger]):
     """
 
     def __init__(self, logger: Logger):
-        super().__init__(logger)
+        self._logger = logger
         self.problem_counter = ProblemCounter()
         self.errors: list[BadInput] = []
 
-    def log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
-        # We check the level here instead of in process(), because that method is
-        # only called when logging is enabled for that log level and we need our
-        # error count to be accurate whether the messages reach the log or not.
-        if level == ERROR:
-            self.problem_counter.num_errors += 1
-            assert isinstance(msg, str), type(msg)
-            formatted = msg % args
-            location: InputLocation | None = kwargs.get("location")
-            self.errors.append(BadInput(formatted, location))
-        elif level == WARNING:
-            self.problem_counter.num_warnings += 1
-        super().log(level, msg, *args, **kwargs)
+    def error(
+        self,
+        msg: str,
+        *args: object,
+        location: InputLocation | None | Sequence[InputLocation | None] = None,
+    ) -> None:
+        self._logger.error(msg, *args, extra={"location": location})
+        self.problem_counter.num_errors += 1
 
-    def process(
-        self, msg: Any, kwargs: MutableMapping[str, Any]
-    ) -> tuple[Any, MutableMapping[str, Any]]:
-        location: None | InputLocation | Sequence[InputLocation] = kwargs.pop(
-            "location", None
-        )
-        kwargs["extra"] = {"location": location}
-        return msg, kwargs
+        formatted = msg % args
+        if isinstance(location, Sequence):
+            main_location = location[0] if location else None
+        else:
+            main_location = location
+        self.errors.append(BadInput(formatted, main_location))
+
+    def warning(
+        self,
+        msg: str,
+        *args: object,
+        location: InputLocation | None | Sequence[InputLocation | None] = None,
+    ) -> None:
+        self._logger.warning(msg, *args, extra={"location": location})
+        self.problem_counter.num_warnings += 1
+
+    def info(
+        self,
+        msg: str,
+        *args: object,
+        location: InputLocation | None | Sequence[InputLocation | None] = None,
+    ) -> None:
+        self._logger.info(msg, *args, extra={"location": location})
 
     def summarize(self, path: str) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
-        super().log(problem_counter.level, "%s", problem_counter, location=path)
+        self._logger.log(
+            problem_counter.level, "%s", problem_counter, extra={"location": path}
+        )
 
 
 @contextmanager
-def collect_errors(logger: InputLogger) -> Iterator[InputLogger]:
+def collect_errors(collector: ErrorCollector) -> Iterator[ErrorCollector]:
     """
     Create a context and logger that allows reporting multiple errors.
-    Raise `DelayedError` on context close if any errors were logged
-    on the returned logger.
+
+    Raise `DelayedError` on context close if any errors were reported
+    on the returned collector.
     """
-    num_errors_before = len(logger.errors)
-    yield logger
-    errors = logger.errors[num_errors_before:]
+    num_errors_before = len(collector.errors)
+    yield collector
+    errors = collector.errors[num_errors_before:]
     if errors:
         raise DelayedError(f"{len(errors):d} errors", errors)
 

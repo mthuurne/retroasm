@@ -7,7 +7,7 @@ from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
-from .input import BadInput, InputLocation, InputLogger
+from .input import BadInput, ErrorCollector, InputLocation
 from .reference import BitString, Reference, SingleStorage, Variable
 from .storage import (
     ArgStorage,
@@ -210,7 +210,7 @@ class LocalNamespace(BuilderNamespace):
     def create_code_block(
         self,
         ret_ref: Reference | None,
-        log: InputLogger | None = None,
+        log: ErrorCollector | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
         """

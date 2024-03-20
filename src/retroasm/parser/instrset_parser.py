@@ -16,7 +16,13 @@ from ..decode import (
     Prefix,
     decompose_encoding,
 )
-from ..input import BadInput, DelayedError, InputLocation, InputLogger, collect_errors
+from ..input import (
+    BadInput,
+    DelayedError,
+    ErrorCollector,
+    InputLocation,
+    collect_errors,
+)
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
     CodeTemplate,
@@ -80,7 +86,7 @@ _re_dot_sep = re.compile(r"\s*\.\s*")
 
 def _parse_regs(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
 ) -> None:
@@ -159,7 +165,7 @@ _re_arg_decl = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 
 def _parse_typed_args(
-    logger: InputLogger, args: InputLocation, description: str
+    logger: ErrorCollector, args: InputLocation, description: str
 ) -> Iterator[tuple[IntType | ReferenceType, InputLocation, InputLocation]]:
     """
     Parses a typed arguments list, yielding a triple for each argument,
@@ -201,7 +207,7 @@ def _parse_typed_args(
 
 def _parse_prefix(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     args: InputLocation,
     namespace: GlobalNamespace,
     factory: PrefixMappingFactory,
@@ -344,7 +350,7 @@ _re_io_line = re.compile(_name_tok + r"\s" + _name_tok + r"\[" + _name_tok + r"\
 
 def _parse_io(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     args: InputLocation,
     namespace: GlobalNamespace,
 ) -> None:
@@ -388,7 +394,7 @@ _re_func_header = re.compile(r"(?:" + _type_tok + r"\s)?" + _name_tok + r"\((.*)
 
 def _parse_func(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     header_args: InputLocation,
     namespace: GlobalNamespace,
     want_semantics: bool,
@@ -482,7 +488,7 @@ def _parse_mode_context(
     ctx_loc: InputLocation,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
     placeholder_specs = {}
     flags_required = set()
@@ -547,7 +553,7 @@ def _parse_mode_context(
 def _build_placeholders(
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
     sem_namespace = ContextNamespace(global_namespace)
@@ -691,7 +697,7 @@ def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
     enc_namespace = ContextNamespace(global_namespace)
@@ -730,7 +736,7 @@ def _parse_mode_encoding(
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> None:
     """
     Warn about multi-matches that always match zero elements.
@@ -764,7 +770,7 @@ def _check_missing_placeholders(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     location: InputLocation,
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> None:
     """
     Check that our encoding field contains sufficient placeholders to be able
@@ -824,7 +830,7 @@ def _check_missing_placeholders(
 
 
 def _check_aux_encoding_width(
-    enc_items: Iterable[EncodingItem], logger: InputLogger
+    enc_items: Iterable[EncodingItem], logger: ErrorCollector
 ) -> None:
     """
     Check whether the encoding widths in the given encoding are the same
@@ -877,7 +883,7 @@ def _check_aux_encoding_width(
 
 
 def _check_duplicate_multi_matches(
-    enc_items: Iterable[EncodingItem], logger: InputLogger
+    enc_items: Iterable[EncodingItem], logger: ErrorCollector
 ) -> None:
     """
     Checks whether more than one multi-matcher exists for the same
@@ -900,7 +906,7 @@ def _check_duplicate_multi_matches(
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """
     Yield pairs of placeholder name and the locations where the placeholder
@@ -945,7 +951,7 @@ def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> None:
     """
     Verifies that there is an order in which placeholders can be decoded.
@@ -994,7 +1000,7 @@ def _check_decoding_order(
 def _parse_mode_decoding(
     encoding: Encoding,
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
@@ -1024,7 +1030,7 @@ def _parse_mode_decoding(
 
 
 def _parse_mode_semantics(
-    _logger: InputLogger,
+    _logger: ErrorCollector,
     sem_loc: InputLocation,
     sem_namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType,
@@ -1050,7 +1056,7 @@ def _parse_mode_semantics(
 
 
 def _parse_instr_semantics(
-    logger: InputLogger,
+    logger: ErrorCollector,
     sem_loc: InputLocation,
     namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType = None,
@@ -1066,7 +1072,7 @@ _re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 def _parse_mnemonic(
     mnem_loc: InputLocation,
     placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}
     seen_placeholders: dict[str, InputLocation] = {}
@@ -1100,14 +1106,14 @@ def _parse_mnemonic(
 
 def _parse_mode_entries(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     mode_type: None | IntType | ReferenceType,
     mnem_base: tuple[str, ...],
     parse_sem: Callable[
-        [InputLogger, InputLocation, LocalNamespace, None | IntType | ReferenceType],
+        [ErrorCollector, InputLocation, LocalNamespace, None | IntType | ReferenceType],
         Reference | None,
     ],
     want_semantics: bool,
@@ -1269,7 +1275,7 @@ def _determine_encoding_width(
     entries: list[ParsedModeEntry],
     aux: bool,
     mode_name: str | None,
-    logger: InputLogger,
+    logger: ErrorCollector,
 ) -> int | None:
     """
     Returns the common encoding width for the given list of mode entries.
@@ -1334,7 +1340,7 @@ _re_mode_args = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 def _parse_mode(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1405,7 +1411,7 @@ def _parse_mode(
 
 def _parse_instr(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1471,7 +1477,7 @@ class InstructionSetParser:
         if logger is None:
             logger = getLogger(__name__)
             logger.setLevel(WARNING)
-        input_logger = InputLogger(logger)
+        input_logger = ErrorCollector(logger)
 
         parser = cls(want_semantics=want_semantics)
 
@@ -1498,7 +1504,7 @@ class InstructionSetParser:
         instruction set.
         """
 
-    def parse(self, reader: DefLineReader, logger: InputLogger) -> None:
+    def parse(self, reader: DefLineReader, logger: ErrorCollector) -> None:
         """Parse the top level of an instruction set definition."""
 
         num_errors_start = logger.problem_counter.num_errors
@@ -1557,7 +1563,7 @@ class InstructionSetParser:
             self.attempt_creation = False
 
     def finalize(
-        self, logger: InputLogger, location: InputLocation
+        self, logger: ErrorCollector, location: InputLocation
     ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 

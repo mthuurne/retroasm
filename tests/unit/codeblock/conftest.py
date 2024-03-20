@@ -7,7 +7,7 @@ from logging import Logger, getLogger
 
 import pytest
 
-from retroasm.input import InputLogger, LocationFormatter
+from retroasm.input import ErrorCollector, LocationFormatter
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
 
@@ -20,7 +20,7 @@ class TestParser(InstructionSetParser):
 
     def parse_text(self, text: str) -> None:
         reader = DefLineReader(self.path, StringIO(text))
-        logger = InputLogger(self.logger)
+        logger = ErrorCollector(self.logger)
         self.parse(reader, logger)
 
 

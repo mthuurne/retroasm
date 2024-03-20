@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .input import BadInput, InputLocation, InputLogger
+from .input import BadInput, ErrorCollector, InputLocation
 from .reference import (
     BitString,
     FixedValue,
@@ -200,11 +200,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             node.dump()
         super().dump()
 
-    def _check_labels(self, log: InputLogger | None) -> None:
+    def _check_labels(self, log: ErrorCollector | None) -> None:
         """
         Verify that labels are used correctly.
         Undefined labels are logged as errors, unused labels as warnings.
-        Raises `ValueError` if one or more undefined labels were branched to.
+        Raises `BadInput` for each undefined label that is branched to.
         """
 
         defined_labels = self._labels.keys()
@@ -228,7 +228,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def create_code_block(
         self,
         returned: Iterable[BitString],
-        log: InputLogger | None = None,
+        log: ErrorCollector | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
         """

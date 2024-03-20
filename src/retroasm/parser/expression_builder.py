@@ -20,7 +20,7 @@ from ..expression import (
 )
 from ..expression_simplifier import simplify_expression
 from ..function import Function
-from ..input import BadInput, InputLocation, InputLogger
+from ..input import BadInput, ErrorCollector, InputLocation
 from ..namespace import (
     BuilderNamespace,
     LocalNamespace,
@@ -496,7 +496,7 @@ def build_reference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
 
 
 def build_statement_eval(
-    logger: InputLogger, where_desc: str, namespace: LocalNamespace, node: ParseNode
+    logger: ErrorCollector, where_desc: str, namespace: LocalNamespace, node: ParseNode
 ) -> None:
     """
     Emits loads and stores on the given namespace that produce the (side)
@@ -578,7 +578,7 @@ def build_statement_eval(
 
 
 def emit_code_from_statements(
-    logger: InputLogger,
+    logger: ErrorCollector,
     where_desc: str,
     namespace: LocalNamespace,
     statements: Iterable[ParseNode],

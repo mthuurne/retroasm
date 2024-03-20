@@ -5,7 +5,7 @@ from typing import cast
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..function import Function
-from ..input import DelayedError, InputLocation, InputLogger, collect_errors
+from ..input import DelayedError, ErrorCollector, InputLocation, collect_errors
 from ..namespace import GlobalNamespace, LocalNamespace
 from ..reference import Reference, SingleStorage
 from ..storage import ArgStorage
@@ -16,7 +16,7 @@ from .expression_parser import parse_statement
 from .linereader import DefLineReader
 
 
-def _parse_body(reader: DefLineReader, logger: InputLogger) -> Iterator[ParseNode]:
+def _parse_body(reader: DefLineReader, logger: ErrorCollector) -> Iterator[ParseNode]:
     """
     Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
@@ -31,7 +31,7 @@ def _parse_body(reader: DefLineReader, logger: InputLogger) -> Iterator[ParseNod
 
 def create_func(
     reader: DefLineReader,
-    logger: InputLogger,
+    logger: ErrorCollector,
     func_name_location: InputLocation,
     ret_type: None | IntType | ReferenceType,
     ret_type_location: InputLocation | None,

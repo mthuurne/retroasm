@@ -7,8 +7,8 @@ from typing import TypeAlias
 
 from ..input import (
     DelayedError,
+    ErrorCollector,
     InputLocation,
-    InputLogger,
     ProblemCounter,
     collect_errors,
 )
@@ -94,7 +94,9 @@ def create_match_sequence(nodes: Iterable[ParseNode]) -> Iterator[type[int] | st
                 assert False, node
 
 
-def parse_instruction(tokens: AsmTokenizer, logger: InputLogger) -> Iterator[ParseNode]:
+def parse_instruction(
+    tokens: AsmTokenizer, logger: ErrorCollector
+) -> Iterator[ParseNode]:
     # TODO: Treating keywords and separators as identifiers is weird,
     #       but it works for now.
     instr_name = tokens.eat(AsmToken.word)
@@ -112,7 +114,7 @@ def parse_instruction(tokens: AsmTokenizer, logger: InputLogger) -> Iterator[Par
             yield IdentifierNode(separator.text, location=separator)
 
 
-def build_instruction(tokens: AsmTokenizer, logger: InputLogger) -> None:
+def build_instruction(tokens: AsmTokenizer, logger: ErrorCollector) -> None:
     name = tokens.location
     try:
         with collect_errors(logger) as collector:
@@ -549,7 +551,7 @@ class AsmSource:
 
 
 def parse_asm(
-    reader: LineReader, logger: InputLogger, instr_set: InstructionSet
+    reader: LineReader, logger: ErrorCollector, instr_set: InstructionSet
 ) -> AsmSource:
     source = AsmSource()
     instruction_names = instr_set.instruction_names
@@ -601,7 +603,7 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
     Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
     to know whether the source is complete.
     """
-    logger = InputLogger(asm_parser_logger)
+    logger = ErrorCollector(asm_parser_logger)
     try:
         with LineReader.open(path) as reader:
             source = parse_asm(reader, logger, instr_set)
