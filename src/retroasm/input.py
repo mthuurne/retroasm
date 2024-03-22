@@ -3,9 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord
+from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord, getLogger
 from re import Match, Pattern
 from typing import TYPE_CHECKING, overload
+
+from .utils import bad_type
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,14 +300,24 @@ class ErrorCollector:
 
 
 @contextmanager
-def collect_errors(parent: Logger | ErrorCollector) -> Iterator[ErrorCollector]:
+def collect_errors(
+    parent: ErrorCollector | Logger | None = None,
+) -> Iterator[ErrorCollector]:
     """
     Create a context and logger that allows reporting multiple errors.
 
     Raise `DelayedError` on context close if any errors were reported
     on the returned collector.
     """
-    logger = parent._logger if isinstance(parent, ErrorCollector) else parent
+    match parent:
+        case None:
+            logger = getLogger(__name__)
+        case Logger():
+            logger = parent
+        case ErrorCollector():
+            logger = parent._logger
+        case _:
+            bad_type(parent)
     collector = ErrorCollector(logger)
     errors = collector.errors
     try:
