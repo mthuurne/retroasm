@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord
 from re import Match, Pattern
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +253,7 @@ class ErrorCollector:
     def __init__(self, logger: Logger):
         self._logger = logger
         self.problem_counter = ProblemCounter()
-        self.errors: list[BadInput] = []
+        self.errors: list[BadInput | DelayedError] = []
 
     def error(
         self,
@@ -298,30 +298,43 @@ class ErrorCollector:
 
 
 @contextmanager
-def collect_errors(collector: ErrorCollector) -> Iterator[ErrorCollector]:
+def collect_errors(parent: Logger | ErrorCollector) -> Iterator[ErrorCollector]:
     """
     Create a context and logger that allows reporting multiple errors.
 
     Raise `DelayedError` on context close if any errors were reported
     on the returned collector.
     """
-    num_errors_before = len(collector.errors)
-    yield collector
-    errors = collector.errors[num_errors_before:]
+    logger = parent._logger if isinstance(parent, ErrorCollector) else parent
+    collector = ErrorCollector(logger)
+    errors = collector.errors
+    try:
+        yield collector
+    except DelayedError as err:
+        errors.append(err)
     if errors:
+        # TODO: This counts nested DelayedErrors as 1 error.
+        #       If this message stays, make it recursively count errors.
         raise DelayedError(f"{len(errors):d} errors", errors)
 
 
-class DelayedError(ExceptionGroup[BadInput]):
-    """
-    Raised when one or more errors were encountered when processing input.
-    Since we want to report as many errors as possible in each processing,
-    errors are logged and processing continues. However, it usually doesn't
-    make sense to continue with later processing steps, since the incomplete
-    output caused by earlier errors would trigger new errors. Therefore
-    at the end of a processing step DelayedError can be raised to abort
-    processing.
-    """
+if TYPE_CHECKING:
+
+    class DelayedError(ExceptionGroup[BadInput | "DelayedError"]):
+        ...
+else:
+
+    class DelayedError(ExceptionGroup):
+        """
+        Raised when one or more errors were encountered when processing input.
+
+        Since we want to report as many errors as possible in each processing,
+        errors are logged and processing continues. However, it usually doesn't
+        make sense to continue with later processing steps, since the incomplete
+        output caused by earlier errors would trigger new errors. Therefore
+        at the end of a processing step DelayedError can be raised to abort
+        processing.
+        """
 
 
 @dataclass(slots=True)
