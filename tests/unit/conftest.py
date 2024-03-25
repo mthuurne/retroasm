@@ -6,7 +6,7 @@ MEM_LIMIT_GB = 1
 
 
 def set_memory_limit(size: int) -> None:
-    soft, hard = getrlimit(RLIMIT_AS)
+    _soft, hard = getrlimit(RLIMIT_AS)
     setrlimit(RLIMIT_AS, (size, hard))
 
 
