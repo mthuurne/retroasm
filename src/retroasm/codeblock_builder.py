@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .input import BadInput, ErrorCollector, InputLocation
+from .input import BadInput, DelayedError, ErrorCollector, InputLocation, collect_errors
 from .reference import (
     BitString,
     FixedValue,
@@ -245,30 +245,27 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             node.dump()
         super().dump()
 
-    def _check_labels(self, log: ErrorCollector | None) -> None:
+    def _check_labels(self, collector: ErrorCollector | None) -> None:
         """
         Verify that labels are used correctly.
         Undefined labels are logged as errors, unused labels as warnings.
         Raises `BadInput` for each undefined label that is branched to.
         """
 
-        defined_labels = self._labels.keys()
-        unused_labels = set(defined_labels)
-        undefined_labels = []
-        for label, locations in self._branches.items():
-            if label in defined_labels:
-                unused_labels.remove(label)
-            else:
-                if log:
-                    log.error('Label "%s" does not exist', label, location=locations)
-                undefined_labels.append(label)
-        if log:
+        with collect_errors(collector) as collector2:
+            defined_labels = self._labels.keys()
+            unused_labels = set(defined_labels)
+            for label, locations in self._branches.items():
+                if label in defined_labels:
+                    unused_labels.remove(label)
+                else:
+                    collector2.error(
+                        'Label "%s" does not exist', label, location=locations
+                    )
             for label in unused_labels:
-                log.warning('Label "%s" is unused', label, location=self._labels[label])
-        if undefined_labels:
-            raise ValueError(
-                f"Branches to non-existing labels: {', '.join(undefined_labels)}"
-            )
+                collector2.warning(
+                    'Label "%s" is unused', label, location=self._labels[label]
+                )
 
     def create_code_block(
         self,
@@ -286,7 +283,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         the given location if no specific location is known.
         """
 
-        self._check_labels(collector)
+        # TODO: Just let the DelayedError propagate instead.
+        try:
+            self._check_labels(collector)
+        except DelayedError:
+            raise ValueError("Bad label use")
 
         def fixate_variable(var: Variable) -> FixedValue:
             value = self.read_variable(var, location)
