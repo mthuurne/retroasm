@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .input import BadInput, DelayedError, ErrorCollector, InputLocation, collect_errors
+from .input import BadInput, ErrorCollector, InputLocation, collect_errors
 from .reference import (
     BitString,
     FixedValue,
@@ -266,16 +266,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         The state of the builder does not change.
         The 'returned' sequence contains the bits strings that will be the
         returned values for the created block.
-        Raises ValueError if this builder does not represent a valid code block.
-        If a log is provided, errors are logged individually as well, using
-        the given location if no specific location is known.
+        Raises `BadInput*` if this builder does not represent a valid code block.
         """
 
-        # TODO: Just let the DelayedError propagate instead.
-        try:
-            self._check_labels(collector)
-        except DelayedError:
-            raise ValueError("Bad label use")
+        self._check_labels(collector)
 
         def fixate_variable(var: Variable) -> FixedValue:
             value = self.read_variable(var, location)
@@ -287,11 +281,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         nodes = self.nodes
         simplify_block(nodes, returned)
 
-        # TODO: Just let the DelayedError propagate instead.
-        try:
-            _check_undefined(nodes, returned, collector)
-        except DelayedError:
-            raise ValueError("Undefined value used")
+        _check_undefined(nodes, returned, collector)
 
         return FunctionBody(nodes, returned)
 

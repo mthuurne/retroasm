@@ -210,7 +210,7 @@ class LocalNamespace(BuilderNamespace):
     def create_code_block(
         self,
         ret_ref: Reference | None,
-        log: ErrorCollector | None = None,
+        collector: ErrorCollector | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
         """
@@ -218,15 +218,13 @@ class LocalNamespace(BuilderNamespace):
         The state of the builder does not change.
         If `ret_ref` is None, the created code block will not return anything,
         otherwise it returns that reference.
-        Raises ValueError if our builder does not represent a valid code block.
-        If a log is provided, errors are logged individually as well, using
-        the given location if no specific location is known.
+        Raises `BadInput*` if our builder does not represent a valid code block.
         """
         if ret_ref is None:
             returned: Sequence[BitString] = ()
         else:
             returned = (ret_ref.bits,)
-        return self.builder.create_code_block(returned, log, location)
+        return self.builder.create_code_block(returned, collector, location)
 
 
 class NameExistsError(BadInput):

@@ -56,6 +56,7 @@ def create_func(
             # Store initial value.
             value = arg_ref.emit_load(builder, arg_loc)
             var_ref.emit_store(builder, value, arg_loc)
+
     ret_ref: Reference | None
     if ret_type is not None and not isinstance(ret_type, ReferenceType):
         assert ret_type_location is not None, ret_type
@@ -67,20 +68,17 @@ def create_func(
             emit_code_from_statements(
                 collector, "function body", namespace, body_nodes, ret_type
             )
-    except DelayedError:
-        code = None
-    else:
+
         if ret_type is None:
             ret_ref = None
         elif isinstance(ret_type, ReferenceType):
             ret_ref = cast(Reference, namespace.elements["ret"])
 
-        try:
-            code = namespace.create_code_block(
-                ret_ref, log=logger, location=func_name_location
-            )
-        except ValueError:
-            code = None
+        code = namespace.create_code_block(
+            ret_ref, collector=logger, location=func_name_location
+        )
+    except DelayedError:
+        code = None
 
     try:
         func = Function(ret_type, args, code)

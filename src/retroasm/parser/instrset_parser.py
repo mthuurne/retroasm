@@ -322,13 +322,9 @@ def _parse_prefix(
                             "bad prefix semantics: %s", ex, location=ex.locations
                         )
                     else:
-                        try:
-                            semantics = sem_namespace.create_code_block(
-                                ret_ref=None, log=collector
-                            )
-                        except ValueError:
-                            # Error was logged inside createCodeBlock().
-                            pass
+                        semantics = sem_namespace.create_code_block(
+                            ret_ref=None, collector=collector
+                        )
         except DelayedError:
             semantics = None
 
@@ -1236,14 +1232,10 @@ def _parse_mode_entries(
                         )
                         # This is the last field.
                         continue
-                    try:
-                        semantics: FunctionBody | None
-                        semantics = sem_namespace.create_code_block(
-                            ret_ref=sem_ref, log=collector
-                        )
-                    except ValueError:
-                        # Error was already logged inside createCodeBlock().
-                        pass
+                    semantics: FunctionBody | None
+                    semantics = sem_namespace.create_code_block(
+                        ret_ref=sem_ref, collector=collector
+                    )
                 else:
                     semantics = None
         except DelayedError:
