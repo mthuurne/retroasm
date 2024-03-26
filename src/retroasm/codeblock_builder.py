@@ -39,6 +39,51 @@ def _simplify_storage(storage: Storage) -> Storage:
     return storage
 
 
+def _check_undefined(
+    nodes: Sequence[AccessNode],
+    returned: Sequence[BitString],
+    collector: ErrorCollector | None,
+) -> None:
+    """Report uses of uninitialized local variables."""
+
+    uninitialized_variables = set()
+    for node in nodes:
+        if isinstance((storage := node.storage), IOStorage):
+            for value in storage.index.iter_instances(InitialValue):
+                if collector:
+                    collector.error(
+                        'Undefined value of variable "%s" is used as an I/O index',
+                        value.name,
+                        location=value.location,
+                    )
+                uninitialized_variables.add(value.name)
+        if isinstance(node, Store):
+            for value in node.expr.iter_instances(InitialValue):
+                if collector:
+                    collector.error(
+                        'Undefined value of variable "%s" is stored',
+                        value.name,
+                        location=value.location,
+                    )
+                uninitialized_variables.add(value.name)
+    for ret_bits in returned:
+        for expr in ret_bits.iter_expressions():
+            for value in expr.iter_instances(InitialValue):
+                if collector:
+                    collector.error(
+                        'Undefined value of variable "%s" is returned',
+                        value.name,
+                        location=value.location,
+                    )
+                uninitialized_variables.add(value.name)
+
+    if uninitialized_variables:
+        raise ValueError(
+            f"{len(uninitialized_variables)} variables were read before they "
+            f"were initialized: {', '.join(uninitialized_variables)}"
+        )
+
+
 class CodeBlockBuilder:
     _next_block_id: ClassVar[int] = 0
 
@@ -228,7 +273,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     def create_code_block(
         self,
         returned: Iterable[BitString],
-        log: ErrorCollector | None = None,
+        collector: ErrorCollector | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
         """
@@ -241,7 +286,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         the given location if no specific location is known.
         """
 
-        self._check_labels(log)
+        self._check_labels(collector)
 
         def fixate_variable(var: Variable) -> FixedValue:
             value = self.read_variable(var, location)
@@ -253,43 +298,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         nodes = self.nodes
         simplify_block(nodes, returned)
 
-        # Find remaining uses of uninitialized local variables.
-        uninitialized_variables = set()
-        for node in nodes:
-            if isinstance((storage := node.storage), IOStorage):
-                for value in storage.index.iter_instances(InitialValue):
-                    if log:
-                        log.error(
-                            'Undefined value of variable "%s" is used as an I/O index',
-                            value.name,
-                            location=value.location,
-                        )
-                    uninitialized_variables.add(value.name)
-            if isinstance(node, Store):
-                for value in node.expr.iter_instances(InitialValue):
-                    if log:
-                        log.error(
-                            'Undefined value of variable "%s" is stored',
-                            value.name,
-                            location=value.location,
-                        )
-                    uninitialized_variables.add(value.name)
-        for ret_bits in returned:
-            for expr in ret_bits.iter_expressions():
-                for value in expr.iter_instances(InitialValue):
-                    if log:
-                        log.error(
-                            'Undefined value of variable "%s" is returned',
-                            value.name,
-                            location=value.location,
-                        )
-                    uninitialized_variables.add(value.name)
-
-        if uninitialized_variables:
-            raise ValueError(
-                f"{len(uninitialized_variables)} variables were read before they "
-                f"were initialized: {', '.join(uninitialized_variables)}"
-            )
+        _check_undefined(nodes, returned, collector)
 
         return FunctionBody(nodes, returned)
 
