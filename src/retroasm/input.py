@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord, getLogger
 from re import Match, Pattern
-from typing import TYPE_CHECKING, overload
+from typing import overload
 
 from .utils import bad_type
 
@@ -330,23 +330,17 @@ def collect_errors(
         raise DelayedError(f"{len(errors):d} errors", errors)
 
 
-if TYPE_CHECKING:
+class DelayedError(ExceptionGroup["BadInput | DelayedError"]):
+    """
+    Raised when one or more errors were encountered when processing input.
 
-    class DelayedError(ExceptionGroup[BadInput | "DelayedError"]):
-        ...
-else:
-
-    class DelayedError(ExceptionGroup):
-        """
-        Raised when one or more errors were encountered when processing input.
-
-        Since we want to report as many errors as possible in each processing,
-        errors are logged and processing continues. However, it usually doesn't
-        make sense to continue with later processing steps, since the incomplete
-        output caused by earlier errors would trigger new errors. Therefore
-        at the end of a processing step DelayedError can be raised to abort
-        processing.
-        """
+    Since we want to report as many errors as possible in each processing,
+    errors are logged and processing continues. However, it usually doesn't
+    make sense to continue with later processing steps, since the incomplete
+    output caused by earlier errors would trigger new errors. Therefore
+    at the end of a processing step DelayedError can be raised to abort
+    processing.
+    """
 
 
 @dataclass(slots=True)
