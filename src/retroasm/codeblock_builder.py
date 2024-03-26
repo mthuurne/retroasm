@@ -46,42 +46,30 @@ def _check_undefined(
 ) -> None:
     """Report uses of uninitialized local variables."""
 
-    uninitialized_variables = set()
-    for node in nodes:
-        if isinstance((storage := node.storage), IOStorage):
-            for value in storage.index.iter_instances(InitialValue):
-                if collector:
-                    collector.error(
+    with collect_errors(collector) as collector2:
+        for node in nodes:
+            if isinstance((storage := node.storage), IOStorage):
+                for value in storage.index.iter_instances(InitialValue):
+                    collector2.error(
                         'Undefined value of variable "%s" is used as an I/O index',
                         value.name,
                         location=value.location,
                     )
-                uninitialized_variables.add(value.name)
-        if isinstance(node, Store):
-            for value in node.expr.iter_instances(InitialValue):
-                if collector:
-                    collector.error(
+            if isinstance(node, Store):
+                for value in node.expr.iter_instances(InitialValue):
+                    collector2.error(
                         'Undefined value of variable "%s" is stored',
                         value.name,
                         location=value.location,
                     )
-                uninitialized_variables.add(value.name)
-    for ret_bits in returned:
-        for expr in ret_bits.iter_expressions():
-            for value in expr.iter_instances(InitialValue):
-                if collector:
-                    collector.error(
+        for ret_bits in returned:
+            for expr in ret_bits.iter_expressions():
+                for value in expr.iter_instances(InitialValue):
+                    collector2.error(
                         'Undefined value of variable "%s" is returned',
                         value.name,
                         location=value.location,
                     )
-                uninitialized_variables.add(value.name)
-
-    if uninitialized_variables:
-        raise ValueError(
-            f"{len(uninitialized_variables)} variables were read before they "
-            f"were initialized: {', '.join(uninitialized_variables)}"
-        )
 
 
 class CodeBlockBuilder:
@@ -299,7 +287,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         nodes = self.nodes
         simplify_block(nodes, returned)
 
-        _check_undefined(nodes, returned, collector)
+        # TODO: Just let the DelayedError propagate instead.
+        try:
+            _check_undefined(nodes, returned, collector)
+        except DelayedError:
+            raise ValueError("Undefined value used")
 
         return FunctionBody(nodes, returned)
 
