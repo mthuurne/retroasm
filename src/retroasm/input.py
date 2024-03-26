@@ -255,6 +255,15 @@ class ErrorCollector:
         self.problem_counter = ProblemCounter()
         self.errors: list[BadInput | DelayedError] = []
 
+    def __repr__(self) -> str:
+        return (
+            f"ErrorCollector(logger={self._logger!r}, "
+            f"problem_counter={self.problem_counter!r}, errors={self.errors!r})"
+        )
+
+    def __str__(self) -> str:
+        return str(self.problem_counter)
+
     def error(
         self,
         msg: str,
@@ -312,6 +321,7 @@ def collect_errors(
             logger = getLogger(__name__)
         case Logger():
             logger = parent
+            parent = None
         case ErrorCollector():
             logger = parent._logger
         case _:
@@ -321,11 +331,18 @@ def collect_errors(
     try:
         yield collector
     except DelayedError as err:
-        errors.append(err)
+        if errors and errors[-1] is not err:
+            # TODO: This doesn't update ProblemCounter.
+            errors.append(err)
     if errors:
         # TODO: This counts nested DelayedErrors as 1 error.
         #       If this message stays, make it recursively count errors.
-        raise DelayedError(f"{len(errors):d} errors", errors)
+        # TODO: Use _pluralize().
+        group = DelayedError(f"{len(errors):d} errors", errors)
+        if parent is not None:
+            parent.problem_counter += collector.problem_counter
+            parent.errors.append(group)
+        raise group
 
 
 class DelayedError(ExceptionGroup["BadInput | DelayedError"]):
