@@ -244,12 +244,10 @@ class Encoding:
         return len(self._items)
 
     @overload
-    def __getitem__(self, index: int) -> EncodingItem:
-        ...
+    def __getitem__(self, index: int) -> EncodingItem: ...
 
     @overload
-    def __getitem__(self, index: slice) -> Sequence[EncodingItem]:
-        ...
+    def __getitem__(self, index: slice) -> Sequence[EncodingItem]: ...
 
     def __getitem__(self, index: int | slice) -> Any:
         return self._items[index]

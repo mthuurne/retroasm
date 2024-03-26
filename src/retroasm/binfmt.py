@@ -23,12 +23,10 @@ class Image(Protocol):
     """
 
     @overload
-    def __getitem__(self, index: int) -> int:
-        ...
+    def __getitem__(self, index: int) -> int: ...
 
     @overload
-    def __getitem__(self, index: slice) -> bytes:
-        ...
+    def __getitem__(self, index: slice) -> bytes: ...
 
     # This false positive has already been fixed, but is not in a release yet:
     #   https://github.com/PyCQA/pylint/issues/4736

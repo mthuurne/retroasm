@@ -75,13 +75,11 @@ class InputLocation:
 
     @overload
     @staticmethod
-    def merge_span(*locations: InputLocation) -> InputLocation:
-        ...
+    def merge_span(*locations: InputLocation) -> InputLocation: ...
 
     @overload
     @staticmethod
-    def merge_span(*locations: InputLocation | None) -> InputLocation | None:
-        ...
+    def merge_span(*locations: InputLocation | None) -> InputLocation | None: ...
 
     @staticmethod
     def merge_span(*locations: InputLocation | None) -> InputLocation | None:
