@@ -7,8 +7,6 @@ from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord, getLogge
 from re import Match, Pattern
 from typing import overload
 
-from .utils import bad_type
-
 
 @dataclass(frozen=True, slots=True)
 class InputLocation:
@@ -250,15 +248,19 @@ class ErrorCollector:
     context information in the logging.
     """
 
-    def __init__(self, logger: Logger):
-        self._logger = logger
+    @property
+    def errors(self) -> Sequence[BadInput]:
+        return self._errors
+
+    def __init__(self, logger: Logger | None = None):
+        self._logger = getLogger(__name__) if logger is None else logger
         self.problem_counter = ProblemCounter()
-        self.errors: list[BadInput | DelayedError] = []
+        self._errors: list[BadInput] = []
 
     def __repr__(self) -> str:
         return (
             f"ErrorCollector(logger={self._logger!r}, "
-            f"problem_counter={self.problem_counter!r}, errors={self.errors!r})"
+            f"problem_counter={self.problem_counter!r}, errors={self._errors!r})"
         )
 
     def __str__(self) -> str:
@@ -278,7 +280,7 @@ class ErrorCollector:
             main_location = location[0] if location else None
         else:
             main_location = location
-        self.errors.append(BadInput(formatted, main_location))
+        self._errors.append(BadInput(formatted, main_location))
 
     def warning(
         self,
@@ -305,47 +307,29 @@ class ErrorCollector:
             problem_counter.level, "%s", problem_counter, extra={"location": path}
         )
 
+    @contextmanager
+    def check(self) -> Iterator[ErrorCollector]:
+        """
+        Create a context in which errors are collected.
 
-@contextmanager
-def collect_errors(
-    parent: ErrorCollector | Logger | None = None,
-) -> Iterator[ErrorCollector]:
-    """
-    Create a context and logger that allows reporting multiple errors.
-
-    Raise `DelayedError` on context close if any errors were reported
-    on the returned collector.
-    """
-    match parent:
-        case None:
-            logger = getLogger(__name__)
-        case Logger():
-            logger = parent
-            parent = None
-        case ErrorCollector():
-            logger = parent._logger
-        case _:
-            bad_type(parent)
-    collector = ErrorCollector(logger)
-    errors = collector.errors
-    try:
-        yield collector
-    except DelayedError as err:
-        if errors and errors[-1] is not err:
-            # TODO: This doesn't update ProblemCounter.
-            errors.append(err)
-    if errors:
-        # TODO: This counts nested DelayedErrors as 1 error.
-        #       If this message stays, make it recursively count errors.
-        # TODO: Use _pluralize().
-        group = DelayedError(f"{len(errors):d} errors", errors)
-        if parent is not None:
-            parent.problem_counter += collector.problem_counter
-            parent.errors.append(group)
-        raise group
+        Raise `DelayedError` on context close if any errors were reported
+        on this collector within in the context.
+        """
+        num_errors_before = len(self._errors)
+        try:
+            yield self
+        except DelayedError as delayed:
+            if delayed._collector is not self:
+                raise
+        errors = self._errors[num_errors_before:]
+        if errors:
+            # TODO: Use _pluralize().
+            group = DelayedError(f"{len(errors):d} errors", errors)
+            group._collector = self
+            raise group
 
 
-class DelayedError(ExceptionGroup["BadInput | DelayedError"]):
+class DelayedError(ExceptionGroup[BadInput]):
     """
     Raised when one or more errors were encountered when processing input.
 
@@ -356,6 +340,8 @@ class DelayedError(ExceptionGroup["BadInput | DelayedError"]):
     at the end of a processing step DelayedError can be raised to abort
     processing.
     """
+
+    _collector: ErrorCollector | None = None
 
 
 @dataclass(slots=True)

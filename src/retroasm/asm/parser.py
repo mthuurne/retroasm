@@ -10,7 +10,6 @@ from ..input import (
     ErrorCollector,
     InputLocation,
     ProblemCounter,
-    collect_errors,
 )
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
@@ -114,17 +113,17 @@ def parse_instruction(
             yield IdentifierNode(separator.text, location=separator)
 
 
-def build_instruction(tokens: AsmTokenizer, logger: ErrorCollector) -> None:
+def build_instruction(tokens: AsmTokenizer, collector: ErrorCollector) -> None:
     name = tokens.location
     try:
-        with collect_errors(logger) as collector:
+        with collector.check():
             match_seq = tuple(
                 create_match_sequence(parse_instruction(tokens, collector))
             )
     except DelayedError:
         return
 
-    logger.info(
+    collector.info(
         "instruction %s", " ".join(str(elem) for elem in match_seq), location=name
     )
 

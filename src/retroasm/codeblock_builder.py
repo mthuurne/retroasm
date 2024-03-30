@@ -8,7 +8,7 @@ from .codeblock_simplifier import simplify_block
 from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
-from .input import BadInput, ErrorCollector, InputLocation, collect_errors
+from .input import BadInput, ErrorCollector, InputLocation
 from .reference import (
     BitString,
     FixedValue,
@@ -42,22 +42,22 @@ def _simplify_storage(storage: Storage) -> Storage:
 def _check_undefined(
     nodes: Sequence[AccessNode],
     returned: Sequence[BitString],
-    collector: ErrorCollector | None,
+    collector: ErrorCollector,
 ) -> None:
     """Report uses of uninitialized local variables."""
 
-    with collect_errors(collector) as collector2:
+    with collector.check():
         for node in nodes:
             if isinstance((storage := node.storage), IOStorage):
                 for value in storage.index.iter_instances(InitialValue):
-                    collector2.error(
+                    collector.error(
                         'Undefined value of variable "%s" is used as an I/O index',
                         value.name,
                         location=value.location,
                     )
             if isinstance(node, Store):
                 for value in node.expr.iter_instances(InitialValue):
-                    collector2.error(
+                    collector.error(
                         'Undefined value of variable "%s" is stored',
                         value.name,
                         location=value.location,
@@ -65,7 +65,7 @@ def _check_undefined(
         for ret_bits in returned:
             for expr in ret_bits.iter_expressions():
                 for value in expr.iter_instances(InitialValue):
-                    collector2.error(
+                    collector.error(
                         'Undefined value of variable "%s" is returned',
                         value.name,
                         location=value.location,
@@ -233,25 +233,25 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             node.dump()
         super().dump()
 
-    def _check_labels(self, collector: ErrorCollector | None) -> None:
+    def _check_labels(self, collector: ErrorCollector) -> None:
         """
         Verify that labels are used correctly.
         Undefined labels are logged as errors, unused labels as warnings.
         Raises `BadInput` for each undefined label that is branched to.
         """
 
-        with collect_errors(collector) as collector2:
+        with collector.check():
             defined_labels = self._labels.keys()
             unused_labels = set(defined_labels)
             for label, locations in self._branches.items():
                 if label in defined_labels:
                     unused_labels.remove(label)
                 else:
-                    collector2.error(
+                    collector.error(
                         'Label "%s" does not exist', label, location=locations
                     )
             for label in unused_labels:
-                collector2.warning(
+                collector.warning(
                     'Label "%s" is unused', label, location=self._labels[label]
                 )
 
@@ -268,6 +268,9 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         returned values for the created block.
         Raises `BadInput*` if this builder does not represent a valid code block.
         """
+
+        if collector is None:
+            collector = ErrorCollector()
 
         self._check_labels(collector)
 

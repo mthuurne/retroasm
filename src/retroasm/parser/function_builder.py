@@ -5,7 +5,7 @@ from typing import cast
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..function import Function
-from ..input import DelayedError, ErrorCollector, InputLocation, collect_errors
+from ..input import DelayedError, ErrorCollector, InputLocation
 from ..namespace import GlobalNamespace, LocalNamespace
 from ..reference import Reference, SingleStorage
 from ..storage import ArgStorage
@@ -31,7 +31,7 @@ def _parse_body(reader: DefLineReader, logger: ErrorCollector) -> Iterator[Parse
 
 def create_func(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     func_name_location: InputLocation,
     ret_type: None | IntType | ReferenceType,
     ret_type_location: InputLocation | None,
@@ -63,7 +63,7 @@ def create_func(
         ret_ref = namespace.add_variable("ret", ret_type, ret_type_location)
 
     try:
-        with collect_errors(logger) as collector:
+        with collector.check():
             body_nodes = _parse_body(reader, collector)
             emit_code_from_statements(
                 collector, "function body", namespace, body_nodes, ret_type
@@ -75,7 +75,7 @@ def create_func(
             ret_ref = cast(Reference, namespace.elements["ret"])
 
         code = namespace.create_code_block(
-            ret_ref, collector=logger, location=func_name_location
+            ret_ref, collector=collector, location=func_name_location
         )
     except DelayedError:
         code = None
@@ -83,7 +83,7 @@ def create_func(
     try:
         func = Function(ret_type, args, code)
     except ValueError as ex:
-        logger.error(
+        collector.error(
             'error in function "%s": %s',
             func_name_location.text,
             ex,
@@ -99,7 +99,7 @@ def create_func(
         code_args = code.arguments
         for arg_name in args.keys():
             if arg_name not in code_args:
-                logger.warning(
+                collector.warning(
                     'unused argument "%s" in function "%s"',
                     arg_name,
                     func_name_location.text,

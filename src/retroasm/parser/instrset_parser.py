@@ -21,7 +21,6 @@ from ..input import (
     DelayedError,
     ErrorCollector,
     InputLocation,
-    collect_errors,
 )
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
@@ -207,7 +206,7 @@ def _parse_typed_args(
 
 def _parse_prefix(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     args: InputLocation,
     namespace: GlobalNamespace,
     factory: PrefixMappingFactory,
@@ -217,7 +216,7 @@ def _parse_prefix(
     # Parse header line.
     decode_flags = []
     try:
-        with collect_errors(logger) as collector:
+        with collector.check():
             flag_type = IntType.u(1)
             for arg_type, arg_type_loc, arg_name_loc in _parse_typed_args(
                 collector, args, "decode flag"
@@ -263,7 +262,7 @@ def _parse_prefix(
         try:
             enc_loc, mnem_loc, sem_loc = fields
         except ValueError:
-            logger.error(
+            collector.error(
                 "wrong number of dot-separated fields in prefix line: "
                 "expected 3, got %d",
                 len(fields),
@@ -273,7 +272,7 @@ def _parse_prefix(
 
         # Parse encoding.
         try:
-            with collect_errors(logger) as collector:
+            with collector.check():
                 if len(enc_loc) == 0:
                     collector.error("prefix encoding cannot be empty", location=enc_loc)
                 else:
@@ -301,12 +300,14 @@ def _parse_prefix(
 
         # Parse mnemonic.
         if len(mnem_loc) != 0:
-            logger.warning("prefix mnemonics are not supported yet", location=mnem_loc)
+            collector.warning(
+                "prefix mnemonics are not supported yet", location=mnem_loc
+            )
 
         # Parse semantics.
         semantics: FunctionBody | None
         try:
-            with collect_errors(logger) as collector:
+            with collector.check():
                 if len(sem_loc) == 0:
                     collector.error(
                         'prefix semantics cannot be empty; use "nop" instead',
@@ -334,11 +335,13 @@ def _parse_prefix(
     try:
         factory.add_prefixes(decode_flags, prefixes)
     except ValueError as ex:
-        logger.error(
+        collector.error(
             "validation of prefix block failed: %s", ex, location=header_location
         )
     except BadInput as ex:
-        logger.error("validation of prefix block failed: %s", ex, location=ex.locations)
+        collector.error(
+            "validation of prefix block failed: %s", ex, location=ex.locations
+        )
 
 
 _re_io_line = re.compile(_name_tok + r"\s" + _name_tok + r"\[" + _name_tok + r"\]$")
@@ -390,7 +393,7 @@ _re_func_header = re.compile(r"(?:" + _type_tok + r"\s)?" + _name_tok + r"\((.*)
 
 def _parse_func(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     header_args: InputLocation,
     namespace: GlobalNamespace,
     want_semantics: bool,
@@ -398,7 +401,7 @@ def _parse_func(
     # Parse header line.
     match = header_args.match(_re_func_header)
     if match is None:
-        logger.error("invalid function header line", location=header_args)
+        collector.error("invalid function header line", location=header_args)
         reader.skip_block()
         return
 
@@ -410,7 +413,7 @@ def _parse_func(
         try:
             ret_type = parse_type_decl(ret_type_loc.text)
         except ValueError as ex:
-            logger.error("bad return type: %s", ex, location=ret_type_loc)
+            collector.error("bad return type: %s", ex, location=ret_type_loc)
             reader.skip_block()
             return
     else:
@@ -420,7 +423,7 @@ def _parse_func(
     # Parse arguments.
     args = {}
     try:
-        with collect_errors(logger) as collector:
+        with collector.check():
             name_locations: dict[str, InputLocation] = {}
             for i, (arg_type, _arg_type_loc, arg_name_loc) in enumerate(
                 _parse_typed_args(collector, match.group(3), "function argument"), 1
@@ -455,7 +458,7 @@ def _parse_func(
         try:
             func = create_func(
                 reader,
-                logger,
+                collector,
                 func_name_loc,
                 ret_type,
                 ret_type_loc,
@@ -464,7 +467,7 @@ def _parse_func(
                 namespace,
             )
         except BadInput as ex:
-            logger.error(
+            collector.error(
                 'error in body of function "%s": %s',
                 func_name,
                 ex,
@@ -475,7 +478,9 @@ def _parse_func(
             try:
                 namespace.define(func_name, func, func_name_loc)
             except NameExistsError as ex:
-                logger.error("error declaring function: %s", ex, location=ex.locations)
+                collector.error(
+                    "error declaring function: %s", ex, location=ex.locations
+                )
     else:
         reader.skip_block()
 
@@ -996,7 +1001,7 @@ def _check_decoding_order(
 def _parse_mode_decoding(
     encoding: Encoding,
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
@@ -1006,15 +1011,15 @@ def _parse_mode_decoding(
         # Decompose the encoding expressions.
         fixed_matcher, decode_map = decompose_encoding(encoding)
     except BadInput as ex:
-        logger.error("%s", ex, location=ex.locations)
+        collector.error("%s", ex, location=ex.locations)
         return None
     try:
-        with collect_errors(logger) as collector:
+        with collector.check():
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(decode_map, placeholder_specs, collector)
             )
-        with collect_errors(logger) as collector:
+        with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
             _check_decoding_order(
                 encoding, sequential_map, placeholder_specs, collector
@@ -1102,7 +1107,7 @@ def _parse_mnemonic(
 
 def _parse_mode_entries(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
@@ -1118,10 +1123,10 @@ def _parse_mode_entries(
         # Split mode line into 4 fields.
         fields = list(line.split(_re_dot_sep))
         if len(fields) < 2:
-            logger.error('field separator "." missing in mode line', location=line)
+            collector.error('field separator "." missing in mode line', location=line)
             continue
         if len(fields) > 4:
-            logger.error(
+            collector.error(
                 "too many fields (%d) in mode line", len(fields), location=line
             )
             continue
@@ -1129,17 +1134,17 @@ def _parse_mode_entries(
         enc_loc, mnem_loc, sem_loc, ctx_loc = fields
 
         try:
-            with collect_errors(logger) as collector:
+            with collector.check():
                 # Parse context.
                 if len(ctx_loc) != 0:
                     try:
-                        with collect_errors(collector) as collector2:
+                        with collector.check():
                             placeholder_specs, flags_required = _parse_mode_context(
-                                ctx_loc, prefixes, modes, collector2
+                                ctx_loc, prefixes, modes, collector
                             )
                             placeholders = tuple(
                                 _build_placeholders(
-                                    placeholder_specs, global_namespace, collector2
+                                    placeholder_specs, global_namespace, collector
                                 )
                             )
                     except DelayedError:
@@ -1166,23 +1171,23 @@ def _parse_mode_entries(
                     encoding = None
                 else:
                     try:
-                        with collect_errors(collector) as collector2:
+                        with collector.check():
                             enc_items = tuple(
                                 _parse_mode_encoding(
                                     enc_nodes,
                                     placeholder_specs,
                                     global_namespace,
-                                    collector2,
+                                    collector,
                                 )
                             )
-                        with collect_errors(collector) as collector2:
-                            _check_aux_encoding_width(enc_items, collector2)
+                        with collector.check():
+                            _check_aux_encoding_width(enc_items, collector)
                             _check_empty_multi_matches(
-                                enc_items, placeholder_specs, collector2
+                                enc_items, placeholder_specs, collector
                             )
-                            _check_duplicate_multi_matches(enc_items, collector2)
+                            _check_duplicate_multi_matches(enc_items, collector)
                             _check_missing_placeholders(
-                                enc_items, placeholder_specs, enc_loc, collector2
+                                enc_items, placeholder_specs, enc_loc, collector
                             )
                     except DelayedError:
                         encoding = None
