@@ -85,18 +85,20 @@ _re_dot_sep = re.compile(r"\s*\.\s*")
 
 def _parse_regs(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
 ) -> None:
     if args:
-        logger.error("register definition must have no arguments", location=args)
+        collector.error("register definition must have no arguments", location=args)
 
     for line in reader.iter_block():
         try:
             nodes = parse_regs(line)
         except BadInput as ex:
-            logger.error("bad register definition line: %s", ex, location=ex.locations)
+            collector.error(
+                "bad register definition line: %s", ex, location=ex.locations
+            )
             continue
 
         last_type_location = None
@@ -111,7 +113,7 @@ def _parse_regs(
             except ValueError as ex:
                 # Avoid reporting the same error twice.
                 if type_location != last_type_location:
-                    logger.error("%s", ex, location=type_location)
+                    collector.error("%s", ex, location=type_location)
                 continue
             last_type_location = type_location
 
@@ -120,7 +122,7 @@ def _parse_regs(
                     # Define base register.
                     match reg_type:
                         case ReferenceType():
-                            logger.error(
+                            collector.error(
                                 "base register cannot have a reference type",
                                 location=(decl.name.location, type_location),
                             )
@@ -130,7 +132,7 @@ def _parse_regs(
                                     decl.name.name, typ, decl.name.location
                                 )
                             except NameExistsError as ex:
-                                logger.error(
+                                collector.error(
                                     "bad base register definition: %s",
                                     ex,
                                     location=ex.locations,
@@ -143,14 +145,14 @@ def _parse_regs(
                             decl.kind, name, reg_type, value, global_namespace
                         )
                     except BadExpression as ex:
-                        logger.error(
+                        collector.error(
                             "bad register alias: %s", ex, location=ex.locations
                         )
                         ref = bad_reference(reg_type)
                     try:
                         global_namespace.define(name, ref, decl.name.location)
                     except NameExistsError as ex:
-                        logger.error(
+                        collector.error(
                             "failed to define register alias: %s",
                             ex,
                             location=ex.locations,
@@ -164,7 +166,7 @@ _re_arg_decl = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 
 def _parse_typed_args(
-    logger: ErrorCollector, args: InputLocation, description: str
+    collector: ErrorCollector, args: InputLocation, description: str
 ) -> Iterator[tuple[IntType | ReferenceType, InputLocation, InputLocation]]:
     """
     Parses a typed arguments list, yielding a triple for each argument,
@@ -180,7 +182,7 @@ def _parse_typed_args(
     for i, arg_loc in enumerate(arg_locs, 1):
         arg_match = arg_loc.match(_re_arg_decl)
         if arg_match is None:
-            logger.error(
+            collector.error(
                 '%s %d not of the form "<type> <name>"',
                 description,
                 i,
@@ -192,7 +194,7 @@ def _parse_typed_args(
         try:
             arg_type = parse_type_decl(type_loc.text)
         except ValueError as ex:
-            logger.error(
+            collector.error(
                 'bad %s %d ("%s"): %s',
                 description,
                 i,
@@ -349,30 +351,30 @@ _re_io_line = re.compile(_name_tok + r"\s" + _name_tok + r"\[" + _name_tok + r"\
 
 def _parse_io(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     args: InputLocation,
     namespace: GlobalNamespace,
 ) -> None:
     if args:
-        logger.error("I/O definition must have no arguments", location=args)
+        collector.error("I/O definition must have no arguments", location=args)
 
     for line in reader.iter_block():
         match = line.match(_re_io_line)
         if match is None:
-            logger.error("invalid I/O definition line", location=line)
+            collector.error("invalid I/O definition line", location=line)
         else:
             elem_type_loc, name_loc, addr_type_loc = match.groups
 
             try:
                 elem_type: IntType | None = parse_type(elem_type_loc.text)
             except ValueError as ex:
-                logger.error("bad I/O element type: %s", ex, location=elem_type_loc)
+                collector.error("bad I/O element type: %s", ex, location=elem_type_loc)
                 elem_type = None
 
             try:
                 addr_type: IntType | None = parse_type(addr_type_loc.text)
             except ValueError as ex:
-                logger.error("bad I/O address type: %s", ex, location=addr_type_loc)
+                collector.error("bad I/O address type: %s", ex, location=addr_type_loc)
                 addr_type = None
 
             if elem_type is None or addr_type is None:
@@ -383,7 +385,7 @@ def _parse_io(
             try:
                 namespace.define(name, channel, name_loc)
             except NameExistsError as ex:
-                logger.error(
+                collector.error(
                     "error defining I/O channel: %s", ex, location=ex.locations
                 )
 
@@ -489,7 +491,7 @@ def _parse_mode_context(
     ctx_loc: InputLocation,
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
     placeholder_specs = {}
     flags_required = set()
@@ -507,7 +509,7 @@ def _parse_mode_context(
                 if mode is not None:
                     placeholder = MatchPlaceholderSpec(decl, mode)
                     if isinstance(node, DefinitionNode):
-                        logger.error(
+                        collector.error(
                             "filter values for mode placeholders are not supported yet",
                             location=InputLocation.merge_span(
                                 node.location, node.value.tree_location
@@ -520,7 +522,7 @@ def _parse_mode_context(
                         #       "<type>&"; we'd have to use parse_type_decl() instead.
                         typ = parse_type(type_name)
                     except ValueError:
-                        logger.error(
+                        collector.error(
                             'there is no type or mode named "%s"',
                             type_name,
                             location=decl_type.location,
@@ -529,7 +531,7 @@ def _parse_mode_context(
                     value = node.value if isinstance(node, DefinitionNode) else None
                     placeholder = ValuePlaceholderSpec(decl, typ, value)
                 if name in placeholder_specs:
-                    logger.error(
+                    collector.error(
                         'multiple placeholders named "%s"',
                         name,
                         location=decl.name.location,
@@ -540,7 +542,7 @@ def _parse_mode_context(
                 if prefixes.has_flag(name):
                     flags_required.add(name)
                 else:
-                    logger.error(
+                    collector.error(
                         'there is no decode flag named "%s"',
                         name,
                         location=node.location,
@@ -554,7 +556,7 @@ def _parse_mode_context(
 def _build_placeholders(
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
     sem_namespace = ContextNamespace(global_namespace)
@@ -574,7 +576,7 @@ def _build_placeholders(
                     decl.kind, decl.name.name, sem_type, value, placeholder_namespace
                 )
             except BadExpression as ex:
-                logger.error("%s", ex, location=ex.locations)
+                collector.error("%s", ex, location=ex.locations)
             else:
                 code = placeholder_namespace.create_code_block(ref)
 
@@ -584,7 +586,7 @@ def _build_placeholders(
                     try:
                         sem_namespace.add_argument(name, argType, decl.name.location)
                     except NameExistsError as ex:
-                        logger.error("%s", ex, location=ex.locations)
+                        collector.error("%s", ex, location=ex.locations)
                         continue
                 case typ:
                     bad_type(typ)
@@ -698,7 +700,7 @@ def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     global_namespace: GlobalNamespace,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
     enc_namespace = ContextNamespace(global_namespace)
@@ -711,7 +713,7 @@ def _parse_mode_encoding(
                 try:
                     enc_namespace.add_argument(name, enc_type, location)
                 except NameExistsError as ex:
-                    logger.error("bad placeholder: %s", ex, location=ex.locations)
+                    collector.error("bad placeholder: %s", ex, location=ex.locations)
 
     # Collect the names of all identifiers used in the encoding.
     identifiers = {
@@ -731,13 +733,13 @@ def _parse_mode_encoding(
                 # Expression possibly containing single encoding field matches.
                 yield _parse_encoding_expr(enc_node, enc_namespace, placeholder_specs)
         except BadInput as ex:
-            logger.error("%s", ex, location=ex.locations)
+            collector.error("%s", ex, location=ex.locations)
 
 
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> None:
     """
     Warn about multi-matches that always match zero elements.
@@ -748,7 +750,7 @@ def _check_empty_multi_matches(
         match enc_item:
             case EncodingMultiMatch(mode=mode):
                 if mode.encoding_width is None:
-                    logger.warning(
+                    collector.warning(
                         'mode "%s" does not contain encoding elements',
                         mode.name,
                         location=(
@@ -757,7 +759,7 @@ def _check_empty_multi_matches(
                         ),
                     )
                 elif enc_item.start >= 1 and mode.aux_encoding_width is None:
-                    logger.warning(
+                    collector.warning(
                         'mode "%s" does not match auxiliary encoding units',
                         mode.name,
                         location=(
@@ -771,7 +773,7 @@ def _check_missing_placeholders(
     enc_items: Iterable[EncodingItem],
     placeholder_specs: Mapping[str, PlaceholderSpec],
     location: InputLocation,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> None:
     """
     Check that our encoding field contains sufficient placeholders to be able
@@ -799,7 +801,7 @@ def _check_missing_placeholders(
                     # The value is computed, so we don't need to encode it.
                     continue
                 if name not in identifiers:
-                    logger.error(
+                    collector.error(
                         'value placeholder "%s" does not occur in encoding',
                         name,
                         location=(location, decl.tree_location),
@@ -812,14 +814,14 @@ def _check_missing_placeholders(
                     # Mode is matched using "X@" syntax.
                     continue
                 if name not in identifiers:
-                    logger.error(
+                    collector.error(
                         'no placeholder "%s" for mode "%s" in encoding',
                         name,
                         mode.name,
                         location=(location, decl.tree_location),
                     )
                 if mode.aux_encoding_width is not None:
-                    logger.error(
+                    collector.error(
                         'mode "%s" matches auxiliary encoding units, but there '
                         'is no "%s@" placeholder for them',
                         mode.name,
@@ -831,7 +833,7 @@ def _check_missing_placeholders(
 
 
 def _check_aux_encoding_width(
-    enc_items: Iterable[EncodingItem], logger: ErrorCollector
+    enc_items: Iterable[EncodingItem], collector: ErrorCollector
 ) -> None:
     """
     Check whether the encoding widths in the given encoding are the same
@@ -847,7 +849,7 @@ def _check_aux_encoding_width(
             first_aux_width = width
             first_aux_location = location
         elif width != first_aux_width:
-            logger.error(
+            collector.error(
                 "encoding item matches width %s, while first auxiliary "
                 "encoding match has width %s",
                 width,
@@ -884,7 +886,7 @@ def _check_aux_encoding_width(
 
 
 def _check_duplicate_multi_matches(
-    enc_items: Iterable[EncodingItem], logger: ErrorCollector
+    enc_items: Iterable[EncodingItem], collector: ErrorCollector
 ) -> None:
     """
     Checks whether more than one multi-matcher exists for the same
@@ -895,7 +897,7 @@ def _check_duplicate_multi_matches(
         match enc_item:
             case EncodingMultiMatch(name=name, location=location):
                 if name in claimed_multi_matches:
-                    logger.error(
+                    collector.error(
                         'duplicate multi-match placeholder "%s@"',
                         name,
                         location=(location, claimed_multi_matches[name]),
@@ -907,7 +909,7 @@ def _check_duplicate_multi_matches(
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """
     Yield pairs of placeholder name and the locations where the placeholder
@@ -938,7 +940,7 @@ def _combine_placeholder_encodings(
         elif prev > imm_width:
             assert False, (name, slices)
         if problems:
-            logger.error(
+            collector.error(
                 'cannot decode value for "%s": %s',
                 name,
                 ", ".join(problems),
@@ -952,7 +954,7 @@ def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
     placeholder_specs: Mapping[str, PlaceholderSpec],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> None:
     """
     Verifies that there is an order in which placeholders can be decoded.
@@ -985,7 +987,7 @@ def _check_decoding_order(
         ]
         if bad_idx:
             mode = placeholder_spec.mode
-            logger.error(
+            collector.error(
                 'cannot match "%s": mode "%s" has a variable encoding length '
                 'and (parts of) the placeholder "%s" are placed after the '
                 'multi-match placeholder "%s@"',
@@ -1031,7 +1033,7 @@ def _parse_mode_decoding(
 
 
 def _parse_mode_semantics(
-    _logger: ErrorCollector,
+    _collector: ErrorCollector,
     sem_loc: InputLocation,
     sem_namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType,
@@ -1057,14 +1059,14 @@ def _parse_mode_semantics(
 
 
 def _parse_instr_semantics(
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     sem_loc: InputLocation,
     namespace: LocalNamespace,
     mode_type: None | IntType | ReferenceType = None,
 ) -> None:
     assert mode_type is None, mode_type
     node = parse_statement(sem_loc)
-    build_statement_eval(logger, "semantics field", namespace, node)
+    build_statement_eval(collector, "semantics field", namespace, node)
 
 
 _re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
@@ -1073,7 +1075,7 @@ _re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
 def _parse_mnemonic(
     mnem_loc: InputLocation,
     placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}
     seen_placeholders: dict[str, InputLocation] = {}
@@ -1085,7 +1087,7 @@ def _parse_mnemonic(
                 try:
                     value, width = parse_int(text)
                 except ValueError as ex:
-                    logger.error("%s", ex, location=mnem_elem)
+                    collector.error("%s", ex, location=mnem_elem)
                 else:
                     yield int_reference(value, IntType.u(width))
             else:
@@ -1095,7 +1097,7 @@ def _parse_mnemonic(
             # meaning that would make sense is that they would all match the
             # same mode entry or expression and I don't know of any situation
             # in which that would be a useful feature.
-            logger.error(
+            collector.error(
                 'placeholder "%s" occurs multiple times in mnemonic',
                 text,
                 location=(mnem_elem, seen_placeholders[text]),
@@ -1272,7 +1274,7 @@ def _determine_encoding_width(
     entries: list[ParsedModeEntry],
     aux: bool,
     mode_name: str | None,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
 ) -> int | None:
     """
     Returns the common encoding width for the given list of mode entries.
@@ -1309,7 +1311,7 @@ def _determine_encoding_width(
         for idx, entry in enumerate(entries):
             enc_def = entry.entry.encoding
             if cast(Width, getattr(enc_def, width_attr)) not in valid_widths:
-                logger.error(
+                collector.error(
                     "%sencoding match is %s, while %s is dominant %s",
                     ("auxiliary " if aux else ""),
                     _format_encoding_width(getattr(enc_def, width_attr)),
@@ -1337,7 +1339,7 @@ _re_mode_args = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 def _parse_mode(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1348,7 +1350,7 @@ def _parse_mode(
     # Parse header line.
     match = args.match(_re_mode_args)
     if match is None:
-        logger.error(
+        collector.error(
             'invalid mode arguments, expected "mode <type> <name>"', location=args
         )
         reader.skip_block()
@@ -1358,14 +1360,14 @@ def _parse_mode(
     try:
         sem_type = parse_type_decl(mode_type_loc.text)
     except ValueError as ex:
-        logger.error("bad mode type: %s", ex, location=mode_type_loc)
+        collector.error("bad mode type: %s", ex, location=mode_type_loc)
         sem_type = None
 
     # Check whether it's safe to add mode to namespace.
     mode_name = mode_name_loc.text
     add_mode = False
     if mode_name in modes:
-        logger.error(
+        collector.error(
             'mode "%s" redefined; first definition was on line %d',
             mode_name,
             modes[mode_name].location.lineno,
@@ -1377,7 +1379,7 @@ def _parse_mode(
         except ValueError:
             add_mode = True
         else:
-            logger.error(
+            collector.error(
                 'mode name "%s" conflicts with type', mode_name, location=mode_name_loc
             )
 
@@ -1385,7 +1387,7 @@ def _parse_mode(
     parsed_entries = list(
         _parse_mode_entries(
             reader,
-            logger,
+            collector,
             global_namespace,
             prefixes,
             modes,
@@ -1397,8 +1399,10 @@ def _parse_mode(
     )
 
     # Create and remember mode object.
-    enc_width = _determine_encoding_width(parsed_entries, False, mode_name, logger)
-    aux_enc_width = _determine_encoding_width(parsed_entries, True, mode_name, logger)
+    enc_width = _determine_encoding_width(parsed_entries, False, mode_name, collector)
+    aux_enc_width = _determine_encoding_width(
+        parsed_entries, True, mode_name, collector
+    )
     entries = tuple(parsed_entry.entry for parsed_entry in parsed_entries)
     mode = Mode(mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries)
     if add_mode:
@@ -1408,7 +1412,7 @@ def _parse_mode(
 
 def _parse_instr(
     reader: DefLineReader,
-    logger: ErrorCollector,
+    collector: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
@@ -1416,17 +1420,17 @@ def _parse_instr(
     want_semantics: bool,
 ) -> Iterator[ParsedModeEntry]:
     mnem_base = []
-    for mnem_item in _parse_mnemonic(args, {}, logger):
+    for mnem_item in _parse_mnemonic(args, {}, collector):
         if isinstance(mnem_item, str):
             mnem_base.append(mnem_item)
         else:
             # TODO: The main reason to disallow this is that it would complicate
             #       the code to support it. Is that a good enough reason?
-            logger.error("the mnemonic base cannot contain numbers", location=args)
+            collector.error("the mnemonic base cannot contain numbers", location=args)
 
     for instr in _parse_mode_entries(
         reader,
-        logger,
+        collector,
         global_namespace,
         prefixes,
         modes,
@@ -1438,7 +1442,7 @@ def _parse_instr(
         enc_def = instr.entry.encoding
         enc_width = enc_def.encoding_width
         if enc_width is None:
-            logger.error(
+            collector.error(
                 "instruction encoding must not be empty",
                 location=enc_def.encoding_location,
             )
@@ -1447,7 +1451,7 @@ def _parse_instr(
             continue
         aux_encoding_width = enc_def.aux_encoding_width
         if aux_encoding_width not in (enc_width, None):
-            logger.error(
+            collector.error(
                 "auxiliary instruction encoding units are %s bits wide, "
                 "while first unit is %s bits wide",
                 aux_encoding_width,
@@ -1501,10 +1505,10 @@ class InstructionSetParser:
         instruction set.
         """
 
-    def parse(self, reader: DefLineReader, logger: ErrorCollector) -> None:
+    def parse(self, reader: DefLineReader, collector: ErrorCollector) -> None:
         """Parse the top level of an instruction set definition."""
 
-        num_errors_start = logger.problem_counter.num_errors
+        num_errors_start = collector.problem_counter.num_errors
 
         global_namespace = self.global_namespace
         prefixes = self.prefixes
@@ -1518,23 +1522,23 @@ class InstructionSetParser:
                 continue
             match = header.match(_re_header)
             if match is None:
-                logger.error("malformed line outside block", location=header)
+                collector.error("malformed line outside block", location=header)
                 continue
             keyword = match.group(1)
             args = match.group(2) if match.has_group(2) else header.end_location
             def_type = keyword.text
             if def_type == "reg":
-                _parse_regs(reader, logger, args, global_namespace)
+                _parse_regs(reader, collector, args, global_namespace)
             elif def_type == "io":
-                _parse_io(reader, logger, args, global_namespace)
+                _parse_io(reader, collector, args, global_namespace)
             elif def_type == "prefix":
-                _parse_prefix(reader, logger, args, global_namespace, prefixes)
+                _parse_prefix(reader, collector, args, global_namespace, prefixes)
             elif def_type == "func":
-                _parse_func(reader, logger, args, global_namespace, want_semantics)
+                _parse_func(reader, collector, args, global_namespace, want_semantics)
             elif def_type == "mode":
                 _parse_mode(
                     reader,
-                    logger,
+                    collector,
                     args,
                     global_namespace,
                     prefixes,
@@ -1545,7 +1549,7 @@ class InstructionSetParser:
             elif def_type == "instr":
                 instructions += _parse_instr(
                     reader,
-                    logger,
+                    collector,
                     args,
                     global_namespace,
                     prefixes,
@@ -1553,14 +1557,16 @@ class InstructionSetParser:
                     want_semantics,
                 )
             else:
-                logger.error('unknown definition type "%s"', def_type, location=keyword)
+                collector.error(
+                    'unknown definition type "%s"', def_type, location=keyword
+                )
                 reader.skip_block()
 
-        if logger.problem_counter.num_errors != num_errors_start:
+        if collector.problem_counter.num_errors != num_errors_start:
             self.attempt_creation = False
 
     def finalize(
-        self, logger: ErrorCollector, location: InputLocation
+        self, collector: ErrorCollector, location: InputLocation
     ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 
@@ -1568,7 +1574,7 @@ class InstructionSetParser:
         try:
             pc = self.global_namespace["pc"]
         except KeyError:
-            logger.error(
+            collector.error(
                 "no program counter defined: "
                 'a register or alias named "pc" is required',
                 location=location,
@@ -1577,7 +1583,7 @@ class InstructionSetParser:
             assert isinstance(pc, Reference), pc
 
         instructions = self.mode_entries[None]
-        enc_width = _determine_encoding_width(instructions, False, None, logger)
+        enc_width = _determine_encoding_width(instructions, False, None, collector)
         any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
 
@@ -1589,7 +1595,7 @@ class InstructionSetParser:
                 # earlier ones, only degenerate instruction sets can have an empty
                 # encoding: either the instruction set is empty or it has a single
                 # instruction with no encoding.
-                logger.error("no instruction encodings defined", location=location)
+                collector.error("no instruction encodings defined", location=location)
             else:
                 try:
                     return InstructionSet(
@@ -1600,7 +1606,7 @@ class InstructionSetParser:
                         self.mode_entries,
                     )
                 except ValueError as ex:
-                    logger.error(
+                    collector.error(
                         "final validation of instruction set failed: %s",
                         ex,
                         location=location,

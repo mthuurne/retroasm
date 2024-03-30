@@ -94,7 +94,7 @@ def create_match_sequence(nodes: Iterable[ParseNode]) -> Iterator[type[int] | st
 
 
 def parse_instruction(
-    tokens: AsmTokenizer, logger: ErrorCollector
+    tokens: AsmTokenizer, collector: ErrorCollector
 ) -> Iterator[ParseNode]:
     # TODO: Treating keywords and separators as identifiers is weird,
     #       but it works for now.
@@ -106,7 +106,7 @@ def parse_instruction(
         try:
             yield parse_value(tokens)
         except ParseError as ex:
-            logger.error("error parsing operand: %s", ex, location=ex.locations)
+            collector.error("error parsing operand: %s", ex, location=ex.locations)
             tokens.eat_remainder()
             return
         if (separator := tokens.eat(AsmToken.separator)) is not None:
@@ -550,7 +550,7 @@ class AsmSource:
 
 
 def parse_asm(
-    reader: LineReader, logger: ErrorCollector, instr_set: InstructionSet
+    reader: LineReader, collector: ErrorCollector, instr_set: InstructionSet
 ) -> AsmSource:
     source = AsmSource()
     instruction_names = instr_set.instruction_names
@@ -563,29 +563,29 @@ def parse_asm(
         try:
             label = parse_label(tokens)
         except ParseError as ex:
-            logger.error("error parsing label: %s", ex, location=ex.locations)
+            collector.error("error parsing label: %s", ex, location=ex.locations)
         else:
             if label is not None:
-                logger.info("label: %s", label, location=location)
+                collector.info("label: %s", label, location=location)
                 source.add_directive(label)
 
         # Look for a directive or instruction.
         if tokens.peek(AsmToken.word):
             if tokens.value.casefold() in instruction_names:
-                build_instruction(tokens, logger)
+                build_instruction(tokens, collector)
             else:
                 location = tokens.location
                 try:
                     directive = parse_directive(tokens, instr_set)
                 except ParseError as ex:
-                    logger.error("%s", ex, location=ex.locations)
+                    collector.error("%s", ex, location=ex.locations)
                 else:
-                    logger.info("directive: %s", directive, location=location)
+                    collector.info("directive: %s", directive, location=location)
                     source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end_of_statement:
-            logger.error(
+            collector.error(
                 "expected directive or instruction, got %s",
                 tokens.kind.name,
                 location=tokens.location,

@@ -16,17 +16,19 @@ from .expression_parser import parse_statement
 from .linereader import DefLineReader
 
 
-def _parse_body(reader: DefLineReader, logger: ErrorCollector) -> Iterator[ParseNode]:
+def _parse_body(
+    reader: DefLineReader, collector: ErrorCollector
+) -> Iterator[ParseNode]:
     """
     Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
-    Errors are appended to `logger` as they are discovered.
+    Errors are appended to `collector` as they are discovered.
     """
     for line in reader.iter_block():
         try:
             yield parse_statement(line)
         except ParseError as ex:
-            logger.error("failed to parse statement: %s", ex, location=ex.locations)
+            collector.error("failed to parse statement: %s", ex, location=ex.locations)
 
 
 def create_func(
