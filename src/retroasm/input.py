@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord, getLogger
 from re import Match, Pattern
-from typing import overload
+from typing import Self, overload
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +15,12 @@ class InputLocation:
     This can be used to provide context in error reporting, by passing it as
     the value of the 'location' argument to the log methods of LineReader.
     """
+
+    @classmethod
+    def from_string(cls, text: str) -> Self:
+        """Create a location spanning a single-line string."""
+
+        return cls("<string>", -1, text, (0, len(text)))
 
     path: str
     """
@@ -27,6 +33,7 @@ class InputLocation:
     """
     The number of this location's line in the input file,
     where line 1 is the first line.
+    A value of -1 is used when no line number information is available.
     """
 
     line: str

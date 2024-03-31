@@ -8,12 +8,8 @@ from retroasm.parser.expression_nodes import NumberNode, ParseError
 from retroasm.types import Width, unlimited
 
 
-def create_location(text: str) -> InputLocation:
-    return InputLocation("test.asm", 1, text, (0, len(text)))
-
-
 def tokenize(text: str) -> AsmTokenizer:
-    location = create_location(text)
+    location = InputLocation.from_string(text)
     return AsmTokenizer.scan(location)
 
 
