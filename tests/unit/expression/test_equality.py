@@ -3,7 +3,7 @@ from __future__ import annotations
 from retroasm.expression import Expression, IntLiteral, truncate
 from retroasm.types import IntType
 
-from .utils_expression import TestValue, make_concat
+from .utils import TestValue, make_concat
 
 
 def assert_expr_equal(expr1: Expression, expr2: Expression) -> None:

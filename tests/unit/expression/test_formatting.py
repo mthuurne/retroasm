@@ -4,7 +4,7 @@ from retroasm.expression import RShift, truncate
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType
 
-from .utils_expression import TestValue
+from .utils import TestValue
 
 
 def test_slice() -> None:

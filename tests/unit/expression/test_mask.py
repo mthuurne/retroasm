@@ -14,7 +14,7 @@ from retroasm.expression import (
 )
 from retroasm.types import IntType
 
-from .utils_expression import TestValue
+from .utils import TestValue
 
 
 def test_int() -> None:

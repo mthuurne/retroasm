@@ -20,7 +20,7 @@ from retroasm.expression import (
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, unlimited
 
-from .utils_expression import (
+from .utils import (
     TestValue,
     assert_and,
     assert_concat,
