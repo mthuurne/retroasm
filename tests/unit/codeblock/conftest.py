@@ -10,7 +10,7 @@ from retroasm.input import ErrorCollector, LocationFormatter
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
 
-from ..docstring import parse_docstring
+from ..docstring import unpack_docstring
 
 
 class TestParser(InstructionSetParser):
@@ -47,25 +47,6 @@ u32 mem[u32]
     return parser
 
 
-def _spec_from_docstring(docstring: str) -> tuple[str, str]:
-    """Parse a code block and list of logging messages from the given docstring."""
-
-    blocks = {}
-    for language, body in parse_docstring(docstring):
-        if language in blocks:
-            raise ValueError(f'Multiple blocks with language "{language}"')
-        blocks[language] = body
-
-    try:
-        code = blocks["instr"]
-    except KeyError:
-        raise ValueError("No code block") from None
-
-    logging = blocks.get("inputlog", "")
-
-    return code, logging
-
-
 @dataclass
 class DocstringTester:
     parser: TestParser
@@ -92,11 +73,16 @@ def docstring_tester(
     """
 
     try:
-        code, logging = _spec_from_docstring(docstring)
+        code, *logs = unpack_docstring(docstring, "instr", opt="inputlog")
     except ValueError as ex:
         raise pytest.FixtureLookupError(
-            request.fixturename, request, f"error parsing docstring: {ex}"
+            request.fixturename, request, f"error unpacking docstring: {ex}"
         ) from ex
+
+    if logs:
+        (logging,) = logs
+    else:
+        logging = ""
 
     caplog.handler.setFormatter(LocationFormatter())
 
