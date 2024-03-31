@@ -78,7 +78,10 @@ class DocstringTester:
 
 @pytest.fixture
 def docstring_tester(
-    parser: TestParser, request: pytest.FixtureRequest, caplog: pytest.LogCaptureFixture
+    parser: TestParser,
+    docstring: str,
+    request: pytest.FixtureRequest,
+    caplog: pytest.LogCaptureFixture,
 ) -> DocstringTester:
     """
     Fixture that parses a code block and list of logging messages from the requesting
@@ -88,12 +91,6 @@ def docstring_tester(
     match the ones listed in the docstring.
     """
 
-    func_node: pytest.Function = request.node
-    docstring = func_node.function.__doc__
-    if docstring is None:
-        raise pytest.FixtureLookupError(
-            request.fixturename, request, "missing docstring"
-        )
     try:
         code, logging = _spec_from_docstring(docstring)
     except ValueError as ex:

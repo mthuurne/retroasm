@@ -6,12 +6,12 @@ from inspect import cleandoc
 
 def parse_docstring(docstring: str) -> Iterator[tuple[str, str]]:
     """
-    Iterate through the codeblocks in the given docstring.
+    Iterate through the codeblocks in the given clean docstring.
 
     Yields pairs containing the language and the block body.
     """
 
-    lines = cleandoc(docstring).split("\n")
+    lines = docstring.split("\n")
     num_lines = len(lines)
 
     def find_block(search_start: int) -> tuple[int, str, str] | None:
