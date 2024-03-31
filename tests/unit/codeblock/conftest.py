@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from inspect import cleandoc
 from io import StringIO
 from logging import Logger, getLogger
 
@@ -10,6 +9,8 @@ import pytest
 from retroasm.input import ErrorCollector, LocationFormatter
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
+
+from ..docstring import parse_docstring
 
 
 class TestParser(InstructionSetParser):
@@ -46,36 +47,11 @@ u32 mem[u32]
     return parser
 
 
-def _parse_docstring(docstring: str) -> tuple[str, str]:
+def _spec_from_docstring(docstring: str) -> tuple[str, str]:
     """Parse a code block and list of logging messages from the given docstring."""
 
-    lines = cleandoc(docstring).split("\n")
-    num_lines = len(lines)
-
-    def find_block(search_start: int) -> tuple[int, str, str] | None:
-        prefix = ".. code-block::"
-        for idx in range(search_start, num_lines):
-            if (line := lines[idx]).startswith(prefix):
-                language = line[len(prefix) :].strip()
-                block_start = idx + 1
-                break
-        else:
-            return None
-
-        for idx in range(block_start, num_lines):
-            if (line := lines[idx]) and not line[0].isspace():
-                block_end = idx
-                break
-        else:
-            block_end = num_lines
-
-        body = cleandoc("\n".join(lines[block_start:block_end]))
-        return block_end, language, body
-
     blocks = {}
-    idx = 0
-    while block := find_block(idx):
-        idx, language, body = block
+    for language, body in parse_docstring(docstring):
         if language in blocks:
             raise ValueError(f'Multiple blocks with language "{language}"')
         blocks[language] = body
@@ -119,7 +95,7 @@ def docstring_tester(
             request.fixturename, request, "missing docstring"
         )
     try:
-        code, logging = _parse_docstring(docstring)
+        code, logging = _spec_from_docstring(docstring)
     except ValueError as ex:
         raise pytest.FixtureLookupError(
             request.fixturename, request, f"error parsing docstring: {ex}"
