@@ -12,6 +12,8 @@ from retroasm.input import BadInput, InputLocation
 from retroasm.namespace import LocalNamespace
 from retroasm.parser.expression_builder import build_expression
 from retroasm.parser.expression_parser import parse_expr
+from retroasm.reference import symbol_reference
+from retroasm.types import IntType
 
 from ..docstring import unpack_docstring
 
@@ -21,6 +23,7 @@ def expression_from_string(text: str) -> Expression:
     node = parse_expr(location)
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(None, builder)
+    namespace.define("A", symbol_reference("A", IntType.int))
     return build_expression(node, namespace)
 
 
@@ -30,8 +33,11 @@ class Equation:
     rhs: Expression
 
     def check_simplify(self) -> None:
-        """Assert that the left hand side simplifies to the right hand side."""
-        assert simplify_expression(self.lhs) == self.rhs
+        """
+        Assert that the left hand side and right hand side simplify
+        to the same expression.
+        """
+        assert simplify_expression(self.lhs) == simplify_expression(self.rhs)
 
 
 @pytest.fixture

@@ -57,16 +57,18 @@ def test_and_literals(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_and_identity() -> None:
-    """Simplifies logical AND expressions containing -1."""
-    addr = TestValue("A", IntType.u(16))
-    ones = IntLiteral(-1)
-    # Check whether identity values are filtered out.
-    assert simplify_expression(AndOperator(ones, addr)) is addr
-    assert simplify_expression(AndOperator(addr, ones)) is addr
-    assert simplify_expression(AndOperator(ones, addr, ones)) is addr
-    # Check graceful handling when zero subexpressions remain.
-    assert_int_literal(simplify_expression(AndOperator(ones, ones, ones)), -1)
+def test_and_identity(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions containing -1.
+
+    .. code-block:: expr
+
+        -1 & A = A
+        A & -1 = A
+        -1 & A & -1 = A
+        -1 & -1 & -1 = -1
+    """
+    equation.check_simplify()
 
 
 def test_and_absorbtion() -> None:
