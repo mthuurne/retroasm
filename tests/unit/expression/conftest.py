@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
+from inspect import cleandoc
 
 import pytest
 
@@ -25,41 +25,44 @@ def expression_from_string(text: str) -> Expression:
 
 
 @dataclass
-class ExprSimplifyTester:
-    equations: Sequence[tuple[Expression, Expression]]
+class Equation:
+    lhs: Expression
+    rhs: Expression
 
-    def check(self) -> None:
-        for complex_expr, expected_expr in self.equations:
-            assert simplify_expression(complex_expr) == expected_expr
+    def check_simplify(self) -> None:
+        """Assert that the left hand side simplifies to the right hand side."""
+        assert simplify_expression(self.lhs) == self.rhs
 
 
 @pytest.fixture
-def docstring_tester(
-    docstring: str,
-    request: pytest.FixtureRequest,
-) -> ExprSimplifyTester:
-    """
-    Fixture that parses a series of equations from the requesting test function's
-    docstring.
-    """
+def equation(request: pytest.FixtureRequest) -> Equation:
+    """Fixture that parses an equation string passed as a parameter."""
 
+    equation: str = request.param
     try:
-        specs = []
-        for block in unpack_docstring(docstring, opt="expr"):
-            for line in block.split("\n"):
-                if line:
-                    try:
-                        equals_idx = line.index(" = ")
-                    except ValueError:
-                        raise BadInput("no equality operator found")
-                    complex_expr = expression_from_string(line[:equals_idx])
-                    expected_expr = expression_from_string(line[equals_idx + 3 :])
-                    specs.append((complex_expr, expected_expr))
-        if specs:
-            return ExprSimplifyTester(specs)
-        else:
-            raise BadInput("no expressions")
+        try:
+            equals_idx = equation.index(" = ")
+        except ValueError:
+            raise BadInput("no equality operator found")
+        complex_expr = expression_from_string(equation[:equals_idx])
+        expected_expr = expression_from_string(equation[equals_idx + 3 :])
+        return Equation(complex_expr, expected_expr)
     except BadInput as ex:
         raise pytest.FixtureLookupError(
-            request.fixturename, request, f"error in docstring: {ex}"
+            request.fixturename, request, f"error in equation: {ex}"
         ) from ex
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "equation" in metafunc.fixturenames:
+        docstring = cleandoc(metafunc.function.__doc__ or "")
+        try:
+            lines = [
+                line
+                for block in unpack_docstring(docstring, opt="expr")
+                for line in block.split("\n")
+                if line
+            ]
+        except ValueError as ex:
+            raise pytest.Collector.CollectError(f"Error unpacking docstring: {ex}")
+        metafunc.parametrize("equation", lines, indirect=True)

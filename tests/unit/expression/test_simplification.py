@@ -20,7 +20,7 @@ from retroasm.expression import (
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, unlimited
 
-from .conftest import ExprSimplifyTester
+from .conftest import Equation
 from .utils import (
     TestValue,
     assert_and,
@@ -45,7 +45,7 @@ def test_zeromask_variable() -> None:
     assert_int_literal(simplify_expression(zvar), 0)
 
 
-def test_and_literals(docstring_tester: ExprSimplifyTester) -> None:
+def test_and_literals(equation: Equation) -> None:
     """
     Apply logical AND to integer literals.
 
@@ -54,7 +54,7 @@ def test_and_literals(docstring_tester: ExprSimplifyTester) -> None:
         $E3 & $7A = $62
         $FF00 & $123456 = $3400
     """
-    docstring_tester.check()
+    equation.check_simplify()
 
 
 def test_and_identity() -> None:
