@@ -71,89 +71,70 @@ def test_and_identity(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_and_absorbtion() -> None:
-    """Simplifies logical AND expressions containing 0."""
-    addr = TestValue("A", IntType.u(16))
-    zero = IntLiteral(0)
-    assert_int_literal(simplify_expression(AndOperator(zero, addr)), 0)
-    assert_int_literal(simplify_expression(AndOperator(addr, zero)), 0)
-    assert_int_literal(simplify_expression(AndOperator(addr, zero, addr)), 0)
+def test_and_absorbtion(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions containing 0.
+
+    .. code-block:: expr
+
+        0 & A = 0
+        A & 0 = 0
+        0 & A & 0 = 0
+        0 & 0 & 0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_and_idempotence() -> None:
-    """Simplifies logical AND expressions containing duplicates."""
-    addr = TestValue("A", IntType.u(16))
-    assert simplify_expression(AndOperator(addr, addr)) is addr
-    assert simplify_expression(AndOperator(addr, addr, addr)) is addr
-    mask = TestValue("M", IntType.u(16))
-    assert_and(simplify_expression(AndOperator(mask, addr, mask)), addr, mask)
+def test_and_idempotence(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions containing duplicates.
+
+    .. code-block:: expr
+
+        A & A = A
+        A & A & A = A
+        A & B & A = A & B
+    """
+    equation.check_simplify()
 
 
-def test_and_or() -> None:
-    """Simplifies expressions containing AND and OR."""
-    a = TestValue("A", IntType.u(8))
-    # Test literal merging.
-    expr1 = OrOperator(a, IntLiteral(0x5500))
-    expr2 = AndOperator(expr1, IntLiteral(0xAAFF))
-    expr3 = simplify_expression(expr2)
-    assert str(expr3) == str(a)
-    assert expr3 is a
+def test_and_or(equation: Equation) -> None:
+    """
+    Simplify expressions containing AND and OR.
+
+    .. code-block:: expr
+
+        (L | $5500) & $AAFF = L
+    """
+    equation.check_simplify()
 
 
-def test_and_width() -> None:
-    """Simplifies logical AND expressions using the subexpression widths."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    mask_lo = IntLiteral(0x00F0)
-    mask_hi = IntLiteral(0xF000)
-    # Test whether (HL & $00F0) cuts off H.
-    assert_and(simplify_expression(AndOperator(hl, mask_lo)), mask_lo, l)
-    # Test whether (HL & H) cuts off H.
-    assert_and(simplify_expression(AndOperator(hl, h)), h, l)
-    # Test whether (HL & L) simplifies to L.
-    assert simplify_expression(AndOperator(hl, l)) is l
-    # Test whether ($F000 & L) simplifies to 0.
-    assert_int_literal(simplify_expression(AndOperator(mask_hi, l)), 0)
+def test_and_width(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions using the subexpression widths.
+
+    .. code-block:: expr
+
+        H;L & $00FF = L
+        H;L & $00F0 = L & $00F0
+        (H;L)[:6] = L & $003F
+        H;L & L = L
+        H;L & H = L & H
+        $F000 & L = 0
+    """
+    equation.check_simplify()
 
 
-def test_and_mask_to_slice() -> None:
-    """Simplifies logical AND expressions that are essentially slicing."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    # Test whether (HL & $003F) simplifies to L[0:6].
-    mask6 = IntLiteral(0x003F)
-    assert_slice(simplify_expression(AndOperator(hl, mask6)), l, 8, 0, 6)
-    # Test whether (HL & $00FF) simplifies to L.
-    mask8 = IntLiteral(0x00FF)
-    assert simplify_expression(AndOperator(hl, mask8)) is l
+def test_and_mask_literal(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions that mask part of an expression.
 
+    .. code-block:: expr
 
-def test_and_mask_concat() -> None:
-    """Simplifies logical AND expressions that mask concatenated terms."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    # Test whether (HL & $FF00) simplifies to H;$00.
-    expr = simplify_expression(AndOperator(hl, IntLiteral(0xFF00)))
-    assert isinstance(expr, LShift)
-    assert expr.expr is h
-    assert expr.offset == 8
-
-
-def test_and_mask_literal() -> None:
-    """Tests elimination of redundant literals from AND expressions."""
-    addr = TestValue("A", IntType.u(16))
-    assert_and(
-        simplify_expression(
-            AndOperator(
-                Complement(AndOperator(addr, IntLiteral(0x3FFF))), IntLiteral(0x3FF0)
-            )
-        ),
-        Complement(addr),
-        IntLiteral(0x3FF0),
-    )
+        H;L & $FF00 = H << 8
+        -(A & $3FFF) & $3FF0 = -A & $3FF0
+    """
+    equation.check_simplify()
 
 
 def test_or_literals() -> None:
