@@ -293,28 +293,41 @@ def test_add_commutative(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_complement_int() -> None:
-    """Takes the complement of an integer literal."""
-    expr = Complement(IntLiteral(4))
-    assert_int_literal(simplify_expression(expr), -4)
+def test_complement_literal(equation: Equation) -> None:
+    """
+    Take the complement of an integer literal.
+
+    .. code-block:: expr
+
+        -(4) = -4
+        -0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_complement_twice() -> None:
-    """Takes the complement of a complement."""
-    addr = TestValue("A", IntType.u(16))
-    assert simplify_expression(Complement(Complement(addr))) is addr
+def test_complement_twice(equation: Equation) -> None:
+    """
+    Take the complement of a complement.
+
+    .. code-block:: expr
+
+        --A = A
+        -(-(-A)) = -A
+    """
+    equation.check_simplify()
 
 
-def test_complement_subexpr() -> None:
-    """Takes the complement of a simplifiable subexpression."""
-    addr = TestValue("A", IntType.u(16))
-    expr = simplify_expression(
-        Complement(
-            make_concat(make_concat(IntLiteral(0xC0), IntLiteral(0xDE), 8), addr, 16)
-        )
-    )
-    assert isinstance(expr, Complement)
-    assert_concat(expr.expr, ((IntLiteral(0xC0DE), 16), (addr, 16)))
+def test_complement_subexpr(equation: Equation) -> None:
+    """
+    Take the complement of a simplifiable subexpression.
+
+    .. code-block:: expr
+
+        -(A & 0) = 0
+        -(A | B | A) = -(A | B)
+        -($C0;$DE;H;L) = -($C0DE;H;L)
+    """
+    equation.check_simplify()
 
 
 def test_negation_int() -> None:
