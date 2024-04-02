@@ -26,7 +26,6 @@ from .utils import (
     assert_and,
     assert_concat,
     assert_int_literal,
-    assert_or,
     assert_slice,
     make_concat,
     make_slice,
@@ -98,17 +97,6 @@ def test_and_idempotence(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_and_or(equation: Equation) -> None:
-    """
-    Simplify expressions containing AND and OR.
-
-    .. code-block:: expr
-
-        (L | $5500) & $AAFF = L
-    """
-    equation.check_simplify()
-
-
 def test_and_width(equation: Equation) -> None:
     """
     Simplify logical AND expressions using the subexpression widths.
@@ -137,66 +125,70 @@ def test_and_mask_literal(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_or_literals() -> None:
-    """Applies logical OR to integer literals."""
-    a = IntLiteral(0x4C)
-    b = IntLiteral(0x91)
-    assert_int_literal(simplify_expression(OrOperator(a, b)), 0xDD)
-    c = IntLiteral(0x00FF)
-    d = IntLiteral(0x120021)
-    assert_int_literal(simplify_expression(OrOperator(c, d)), 0x1200FF)
+def test_or_literals(equation: Equation) -> None:
+    """
+    Apply logical OR to integer literals.
+
+    .. code-block:: expr
+
+        $4C | $91 = $DD
+        $00FF | $120021 = $1200FF
+    """
+    equation.check_simplify()
 
 
-def test_or_identity() -> None:
-    """Simplifies logical OR expressions containing 0."""
-    addr = TestValue("A", IntType.u(16))
-    zero = IntLiteral(0)
-    # Check whether identity values are filtered out.
-    assert simplify_expression(OrOperator(zero, addr)) is addr
-    assert simplify_expression(OrOperator(addr, zero)) is addr
-    assert simplify_expression(OrOperator(zero, addr, zero)) is addr
-    # Check graceful handling when zero subexpressions remain.
-    assert_int_literal(simplify_expression(OrOperator(zero, zero, zero)), 0)
+def test_or_identity(equation: Equation) -> None:
+    """
+    Simplify logical OR expressions containing 0.
+
+    .. code-block:: expr
+
+        A | 0 = A
+        0 | A = A
+        0 | A | 0 = A
+        0 | 0 | 0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_or_absorbtion() -> None:
-    """Simplifies logical OR expressions containing -1."""
-    addr = TestValue("A", IntType.u(16))
-    ones = IntLiteral(-1)
-    assert_int_literal(simplify_expression(OrOperator(ones, addr)), -1)
-    assert_int_literal(simplify_expression(OrOperator(addr, ones)), -1)
-    assert_int_literal(simplify_expression(OrOperator(addr, ones, addr)), -1)
+def test_or_absorbtion(equation: Equation) -> None:
+    """
+    Simplify logical OR expressions containing -1.
+
+    .. code-block:: expr
+
+        -1 | A = -1
+        A | -1 = -1
+        -1 | A | -1 = -1
+        -1 | -1 | -1 = -1
+    """
+    equation.check_simplify()
 
 
-def test_or_idempotence() -> None:
-    """Simplifies logical OR expressions containing duplicates."""
-    addr = TestValue("A", IntType.u(16))
-    assert simplify_expression(OrOperator(addr, addr)) is addr
-    assert simplify_expression(OrOperator(addr, addr, addr)) is addr
-    mask = TestValue("M", IntType.u(16))
-    assert_or(simplify_expression(OrOperator(mask, addr, mask)), addr, mask)
+def test_or_idempotence(equation: Equation) -> None:
+    """
+    Simplify logical OR expressions containing duplicates.
+
+    .. code-block:: expr
+
+        A | A = A
+        A | A | A = A
+        A | B | A = A | B
+    """
+    equation.check_simplify()
 
 
-def test_or_and() -> None:
-    """Simplifies expressions containing OR and AND."""
-    x = TestValue("X", IntType.u(8))
-    # (X & $55) | $AA  ==  (X | $AA) & ($55 | $AA)  ==  (X | $AA)
-    mask1 = IntLiteral(0x55)
-    mask2 = IntLiteral(0xAA)
-    expr1 = AndOperator(x, mask1)
-    expr2 = OrOperator(expr1, mask2)
-    assert_or(simplify_expression(expr2), x, mask2)
+def test_or_and(equation: Equation) -> None:
+    """
+    Simplify expressions containing both OR and AND.
 
+    .. code-block:: expr
 
-def test_or_mask_literal() -> None:
-    """Tests elimination of masked OR expressions."""
-    addr = TestValue("A", IntType.u(16))
-    assert (
-        simplify_expression(
-            AndOperator(OrOperator(LShift(addr, 8), IntLiteral(0xFFFF)), addr)
-        )
-        is addr
-    )
+        (L | $5500) & $AAFF = L
+        (L & $55) | $AA = L | $AA
+        ((L << 4) | $FF) & L = L
+    """
+    equation.check_simplify()
 
 
 def test_xor_literals() -> None:
