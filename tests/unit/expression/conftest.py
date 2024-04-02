@@ -25,6 +25,7 @@ def expression_from_string(text: str) -> Expression:
     namespace = LocalNamespace(None, builder)
     namespace.define("A", symbol_reference("A", IntType.int))
     namespace.define("B", symbol_reference("B", IntType.int))
+    namespace.define("F", symbol_reference("F", IntType.u(1)))
     namespace.define("H", symbol_reference("H", IntType.u(8)))
     namespace.define("L", symbol_reference("L", IntType.u(8)))
     return build_expression(node, namespace)

@@ -8,13 +8,11 @@ from retroasm.expression import (
     IntLiteral,
     LShift,
     LVShift,
-    Negation,
     OrOperator,
     RShift,
     RVShift,
     SignExtension,
     SignTest,
-    XorOperator,
     truncate,
 )
 from retroasm.expression_simplifier import simplify_expression
@@ -330,105 +328,74 @@ def test_complement_subexpr(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_negation_int() -> None:
-    """Negates an integer literal."""
-    assert_int_literal(simplify_expression(Negation(IntLiteral(-1))), 0)
-    assert_int_literal(simplify_expression(Negation(IntLiteral(0))), 1)
-    assert_int_literal(simplify_expression(Negation(IntLiteral(1))), 0)
-    assert_int_literal(simplify_expression(Negation(IntLiteral(2))), 0)
-    assert_int_literal(simplify_expression(Negation(IntLiteral(3))), 0)
+def test_negation_literal(equation: Equation) -> None:
+    """
+    Negate an integer literal.
+
+    .. code-block:: expr
+
+        !-2 = 0
+        !-1 = 0
+        !0 = 1
+        !1 = 0
+        !2 = 0
+    """
+    equation.check_simplify()
 
 
-def test_negation_subexpr() -> None:
-    """Negates a simplifiable subexpression."""
-    assert_int_literal(
-        simplify_expression(
-            Negation(make_concat(IntLiteral(0x0), IntLiteral(0x00), 8))
-        ),
-        1,
-    )
-    assert_int_literal(
-        simplify_expression(
-            Negation(make_concat(IntLiteral(0xB), IntLiteral(0x00), 8))
-        ),
-        0,
-    )
-    assert_int_literal(
-        simplify_expression(
-            Negation(make_concat(IntLiteral(0x0), IntLiteral(0x07), 8))
-        ),
-        0,
-    )
+def test_negation_subexpr(equation: Equation) -> None:
+    """
+    Negate a subexpression that simplifies to a literal.
+
+    .. code-block:: expr
+
+        !($0;$00) = 1
+        !($B;$00) = 0
+        !($0;$07) = 0
+        !(A & 0) = 1
+        !(A | -1) = 0
+        !(L >> 8) = 1
+    """
+    equation.check_simplify()
 
 
-def test_negation_or() -> None:
-    """Negates an OR expression."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(OrOperator(addr, IntLiteral(0x76)))), 0
-    )
+def test_negation_nested(equation: Equation) -> None:
+    """
+    Negate a subexpression that doesn't simplify to a literal.
+
+    When the subexpression can never be zero, the negation is zero.
+    Otherwise, it is just the negation of the simplified subexpression.
+
+    .. code-block:: expr
+
+        !(A ^ A ^ A) = !A
+        !(A | $76) = 0
+        !(-A | $76) = 0
+        !(-(A | $76)) = 0
+        !(($60 | A) & $F0) = 0
+        !(L ^ -1) = 0
+        !(A ^ -1) = !(A ^ -1)
+        !(L + 1) = 0
+        !(A + 1) = !(A + 1)
+        !((L + 1) << 8) = 0
+        !((A | $345) >> 8) = 0
+    """
+    equation.check_simplify()
 
 
-def test_negation_and() -> None:
-    """Negates an AND expression."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(
-            Negation(AndOperator(OrOperator(IntLiteral(0x60), addr), IntLiteral(0xF0)))
-        ),
-        0,
-    )
+def test_negation_twice(equation: Equation) -> None:
+    """
+    Negate a negation.
 
+    .. code-block:: expr
 
-def test_negation_xor() -> None:
-    """Negates a XOR expression."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(XorOperator(addr, IntLiteral(-1)))), 0
-    )
-
-
-def test_negation_add() -> None:
-    """Negates an addition."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(AddOperator(addr, IntLiteral(1)))), 0
-    )
-
-
-def test_negation_complement() -> None:
-    """Negates a complement."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(Complement(OrOperator(addr, IntLiteral(0x76))))), 0
-    )
-
-
-def test_negation_twice() -> None:
-    """Negates a negation."""
-    bool_val = TestValue("B", IntType.u(1))
-    int_val = TestValue("I", IntType.u(16))
-    assert simplify_expression(Negation(Negation(bool_val))) is bool_val
-    not_not_int = Negation(Negation(int_val))
-    assert simplify_expression(not_not_int) is not_not_int
-    combi = AndOperator(bool_val, int_val)
-    assert simplify_expression(Negation(Negation(combi))) is combi
-
-
-def test_negation_lshift() -> None:
-    """Negates a left-shifted expression."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(LShift(AddOperator(addr, IntLiteral(1)), 8))), 0
-    )
-
-
-def test_negation_rshift() -> None:
-    """Negates a right-shifted expression."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(
-        simplify_expression(Negation(RShift(OrOperator(addr, IntLiteral(0x345)), 8))), 0
-    )
+        !!A = !!A
+        !!F = F
+        !!!A = !A
+        !!!F = !F
+        !!(A & F) = A & F
+    """
+    equation.check_simplify()
 
 
 def test_sign_int() -> None:
