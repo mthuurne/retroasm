@@ -467,6 +467,7 @@ def test_add_literals(equation: Equation) -> None:
         8 + 127 = 135
         -5 + 2 = -3
         (1 + 2) + (3 + 4) = 10
+        (0 + -39) + -(101 + -1001) = 861
     """
     equation.check_simplify()
 
@@ -489,9 +490,12 @@ def test_add_associative(equation: Equation) -> None:
     """
     Simplify using the associativity of addition.
 
+    Note that subtraction is converted into addition of the complement.
+
     .. code-block:: expr
 
         (A + 1) + (2 + -3) = A
+        (A - 1) - (2 + -3) = A
     """
     equation.check_simplify()
 
@@ -500,73 +504,47 @@ def test_add_commutative(equation: Equation) -> None:
     """
     Simplify using the commutativity of addition.
 
+    Note that subtraction is converted into addition of the complement.
+
     .. code-block:: expr
 
         1 + 2 + A + -3 = A
+        1 + 2 - (-A + 3) = A
     """
     equation.check_simplify()
 
 
-def test_arithmetic_int() -> None:
-    """Uses add/complement on several integer literals."""
-    expr = AddOperator(
-        AddOperator(IntLiteral(0), Complement(IntLiteral(39))),
-        Complement(AddOperator(IntLiteral(101), IntLiteral(-1001))),
-    )
-    assert_int_literal(simplify_expression(expr), 861)
-
-
-def test_arithmetic_associative() -> None:
-    """Test simplification using the associativity of addition.
-    Note that that associativity cannot be exploited unless the subtraction
-    is converted into an addition first.
+def test_add_complement(equation: Equation) -> None:
     """
-    addr = TestValue("A", IntType.u(16))
-    arg1 = AddOperator(addr, Complement(IntLiteral(1)))
-    arg2 = AddOperator(IntLiteral(-2), IntLiteral(3))
-    assert simplify_expression(AddOperator(arg1, arg2)) is addr
+    Simplify subtracting an expression from itself.
 
+    .. code-block:: expr
 
-def test_arithmetic_commutative() -> None:
-    """Test simplification using the commutativity of addition.
-    Note that that commutativity cannot be exploited unless the subtraction
-    is converted into an addition first.
+        A - A = 0
+        -A + A = 0
+        -A - -A = 0
+        A + B - A = B
+        (A + B) - (A + B) = 0
+        (A + B) - (B + A) = 0
+        H;L - H;L = 0
     """
-    addr = TestValue("A", IntType.u(16))
-    arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
-    arg2 = AddOperator(Complement(addr), IntLiteral(3))
-    assert simplify_expression(AddOperator(arg1, Complement(arg2))) is addr
+    equation.check_simplify()
 
 
-def test_arithmetic_add_complement() -> None:
-    """Test simplification of subtracting an expression from itself."""
-    a = TestValue("A", IntType.u(16))
-    b = TestValue("B", IntType.u(8))
-    assert_int_literal(simplify_expression(AddOperator(a, Complement(a))), 0)
-    c = AddOperator(a, b)
-    d = AddOperator(b, a)
-    assert_int_literal(simplify_expression(AddOperator(c, Complement(c))), 0)
-    assert_int_literal(simplify_expression(AddOperator(c, Complement(d))), 0)
-    e = make_concat(a, b, 8)
-    assert_int_literal(simplify_expression(AddOperator(e, Complement(e))), 0)
+def test_add_truncate(equation: Equation) -> None:
+    """
+    Simplify addition results that are truncated.
 
+    This happens a lot, as expressions have unlimited width, but registers
+    and I/O channels do not.
 
-def test_arithmetic_add_truncate() -> None:
-    """Test simplification of truncation of adding truncated expressions."""
-    a = TestValue("A", IntType.u(16))
-    expr = truncate(
-        AddOperator(truncate(AddOperator(a, IntLiteral(1)), 16), IntLiteral(-1)), 16
-    )
-    assert str(simplify_expression(expr)) is str(a)
-    assert simplify_expression(expr) is a
+    .. code-block:: expr
 
-
-def test_arithmetic_add_truncate_literal() -> None:
-    """Test simplification of truncation of added literal."""
-    a = TestValue("A", IntType.u(16))
-    expr = truncate(AddOperator(a, IntLiteral(0x10001)), 16)
-    expected = truncate(AddOperator(a, IntLiteral(1)), 16)
-    assert simplify_expression(expr) == expected
+        ((L + 1)[:8] - 1)[:8] = L
+        (H;L + 1)[:8] = (L + 1)[:8]
+        (H;L + $10001)[:16] = (H;L + 1)[:16]
+    """
+    equation.check_simplify()
 
 
 def test_lshift_literals() -> None:
