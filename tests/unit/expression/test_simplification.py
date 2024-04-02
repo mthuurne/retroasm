@@ -243,56 +243,6 @@ def test_xor_bitwise_complement(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_add_literals(equation: Equation) -> None:
-    """
-    Add integer literals.
-
-    .. code-block:: expr
-
-        3 + 20 = 23
-        8 + 127 = 135
-        -5 + 2 = -3
-        (1 + 2) + (3 + 4) = 10
-    """
-    equation.check_simplify()
-
-
-def test_add_zero(equation: Equation) -> None:
-    """
-    Remove literal zero terms.
-
-    .. code-block:: expr
-
-        A + 0 = A
-        0 + A = A
-        0 + A + 0 = A
-        0 + 0 = 0
-    """
-    equation.check_simplify()
-
-
-def test_add_associative(equation: Equation) -> None:
-    """
-    Simplify using the associativity of addition.
-
-    .. code-block:: expr
-
-        (A + 1) + (2 + -3) = A
-    """
-    equation.check_simplify()
-
-
-def test_add_commutative(equation: Equation) -> None:
-    """
-    Simplify using the commutativity of addition.
-
-    .. code-block:: expr
-
-        1 + 2 + A + -3 = A
-    """
-    equation.check_simplify()
-
-
 def test_complement_literal(equation: Equation) -> None:
     """
     Take the complement of an integer literal.
@@ -505,6 +455,56 @@ def test_sign_extend_set() -> None:
     assert simplify_expression(SignExtension(combi, 8)) == OrOperator(
         a, IntLiteral(~0x7F)
     )
+
+
+def test_add_literals(equation: Equation) -> None:
+    """
+    Add integer literals.
+
+    .. code-block:: expr
+
+        3 + 20 = 23
+        8 + 127 = 135
+        -5 + 2 = -3
+        (1 + 2) + (3 + 4) = 10
+    """
+    equation.check_simplify()
+
+
+def test_add_zero(equation: Equation) -> None:
+    """
+    Remove literal zero terms.
+
+    .. code-block:: expr
+
+        A + 0 = A
+        0 + A = A
+        0 + A + 0 = A
+        0 + 0 = 0
+    """
+    equation.check_simplify()
+
+
+def test_add_associative(equation: Equation) -> None:
+    """
+    Simplify using the associativity of addition.
+
+    .. code-block:: expr
+
+        (A + 1) + (2 + -3) = A
+    """
+    equation.check_simplify()
+
+
+def test_add_commutative(equation: Equation) -> None:
+    """
+    Simplify using the commutativity of addition.
+
+    .. code-block:: expr
+
+        1 + 2 + A + -3 = A
+    """
+    equation.check_simplify()
 
 
 def test_arithmetic_int() -> None:
