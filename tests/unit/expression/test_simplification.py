@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from retroasm.expression import (
     AddOperator,
     AndOperator,
@@ -398,25 +400,52 @@ def test_negation_twice(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_sign_int() -> None:
-    """Tests sign of several integer literals."""
+def test_comparison_literals(equation: Equation) -> None:
+    """
+    Tests sign of several integer literals.
 
-    def check(value: int, result: int) -> None:
-        assert_int_literal(simplify_expression(SignTest(IntLiteral(value))), result)
+    .. code-block:: expr
 
-    check(0, 0)
-    check(1, 0)
-    check(-1, 1)
-    check(123, 0)
-    check(-123, 1)
+        0 < 0 = 0
+        0 > 0 = 0
+        0 <= 0 = 1
+        0 >= 0 = 1
+        1 < 0 = 0
+        1 > 0 = 1
+        1 <= 0 = 0
+        1 >= 0 = 1
+        -1 < 0 = 1
+        -1 > 0 = 0
+        -1 <= 0 = 1
+        -1 >= 0 = 0
+        123 < 0 = 0
+        123 > 0 = 1
+        123 <= 0 = 0
+        123 >= 0 = 1
+        -123 < 0 = 1
+        -123 > 0 = 0
+        -123 <= 0 = 1
+        -123 >= 0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_sign_types() -> None:
-    """Test sign of values of signed and unsigned types."""
-    u = SignTest(TestValue("U", IntType.u(8)))
-    assert_int_literal(simplify_expression(u), 0)
-    s = SignTest(TestValue("S", IntType.s(8)))
-    assert simplify_expression(s) is s
+def test_sign_types(equation: Equation) -> None:
+    """
+    Signed values like A can be negative, but unsigned values like L cannot.
+
+    .. code-block:: expr
+
+        L < 0 = 0
+        L > 0 = L > 0
+        L >= 0 = 1
+        L <= 0 = L <= 0
+        A < 0 = A < 0
+        A > 0 = A > 0
+        A >= 0 = A >= 0
+        A <= 0 = A <= 0
+    """
+    equation.check_simplify()
 
 
 def test_sign_extended() -> None:
@@ -428,22 +457,28 @@ def test_sign_extended() -> None:
     assert_int_literal(simplify_expression(SignTest(SignExtension(z, 0))), 0)
 
 
-def test_sign_extend_int() -> None:
-    """Applies sign extension to several integer literals."""
+sign_extension_data = [
+    (123, 8, 123),
+    (-123, 8, -123),
+    (-123 & 0xFF, 8, -123),
+    (0x123456, 8, 0x56),
+    (0x89ABCD, 8, 0xCD - 0x100),
+    (0, 0, 0),
+    (0, 1, 0),
+    (1, 1, -1),
+]
 
-    def check(value: int, width: int, result: int) -> None:
-        assert_int_literal(
-            simplify_expression(SignExtension(IntLiteral(value), width)), result
-        )
 
-    check(123, 8, 123)
-    check(-123, 8, -123)
-    check(-123 & 0xFF, 8, -123)
-    check(0x123456, 8, 0x56)
-    check(0x89ABCD, 8, 0xCD - 0x100)
-    check(0, 0, 0)
-    check(0, 1, 0)
-    check(1, 1, -1)
+@pytest.mark.parametrize(
+    "value,width,expected",
+    sign_extension_data,
+    ids=[f"${value:X} {width}-bit" for value, width, _expected in sign_extension_data],
+)
+def test_sign_extend_int(value: int, width: int, expected: int) -> None:
+    """Apply sign extension to several integer literals."""
+    assert_int_literal(
+        simplify_expression(SignExtension(IntLiteral(value), width)), expected
+    )
 
 
 def test_sign_extend_mask_concat() -> None:
