@@ -243,53 +243,54 @@ def test_xor_bitwise_complement(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_add_int() -> None:
-    """Adds two unlimited width integer literals."""
-    arg1 = IntLiteral(3)
-    arg2 = IntLiteral(20)
-    expr = simplify_expression(AddOperator(arg1, arg2))
-    assert_int_literal(expr, 23)
+def test_add_literals(equation: Equation) -> None:
+    """
+    Add integer literals.
+
+    .. code-block:: expr
+
+        3 + 20 = 23
+        8 + 127 = 135
+        -5 + 2 = -3
+        (1 + 2) + (3 + 4) = 10
+    """
+    equation.check_simplify()
 
 
-def test_add_fixed_width() -> None:
-    """Adds two fixed width integer literals."""
-    arg1 = IntLiteral(8)
-    arg2 = IntLiteral(127)
-    expr = simplify_expression(AddOperator(arg1, arg2))
-    assert_int_literal(expr, 135)
+def test_add_zero(equation: Equation) -> None:
+    """
+    Remove literal zero terms.
+
+    .. code-block:: expr
+
+        A + 0 = A
+        0 + A = A
+        0 + A + 0 = A
+        0 + 0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_add_nested() -> None:
-    """Adds several integers in an expression tree."""
-    arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
-    arg2 = AddOperator(IntLiteral(3), IntLiteral(4))
-    expr = simplify_expression(AddOperator(arg1, arg2))
-    assert_int_literal(expr, 10)
+def test_add_associative(equation: Equation) -> None:
+    """
+    Simplify using the associativity of addition.
+
+    .. code-block:: expr
+
+        (A + 1) + (2 + -3) = A
+    """
+    equation.check_simplify()
 
 
-def test_add_zero() -> None:
-    """Test simplification of zero literal terms."""
-    zero = IntLiteral(0)
-    addr = TestValue("A", IntType.u(16))
-    assert simplify_expression(AddOperator(zero, addr)) is addr
-    assert simplify_expression(AddOperator(addr, zero)) is addr
-    assert_int_literal(simplify_expression(AddOperator(zero, zero)), 0)
+def test_add_commutative(equation: Equation) -> None:
+    """
+    Simplify using the commutativity of addition.
 
+    .. code-block:: expr
 
-def test_add_associative() -> None:
-    """Test simplification using the associativity of addition."""
-    addr = TestValue("A", IntType.u(16))
-    arg1 = AddOperator(addr, IntLiteral(1))
-    arg2 = AddOperator(IntLiteral(2), IntLiteral(-3))
-    assert simplify_expression(AddOperator(arg1, arg2)) is addr
-
-
-def test_add_commutative() -> None:
-    """Test simplification using the commutativity of addition."""
-    addr = TestValue("A", IntType.u(16))
-    arg1 = AddOperator(IntLiteral(1), IntLiteral(2))
-    arg2 = AddOperator(addr, IntLiteral(-3))
-    assert simplify_expression(AddOperator(arg1, arg2)) is addr
+        1 + 2 + A + -3 = A
+    """
+    equation.check_simplify()
 
 
 def test_complement_int() -> None:
