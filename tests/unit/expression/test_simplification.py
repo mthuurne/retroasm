@@ -191,49 +191,56 @@ def test_or_and(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_xor_literals() -> None:
-    """Applies logical XOR to integer literals."""
-    a = IntLiteral(0xDC)
-    b = IntLiteral(0x58)
-    assert_int_literal(simplify_expression(XorOperator(a, b)), 0x84)
-    c = IntLiteral(0xF00F)
-    d = IntLiteral(0x123456)
-    assert_int_literal(simplify_expression(XorOperator(c, d)), 0x12C459)
+def test_xor_literals(equation: Equation) -> None:
+    """
+    Apply logical XOR to integer literals.
+
+    .. code-block:: expr
+
+        $DC ^ $58 = $84
+        $F00F ^ $123456 = $12C459
+    """
+    equation.check_simplify()
 
 
-def test_xor_identity() -> None:
-    """Simplifies logical XOR expressions containing 0."""
-    addr = TestValue("A", IntType.u(16))
-    zero = IntLiteral(0)
-    # Check whether identity values are filtered out.
-    assert simplify_expression(XorOperator(zero, addr)) is addr
-    assert simplify_expression(XorOperator(addr, zero)) is addr
-    assert simplify_expression(XorOperator(zero, addr, zero)) is addr
-    # Check graceful handling when zero subexpressions remain.
-    assert_int_literal(simplify_expression(XorOperator(zero, zero, zero)), 0)
+def test_xor_identity(equation: Equation) -> None:
+    """
+    Simplify logical XOR expressions containing 0.
+
+    .. code-block:: expr
+
+        A ^ 0 = A
+        0 ^ A = A
+        0 ^ A ^ 0 = A
+        0 ^ 0 ^ 0 = 0
+    """
+    equation.check_simplify()
 
 
-def test_xor_deduplication() -> None:
-    """Simplifies logical XOR expressions containing duplicates."""
-    a = TestValue("A", IntType.u(8))
-    b = TestValue("B", IntType.u(8))
-    zero = IntLiteral(0)
-    # Check that duplicate values are filtered out.
-    assert simplify_expression(XorOperator(a)) is a
-    assert simplify_expression(XorOperator(a, a)) == zero
-    assert simplify_expression(XorOperator(a, a, a)) is a
-    assert simplify_expression(XorOperator(a, a, a, a)) == zero
-    # Check with different subexpressions.
-    assert simplify_expression(XorOperator(b, a, b)) is a
-    assert simplify_expression(XorOperator(a, b, b, a)) == zero
+def test_xor_deduplication(equation: Equation) -> None:
+    """
+    Simplify logical XOR expressions containing duplicates.
+
+    .. code-block:: expr
+
+        A ^ A = 0
+        A ^ A ^ A = A
+        A ^ A ^ A ^ A = 0
+        A ^ B ^ A = B
+        A ^ B ^ B ^ A = 0
+    """
+    equation.check_simplify()
 
 
-def test_xor_bitwise_complement() -> None:
-    """Simplifies XOR expressions used for bitwise complement."""
-    a = TestValue("A", IntType.u(8))
-    compl1 = XorOperator(IntLiteral(-1), a)
-    compl2 = XorOperator(IntLiteral(-1), compl1)
-    assert simplify_expression(compl2) is a
+def test_xor_bitwise_complement(equation: Equation) -> None:
+    """
+    Simplify XOR expressions used for bitwise complement.
+
+    .. code-block:: expr
+
+        -1 ^ (-1 ^ A) = A
+    """
+    equation.check_simplify()
 
 
 def test_add_int() -> None:
