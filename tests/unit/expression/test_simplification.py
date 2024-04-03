@@ -8,11 +8,8 @@ from retroasm.expression import (
     Complement,
     Expression,
     IntLiteral,
-    LShift,
-    LVShift,
     OrOperator,
     RShift,
-    RVShift,
     SignExtension,
     SignTest,
     truncate,
@@ -547,86 +544,55 @@ def test_add_truncate(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_lshift_literals() -> None:
-    """Shifts an integer literal to the left."""
-    assert_int_literal(simplify_expression(LShift(IntLiteral(0x1234), 8)), 0x123400)
-    assert_int_literal(simplify_expression(LShift(IntLiteral(0xDA), 16)), 0xDA0000)
+def test_shift_literals(equation: Equation) -> None:
+    """
+    Shift integer literals left and right.
+
+    .. code-block:: expr
+
+        $1234 << 4 = $12340
+        $1234 >> 4 = $123
+        $DA << 16 = $DA0000
+        $DA >> 16 = 0
+        -1 << 4 = -16
+        -16 >> 2 = -4
+        -1 >> 4 = -1
+    """
+    equation.check_simplify()
 
 
-def test_lshift_twice() -> None:
-    """Shifts a value to the left twice."""
-    addr = TestValue("A", IntType.u(16))
-    expr = simplify_expression(LShift(LShift(addr, 3), 5))
-    assert isinstance(expr, LShift)
-    assert expr.expr is addr
-    assert expr.offset == 8
+def test_shift_symbols(equation: Equation) -> None:
+    """
+    Shift symbols one or multiple times.
+
+    .. code-block:: expr
+
+        A << 0 = A
+        A >> 0 = A
+        (A << 5) << 3 = A << 8
+        (A << 5) >> 3 = A << 2
+        (A << 3) >> 5 = A >> 2
+        (A << 4) >> 4 = A
+        (A >> 3) << 5 = (A << 2) & -$20
+    """
+    equation.check_simplify()
 
 
-def test_lshift_rshift() -> None:
-    """Tests left-shifting after right-shifting."""
-    addr = TestValue("A", IntType.u(16))
-    # Shift more to the right than to the left.
-    rwin = simplify_expression(LShift(RShift(addr, 5), 3))
-    assert_slice(rwin, AndOperator(addr, IntLiteral(0xFFE0)), 16, 2, 14)
-    # Shift equal amounts to the right and to the left.
-    draw = simplify_expression(LShift(RShift(addr, 4), 4))
-    assert_and(draw, addr, IntLiteral(0xFFF0))
-    # Shift less to the right than to the left.
-    lwin = simplify_expression(LShift(RShift(addr, 3), 5))
-    assert_and(lwin, LShift(addr, 2), IntLiteral(0x3FFE0))
+def test_shift_truncate(equation: Equation) -> None:
+    """
+    Truncate a shifted expression.
 
+    .. code-block:: expr
 
-def test_lshift_truncate() -> None:
-    """Tests truncation of a left-shifted expression."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    # Shift H and L out of the truncation range.
-    expr1 = simplify_expression(truncate(LShift(hl, 8), 8))
-    assert_int_literal(expr1, 0)
-    # Shift only H out of the truncation range.
-    expr2 = simplify_expression(truncate(LShift(hl, 8), 16))
-    assert isinstance(expr2, LShift)
-    assert expr2.expr is l
-    assert expr2.offset == 8
-
-
-def test_rshift_lshift() -> None:
-    """Tests right-shifting after left-shifting."""
-    addr = TestValue("A", IntType.u(16))
-    # Shift less to the left than to the right.
-    rwin = simplify_expression(RShift(LShift(addr, 3), 5))
-    assert isinstance(rwin, RShift)
-    assert rwin.offset == 2
-    assert rwin.expr is addr
-    # Shift equal amounts to the left and to the right.
-    draw = simplify_expression(RShift(LShift(addr, 4), 4))
-    assert draw is addr
-    # Shift more to the left than to the right.
-    lwin = simplify_expression(RShift(LShift(addr, 5), 3))
-    assert isinstance(lwin, LShift)
-    assert lwin.offset == 2
-    assert lwin.expr is addr
-
-
-def test_lvshift_constant() -> None:
-    """Shifts a constant number of positions to the left."""
-    assert_int_literal(
-        simplify_expression(LVShift(IntLiteral(0x1234), IntLiteral(8))), 0x123400
-    )
-    v8 = TestValue("A", IntType.u(8))
-    assert simplify_expression(LVShift(v8, IntLiteral(3))) == LShift(v8, 3)
-    assert simplify_expression(LVShift(v8, TestValue("Z", IntType.u(0)))) == v8
-
-
-def test_rvshift_constant() -> None:
-    """Shifts a constant number of positions to the left."""
-    assert_int_literal(
-        simplify_expression(RVShift(IntLiteral(0x1234), IntLiteral(8))), 0x12
-    )
-    v8 = TestValue("A", IntType.u(8))
-    assert simplify_expression(RVShift(v8, IntLiteral(3))) == RShift(v8, 3)
-    assert simplify_expression(RVShift(v8, TestValue("Z", IntType.u(0)))) == v8
+        L >> 8 = 0
+        H;L >> 8 = H
+        H;L >> 16 = 0
+        (H;L << 8)[:8] = 0
+        (H;L << 8)[:16] = L << 8
+        (H;L << 8)[:32] = H;L << 8
+        H >> (L >> 8) = H
+    """
+    equation.check_simplify()
 
 
 def test_concat_literals() -> None:
