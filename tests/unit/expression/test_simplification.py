@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from retroasm.expression import (
-    Complement,
     IntLiteral,
     OrOperator,
     SignExtension,
@@ -15,7 +14,6 @@ from retroasm.types import IntType, unlimited
 from .conftest import Equation
 from .utils import (
     TestValue,
-    assert_concat,
     assert_int_literal,
     assert_slice,
     make_concat,
@@ -595,96 +593,52 @@ def test_shift_truncate(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_concat_literals() -> None:
-    """Concatenates integer literals."""
-    ip = IntLiteral(4)
-    im = Complement(ip)
-    u4 = IntLiteral(0xD)
-    u8 = IntLiteral(0x29)
-    cat_ip_u4 = simplify_expression(make_concat(ip, u4, 4))
-    assert_int_literal(cat_ip_u4, 0x40 + 0xD)
-    cat_ip_u8 = simplify_expression(make_concat(ip, u8, 8))
-    assert_int_literal(cat_ip_u8, 0x400 + 0x29)
-    cat_im_u4 = simplify_expression(make_concat(im, u4, 4))
-    assert_int_literal(cat_im_u4, -0x40 + 0xD)
-    cat_im_u8 = simplify_expression(make_concat(im, u8, 8))
-    assert_int_literal(cat_im_u8, -0x400 + 0x29)
-    cat_u4_u4 = simplify_expression(make_concat(u4, u4, 4))
-    assert_int_literal(cat_u4_u4, 0xDD)
-    cat_u4_u8 = simplify_expression(make_concat(u4, u8, 8))
-    assert_int_literal(cat_u4_u8, 0xD29)
-    cat_u8_u4 = simplify_expression(make_concat(u8, u4, 4))
-    assert_int_literal(cat_u8_u4, 0x29D)
-    cat_u8_u8 = simplify_expression(make_concat(u8, u8, 8))
-    assert_int_literal(cat_u8_u8, 0x2929)
+def test_concat_literals(equation: Equation) -> None:
+    """
+    Concatenate integer literals.
+
+    .. code-block:: expr
+
+        4;$D = $4D
+        4;$29 = $429
+        -4;$D = -$33
+        -4;$29 = -$3D7
+        $D;$D = $DD
+        $D;$29 = $D29
+        $29;$D = $29D
+        $29;$29 = $2929
+    """
+    equation.check_simplify()
 
 
-def test_concat_identity() -> None:
-    """Simplifies concatenations containing identity values."""
-    addr = TestValue("A", IntType.u(16))
-    # Check whether empty bitstrings are filtered out.
-    empty = IntLiteral(0)
-    head = make_concat(make_concat(empty, addr, 16), addr, 16)
-    assert_concat(simplify_expression(head), ((addr, 16), (addr, 16)))
-    mid = make_concat(make_concat(addr, empty, 0), addr, 16)
-    assert_concat(simplify_expression(mid), ((addr, 16), (addr, 16)))
-    tail = make_concat(make_concat(addr, addr, 16), empty, 0)
-    assert_concat(simplify_expression(tail), ((addr, 16), (addr, 16)))
-    many = make_concat(
-        make_concat(
-            make_concat(
-                make_concat(
-                    make_concat(
-                        make_concat(make_concat(empty, empty, 0), addr, 16), empty, 0
-                    ),
-                    empty,
-                    0,
-                ),
-                addr,
-                16,
-            ),
-            empty,
-            0,
-        ),
-        empty,
-        0,
-    )
-    assert_concat(simplify_expression(many), ((addr, 16), (addr, 16)))
-    # Check graceful handling when zero subexpressions remain.
-    only = make_concat(make_concat(empty, empty, 0), empty, 0)
-    assert_int_literal(simplify_expression(only), 0)
-    # Check whether non-empty fixed-width zero-valued bitstrings are kept.
-    zero_u8 = IntLiteral(0)
-    mid_u8 = make_concat(make_concat(addr, zero_u8, 8), addr, 16)
-    assert_concat(simplify_expression(mid_u8), ((addr, 16), (zero_u8, 8), (addr, 16)))
-    tail_u8 = make_concat(make_concat(addr, addr, 16), zero_u8, 8)
-    assert_concat(simplify_expression(tail_u8), ((addr, 16), (addr, 16), (zero_u8, 8)))
-    # Check whether unlimited-width zero-valued bitstrings are kept.
-    zero_int = IntLiteral(0)
-    head_int = make_concat(make_concat(zero_int, addr, 16), addr, 16)
-    assert_concat(
-        simplify_expression(head_int), ((zero_int, unlimited), (addr, 16), (addr, 16))
-    )
+def test_concat_identity(equation: Equation) -> None:
+    """
+    Simplify concatenations containing identity values.
+
+    .. code-block:: expr
+
+        0;L = L
+        Z;L = L
+        H;Z = H
+        Z;H;L = H;L
+        H;Z;L = H;L
+        H;L;Z = H;L
+        Z;Z;H;Z;Z;L;Z;Z = H;L
+        H;$0;L = H;$0;L
+    """
+    equation.check_simplify()
 
 
-def test_concat_associative() -> None:
-    """Test simplification using the associativity of concatenation."""
-    addr = TestValue("A", IntType.u(16))
-    arg1 = make_concat(addr, addr, 16)  # (A ; A)
-    arg2 = make_concat(arg1, arg1, 32)  # ((A ; A) ; (A ; A))
-    arg3 = make_concat(arg1, arg2, 64)  # ((A ; A) ; ((A ; A) ; (A ; A)))
-    assert_concat(simplify_expression(arg3), ((addr, 16),) * 6)
+def test_concat_associative(equation: Equation) -> None:
+    """
+    Simplify using the associativity of concatenation.
 
+    .. code-block:: expr
 
-def test_concat_associative2() -> None:
-    """Test simplification using the associativity of concatenation."""
-    addr = TestValue("A", IntType.u(16))
-    arg1 = make_concat(addr, IntLiteral(0x9), 4)  # (A ; $9)
-    arg2 = make_concat(IntLiteral(0x63), addr, 16)  # ($63 ; A)
-    arg3 = make_concat(arg1, arg2, 24)  # ((A ; $9) ; ($63 ; A))
-    assert_concat(
-        simplify_expression(arg3), ((addr, 16), (IntLiteral(0x963), 12), (addr, 16))
-    )
+        (H;L) ; H ; (L;H;L) = H;L;H;L;H;L
+        (A;$9) ; ($63;H; L) = A;$963;H;L
+    """
+    equation.check_simplify()
 
 
 def test_slice_literals(equation: Equation) -> None:

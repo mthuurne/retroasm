@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import cast
-
 from retroasm.expression import (
     Expression,
     IntLiteral,
@@ -12,7 +9,6 @@ from retroasm.expression import (
     RShift,
     truncate,
 )
-from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, Width
 
 
@@ -75,19 +71,6 @@ def assert_or(expr: Expression, *args: Expression) -> None:
                 ", ".join("'%s'" % e for f, e in zip(found, exprs) if not f),
             )
         )
-
-
-def assert_concat(
-    expr: Expression, sub_exprs: Sequence[tuple[Expression, Width]]
-) -> None:
-    comp_exprs = []
-    offset = 0
-    for term, width in reversed(sub_exprs):
-        shifted = simplify_expression(LShift(term, offset))
-        if not (isinstance(shifted, IntLiteral) and shifted.value == 0):
-            comp_exprs.append(shifted)
-        offset += cast(int, width)
-    assert_or(expr, *comp_exprs)
 
 
 def assert_slice(
