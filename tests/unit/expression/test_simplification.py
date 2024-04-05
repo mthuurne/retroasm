@@ -4,10 +4,8 @@ import pytest
 
 from retroasm.expression import (
     Complement,
-    Expression,
     IntLiteral,
     OrOperator,
-    RShift,
     SignExtension,
     SignTest,
 )
@@ -21,7 +19,6 @@ from .utils import (
     assert_int_literal,
     assert_slice,
     make_concat,
-    make_slice,
 )
 
 
@@ -690,10 +687,6 @@ def test_concat_associative2() -> None:
     )
 
 
-def simplify_slice(expr: Expression, index: int, width: int) -> Expression:
-    return simplify_expression(make_slice(expr, index, width))
-
-
 def test_slice_literals(equation: Equation) -> None:
     """
     Slice integer literals.
@@ -748,6 +741,7 @@ def test_slice_concat(equation: Equation) -> None:
         (A;H;L)[:8] = L
         (A;H;L)[8:16] = H
         (A;H;L)[16:] = A
+        (A;H;L)[8:] = A;H
         (A;H;L)[:16] = H;L
         (H;L)[2:5] = L[2:5]
         (H;L)[11:14] = H[3:6]
@@ -756,28 +750,9 @@ def test_slice_concat(equation: Equation) -> None:
         (H;L)[5:8] = L[5:]
         (H;L)[13:] = H[5:]
     """
+    # TODO: Also test slices that don't end at term boundaries.
+    #       However, these currently don't simplify consistently.
     equation.check_simplify()
-
-
-def test_slice_concat_old() -> None:
-    """Slices a range from a concatenation."""
-    a = TestValue("A", IntType.u(8))
-    b = TestValue("B", IntType.u(8))
-    c = TestValue("C", IntType.u(8))
-    d = TestValue("D", IntType.u(8))
-    abcd = make_concat(make_concat(make_concat(a, b, 8), c, 8), d, 8)
-    # Test slice edges at subexpression boundaries.
-    bc = simplify_slice(abcd, 8, 16)
-    assert_concat(bc, ((b, 8), (c, 8)))
-    # Test slice across subexpression boundaries.
-    assert_slice(simplify_slice(abcd, 10, 9), make_concat(b, RShift(c, 2), 6), 14, 0, 9)
-    # Note: Earlier code produced b[:3] ; c[2:] instead of (b ; c[2:])[:9].
-    #       The complexity() function considers them equally complex,
-    #       although I prefer the former in readability.
-    # assertConcat(
-    # simplifySlice(abcd, 10, 9),
-    # ((truncate(b, 3), 3), (RShift(c, 2), 6))
-    # )
 
 
 def test_slice_and(equation: Equation) -> None:

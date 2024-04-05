@@ -20,10 +20,6 @@ def make_concat(expr_h: Expression, expr_l: Expression, width_l: int) -> Express
     return OrOperator(expr_l, LShift(expr_h, width_l))
 
 
-def make_slice(expr: Expression, index: int, width: Width) -> Expression:
-    return truncate(RShift(expr, index), width)
-
-
 class TestValue(Expression):
     __slots__ = ("_name", "_type")
 

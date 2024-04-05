@@ -100,6 +100,14 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
                 else:
                     j += 1
 
+    # Make the order of terms somewhat predictable.
+    # This does not produce canonical expressions, but it should be enough to
+    # at least compare expressions while unit testing.
+    order_before = exprs.copy()
+    exprs.sort(key=lambda expr: -expr.complexity)
+    exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)
+    changed |= exprs != order_before
+
     return changed
 
 
