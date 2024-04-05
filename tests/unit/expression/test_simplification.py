@@ -35,10 +35,17 @@ def test_zero_literal() -> None:
     assert simplify_expression(zero) is zero
 
 
-def test_zeromask_variable() -> None:
-    """Verify that a value with width 0 is simplified to the literal 0."""
-    zvar = TestValue("Z", IntType.u(0))
-    assert_int_literal(simplify_expression(zvar), 0)
+def test_zeromask_variable(equation: Equation) -> None:
+    """
+    A value with width 0 is simplified to the literal 0.
+
+    .. code-block:: expr
+
+        Z = 0
+        Z;Z = 0
+        A[3:3] = 0
+    """
+    equation.check_simplify()
 
 
 def test_and_literals(equation: Equation) -> None:
