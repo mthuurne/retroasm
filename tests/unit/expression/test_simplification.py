@@ -3,8 +3,6 @@ from __future__ import annotations
 import pytest
 
 from retroasm.expression import (
-    AddOperator,
-    AndOperator,
     Complement,
     Expression,
     IntLiteral,
@@ -12,7 +10,6 @@ from retroasm.expression import (
     RShift,
     SignExtension,
     SignTest,
-    truncate,
 )
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, unlimited
@@ -20,7 +17,6 @@ from retroasm.types import IntType, unlimited
 from .conftest import Equation
 from .utils import (
     TestValue,
-    assert_and,
     assert_concat,
     assert_int_literal,
     assert_slice,
@@ -698,74 +694,81 @@ def simplify_slice(expr: Expression, index: int, width: int) -> Expression:
     return simplify_expression(make_slice(expr, index, width))
 
 
-def test_slice_literals() -> None:
-    """Slices integer literals."""
-    addr = IntLiteral(0xFD56)
-    assert_int_literal(simplify_slice(addr, 0, 16), 0xFD56)
-    assert_int_literal(simplify_slice(addr, 4, 8), 0xD5)
-    assert_int_literal(simplify_slice(addr, 8, 12), 0x0FD)
-    signed = IntLiteral(-0x1995)
-    assert_int_literal(simplify_slice(signed, 0, 16), 0xE66B)
-    assert_int_literal(simplify_slice(signed, 4, 8), 0x66)
-    assert_int_literal(simplify_slice(signed, 8, 12), 0xFE6)
+def test_slice_literals(equation: Equation) -> None:
+    """
+    Slice integer literals.
+
+    .. code-block:: expr
+
+        $FD56[8:] = $FD
+        $FD56[:8] = $56
+        $FD56[0:16] = $FD56
+        $FD56[4:12] = $D5
+        $FD56[8:20] = $FD
+        (-$1995)[:16] = $E66B
+        (-$1995)[4:12] = $66
+        (-$1995)[8:20] = $FE6
+        (-$1995)[8:] = -$1A
+    """
+    equation.check_simplify()
 
 
-def test_slice_zero_width() -> None:
-    """Takes a slices of width 0."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(simplify_slice(addr, 8, 0), 0)
+def test_slice_range(equation: Equation) -> None:
+    """
+    Slice various ranges from a fixed-width symbol.
+
+    .. code-block:: expr
+
+        L[:8] = L
+        L[:12] = L
+        L[8:] = 0
+        L[4:12] = L[4:]
+    """
+    equation.check_simplify()
 
 
-def test_slice_full_range() -> None:
-    """Slices a range that exactly matches a value's type."""
-    addr = TestValue("A", IntType.u(16))
-    assert simplify_slice(addr, 0, 16) is addr
+def test_slice_of_slice(equation: Equation) -> None:
+    """
+    Slice a range from another slice.
+
+    .. code-block:: expr
+
+        A[3:13][2:8] = A[5:11]
+        (7 ; (H;L)[8:20])[8:16] = $70
+    """
+    equation.check_simplify()
 
 
-def test_slice_out_of_range() -> None:
-    """Slices a range that is fully outside a value's type."""
-    addr = TestValue("A", IntType.u(16))
-    assert_int_literal(simplify_slice(addr, 16, 8), 0)
+def test_slice_concat(equation: Equation) -> None:
+    """
+    Slice a range from a concatenation.
+
+    .. code-block:: expr
+
+        (A;H;L)[:8] = L
+        (A;H;L)[8:16] = H
+        (A;H;L)[16:] = A
+        (A;H;L)[:16] = H;L
+        (H;L)[2:5] = L[2:5]
+        (H;L)[11:14] = H[3:6]
+        (H;L)[:5] = L[:5]
+        (H;L)[8:13] = H[:5]
+        (H;L)[5:8] = L[5:]
+        (H;L)[13:] = H[5:]
+    """
+    equation.check_simplify()
 
 
-def test_slice_leading_zeroes() -> None:
-    """Slices a range that is partially outside a value's type."""
-    addr = TestValue("A", IntType.u(16))
-    expr = simplify_slice(addr, 0, 20)  # $0xxxx
-    assert expr is addr
-    expr = simplify_slice(addr, 8, 12)  # $0xx
-    assert_slice(expr, addr, 16, 8, 8)
-
-
-def test_slice_of_slice() -> None:
-    """Slices a range from another slice."""
-    addr = TestValue("A", IntType.u(16))
-    expr = simplify_slice(make_slice(addr, 3, 10), 2, 6)
-    assert_slice(expr, addr, 16, 5, 6)
-
-
-def test_slice_concat() -> None:
+def test_slice_concat_old() -> None:
     """Slices a range from a concatenation."""
     a = TestValue("A", IntType.u(8))
     b = TestValue("B", IntType.u(8))
     c = TestValue("C", IntType.u(8))
     d = TestValue("D", IntType.u(8))
     abcd = make_concat(make_concat(make_concat(a, b, 8), c, 8), d, 8)
-    # Test slicing out individual values.
-    assert simplify_slice(abcd, 0, 8) is d
-    assert simplify_slice(abcd, 8, 8) is c
-    assert simplify_slice(abcd, 16, 8) is b
-    assert simplify_slice(abcd, 24, 8) is a
     # Test slice edges at subexpression boundaries.
     bc = simplify_slice(abcd, 8, 16)
     assert_concat(bc, ((b, 8), (c, 8)))
-    # Test one slice edge at subexpression boundaries.
-    assert_slice(simplify_slice(abcd, 0, 5), d, 8, 0, 5)
-    assert_slice(simplify_slice(abcd, 8, 5), c, 8, 0, 5)
-    assert_slice(simplify_slice(abcd, 19, 5), b, 8, 3, 5)
-    assert_slice(simplify_slice(abcd, 27, 5), a, 8, 3, 5)
-    # Test slice entirely inside one subexpression.
-    assert_slice(simplify_slice(abcd, 10, 4), c, 8, 2, 4)
     # Test slice across subexpression boundaries.
     assert_slice(simplify_slice(abcd, 10, 9), make_concat(b, RShift(c, 2), 6), 14, 0, 9)
     # Note: Earlier code produced b[:3] ; c[2:] instead of (b ; c[2:])[:9].
@@ -777,70 +780,41 @@ def test_slice_concat() -> None:
     # )
 
 
-def test_slice_and() -> None:
-    """Tests simplification of slicing a logical AND."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    # Test whether slicing cuts off L.
-    expr1 = AndOperator(hl, IntLiteral(0xBFFF))
-    assert_slice(simplify_slice(expr1, 8, 6), h, 8, 0, 6)
-    # Test whether redundant slicing can be eliminated.
-    assert_and(simplify_slice(AndOperator(h, l), 0, 8), h, l)
+def test_slice_and(equation: Equation) -> None:
+    """
+    Simplify slicing a logical AND.
+
+    .. code-block:: expr
+
+        (H;L & $BFFF)[8:14] = H[:6]
+        (H & L)[:8] = H & L
+    """
+    equation.check_simplify()
 
 
-def test_slice_add() -> None:
-    """Tests simplification of slicing an addition."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    expr = AddOperator(hl, IntLiteral(2))
-    # Simplifcation fails because index is not 0.
-    up8 = simplify_slice(expr, 8, 8)
-    assert_slice(up8, simplify_expression(expr), unlimited, 8, 8)
-    # Successful simplification: slice lowest 8 bits.
-    low8 = simplify_slice(expr, 0, 8)
-    add8 = truncate(AddOperator(l, IntLiteral(2)), 8)
-    assert low8 == add8
-    # Successful simplification: slice lowest 6 bits.
-    low6 = simplify_slice(expr, 0, 6)
-    add6 = truncate(AddOperator(l, IntLiteral(2)), 6)
-    assert low6 == add6
-    # Simplification fails because expression becomes more complex.
-    low12 = truncate(simplify_expression(expr), 12)
-    low12s = simplify_expression(low12)
-    assert str(low12s) == str(low12)
-    assert low12s == low12
+def test_slice_add(equation: Equation) -> None:
+    """
+    Simplify slicing an addition.
+
+    .. code-block:: expr
+
+        (H;L + 2)[:6] = (L + 2)[:6]
+        (H;L + 2)[:8] = (L + 2)[:8]
+        (H;L + 2)[:10] = (H;L + 2)[:10]
+        (H;L + 2)[8:] = (H;L + 2)[8:]
+    """
+    equation.check_simplify()
 
 
-def test_slice_complement() -> None:
-    """Tests simplification of slicing a complement."""
-    h = TestValue("H", IntType.u(8))
-    l = TestValue("L", IntType.u(8))
-    hl = make_concat(h, l, 8)
-    expr = Complement(hl)
-    # Simplifcation fails because index is not 0.
-    up8 = make_slice(expr, 8, 8)
-    assert_slice(simplify_expression(up8), simplify_expression(expr), unlimited, 8, 8)
-    # Successful simplification: slice lowest 8 bits.
-    low8 = simplify_slice(expr, 0, 8)
-    cpl8 = truncate(Complement(l), 8)
-    assert str(low8) == str(cpl8)
-    assert low8 == cpl8
-    # Successful simplification: slice lowest 6 bits.
-    low6 = simplify_slice(expr, 0, 6)
-    cpl6 = truncate(Complement(l), 6)
-    assert str(low6) == str(cpl6)
-    assert low6 == cpl6
-    # Simplification fails because expression becomes more complex.
-    low12 = simplify_expression(truncate(expr, 12))
-    assert_slice(low12, simplify_expression(expr), unlimited, 0, 12)
+def test_slice_complement(equation: Equation) -> None:
+    """
+    Simplify slicing a complement.
 
+    .. code-block:: expr
 
-def test_slice_mixed() -> None:
-    """Tests a mixture of slicing, concatenation and leading zeroes."""
-    addr = TestValue("A", IntType.u(16))
-    expr_int = make_slice(make_concat(IntLiteral(7), make_slice(addr, 8, 12), 12), 8, 8)
-    assert_int_literal(simplify_expression(expr_int), 0x70)
-    expr_u8 = make_slice(make_concat(IntLiteral(7), make_slice(addr, 8, 12), 12), 8, 8)
-    assert_int_literal(simplify_expression(expr_u8), 0x70)
+        (-(H;L))[:6] = (-L)[:6]
+        (-(H;L))[:8] = (-L)[:8]
+        (-(H;L))[:10] = (-(H;L))[:10]
+        (-(H;L))[8:] = (-(H;L))[8:]
+    """
+    equation.check_simplify()

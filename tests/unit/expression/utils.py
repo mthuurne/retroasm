@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from typing import cast
 
 from retroasm.expression import (
-    AndOperator,
     Expression,
     IntLiteral,
     LShift,
@@ -59,27 +58,6 @@ def assert_int_literal(expr: Expression, value: int) -> None:
     """Assert that the given expression is an int literal with the given value."""
     assert isinstance(expr, IntLiteral)
     assert expr.value == value
-
-
-def assert_and(expr: Expression, *args: Expression) -> None:
-    assert isinstance(expr, AndOperator)
-    exprs = expr.exprs
-    assert len(exprs) == len(args)
-    found = [False] * len(exprs)
-    missing = []
-    for arg in args:
-        try:
-            found[exprs.index(arg)] = True
-        except ValueError:
-            missing.append(arg)
-    if missing:
-        raise AssertionError(
-            "mismatch on AND arguments: expected %s, got %s"
-            % (
-                ", ".join("'%s'" % e for e in missing),
-                ", ".join("'%s'" % e for f, e in zip(found, exprs) if not f),
-            )
-        )
 
 
 def assert_or(expr: Expression, *args: Expression) -> None:
