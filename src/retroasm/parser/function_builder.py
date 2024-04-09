@@ -5,13 +5,13 @@ from typing import cast
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..function import Function
-from ..input import DelayedError, ErrorCollector, InputLocation
+from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..namespace import GlobalNamespace, LocalNamespace
 from ..reference import Reference, SingleStorage
 from ..storage import ArgStorage
 from ..types import IntType, ReferenceType
 from .expression_builder import emit_code_from_statements
-from .expression_nodes import ParseError, ParseNode
+from .expression_nodes import ParseNode
 from .expression_parser import parse_statement
 from .linereader import DefLineReader
 
@@ -27,7 +27,7 @@ def _parse_body(
     for line in reader.iter_block():
         try:
             yield parse_statement(line)
-        except ParseError as ex:
+        except BadInput as ex:
             collector.error("failed to parse statement: %s", ex, location=ex.locations)
 
 

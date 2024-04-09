@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from ..input import BadInput, InputLocation
+from ..input import InputLocation
 from ..types import Width, unlimited
 
 
@@ -173,10 +173,6 @@ class NumberNode(ParseNode):
         else:
             assert isinstance(width, int)
             return f"${{:0{(width + 3) // 4:d}x}}".format(self.value)
-
-
-class ParseError(BadInput):
-    """Raised when the input text cannot be parsed into an expression."""
 
 
 def parse_int(value_str: str) -> tuple[int, Width]:

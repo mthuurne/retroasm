@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TypeAlias
 
 from ..input import (
+    BadInput,
     DelayedError,
     ErrorCollector,
     InputLocation,
@@ -17,7 +18,6 @@ from ..parser.expression_nodes import (
     NumberNode,
     Operator,
     OperatorNode,
-    ParseError,
     ParseNode,
     parse_digits,
 )
@@ -105,7 +105,7 @@ def parse_instruction(
     while not tokens.end_of_statement:
         try:
             yield parse_value(tokens)
-        except ParseError as ex:
+        except BadInput as ex:
             collector.error("error parsing operand: %s", ex, location=ex.locations)
             tokens.eat_remainder()
             return
@@ -129,13 +129,13 @@ def build_instruction(tokens: AsmTokenizer, collector: ErrorCollector) -> None:
 
 
 def parse_value(tokens: AsmTokenizer) -> ParseNode:
-    def bad_token_kind(where: str, expected: str) -> ParseError:
+    def bad_token_kind(where: str, expected: str) -> BadInput:
         if tokens.end_of_statement:
             got_desc = "end of statement"
         else:
             got_desc = f'{tokens.kind.name} "{tokens.value}"'
         msg = f"bad {where} expression: expected {expected}, got {got_desc}"
-        return ParseError(msg, tokens.location)
+        return BadInput(msg, tokens.location)
 
     def parse_or() -> ParseNode:
         expr = parse_xor()
@@ -310,7 +310,7 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
                 value = ord(location.text)
             except TypeError:
                 desc = "empty" if len(location) == 0 else "multi-character"
-                raise ParseError(f"{desc} string in expression", location) from None
+                raise BadInput(f"{desc} string in expression", location) from None
             else:
                 return NumberNode(value, 8, location=location)
 
@@ -351,7 +351,7 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
             try:
                 digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
             except KeyError:
-                raise ParseError(
+                raise BadInput(
                     f'bad number suffix "{value[-1]}"', location[-1:]
                 ) from None
             radix = 1 << digit_width
@@ -361,7 +361,7 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
             num_val = parse_digits(digits, radix)
         except ValueError as ex:
             # TODO: Have the span point to the first offending character.
-            raise ParseError(f"{ex}", location) from None
+            raise BadInput(f"{ex}", location) from None
         else:
             return NumberNode(num_val, width, location=location)
 
@@ -399,7 +399,7 @@ def parse_data_directive(
     while True:
         if (location := tokens.eat_string()) is not None:
             if not allow_strings:
-                raise ParseError(
+                raise BadInput(
                     "string literals are not supported by this directive",
                     location,
                 )
@@ -408,7 +408,7 @@ def parse_data_directive(
             try:
                 data.append(location.text.encode("ascii"))
             except UnicodeError as ex:
-                raise ParseError(
+                raise BadInput(
                     f"string literal is not pure ASCII: {ex}", location
                 ) from None
         else:
@@ -416,7 +416,7 @@ def parse_data_directive(
         if tokens.end_of_statement:
             break
         if tokens.eat(AsmToken.separator, ",") is None:
-            raise ParseError.with_text("unexpected token after value", tokens.location)
+            raise BadInput.with_text("unexpected token after value", tokens.location)
     return data_class(width, *data)  # type: ignore[arg-type]
 
 
@@ -466,12 +466,12 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
         if (location := tokens.eat_string()) is not None:
             return BinaryIncludeDirective(Path(location.text))
         else:
-            raise ParseError.with_text("expected file path", tokens.location)
+            raise BadInput.with_text("expected file path", tokens.location)
     elif keyword == "include":
         if (location := tokens.eat_string()) is not None:
             return SourceIncludeDirective(Path(location.text))
         else:
-            raise ParseError.with_text("expected file path", tokens.location)
+            raise BadInput.with_text("expected file path", tokens.location)
     elif keyword == "if":
         return ConditionalDirective(parse_value(tokens), False)
     elif keyword == "elseif":
@@ -487,7 +487,7 @@ def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directiv
     elif keyword in ("segment", "code", "data", "rodata", "bss"):
         return DummyDirective()
     else:
-        raise ParseError.with_text(
+        raise BadInput.with_text(
             "statement is not a known instruction or directive", name
         )
 
@@ -562,7 +562,7 @@ def parse_asm(
         location = tokens.location
         try:
             label = parse_label(tokens)
-        except ParseError as ex:
+        except BadInput as ex:
             collector.error("error parsing label: %s", ex, location=ex.locations)
         else:
             if label is not None:
@@ -577,7 +577,7 @@ def parse_asm(
                 location = tokens.location
                 try:
                     directive = parse_directive(tokens, instr_set)
-                except ParseError as ex:
+                except BadInput as ex:
                     collector.error("%s", ex, location=ex.locations)
                 else:
                     collector.info("directive: %s", directive, location=location)

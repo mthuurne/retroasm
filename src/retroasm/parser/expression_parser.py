@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from enum import Enum, auto
 from typing import Any, TypeAlias, cast
 
-from ..input import InputLocation
+from ..input import BadInput, InputLocation
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
@@ -19,7 +19,6 @@ from .expression_nodes import (
     NumberNode,
     Operator,
     OperatorNode,
-    ParseError,
     ParseNode,
     parse_int,
 )
@@ -59,13 +58,13 @@ class _ParseMode(Enum):
 def _parse(location: InputLocation, mode: _ParseMode) -> Any:
     tokens = ExprTokenizer.scan(location)
 
-    def bad_token_kind(where: str, expected: str) -> ParseError:
+    def bad_token_kind(where: str, expected: str) -> BadInput:
         if tokens.end:
             got_desc = "end of input"
         else:
             got_desc = f'{tokens.kind.name} "{tokens.value}"'
         msg = f"bad {where} expression: expected {expected}, got {got_desc}"
-        return ParseError(msg, tokens.location)
+        return BadInput(msg, tokens.location)
 
     def parse_statement_top() -> ParseNode:
         if tokens.peek(ExprToken.label):
@@ -305,7 +304,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         def_location = tokens.eat(ExprToken.definition)
         if decl_node.kind is DeclarationKind.variable:
             if def_location is not None:
-                raise ParseError(
+                raise BadInput(
                     "variables can only get values through assignment "
                     '(use ":=" instead of "=")',
                     def_location,
@@ -397,7 +396,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if amp_location is not None:
                 type_location = InputLocation.merge_span(type_location, amp_location)
                 if kind is DeclarationKind.variable:
-                    raise ParseError(
+                    raise BadInput(
                         'references can only be defined using the "def" keyword',
                         InputLocation.merge_span(start_location, amp_location),
                     )
@@ -445,7 +444,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         try:
             value, width = parse_int(location.text)
         except ValueError as ex:
-            raise ParseError(f"{ex}", location) from ex
+            raise BadInput(f"{ex}", location) from ex
         else:
             return NumberNode(value, width, location=location)
 
@@ -460,11 +459,11 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
 
     expr = top_for_mode[mode]()
     if tokens.peek(ExprToken.other):
-        raise ParseError(
+        raise BadInput(
             f'unexpected character "{tokens.value}" in expression', tokens.location
         )
     if not tokens.end:
-        raise ParseError(
+        raise BadInput(
             f'found {tokens.kind.name} "{tokens.value}" in an unexpected place',
             tokens.location,
         )

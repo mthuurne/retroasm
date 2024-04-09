@@ -3,8 +3,8 @@ from __future__ import annotations
 from pytest import raises
 
 from retroasm.asm.parser import AsmTokenizer, parse_value
-from retroasm.input import InputLocation
-from retroasm.parser.expression_nodes import NumberNode, ParseError
+from retroasm.input import BadInput, InputLocation
+from retroasm.parser.expression_nodes import NumberNode
 from retroasm.types import Width, unlimited
 
 
@@ -80,7 +80,7 @@ def test_parse_number_hex_suffix_high() -> None:
 def test_parse_number_bad_decimal() -> None:
     """The value "123q456" is reported as a bad decimal number."""
     tokens = tokenize("123q456")
-    with raises(ParseError, match=r"^bad decimal number: 123q456$") as exc_info:
+    with raises(BadInput, match=r"^bad decimal number: 123q456$") as exc_info:
         parse_value(tokens)
     (location,) = exc_info.value.locations
     assert location.text == "123q456", location
@@ -89,7 +89,7 @@ def test_parse_number_bad_decimal() -> None:
 def test_parse_number_bad_suffix() -> None:
     """The value "123q" is reported as a bad number suffix with the "q" as its span."""
     tokens = tokenize("123q")
-    with raises(ParseError, match=r'^bad number suffix "q"$') as exc_info:
+    with raises(BadInput, match=r'^bad number suffix "q"$') as exc_info:
         parse_value(tokens)
     (location,) = exc_info.value.locations
     assert location.text == "q", location
