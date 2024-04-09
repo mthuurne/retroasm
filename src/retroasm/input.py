@@ -276,35 +276,34 @@ class ErrorCollector:
     def error(
         self,
         msg: str,
-        *args: object,
+        *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.error(msg, *args, extra={"location": location})
+        self._logger.error("%s", msg, extra={"location": location})
         self.problem_counter.num_errors += 1
 
-        formatted = msg % args
         if isinstance(location, Sequence):
             main_location = location[0] if location else None
         else:
             main_location = location
-        self._errors.append(BadInput(formatted, main_location))
+        self._errors.append(BadInput(msg, main_location))
 
     def warning(
         self,
         msg: str,
-        *args: object,
+        *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.warning(msg, *args, extra={"location": location})
+        self._logger.warning("%s", msg, extra={"location": location})
         self.problem_counter.num_warnings += 1
 
     def info(
         self,
         msg: str,
-        *args: object,
+        *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.info(msg, *args, extra={"location": location})
+        self._logger.info("%s", msg, extra={"location": location})
 
     def summarize(self, path: str) -> None:
         """Log a message containing the error and warning counts."""

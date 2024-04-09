@@ -28,7 +28,7 @@ def _parse_body(
         try:
             yield parse_statement(line)
         except BadInput as ex:
-            collector.error("failed to parse statement: %s", ex, location=ex.locations)
+            collector.error(f"failed to parse statement: {ex}", location=ex.locations)
 
 
 def create_func(
@@ -86,9 +86,7 @@ def create_func(
         func = Function(ret_type, args, code)
     except ValueError as ex:
         collector.error(
-            'error in function "%s": %s',
-            func_name_location.text,
-            ex,
+            f'error in function "{func_name_location.text}": {ex}',
             location=func_name_location,
         )
         code = None
@@ -101,10 +99,9 @@ def create_func(
         code_args = code.arguments
         for arg_name in args.keys():
             if arg_name not in code_args:
+                func_name = func_name_location.text
                 collector.warning(
-                    'unused argument "%s" in function "%s"',
-                    arg_name,
-                    func_name_location.text,
+                    f'unused argument "{arg_name}" in function "{func_name}"',
                     location=arg_name_locations[arg_name],
                 )
 

@@ -106,7 +106,7 @@ def parse_instruction(
         try:
             yield parse_value(tokens)
         except BadInput as ex:
-            collector.error("error parsing operand: %s", ex, location=ex.locations)
+            collector.error(f"error parsing operand: {ex}", location=ex.locations)
             tokens.eat_remainder()
             return
         if (separator := tokens.eat(AsmToken.separator)) is not None:
@@ -124,7 +124,7 @@ def build_instruction(tokens: AsmTokenizer, collector: ErrorCollector) -> None:
         return
 
     collector.info(
-        "instruction %s", " ".join(str(elem) for elem in match_seq), location=name
+        f"instruction {' '.join(str(elem) for elem in match_seq)}", location=name
     )
 
 
@@ -563,10 +563,10 @@ def parse_asm(
         try:
             label = parse_label(tokens)
         except BadInput as ex:
-            collector.error("error parsing label: %s", ex, location=ex.locations)
+            collector.error(f"error parsing label: {ex}", location=ex.locations)
         else:
             if label is not None:
-                collector.info("label: %s", label, location=location)
+                collector.info(f"label: {label}", location=location)
                 source.add_directive(label)
 
         # Look for a directive or instruction.
@@ -578,16 +578,15 @@ def parse_asm(
                 try:
                     directive = parse_directive(tokens, instr_set)
                 except BadInput as ex:
-                    collector.error("%s", ex, location=ex.locations)
+                    collector.error(f"{ex}", location=ex.locations)
                 else:
-                    collector.info("directive: %s", directive, location=location)
+                    collector.info(f"directive: {directive}", location=location)
                     source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end_of_statement:
             collector.error(
-                "expected directive or instruction, got %s",
-                tokens.kind.name,
+                f"expected directive or instruction, got {tokens.kind.name}",
                 location=tokens.location,
             )
 

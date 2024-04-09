@@ -51,23 +51,21 @@ def _check_undefined(
             if isinstance((storage := node.storage), IOStorage):
                 for value in storage.index.iter_instances(InitialValue):
                     collector.error(
-                        'Undefined value of variable "%s" is used as an I/O index',
-                        value.name,
+                        f'Undefined value of variable "{value.name}" is used '
+                        "as an I/O index",
                         location=value.location,
                     )
             if isinstance(node, Store):
                 for value in node.expr.iter_instances(InitialValue):
                     collector.error(
-                        'Undefined value of variable "%s" is stored',
-                        value.name,
+                        f'Undefined value of variable "{value.name}" is stored',
                         location=value.location,
                     )
         for ret_bits in returned:
             for expr in ret_bits.iter_expressions():
                 for value in expr.iter_instances(InitialValue):
                     collector.error(
-                        'Undefined value of variable "%s" is returned',
-                        value.name,
+                        f'Undefined value of variable "{value.name}" is returned',
                         location=value.location,
                     )
 
@@ -248,11 +246,11 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                     unused_labels.remove(label)
                 else:
                     collector.error(
-                        'Label "%s" does not exist', label, location=locations
+                        f'Label "{label}" does not exist', location=locations
                     )
             for label in unused_labels:
                 collector.warning(
-                    'Label "%s" is unused', label, location=self._labels[label]
+                    f'Label "{label}" is unused', location=self._labels[label]
                 )
 
     def create_code_block(

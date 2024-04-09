@@ -516,9 +516,8 @@ def build_statement_eval(
                 lhs = build_reference(node.lhs, namespace)
             except BadExpression as ex:
                 collector.error(
-                    "bad expression on left hand side of assignment in %s: %s",
-                    where_desc,
-                    ex,
+                    f"bad expression on left hand side of assignment in {where_desc}: "
+                    f"{ex}",
                     location=ex.locations,
                 )
                 return
@@ -527,9 +526,8 @@ def build_statement_eval(
                 rhs = build_expression(node.rhs, namespace)
             except BadExpression as ex:
                 collector.error(
-                    "bad expression on right hand side of assignment in %s: %s",
-                    where_desc,
-                    ex,
+                    f"bad expression on right hand side of assignment in {where_desc}: "
+                    f"{ex}",
                     location=ex.locations,
                 )
                 return
@@ -546,7 +544,7 @@ def build_statement_eval(
             try:
                 _ref = _convert_function_call(node, namespace)
             except BadExpression as ex:
-                collector.error("%s", ex, location=ex.locations)
+                collector.error(f"{ex}", location=ex.locations)
             # Skip no-effect check: if a function does nothing, it likely either
             # does so on purpose or a warning will already have been issued there.
             return
@@ -557,9 +555,7 @@ def build_statement_eval(
                 build_expression(expr, namespace)
             except BadExpression as ex:
                 collector.error(
-                    "bad expression in statement in %s: %s",
-                    where_desc,
-                    ex,
+                    f"bad expression in statement in {where_desc}: {ex}",
                     location=ex.locations,
                 )
                 return
@@ -607,8 +603,8 @@ def emit_code_from_statements(
                     assert name_node.name == "ret", name_node.name
                     if not isinstance(ret_type, ReferenceType):
                         collector.error(
-                            '"ret" defined as reference in function that returns %s',
-                            "nothing" if ret_type is None else "value",
+                            '"ret" defined as reference in function that returns '
+                            f'{"nothing" if ret_type is None else "value"}',
                             location=decl.location,
                         )
                         continue
@@ -626,18 +622,14 @@ def emit_code_from_statements(
                 try:
                     ref = convert_definition(kind, name, typ, value, namespace)
                 except BadExpression as ex:
-                    collector.error("%s", ex, location=ex.locations)
+                    collector.error(f"{ex}", location=ex.locations)
                     ref = bad_reference(typ)
                 # Add definition to namespace.
                 try:
                     namespace.define(name, ref, name_node.location)
                 except NameExistsError as ex:
                     collector.error(
-                        'failed to define %s "%s %s": %s',
-                        kind.name,
-                        typ,
-                        name,
-                        ex,
+                        f'failed to define {kind.name} "{typ} {name}": {ex}',
                         location=ex.locations,
                     )
 
@@ -646,7 +638,7 @@ def emit_code_from_statements(
                 try:
                     declare_variable(decl, namespace)
                 except BadExpression as ex:
-                    collector.error("%s", ex, location=ex.locations)
+                    collector.error(f"{ex}", location=ex.locations)
 
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.
