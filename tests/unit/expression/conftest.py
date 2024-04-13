@@ -49,6 +49,19 @@ class Equation:
 
 
 @pytest.fixture
+def expression(request: pytest.FixtureRequest) -> Expression:
+    """Fixture that parses an expression string passed as a parameter."""
+
+    expr_str: str = request.param
+    try:
+        return expression_from_string(expr_str)
+    except BadInput as ex:
+        raise pytest.FixtureLookupError(
+            request.fixturename, request, f"error in expression: {ex}"
+        ) from ex
+
+
+@pytest.fixture
 def equation(request: pytest.FixtureRequest) -> Equation:
     """Fixture that parses an equation string passed as a parameter."""
 
@@ -68,7 +81,11 @@ def equation(request: pytest.FixtureRequest) -> Equation:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    if "equation" in metafunc.fixturenames:
+    # Note that the fixtures are mutually exclusive in practice,
+    # so we don't do double work here.
+    for name in ("expression", "equation"):
+        if name not in metafunc.fixturenames:
+            continue
         docstring = cleandoc(metafunc.function.__doc__ or "")
         try:
             lines = [
@@ -79,4 +96,4 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             ]
         except ValueError as ex:
             raise pytest.Collector.CollectError(f"Error unpacking docstring: {ex}")
-        metafunc.parametrize("equation", lines, indirect=True)
+        metafunc.parametrize(name, lines, indirect=True)

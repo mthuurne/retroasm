@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from retroasm.expression import (
+    Expression,
     IntLiteral,
     OrOperator,
     SignExtension,
@@ -591,6 +592,22 @@ def test_shift_truncate(equation: Equation) -> None:
         H >> (L >> 8) = H
     """
     equation.check_simplify()
+
+
+def test_shift_negative(expression: Expression) -> None:
+    """
+    Shifting by a negative amount is an error.
+
+    .. code-block:: expr
+
+        A << -1
+        A >> -1
+        A << (2 - 345)
+        A >> (2 - 345)
+    """
+    # TODO: Returning BadExpression would be better.
+    with pytest.raises(ValueError, match=r"^negative shift count$"):
+        simplify_expression(expression)
 
 
 def test_concat_literals(equation: Equation) -> None:
