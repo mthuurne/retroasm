@@ -6,6 +6,7 @@ from typing import Any, cast
 from .expression import (
     AddOperator,
     AndOperator,
+    BadValue,
     Complement,
     Expression,
     IntLiteral,
@@ -515,7 +516,12 @@ def _simplify_lvshift(lvshift: LVShift) -> Expression:
     match simplify_expression(lvshift.offset):
         case IntLiteral(value=value):
             # The offset is constant; convert to LShift.
-            return _simplify_lshift(LShift(lvshift.expr, value))
+            try:
+                lshift = LShift(lvshift.expr, value)
+            except ValueError as ex:
+                return BadValue(f"bad variable left-shift: {ex}")
+            else:
+                return _simplify_lshift(lshift)
         case offset:
             pass
 
@@ -532,7 +538,12 @@ def _simplify_rvshift(rvshift: RVShift) -> Expression:
     match simplify_expression(rvshift.offset):
         case IntLiteral(value=value):
             # The offset is constant; convert to RShift.
-            return _simplify_rshift(RShift(rvshift.expr, value))
+            try:
+                rshift = RShift(rvshift.expr, value)
+            except ValueError as ex:
+                return BadValue(f"bad variable right-shift: {ex}")
+            else:
+                return _simplify_rshift(rshift)
         case offset:
             pass
 

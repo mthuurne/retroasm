@@ -134,7 +134,7 @@ class BadValue(Expression):
     def mask(self) -> int:
         return mask_for_width(self._width)
 
-    def __init__(self, message: str, width: Width):
+    def __init__(self, message: str, width: Width = unlimited):
         self._message = message
         self._width = width
         Expression.__init__(self)
