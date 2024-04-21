@@ -124,13 +124,18 @@ class BadValue(Expression):
     in the input but we don't want to abort parsing immediately.
     """
 
-    __slots__ = ("_width",)
+    __slots__ = ("_message", "_width")
+
+    @property
+    def message(self) -> str:
+        return self._message
 
     @property
     def mask(self) -> int:
         return mask_for_width(self._width)
 
-    def __init__(self, width: Width):
+    def __init__(self, message: str, width: Width):
+        self._message = message
         self._width = width
         Expression.__init__(self)
 

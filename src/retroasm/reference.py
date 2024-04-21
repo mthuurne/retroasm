@@ -614,13 +614,13 @@ class FixedValueReference(Reference):
         return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
 
 
-def bad_reference(decl: ReferenceType | IntType) -> Reference:
+def bad_reference(decl: ReferenceType | IntType, message: str) -> Reference:
     """
     Return a dummy reference to the given declared reference/value type,
     with a BadValue instance as the underlying expression.
     """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
-    return FixedValueReference(BadValue(typ.width), typ)
+    return FixedValueReference(BadValue(message, typ.width), typ)
 
 
 def int_reference(value: int, typ: IntType) -> FixedValueReference:

@@ -356,7 +356,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         if code is None:
             # Missing body, probably because of earlier errors.
             ret_type = func.ret_type
-            return None if ret_type is None else bad_reference(ret_type).bits
+            if ret_type is None:
+                return None
+            else:
+                return bad_reference(ret_type, "returned by missing code block").bits
 
         bad_args = arg_map.keys() - func.args.keys()
         if bad_args:

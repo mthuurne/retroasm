@@ -147,7 +147,7 @@ def _parse_regs(
                         collector.error(
                             f"bad register alias: {ex}", location=ex.locations
                         )
-                        ref = bad_reference(reg_type)
+                        ref = bad_reference(reg_type, "bad register alias")
                     try:
                         global_namespace.define(name, ref, decl.name.location)
                     except NameExistsError as ex:

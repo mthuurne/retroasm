@@ -622,8 +622,9 @@ def emit_code_from_statements(
                 try:
                     ref = convert_definition(kind, name, typ, value, namespace)
                 except BadExpression as ex:
-                    collector.error(f"{ex}", location=ex.locations)
-                    ref = bad_reference(typ)
+                    message = f"{ex}"
+                    collector.error(message, location=ex.locations)
+                    ref = bad_reference(typ, message)
                 # Add definition to namespace.
                 try:
                     namespace.define(name, ref, name_node.location)
