@@ -14,8 +14,6 @@ from .types import (
 )
 from .utils import const_property
 
-# pylint: disable=protected-access
-
 ExprT = TypeVar("ExprT", bound="Expression")
 
 

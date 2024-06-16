@@ -346,7 +346,7 @@ class IntType(metaclass=Unique):
         return self._signed
 
     @property
-    def mask(self) -> int:  # pylint: disable=undefined-variable
+    def mask(self) -> int:
         return -1 if self._signed else mask_for_width(self._width)
 
     @classmethod

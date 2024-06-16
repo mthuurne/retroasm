@@ -36,7 +36,6 @@ class Unique(type):
 
     def __init__(cls, name: str, bases: tuple[type, ...], nmspc: dict[str, object]):
         type.__init__(cls, name, bases, nmspc)
-        # pylint: disable=abstract-class-instantiated
         cls.__cache: MutableMapping[object, object] = WeakValueDictionary()
 
     def __call__(cls, *args: object, **kwargs: object) -> object:

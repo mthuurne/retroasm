@@ -265,7 +265,7 @@ class IOStorage(Storage):
         return f"{self._channel.name}[{self._index}]"
 
     def __eq__(self, other: object) -> bool:
-        return (  # pylint: disable=protected-access
+        return (
             isinstance(other, IOStorage)
             and self._channel is other._channel
             and self._index == other._index
@@ -290,7 +290,6 @@ class IOStorage(Storage):
         if isinstance(other, IOStorage):
             # TODO: This is an oversimplification: some MSX devices have their
             #       registers both I/O-mapped and memory-mapped.
-            # pylint: disable=protected-access
             return self._channel == other._channel and self._channel.might_be_same(
                 self._index, other._index
             )

@@ -79,7 +79,6 @@ class LoadedValue(Expression):
         return f"load({self._load.storage})"
 
     def _equals(self, other: LoadedValue) -> bool:
-        # pylint: disable=protected-access
         return self._load is other._load
 
     @property

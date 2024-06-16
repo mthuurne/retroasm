@@ -152,7 +152,6 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
 
 
 def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
-    # pylint: disable=protected-access
     if len(exprs) < 2:
         return False
 
@@ -216,7 +215,6 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
 
 
 def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> bool:
-    # pylint: disable=protected-access
     if not exprs:
         return False
 
