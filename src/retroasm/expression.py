@@ -120,8 +120,12 @@ class Expression:
 
 class BadValue(Expression):
     """
-    A dummy expression that can be used when an error has been discovered
-    in the input but we don't want to abort parsing immediately.
+    A dummy expression that represents an impossible value.
+
+    This can be used when an error has been discovered in the input but
+    we don't want to abort parsing immediately.
+    This can also be used when it is discovered during simplification that
+    an operator is applied to a value that is out of range.
     """
 
     __slots__ = ("_message", "_width")
