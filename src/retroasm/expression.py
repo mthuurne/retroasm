@@ -128,7 +128,7 @@ class BadValue(Expression):
     an operator is applied to a value that is out of range.
     """
 
-    __slots__ = ("_message", "_width")
+    __slots__ = ("_message", "_mask")
 
     @property
     def message(self) -> str:
@@ -136,18 +136,18 @@ class BadValue(Expression):
 
     @property
     def mask(self) -> int:
-        return mask_for_width(self._width)
+        return self._mask
 
-    def __init__(self, message: str, width: Width = unlimited):
+    def __init__(self, message: str, mask: int = -1):
         self._message = message
-        self._width = width
+        self._mask = mask
         Expression.__init__(self)
 
-    def _ctorargs(self) -> tuple[str, Width]:
-        return (self._message, self._width)
+    def _ctorargs(self) -> tuple[str, int]:
+        return (self._message, self._mask)
 
     def __str__(self) -> str:
-        return f"({self._width}-bit bad value: {self._message})"
+        return f"(bad value: {self._message})"
 
     def _equals(self, other: BadValue) -> bool:
         return self is other

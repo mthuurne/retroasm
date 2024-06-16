@@ -620,7 +620,7 @@ def bad_reference(decl: ReferenceType | IntType, message: str) -> Reference:
     with a BadValue instance as the underlying expression.
     """
     typ = decl.type if isinstance(decl, ReferenceType) else decl
-    return FixedValueReference(BadValue(message, typ.width), typ)
+    return FixedValueReference(BadValue(message, typ.mask), typ)
 
 
 def int_reference(value: int, typ: IntType) -> FixedValueReference:
