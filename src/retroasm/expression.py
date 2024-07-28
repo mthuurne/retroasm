@@ -147,7 +147,7 @@ class BadValue(Expression):
         return (self._message, self._width)
 
     def __str__(self) -> str:
-        return f"({self._width}-bit bad value)"
+        return f"({self._width}-bit bad value: {self._message})"
 
     def _equals(self, other: BadValue) -> bool:
         return self is other

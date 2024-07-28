@@ -359,7 +359,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             if ret_type is None:
                 return None
             else:
-                return bad_reference(ret_type, "returned by missing code block").bits
+                return bad_reference(ret_type, "returned by broken function").bits
 
         bad_args = arg_map.keys() - func.args.keys()
         if bad_args:

@@ -144,10 +144,9 @@ def _parse_regs(
                             decl.kind, name, reg_type, value, global_namespace
                         )
                     except BadExpression as ex:
-                        collector.error(
-                            f"bad register alias: {ex}", location=ex.locations
-                        )
-                        ref = bad_reference(reg_type, "bad register alias")
+                        message = f"bad register alias: {ex}"
+                        collector.error(message, location=ex.locations)
+                        ref = bad_reference(reg_type, message)
                     try:
                         global_namespace.define(name, ref, decl.name.location)
                     except NameExistsError as ex:
