@@ -6,6 +6,7 @@ from retroasm.expression import (
     BadValue,
     Expression,
     IntLiteral,
+    LVShift,
     OrOperator,
     SignExtension,
     SignTest,
@@ -606,7 +607,12 @@ def test_shift_negative(expression: Expression) -> None:
         A << (2 - 345)
         A >> (2 - 345)
     """
-    assert isinstance(simplify_expression(expression), BadValue)
+    simplified = simplify_expression(expression)
+    assert isinstance(simplified, BadValue)
+    if isinstance(expression, LVShift):
+        assert simplified.message == "bad left-shift: negative shift count"
+    else:
+        assert simplified.message == "bad right-shift: negative shift count"
 
 
 def test_concat_literals(equation: Equation) -> None:

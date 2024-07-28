@@ -517,7 +517,7 @@ def _simplify_lvshift(lvshift: LVShift) -> Expression:
             try:
                 lshift = LShift(lvshift.expr, value)
             except ValueError as ex:
-                return BadValue(f"bad variable left-shift: {ex}")
+                return BadValue(f"bad left-shift: {ex}")
             else:
                 return _simplify_lshift(lshift)
         case offset:
@@ -539,7 +539,7 @@ def _simplify_rvshift(rvshift: RVShift) -> Expression:
             try:
                 rshift = RShift(rvshift.expr, value)
             except ValueError as ex:
-                return BadValue(f"bad variable right-shift: {ex}")
+                return BadValue(f"bad right-shift: {ex}")
             else:
                 return _simplify_rshift(rshift)
         case offset:
