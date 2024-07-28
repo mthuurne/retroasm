@@ -139,8 +139,8 @@ class BadValue(Expression):
         self._width = width
         Expression.__init__(self)
 
-    def _ctorargs(self) -> tuple[Width]:
-        return (self._width,)
+    def _ctorargs(self) -> tuple[str, Width]:
+        return (self._message, self._width)
 
     def __str__(self) -> str:
         return f"({self._width}-bit bad value)"
