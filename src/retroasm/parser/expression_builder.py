@@ -395,7 +395,7 @@ def _convert_reference_slice(
                     width = value
                 case _:
                     raise ValueError("slice width cannot be determined")
-        bits = SlicedBits(ref.bits, start_expr, width)
+        bits = SlicedBits(ref.bits, start_expr, width)  # pylint: disable=possibly-used-before-assignment
     except ValueError as ex:
         raise BadExpression(f"invalid slice: {ex}", node.location) from ex
     else:

@@ -1223,7 +1223,8 @@ def _parse_mode_entries(
                     template = CodeTemplate(semantics, placeholders)
                 entry = ModeEntry(
                     encoding,
-                    mnemonic,
+                    # If mnemonic was not defined, DelayedError will have been raised.
+                    mnemonic,  # pylint: disable=possibly-used-before-assignment
                     template,
                     placeholders,
                     frozenset(flags_required),
