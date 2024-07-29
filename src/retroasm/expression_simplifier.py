@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 from .expression import (
     AddOperator,
@@ -25,65 +25,66 @@ from .expression import (
 from .types import mask_for_width, width_for_mask
 
 
-def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> bool:
-    """
-    Simplify the given list of expressions using algebraic properties of the
-    given MultiExpression subclass.
-    Returns True if the expression list was changed, False otherwise.
-    """
+def _simplify_composed(composed: MultiExpression) -> Expression:
+    multi_expr_cls = type(composed)
+    exprs = []
+    literals = []
     changed = False
 
-    # Move all literals to the end.
-    i = 0
-    first_literal = len(exprs)
-    while first_literal != 0 and isinstance(exprs[first_literal - 1], IntLiteral):
-        first_literal -= 1
-    i = 0
-    while i < first_literal:
-        match exprs[i]:
-            case IntLiteral() as literal:
-                del exprs[i]
-                exprs.append(literal)
-                first_literal -= 1
-                changed = True
-            case _:
-                i += 1
+    def append_subexpr(expr: Expression) -> None:
+        if isinstance(expr, IntLiteral):
+            literals.append(expr)
+        else:
+            exprs.append(expr)
+
+    for expr in composed.exprs:
+        # Simplify the subexpression individually.
+        simplified = simplify_expression(expr)
+        changed |= simplified is not expr
+
+        if isinstance(simplified, multi_expr_cls):
+            # Merge subexpressions of the same type into this expression.
+            for subexpr in simplified.exprs:
+                append_subexpr(subexpr)
+            changed = True
+        else:
+            append_subexpr(simplified)
 
     # Merge literals.
-    if len(exprs) - first_literal >= 2:
-        value = cls.combine_literals(
-            *(cast(IntLiteral, expr).value for expr in exprs[first_literal:])
-        )
-        exprs[first_literal:] = [IntLiteral(value)]
-        changed = True
-
-    # Check remaining literal.
-    if len(exprs) - first_literal == 1:
-        value = cast(IntLiteral, exprs[-1]).value
-
-        # If the absorber is present, the result is the absorber.
-        if value == cls.absorber:
-            if len(exprs) != 1:
-                del exprs[:-1]
-                changed = True
-            return changed
-
-        # Remove identity literal.
-        if value == cls.identity:
-            del exprs[-1]
+    match len(literals):
+        case 0:
+            literal = None
+        case 1:
+            literal = literals[0]
+            changed |= literal is not composed.exprs[-1]
+        case _:
+            literal = IntLiteral(
+                multi_expr_cls.combine_literals(*(l.value for l in literals))
+            )
             changed = True
 
-    if cls.idempotent:
+    # Handle special literal cases.
+    if literal is not None:
+        match literal.value:
+            case multi_expr_cls.absorber:
+                # The result is the absorber.
+                return literal
+            case multi_expr_cls.identity:
+                # Omit identity literal.
+                literal = None
+                changed = True
+
+    if multi_expr_cls.idempotent:
         # Remove duplicate values.
+        # TODO: If we'd sort by type, we could check duplicates across shorter segments.
         i = 0
-        while i + 1 < first_literal:
+        while i + 1 < len(exprs):
             expr = exprs[i]
             i += 1
             j = i
-            while j < first_literal:
+            while j < len(exprs):
                 if exprs[j] == expr:
                     del exprs[j]
-                    first_literal -= 1
                     changed = True
                 else:
                     j += 1
@@ -96,28 +97,8 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
     exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)
     changed |= exprs != order_before
 
-    return changed
-
-
-def _simplify_composed(composed: MultiExpression) -> Expression:
-    multi_expr_cls = type(composed)
-    changed = False
-
-    exprs: list[Expression] = []
-    for expr in composed.exprs:
-        # Simplify the subexpression individually.
-        simplified = simplify_expression(expr)
-        changed |= simplified is not expr
-
-        if isinstance(simplified, multi_expr_cls):
-            # Merge subexpressions of the same type into this expression.
-            exprs += simplified.exprs
-            changed = True
-        else:
-            exprs.append(simplified)
-
-    # Perform simplifications based on algebraic properties.
-    changed |= _simplify_algebraic(multi_expr_cls, exprs)
+    if literal is not None:
+        exprs.append(literal)
 
     # Perform simplifications specific to this operator.
     changed |= _custom_simplifiers[multi_expr_cls](composed, exprs)
