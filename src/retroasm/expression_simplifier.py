@@ -29,7 +29,6 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
     multi_expr_cls = type(composed)
     exprs = []
     literals = []
-    changed = False
 
     def append_subexpr(expr: Expression) -> None:
         if isinstance(expr, IntLiteral):
@@ -40,13 +39,11 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
     for expr in composed.exprs:
         # Simplify the subexpression individually.
         simplified = simplify_expression(expr)
-        changed |= simplified is not expr
 
         if isinstance(simplified, multi_expr_cls):
             # Merge subexpressions of the same type into this expression.
             for subexpr in simplified.exprs:
                 append_subexpr(subexpr)
-            changed = True
         else:
             append_subexpr(simplified)
 
@@ -56,12 +53,10 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
             literal = None
         case 1:
             literal = literals[0]
-            changed |= literal is not composed.exprs[-1]
         case _:
             literal = IntLiteral(
                 multi_expr_cls.combine_literals(*(l.value for l in literals))
             )
-            changed = True
 
     # Handle special literal cases.
     if literal is not None:
@@ -72,7 +67,6 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
             case multi_expr_cls.identity:
                 # Omit identity literal.
                 literal = None
-                changed = True
 
     if multi_expr_cls.idempotent:
         # Remove duplicate values.
@@ -85,37 +79,39 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
             while j < len(exprs):
                 if exprs[j] == expr:
                     del exprs[j]
-                    changed = True
                 else:
                     j += 1
 
     # Make the order of terms somewhat predictable.
     # This does not produce canonical expressions, but it should be enough to
     # at least compare expressions while unit testing.
-    order_before = exprs.copy()
     exprs.sort(key=lambda expr: -expr.complexity)
     exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)
-    changed |= exprs != order_before
 
     if literal is not None:
         exprs.append(literal)
 
     # Perform simplifications specific to this operator.
-    changed |= _custom_simplifiers[multi_expr_cls](composed, exprs)
+    _custom_simplifiers[multi_expr_cls](composed, exprs)
 
-    if len(exprs) == 0:
-        return IntLiteral(multi_expr_cls.identity)
-    elif len(exprs) == 1:
-        return exprs[0]
-    elif changed:
-        return multi_expr_cls(*exprs)
-    else:
-        return composed
+    match len(exprs):
+        case 0:
+            return IntLiteral(multi_expr_cls.identity)
+        case 1:
+            return exprs[0]
+        case _ as num_exprs:
+            if num_exprs == len(composed.exprs) and all(
+                new_expr is old_expr
+                for new_expr, old_expr in zip(exprs, composed.exprs)
+            ):
+                return composed
+            else:
+                return multi_expr_cls(*exprs)
 
 
-def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
+def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> None:
     if len(exprs) < 2:
-        return False
+        return
 
     # Remove mask literal from subexpressions; we'll re-add it later if needed.
     org_mask_literal: IntLiteral | None
@@ -140,14 +136,10 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
     # Append mask if it is not redundant.
     if mask != expr_mask:
         # Non-simplified expressions should remain the same objects.
-        if org_mask_literal is None:
-            mask_changed = True
+        if org_mask_literal is None or mask != explicit_mask:
             exprs.append(IntLiteral(mask))
         else:
-            mask_changed = mask != explicit_mask
-            exprs.append(IntLiteral(mask) if mask_changed else org_mask_literal)
-    else:
-        mask_changed = org_mask_literal is not None
+            exprs.append(org_mask_literal)
 
     # If _simplifyMasked() resulted in simplfications, force earlier steps to
     # run again.
@@ -155,7 +147,7 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
         alt = AndOperator(*exprs)
         alt._try_distribute_and_over_or = node._try_distribute_and_over_or
         exprs[:] = [simplify_expression(alt)]
-        return True
+        return
 
     if node._try_distribute_and_over_or:
         my_complexity = node.node_complexity + sum(expr.complexity for expr in exprs)
@@ -171,14 +163,12 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> bool:
                     dist_alt_simp = simplify_expression(dist_alt)
                     if dist_alt_simp.complexity < my_complexity:
                         exprs[:] = [dist_alt_simp]
-                        return True
-
-    return mask_changed
+                        return
 
 
-def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> bool:
+def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> None:
     if not exprs:
-        return False
+        return
 
     if node._try_distribute_or_over_and:
         my_complexity = node.node_complexity + sum(expr.complexity for expr in exprs)
@@ -194,17 +184,13 @@ def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> bool:
                     dist_alt_simp = simplify_expression(dist_alt)
                     if dist_alt_simp.complexity < my_complexity:
                         exprs[:] = [dist_alt_simp]
-                        return True
-
-    return False
+                        return
 
 
 def _custom_simplify_xor(
     node: XorOperator,  # pylint: disable=unused-argument
     exprs: list[Expression],
-) -> bool:
-    changed = False
-
+) -> None:
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -216,21 +202,14 @@ def _custom_simplify_xor(
         else:
             del exprs[j]
             del exprs[i]
-            changed = True
-
-    if not exprs:
-        return changed
 
     # TODO: Distribution over AND and OR.
-    return changed
 
 
 def _custom_simplify_add(
     node: AddOperator,  # pylint: disable=unused-argument
     exprs: list[Expression],
-) -> bool:
-    changed = False
-
+) -> None:
     # Remove pairs of A and -A.
     compl_idx = 0
     while compl_idx < len(exprs):
@@ -247,13 +226,10 @@ def _custom_simplify_add(
             if idx < compl_idx:
                 compl_idx -= 1
             del exprs[compl_idx]
-            changed = True
-
-    return changed
 
 
 _custom_simplifiers: dict[
-    type[MultiExpression], Callable[[Any, list[Expression]], bool]
+    type[MultiExpression], Callable[[Any, list[Expression]], None]
 ] = {
     AndOperator: _custom_simplify_and,
     OrOperator: _custom_simplify_or,
