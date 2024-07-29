@@ -33,17 +33,6 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
     """
     changed = False
 
-    # Merge subexpressions of the same type into this expression.
-    i = 0
-    while i < len(exprs):
-        expr = exprs[i]
-        if isinstance(expr, cls):
-            del exprs[i]
-            exprs += expr.exprs
-            changed = True
-        else:
-            i += 1
-
     # Move all literals to the end.
     i = 0
     first_literal = len(exprs)
@@ -52,9 +41,9 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
     i = 0
     while i < first_literal:
         match exprs[i]:
-            case IntLiteral() as expr:
+            case IntLiteral() as literal:
                 del exprs[i]
-                exprs.append(expr)
+                exprs.append(literal)
                 first_literal -= 1
                 changed = True
             case _:
@@ -111,28 +100,34 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
 
 
 def _simplify_composed(composed: MultiExpression) -> Expression:
-    exprs = list(composed.exprs)
+    multi_expr_cls = type(composed)
     changed = False
 
-    # Simplify the subexpressions individually.
-    for i, expr in enumerate(exprs):
+    exprs: list[Expression] = []
+    for expr in composed.exprs:
+        # Simplify the subexpression individually.
         simplified = simplify_expression(expr)
-        if simplified is not expr:
-            exprs[i] = simplified
+        changed |= simplified is not expr
+
+        if isinstance(simplified, multi_expr_cls):
+            # Merge subexpressions of the same type into this expression.
+            exprs += simplified.exprs
             changed = True
+        else:
+            exprs.append(simplified)
 
     # Perform simplifications based on algebraic properties.
-    changed |= _simplify_algebraic(composed.__class__, exprs)
+    changed |= _simplify_algebraic(multi_expr_cls, exprs)
 
     # Perform simplifications specific to this operator.
-    changed |= _custom_simplifiers[type(composed)](composed, exprs)
+    changed |= _custom_simplifiers[multi_expr_cls](composed, exprs)
 
     if len(exprs) == 0:
-        return IntLiteral(composed.identity)
+        return IntLiteral(multi_expr_cls.identity)
     elif len(exprs) == 1:
         return exprs[0]
     elif changed:
-        return composed.__class__(*exprs)
+        return multi_expr_cls(*exprs)
     else:
         return composed
 
