@@ -73,16 +73,14 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
         value = cast(IntLiteral, exprs[-1]).value
 
         # If the absorber is present, the result is the absorber.
-        absorber = cls.absorber
-        if value == absorber:
+        if value == cls.absorber:
             if len(exprs) != 1:
                 del exprs[:-1]
                 changed = True
             return changed
 
         # Remove identity literal.
-        identity = cls.identity
-        if value == identity:
+        if value == cls.identity:
             del exprs[-1]
             changed = True
 
@@ -112,33 +110,21 @@ def _simplify_algebraic(cls: type[MultiExpression], exprs: list[Expression]) -> 
     return changed
 
 
-def _simplify_list(exprs: list[Expression]) -> bool:
-    """
-    Simplify the given list of expressions individually.
-    Returns True if any of the expressions was replaced by a simpler equivalent,
-    False otherwise.
-    """
+def _simplify_composed(composed: MultiExpression) -> Expression:
+    exprs = list(composed.exprs)
     changed = False
+
+    # Simplify the subexpressions individually.
     for i, expr in enumerate(exprs):
         simplified = simplify_expression(expr)
         if simplified is not expr:
             exprs[i] = simplified
             changed = True
-    return changed
 
+    # Perform simplifications based on algebraic properties.
+    changed |= _simplify_algebraic(composed.__class__, exprs)
 
-def _simplify_composed(composed: MultiExpression) -> Expression:
-    exprs = list(composed.exprs)
-
-    # Perform basic simplifications until we get no more improvements from them.
-    changed = _simplify_algebraic(composed.__class__, exprs)
-    while True:
-        if not _simplify_list(exprs):
-            break
-        changed = True
-        if not _simplify_algebraic(composed.__class__, exprs):
-            break
-
+    # Perform simplifications specific to this operator.
     changed |= _custom_simplifiers[type(composed)](composed, exprs)
 
     if len(exprs) == 0:
