@@ -545,6 +545,47 @@ def test_add_truncate(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_mult_literals(equation: Equation) -> None:
+    """
+    Multiply integer literals.
+
+    .. code-block:: expr
+
+        3 * 8 = 24
+        5 * 4 * 3 * 2 * 1 = 120
+        123 * -1 = -123
+    """
+    equation.check_simplify()
+
+
+def test_mult_zero(equation: Equation) -> None:
+    """
+    Multiplying by zero absorbs the other terms.
+
+    .. code-block:: expr
+
+        A * 0 = 0
+        0 * A = 0
+        A * 0 * B = 0
+        0 * 0 = 0
+    """
+    equation.check_simplify()
+
+
+def test_mult_one(equation: Equation) -> None:
+    """
+    Multiplication terms of one are removed.
+
+    .. code-block:: expr
+
+        A * 1 = A
+        1 * A = A
+        A * 1 * B = A * B
+        1 * 1 = 1
+    """
+    equation.check_simplify()
+
+
 def test_shift_literals(equation: Equation) -> None:
     """
     Shift integer literals left and right.

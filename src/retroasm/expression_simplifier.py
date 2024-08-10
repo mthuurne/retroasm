@@ -13,6 +13,7 @@ from .expression import (
     LShift,
     LVShift,
     MultiExpression,
+    MultiplyOperator,
     Negation,
     OrOperator,
     RShift,
@@ -228,6 +229,13 @@ def _custom_simplify_add(
             del exprs[compl_idx]
 
 
+def _custom_simplify_multiply(
+    node: MultiplyOperator,  # pylint: disable=unused-argument
+    exprs: list[Expression],  # pylint: disable=unused-argument
+) -> None:
+    pass
+
+
 _custom_simplifiers: dict[
     type[MultiExpression], Callable[[Any, list[Expression]], None]
 ] = {
@@ -235,6 +243,7 @@ _custom_simplifiers: dict[
     OrOperator: _custom_simplify_or,
     XorOperator: _custom_simplify_xor,
     AddOperator: _custom_simplify_add,
+    MultiplyOperator: _custom_simplify_multiply,
 }
 
 
@@ -563,6 +572,7 @@ _simplifiers: dict[type[Expression], Callable[[Any], Expression]] = {
     OrOperator: _simplify_composed,
     XorOperator: _simplify_composed,
     AddOperator: _simplify_composed,
+    MultiplyOperator: _simplify_composed,
     Complement: _simplify_complement,
     Negation: _simplify_negation,
     SignTest: _simplify_sign_test,

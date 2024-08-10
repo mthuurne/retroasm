@@ -35,7 +35,7 @@ class ExprToken(TokenEnum):
     label = r"@[A-Za-z_][A-Za-z0-9_]*'?"
     flagtest = r"\?[A-Za-z_][A-Za-z0-9_]*'?"
     number = r"[%$0-9]\w*"
-    operator = r"<<|>>|==|!=|<=|>=|[<>&|\^+\-~!;]"
+    operator = r"<<|>>|==|!=|<=|>=|[<>&|\^\*+\-~!;]"
     bracket = r"[\[\]()]"
     assignment = r":="
     definition = r"="
@@ -187,14 +187,22 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
 
     def parse_add_sub(expr: ParseNode | None = None) -> ParseNode:
         if expr is None:
-            expr = parse_concat()
+            expr = parse_mult()
         if (location := tokens.eat(ExprToken.operator, "+")) is not None:
             return parse_add_sub(
-                OperatorNode(Operator.add, (expr, parse_concat()), location=location)
+                OperatorNode(Operator.add, (expr, parse_mult()), location=location)
             )
         if (location := tokens.eat(ExprToken.operator, "-")) is not None:
             return parse_add_sub(
-                OperatorNode(Operator.sub, (expr, parse_concat()), location=location)
+                OperatorNode(Operator.sub, (expr, parse_mult()), location=location)
+            )
+        return expr
+
+    def parse_mult() -> ParseNode:
+        expr = parse_concat()
+        if (location := tokens.eat(ExprToken.operator, "*")) is not None:
+            return OperatorNode(
+                Operator.multiply, (expr, parse_mult()), location=location
             )
         return expr
 

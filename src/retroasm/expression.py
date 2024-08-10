@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
+from operator import mul
 from typing import Self, TypeVar, cast
 
 from .types import (
@@ -360,6 +361,26 @@ class AddOperator(MultiExpression):
                 case expr:
                     fragments += ("+", str(expr))
         return f"({' '.join(fragments)})"
+
+
+class MultiplyOperator(MultiExpression):
+    __slots__ = ()
+    operator = "*"
+    idempotent = False
+    identity = 1
+    absorber = 0
+
+    @classmethod
+    def compute_mask(cls, exprs: Iterable[Expression]) -> int:
+        # TODO: Produce a more accurate mask using CarryMask.
+        return -1
+
+    @classmethod
+    def combine_literals(cls, *values: int) -> int:
+        return reduce(mul, values, 1)
+
+    def __str__(self) -> str:
+        return f"({' * '.join(str(expr) for expr in self._exprs)})"
 
 
 class SingleExpression(Expression):

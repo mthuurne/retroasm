@@ -11,6 +11,7 @@ from ..expression import (
     Expression,
     IntLiteral,
     LVShift,
+    MultiplyOperator,
     Negation,
     OrOperator,
     RVShift,
@@ -256,6 +257,8 @@ def _convert_arithmetic(node: OperatorNode, namespace: BuilderNamespace) -> Expr
         case Operator.sub:
             expr1, expr2 = exprs
             return AddOperator(expr1, Complement(expr2))
+        case Operator.multiply:
+            return MultiplyOperator(*exprs)
         case Operator.complement:
             return Complement(*exprs)
         case Operator.bitwise_complement:
