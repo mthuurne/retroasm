@@ -93,7 +93,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
         exprs.append(literal)
 
     # Perform simplifications specific to this operator.
-    _custom_simplifiers[multi_expr_cls](composed, exprs)
+    _custom_simplifiers[multi_expr_cls](exprs)
 
     match len(exprs):
         case 0:
@@ -110,7 +110,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
                 return multi_expr_cls(*exprs)
 
 
-def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> None:
+def _custom_simplify_and(exprs: list[Expression]) -> None:
     if len(exprs) < 2:
         return
 
@@ -123,7 +123,7 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> None:
             explicit_mask = -1
             org_mask_literal = None
 
-    expr_mask = node.compute_mask(exprs)
+    expr_mask = AndOperator.compute_mask(exprs)
     mask = expr_mask & explicit_mask
 
     # Try to simplify individual subexpressions by applying bit mask.
@@ -149,10 +149,7 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> None:
         return
 
 
-def _custom_simplify_or(
-    node: OrOperator,  # pylint: disable=unused-argument
-    exprs: list[Expression],
-) -> None:
+def _custom_simplify_or(exprs: list[Expression]) -> None:
     if not exprs:
         return
 
@@ -173,10 +170,7 @@ def _custom_simplify_or(
             return
 
 
-def _custom_simplify_xor(
-    node: XorOperator,  # pylint: disable=unused-argument
-    exprs: list[Expression],
-) -> None:
+def _custom_simplify_xor(exprs: list[Expression]) -> None:
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -192,10 +186,7 @@ def _custom_simplify_xor(
     # TODO: Distribution over AND and OR.
 
 
-def _custom_simplify_add(
-    node: AddOperator,  # pylint: disable=unused-argument
-    exprs: list[Expression],
-) -> None:
+def _custom_simplify_add(exprs: list[Expression]) -> None:
     # Remove pairs of A and -A.
     compl_idx = 0
     while compl_idx < len(exprs):
@@ -215,15 +206,12 @@ def _custom_simplify_add(
 
 
 def _custom_simplify_multiply(
-    node: MultiplyOperator,  # pylint: disable=unused-argument
     exprs: list[Expression],  # pylint: disable=unused-argument
 ) -> None:
     pass
 
 
-_custom_simplifiers: dict[
-    type[MultiExpression], Callable[[Any, list[Expression]], None]
-] = {
+_custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression]], None]] = {
     AndOperator: _custom_simplify_and,
     OrOperator: _custom_simplify_or,
     XorOperator: _custom_simplify_xor,
