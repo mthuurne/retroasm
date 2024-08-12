@@ -250,17 +250,11 @@ class MultiExpression(Expression):
 
 
 class AndOperator(MultiExpression):
-    __slots__ = ("_try_distribute_and_over_or",)
+    __slots__ = ()
     operator = "&"
     idempotent = True
     identity = -1
     absorber = 0
-
-    def __init__(self, *exprs: Expression):
-        MultiExpression.__init__(self, *exprs)
-
-        # Set this to False to block the simplification attempt.
-        self._try_distribute_and_over_or = True
 
     def __str__(self) -> str:
         match self.exprs:
@@ -295,17 +289,11 @@ class AndOperator(MultiExpression):
 
 
 class OrOperator(MultiExpression):
-    __slots__ = ("_try_distribute_or_over_and",)
+    __slots__ = ()
     operator = "|"
     idempotent = True
     identity = 0
     absorber = -1
-
-    def __init__(self, *exprs: Expression):
-        MultiExpression.__init__(self, *exprs)
-
-        # Set this to False to block the simplification attempt.
-        self._try_distribute_or_over_and = True
 
     @classmethod
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:

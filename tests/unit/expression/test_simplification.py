@@ -185,6 +185,7 @@ def test_or_and(equation: Equation) -> None:
         (L | $5500) & $AAFF = L
         (L & $55) | $AA = L | $AA
         ((L << 4) | $FF) & L = L
+        (H;L) | $FF = H;$FF
     """
     equation.check_simplify()
 

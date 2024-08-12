@@ -142,50 +142,35 @@ def _custom_simplify_and(node: AndOperator, exprs: list[Expression]) -> None:
         else:
             exprs.append(org_mask_literal)
 
-    # If _simplifyMasked() resulted in simplfications, force earlier steps to
+    # If _simplify_masked() resulted in simplfications, force earlier steps to
     # run again.
     if changed:
-        alt = AndOperator(*exprs)
-        alt._try_distribute_and_over_or = node._try_distribute_and_over_or
-        exprs[:] = [simplify_expression(alt)]
+        exprs[:] = [simplify_expression(AndOperator(*exprs))]
         return
 
-    if node._try_distribute_and_over_or:
-        my_complexity = node.node_complexity + sum(expr.complexity for expr in exprs)
-        for i, expr in enumerate(exprs):
-            match expr:
-                case OrOperator(exprs=terms):
-                    # Distribute AND over OR.
-                    and_exprs = exprs[:i] + exprs[i + 1 :]
-                    dist_alt = OrOperator(
-                        *(AndOperator(term, *and_exprs) for term in terms)
-                    )
-                    dist_alt._try_distribute_or_over_and = False
-                    dist_alt_simp = simplify_expression(dist_alt)
-                    if dist_alt_simp.complexity < my_complexity:
-                        exprs[:] = [dist_alt_simp]
-                        return
 
-
-def _custom_simplify_or(node: OrOperator, exprs: list[Expression]) -> None:
+def _custom_simplify_or(
+    node: OrOperator,  # pylint: disable=unused-argument
+    exprs: list[Expression],
+) -> None:
     if not exprs:
         return
 
-    if node._try_distribute_or_over_and:
-        my_complexity = node.node_complexity + sum(expr.complexity for expr in exprs)
-        for i, expr in enumerate(exprs):
-            match expr:
-                case AndOperator(exprs=terms):
-                    # Distribute OR over AND.
-                    or_exprs = exprs[:i] + exprs[i + 1 :]
-                    dist_alt = AndOperator(
-                        *(OrOperator(term, *or_exprs) for term in terms)
-                    )
-                    dist_alt._try_distribute_and_over_or = False
-                    dist_alt_simp = simplify_expression(dist_alt)
-                    if dist_alt_simp.complexity < my_complexity:
-                        exprs[:] = [dist_alt_simp]
-                        return
+    if isinstance(literal := exprs[-1], IntLiteral):
+        mask = OrOperator.compute_mask(exprs[:-1]) & ~literal.value
+        # Try to simplify individual subexpressions by applying bit mask.
+        changed = False
+        for i, expr in enumerate(exprs[:-1]):
+            masked = _simplify_masked(expr, mask)
+            if masked is not expr:
+                exprs[i] = masked
+                changed = True
+
+        # If _simplify_masked() resulted in simplfications, force earlier steps to
+        # run again.
+        if changed:
+            exprs[:] = [simplify_expression(OrOperator(*exprs))]
+            return
 
 
 def _custom_simplify_xor(
