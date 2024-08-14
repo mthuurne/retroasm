@@ -205,10 +205,27 @@ def _custom_simplify_add(exprs: list[Expression]) -> None:
             del exprs[compl_idx]
 
 
-def _custom_simplify_multiply(
-    exprs: list[Expression],  # pylint: disable=unused-argument
-) -> None:
-    pass
+def _custom_simplify_multiply(exprs: list[Expression]) -> None:
+    # Strip and count (even/odd) complements.
+    complement = False
+    for idx, expr in enumerate(exprs):
+        if isinstance(expr, Complement):
+            exprs[idx] = expr.expr
+            complement = not complement
+    if exprs and isinstance(exprs[-1], IntLiteral):
+        # Incorporate complement into literal.
+        value = exprs[-1].value
+        if value == -1:
+            complement = not complement
+        elif value != 1:
+            if complement:
+                exprs[-1] = IntLiteral(-value)
+            return
+        # Drop literal.
+        del exprs[-1]
+    # Implicit literal: 1 or -1.
+    if complement:
+        exprs[:] = [simplify_expression(Complement(MultiplyOperator(*exprs)))]
 
 
 _custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression]], None]] = {

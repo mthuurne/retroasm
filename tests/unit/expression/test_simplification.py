@@ -587,6 +587,24 @@ def test_mult_one(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_mult_complement(equation: Equation) -> None:
+    """
+    Multiplying by -1 is taking the complement.
+
+    .. code-block:: expr
+
+        A * -1 = -A
+        -1 * A = -A
+        -A * -1 = A
+        -1 * -A = A
+        -2 * -A = 2 * A
+        -A * 2 = A * -2
+        -A * -B = A * B
+        -A * -B * -1 = -(A * B)
+    """
+    equation.check_simplify()
+
+
 def test_shift_literals(equation: Equation) -> None:
     """
     Shift integer literals left and right.
