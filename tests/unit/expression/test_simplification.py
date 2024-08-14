@@ -605,6 +605,20 @@ def test_mult_complement(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_mult_shift(equation: Equation) -> None:
+    """
+    Multiplying by a power of two is equivalent to shifting.
+
+    .. code-block:: expr
+
+        A * 2 = A << 1
+        2 * A * 8 = A << 4
+        (A << 3) * 32 = A << 8
+        (A * 32) << 3 = A << 8
+    """
+    equation.check_simplify()
+
+
 def test_shift_literals(equation: Equation) -> None:
     """
     Shift integer literals left and right.

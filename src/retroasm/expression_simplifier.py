@@ -23,7 +23,7 @@ from .expression import (
     XorOperator,
     opt_slice,
 )
-from .types import mask_for_width, width_for_mask
+from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
 def _simplify_composed(composed: MultiExpression) -> Expression:
@@ -205,7 +205,7 @@ def _custom_simplify_add(exprs: list[Expression]) -> None:
             del exprs[compl_idx]
 
 
-def _custom_simplify_multiply(exprs: list[Expression]) -> None:
+def _custom_simplify_multiply_complement(exprs: list[Expression]) -> None:
     # Strip and count (even/odd) complements.
     complement = False
     for idx, expr in enumerate(exprs):
@@ -226,6 +226,24 @@ def _custom_simplify_multiply(exprs: list[Expression]) -> None:
     # Implicit literal: 1 or -1.
     if complement:
         exprs[:] = [simplify_expression(Complement(MultiplyOperator(*exprs)))]
+
+
+def _custom_simplify_multiply_shift(exprs: list[Expression]) -> None:
+    if len(exprs) < 2:
+        return
+    if isinstance(exprs[-1], IntLiteral):
+        value = exprs[-1].value
+        if is_power_of_two(value):
+            offset = value.bit_length() - 1
+            exprs[:] = [
+                simplify_expression(LShift(MultiplyOperator(*exprs[:-1]), offset))
+            ]
+            return
+
+
+def _custom_simplify_multiply(exprs: list[Expression]) -> None:
+    _custom_simplify_multiply_complement(exprs)
+    _custom_simplify_multiply_shift(exprs)
 
 
 _custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression]], None]] = {
