@@ -23,6 +23,7 @@ from .expression import (
     XorOperator,
     opt_slice,
 )
+from .symbol import SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
@@ -86,6 +87,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
     # Make the order of terms somewhat predictable.
     # This does not produce canonical expressions, but it should be enough to
     # at least compare expressions while unit testing.
+    exprs.sort(key=lambda expr: expr.name if isinstance(expr, SymbolValue) else "")
     exprs.sort(key=lambda expr: -expr.complexity)
     exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)
 
