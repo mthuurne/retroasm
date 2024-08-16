@@ -615,6 +615,9 @@ def test_mult_shift(equation: Equation) -> None:
         2 * A * 8 = A << 4
         (A << 3) * 32 = A << 8
         (A * 32) << 3 = A << 8
+        (A * 24) << 1 = A * 48
+        (A << 1) * 24 = A * 48
+        (A << 1) * (B << 2) = (A * B) << 3
     """
     equation.check_simplify()
 

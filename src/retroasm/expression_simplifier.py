@@ -233,14 +233,32 @@ def _custom_simplify_multiply_complement(exprs: list[Expression]) -> None:
 def _custom_simplify_multiply_shift(exprs: list[Expression]) -> None:
     if len(exprs) < 2:
         return
-    if isinstance(exprs[-1], IntLiteral):
-        value = exprs[-1].value
-        if is_power_of_two(value):
-            offset = value.bit_length() - 1
-            exprs[:] = [
-                simplify_expression(LShift(MultiplyOperator(*exprs[:-1]), offset))
-            ]
-            return
+
+    # Convert term shifts into a multiplication factor.
+    factor = 1
+    for idx, expr in enumerate(exprs):
+        if isinstance(expr, LShift):
+            factor *= 1 << expr.offset
+            exprs[idx] = expr.expr
+    literal_value = exprs[-1].value if isinstance(exprs[-1], IntLiteral) else 1
+    factor *= literal_value
+    if factor == 1:
+        return
+
+    # Convert multiplication by a power of two into a left shift.
+    if is_power_of_two(factor):
+        offset = factor.bit_length() - 1
+        if literal_value != 1:
+            del exprs[-1]
+        exprs[:] = [simplify_expression(LShift(MultiplyOperator(*exprs), offset))]
+        return
+
+    # Update literal.
+    if factor != literal_value:
+        if literal_value == 1:
+            exprs.append(IntLiteral(factor))
+        else:
+            exprs[-1] = IntLiteral(factor)
 
 
 def _custom_simplify_multiply(exprs: list[Expression]) -> None:
@@ -419,6 +437,12 @@ def _simplify_lshift(lshift: LShift) -> Expression:
             )
             if alt.complexity <= lshift.complexity:
                 return alt
+        case MultiplyOperator(exprs=exprs):
+            if isinstance(exprs[-1], IntLiteral):
+                # Merge shift into multiplication literal.
+                return MultiplyOperator(
+                    *(tuple(exprs[:-1]) + (IntLiteral(exprs[-1].value << offset),))
+                )
 
     if expr is lshift.expr:
         return lshift
