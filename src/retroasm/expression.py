@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
 from operator import mul
-from typing import Self, TypeVar, cast
+from typing import ClassVar, Self, TypeVar, cast
 
 from .types import (
     CarryMask,
@@ -199,10 +199,13 @@ class MultiExpression(Expression):
     """
 
     __slots__ = ("_exprs", "_mask")
-    operator: str
-    idempotent: bool
-    identity: int
-    absorber: int | None
+
+    # https://github.com/pylint-dev/pylint/issues/9950
+    # pylint: disable=E0245
+    operator: ClassVar[str]
+    idempotent: ClassVar[bool]
+    identity: ClassVar[int]
+    absorber: ClassVar[int | None]
 
     node_complexity = 1
     """Contribution of the expression node itself to expression complexity."""

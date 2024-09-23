@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 from operator import itemgetter
-from typing import Never, NoReturn, TypeAlias, cast
+from typing import ClassVar, Never, NoReturn, TypeAlias, cast
 
 from .utils import Unique
 
@@ -410,7 +410,8 @@ class IntType(metaclass=Unique):
                 return
         raise ValueError(f"value {value:d} does not fit in type {self}")
 
-    int: IntType
+    # https://github.com/pylint-dev/pylint/issues/9950
+    int: ClassVar[IntType]  # pylint: disable=E0245
 
 
 IntType.int = IntType(unlimited, True)
