@@ -161,8 +161,8 @@ class InstructionSet(ModeTable):
         return IntType.u(self.encoding_width)
 
     @property
-    def global_namespace(self) -> GlobalNamespace:
-        return self._global_namespace
+    def program_counter(self) -> Reference:
+        return self._global_namespace.program_counter
 
     @property
     def prefix_mapping(self) -> PrefixMapping:

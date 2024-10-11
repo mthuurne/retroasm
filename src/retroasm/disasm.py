@@ -79,7 +79,7 @@ def disassemble(
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     """
-    pc = instr_set.global_namespace.program_counter
+    pc = instr_set.program_counter
     fetcher = DisasmFetcher.from_image_fetcher(image_fetcher, start_addr)
 
     while fetcher[0] is not None:
