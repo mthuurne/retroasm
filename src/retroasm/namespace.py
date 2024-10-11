@@ -72,8 +72,8 @@ class Namespace:
         self, name: str, value: NamespaceValue, location: InputLocation | None = None
     ) -> None:
         """
-        Defines a named item in the this namespace.
-        If the name was already taken, NameExistsError is raised.
+        Define a named item in this namespace.
+        Raises NameExistsError if the name was already taken.
         """
         self._check_name(name, value, location)
         if name in self.elements:
