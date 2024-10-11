@@ -94,6 +94,9 @@ def disassemble(
             # Verify that the opcodes produced when assembling are the same as
             # the ones we disassembled. This is not a given: there can be more
             # than one way to encode the same instruction.
+            # TODO: We should re-encode the mnemonics instead of the mode match,
+            #       as it is possible for the mode match to round trip correctly
+            #       but re-encoding the mnemonic would match a different mode.
             reencoded = tuple(instr_set.encode_instruction(mode_match))
             reencoded_len = len(reencoded)
             unused = encoded_length - reencoded_len

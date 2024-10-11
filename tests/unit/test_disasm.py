@@ -109,6 +109,8 @@ def test_disasm_bad_opcode() -> None:
     ]
 
 
+# This test fails because the mode match for the second instruction re-encodes to
+# the same byte sequence, but the mnemonic does not, as it matches a different mode.
 @mark.xfail
 def test_disasm_multiple_opcode() -> None:
     """Disassemble an instruction that has more than one possible opcode."""
