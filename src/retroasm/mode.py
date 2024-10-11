@@ -883,6 +883,9 @@ class Mode(ModeTable):
     def __str__(self) -> str:
         return f"mode {self._sem_type} {self._name}"
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._name!r})"
+
 
 @dataclass(frozen=True)
 class ValuePlaceholder:
