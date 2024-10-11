@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import cast
 
 from .asm.directives import DataDirective
 from .asm.formatter import Formatter
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, ImageFetcher
 from .instrset import InstructionSet
-from .reference import FixedValueReference, Reference
+from .reference import FixedValueReference
 
 
 class Instruction:
@@ -80,7 +79,7 @@ def disassemble(
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     """
-    pc = cast(Reference, instr_set.global_namespace["pc"])
+    pc = instr_set.global_namespace.program_counter
     fetcher = DisasmFetcher.from_image_fetcher(image_fetcher, start_addr)
 
     while fetcher[0] is not None:

@@ -1536,7 +1536,7 @@ class InstructionSetParser:
 
         # Check that the program counter was defined.
         try:
-            pc = self.global_namespace["pc"]
+            pc = self.global_namespace.program_counter
         except KeyError:
             collector.error(
                 "no program counter defined: "

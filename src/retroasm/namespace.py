@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
-from typing import NoReturn, TypeAlias
+from typing import NoReturn, TypeAlias, cast
 
 from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -164,6 +164,10 @@ class GlobalNamespace(BuilderNamespace):
 
     def __init__(self, builder: CodeBlockBuilder):
         BuilderNamespace.__init__(self, None, builder)
+
+    @property
+    def program_counter(self) -> Reference:
+        return cast(Reference, self.elements["pc"])
 
     def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
