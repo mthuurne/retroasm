@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from typing import Any, TypeAlias, Union, overload
@@ -735,7 +734,7 @@ class _MnemTreeNode:
     """
 
     def __init__(self) -> None:
-        self._children: dict[MnemMatch, _MnemTreeNode] = defaultdict(_MnemTreeNode)
+        self._children: dict[MnemMatch, _MnemTreeNode] = {}
         self._leaves: list[ModeEntry] = []
 
     def __repr__(self) -> str:
@@ -777,7 +776,10 @@ class _MnemTreeNode:
                     match = mode
                 case token:
                     bad_type(token)
-            node = node._children[match]
+            try:
+                node = node._children[match]
+            except KeyError:
+                node._children[match] = node = _MnemTreeNode()
         node._leaves.append(entry)
 
 
