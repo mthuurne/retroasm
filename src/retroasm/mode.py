@@ -670,7 +670,7 @@ class ModeMatch:
 
     def subst_pc(self, pc: Reference, pc_val: Expression) -> ModeMatch:
         """
-        Return a new mode match with the value `pcVal` substituted for
+        Return a new mode match with the value `pc_val` substituted for
         the program counter `pc`.
         """
 
