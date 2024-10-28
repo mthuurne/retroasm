@@ -25,6 +25,7 @@ from click import (
     Path as PathArg,
 )
 
+from .asm._mnem_parser import get_instruction_parser
 from .asm.directives import DataDirective, OriginDirective
 from .asm.formatter import Formatter
 from .asm.parser import read_sources
@@ -159,7 +160,7 @@ def checkdef(
                 print_decoders(instr_set, True)
                 print()
             if dump_mnemonics:
-                instr_set.dump_mnemonic_tree()
+                get_instruction_parser(instr_set).dump("")
                 print()
     else:
         print("No files to check", file=sys.stderr)

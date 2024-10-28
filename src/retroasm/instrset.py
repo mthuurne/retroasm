@@ -309,8 +309,3 @@ class InstructionSet(ModeTable):
     def addr_type(self) -> IntType:
         """The type of the program counter."""
         return self._global_namespace.program_counter.type
-
-    @const_property
-    def instruction_names(self) -> Set[str]:
-        """A set containing the instruction names (operations)."""
-        return cast(Set[str], self._mnem_tree._children.keys())

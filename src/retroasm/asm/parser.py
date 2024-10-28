@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Set
 from logging import getLogger
 from pathlib import Path
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from ..input import (
     BadInput,
@@ -24,6 +24,7 @@ from ..parser.expression_nodes import (
 from ..parser.linereader import LineReader
 from ..parser.tokens import TokenEnum, Tokenizer
 from ..types import IntType, Width, unlimited
+from ._mnem_parser import get_instruction_parser
 from .directives import (
     BinaryIncludeDirective,
     ConditionalDirective,
@@ -553,7 +554,8 @@ def parse_asm(
     reader: LineReader, collector: ErrorCollector, instr_set: InstructionSet
 ) -> AsmSource:
     source = AsmSource()
-    instruction_names = instr_set.instruction_names
+    parser = get_instruction_parser(instr_set)
+    instruction_names = cast(Set[str], parser._children.keys())
 
     for line in reader:
         tokens = AsmTokenizer.scan(line)
