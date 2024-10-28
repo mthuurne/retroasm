@@ -6,7 +6,7 @@ authors = ["Maarten ter Huurne <maarten@treewalker.org>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 click = "^8.0"
 
 [tool.poetry.dev-dependencies]
@@ -54,7 +54,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]

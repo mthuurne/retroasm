@@ -78,7 +78,7 @@ def upgrade(c: Context) -> None:
     """Upgrade sources to take advantage of new Python features."""
     print("Upgrading sources...")
     sources = (SRC_DIR / "retroasm").glob("**/*.py")
-    c.run(f"pyupgrade --py311-plus {' '.join(str(path) for path in sources)}")
+    c.run(f"pyupgrade --py312-plus {' '.join(str(path) for path in sources)}")
 
 
 @task
