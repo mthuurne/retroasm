@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import override
 
 from .codeblock import FunctionBody
 from .reference import BitString
@@ -23,9 +24,11 @@ class Function:
         self.args = args
         self.code = code
 
+    @override
     def __repr__(self) -> str:
         return f"Function({self.ret_type!r}, {self.args!r}, {self.code!r})"
 
+    @override
     def __str__(self) -> str:
         args = ", ".join(f"{decl} {name}" for name, decl in self.args.items())
         ret = "unit" if self.ret_type is None else self.ret_type

@@ -10,7 +10,7 @@ from collections.abc import (
 )
 from functools import update_wrapper
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Never, NoReturn
+from typing import TYPE_CHECKING, Never, NoReturn, override
 from weakref import WeakValueDictionary
 
 
@@ -39,6 +39,7 @@ class Unique(type):
         type.__init__(cls, name, bases, nmspc)
         cls.__cache: MutableMapping[object, object] = WeakValueDictionary()
 
+    @override
     def __call__(cls, *args: object, **kwargs: object) -> object:
         if kwargs:
             raise TypeError("Metaclass Unique does not support keyword arguments")
@@ -57,6 +58,7 @@ class Singleton(type):
         type.__init__(cls, name, bases, nmspc)
         cls.__instance = None
 
+    @override
     def __call__(cls, *args: object, **kwargs: object) -> object:
         if args or kwargs:
             raise TypeError("Metaclass Singleton does not support arguments")

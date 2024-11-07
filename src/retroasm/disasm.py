@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import override
 
 from .asm.directives import DataDirective
 from .asm.formatter import Formatter
@@ -53,10 +54,12 @@ class DisasmFetcher(AdvancingFetcher):
         """
         return self._max_offset + 1
 
+    @override
     def __getitem__(self, index: int, /) -> int | None:
         self._max_offset = max(self._max_offset, index)
         return self._fetcher[self._delta_offset + index]
 
+    @override
     def advance(self, steps: int = 1) -> DisasmFetcher:
         addr_step = self._addr_step
         new_addr = self._addr + steps * addr_step

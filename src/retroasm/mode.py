@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
-from typing import Any, TypeAlias, Union, overload
+from typing import Any, TypeAlias, Union, overload, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -57,9 +57,11 @@ class EncodingExpr:
         self._bits = bits
         self._location = location
 
+    @override
     def __str__(self) -> str:
         return str(self._bits)
 
+    @override
     def __repr__(self) -> str:
         return f"EncodingExpr({self._bits!r}, {self._location!r})"
 
@@ -147,9 +149,11 @@ class EncodingMultiMatch:
         self._start = start
         self._location = location
 
+    @override
     def __str__(self) -> str:
         return f"{self._name}@"
 
+    @override
     def __repr__(self) -> str:
         return (
             f"EncodingMultiMatch({self._name!r}, {self._mode!r}, "
@@ -233,6 +237,7 @@ class Encoding:
 
         self._location = location
 
+    @override
     def __repr__(self) -> str:
         return f"Encoding({self._items!r}, {self._location!r})"
 
@@ -398,6 +403,7 @@ class Mnemonic:
     def __init__(self, items: Iterable[MnemItem]):
         self._items = tuple(items)
 
+    @override
     def __repr__(self) -> str:
         return f"Mnemonic({self._items!r})"
 
@@ -551,6 +557,7 @@ class ModeEntry:
         self.placeholders = tuple(placeholders)
         self.flags_required = frozenset(flags_required)
 
+    @override
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
@@ -632,6 +639,7 @@ class ModeMatch:
         self._values = values
         self._subs = subs
 
+    @override
     def __repr__(self) -> str:
         return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
 
@@ -818,9 +826,11 @@ class Mode(ModeTable):
         self._sem_type = sem_type
         self._location = location
 
+    @override
     def __str__(self) -> str:
         return f"mode {self._sem_type} {self._name}"
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._name!r})"
 
@@ -832,6 +842,7 @@ class ValuePlaceholder:
     name: str
     type: IntType
 
+    @override
     def __str__(self) -> str:
         return f"{{{self.type} {self.name}}}"
 
@@ -845,9 +856,11 @@ class ComputedPlaceholder(ValuePlaceholder):
 
     code: FunctionBody
 
+    @override
     def __str__(self) -> str:
         return f"{{{self.type} {self.name} = ...}}"
 
+    @override
     def rename(self, name: str) -> ComputedPlaceholder:
         return ComputedPlaceholder(name, self.type, self.code)
 
@@ -883,6 +896,7 @@ class MatchPlaceholder:
     name: str
     mode: Mode
 
+    @override
     def __str__(self) -> str:
         return f"{{{self.mode.name} {self.name}}}"
 
@@ -902,6 +916,7 @@ class EncodeMatch:
         self._subs: dict[str, EncodeMatch] = {}
         self._values: dict[str, FixedValueReference] = {}
 
+    @override
     def __repr__(self) -> str:
         return f"EncodeMatch({self._entry!r}, {self._subs!r}, {self._values!r})"
 

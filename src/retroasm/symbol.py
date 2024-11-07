@@ -10,6 +10,8 @@ Two kinds of symbols are supported:
 
 from __future__ import annotations
 
+from typing import override
+
 from .expression import Expression
 from .types import Width, mask_for_width
 from .utils import SingletonFromABC
@@ -26,6 +28,7 @@ class SymbolValue(Expression):
     __slots__ = ("_name", "_width")
 
     @property
+    @override
     def mask(self) -> int:
         return mask_for_width(self._width)
 
@@ -44,16 +47,20 @@ class SymbolValue(Expression):
         self._name = name
         self._width = width
 
+    @override
     def _ctorargs(self) -> tuple[str, Width]:
         return (self._name, self._width)
 
+    @override
     def _equals(self, other: SymbolValue) -> bool:
         return self._name == other._name
 
+    @override
     def __str__(self) -> str:
         return self._name
 
     @property
+    @override
     def complexity(self) -> int:
         return 1
 
@@ -67,19 +74,24 @@ class CurrentAddress(Expression, metaclass=SingletonFromABC):
     __slots__ = ()
 
     @property
+    @override
     def mask(self) -> int:
         return -1
 
+    @override
     def _ctorargs(self) -> tuple[()]:
         return ()
 
+    @override
     def _equals(self, other: CurrentAddress) -> bool:
         # Depending on the location in the program, the value will differ.
         return False
 
+    @override
     def __str__(self) -> str:
         return "$"
 
     @property
+    @override
     def complexity(self) -> int:
         return 1

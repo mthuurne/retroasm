@@ -11,7 +11,7 @@ from abc import abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, override
 
 from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
 from ..types import Width
@@ -42,10 +42,12 @@ class DataDirective:
         self._width = width
         self._data = data
 
+    @override
     def __str__(self) -> str:
         args_str = ", ".join(str(elem) for elem in self._data)
         return f"def{self._width} {args_str}"
 
+    @override
     def __repr__(self) -> str:
         args_str = ", ".join(repr(ref) for ref in self._data)
         return f"{self.__class__.__name__}({args_str})"
@@ -61,6 +63,7 @@ class StringDirective:
     def __init__(self, *data: ParseNode | bytes):
         self._data = data
 
+    @override
     def __str__(self) -> str:
         args_str = ", ".join(
             str(item) if isinstance(item, ParseNode) else repr(item)
@@ -68,6 +71,7 @@ class StringDirective:
         )
         return f"defb {args_str}"
 
+    @override
     def __repr__(self) -> str:
         args_str = ", ".join(repr(item) for item in self._data)
         return f"{self.__class__.__name__}({args_str})"
@@ -80,6 +84,7 @@ class SpaceDirective:
     size: ParseNode
     value: ParseNode | None = None
 
+    @override
     def __str__(self) -> str:
         if self.value is None:
             return f"defs {self.size}"
@@ -93,6 +98,7 @@ class BinaryIncludeDirective:
 
     path: Path
 
+    @override
     def __str__(self) -> str:
         return f"incbin {self.path}"
 
@@ -103,6 +109,7 @@ class SourceIncludeDirective:
 
     path: Path
 
+    @override
     def __str__(self) -> str:
         return f"include {self.path}"
 
@@ -142,6 +149,7 @@ class ConditionalDirective:
     Is this a follow-up condition (ELSEIF/ELSE) in a chain?
     """
 
+    @override
     def __str__(self) -> str:
         cond = self.cond
         if cond is None:
@@ -155,6 +163,7 @@ class ConditionalDirective:
 class ConditionalEnd:
     """Marks the end of a conditional block."""
 
+    @override
     def __str__(self) -> str:
         return "endif"
 
@@ -165,6 +174,7 @@ class OriginDirective:
 
     addr: ParseNode
 
+    @override
     def __str__(self) -> str:
         return f"org {self.addr}"
 
@@ -176,6 +186,7 @@ class LabelDirective:
     name: str
     value: ParseNode | None
 
+    @override
     def __str__(self) -> str:
         if self.value is None:
             return f"{self.name}:"

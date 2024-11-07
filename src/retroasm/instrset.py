@@ -11,7 +11,7 @@ from collections.abc import (
     Set,
 )
 from dataclasses import dataclass
-from typing import cast
+from typing import cast, override
 
 from .codeblock import FunctionBody, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -153,6 +153,7 @@ class InstructionSet(ModeTable):
     """Contains all definitions for a processor's instruction set."""
 
     @property
+    @override
     def encoding_width(self) -> int:
         return cast(int, self._enc_width)
 

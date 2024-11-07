@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from enum import Enum, auto
+from typing import override
 
 from .asm.directives import StructuredData
 from .types import Unlimited, Width, unlimited
@@ -50,6 +51,7 @@ class Section:
         self._end = end
         self._description = description
 
+    @override
     def __repr__(self) -> str:
         end = self._end
         if end is unlimited:
@@ -57,6 +59,7 @@ class Section:
         else:
             return f"Section({self._start:#x}, {end:#x})"
 
+    @override
     def __str__(self) -> str:
         end = self._end
         if isinstance(end, Unlimited):
@@ -64,12 +67,14 @@ class Section:
         else:
             return f"[{self._start:#x}..{end:#x})"
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Section):
             return self._start == other._start and self._end == other._end
         else:
             return NotImplemented
 
+    @override
     def __hash__(self) -> int:
         return hash((self._start, self._end))
 
@@ -118,6 +123,7 @@ class CodeSection(Section):
         if base < 0:
             raise ValueError(f"negative base: {base:d}")
 
+    @override
     def __repr__(self) -> str:
         end = self._end
         end_repr = "unlimited" if end is unlimited else f"{end:#x}"
@@ -164,6 +170,7 @@ class SectionMap:
     def __len__(self) -> int:
         return len(self._sections)
 
+    @override
     def __repr__(self) -> str:
         return f"SectionMap({self._sections!r})"
 

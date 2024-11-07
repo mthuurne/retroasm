@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
-from typing import NoReturn, TypeAlias, cast
+from typing import NoReturn, TypeAlias, cast, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -35,6 +35,7 @@ class Namespace:
         self.elements: dict[str, NamespaceValue] = {}
         self.locations: dict[str, InputLocation | None] = {}
 
+    @override
     def __str__(self) -> str:
         args = ", ".join(f"{name}={value}" for name, value in self.elements.items())
         return f"{self.__class__.__name__}({args})"
@@ -127,6 +128,7 @@ class Namespace:
 class ContextNamespace(Namespace):
     """A namespace for a mode entry context."""
 
+    @override
     def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
@@ -170,6 +172,7 @@ class GlobalNamespace(BuilderNamespace):
     def program_counter(self) -> Reference:
         return cast(Reference, self.elements["pc"])
 
+    @override
     def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
@@ -183,6 +186,7 @@ class GlobalNamespace(BuilderNamespace):
         storage = Register(name, typ.width)
         return self._add_named_storage(name, storage, typ, location)
 
+    @override
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> NoReturn:
@@ -199,11 +203,13 @@ class LocalNamespace(BuilderNamespace):
         super().__init__(parent, builder)
         self.builder: SemanticsCodeBlockBuilder
 
+    @override
     def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         _reject_pc(name, location)
 
+    @override
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:

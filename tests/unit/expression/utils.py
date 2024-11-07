@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import override
+
 from retroasm.expression import (
     Expression,
     IntLiteral,
@@ -24,6 +26,7 @@ class TestValue(Expression):
         return self._name
 
     @property
+    @override
     def mask(self) -> int:
         return self._type.mask
 
@@ -32,16 +35,20 @@ class TestValue(Expression):
         self._name = name
         self._type = typ
 
+    @override
     def _ctorargs(self) -> tuple[str, IntType]:
         return self._name, self._type
 
+    @override
     def __str__(self) -> str:
         return self._name
 
+    @override
     def _equals(self, other: object) -> bool:
         return self is other
 
     @property
+    @override
     def complexity(self) -> int:
         return 3
 

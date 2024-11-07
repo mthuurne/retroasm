@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 from operator import itemgetter
-from typing import ClassVar, Never, NoReturn, TypeAlias, cast
+from typing import ClassVar, Never, NoReturn, TypeAlias, cast, override
 
 from .utils import Unique
 
@@ -20,9 +20,11 @@ class Unlimited(Enum):
     instance = "unlimited"
     """Singleton instance."""
 
+    @override
     def __repr__(self) -> str:
         return "unlimited"
 
+    @override
     def __str__(self) -> str:
         return "unlimited"
 
@@ -120,6 +122,7 @@ class Segment:
         if self.width < 0:
             raise ValueError(f"Segment width cannot be negative: {self.width:d}")
 
+    @override
     def __str__(self) -> str:
         start = self.start
         width = self.width
@@ -266,15 +269,18 @@ class CarryMask:
         the index of the next event.
         """
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, CarryMask):
             return self._events == other._events
         else:
             return NotImplemented
 
+    @override
     def __hash__(self) -> int:
         return hash(self._events)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._events})"
 
@@ -372,9 +378,11 @@ class IntType(metaclass=Unique):
         self._width = width
         self._signed = signed
 
+    @override
     def __repr__(self) -> str:
         return f"IntType({self._width}, {self._signed})"
 
+    @override
     def __str__(self) -> str:
         if self._signed:
             if self._width is unlimited:
@@ -429,9 +437,11 @@ class ReferenceType(metaclass=Unique):
     def __init__(self, typ: IntType):
         self._type = typ
 
+    @override
     def __repr__(self) -> str:
         return f"ReferenceType({self._type!r})"
 
+    @override
     def __str__(self) -> str:
         return f"{self._type}&"
 

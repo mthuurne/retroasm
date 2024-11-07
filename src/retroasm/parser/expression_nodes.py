@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import override
 
 from ..input import InputLocation
 from ..types import Width, unlimited
@@ -43,6 +44,7 @@ class BranchNode(ParseNode):
     target: LabelNode
 
     @property
+    @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.location, self.target.tree_location)
 
@@ -53,9 +55,11 @@ class AssignmentNode(ParseNode):
     rhs: ParseNode
 
     @property
+    @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.lhs.tree_location, self.rhs.tree_location)
 
+    @override
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         yield from self.lhs
@@ -94,6 +98,7 @@ class OperatorNode(ParseNode):
     operands: tuple[ParseNode | None, ...]
 
     @property
+    @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
             self.location,
@@ -104,12 +109,14 @@ class OperatorNode(ParseNode):
             ),
         )
 
+    @override
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         for operand in self.operands:
             if operand is not None:
                 yield from operand
 
+    @override
     def __str__(self) -> str:
         return f"{self.operator.name}({', '.join(str(op) for op in self.operands)})"
 
@@ -118,6 +125,7 @@ class OperatorNode(ParseNode):
 class IdentifierNode(ParseNode):
     name: str
 
+    @override
     def __str__(self) -> str:
         return self.name
 
@@ -140,6 +148,7 @@ class DeclarationNode(ParseNode):
     name: IdentifierNode
 
     @property
+    @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.location, self.name.tree_location)
 
@@ -150,11 +159,13 @@ class DefinitionNode(ParseNode):
     value: ParseNode
 
     @property
+    @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
             self.decl.tree_location, self.value.tree_location
         )
 
+    @override
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         yield from self.decl
@@ -166,6 +177,7 @@ class NumberNode(ParseNode):
     value: int
     width: Width
 
+    @override
     def __str__(self) -> str:
         width = self.width
         if width is unlimited:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypeAlias, Union
+from typing import TypeAlias, Union, override
 
 from ..instrset import InstructionSet
 from ..mode import MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
@@ -22,6 +22,7 @@ class MnemTreeNode:
         self._children: dict[MnemMatch, MnemTreeNode] = {}
         self._leaves: list[ModeEntry] = []
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._children!r}, {self._leaves!r})"
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
-from typing import cast
+from typing import cast, override
 
 from .expression import Expression
 from .types import IntType, Width
@@ -30,9 +30,11 @@ class IOChannel:
         self._elem_type = elem_type
         self._addr_type = addr_type
 
+    @override
     def __repr__(self) -> str:
         return f"IOChannel({self._name!r}, {self._elem_type!r}, {self._addr_type!r})"
 
+    @override
     def __str__(self) -> str:
         return f"{self._elem_type} {self._name}[{self._addr_type}]"
 
@@ -179,24 +181,31 @@ class Register(Storage):
         Storage.__init__(self, width)
         self._name = name
 
+    @override
     def __str__(self) -> str:
         return f"reg{self._width} {self._name}"
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._name}, {self._width})"
 
+    @override
     def can_load_have_side_effect(self) -> bool:
         return False
 
+    @override
     def can_store_have_side_effect(self) -> bool:
         return False
 
+    @override
     def is_load_consistent(self) -> bool:
         return True
 
+    @override
     def is_sticky(self) -> bool:
         return True
 
+    @override
     def might_be_same(self, other: Storage) -> bool:
         # Register might be passed by reference.
         return self is other or isinstance(other, ArgStorage)
@@ -219,24 +228,31 @@ class ArgStorage(Storage):
         self._name = name
         Storage.__init__(self, width)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._name!r}, {self._width})"
 
+    @override
     def __str__(self) -> str:
         return self._name
 
+    @override
     def can_load_have_side_effect(self) -> bool:
         return True
 
+    @override
     def can_store_have_side_effect(self) -> bool:
         return True
 
+    @override
     def is_load_consistent(self) -> bool:
         return False
 
+    @override
     def is_sticky(self) -> bool:
         return False
 
+    @override
     def might_be_same(self, other: Storage) -> bool:
         return True
 
@@ -259,12 +275,15 @@ class IOStorage(Storage):
         self._index = index
         Storage.__init__(self, channel.elem_type.width)
 
+    @override
     def __repr__(self) -> str:
         return f"IOStorage({self._channel!r}, {self._index!r})"
 
+    @override
     def __str__(self) -> str:
         return f"{self._channel.name}[{self._index}]"
 
+    @override
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, IOStorage)
@@ -272,21 +291,27 @@ class IOStorage(Storage):
             and self._index == other._index
         )
 
+    @override
     def __hash__(self) -> int:
         return hash((self._channel, self._index))
 
+    @override
     def can_load_have_side_effect(self) -> bool:
         return self._channel.can_load_have_side_effect(self._index)
 
+    @override
     def can_store_have_side_effect(self) -> bool:
         return self._channel.can_store_have_side_effect(self._index)
 
+    @override
     def is_load_consistent(self) -> bool:
         return self._channel.is_load_consistent(self._index)
 
+    @override
     def is_sticky(self) -> bool:
         return self._channel.is_sticky(self._index)
 
+    @override
     def might_be_same(self, other: Storage) -> bool:
         if isinstance(other, IOStorage):
             # TODO: This is an oversimplification: some MSX devices have their
@@ -297,9 +322,11 @@ class IOStorage(Storage):
         else:
             return isinstance(other, ArgStorage)
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         yield self._index
 
+    @override
     def substitute_expressions(
         self, func: Callable[[Expression], Expression | None]
     ) -> IOStorage:
@@ -319,23 +346,30 @@ class Keeper(Storage):
 
     __slots__ = ()
 
+    @override
     def __repr__(self) -> str:
         return f"Keeper({self._width})"
 
+    @override
     def __str__(self) -> str:
         return f"keep{self._width}"
 
+    @override
     def can_load_have_side_effect(self) -> bool:
         return True
 
+    @override
     def can_store_have_side_effect(self) -> bool:
         return True
 
+    @override
     def is_load_consistent(self) -> bool:
         return False
 
+    @override
     def is_sticky(self) -> bool:
         return False
 
+    @override
     def might_be_same(self, other: Storage) -> bool:
         return self is other

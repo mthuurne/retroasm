@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias, Union
+from typing import TypeAlias, Union, override
 
 from ..mode import Mode
 from ..types import IntType, ReferenceType, Width
@@ -24,6 +24,7 @@ class ValuePlaceholderSpec:
     def encoding_width(self) -> Width:
         return self.type.width
 
+    @override
     def __str__(self) -> str:
         return f"{{{self.type} {self.name}}}"
 
@@ -49,5 +50,6 @@ class MatchPlaceholderSpec:
     def value(self) -> None:
         return None
 
+    @override
     def __str__(self) -> str:
         return f"{{{self.mode.name} {self.name}}}"

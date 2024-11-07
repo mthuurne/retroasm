@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TypeAlias, cast
+from typing import TypeAlias, cast, override
 
 from .codeblock import FunctionBody
 from .expression import IntLiteral
@@ -40,6 +40,7 @@ class EncodedSegment:
     segment: Segment
     """Bit range."""
 
+    @override
     def __str__(self) -> str:
         return f"enc{self.enc_idx:d}{self.segment}"
 
@@ -175,11 +176,13 @@ class SequentialDecoder(Decoder):
     def __init__(self, decoders: Iterable[Decoder]):
         self._decoders = tuple(decoders)
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         for decoder in self._decoders:
             decoder.dump(indent + "+ ", submodes)
             indent = " " * len(indent)
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch | None:
         for decoder in self._decoders:
             match = decoder.try_decode(fetcher)
@@ -198,12 +201,14 @@ class TableDecoder(Decoder):
         self._offset = offset
         assert (mask >> offset) == len(self._table) - 1
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         name = f"enc{self._index:d}"
         print(indent + _format_mask(name, self._mask & (-1 << self._offset)))
         for idx, decoder in enumerate(self._table):
             decoder.dump(" " * len(indent) + f"${idx:02x}: ", submodes)
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch | None:
         encoded = fetcher[self._index]
         if encoded is None:
@@ -254,10 +259,12 @@ class FixedPatternDecoder(Decoder):
         self._value = value
         self._next = nxt
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         mask_str = _format_mask(f"enc{self._index:d}", self._mask, self._value)
         self._next.dump(indent + mask_str + " -> ", submodes)
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch | None:
         encoded = fetcher[self._index]
         if encoded is None or encoded & self._mask != self._value:
@@ -283,6 +290,7 @@ class PlaceholderDecoder(Decoder):
         self._sub = sub
         self._aux_idx = aux_idx
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         encoded_segments = self._encoded_segments
         if encoded_segments is None:
@@ -305,6 +313,7 @@ class PlaceholderDecoder(Decoder):
         if submodes and sub is not None:
             sub.dump((len(indent) + len(name)) * " " + "`-> ")
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch | None:
         encoded_segments = self._encoded_segments
         if encoded_segments is None:
@@ -370,9 +379,11 @@ class MatchFoundDecoder(Decoder):
     def __init__(self, entry: ModeEntry):
         self._entry = entry
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         print(indent + " ".join(str(m) for m in self._entry.mnemonic))
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch:
         return EncodeMatch(self._entry)
 
@@ -383,9 +394,11 @@ class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
     It never finds a match.
     """
 
+    @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
         print(indent + "(none)")
 
+    @override
     def try_decode(self, fetcher: Fetcher) -> None:
         return None
 

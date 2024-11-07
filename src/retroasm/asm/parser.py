@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Set
 from logging import getLogger
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import TypeAlias, cast, override
 
 from ..input import (
     BadInput,
@@ -431,6 +431,7 @@ def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
 
 
 class DummyDirective:
+    @override
     def __str__(self) -> str:
         return "(not implemented yet)"
 

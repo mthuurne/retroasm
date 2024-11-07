@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import ERROR, INFO, WARNING, Formatter, Logger, LogRecord, getLogger
 from re import Match, Pattern
-from typing import Self, overload
+from typing import Self, overload, override
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,12 +264,14 @@ class ErrorCollector:
         self.problem_counter = ProblemCounter()
         self._errors: list[BadInput] = []
 
+    @override
     def __repr__(self) -> str:
         return (
             f"ErrorCollector(logger={self._logger!r}, "
             f"problem_counter={self.problem_counter!r}, errors={self._errors!r})"
         )
 
+    @override
     def __str__(self) -> str:
         return str(self.problem_counter)
 
@@ -367,6 +369,7 @@ class ProblemCounter:
         else:
             return INFO
 
+    @override
     def __str__(self) -> str:
         return (
             f"{_pluralize(self.num_errors, 'error')} and "
@@ -389,6 +392,7 @@ def _pluralize(count: int, verb: str) -> str:
 
 
 class LocationFormatter(Formatter):
+    @override
     def format(self, record: LogRecord) -> str:
         msg = super().format(record)
         if record.levelno == ERROR:

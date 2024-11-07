@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from logging import ERROR, Logger, getLogger
+from typing import override
 
 from ..instrset import InstructionSet
 from ..parser.instrset_parser import InstructionSetParser
@@ -89,6 +90,7 @@ class InstructionSetDirectory(InstructionSetProvider):
         self._logger = logger or getLogger(__name__)
         self._cache: dict[str, InstructionSet | None] = {}
 
+    @override
     def __getitem__(self, name: str) -> InstructionSet | None:
         try:
             return self._cache[name]
@@ -100,6 +102,7 @@ class InstructionSetDirectory(InstructionSetProvider):
             self._cache[name] = instr_set
             return instr_set
 
+    @override
     def __iter__(self) -> Iterator[str]:
         for path in self._path.iterdir():
             if path.is_file():

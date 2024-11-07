@@ -6,7 +6,7 @@ from importlib.resources.abc import Traversable
 from logging import DEBUG, INFO, Logger, StreamHandler, getLogger
 from mmap import ACCESS_READ, mmap
 from pathlib import Path
-from typing import IO, NoReturn, cast
+from typing import IO, NoReturn, cast, override
 
 from click import (
     BadParameter,
@@ -397,9 +397,11 @@ class EntryPointParamType(ParamType):
 
     name = "entry point"
 
+    @override
     def get_metavar(self, param: Parameter) -> str:
         return "OFFSET[,LABEL]"
 
+    @override
     def convert(
         self, value: str, param: Parameter | None, ctx: Context | None
     ) -> EntryPoint:
@@ -425,9 +427,11 @@ class SectionParamType(ParamType):
 
     name = "section"
 
+    @override
     def get_metavar(self, param: Parameter) -> str:
         return "OPT1:...:OPTn"
 
+    @override
     def convert(
         self, value: str, param: Parameter | None, ctx: Context | None
     ) -> Section:

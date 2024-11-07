@@ -4,7 +4,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib.resources.abc import Traversable
-from typing import IO, Self
+from typing import IO, Self, override
 
 from retroasm.input import InputLocation
 
@@ -72,6 +72,7 @@ class DefLineReader(LineReader):
     multiple errors in a single pass.
     """
 
+    @override
     def __next__(self) -> InputLocation:
         while True:
             line = self._next_line().rstrip()

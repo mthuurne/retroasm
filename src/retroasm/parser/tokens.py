@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable, Iterable, Iterator
 from enum import Enum, EnumMeta
 from re import Pattern
-from typing import Any, TypeAlias, TypeVar, cast
+from typing import Any, TypeAlias, TypeVar, cast, override
 
 from ..input import InputLocation
 
@@ -156,6 +156,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         assert isinstance(self, Tokenizer)
         return constructor(self._tokens, self._token_index - 1)
 
+    @override
     def __next__(self) -> tuple[TokenT, InputLocation]:
         kind = self._kind
         if kind is None:

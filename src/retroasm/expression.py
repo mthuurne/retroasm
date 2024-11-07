@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
 from operator import mul
-from typing import ClassVar, Self, TypeVar, cast
+from typing import ClassVar, Self, TypeVar, cast, override
 
 from .types import (
     CarryMask,
@@ -46,10 +46,12 @@ class Expression(ABC):
         used to re-create this expression.
         """
 
+    @override
     def __repr__(self) -> str:
         args = ", ".join(repr(arg) for arg in self._ctorargs())
         return f"{self.__class__.__name__}({args})"
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Expression):
             if self.__class__ is other.__class__:
@@ -59,6 +61,7 @@ class Expression(ABC):
         else:
             return NotImplemented
 
+    @override
     def __hash__(self) -> int:
         return hash(self._ctorargs() + (self.__class__,))
 
@@ -135,6 +138,7 @@ class BadValue(Expression):
         return self._message
 
     @property
+    @override
     def mask(self) -> int:
         return self._mask
 
@@ -143,16 +147,20 @@ class BadValue(Expression):
         self._mask = mask
         Expression.__init__(self)
 
+    @override
     def _ctorargs(self) -> tuple[str, int]:
         return (self._message, self._mask)
 
+    @override
     def __str__(self) -> str:
         return f"(bad value: {self._message})"
 
+    @override
     def _equals(self, other: BadValue) -> bool:
         return self is other
 
     @property
+    @override
     def complexity(self) -> int:
         return 1
 
@@ -167,6 +175,7 @@ class IntLiteral(Expression):
         return self._value
 
     @property
+    @override
     def mask(self) -> int:
         return self._value
 
@@ -174,9 +183,11 @@ class IntLiteral(Expression):
         self._value = value
         Expression.__init__(self)
 
+    @override
     def _ctorargs(self) -> tuple[int]:
         return (self._value,)
 
+    @override
     def __str__(self) -> str:
         value = self._value
         if value < 10:  # small, zero or negative -> print as decimal
@@ -184,10 +195,12 @@ class IntLiteral(Expression):
         else:  # print as hexadecimal
             return f"${value:X}"
 
+    @override
     def _equals(self, other: IntLiteral) -> bool:
         return self._value == other._value
 
     @property
+    @override
     def complexity(self) -> int:
         return 1
 
@@ -221,10 +234,12 @@ class MultiExpression(Expression):
         Expression.__init__(self)
         self._exprs = exprs
 
+    @override
     def _ctorargs(self) -> tuple[Expression, ...]:
         return self._exprs
 
     @const_property
+    @override
     def mask(self) -> int:
         return self.compute_mask(self._exprs)
 
@@ -234,6 +249,7 @@ class MultiExpression(Expression):
         """Returns the bit mask for the composition of the given expressions."""
 
     @property
+    @override
     def complexity(self) -> int:
         return self.node_complexity + sum(expr.complexity for expr in self._exprs)
 
@@ -242,10 +258,12 @@ class MultiExpression(Expression):
     def combine_literals(cls, *values: int) -> int:
         """Combine the given literal values into a single value."""
 
+    @override
     def __str__(self) -> str:
         sep = f" {self.operator} "
         return f"({sep.join(str(expr) for expr in self._exprs)})"
 
+    @override
     def _equals(self, other: MultiExpression) -> bool:
         return len(self._exprs) == len(other._exprs) and all(
             myExpr == otherExpr
@@ -260,6 +278,7 @@ class AndOperator(MultiExpression):
     identity = -1
     absorber = 0
 
+    @override
     def __str__(self) -> str:
         match self.exprs:
             case [*terms, IntLiteral(value=value)]:
@@ -284,10 +303,12 @@ class AndOperator(MultiExpression):
         return super().__str__()
 
     @classmethod
+    @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__and__, (expr.mask for expr in exprs), -1)
 
     @classmethod
+    @override
     def combine_literals(cls, *values: int) -> int:
         return reduce(int.__and__, values, -1)
 
@@ -300,10 +321,12 @@ class OrOperator(MultiExpression):
     absorber = -1
 
     @classmethod
+    @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
+    @override
     def combine_literals(cls, *values: int) -> int:
         return reduce(int.__or__, values, 0)
 
@@ -316,12 +339,14 @@ class XorOperator(MultiExpression):
     absorber = None
 
     @classmethod
+    @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         # Note: OR not XOR, since we don't know whether a bit is set in an
         #       even or an odd number of subexpressions.
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
     @classmethod
+    @override
     def combine_literals(cls, *values: int) -> int:
         return reduce(int.__xor__, values, 0)
 
@@ -334,15 +359,18 @@ class AddOperator(MultiExpression):
     absorber = None
 
     @classmethod
+    @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(
             CarryMask.__add__, (CarryMask.from_pattern(expr.mask) for expr in exprs)
         ).pattern
 
     @classmethod
+    @override
     def combine_literals(cls, *values: int) -> int:
         return sum(values)
 
+    @override
     def __str__(self) -> str:
         exprs = self._exprs
         fragments = [str(exprs[0])]
@@ -363,14 +391,17 @@ class MultiplyOperator(MultiExpression):
     absorber = 0
 
     @classmethod
+    @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         # TODO: Produce a more accurate mask using CarryMask.
         return -1
 
     @classmethod
+    @override
     def combine_literals(cls, *values: int) -> int:
         return reduce(mul, values, 1)
 
+    @override
     def __str__(self) -> str:
         return f"({' * '.join(str(expr) for expr in self._exprs)})"
 
@@ -388,13 +419,16 @@ class SingleExpression(Expression):
         Expression.__init__(self)
         self._expr = expr
 
+    @override
     def _ctorargs(self) -> tuple[object, ...]:
         return (self._expr,)
 
+    @override
     def _equals(self, other: Self) -> bool:
         return self._expr == other._expr
 
     @property
+    @override
     def complexity(self) -> int:
         return 1 + self._expr.complexity
 
@@ -402,10 +436,12 @@ class SingleExpression(Expression):
 class Complement(SingleExpression):
     __slots__ = ("_mask",)
 
+    @override
     def __str__(self) -> str:
         return f"-{self._expr}"
 
     @const_property
+    @override
     def mask(self) -> int:
         expr_mask = self._expr.mask
         return 0 if expr_mask == 0 else -1 << cast(int, trailing_zeroes(expr_mask))
@@ -415,9 +451,11 @@ class Negation(SingleExpression):
     __slots__ = ()
 
     @property
+    @override
     def mask(self) -> int:
         return 1
 
+    @override
     def __str__(self) -> str:
         return f"!{self._expr}"
 
@@ -428,9 +466,11 @@ class SignTest(SingleExpression):
     __slots__ = ()
 
     @property
+    @override
     def mask(self) -> int:
         return 1
 
+    @override
     def __str__(self) -> str:
         return f"sign({self._expr})"
 
@@ -445,6 +485,7 @@ class SignExtension(SingleExpression):
         return self._width
 
     @property
+    @override
     def mask(self) -> int:
         return 0 if self._width == 0 else -1
 
@@ -452,12 +493,15 @@ class SignExtension(SingleExpression):
         SingleExpression.__init__(self, expr)
         self._width = width
 
+    @override
     def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._width
 
+    @override
     def __str__(self) -> str:
         return f"s{self._width:d}({self._expr})"
 
+    @override
     def _equals(self, other: SignExtension) -> bool:
         return self._width == other._width and super()._equals(other)
 
@@ -490,16 +534,20 @@ class LShift(SingleExpression):
         if offset < 0:
             raise ValueError("negative shift count")
 
+    @override
     def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
+    @override
     def __str__(self) -> str:
         return f"({self._expr} << {self._offset:d})"
 
+    @override
     def _equals(self, other: LShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
 
     @const_property
+    @override
     def mask(self) -> int:
         expr_mask = self._expr.mask
         if expr_mask == 0:
@@ -526,23 +574,28 @@ class RShift(SingleExpression):
         if offset < 0:
             raise ValueError("negative shift count")
 
+    @override
     def _ctorargs(self) -> tuple[Expression, int]:
         return self._expr, self._offset
 
+    @override
     def __str__(self) -> str:
         if self.mask == 1:
             return f"{self._expr}[{self._offset:d}]"
         else:
             return f"{self._expr}[{self._offset:d}:]"
 
+    @override
     def _equals(self, other: RShift) -> bool:
         return self._offset == other._offset and super()._equals(other)
 
     @property
+    @override
     def complexity(self) -> int:
         return 1 + self._expr.complexity
 
     @const_property
+    @override
     def mask(self) -> int:
         return self._expr.mask >> self._offset
 
@@ -569,10 +622,12 @@ class LVShift(Expression):
         self._offset = offset
 
     @property
+    @override
     def complexity(self) -> int:
         return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
+    @override
     def mask(self) -> int:
         expr_mask = self._expr.mask
         if expr_mask == 0:
@@ -594,12 +649,15 @@ class LVShift(Expression):
             else mask | (-1 << ((1 << width) + cast(int, trailing_zeroes(expr_mask))))
         )
 
+    @override
     def _ctorargs(self) -> tuple[Expression, Expression]:
         return self._expr, self._offset
 
+    @override
     def __str__(self) -> str:
         return f"({self._expr} << {self._offset})"
 
+    @override
     def _equals(self, other: LVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
 
@@ -626,10 +684,12 @@ class RVShift(Expression):
         self._offset = offset
 
     @property
+    @override
     def complexity(self) -> int:
         return 1 + self._expr.complexity + self._offset.complexity
 
     @const_property
+    @override
     def mask(self) -> int:
         expr_mask = self._expr.mask
         offset_mask = self._offset.mask
@@ -651,12 +711,15 @@ class RVShift(Expression):
                 mask |= mask >> (1 << i)
         return mask
 
+    @override
     def _ctorargs(self) -> tuple[Expression, Expression]:
         return self._expr, self._offset
 
+    @override
     def __str__(self) -> str:
         return f"({self._expr} >> {self._offset})"
 
+    @override
     def _equals(self, other: RVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
 

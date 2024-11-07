@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import ClassVar, NoReturn, assert_never
+from typing import ClassVar, NoReturn, assert_never, override
 
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -200,16 +200,19 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
     touch any state, such as performing register access or I/O.
     """
 
+    @override
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
         raise IllegalStateAccess(f"attempt to read state: {storage}", location)
 
+    @override
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
         raise IllegalStateAccess(f"attempt to write state: {storage}", location)
 
+    @override
     def inline_function_call(
         self,
         func: Function,
@@ -227,6 +230,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         self.nodes: list[AccessNode] = []
         self._stored_values: dict[Storage, Expression] = {}
 
+    @override
     def dump(self) -> None:
         for node in self.nodes:
             node.dump()
@@ -287,6 +291,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         return FunctionBody(nodes, returned)
 
+    @override
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
@@ -307,6 +312,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             stored_values[storage] = value
         return value
 
+    @override
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
@@ -347,6 +353,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 if not isinstance(storage2, Register):
                     del stored_values[storage2]
 
+    @override
     def inline_function_call(
         self,
         func: Function,

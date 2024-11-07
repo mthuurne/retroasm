@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import cast
+from typing import cast, override
 
 from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
@@ -146,6 +146,7 @@ class TestNamespace(LocalNamespace):
         ref = create_io_reference(channel, index)
         return cast(SingleStorageReference, ref)
 
+    @override
     def add_argument(
         self,
         name: str,
@@ -155,6 +156,7 @@ class TestNamespace(LocalNamespace):
         ref = super().add_argument(name, typ, location)
         return cast(SingleStorageReference, ref)
 
+    @override
     def add_variable(
         self,
         name: str,

@@ -6,7 +6,7 @@ from dataclasses import astuple, dataclass, replace
 from logging import getLogger
 from pathlib import PurePath
 from struct import Struct
-from typing import Any, ClassVar, Protocol, Self, overload
+from typing import Any, ClassVar, Protocol, Self, overload, override
 
 from .asm.directives import DataDirective, StringDirective, StructuredData
 from .section import ByteOrder, CodeSection, Section, StructuredDataSection
@@ -51,9 +51,11 @@ class EntryPoint:
         if offset < 0:
             raise ValueError(f"negative offset: {offset:d}")
 
+    @override
     def __repr__(self) -> str:
         return f"EntryPoint({self._offset:#x}, {self._label!r})"
 
+    @override
     def __str__(self) -> str:
         label = self._label
         if label is None:
@@ -157,6 +159,7 @@ class GameBoyROM(BinaryFormat):
     )
 
     @classmethod
+    @override
     def detect_all(cls, image: Image) -> Iterator[GameBoyROM]:
         header = _unpack_struct(image, 0x100, cls.header)
         if header is None:
@@ -166,6 +169,7 @@ class GameBoyROM(BinaryFormat):
             return
         yield cls(image)
 
+    @override
     def iter_sections(self) -> Iterator[Section]:
         # Jump vectors.
         yield CodeSection(0x0, 0x104, 0x0, "lr35902", ByteOrder.little)
@@ -180,6 +184,7 @@ class GameBoyROM(BinaryFormat):
                 offset, offset + 0x4000, 0x4000, "lr35902", ByteOrder.little
             )
 
+    @override
     def iter_entry_points(self) -> Iterator[EntryPoint]:
         # RST and interrupts.
         for addr in range(0x0, 0x68, 0x8):
@@ -226,10 +231,12 @@ class MSXROMHeader(StructuredData):
             object.__setattr__(self, name, 0)
 
     @property
+    @override
     def encoded(self) -> bytes:
         return self.struct.pack(astuple(self))
 
     @property
+    @override
     def directives(self) -> Iterator[DataDirective | StringDirective]:
         yield StringDirective(self.cart_id)
         remaining = self.size - 2
@@ -246,6 +253,7 @@ class MSXROMHeader(StructuredData):
         if remaining > 0:
             yield DataDirective.literal(8, *self.reserved[:remaining])
 
+    @override
     def __len__(self) -> int:
         return self.size
 
@@ -256,6 +264,7 @@ class MSXROM(BinaryFormat):
     extensions = ("rom",)
 
     @classmethod
+    @override
     def detect_all(cls, image: Image) -> Iterator[MSXROM]:
         # Attempt to deduce the address mapping from the ROM header.
         header = MSXROMHeader.unpack(image, 0x0000)
@@ -334,6 +343,7 @@ class MSXROM(BinaryFormat):
         )
 
     @const_property
+    @override
     def score(self) -> int:
         header = self._header
         size = len(self._image)
@@ -390,6 +400,7 @@ class MSXROM(BinaryFormat):
 
         return score
 
+    @override
     def iter_sections(self) -> Iterator[Section]:
         # Note: MegaROM mappers are not supported yet.
         main_section = self._section
@@ -403,6 +414,7 @@ class MSXROM(BinaryFormat):
         yield StructuredDataSection(header_offset, self._header, "header")
         yield main_section
 
+    @override
     def iter_entry_points(self) -> Iterator[EntryPoint]:
         header = self._header
         section = self._section
@@ -438,6 +450,7 @@ class PSXExecutable(BinaryFormat):
     _header_struct = Struct("<8sIIIIIIIIIIII")
 
     @classmethod
+    @override
     def detect_all(cls, image: Image) -> Iterator[PSXExecutable]:
         if image[:8] != b"PS-X EXE":
             return
@@ -462,12 +475,14 @@ class PSXExecutable(BinaryFormat):
         data_end = data_start + header.data_size
         self._data = None if data_end == data_start else Section(data_start, data_end)
 
+    @override
     def iter_sections(self) -> Iterator[Section]:
         yield self._text
         data = self._data
         if data is not None:
             yield data
 
+    @override
     def iter_entry_points(self) -> Iterator[EntryPoint]:
         return _yield_entry_point(self._text, self._header.pc0, "start")
 
@@ -478,16 +493,20 @@ class RawBinary(BinaryFormat):
     extensions = ("raw", "bin")
 
     @classmethod
+    @override
     def detect_all(cls, image: Image) -> Iterator[RawBinary]:
         yield RawBinary(image)
 
     @property
+    @override
     def score(self) -> int:
         return 0
 
+    @override
     def iter_sections(self) -> Iterator[Section]:
         return iter(())
 
+    @override
     def iter_entry_points(self) -> Iterator[EntryPoint]:
         return iter(())
 

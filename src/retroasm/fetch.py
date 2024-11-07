@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import partial
+from typing import override
 
 from .binfmt import Image
 from .section import ByteOrder
@@ -52,6 +53,7 @@ class FetcherBase(Fetcher):
         super().__init__()
         self._cached = self._fetch(0)
 
+    @override
     def __getitem__(self, index: int, /) -> int | None:
         if index == 0:
             # Fast path for most frequently used index.
@@ -106,6 +108,7 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
         self._num_bytes = num_bytes
         super().__init__()
 
+    @override
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}({self._image!r}, "
@@ -130,6 +133,7 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
     def num_bytes(self) -> int:
         return self._num_bytes
 
+    @override
     def advance(self, steps: int = 1) -> ImageFetcher:
         """
         Returns a new fetcher of the same type, with an offset that is one
@@ -151,6 +155,7 @@ class ByteFetcher(ImageFetcher):
     def __init__(self, image: Image, start: int, end: int, num_bytes: int = 1):
         ImageFetcher.__init__(self, image, start, end, num_bytes)
 
+    @override
     def _fetch(self, index: int) -> int | None:
         offset = self._offset + index
         return self._image[offset] if offset < self._end else None
@@ -164,6 +169,7 @@ class MultiByteFetcher(ImageFetcher):
 
     __slots__ = ()
 
+    @override
     def _fetch(self, index: int) -> int | None:
         num_bytes = self._num_bytes
         offset = self._offset + index * num_bytes
@@ -186,6 +192,7 @@ class BigEndianFetcher(MultiByteFetcher):
 
     __slots__ = ()
 
+    @override
     def _fetch_range(self, start: int, end: int) -> int:
         image = self._image
         value = 0
@@ -203,6 +210,7 @@ class LittleEndianFetcher(MultiByteFetcher):
 
     __slots__ = ()
 
+    @override
     def _fetch_range(self, start: int, end: int) -> int:
         image = self._image
         value = 0
@@ -224,6 +232,7 @@ class ModeFetcher(FetcherBase):
         self._aux_index = aux_index
         super().__init__()
 
+    @override
     def _fetch(self, index: int) -> int | None:
         first = self._first
         if first is not None:
@@ -250,6 +259,7 @@ class AfterModeFetcher(FetcherBase):
         self._delta = delta
         super().__init__()
 
+    @override
     def _fetch(self, index: int) -> int | None:
         if index >= self._auxIndex:
             assert index > self._auxIndex

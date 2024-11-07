@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, TypeAlias, cast
+from typing import TYPE_CHECKING, TypeAlias, cast, override
 
 from .expression import (
     AddOperator,
@@ -152,18 +152,23 @@ class FixedValue(BitString):
         self._expr = expr
         assert width_for_mask(expr.mask) <= width, expr
 
+    @override
     def __repr__(self) -> str:
         return f"FixedValue({self._expr!r}, {self._width})"
 
+    @override
     def __str__(self) -> str:
         return str(self._expr)
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         yield self._expr
 
+    @override
     def iter_storages(self) -> Iterator[Storage]:
         return iter(())
 
+    @override
     def substitute(
         self,
         *,
@@ -180,11 +185,13 @@ class FixedValue(BitString):
         else:
             return FixedValue(new_expr, self._width)
 
+    @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         return self._expr
 
+    @override
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -193,6 +200,7 @@ class FixedValue(BitString):
     ) -> None:
         pass
 
+    @override
     def decompose(self) -> Iterator[tuple[FixedValue, Segment]]:
         yield self, Segment(0, self.width)
 
@@ -210,18 +218,23 @@ class SingleStorage(BitString):
         self._storage = storage
         super().__init__(storage.width)
 
+    @override
     def __repr__(self) -> str:
         return f"SingleStorage({self._storage!r})"
 
+    @override
     def __str__(self) -> str:
         return str(self._storage)
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         return self._storage.iter_expressions()
 
+    @override
     def iter_storages(self) -> Iterator[Storage]:
         yield self._storage
 
+    @override
     def substitute(
         self,
         *,
@@ -248,11 +261,13 @@ class SingleStorage(BitString):
         else:
             return SingleStorage(new_storage)
 
+    @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         return builder.emit_load_bits(self._storage, location)
 
+    @override
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -261,6 +276,7 @@ class SingleStorage(BitString):
     ) -> None:
         builder.emit_store_bits(self._storage, value, location)
 
+    @override
     def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
         yield self, Segment(0, self.width)
 
@@ -278,18 +294,23 @@ class Variable(BitString):
         self._name = name
         super().__init__(width)
 
+    @override
     def __repr__(self) -> str:
         return f"Variable({self._name}, {self._width})"
 
+    @override
     def __str__(self) -> str:
         return f"var{self._width} {self._name}"
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         return iter(())
 
+    @override
     def iter_storages(self) -> Iterator[Storage]:
         return iter(())
 
+    @override
     def substitute(
         self,
         *,
@@ -303,11 +324,13 @@ class Variable(BitString):
                 return new_bits
         return self
 
+    @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         return builder.read_variable(self, location)
 
+    @override
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -316,6 +339,7 @@ class Variable(BitString):
     ) -> None:
         return builder.write_variable(self, value, location)
 
+    @override
     def decompose(self) -> Iterator[tuple[Variable, Segment]]:
         yield self, Segment(0, self.width)
 
@@ -340,23 +364,28 @@ class ConcatenatedBits(BitString):
         BitString.__init__(self, width)
         self._subs: Sequence[BitString] = subs
 
+    @override
     def __repr__(self) -> str:
         return f"ConcatenatedBits({', '.join(repr(sub) for sub in self._subs)})"
 
+    @override
     def __str__(self) -> str:
         return f"({' ; '.join(str(sub) for sub in reversed(self._subs))})"
 
     def __iter__(self) -> Iterator[BitString]:
         return iter(self._subs)
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         for sub in self._subs:
             yield from sub.iter_expressions()
 
+    @override
     def iter_storages(self) -> Iterator[Storage]:
         for sub in self._subs:
             yield from sub.iter_storages()
 
+    @override
     def substitute(
         self,
         *,
@@ -376,6 +405,7 @@ class ConcatenatedBits(BitString):
             changed |= new_bits is not sub
         return ConcatenatedBits(*subs) if changed else self
 
+    @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
@@ -387,6 +417,7 @@ class ConcatenatedBits(BitString):
             offset += cast(int, sub.width)
         return OrOperator(*terms)
 
+    @override
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -400,6 +431,7 @@ class ConcatenatedBits(BitString):
             sub.emit_store(builder, value_slice, location)
             offset += width
 
+    @override
     def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         for sub in self._subs:
             yield from sub.decompose()
@@ -433,9 +465,11 @@ class SlicedBits(BitString):
 
         BitString.__init__(self, width)
 
+    @override
     def __repr__(self) -> str:
         return f"SlicedBits({self._bits!r}, {self._offset!r}, {self._width})"
 
+    @override
     def __str__(self) -> str:
         width = self._width
         match self._offset:
@@ -451,12 +485,15 @@ class SlicedBits(BitString):
                 )
         return f"{self._bits}[{start}:{end}]"
 
+    @override
     def iter_expressions(self) -> Iterator[Expression]:
         return self._bits.iter_expressions()
 
+    @override
     def iter_storages(self) -> Iterator[Storage]:
         return self._bits.iter_storages()
 
+    @override
     def substitute(
         self,
         *,
@@ -475,6 +512,7 @@ class SlicedBits(BitString):
         else:
             return SlicedBits(new_bits, self._offset, self._width)
 
+    @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
@@ -484,6 +522,7 @@ class SlicedBits(BitString):
         # Slice the loaded value.
         return truncate(RVShift(value, self._offset), self.width)
 
+    @override
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -505,6 +544,7 @@ class SlicedBits(BitString):
 
         bits.emit_store(builder, simplify_expression(combined), location)
 
+    @override
     def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         # Note that the offset was already simplified.
         offset = self.offset
@@ -566,9 +606,11 @@ class Reference:
                 f"bit string of {bits.width} bits used for reference of type {typ}"
             )
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._bits!r}, {self._type!r})"
 
+    @override
     def __str__(self) -> str:
         return f"{self._type}& {self._bits}"
 
@@ -601,6 +643,7 @@ class FixedValueReference(Reference):
     if TYPE_CHECKING:
 
         @property
+        @override
         def bits(self) -> FixedValue:
             return cast(FixedValue, super().bits)
 
@@ -611,6 +654,7 @@ class FixedValueReference(Reference):
     def __init__(self, expr: Expression, typ: IntType):
         super().__init__(FixedValue(expr, typ.width), typ)
 
+    @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
 

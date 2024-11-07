@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import TypeAlias
+from typing import TypeAlias, override
 
 from .expression import Expression
 from .input import InputLocation
@@ -25,6 +25,7 @@ class Load:
             self, "expr", LoadedValue(self, mask_for_width(self.storage.width))
         )
 
+    @override
     def __str__(self) -> str:
         return f"load from {self.storage}"
 
@@ -40,6 +41,7 @@ class Store:
     storage: Storage
     location: InputLocation | None = None
 
+    @override
     def __str__(self) -> str:
         return f"store {self.expr} in {self.storage}"
 
@@ -61,6 +63,7 @@ class LoadedValue(Expression):
         return self._load
 
     @property
+    @override
     def mask(self) -> int:
         return self._mask
 
@@ -69,19 +72,24 @@ class LoadedValue(Expression):
         self._load = load
         self._mask = mask
 
+    @override
     def _ctorargs(self) -> tuple[Load, int]:
         return self._load, self._mask
 
+    @override
     def __repr__(self) -> str:
         return f"LoadedValue({self._load!r}, {self._mask:d})"
 
+    @override
     def __str__(self) -> str:
         return f"load({self._load.storage})"
 
+    @override
     def _equals(self, other: LoadedValue) -> bool:
         return self._load is other._load
 
     @property
+    @override
     def complexity(self) -> int:
         # Since loaded values are only available at runtime, they are not
         # desirable in analysis, so assign a high cost to them.
@@ -192,6 +200,7 @@ class InitialValue(Expression):
         return self._variable.name
 
     @property
+    @override
     def mask(self) -> int:
         # Note that sign extension is added at the Reference level,
         # we only need to care about width here.
@@ -205,16 +214,20 @@ class InitialValue(Expression):
         self._location = location
         Expression.__init__(self)
 
+    @override
     def _ctorargs(self) -> tuple[Variable, int]:
         return (self._variable, self._block_id)
 
+    @override
     def __str__(self) -> str:
         return f"(initial value of {self._variable} in block {self._block_id})"
 
+    @override
     def _equals(self, other: InitialValue) -> bool:
         return self._variable == other._variable and self._block_id == other._block_id
 
     @property
+    @override
     def complexity(self) -> int:
         return 8
 
