@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
 from operator import mul
@@ -18,7 +19,7 @@ from .utils import const_property
 ExprT = TypeVar("ExprT", bound="Expression")
 
 
-class Expression:
+class Expression(ABC):
     """
     Abstract base class for integer expressions.
 
@@ -30,20 +31,20 @@ class Expression:
     __slots__ = ()
 
     @property
+    @abstractmethod
     def mask(self) -> int:
         """
         A bit mask for the potential values of this expression: the mask
         is 1 for bits that might be 1 in the values and is 0 for bits that
         are certainly 0 in all possible values.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def _ctorargs(self) -> tuple[object, ...]:
         """
         Returns a tuple containing the constructor arguments that can be
         used to re-create this expression.
         """
-        raise NotImplementedError
 
     def __repr__(self) -> str:
         args = ", ".join(repr(arg) for arg in self._ctorargs())
@@ -61,22 +62,22 @@ class Expression:
     def __hash__(self) -> int:
         return hash(self._ctorargs() + (self.__class__,))
 
+    @abstractmethod
     def _equals(self, other: Self) -> bool:
         """
         Returns True if this expression is equal to the other expression,
         False otherwise.
         The other expression is of the same Python class as this one.
         """
-        raise NotImplementedError
 
     @property
+    @abstractmethod
     def complexity(self) -> int:
         """
         Returns a postive number that reflects the complexity of this
         expression: the higher the number, the more complex the expression.
         This is used to compare simplification candidates.
         """
-        raise NotImplementedError
 
     def iter_instances(self, cls: type[ExprT]) -> Iterator[ExprT]:
         """
@@ -228,18 +229,18 @@ class MultiExpression(Expression):
         return self.compute_mask(self._exprs)
 
     @classmethod
+    @abstractmethod
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         """Returns the bit mask for the composition of the given expressions."""
-        raise NotImplementedError
 
     @property
     def complexity(self) -> int:
         return self.node_complexity + sum(expr.complexity for expr in self._exprs)
 
     @classmethod
+    @abstractmethod
     def combine_literals(cls, *values: int) -> int:
         """Combine the given literal values into a single value."""
-        raise NotImplementedError
 
     def __str__(self) -> str:
         sep = f" {self.operator} "
@@ -378,11 +379,6 @@ class SingleExpression(Expression):
     """Base class for expressions that have a single subexpression."""
 
     __slots__ = ("_expr",)
-
-    # Repeat definition to mark class as abstract for pylint.
-    @property
-    def mask(self) -> int:
-        raise NotImplementedError
 
     @property
     def expr(self) -> Expression:

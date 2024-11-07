@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from .expression import Expression
 from .types import Width, mask_for_width
-from .utils import Singleton
+from .utils import SingletonFromABC
 
 
 class SymbolValue(Expression):
@@ -58,7 +58,7 @@ class SymbolValue(Expression):
         return 1
 
 
-class CurrentAddress(Expression, metaclass=Singleton):
+class CurrentAddress(Expression, metaclass=SingletonFromABC):
     """
     A placeholder for the current program counter value at a certain location in
     the program.

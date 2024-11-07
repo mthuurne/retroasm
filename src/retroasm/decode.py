@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ from .reference import (
 )
 from .storage import ArgStorage
 from .types import IntType, Segment, mask_for_width, mask_to_segments
-from .utils import Singleton, bad_type
+from .utils import SingletonFromABC, bad_type
 
 
 @dataclass(frozen=True, order=True)
@@ -156,16 +157,16 @@ def _format_mask(name: str, mask: int, value: int | None = None) -> str:
         )
 
 
-class Decoder:
-    def dump(self, indent: str = "", submodes: bool = True) -> None:
-        raise NotImplementedError
+class Decoder(ABC):
+    @abstractmethod
+    def dump(self, indent: str = "", submodes: bool = True) -> None: ...
 
+    @abstractmethod
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch | None:
         """
         Attempts to decode an instruction from the given fetcher.
         Returns an encode match, or None if no match could be made.
         """
-        raise NotImplementedError
 
 
 class SequentialDecoder(Decoder):
@@ -376,7 +377,7 @@ class MatchFoundDecoder(Decoder):
         return EncodeMatch(self._entry)
 
 
-class NoMatchDecoder(Decoder, metaclass=Singleton):
+class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
     """
     Decoder that is placed at the end of a decode tree.
     It never finds a match.

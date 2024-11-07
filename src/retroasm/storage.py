@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import cast
 
@@ -89,7 +90,7 @@ class IOChannel:
         return True
 
 
-class Storage:
+class Storage(ABC):
     """A location in which bits can be stored."""
 
     __slots__ = ("_width",)
@@ -105,43 +106,43 @@ class Storage:
                 f"storage width must not be negative: {cast(int, width):d}"
             )
 
+    @abstractmethod
     def can_load_have_side_effect(self) -> bool:
         """
         Returns True if reading from this storage might have an effect
         other than fetching the value. For example reading a peripheral's
         status register might reset a flag.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def can_store_have_side_effect(self) -> bool:
         """
         Returns True if writing to this storage might have an effect
         other than setting the value. For example writing a peripheral's
         control register might change its output.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def is_load_consistent(self) -> bool:
         """
         Returns True if reading this storage twice in succession will
         return the same value both times.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def is_sticky(self) -> bool:
         """
         Returns True if reading this storage after it is written will
         return the written value.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def might_be_same(self, other: Storage) -> bool:
         """
         Returns True if the given storage might be the same storage as
         this one: if it is either certainly the same or if it might be an
         alias.
         """
-        raise NotImplementedError
 
     def iter_expressions(self) -> Iterator[Expression]:
         """Iterates through the expressions in this storage, if any."""

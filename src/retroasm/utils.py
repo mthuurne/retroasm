@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABCMeta
 from collections.abc import (
     Callable,
     Iterator,
@@ -64,6 +65,14 @@ class Singleton(type):
             instance = super().__call__()
             cls.__instance = instance
         return instance
+
+
+class SingletonFromABC(Singleton, ABCMeta):
+    """
+    Metaclass for singletons that also derive from an ABC.
+
+    Obviously the singleton itself cannot be abstract, but its base can be.
+    """
 
 
 if TYPE_CHECKING:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import astuple, dataclass, replace
 from logging import getLogger
@@ -74,7 +75,7 @@ def _yield_entry_point(
         yield EntryPoint(offset, name)
 
 
-class BinaryFormat:
+class BinaryFormat(ABC):
     """Abstract base class for binary formats."""
 
     name: ClassVar[str]
@@ -101,6 +102,7 @@ class BinaryFormat:
         )
 
     @classmethod
+    @abstractmethod
     def detect_all(cls, image: Image) -> Iterator[Self]:
         """
         Iterate through plausible intepretations of the given image as this binary
@@ -110,7 +112,6 @@ class BinaryFormat:
         are not very likely; the `score` property can then be used to determine
         whether it's worth continuing with this interpretation of the image.
         """
-        raise NotImplementedError
 
     def __init__(self, image: Image):
         self._image = image
@@ -134,13 +135,13 @@ class BinaryFormat:
         """
         return 1000
 
+    @abstractmethod
     def iter_sections(self) -> Iterator[Section]:
         """Iterates through the Sections in this binary."""
-        raise NotImplementedError
 
+    @abstractmethod
     def iter_entry_points(self) -> Iterator[EntryPoint]:
         """Iterates through the EntryPoints in this binary."""
-        raise NotImplementedError
 
 
 class GameBoyROM(BinaryFormat):

@@ -7,6 +7,7 @@ assembly do we care about syntax.
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -110,14 +111,14 @@ class StructuredData(Protocol):
     """Protocol for data areas with a struct-like layout."""
 
     @property
+    @abstractmethod
     def encoded(self) -> bytes:
         """The data in encoded form."""
-        raise NotImplementedError
 
     @property
+    @abstractmethod
     def directives(self) -> Iterator[DataDirective | StringDirective]:
         """Yield the data directives that define this data area."""
-        raise NotImplementedError
 
     def __len__(self) -> int:
         return len(self.encoded)

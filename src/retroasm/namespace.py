@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
 from typing import NoReturn, TypeAlias, cast
 
@@ -133,7 +134,7 @@ class ContextNamespace(Namespace):
         _reject_ret(name, location)
 
 
-class BuilderNamespace(Namespace):
+class BuilderNamespace(Namespace, ABC):
     """A namespace with an associated code block builder."""
 
     def __init__(self, parent: Namespace | None, builder: CodeBlockBuilder):
@@ -149,6 +150,7 @@ class BuilderNamespace(Namespace):
         if "ret" in self.elements:
             print(f"    return {self.elements['ret']}")
 
+    @abstractmethod
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
@@ -156,7 +158,6 @@ class BuilderNamespace(Namespace):
         Adds a variable with the given name and type to this namespace.
         Returns a reference to the variable.
         """
-        raise NotImplementedError
 
 
 class GlobalNamespace(BuilderNamespace):

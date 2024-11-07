@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from importlib.resources import files
 from importlib.resources.abc import Traversable
@@ -59,21 +60,21 @@ def load_instruction_set_by_name(
     return load_instruction_set(path, logger, want_semantics)
 
 
-class InstructionSetProvider:
+class InstructionSetProvider(ABC):
     """
     Abstract base class for providers that can look up instruction sets by name.
     """
 
+    @abstractmethod
     def __getitem__(self, name: str) -> InstructionSet | None:
         """
         Return the instruction set with the given name, or `None` if it is not
         available for any reason.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def __iter__(self) -> Iterator[str]:
         """Iterate through the names of the instruction sets that can be provided."""
-        raise NotImplementedError
 
 
 class InstructionSetDirectory(InstructionSetProvider):

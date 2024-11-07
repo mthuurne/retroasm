@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import partial
 
@@ -7,7 +8,7 @@ from .binfmt import Image
 from .section import ByteOrder
 
 
-class Fetcher:
+class Fetcher(ABC):
     """
     Instruction fetcher interface.
 
@@ -16,6 +17,7 @@ class Fetcher:
 
     __slots__ = ()
 
+    @abstractmethod
     def __getitem__(self, index: int, /) -> int | None:
         """
         Return the encoded item at the given index, or None if the index
@@ -26,7 +28,6 @@ class Fetcher:
         Some instruction sets have one encoded item per instruction,
         others have variable instruction length.
         """
-        raise NotImplementedError
 
 
 class AdvancingFetcher(Fetcher):
@@ -34,12 +35,12 @@ class AdvancingFetcher(Fetcher):
 
     __slots__ = ()
 
+    @abstractmethod
     def advance(self, steps: int = 1) -> AdvancingFetcher:
         """
         Return a new instruction fetcher of the same type, with a program location
         that is the given number of encoding units advanced beyond ours.
         """
-        raise NotImplementedError
 
 
 class FetcherBase(Fetcher):
@@ -60,11 +61,11 @@ class FetcherBase(Fetcher):
         else:
             return self._fetch(index)
 
+    @abstractmethod
     def _fetch(self, index: int) -> int | None:
         """
         Return the data unit at the given index, or None if the index is out of range.
         """
-        raise NotImplementedError
 
 
 class ImageFetcher(FetcherBase, AdvancingFetcher):
@@ -129,9 +130,6 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
     def num_bytes(self) -> int:
         return self._num_bytes
 
-    def _fetch(self, index: int) -> int | None:
-        raise NotImplementedError
-
     def advance(self, steps: int = 1) -> ImageFetcher:
         """
         Returns a new fetcher of the same type, with an offset that is one
@@ -175,9 +173,9 @@ class MultiByteFetcher(ImageFetcher):
         else:
             return self._fetch_range(offset, after)
 
+    @abstractmethod
     def _fetch_range(self, start: int, end: int) -> int:
         """Returns the data unit between the given byte offsets."""
-        raise NotImplementedError
 
 
 class BigEndianFetcher(MultiByteFetcher):

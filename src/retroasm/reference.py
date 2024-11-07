@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, TypeAlias, cast
 
@@ -38,7 +39,7 @@ else:
     CodeBlockBuilder = object
 
 
-class BitString:
+class BitString(ABC):
     """Abstract base class for bit strings."""
 
     __slots__ = ("_width",)
@@ -50,14 +51,15 @@ class BitString:
     def __init__(self, width: Width):
         self._width = width
 
+    @abstractmethod
     def iter_expressions(self) -> Iterator[Expression]:
         """Iterates through the expressions contained in this bit string."""
-        raise NotImplementedError
 
+    @abstractmethod
     def iter_storages(self) -> Iterator[Storage]:
         """Iterates through the storages accessed through this bit string."""
-        raise NotImplementedError
 
+    @abstractmethod
     def substitute(
         self,
         *,
@@ -75,8 +77,8 @@ class BitString:
         applied. This function should follow the same contract as the function
         passed to Expression.substitute().
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
@@ -85,8 +87,8 @@ class BitString:
         storage(s).
         Returns the value of the bit string as an Expression.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def emit_store(
         self,
         builder: CodeBlockBuilder,
@@ -97,8 +99,8 @@ class BitString:
         Emits store nodes for storing a bit string into the underlying
         storage(s).
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:
         """
         Decomposes the given bit string into its leaf nodes.
@@ -108,7 +110,6 @@ class BitString:
         Raises ValueError if a bit string cannot be decomposed because it
         contains a slice with an unknown offset.
         """
-        raise NotImplementedError
 
     @property
     def int_value(self) -> int:

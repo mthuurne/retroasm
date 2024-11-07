@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import ClassVar, NoReturn, assert_never
 
@@ -70,7 +71,7 @@ def _check_undefined(
                     )
 
 
-class CodeBlockBuilder:
+class CodeBlockBuilder(ABC):
     _next_block_id: ClassVar[int] = 0
 
     @classmethod
@@ -90,6 +91,7 @@ class CodeBlockBuilder:
     def dump(self) -> None:
         """Prints the current state of this code block builder on stdout."""
 
+    @abstractmethod
     def emit_load_bits(
         self, storage: Storage, location: InputLocation | None
     ) -> Expression:
@@ -98,8 +100,8 @@ class CodeBlockBuilder:
         this builder.
         Returns an expression that represents the loaded value.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
@@ -107,7 +109,6 @@ class CodeBlockBuilder:
         Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
-        raise NotImplementedError
 
     def read_variable(
         self, var: Variable, location: InputLocation | None
@@ -160,6 +161,7 @@ class CodeBlockBuilder:
             ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
             ref.emit_store(self, Negation(condition), condition_location)
 
+    @abstractmethod
     def inline_function_call(
         self,
         func: Function,
@@ -175,7 +177,6 @@ class CodeBlockBuilder:
         Returns a BitString containing the reference returned by the inlined
         function, or None if the function does not return anything.
         """
-        raise NotImplementedError
 
 
 class IllegalStateAccess(BadInput):
