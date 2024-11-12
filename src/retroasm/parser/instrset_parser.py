@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
+from operator import itemgetter
 from typing import cast
 
 from ..codeblock import FunctionBody
@@ -1267,7 +1268,7 @@ def _determine_encoding_width(
         (enc_width,) = width_freqs.keys()
     else:
         # Multiple widths; use one with the maximum frequency.
-        enc_width, _ = max(width_freqs.items(), key=lambda item: item[1])
+        enc_width, _ = max(width_freqs.items(), key=itemgetter(1))
         valid_widths: Iterable[Width | None]
         if aux:
             valid_widths = (enc_width, None)
