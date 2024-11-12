@@ -490,7 +490,7 @@ def list_supported(
         return
 
     print(disasm.__doc__)
-    print("")
+    print()
 
     print("Binary formats:")
     names = sorted(iter_binary_format_names())
@@ -498,12 +498,12 @@ def list_supported(
     for name in names:
         binfmt = get_binary_format(name)
         print(line_formatter % (name, binfmt.description))
-    print("")
+    print()
 
     print("Instruction sets:")
     for name in sorted(builtin_instruction_sets):
         print(f"  {name}")
-    print("")
+    print()
 
     ctx.exit()
 
