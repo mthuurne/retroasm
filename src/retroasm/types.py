@@ -449,7 +449,7 @@ class ReferenceType(metaclass=Unique):
 def parse_type(type_name: str) -> IntType:
     if type_name == "int":
         return IntType.int
-    if type_name.startswith("u") or type_name.startswith("s"):
+    if type_name.startswith(("u", "s")):
         width_str = type_name[1:]
         if width_str.isdigit():
             return IntType(int(width_str), type_name.startswith("s"))
