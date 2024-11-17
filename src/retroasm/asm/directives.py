@@ -11,7 +11,7 @@ from abc import abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, override
+from typing import Protocol, TypeAlias, override
 
 from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
 from ..types import Width
@@ -192,3 +192,23 @@ class LabelDirective:
             return f"{self.name}:"
         else:
             return f"{self.name}: equ {self.value}"
+
+
+class DummyDirective:
+    @override
+    def __str__(self) -> str:
+        return "(not implemented yet)"
+
+
+Directive: TypeAlias = (
+    DataDirective
+    | StringDirective
+    | SpaceDirective
+    | OriginDirective
+    | LabelDirective
+    | BinaryIncludeDirective
+    | SourceIncludeDirective
+    | ConditionalDirective
+    | ConditionalEnd
+    | DummyDirective
+)

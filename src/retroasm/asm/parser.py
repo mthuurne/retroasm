@@ -3,14 +3,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Set
 from logging import getLogger
 from pathlib import Path
-from typing import TypeAlias, cast, override
+from typing import cast
 
 from ..input import (
     BadInput,
     DelayedError,
     ErrorCollector,
     InputLocation,
-    ProblemCounter,
 )
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
@@ -30,12 +29,15 @@ from .directives import (
     ConditionalDirective,
     ConditionalEnd,
     DataDirective,
+    Directive,
+    DummyDirective,
     LabelDirective,
     OriginDirective,
     SourceIncludeDirective,
     SpaceDirective,
     StringDirective,
 )
+from .source import AsmSource
 
 asm_parser_logger = getLogger(__name__)
 
@@ -430,26 +432,6 @@ def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
         return SpaceDirective(size, value)
 
 
-class DummyDirective:
-    @override
-    def __str__(self) -> str:
-        return "(not implemented yet)"
-
-
-Directive: TypeAlias = (
-    DataDirective
-    | StringDirective
-    | SpaceDirective
-    | OriginDirective
-    | LabelDirective
-    | BinaryIncludeDirective
-    | SourceIncludeDirective
-    | ConditionalDirective
-    | ConditionalEnd
-    | DummyDirective
-)
-
-
 def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directive:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
@@ -519,36 +501,6 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
         return LabelDirective(name.text, value)
     else:
         return None
-
-
-class AsmSource:
-    """
-    The parsed contents of a single assembly source file.
-
-    The contents may be incomplete if any errors were encountered during parsing.
-    """
-
-    def __init__(self) -> None:
-        self._statements: list[Directive] = []
-        self.problem_counter = ProblemCounter()
-
-    def __iter__(self) -> Iterator[Directive]:
-        return iter(self._statements)
-
-    def add_directive(self, directive: Directive) -> None:
-        self._statements.append(directive)
-
-    def iter_source_includes(self) -> Iterator[Path]:
-        """
-        Iterate through the unresolved paths of source files included by this
-        assembly file.
-
-        As the paths are unresolved, it is possible the files do not exist or
-        that the same file is referenced through different paths.
-        """
-        for statement in self._statements:
-            if isinstance(statement, SourceIncludeDirective):
-                yield statement.path
 
 
 def parse_asm(

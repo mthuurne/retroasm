@@ -1,23 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping
 from typing import override
 
 from .asm.directives import DataDirective
 from .asm.formatter import Formatter
+from .asm.source import Instruction
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, ImageFetcher
 from .instrset import InstructionSet
-from .reference import FixedValueReference
-
-
-class Instruction:
-    @property
-    def mnemonic(self) -> Sequence[str | FixedValueReference]:
-        return self._mnemonic
-
-    def __init__(self, mnemonic: Iterable[str | FixedValueReference]):
-        self._mnemonic = tuple(mnemonic)
 
 
 class DisasmFetcher(AdvancingFetcher):

@@ -29,6 +29,7 @@ from .asm._mnem_parser import get_instruction_parser
 from .asm.directives import DataDirective, OriginDirective
 from .asm.formatter import Formatter
 from .asm.parser import read_sources
+from .asm.source import Instruction
 from .binfmt import (
     BinaryFormat,
     EntryPoint,
@@ -37,7 +38,7 @@ from .binfmt import (
     get_binary_format,
     iter_binary_format_names,
 )
-from .disasm import Instruction, disassemble, format_asm
+from .disasm import disassemble, format_asm
 from .fetch import ImageFetcher
 from .input import LocationFormatter, ProblemCounter
 from .instr import (
