@@ -25,14 +25,17 @@ class AsmSource:
     """
 
     def __init__(self) -> None:
-        self._statements: list[Directive] = []
+        self._statements: list[Directive | Instruction] = []
         self.problem_counter = ProblemCounter()
 
-    def __iter__(self) -> Iterator[Directive]:
+    def __iter__(self) -> Iterator[Directive | Instruction]:
         return iter(self._statements)
 
     def add_directive(self, directive: Directive) -> None:
         self._statements.append(directive)
+
+    def add_instruction(self, instruction: Instruction) -> None:
+        self._statements.append(instruction)
 
     def iter_source_includes(self) -> Iterator[Path]:
         """
