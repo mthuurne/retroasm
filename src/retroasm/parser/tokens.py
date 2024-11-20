@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable, Iterable, Iterator
 from enum import Enum, EnumMeta
 from re import Pattern
-from typing import Any, TypeAlias, TypeVar, cast, override
+from typing import Any, TypeVar, cast, override
 
 from ..input import InputLocation
 
@@ -71,7 +71,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
 
 T = TypeVar("T")
 TokenT = TypeVar("TokenT", bound=TokenEnum)
-TokenStream: TypeAlias = Iterable[tuple[TokenT | None, InputLocation]]
+type TokenStream[TokenT] = Iterable[tuple[TokenT | None, InputLocation]]
 
 
 class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):

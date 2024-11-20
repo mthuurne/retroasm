@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias, Union, override
+from typing import override
 
 from ..mode import Mode
 from ..types import IntType, ReferenceType, Width
 from .expression_nodes import DeclarationNode, ParseNode
 
-PlaceholderSpec: TypeAlias = Union["MatchPlaceholderSpec", "ValuePlaceholderSpec"]
+type PlaceholderSpec = MatchPlaceholderSpec | ValuePlaceholderSpec
 
 
 @dataclass(frozen=True)

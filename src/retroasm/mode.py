@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
-from typing import Any, TypeAlias, Union, overload, override
+from typing import Any, overload, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -200,7 +200,7 @@ def _find_first_aux_index(encoding: Sequence[EncodingItem]) -> int | None:
         return 1
 
 
-EncodingItem: TypeAlias = EncodingExpr | EncodingMultiMatch
+type EncodingItem = EncodingExpr | EncodingMultiMatch
 
 
 class Encoding:
@@ -389,9 +389,7 @@ class Encoding:
         return total
 
 
-MnemItem: TypeAlias = Union[
-    str, FixedValueReference, "MatchPlaceholder", "ValuePlaceholder"
-]
+type MnemItem = str | FixedValueReference | MatchPlaceholder | ValuePlaceholder
 
 
 class Mnemonic:

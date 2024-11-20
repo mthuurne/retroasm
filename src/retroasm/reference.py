@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, TypeAlias, cast, override
+from typing import TYPE_CHECKING, cast, override
 
 from .expression import (
     AddOperator,
@@ -565,7 +565,7 @@ class SlicedBits(BitString):
             slice_seg >>= width
 
 
-AtomicBitString: TypeAlias = FixedValue | SingleStorage | Variable
+type AtomicBitString = FixedValue | SingleStorage | Variable
 """An atomic bit string is one that decomposes into itself."""
 
 

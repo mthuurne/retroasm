@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import TypeAlias, override
+from typing import override
 
 from .expression import Expression
 from .input import InputLocation
@@ -49,7 +49,7 @@ class Store:
         print(f"    {self} ({self.storage.width}-bit)")
 
 
-AccessNode: TypeAlias = Load | Store
+type AccessNode = Load | Store
 """A node that transfers a value from or to a storage location."""
 
 

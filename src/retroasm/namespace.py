@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import ItemsView, KeysView, Sequence, ValuesView
-from typing import NoReturn, TypeAlias, cast, override
+from typing import NoReturn, cast, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -19,7 +19,7 @@ from .storage import (
 )
 from .types import IntType
 
-NamespaceValue: TypeAlias = Reference | IOChannel | Function
+type NamespaceValue = Reference | IOChannel | Function
 
 
 class Namespace:

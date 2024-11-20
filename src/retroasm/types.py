@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 from operator import itemgetter
-from typing import ClassVar, Never, NoReturn, TypeAlias, cast, override
+from typing import ClassVar, Never, NoReturn, cast, override
 
 from .utils import Unique
 
@@ -88,7 +88,7 @@ class Unlimited(Enum):
 
 unlimited = Unlimited.instance
 
-Width: TypeAlias = int | Unlimited
+type Width = int | Unlimited
 
 
 def mask_for_width(width: Width) -> int:

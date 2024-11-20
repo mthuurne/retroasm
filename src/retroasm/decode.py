@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TypeAlias, cast, override
+from typing import cast, override
 
 from .codeblock import FunctionBody
 from .expression import IntLiteral
@@ -403,7 +403,7 @@ class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
         return None
 
 
-_EncodingMatcher: TypeAlias = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
+type _EncodingMatcher = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
 
 
 def _create_entry_decoder(

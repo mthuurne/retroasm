@@ -11,7 +11,7 @@ from abc import abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, TypeAlias, override
+from typing import Protocol, override
 
 from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
 from ..types import Width
@@ -200,7 +200,7 @@ class DummyDirective:
         return "(not implemented yet)"
 
 
-Directive: TypeAlias = (
+type Directive = (
     DataDirective
     | StringDirective
     | SpaceDirective
