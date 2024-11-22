@@ -528,13 +528,12 @@ def parse_asm(
             if statement.text.casefold() in instruction_names:
                 build_instruction(statement, tokens, collector)
             else:
-                location = tokens.location
                 try:
                     directive = parse_directive(statement, tokens, instr_set)
                 except BadInput as ex:
                     collector.error(f"{ex}", location=ex.locations)
                 else:
-                    collector.info(f"directive: {directive}", location=location)
+                    collector.info(f"directive: {directive}", location=statement)
                     source.add_directive(directive)
         elif tokens.eat(AsmToken.comment) is not None:
             assert tokens.end, tokens.kind
