@@ -97,13 +97,11 @@ def create_match_sequence(nodes: Iterable[ParseNode]) -> Iterator[type[int] | st
 
 
 def parse_instruction(
-    tokens: AsmTokenizer, collector: ErrorCollector
+    name: InputLocation, tokens: AsmTokenizer, collector: ErrorCollector
 ) -> Iterator[ParseNode]:
     # TODO: Treating keywords and separators as identifiers is weird,
     #       but it works for now.
-    instr_name = tokens.eat(AsmToken.word)
-    assert instr_name is not None
-    yield IdentifierNode(instr_name.text, location=instr_name)
+    yield IdentifierNode(name.text, location=name)
 
     while not tokens.end_of_statement:
         try:
@@ -116,12 +114,13 @@ def parse_instruction(
             yield IdentifierNode(separator.text, location=separator)
 
 
-def build_instruction(tokens: AsmTokenizer, collector: ErrorCollector) -> None:
-    name = tokens.location
+def build_instruction(
+    name: InputLocation, tokens: AsmTokenizer, collector: ErrorCollector
+) -> None:
     try:
         with collector.check():
             match_seq = tuple(
-                create_match_sequence(parse_instruction(tokens, collector))
+                create_match_sequence(parse_instruction(name, tokens, collector))
             )
     except DelayedError:
         return
@@ -432,11 +431,11 @@ def parse_space_directive(tokens: AsmTokenizer) -> SpaceDirective:
         return SpaceDirective(size, value)
 
 
-def parse_directive(tokens: AsmTokenizer, instr_set: InstructionSet) -> Directive:
+def parse_directive(
+    name: InputLocation, tokens: AsmTokenizer, instr_set: InstructionSet
+) -> Directive:
     # TODO: It would be good to store the expression locations, so we can print
     #       a proper error report if we later discover the value is bad.
-    name = tokens.eat(AsmToken.word)
-    assert name is not None
     keyword = name.text.casefold()
     if keyword[0] == ".":
         keyword = keyword[1:]
@@ -525,13 +524,13 @@ def parse_asm(
                 source.add_directive(label)
 
         # Look for a directive or instruction.
-        if tokens.peek(AsmToken.word):
-            if tokens.value.casefold() in instruction_names:
-                build_instruction(tokens, collector)
+        if (statement := tokens.eat(AsmToken.word)) is not None:
+            if statement.text.casefold() in instruction_names:
+                build_instruction(statement, tokens, collector)
             else:
                 location = tokens.location
                 try:
-                    directive = parse_directive(tokens, instr_set)
+                    directive = parse_directive(statement, tokens, instr_set)
                 except BadInput as ex:
                     collector.error(f"{ex}", location=ex.locations)
                 else:
