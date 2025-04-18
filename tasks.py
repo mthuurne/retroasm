@@ -50,7 +50,7 @@ def types(c: Context, report: bool = False) -> None:
     """Type-check sources with mypy."""
     cmd = ["mypy"]
     if report:
-        cmd.append(f"--html-report {OUT_DIR}/mypy-report.html")
+        cmd.append(f"--html-report {OUT_DIR}/mypy-report/")
     cmd.append(str(SRC_DIR))
     cmd.append(str(TEST_DIR))
     print("Type-checking...")
