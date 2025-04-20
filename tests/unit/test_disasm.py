@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import cast
 
 from pytest import mark
 
@@ -11,10 +10,8 @@ from retroasm.binfmt import Image
 from retroasm.disasm import disassemble
 from retroasm.fetch import ImageFetcher
 from retroasm.instr import builtin_instruction_sets
-from retroasm.instrset import InstructionSet
 from retroasm.section import ByteOrder
 
-z80 = cast(InstructionSet, builtin_instruction_sets["z80"])
 create_z80_fetcher = ImageFetcher.factory(8, ByteOrder.little)
 
 formatter = Formatter()
@@ -22,6 +19,10 @@ formatter = Formatter()
 
 def disassemble_image(image: Image, addr: int = 0x4000) -> Iterator[tuple[int, str]]:
     """Disassemble the whole image as Z80 code, yield the statements as addr + text."""
+
+    z80 = builtin_instruction_sets["z80"]
+    assert z80 is not None
+
     length = len(image)
     fetcher = create_z80_fetcher(image, 0, length)
     for stmt_addr, statement in disassemble(z80, fetcher, addr):
