@@ -24,7 +24,7 @@ def docs(c: Context) -> None:
     """Build documentation."""
     print("Rendering README...")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    cmd = ["rst2html.py", "README.rst", f"-d {OUT_DIR}/README.html"]
+    cmd = ["rst2html", "README.rst", f"-d {OUT_DIR}/README.html"]
     with c.cd(str(TOP_DIR)):
         c.run(" ".join(cmd), pty=True)
     print()
