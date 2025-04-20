@@ -656,8 +656,8 @@ In mode ``reg16af``\ , not only does the encoding ``%11`` map to the mnemonic ``
 When there is more than one way of encoding the same instruction, the assembler will use the following priorities:
 
 - shorter encodings are always picked over longer ones
-- later entries in instruction/mode tables are picked over earlier entries
-- if there is still a tie, the lowest possible encoding is picked
+- later entries in instruction/mode tables are picked over earlier entries,
+  such that it is always possible to override the preferred interpretation of a mnemonic by adding an entry
 
 Instruction Decoding
 --------------------
