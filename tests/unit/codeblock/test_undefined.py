@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from .conftest import DocstringTester
+from .conftest import InstructionSetDocstringTester
 
 
-def test_variable_undefined_compute(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_compute(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     An error is reported when a variable's undefined value is used in a computation.
 
@@ -19,10 +21,12 @@ def test_variable_undefined_compute(docstring_tester: DocstringTester) -> None:
             a := a + UNDEF
                      ^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_variable_undefined_ioindex(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_ioindex(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     An error is reported when a variable's undefined value is used as an I/O index.
 
@@ -38,10 +42,12 @@ def test_variable_undefined_ioindex(docstring_tester: DocstringTester) -> None:
             a := mem[UNDEF]
                      ^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_variable_undefined_return_value(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_return_value(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     An error is reported when a variable's undefined value is returned as a value.
 
@@ -57,10 +63,12 @@ def test_variable_undefined_return_value(docstring_tester: DocstringTester) -> N
             ret := UNDEF
                    ^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_variable_undefined_return_compute(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_return_compute(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     An error is reported when an expression that depends on variable's undefined value
     is returned as a value.
@@ -77,10 +85,12 @@ def test_variable_undefined_return_compute(docstring_tester: DocstringTester) ->
             ret := UNDEF + 1
                    ^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_variable_undefined_return_eliminate(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_return_eliminate(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     No error is reported when a variable's undefined value ultimately has no effect.
 
@@ -90,10 +100,12 @@ def test_variable_undefined_return_eliminate(docstring_tester: DocstringTester) 
             var int UNDEF
             ret := UNDEF & 0
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_variable_undefined_return_reference(docstring_tester: DocstringTester) -> None:
+def test_variable_undefined_return_reference(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
     """
     An error is reported when a variable's undefined value is returned as a reference.
 
@@ -109,4 +121,4 @@ def test_variable_undefined_return_reference(docstring_tester: DocstringTester) 
         func int& return_undef()
                   ^^^^^^^^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()

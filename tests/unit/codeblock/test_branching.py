@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from .conftest import DocstringTester
+from .conftest import InstructionSetDocstringTester
 
 
-def test_branch_label_duplicate(docstring_tester: DocstringTester) -> None:
+def test_branch_label_duplicate(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when the same label is defined more than once.
 
@@ -23,10 +23,10 @@ def test_branch_label_duplicate(docstring_tester: DocstringTester) -> None:
             @here
             ^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_branch_label_undefined(docstring_tester: DocstringTester) -> None:
+def test_branch_label_undefined(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when a used label is not defined.
 
@@ -41,10 +41,10 @@ def test_branch_label_undefined(docstring_tester: DocstringTester) -> None:
             branch @there
                    ^^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()
 
 
-def test_branch_label_unused(docstring_tester: DocstringTester) -> None:
+def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An warning is reported when a label is not used.
 
@@ -62,4 +62,4 @@ def test_branch_label_unused(docstring_tester: DocstringTester) -> None:
             @unused
             ^^^^^^^
     """
-    docstring_tester.check()
+    instr_tester.check()

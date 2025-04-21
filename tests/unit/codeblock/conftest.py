@@ -48,7 +48,7 @@ u32 mem[u32]
 
 
 @dataclass
-class DocstringTester:
+class InstructionSetDocstringTester:
     parser: TestParser
     expected_log: str
     actual_log: str
@@ -58,12 +58,12 @@ class DocstringTester:
 
 
 @pytest.fixture
-def docstring_tester(
+def instr_tester(
     parser: TestParser,
     docstring: str,
     request: pytest.FixtureRequest,
     caplog: pytest.LogCaptureFixture,
-) -> DocstringTester:
+) -> InstructionSetDocstringTester:
     """
     Fixture that parses a code block and list of logging messages from the requesting
     test function's docstring.
@@ -90,4 +90,4 @@ def docstring_tester(
     print(code)
     parser.parse_text(code)
 
-    return DocstringTester(parser, logging, caplog.text.rstrip())
+    return InstructionSetDocstringTester(parser, logging, caplog.text.rstrip())
