@@ -2,10 +2,12 @@
 Instruction Set Definition
 **************************
 
-Instruction sets are defined in text files with the ``.instr`` file name extension.
+An instruction set definition describes a processor/architecture by tying the :ref:`encoding <encoding>`, :ref:`mnemonic <mnemonic>` and :ref:`semantics <semantics>` together for each of its instructions.
 
-Structure
-=========
+Instruction sets definitions are written in text files with the ``.instr`` file name extension.
+
+File Structure
+==============
 
 A block starts with a header line followed by a number of lines of block contents. The header line starts with keyword indicating the block type (\ ``instr``\ , ``func``\ , ``reg`` etc.) followed by zero or more arguments, depending on the block type.
 
@@ -13,10 +15,12 @@ Empty lines terminate blocks. Empty lines outside blocks are ignored. Trailing w
 
 The ``#`` character marks the remainder of the line as a comment, which is ignored. Lines containing only a comment are not considered empty and therefore do not terminate a block. A literal ``#`` character can be produced by preceding it with a backslash: ``\#``.
 
-Types
-=====
+Types and Expressions
+=====================
 
-The language contains value types and reference types. Currently the only supported value types are integer types.
+The semantics definitions use value types and reference types. Currently the only supported value types are integer types; support for floating point types is a possible future extension.
+
+Encoding and semantics definitions use the expression syntax described in this section, while mnemonic definitions use assembler syntax instead.
 
 Integer Types
 -------------
@@ -33,7 +37,7 @@ Reference Types
 A reference to a storage location is denoted by placing an ampersand after the value type. For example :math:`u_8^\&`, or ``u8&`` in plain text, is a reference to a byte.
 
 Literals
-========
+--------
 
 Integer literals in base 2, 10 and 16 are supported. Integer literals are never negative: for example ``-4`` is considered the unary complement operator ``-`` applied to the literal ``4``.
 
@@ -67,7 +71,7 @@ The width of a binary integer literal is equal to the number of digits it contai
 The width of a decimal integer literal is undefined: they are of the type :math:`int`. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
 
 Operators
-=========
+---------
 
 The following operators can be used in expressions:
 
@@ -173,7 +177,7 @@ A bitwise lookup is equivalent to taking a single bit slice: ``A[K]`` = ``A[K:K+
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
 
 Type Conversions
-================
+----------------
 
 Conversion from fixed-width :math:`u_N` or :math:`s_N` integer type to arbitrary-sized integer type :math:`int` is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
 
@@ -263,9 +267,11 @@ Currently the analyzer assumes that an index of one I/O channel can never alias 
 Statements
 ==========
 
-Statements are used to define the operation of the processor.
+Semantics definitions use statements to define the operation of the processor.
 
-Each line of a statement block contains a single statement. As usual, an empty line ends a block. It is possible to indent a statement block for better readability, but this optional and has no syntactical meaning.
+Each line of a statement block contains a single statement. As usual, an empty line ends a block. It is possible to indent a statement block for better readability, but this optional and does not change how the block is parsed.
+
+The following statements exist:
 
 Assignment
 ----------
@@ -302,7 +308,7 @@ Variables can be declared using the syntax ``var <value type> <name>``. Optional
    var u1 C := 1
 
 
-Variables are storage locations that don't represent registers or other hardware storage.
+Variables are storage locations that don't represent registers or other hardware storage: they exist solely as a convenience for defining semantics.
 
 Constants
 ---------

@@ -21,6 +21,8 @@ Mnemonics and encoding are handled by many traditional tools that deal with mach
 
 Execution timing is currently not modeled. If this were added in the future, it would probably belong in a separate definition, since execution timing can vary a lot between different processors using the same instruction set. Also, for accurate timing we would have to model a system, not just a processor.
 
+.. _mnemonic:
+
 Mnemonic
 ========
 
@@ -36,6 +38,8 @@ An instruction can also have implicit operands, which are values it operates on 
 
 Implicit operands do not appear in the mnemonic notation of an instruction, but do appear in the semantical description. We mention their existence here to demonstrate that the operand list does not always contain all information about which state is inspected and/or modified by an instruction.
 
+.. _encoding:
+
 Encoding
 ========
 
@@ -44,6 +48,8 @@ The encoding of an instruction consists of the bits that identify the operation 
 RetroAsm allows instruction encodings to include multiple items, but requires all items to have the same width. So for example an instruction set that has some instructions encoded in one 16-bit code and other instructions in two 16-bit codes is supported, while an instruction set that encodes an instruction as a 16-bit code followed by an 8-bit code is not supported.
 
 Because operand encodings are usually the same for many instructions, they can be defined once and then referenced from the instruction definitions. For example most Z80 instructions with 8-bit operands use the same 3-bit encoding which can encode the 7 main 8-bit registers and the ``(HL)`` operand.
+
+.. _semantics:
 
 Semantics
 =========
