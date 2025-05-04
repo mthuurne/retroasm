@@ -1,5 +1,6 @@
+********
 Concepts
-========
+********
 
 Instructions are the basic units that a processor can execute. An instruction consist of an operation, such as load or add, and zero or more operands that specify what data to operate on, such as registers or memory locations.
 
@@ -21,7 +22,7 @@ Mnemonics and encoding are handled by many traditional tools that deal with mach
 Execution timing is currently not modeled. If this were added in the future, it would probably belong in a separate definition, since execution timing can vary a lot between different processors using the same instruction set. Also, for accurate timing we would have to model a system, not just a processor.
 
 Mnemonic
---------
+========
 
 The mnemonic notation of an instruction consists of an operation and zero or more operands, which are separated by commas. For example ``ADD A,5`` consists of the operation ``ADD`` and two operands: ``A`` and ``5``\ , while ``NOP`` is a dummy operation with zero operands.
 
@@ -36,7 +37,7 @@ An instruction can also have implicit operands, which are values it operates on 
 Implicit operands do not appear in the mnemonic notation of an instruction, but do appear in the semantical description. We mention their existence here to demonstrate that the operand list does not always contain all information about which state is inspected and/or modified by an instruction.
 
 Encoding
---------
+========
 
 The encoding of an instruction consists of the bits that identify the operation to perform (the opcode) and the encodings of the operands. Some instruction sets have a fixed instruction width, for example all MIPS instructions are encoded in 32 bits, while other instruction sets have variable instruction width, for example instructions for the 6502 are encoded in one to three bytes each.
 
@@ -45,7 +46,7 @@ RetroAsm allows instruction encodings to include multiple items, but requires al
 Because operand encodings are usually the same for many instructions, they can be defined once and then referenced from the instruction definitions. For example most Z80 instructions with 8-bit operands use the same 3-bit encoding which can encode the 7 main 8-bit registers and the ``(HL)`` operand.
 
 Semantics
----------
+=========
 
 The semantical description of an instruction specifies the operation performed by an instruction: what state it changes and what I/O it performs. The semantical description uses a simple imperative language consisting only of assignments and conditional branches.
 
@@ -54,7 +55,7 @@ Only the functional aspects of the operation are considered relevant; it doesn't
 .. index:: ! storage
 
 Storage
-^^^^^^^
+-------
 
 A *storage* is an atomic location where bits can be loaded from and stored into. Typical examples are CPU registers, I/O ports and memory at a specific address.
 

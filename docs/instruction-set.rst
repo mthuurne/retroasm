@@ -1,10 +1,11 @@
+**************************
 Instruction Set Definition
-==========================
+**************************
 
 Instruction sets are defined in text files with the ``.instr`` file name extension.
 
 Structure
----------
+=========
 
 A block starts with a header line followed by a number of lines of block contents. The header line starts with keyword indicating the block type (\ ``instr``\ , ``func``\ , ``reg`` etc.) followed by zero or more arguments, depending on the block type.
 
@@ -13,12 +14,12 @@ Empty lines terminate blocks. Empty lines outside blocks are ignored. Trailing w
 The ``#`` character marks the remainder of the line as a comment, which is ignored. Lines containing only a comment are not considered empty and therefore do not terminate a block. A literal ``#`` character can be produced by preceding it with a backslash: ``\#``.
 
 Types
------
+=====
 
 The language contains value types and reference types. Currently the only supported value types are integer types.
 
 Integer Types
-^^^^^^^^^^^^^
+-------------
 
 The type :math:`u_N` is an unsigned integer type of :math:`N` bits wide. So for example :math:`u_8` is a byte and :math:`u_1` can hold a Boolean value. The type :math:`s_N` is a signed integer type of :math:`N` bits wide, where bit :math:`N-1` is the sign bit. The types :math:`u_0` and :math:`s_0` are valid and the only value in those types is the number 0. The type :math:`int` is an integer type that can contain arbitrary signed integers (unlimited width).
 
@@ -27,12 +28,12 @@ The :math:`int` type is used in arithmetical expressions. The :math:`u_N` types 
 In plain text, such as in instruction set definition files, types are written as follows: ``int``, ``u16`` and ``s8``.
 
 Reference Types
-^^^^^^^^^^^^^^^
+---------------
 
 A reference to a storage location is denoted by placing an ampersand after the value type. For example :math:`u_8^\&`, or ``u8&`` in plain text, is a reference to a byte.
 
 Literals
---------
+========
 
 Integer literals in base 2, 10 and 16 are supported. Integer literals are never negative: for example ``-4`` is considered the unary complement operator ``-`` applied to the literal ``4``.
 
@@ -66,7 +67,7 @@ The width of a binary integer literal is equal to the number of digits it contai
 The width of a decimal integer literal is undefined: they are of the type :math:`int`. Leading zeroes are not allowed on decimal integer literals, to avoid confusion with the C notation for octal numbers.
 
 Operators
----------
+=========
 
 The following operators can be used in expressions:
 
@@ -172,7 +173,7 @@ A bitwise lookup is equivalent to taking a single bit slice: ``A[K]`` = ``A[K:K+
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
 
 Type Conversions
-----------------
+================
 
 Conversion from fixed-width :math:`u_N` or :math:`s_N` integer type to arbitrary-sized integer type :math:`int` is performed automatically when necessary. These conversions can safely be done implicitly since the correct value is always preserved.
 
@@ -185,7 +186,7 @@ When a reference is used where a value is expected, the value is loaded from the
 When a value is used where a reference is expected, a reference to a fixed value will be created. When a fixed value reference is loaded from, the result is the value itself. When a fixed value reference is stored to, nothing happens.
 
 Registers
----------
+=========
 
 A register definition block can define base registers and register aliases.
 
@@ -230,7 +231,7 @@ If a register can be accessed in multiple ways, for example as an individual reg
 The program counter register must always be named ``pc``. If the instruction set uses a different name, that other name can be defined as an alias for the ``pc`` register.
 
 Input/Output
-------------
+============
 
 Input/output (I/O) is when a CPU reads or writes data from/to memory or peripherals. Some instruction sets perform all I/O through memory addresses (memory-mapped I/O) while other instruction sets also have dedicated I/O ports for accessing peripherals (port-mapped I/O).
 
@@ -260,14 +261,14 @@ For a CPU, it doesn't matter what is on the other side of an I/O channel. But fo
 Currently the analyzer assumes that an index of one I/O channel can never alias an index of another I/O channel. In other words, the storages behind two I/O channels are assumed to be disjunct. That might not be true for all hardware however, for example a single register bank might be accessible through both port-mapped I/O and memory-mapped I/O.
 
 Statements
-----------
+==========
 
 Statements are used to define the operation of the processor.
 
 Each line of a statement block contains a single statement. As usual, an empty line ends a block. It is possible to indent a statement block for better readability, but this optional and has no syntactical meaning.
 
 Assignment
-^^^^^^^^^^
+----------
 
 The most common statement is assignment, which uses the ``<lhs> := <rhs>`` syntax. An assignment will compute the value of the expression on its right-hand side and store it into the reference on its left-hand side, for example:
 
@@ -291,7 +292,7 @@ When storing to a sliced reference, all its subreferences will be loaded from an
 
 
 Variables
-^^^^^^^^^
+---------
 
 Variables can be declared using the syntax ``var <value type> <name>``. Optionally, the variable can be assigned a value in the same statement:
 
@@ -304,7 +305,7 @@ Variables can be declared using the syntax ``var <value type> <name>``. Optional
 Variables are storage locations that don't represent registers or other hardware storage.
 
 Constants
-^^^^^^^^^
+---------
 
 Constants can be defined using the syntax ``def <value type> <name> = <expr>``\ :
 
@@ -318,7 +319,7 @@ As the name implies, constants are immutable. While it is allowed to attempt to 
 A constant's value is evaluated when that constant is defined, so in the example above ``V`` represents the value of the ``a`` register at the time that control reaches the ``def`` statement.
 
 References
-^^^^^^^^^^
+----------
 
 References to storage locations can be defined using the syntax ``def <reference type> <name> = <expr>``\ :
 
@@ -346,7 +347,7 @@ Literals and constants can be part of a reference's definition: when read they p
 When read, the upper byte of the stack pointer's value will be ``$01``. When written, the upper byte of the written value is ignored.
 
 Flow Control
-^^^^^^^^^^^^
+------------
 
 Labels are names that identify locations within a function that can be jumped to. Labels are local to the function they are defined in. A label is defined by putting its name, prefixed with the ``@`` symbol, on a line by itself:
 
@@ -368,12 +369,12 @@ A conditional branch is taken only if the expression's value is not zero; if the
 Flow control of the instruction set definition is unrelated to flow control of the processor being defined. The latter is modeled by assigning to the ``pc`` register.
 
 No Operation (NOP)
-^^^^^^^^^^^^^^^^^^
+------------------
 
 The ``nop`` statement does absolutely nothing. It can be used in situations where you have to provide a statement but there is nothing to be done.
 
 Functions
----------
+=========
 
 Functions can be defined to avoid duplication in instruction set definitions:
 
@@ -424,7 +425,7 @@ If the return type is a reference type, the function returns a reference by defi
 If a local variable is part of a returned reference, it will be treated as a constant containing the value of that variable at the exit of the function body. It is not possible to modify a local variable after the function has finished executing.
 
 Modes
------
+=====
 
 Modes define patterns for specifying the operands of instructions. This includes addressing modes for accessing memory, but also register use.
 
@@ -441,7 +442,7 @@ The type in the header is the type for expressions the semantics field. For mode
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
 
 Encoding, Mnemonic, Semantics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 The encoding field contains the integer values used to encode the operand in instructions. This is typically not a full instruction, but for example only the bits that select the register to operate on.
 
@@ -465,7 +466,7 @@ The optional context field will be explained soon, but first an example using on
 
 
 Context: Placeholders
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 The simplest use of the context field is to define immediate values, using the syntax ``<type> <name>``. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
 
@@ -490,7 +491,7 @@ The context field can contain multiple items, separated by commas. It is possibl
 A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
 
 Context: Decode Flags
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 A final use of the context field is to filter on instruction decode flags, using the syntax ``?<name>``. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
 
@@ -520,7 +521,7 @@ If there are multiple decode flags tested in the context of a single mode entry,
 Currently the only way to set decode flags is by using `prefixes`_.
 
 Extending Modes
-^^^^^^^^^^^^^^^
+---------------
 
 Placeholders make it possible to include a mode defined earlier as part of a new mode, using the syntax ``<mode> <name>`` in the context field:
 
@@ -591,7 +592,7 @@ The mode ``relative`` defines relative addressing using a 16-bit base addresses 
 Similarly, ``D`` in the encoding of mode ``relative`` matches the 2-bit pattern that selects the offset to use. ``D@`` is empty when the offset is one of the 8-bit registers ``a``\ , ``b`` or ``c``\ , while it contains the 8-bit immediate offset if the fourth entry in the ``offset`` mode is matched.
 
 Instructions
-------------
+============
 
 An instruction definition uses the syntax below:
 
@@ -630,7 +631,7 @@ The mnemonic base can be empty if you want to define separate instructions in a 
    %111;%110;%00       . sed       . d := 1
 
 Matching Rules
---------------
+==============
 
 When multiple instruction/mode table entries match the same encoding, the later entry fully replaces the earlier entry. Let's look at how the Z80 encodes its ``push`` and ``pop`` instructions:
 
@@ -660,10 +661,10 @@ When there is more than one way of encoding the same instruction, the assembler 
   such that it is always possible to override the preferred interpretation of a mnemonic by adding an entry
 
 Instruction Decoding
---------------------
+====================
 
 Prefixes
-^^^^^^^^
+--------
 
 Processors like the Z80 and the x86 family have prefixes that modify how instructions work. The syntax described here has only been validated with the Z80, so it might have to be redesigned when support for other instruction sets with prefixes is added later.
 
@@ -697,12 +698,12 @@ Decode flags are considered to be zero at the start of the decoding of each inst
 Opcode bytes that select different instructions rather than modify existing instructions should not be modeled as prefixes, but as part of the instruction itself. For example, the Z80 ``$CB`` and ``$ED`` opcode bytes are considered part of the instruction encoding, so ``LDIR`` has the encoding ``$ED $B0``\ , not ``$B0`` with a ``$ED`` prefix.
 
 Branch Delay Slots
-^^^^^^^^^^^^^^^^^^
+------------------
 
 There is no way yet to specify that an instruction set uses branch delay slots, but this will likely be added in the future.
 
 Adding New Instruction Sets
----------------------------
+===========================
 
 You can use the ``retro checkdef`` command to verify instruction set definition files:
 

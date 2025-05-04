@@ -1,8 +1,9 @@
+*********
 Assembler
-=========
+*********
 
 Numbers
--------
+=======
 
 The preferred syntax for hexadecimal and binary numbers is to use the ``$``  and ``%`` prefix respectively:
 
@@ -31,7 +32,7 @@ On a hexadecimal number starting with 'A'-'F', a leading zero has to be added to
 
 
 Command Line Syntax
--------------------
+===================
 
 .. click:: retroasm.cmdline:asm
    :prog: retro asm
