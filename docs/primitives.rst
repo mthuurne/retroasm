@@ -1,7 +1,11 @@
-Primitives
-==========
+Semantic Primitives
+===================
 
-While the instruction set definition language is pretty low-level, for analysis we want even lower-level primitives. Those primitives and how higher-level objects are built from them are described in this document.
+While the instruction set definition language is pretty low-level, for semantic analysis and emulator code generation we want even lower-level primitives. Those primitives and how higher-level objects are built from them are described in this document.
+
+The goal of breaking down semantic definitions into low-level primitives is to reduce the **number** of different operations and to reduce the **complexity** of each individual operation, to simplify the code that handles those operations. The trade-off is that we'll need a deeper nesting of operations to express the same semantics, but for automated processing that is a very low cost.
+
+If you use RetroAsm only through its command line interface, you don't need to know about the primitives. However, if you use it through its API, you are likely to encounter the primitives.
 
 .. index:: ! expression
 
@@ -12,14 +16,13 @@ An *expression* is a tree containing literals and constants in its leaves and ma
 
 The following types of expression nodes exist:
 
-
 * integer literals (\ ``123``\ )
 * constants (\ ``X``\ )
 * integer complement (\ ``-X``\ )
 * Boolean negation / zero test (\ ``!X``\ )
 * sign test (\ ``X < 0``\ )
 * sign extension
-* bitwise operators: and, or, xor
+* bitwise operators: *and*, *or*, *xor*
 * addition
 * left/right shift by fixed amount (\ ``X << 4``\ )
 * left/right shift by variable amount (\ ``X << Y``\ )
@@ -72,12 +75,12 @@ Note that ``X < 0`` is the sign test primitive, so for example ``A + -B < 0`` is
 Shifting
 ^^^^^^^^
 
-A shift by a fixed amount is equivalent to a shift by a variable amount where that variable amount is a literal. However, a shift by a fixed amount is a very common operation and offers so much more options for analysis that it's worth having a dedicated node type for it.
+A shift by a fixed amount is equivalent to a shift by a variable amount where that variable amount is an integer literal. However, a shift by a fixed amount is a very common operation and offers so much more options for analysis that it's worth having a dedicated primitive for it.
 
 Truncation
 ^^^^^^^^^^
 
-Truncation is an operation that preserves only the last :math:`N` bits of a value, the rest is replaced by zeroes. There is no dedicated node type for truncation: a bit mask is computed with the value :math:`2^N-1`, meaning :math:`N` consecutive ones in binary, and the truncation is handled by a bitwise *and* of the value and this mask.
+Truncation is an operation that preserves only the last :math:`N` bits of a value, the rest is replaced by zeroes. There is no primitive for truncation: a bit mask is computed with the value :math:`2^N-1`, meaning :math:`N` consecutive ones in binary, and the truncation is handled by a bitwise *and* of the value and this mask.
 
 Concatenation
 ^^^^^^^^^^^^^
