@@ -382,7 +382,9 @@ The ``nop`` statement does absolutely nothing. It can be used in situations wher
 Functions
 =========
 
-Functions can be defined to avoid duplication in instruction set definitions:
+*Functions* group statements and make them reusable. The instruction set definition language uses the term "function" both for pure mathematical functions and for procedures which read and/or write state (registers or I/O).
+
+Functions are defined using a ``func`` block:
 
 .. code-block::
 
@@ -429,6 +431,29 @@ If the return type is a reference type, the function returns a reference by defi
 
 
 If a local variable is part of a returned reference, it will be treated as a constant containing the value of that variable at the exit of the function body. It is not possible to modify a local variable after the function has finished executing.
+
+Calling a Function
+------------------
+
+A function can be called as a statement or as part of an expression:
+
+.. code-block::
+
+   suspend_interrupts()
+   push(pc)
+   pc := calc_addr(R, N)
+
+A function that returns something can be called as a statement, in which case the returned value or reference is ignored.
+A function that returns nothing cannot be called as part of an expression.
+
+Arguments are evaluated from left to right.
+
+When a reference is passed for a value argument, the reference's value at the time of the call is passed.
+
+Literals and constants can be passed as (part of) a reference argument. This will create a reference to the expression from which its fixed value can be read and that ignores any writes.
+
+A function can be called only from statements **after** its ``func`` block in the definitions file. As a consequence, it is not possible to make recursive function calls.
+
 
 Modes
 =====
