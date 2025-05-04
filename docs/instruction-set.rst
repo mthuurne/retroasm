@@ -472,12 +472,31 @@ The type in the header is the type for expressions the semantics field. For mode
 
 There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
 
-Encoding, Mnemonic, Semantics
------------------------------
+Encoding
+--------
 
 The encoding field contains the integer values used to encode the operand in instructions. This is typically not a full instruction, but for example only the bits that select the register to operate on.
 
-The mnemonic field contains the syntax used in assembly language. It is split into words and symbols. Whitespace can be used to separate words and is otherwise ignored. Words consist of one or more letters, numbers and underscores. All characters that are not whitespace and not allowed in words are considered symbols, which each such character being an individual symbol. For example ``ld (hl),R`` is split into the word ``"ld"``\ , the symbol ``'('``\ , the word ``"hl"``\ , the symbol ``')'``\ , the symbol ``','`` and the word ``"R"``.
+Mnemonic
+--------
+
+The mnemonic field contains the syntax used in assembly language.
+While there are many differences in mnemonic syntax between CPU architectures, the following properties are assumed to be shared by all of them:
+
+- instructions consist of an operation optionally followed by comma separated operands
+- operands can contain the brackets ``()``, ``[]`` or ``{}``, which must be nested properly
+- commas within brackets are not considered operand separators
+- keywords (operations, register names etc.) are case-insensitive
+- whitespace can be used to separate keywords and numbers and is otherwise ignored
+
+For example the mnemonic ``ldr R0, [R1, \#N]!`` describes an instruction which applies the operation ``ldr`` on two operands: the name ``R0`` and a square brackets group followed by the symbol ``!``; within the square brackets are the name ``R1``, the symbols ``,`` and ``#`` and finally the name ``N``.
+
+Note that while keywords are case-insensitive when reading assembly sources, within the instruction set definition all names are case-sensitive. We encourage the use of lower case for all names except placeholders (more about those soon). For example, the Z80 definition contains a register named ``r`` (the refresh register) and placeholders named ``R``.
+
+Numbers in mnemonic definitions use the same integer literal syntax as encoding and semantics definitions. A different number syntax could be used in assembly sources.
+
+Semantics
+---------
 
 The semantics field contains an expression, either a value or a reference to a storage location, that describes the operand in a way RetroAsm can analyze. The semantics field can be omitted, in which case the mnemonic field is parsed as the semantics expression; this is useful for registers where the mnemonic is usually just the register name. If the semantics cannot be expressed in a single expression, a function call can be used to include a longer definition.
 
