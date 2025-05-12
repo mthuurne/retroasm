@@ -32,7 +32,6 @@ from ..mode import (
     EncodingItem,
     EncodingMultiMatch,
     MatchPlaceholder,
-    MnemItem,
     Mnemonic,
     Mode,
     ModeEntry,
@@ -45,7 +44,7 @@ from ..namespace import (
     NameExistsError,
     Namespace,
 )
-from ..reference import Reference, bad_reference, int_reference
+from ..reference import Reference, bad_reference
 from ..storage import ArgStorage, IOChannel, IOStorage, Register
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
@@ -65,7 +64,6 @@ from .expression_nodes import (
     IdentifierNode,
     MultiMatchNode,
     ParseNode,
-    parse_int,
 )
 from .expression_parser import (
     parse_context,
@@ -76,6 +74,7 @@ from .expression_parser import (
 )
 from .function_builder import create_func
 from .linereader import DefLineReader
+from .mnemonic import parse_mnemonic
 
 _name_pat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _name_tok = r"\s*(" + _name_pat + r")\s*"
@@ -1036,43 +1035,6 @@ def _parse_instr_semantics(
     build_statement_eval(collector, "semantics field", namespace, node)
 
 
-_re_mnemonic = re.compile(r"\w+'?|[$%]\w+|[^\w\s]")
-
-
-def _parse_mnemonic(
-    mnem_loc: InputLocation,
-    placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-    collector: ErrorCollector,
-) -> Iterator[MnemItem]:
-    placeholder_map = {p.name: p for p in placeholders}
-    seen_placeholders: dict[str, InputLocation] = {}
-    for mnem_elem in mnem_loc.find_locations(_re_mnemonic):
-        text = mnem_elem.text
-        placeholder = placeholder_map.get(text)
-        if placeholder is None:
-            if "0" <= text[0] <= "9" or text[0] in "$%":
-                try:
-                    value, width = parse_int(text)
-                except ValueError as ex:
-                    collector.error(f"{ex}", location=mnem_elem)
-                else:
-                    yield int_reference(value, IntType.u(width))
-            else:
-                yield text
-        elif text in seen_placeholders:
-            # In theory we could support repeated placeholders, but the only
-            # meaning that would make sense is that they would all match the
-            # same mode entry or expression and I don't know of any situation
-            # in which that would be a useful feature.
-            collector.error(
-                f'placeholder "{text}" occurs multiple times in mnemonic',
-                location=(mnem_elem, seen_placeholders[text]),
-            )
-        else:
-            yield placeholder
-            seen_placeholders[text] = mnem_elem
-
-
 def _parse_mode_entries(
     reader: DefLineReader,
     collector: ErrorCollector,
@@ -1170,7 +1132,7 @@ def _parse_mode_entries(
 
                 # Parse mnemonic.
                 mnem_items = mnem_base + tuple(
-                    _parse_mnemonic(mnem_loc, placeholders, collector)
+                    parse_mnemonic(mnem_loc, placeholders, collector)
                 )
                 if len(mnem_items) == 0:
                     collector.error("missing mnemonic", location=mnem_loc)
@@ -1387,7 +1349,7 @@ def _parse_instr(
     want_semantics: bool,
 ) -> Iterator[ParsedModeEntry]:
     mnem_base = []
-    for mnem_item in _parse_mnemonic(args, {}, collector):
+    for mnem_item in parse_mnemonic(args, {}, collector):
         if isinstance(mnem_item, str):
             mnem_base.append(mnem_item)
         else:
