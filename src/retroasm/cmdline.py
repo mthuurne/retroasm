@@ -399,7 +399,7 @@ class EntryPointParamType(ParamType):
     name = "entry point"
 
     @override
-    def get_metavar(self, param: Parameter) -> str:
+    def get_metavar(self, param: Parameter, ctx: Context) -> str:
         return "OFFSET[,LABEL]"
 
     @override
@@ -429,7 +429,7 @@ class SectionParamType(ParamType):
     name = "section"
 
     @override
-    def get_metavar(self, param: Parameter) -> str:
+    def get_metavar(self, param: Parameter, ctx: Context) -> str:
         return "OPT1:...:OPTn"
 
     @override
