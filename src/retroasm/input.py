@@ -166,6 +166,28 @@ class InputLocation:
             curr = sep_end
         yield self.update_span((curr, search_end))
 
+    def tokenize(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
+        """
+        Splits the text in this location into tokens that each match the given
+        pattern.
+        Returns an iterator that yields an InputMatch object for each token.
+        Raises BadInput if any part of the text does not match the pattern.
+        Raises BadInput if an empty token is matched.
+        """
+        idx, end = self.span
+        while idx != end:
+            match = pattern.match(self.line, idx, end)
+            if match is None:
+                if (next_match := pattern.search(self.line, idx, end)) is not None:
+                    end = next_match.start()
+                raise BadInput.with_text("invalid token", self.update_span((idx, end)))
+            if (next_idx := match.end()) == idx:
+                # Accepting the empty token match would result in an infinite loop.
+                raise BadInput.with_text("empty token", self.update_span((idx, idx)))
+            else:
+                idx = next_idx
+            yield InputMatch(self, match)
+
 
 class BadInput(Exception):
     """

@@ -57,7 +57,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
 
     @classmethod
     def _iter_tokens(cls: type[TokenT], location: InputLocation) -> TokenStream[TokenT]:
-        for match in location.find_matches(cls.pattern):
+        for match in location.tokenize(cls.pattern):
             name = match.group_name
             if name is None:
                 # Skip whitespace.

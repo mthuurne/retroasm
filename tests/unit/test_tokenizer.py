@@ -2,8 +2,17 @@ from __future__ import annotations
 
 from pytest import raises
 
-from retroasm.parser.expression_parser import ExprToken, ExprTokenizer
-from retroasm.parser.tokens import Tokenizer
+from retroasm.input import BadInput, InputLocation
+from retroasm.parser.tokens import TokenEnum, Tokenizer
+
+
+class TestToken(TokenEnum):
+    identifier = r"[A-Za-z_][A-Za-z0-9_]*"
+    number = r"[0-9]+"
+
+
+class TestTokenizer(Tokenizer[TestToken]):
+    pass
 
 
 def test_token_class_unspecialized() -> None:
@@ -16,8 +25,25 @@ def test_token_class_unspecialized() -> None:
 
 
 def test_token_class_specialized() -> None:
-    assert Tokenizer[ExprToken].get_token_class() is ExprToken
+    assert Tokenizer[TestToken].get_token_class() is TestToken
 
 
 def test_token_class_subclass() -> None:
-    assert ExprTokenizer.get_token_class() is ExprToken
+    assert TestTokenizer.get_token_class() is TestToken
+
+
+def test_tokenize_simple() -> None:
+    tokens = TestTokenizer.scan(InputLocation.from_string("one 2 thr33"))
+    assert [(typ, loc.text) for typ, loc in tokens] == [
+        (TestToken.identifier, "one"),
+        (TestToken.number, "2"),
+        (TestToken.identifier, "thr33"),
+    ]
+
+
+def test_tokenize_unmatched() -> None:
+    with raises(
+        BadInput,
+        match=r"^invalid token: \+$",
+    ):
+        TestTokenizer.scan(InputLocation.from_string("one + 2"))
