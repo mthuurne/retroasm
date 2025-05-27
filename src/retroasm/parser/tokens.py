@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from enum import Enum, EnumMeta
 from re import Pattern
-from typing import Any, TypeVar, cast, override
+from typing import Any, Self, TypeVar, override
 
 from ..input import InputLocation
 
@@ -103,11 +103,9 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
             ) from None
 
     @classmethod
-    def scan(cls: type[T], location: InputLocation) -> T:
+    def scan(cls, location: InputLocation) -> Self:
         """Split an input string into tokens."""
-        token_class = cast(Tokenizer[TokenT], cls).get_token_class()
-        constructor = cast(Callable[[TokenStream[TokenT]], T], cls)
-        return constructor(token_class._iter_tokens(location))
+        return cls(cls.get_token_class()._iter_tokens(location))
 
     _kind: TokenT | None
     _location: InputLocation
@@ -146,15 +144,13 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         self._token_index = start
         self._advance()
 
-    def copy(self: T) -> T:
+    def copy(self) -> Self:
         """
         Make a copy of this tokenizer at its current position.
 
         The original and the copy can be used independently.
         """
-        constructor = cast(Callable[[TokenStream[TokenT], int], T], self.__class__)
-        assert isinstance(self, Tokenizer)
-        return constructor(self._tokens, self._token_index - 1)
+        return self.__class__(self._tokens, self._token_index - 1)
 
     @override
     def __next__(self) -> tuple[TokenT, InputLocation]:
