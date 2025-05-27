@@ -74,7 +74,7 @@ from .expression_parser import (
 )
 from .function_builder import create_func
 from .linereader import DefLineReader
-from .mnemonic import parse_mnemonic
+from .mnemonic import MnemonicTokenizer, parse_mnemonic
 
 _name_pat = r"[A-Za-z_][A-Za-z0-9_]*'?"
 _name_tok = r"\s*(" + _name_pat + r")\s*"
@@ -1042,7 +1042,7 @@ def _parse_mode_entries(
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     mode_type: None | IntType | ReferenceType,
-    mnem_base: tuple[str, ...],
+    mnem_base_tokens: MnemonicTokenizer,
     parse_sem: Callable[
         [ErrorCollector, InputLocation, LocalNamespace, None | IntType | ReferenceType],
         Reference | None,
@@ -1131,9 +1131,8 @@ def _parse_mode_entries(
                     )
 
                 # Parse mnemonic.
-                mnem_items = mnem_base + tuple(
-                    parse_mnemonic(mnem_loc, placeholders, collector)
-                )
+                mnem_tokens = mnem_base_tokens + MnemonicTokenizer.scan(mnem_loc)
+                mnem_items = tuple(parse_mnemonic(mnem_tokens, placeholders, collector))
                 if len(mnem_items) == 0:
                     collector.error("missing mnemonic", location=mnem_loc)
                 else:
@@ -1321,7 +1320,7 @@ def _parse_mode(
             prefixes,
             modes,
             sem_type,
-            (),
+            MnemonicTokenizer.empty(),
             _parse_mode_semantics,
             want_semantics,
         )
@@ -1348,15 +1347,6 @@ def _parse_instr(
     modes: Mapping[str, Mode],
     want_semantics: bool,
 ) -> Iterator[ParsedModeEntry]:
-    mnem_base = []
-    for mnem_item in parse_mnemonic(args, {}, collector):
-        if isinstance(mnem_item, str):
-            mnem_base.append(mnem_item)
-        else:
-            # TODO: The main reason to disallow this is that it would complicate
-            #       the code to support it. Is that a good enough reason?
-            collector.error("the mnemonic base cannot contain numbers", location=args)
-
     for instr in _parse_mode_entries(
         reader,
         collector,
@@ -1364,7 +1354,7 @@ def _parse_instr(
         prefixes,
         modes,
         None,
-        tuple(mnem_base),
+        MnemonicTokenizer.scan(args),
         _parse_instr_semantics,
         want_semantics,
     ):

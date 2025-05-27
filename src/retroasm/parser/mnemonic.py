@@ -36,14 +36,14 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 
 def parse_mnemonic(
-    mnem_loc: InputLocation,
+    tokens: MnemonicTokenizer,
     placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     placeholder_map = {p.name: p for p in placeholders}
     seen_placeholders: dict[str, InputLocation] = {}
 
-    for token_type, token_loc in MnemonicTokenizer.scan(mnem_loc):
+    for token_type, token_loc in tokens:
         text = token_loc.text
         match token_type:
             case MnemonicToken.identifier:

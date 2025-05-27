@@ -102,6 +102,13 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
                 "for example Tokenizer[MyTokenEnum]"
             ) from None
 
+    _empty_tokens = ((None, InputLocation.from_string("")),)
+
+    @classmethod
+    def empty(cls) -> Self:
+        """Return an empty tokenizer."""
+        return cls(cls._empty_tokens)
+
     @classmethod
     def scan(cls, location: InputLocation) -> Self:
         """Split an input string into tokens."""
