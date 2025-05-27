@@ -47,3 +47,15 @@ def test_tokenize_unmatched() -> None:
         match=r"^invalid token: \+$",
     ):
         TestTokenizer.scan(InputLocation.from_string("one + 2"))
+
+
+def test_tokenizer_concat() -> None:
+    tokens1 = TestTokenizer.scan(InputLocation.from_string("0 one"))
+    tokens1.eat(TestToken.number, "0")
+    tokens2 = TestTokenizer.scan(InputLocation.from_string("2 thr33"))
+    tokens = tokens1 + tokens2
+    assert [(typ, loc.text) for typ, loc in tokens] == [
+        (TestToken.identifier, "one"),
+        (TestToken.number, "2"),
+        (TestToken.identifier, "thr33"),
+    ]

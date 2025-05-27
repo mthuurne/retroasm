@@ -144,6 +144,15 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         self._token_index = start
         self._advance()
 
+    def __add__(self, other: Self) -> Self:
+        if isinstance(other, Tokenizer):
+            return self.__class__(
+                self._tokens[self._token_index - 1 : -1]
+                + other._tokens[other._token_index - 1 :]
+            )
+        else:
+            return NotImplemented
+
     def copy(self) -> Self:
         """
         Make a copy of this tokenizer at its current position.
