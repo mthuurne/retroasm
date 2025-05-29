@@ -502,13 +502,16 @@ def _parse_mode_context(
                         )
                 else:
                     try:
-                        # TODO: While the documentation says we do support defining
-                        #       references in the context, parse_type() rejects
-                        #       "<type>&"; we'd have to use parse_type_decl() instead.
-                        typ = parse_type(type_name)
+                        typ = parse_type_decl(type_name)
                     except ValueError:
                         collector.error(
                             f'there is no type or mode named "{type_name}"',
+                            location=decl_type.location,
+                        )
+                        continue
+                    if isinstance(typ, ReferenceType):
+                        collector.error(
+                            "placeholders cannot be references",
                             location=decl_type.location,
                         )
                         continue
@@ -575,14 +578,11 @@ def _build_placeholders(
 
         match spec:
             case ValuePlaceholderSpec():
-                if sem_type is not None:
-                    # TODO: We don't actually support references types yet.
-                    #       See TODO in _parseModeContext().
-                    assert isinstance(sem_type, IntType), sem_type
-                    if code is None:
-                        yield ValuePlaceholder(name, sem_type)
-                    else:
-                        yield ComputedPlaceholder(name, sem_type, code)
+                sem_type = spec.type  # narrow Python type
+                if code is None:
+                    yield ValuePlaceholder(name, sem_type)
+                else:
+                    yield ComputedPlaceholder(name, sem_type, code)
             case MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode)
             case spec:

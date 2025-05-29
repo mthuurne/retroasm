@@ -531,7 +531,7 @@ The simplest use of the context field is to define immediate values, using the s
 
 The names ``N`` and ``A`` that are declared in the context are used in the other fields; these uses are called placeholders. A placeholder represents a value that will substituted at a later time. In the examples above, that value will be an 8-bit unsigned integer.
 
-The context field can contain multiple items, separated by commas. It is possible to define constants and references, similar to the ``def`` keyword in functions: constants are defined using ``<type> <name> = <expr>`` and references are defined using ``<type>& <name> = <expr>``. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
+The context field can contain multiple items, separated by commas. It is possible to define constants using the syntax ``<type> <name> = <expr>``. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
 
 .. code-block::
 
