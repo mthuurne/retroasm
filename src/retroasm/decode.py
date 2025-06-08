@@ -683,12 +683,12 @@ class DecoderFactory:
             flags_are_set = self._flags.issuperset
             decoder = _create_decoder(
                 _create_entry_decoder(
-                    *_qualify_names(parsedEntry, branch_name),
-                    parsedEntry.fixed_matcher,
+                    *_qualify_names(parsed_entry, branch_name),
+                    parsed_entry.fixed_matcher,
                     factory=self,
                 )
-                for parsedEntry in parsed_entries
-                if flags_are_set(parsedEntry.entry.flags_required)
+                for parsed_entry in parsed_entries
+                if flags_are_set(parsed_entry.entry.flags_required)
             )
             cache[key] = decoder
         return decoder
