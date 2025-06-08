@@ -1075,27 +1075,25 @@ def _parse_mode_entries(
         fields += [line.end_location] * (4 - len(fields))
         enc_loc, mnem_loc, sem_loc, ctx_loc = fields
 
+        # Parse context.
+        if ctx_loc:
+            try:
+                with collector.check():
+                    placeholder_specs = _parse_mode_context(ctx_loc, modes, collector)
+                    placeholders = tuple(
+                        _build_placeholders(
+                            placeholder_specs, global_namespace, collector
+                        )
+                    )
+            except DelayedError:
+                # To avoid error spam, skip this line.
+                continue
+        else:
+            placeholder_specs = {}
+            placeholders = ()
+
         try:
             with collector.check():
-                # Parse context.
-                if len(ctx_loc) != 0:
-                    try:
-                        with collector.check():
-                            placeholder_specs = _parse_mode_context(
-                                ctx_loc, modes, collector
-                            )
-                            placeholders = tuple(
-                                _build_placeholders(
-                                    placeholder_specs, global_namespace, collector
-                                )
-                            )
-                    except DelayedError:
-                        # To avoid error spam, skip this line.
-                        continue
-                else:
-                    placeholder_specs = {}
-                    placeholders = ()
-
                 # Parse required decode flags.
                 flags_required = _parse_flags_required(ctx_loc, prefixes, collector)
 
