@@ -474,12 +474,10 @@ def _parse_func(
 
 def _parse_mode_context(
     ctx_loc: InputLocation,
-    prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     collector: ErrorCollector,
-) -> tuple[Mapping[str, PlaceholderSpec], set[str]]:
+) -> Mapping[str, PlaceholderSpec]:
     placeholder_specs = {}
-    flags_required = set()
     for node in parse_context(ctx_loc):
         match node:
             case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
@@ -524,18 +522,32 @@ def _parse_mode_context(
                     )
                 else:
                     placeholder_specs[name] = placeholder
-            case FlagTestNode(name=name):
-                if prefixes.has_flag(name):
-                    flags_required.add(name)
-                else:
-                    collector.error(
-                        f'there is no decode flag named "{name}"',
-                        location=node.location,
-                    )
+            case FlagTestNode():
+                pass
             case node:
                 bad_type(node)
 
-    return placeholder_specs, flags_required
+    return placeholder_specs
+
+
+def _parse_flags_required(
+    ctx_loc: InputLocation,
+    prefixes: PrefixMappingFactory,
+    collector: ErrorCollector,
+) -> set[str]:
+    flags_required = set()
+    if len(ctx_loc) != 0:
+        for node in parse_context(ctx_loc):
+            match node:
+                case FlagTestNode(name=name):
+                    if prefixes.has_flag(name):
+                        flags_required.add(name)
+                    else:
+                        collector.error(
+                            f'there is no decode flag named "{name}"',
+                            location=node.location,
+                        )
+    return flags_required
 
 
 def _build_placeholders(
@@ -1069,8 +1081,8 @@ def _parse_mode_entries(
                 if len(ctx_loc) != 0:
                     try:
                         with collector.check():
-                            placeholder_specs, flags_required = _parse_mode_context(
-                                ctx_loc, prefixes, modes, collector
+                            placeholder_specs = _parse_mode_context(
+                                ctx_loc, modes, collector
                             )
                             placeholders = tuple(
                                 _build_placeholders(
@@ -1081,8 +1093,11 @@ def _parse_mode_entries(
                         # To avoid error spam, skip this line.
                         continue
                 else:
-                    placeholder_specs, flags_required = {}, set()
+                    placeholder_specs = {}
                     placeholders = ()
+
+                # Parse required decode flags.
+                flags_required = _parse_flags_required(ctx_loc, prefixes, collector)
 
                 # Parse encoding.
                 enc_nodes: Iterable[ParseNode] | None
