@@ -688,7 +688,7 @@ class DecoderFactory:
                     factory=self,
                 )
                 for parsed_entry in parsed_entries
-                if flags_are_set(parsed_entry.entry.flags_required)
+                if flags_are_set(parsed_entry.entry.encoding.flags_required)
             )
             cache[key] = decoder
         return decoder

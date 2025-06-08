@@ -287,7 +287,7 @@ def _parse_prefix(
         except DelayedError:
             encoding = None
         else:
-            encoding = Encoding(enc_items, enc_loc)
+            encoding = Encoding(enc_items, {}, enc_loc)
 
         # Parse mnemonic.
         if len(mnem_loc) != 0:
@@ -1122,7 +1122,7 @@ def _parse_mode_entries(
                     except DelayedError:
                         encoding = None
                     else:
-                        encoding = Encoding(enc_items, enc_loc)
+                        encoding = Encoding(enc_items, flags_required, enc_loc)
                 if encoding is None:
                     decoding = None
                 else:
@@ -1189,7 +1189,6 @@ def _parse_mode_entries(
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
                     template,
                     placeholders,
-                    frozenset(flags_required),
                 )
                 yield ParsedModeEntry(entry, *decoding)
 

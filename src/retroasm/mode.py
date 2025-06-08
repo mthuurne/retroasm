@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
-from typing import Any, overload, override
+from typing import Any, Final, overload, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
@@ -213,7 +213,12 @@ class Encoding:
     The items within an encoding definition are exposed as a sequence.
     """
 
-    def __init__(self, items: Iterable[EncodingItem], location: InputLocation):
+    def __init__(
+        self,
+        items: Iterable[EncodingItem],
+        flags_required: Iterable[str],
+        location: InputLocation,
+    ):
         # Filter out zero-length encoding items.
         # There is no good reason to ban them, but keeping them around would
         # unnecessarily complicate the code.
@@ -234,6 +239,8 @@ class Encoding:
                     consistent &= item.aux_encoding_width in (None, aux_width)
             if not consistent:
                 raise ValueError("inconsistent widths among auxiliary encoding units")
+
+        self.flags_required: Final[Set[str]] = frozenset(flags_required)
 
         self._location = location
 
@@ -313,14 +320,18 @@ class Encoding:
                         items += get_sub_encoding(name, submatch)[item.start :]
                 case item:
                     bad_type(item)
-        return Encoding(items, self._location)
+        return Encoding(items, match.flags_required, self._location)
 
     def rename(self, name_map: Mapping[str, str]) -> Encoding:
         """
         Returns a new Encoding, in which all placeholder names are
         substituted by their value in the given mapping.
         """
-        return Encoding((item.rename(name_map) for item in self._items), self._location)
+        return Encoding(
+            (item.rename(name_map) for item in self._items),
+            self.flags_required,
+            self._location,
+        )
 
     @property
     def encoding_width(self) -> Width | None:
@@ -547,19 +558,17 @@ class ModeEntry:
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
         placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
-        flags_required: Set[str],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self.placeholders = tuple(placeholders)
-        self.flags_required = frozenset(flags_required)
 
     @override
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
-            f"{self._semantics!r}, {self.placeholders!r}, {self.flags_required!r})"
+            f"{self._semantics!r}, {self.placeholders!r})"
         )
 
     @property
@@ -614,7 +623,6 @@ class ModeEntry:
             self.mnemonic.rename(name_map),
             None if semantics is None else semantics.rename(name_map),
             (p.rename(name_map[p.name]) for p in self.placeholders),
-            self.flags_required,
         )
 
 
@@ -644,7 +652,7 @@ class ModeMatch:
     @property
     def flags_required(self) -> Set[str]:
         """The prefix flags that must be set to match this mode entry."""
-        flags = self._entry.flags_required
+        flags = self._entry.encoding.flags_required
         for submatch in self._subs.values():
             flags |= submatch.flags_required
         return flags
@@ -972,11 +980,14 @@ class EncodeMatch:
             if (name := placeholder.name) not in subs and name not in values
         )
 
-        flags_required = entry.flags_required.union(
-            *(match.entry.flags_required for match in self._subs.values())
-        )
+        return ModeEntry(encoding, mnemonic, semantics, unfilled)
 
-        return ModeEntry(encoding, mnemonic, semantics, unfilled, flags_required)
+    @const_property
+    def flags_required(self) -> Set[str]:
+        flags_required = self._entry.encoding.flags_required
+        for match in self._subs.values():
+            flags_required |= match.entry.encoding.flags_required
+        return flags_required
 
     @const_property
     def encoded_length(self) -> int:
