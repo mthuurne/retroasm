@@ -67,6 +67,7 @@ from .expression_nodes import (
 )
 from .expression_parser import (
     parse_context,
+    parse_encoding,
     parse_expr,
     parse_expr_list,
     parse_regs,
@@ -522,32 +523,10 @@ def _parse_mode_context(
                     )
                 else:
                     placeholder_specs[name] = placeholder
-            case FlagTestNode():
-                pass
             case node:
                 bad_type(node)
 
     return placeholder_specs
-
-
-def _parse_flags_required(
-    ctx_loc: InputLocation,
-    prefixes: PrefixMappingFactory,
-    collector: ErrorCollector,
-) -> set[str]:
-    flags_required = set()
-    if len(ctx_loc) != 0:
-        for node in parse_context(ctx_loc):
-            match node:
-                case FlagTestNode(name=name):
-                    if prefixes.has_flag(name):
-                        flags_required.add(name)
-                    else:
-                        collector.error(
-                            f'there is no decode flag named "{name}"',
-                            location=node.location,
-                        )
-    return flags_required
 
 
 def _build_placeholders(
@@ -720,14 +699,35 @@ def _parse_mode_encoding(
     # Evaluate encoding field.
     for enc_node in enc_nodes:
         try:
-            if isinstance(enc_node, MultiMatchNode):
-                # Match multiple encoding fields as-is.
-                yield _parse_multi_match(enc_node, identifiers, placeholder_specs)
-            else:
-                # Expression possibly containing single encoding field matches.
-                yield _parse_encoding_expr(enc_node, enc_namespace, placeholder_specs)
+            match enc_node:
+                case FlagTestNode():
+                    pass
+                case MultiMatchNode():
+                    # Match multiple encoding fields as-is.
+                    yield _parse_multi_match(enc_node, identifiers, placeholder_specs)
+                case _:
+                    # Expression possibly containing single encoding field matches.
+                    yield _parse_encoding_expr(
+                        enc_node, enc_namespace, placeholder_specs
+                    )
         except BadInput as ex:
             collector.error(f"{ex}", location=ex.locations)
+
+
+def _parse_flags_required(
+    enc_nodes: Iterable[ParseNode],
+    prefixes: PrefixMappingFactory,
+    collector: ErrorCollector,
+) -> Iterator[str]:
+    for node in enc_nodes:
+        if isinstance(node, FlagTestNode):
+            if prefixes.has_flag(name := node.name):
+                yield name
+            else:
+                collector.error(
+                    f'there is no decode flag named "{name}"',
+                    location=node.location,
+                )
 
 
 def _check_empty_multi_matches(
@@ -1094,15 +1094,12 @@ def _parse_mode_entries(
 
         try:
             with collector.check():
-                # Parse required decode flags.
-                flags_required = _parse_flags_required(ctx_loc, prefixes, collector)
-
                 # Parse encoding.
                 enc_nodes: Iterable[ParseNode] | None
                 if len(enc_loc) != 0:
                     try:
                         # Parse encoding field.
-                        enc_nodes = parse_expr_list(enc_loc)
+                        enc_nodes = parse_encoding(enc_loc)
                     except BadInput as ex:
                         collector.error(
                             f"error in encoding: {ex}", location=ex.locations
@@ -1131,6 +1128,11 @@ def _parse_mode_entries(
                             _check_duplicate_multi_matches(enc_items, collector)
                             _check_missing_placeholders(
                                 enc_items, placeholder_specs, enc_loc, collector
+                            )
+                        # Parse required decode flags.
+                        with collector.check():
+                            flags_required = set(
+                                _parse_flags_required(enc_nodes, prefixes, collector)
                             )
                     except DelayedError:
                         encoding = None

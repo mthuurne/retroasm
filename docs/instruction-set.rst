@@ -518,7 +518,7 @@ The optional context field will be explained soon, but first an example using on
 Context: Placeholders
 ---------------------
 
-The simplest use of the context field is to define immediate values, using the syntax ``<type> <name>``. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
+The context field can be used to define immediate values, using the syntax ``<type> <name>``. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
 
 .. code-block::
 
@@ -539,36 +539,6 @@ The context field can contain multiple items, separated by commas. It is possibl
 
 
 A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
-
-Context: Decode Flags
----------------------
-
-A final use of the context field is to filter on instruction decode flags, using the syntax ``?<name>``. For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
-
-.. code-block::
-
-   %100    . h
-   %100    . ixh       .               . ?ix
-   %100    . iyh       .               . ?iy
-   %101    . l
-   %101    . ixl       .               . ?ix
-   %101    . iyl       .               . ?iy
-
-
-The entries that test decode flags are placed after the corresponding entries that don't test flags, since the last matched entry is picked when decoding.
-
-Here is an example that defines Z80 indexed addressing, using a combination of a decode flag filter and an immediate:
-
-.. code-block::
-
-   %110    . (hl)      . mem[hl]
-   %110, N . (ix + N)  . mem[ix + N]   . ?ix, s8 N
-   %110, N . (iy + N)  . mem[iy + N]   . ?iy, s8 N
-
-
-If there are multiple decode flags tested in the context of a single mode entry, that entry will only be matched if all of those flags are set.
-
-Currently the only way to set decode flags is by using `prefixes`_.
 
 Extending Modes
 ---------------
@@ -746,6 +716,32 @@ The mnemonic field is empty, since the prefix is implied by the instruction's op
 Decode flags are considered to be zero at the start of the decoding of each instruction. If you want to model a persistent flag, you should instead define a register and one or more instructions to change that register.
 
 Opcode bytes that select different instructions rather than modify existing instructions should not be modeled as prefixes, but as part of the instruction itself. For example, the Z80 ``$CB`` and ``$ED`` opcode bytes are considered part of the instruction encoding, so ``LDIR`` has the encoding ``$ED $B0``\ , not ``$B0`` with a ``$ED`` prefix.
+
+Decode Flag Filter
+------------------
+
+The decode flags set by prefixes can be checked in the encoding column using the syntax ``?<name>``. A mode entry (row) can be matched only if all checked prefix flags are set.
+
+For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
+
+.. code-block::
+
+   %100        . h
+   %100, ?ixf  . ixh
+   %100, ?iyf  . iyh
+   %101        . l
+   %101, ?ixf  . ixl
+   %101, ?iyf  . iyl
+
+The entries that test decode flags are placed after the corresponding entries that don't test flags, since the last matched entry is picked when decoding.
+
+Here is an example that defines Z80 indexed addressing:
+
+.. code-block::
+
+   %110           . (hl)      . mem[hl]
+   %110, N, ?ixf  . (ix + N)  . mem[ix + N]   . s8 N
+   %110, N, ?iyf  . (iy + N)  . mem[iy + N]   . s8 N
 
 Branch Delay Slots
 ------------------

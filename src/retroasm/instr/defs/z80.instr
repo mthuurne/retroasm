@@ -82,15 +82,15 @@ mode u8& reg8
 %111                . a
 
 mode u8& memx
-N                   . (ix + N)          . mem[ix + N]       . ?ixf, s8 N
-N                   . (iy + N)          . mem[iy + N]       . ?iyf, s8 N
+N, ?ixf             . (ix + N)          . mem[ix + N]       . s8 N
+N, ?iyf             . (iy + N)          . mem[iy + N]       . s8 N
 
 mode u8& reg8x
 R                   . R                 . R                 . reg8 R
-%100                . ixh               .                   . ?ixf
-%100                . iyh               .                   . ?iyf
-%101                . ixl               .                   . ?ixf
-%101                . iyl               .                   . ?iyf
+%100, ?ixf          . ixh
+%100, ?iyf          . iyh
+%101, ?ixf          . ixl
+%101, ?iyf          . iyl
 %110, R             . R                 . R                 . memx R
 
 # 16-bit registers
@@ -103,8 +103,8 @@ mode u16& reg16
 
 mode u16& hlx
                     . hl
-                    . ix                .                   . ?ixf
-                    . iy                .                   . ?iyf
+?ixf                . ix
+?iyf                . iy
 
 mode u16& reg16x
 R                   . R                 . R                 . reg16 R
@@ -628,16 +628,16 @@ instr bit
 # Note: Sean's doc says that if a register is tested, XF and YF are copied
 #       from R & (1 << B) instead of just R, but that's not the behavior I see
 #       on NMS8250. Also, both openMSX and meisei copy the bits from just R.
-$CB, %01;B;R        . B,R           . bit(B, R, R)                      . u3 B, reg8 R
+$CB, %01;B;R                . B,R           . bit(B, R, R)                      . u3 B, reg8 R
 # Note: For (HL), XF and YF are copied from an internal Z80 register, which
 #       we don't model, so we reset those bits instead.
-$CB, %01;B;%110     . B,(hl)        . bit(B, mem[hl], 0)                . u3 B
+$CB, %01;B;%110             . B,(hl)        . bit(B, mem[hl], 0)                . u3 B
 # Undocumented variants do the same thing but with different encoding.
-$CB, N, %01;B;R     . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ixf, u3 B, s8 N, reg8 R
-$CB, N, %01;B;R     . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iyf, u3 B, s8 N, reg8 R
+$CB, N, %01;B;R, ?ixf       . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . u3 B, s8 N, reg8 R
+$CB, N, %01;B;R, ?iyf       . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . u3 B, s8 N, reg8 R
 # Put documented encoding last: we want to select this over the undocumented.
-$CB, N, %01;B;%110  . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . ?ixf, u3 B, s8 N
-$CB, N, %01;B;%110  . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . ?iyf, u3 B, s8 N
+$CB, N, %01;B;%110, ?ixf    . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . u3 B, s8 N
+$CB, N, %01;B;%110, ?iyf    . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . u3 B, s8 N
 
 func u8 res(u3 B, u8& R)
     var u8 V := R

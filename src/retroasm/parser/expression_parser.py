@@ -25,7 +25,6 @@ from .expression_nodes import (
 from .tokens import TokenEnum, Tokenizer
 
 type DefDeclNode = DeclarationNode | DefinitionNode
-type ContextNode = DeclarationNode | DefinitionNode | FlagTestNode
 
 
 class ExprToken(TokenEnum):
@@ -52,6 +51,7 @@ class _ParseMode(Enum):
     multi = auto()
     statement = auto()
     registers = auto()
+    encoding = auto()
     context = auto()
 
 
@@ -99,20 +99,28 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
             if tokens.eat(ExprToken.separator, ",") is None:
                 return exprs
 
-    def parse_context_top() -> Iterable[ContextNode]:
+    def parse_encoding_top() -> Iterable[ParseNode]:
+        exprs = []
+        while True:
+            node: ParseNode
+            if (location := tokens.eat(ExprToken.flagtest)) is not None:
+                node = FlagTestNode(location.text[1:], location=location)
+            else:
+                node = parse_expr_top()
+            exprs.append(node)
+            if tokens.eat(ExprToken.separator, ",") is None:
+                return exprs
+
+    def parse_context_top() -> Iterable[DefDeclNode]:
         elems = []
         while True:
-            node: ContextNode
+            node: DefDeclNode
             if tokens.peek(ExprToken.identifier):
                 node = parse_decl("ctx", tokens.location)
                 if (location := tokens.eat(ExprToken.definition)) is not None:
                     node = DefinitionNode(node, parse_expr_top(), location=location)
-            elif (location := tokens.eat(ExprToken.flagtest)) is not None:
-                node = FlagTestNode(location.text[1:], location=location)
             else:
-                raise bad_token_kind(
-                    "context element", "placeholder declaration or flag test"
-                )
+                raise bad_token_kind("context element", "placeholder declaration")
             elems.append(node)
             if tokens.eat(ExprToken.separator, ",") is None:
                 return elems
@@ -461,6 +469,7 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
         _ParseMode.single: parse_expr_top,
         _ParseMode.multi: parse_list,
         _ParseMode.registers: parse_regs_top,
+        _ParseMode.encoding: parse_encoding_top,
         _ParseMode.context: parse_context_top,
         _ParseMode.statement: parse_statement_top,
     }
@@ -490,8 +499,12 @@ def parse_regs(location: InputLocation) -> Iterable[DefDeclNode]:
     return cast(Iterable[DefDeclNode], _parse(location, _ParseMode.registers))
 
 
-def parse_context(location: InputLocation) -> Iterable[ContextNode]:
-    return cast(Iterable[ContextNode], _parse(location, _ParseMode.context))
+def parse_encoding(location: InputLocation) -> Iterable[ParseNode]:
+    return cast(Iterable[ParseNode], _parse(location, _ParseMode.encoding))
+
+
+def parse_context(location: InputLocation) -> Iterable[DefDeclNode]:
+    return cast(Iterable[DefDeclNode], _parse(location, _ParseMode.context))
 
 
 def parse_statement(location: InputLocation) -> ParseNode:
