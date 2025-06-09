@@ -25,7 +25,7 @@ from .tokens import TokenEnum, Tokenizer
 class MnemonicToken(TokenEnum):
     identifier = r"[A-Za-z_][A-Za-z0-9_]*'?"
     number = r"[%$0-9]\w*"
-    operator = r"[+\-*/&|^=<>@]+"
+    operator = r"\\?[+\-*/&|^=<>@#]+"
     bracket = r"[\[\](){}]"
     separator = r","
     other = r".+?"
@@ -70,7 +70,7 @@ def parse_mnemonic(
                 else:
                     yield int_reference(value, IntType.u(width))
             case MnemonicToken.operator:
-                yield text
+                yield text.lstrip("\\")
             case MnemonicToken.bracket:
                 yield text
             case MnemonicToken.separator:
