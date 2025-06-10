@@ -156,12 +156,12 @@ instr
 %001110;RS;RT;N                     . xori  RT,RS,N     . RT := RS ^ N          . reg RS, reg RT, u16 N
 
 instr
-%000000;%00000;RT;RD;SA;%000000     . sll   RD,RT,SA    . RD := RT << SA        . u5  SA, reg RT, reg RD
-%000000;%00000;RT;RD;SA;%000010     . srl   RD,RT,SA    . RD := RT >> SA        . u5  SA, reg RT, reg RD
-%000000;%00000;RT;RD;SA;%000011     . sra   RD,RT,SA    . RD := s32(RT) >> SA   . u5  SA, reg RT, reg RD
-%000000;RS;RT;RD;%00000;%000100     . sllv  RD,RT,RS    . RD := RT << SA        . reg RS, reg RT, reg RD, u5 SA = RS
-%000000;RS;RT;RD;%00000;%000110     . srlv  RD,RT,RS    . RD := RT >> SA        . reg RS, reg RT, reg RD, u5 SA = RS
-%000000;RS;RT;RD;%00000;%000111     . srav  RD,RT,RS    . RD := s32(RT) >> SA   . reg RS, reg RT, reg RD, u5 SA = RS
+%000000;%00000;RT;RD;SA;%000000     . sll   RD,RT,SA    . RD := RT << SA            . u5  SA, reg RT, reg RD
+%000000;%00000;RT;RD;SA;%000010     . srl   RD,RT,SA    . RD := RT >> SA            . u5  SA, reg RT, reg RD
+%000000;%00000;RT;RD;SA;%000011     . sra   RD,RT,SA    . RD := s32(RT) >> SA       . u5  SA, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%000100     . sllv  RD,RT,RS    . RD := RT << RS[:5]        . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%000110     . srlv  RD,RT,RS    . RD := RT >> RS[:5]        . reg RS, reg RT, reg RD
+%000000;RS;RT;RD;%00000;%000111     . srav  RD,RT,RS    . RD := s32(RT) >> RS[:5]   . reg RS, reg RT, reg RD
 
 
 ### Load/store
