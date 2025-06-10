@@ -7,6 +7,7 @@ from importlib.resources.abc import Traversable
 from logging import ERROR, Logger, getLogger
 from typing import override
 
+from .. import parser
 from ..instrset import InstructionSet
 from ..parser.instrset_parser import InstructionSetParser
 from . import defs
@@ -28,15 +29,14 @@ def load_instruction_set(
     Returns the instruction set, or None if it could not be loaded.
     """
     if logger is None:
-        logger = getLogger(__name__)
-    # Log only errors, to avoid confusing the user with informational messages
-    # from the instruction set parser when for example assembling.
-    parser_logger = logger.getChild("parser")
-    parser_logger.setLevel(ERROR)
+        logger = getLogger(parser.__name__)
+        # Log only errors, to avoid confusing the user with informational messages
+        # from the instruction set parser when for example assembling.
+        logger.setLevel(ERROR)
 
     try:
         return InstructionSetParser.parse_file(
-            path, parser_logger, want_semantics=want_semantics
+            path, logger, want_semantics=want_semantics
         )
     except OSError as ex:
         logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)

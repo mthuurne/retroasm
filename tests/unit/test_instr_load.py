@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from logging import ERROR, INFO, getLogger
+from logging import ERROR, getLogger
 from pathlib import Path
 
 import pytest
@@ -61,17 +61,17 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
     instr = load_instruction_set(empty_file, logger)
     assert caplog.record_tuples == [
         (
-            "test.parser",
+            "test",
             ERROR,
             'no program counter defined: a register or alias named "pc" is required',
         ),
         (
-            "test.parser",
+            "test",
             ERROR,
             "no instruction encodings defined",
         ),
         (
-            "test.parser",
+            "test",
             ERROR,
             "2 errors and 0 warnings",
         ),
@@ -83,10 +83,8 @@ def test_load_instr_minimal(
     minimal_file: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     """
-    Loading a minimal instruction set file succeeds and logs nothing at INFO level.
+    Loading a minimal instruction set file succeeds and logs nothing on the root logger.
     """
-    logger = getLogger("test")
-    logger.setLevel(INFO)
-    instr = load_instruction_set(minimal_file, logger)
+    instr = load_instruction_set(minimal_file)
     assert caplog.record_tuples == []
     assert instr is not None
