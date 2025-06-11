@@ -129,8 +129,7 @@ class CurrentAddress(Expression, metaclass=SingletonFromABC):
 
     @override
     def _equals(self, other: CurrentAddress) -> bool:
-        # Depending on the location in the program, the value will differ.
-        return False
+        return True
 
     @override
     def __str__(self) -> str:
