@@ -6,9 +6,7 @@ from typing import Any, Final, overload, override
 
 from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .codeblock_simplifier import simplify_block
 from .expression import Expression
-from .expression_simplifier import simplify_expression
 from .input import InputLocation
 from .reference import (
     BitString,
@@ -16,9 +14,9 @@ from .reference import (
     FixedValueReference,
     Reference,
     SingleStorage,
-    decode_int,
 )
 from .storage import ArgStorage, Storage
+from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
 
@@ -682,24 +680,35 @@ class ModeMatch:
                 case item:
                     bad_type(item)
 
-    def subst_pc(self, pc: Reference, pc_val: Expression) -> ModeMatch:
+    def subst_pc(self, pc_val: Expression) -> ModeMatch:
         """
         Return a new mode match with the value `pc_val` substituted for
         the program counter `pc`.
         """
 
         entry = self._entry
-
         values = dict(self._values)
+
+        def resolve_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, CurrentAddress):
+                return pc_val
+            # TODO: We don't just resolve PC.
+            #       This method has overlap with EncodeMatch.complete().
+            if isinstance(expr, ImmediateValue):
+                value = values[expr.name]
+                # TODO: Is it really only FixedValues?
+                #       If so, update annotations. Otherwise, code is incorrect.
+                assert isinstance(value, FixedValue), value
+                return value.expr
+            return None
+
         for placeholder in entry.computed_placeholders:
-            builder = SemanticsCodeBlockBuilder()
-            pc.emit_store(builder, pc_val, None)
-            values[placeholder.name] = placeholder.compute_value(
-                builder, values.__getitem__
+            values[placeholder.name] = placeholder.bits.substitute(
+                expression_func=resolve_immediate
             )
 
         subs = {
-            name: submatch.subst_pc(pc, pc_val) for name, submatch in self._subs.items()
+            name: submatch.subst_pc(pc_val) for name, submatch in self._subs.items()
         }
 
         return ModeMatch(entry, values, subs)
@@ -860,36 +869,19 @@ class ValuePlaceholder:
 class ComputedPlaceholder(ValuePlaceholder):
     """An element from a mode context that represents a computed numeric value."""
 
-    code: FunctionBody
+    expr: Expression
+
+    @property
+    def bits(self) -> FixedValue:
+        return FixedValue(self.expr, self.type.width)
 
     @override
     def __str__(self) -> str:
-        return f"{{{self.type} {self.name} = ...}}"
+        return f"{{{self.type} {self.name} = {self.expr}}}"
 
     @override
     def rename(self, name: str) -> ComputedPlaceholder:
-        return ComputedPlaceholder(name, self.type, self.code)
-
-    def compute_value(
-        self,
-        builder: SemanticsCodeBlockBuilder,
-        arg_fetcher: Callable[[str], BitString],
-    ) -> FixedValue:
-        """
-        Computes the value of this placeholder.
-        The builder can already contain nodes, for example to initialize
-        registers like the program counter. This placeholder's code will
-        be inlined on the builder.
-        See `SemanticsCodeBlockBuilder.inline_block()` to learn how argument
-        fetching works.
-        """
-        returned = builder.inline_block(self.code, arg_fetcher)
-        simplify_block(builder.nodes, returned)
-        (val_bits,) = returned
-        assert isinstance(val_bits, FixedValue), val_bits
-        val_type = self.type
-        val_expr = decode_int(val_bits.expr, val_type)
-        return FixedValue(simplify_expression(val_expr), val_type.width)
+        return ComputedPlaceholder(name, self.type, self.expr)
 
 
 @dataclass(frozen=True)
@@ -948,10 +940,14 @@ class EncodeMatch:
         subs = {name: value.complete() for name, value in self._subs.items()}
         values = {name: value.bits for name, value in self._values.items()}
 
-        builder = SemanticsCodeBlockBuilder()
+        def resolve_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, ImmediateValue):
+                return values[expr.name].expr
+            return None
+
         for placeholder in self._entry.computed_placeholders:
-            values[placeholder.name] = placeholder.compute_value(
-                builder, values.__getitem__
+            values[placeholder.name] = placeholder.bits.substitute(
+                expression_func=resolve_immediate
             )
 
         return ModeMatch(self._entry, values, subs)

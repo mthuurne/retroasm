@@ -183,7 +183,7 @@ class FixedValue(BitString):
         if new_expr is expr:
             return self
         else:
-            return FixedValue(new_expr, self._width)
+            return FixedValue(simplify_expression(new_expr), self._width)
 
     @override
     def emit_load(

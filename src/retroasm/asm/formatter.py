@@ -5,7 +5,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from ..expression import IntLiteral
 from ..parser.expression_nodes import ParseNode
 from ..reference import FixedValueReference
-from ..symbol import SymbolValue
+from ..symbol import CurrentAddress, SymbolValue
 from ..types import IntType, Width, unlimited
 from ..utils import bad_type
 from .directives import DataDirective, OriginDirective, StringDirective
@@ -107,6 +107,8 @@ class Formatter:
         match ref.expr:
             case SymbolValue(name=name):
                 return name
+            case CurrentAddress():
+                return "$"
             case IntLiteral(value=value):
                 expr_type = ref.type
                 width = expr_type.width

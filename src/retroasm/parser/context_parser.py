@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from typing import override
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
+from ..codeblock_simplifier import simplify_block
+from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
 from ..mode import ComputedPlaceholder, MatchPlaceholder, Mode, ValuePlaceholder
 from ..namespace import ContextNamespace, GlobalNamespace, LocalNamespace
-from ..reference import BitString, FixedValue
+from ..reference import BitString, FixedValue, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, Width, parse_type_decl
 from ..utils import bad_type
@@ -132,11 +134,11 @@ def build_placeholders(
     # This avoids a confusing "unknown name" error when an invalid placeholder is
     # looked up and enables fetch_arg() to produce more specific error messages.
     for name, spec in placeholder_specs.items():
-        sem_type = spec.type
-        if sem_type is not None:
-            if isinstance(sem_type, ReferenceType):
-                sem_type = sem_type.type
-            ctx_namespace.add_argument(name, sem_type, spec.decl.name.location)
+        val_type = spec.type
+        if val_type is not None:
+            if isinstance(val_type, ReferenceType):
+                val_type = val_type.type
+            ctx_namespace.add_argument(name, val_type, spec.decl.name.location)
 
     pc = global_namespace.program_counter
 
@@ -159,18 +161,18 @@ def build_placeholders(
 
     for name, spec in placeholder_specs.items():
         decl = spec.decl
-        sem_type = spec.type
+        val_type = spec.type
         value_node = spec.value
 
         code = None
-        if sem_type is not None and value_node is not None:
+        if val_type is not None and value_node is not None:
             builder = SemanticsCodeBlockBuilder()
             placeholder_namespace = LocalNamespace(ctx_namespace, builder)
             try:
                 value_ref = convert_definition(
                     decl.kind,
                     decl.name.name,
-                    sem_type,
+                    val_type,
                     value_node,
                     placeholder_namespace,
                 )
@@ -181,17 +183,23 @@ def build_placeholders(
 
         match spec:
             case ValuePlaceholderSpec():
-                sem_type = spec.type  # narrow Python type
-                width = sem_type.width
+                val_type = spec.type  # narrow Python type
                 if code is None:
-                    value = FixedValue(ImmediateValue(name, sem_type), width)
-                    yield ValuePlaceholder(name, sem_type)
+                    yield ValuePlaceholder(name, val_type)
+                    value = FixedValue(ImmediateValue(name, val_type), val_type.width)
                 else:
+                    # Compute placeholder value.
                     builder = SemanticsCodeBlockBuilder()
                     pc.emit_store(builder, CurrentAddress(), decl.tree_location)
-                    placeholder = ComputedPlaceholder(name, sem_type, code)
-                    value = placeholder.compute_value(builder, fetch_arg)
+                    returned = builder.inline_block(code, fetch_arg)
+                    simplify_block(builder.nodes, returned)
+                    (val_bits,) = returned
+                    assert isinstance(val_bits, FixedValue), val_bits
+                    val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
+
+                    placeholder = ComputedPlaceholder(name, val_type, val_expr)
                     yield placeholder
+                    value = placeholder.bits
                 values[name] = value
             case MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode)

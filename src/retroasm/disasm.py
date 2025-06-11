@@ -73,7 +73,6 @@ def disassemble(
     The fetched data is assumed to be code for the given instruction set,
     to be executed at the given address.
     """
-    pc = instr_set.program_counter
     fetcher = DisasmFetcher.from_image_fetcher(image_fetcher, start_addr)
 
     while fetcher[0] is not None:
@@ -122,7 +121,7 @@ def disassemble(
             pre_addr = fetcher.addr
             fetcher.update(reencoded_len)
             post_addr = fetcher.addr
-            mode_match = mode_match.subst_pc(pc, IntLiteral(post_addr))
+            mode_match = mode_match.subst_pc(IntLiteral(post_addr))
             yield pre_addr, Instruction(mode_match.mnemonic)
 
 
