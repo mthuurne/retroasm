@@ -7,12 +7,9 @@ from typing import override
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..input import ErrorCollector, InputLocation
 from ..mode import ComputedPlaceholder, MatchPlaceholder, Mode, ValuePlaceholder
-from ..namespace import (
-    ContextNamespace,
-    GlobalNamespace,
-    LocalNamespace,
-    NameExistsError,
-)
+from ..namespace import ContextNamespace, GlobalNamespace, LocalNamespace
+from ..reference import BitString, FixedValue
+from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, Width, parse_type_decl
 from ..utils import bad_type
 from .expression_builder import BadExpression, convert_definition
@@ -129,45 +126,73 @@ def build_placeholders(
     collector: ErrorCollector,
 ) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
-    sem_namespace = ContextNamespace(global_namespace)
+
+    ctx_namespace = ContextNamespace(global_namespace)
+    # Populate namespace with an argument for each placeholder.
+    # This avoids a confusing "unknown name" error when an invalid placeholder is
+    # looked up and enables fetch_arg() to produce more specific error messages.
+    for name, spec in placeholder_specs.items():
+        sem_type = spec.type
+        if sem_type is not None:
+            if isinstance(sem_type, ReferenceType):
+                sem_type = sem_type.type
+            ctx_namespace.add_argument(name, sem_type, spec.decl.name.location)
+
+    pc = global_namespace.program_counter
+
+    values: dict[str, FixedValue] = {}
+
+    def fetch_arg(name: str) -> BitString:
+        try:
+            return values[name]
+        except KeyError:
+            match placeholder_specs[name]:
+                case MatchPlaceholderSpec():
+                    raise ValueError(
+                        "mode match cannot be used in context value"
+                    ) from None
+                case ValuePlaceholderSpec():
+                    raise ValueError("value placeholder is declared later") from None
+                case _ as spec:
+                    # Note: mypy 1.16.0 doesn't narrow 'spec' to Never
+                    assert False, spec  # bad_type(spec)
 
     for name, spec in placeholder_specs.items():
         decl = spec.decl
         sem_type = spec.type
-        value = spec.value
+        value_node = spec.value
 
         code = None
-        if sem_type is not None and value is not None:
-            placeholder_namespace = LocalNamespace(
-                sem_namespace, SemanticsCodeBlockBuilder()
-            )
+        if sem_type is not None and value_node is not None:
+            builder = SemanticsCodeBlockBuilder()
+            placeholder_namespace = LocalNamespace(ctx_namespace, builder)
             try:
-                ref = convert_definition(
-                    decl.kind, decl.name.name, sem_type, value, placeholder_namespace
+                value_ref = convert_definition(
+                    decl.kind,
+                    decl.name.name,
+                    sem_type,
+                    value_node,
+                    placeholder_namespace,
                 )
             except BadExpression as ex:
                 collector.error(f"{ex}", location=ex.locations)
             else:
-                code = placeholder_namespace.create_code_block(ref)
-
-        if sem_type is not None:
-            match sem_type:
-                case ReferenceType(type=argType) | (IntType() as argType):
-                    try:
-                        sem_namespace.add_argument(name, argType, decl.name.location)
-                    except NameExistsError as ex:
-                        collector.error(f"{ex}", location=ex.locations)
-                        continue
-                case typ:
-                    bad_type(typ)
+                code = placeholder_namespace.create_code_block(value_ref)
 
         match spec:
             case ValuePlaceholderSpec():
                 sem_type = spec.type  # narrow Python type
+                width = sem_type.width
                 if code is None:
+                    value = FixedValue(ImmediateValue(name, sem_type), width)
                     yield ValuePlaceholder(name, sem_type)
                 else:
-                    yield ComputedPlaceholder(name, sem_type, code)
+                    builder = SemanticsCodeBlockBuilder()
+                    pc.emit_store(builder, CurrentAddress(), decl.tree_location)
+                    placeholder = ComputedPlaceholder(name, sem_type, code)
+                    value = placeholder.compute_value(builder, fetch_arg)
+                    yield placeholder
+                values[name] = value
             case MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode)
             case spec:

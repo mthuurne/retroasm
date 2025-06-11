@@ -538,7 +538,7 @@ The context field can contain multiple items, separated by commas. It is possibl
    N       . A         . A         . s8 N, u16 A = pc + N
 
 
-A context item could have a semantical side effect, such as changing a register or performing I/O. Context items are evaluated left to right, before the semantics field. All context items are evaluated, regardless of whether their placeholder is used.
+Context expressions are not allowed to access state such as registers or perform I/O. Note however that the program counter is considered a known constant for the purpose of (dis)assembly and is therefore allowed in context expressions.
 
 Extending Modes
 ---------------

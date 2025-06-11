@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import override
 
 from .expression import Expression
-from .types import Width, mask_for_width
+from .types import IntType, Width, mask_for_width
 from .utils import SingletonFromABC
 
 
@@ -53,6 +53,51 @@ class SymbolValue(Expression):
 
     @override
     def _equals(self, other: SymbolValue) -> bool:
+        return self._name == other._name
+
+    @override
+    def __str__(self) -> str:
+        return self._name
+
+    @property
+    @override
+    def complexity(self) -> int:
+        return 1
+
+
+class ImmediateValue(Expression):
+    """
+    A value encoded as part of an instruction.
+    """
+
+    __slots__ = ("_name", "_type")
+
+    @property
+    @override
+    def mask(self) -> int:
+        return mask_for_width(self._type.width)
+
+    @property
+    def name(self) -> str:
+        """The name of this immediate value."""
+        return self._name
+
+    @property
+    def type(self) -> IntType:
+        """The type of this immediate value."""
+        return self._type
+
+    def __init__(self, name: str, typ: IntType):
+        super().__init__()
+        self._name = name
+        self._type = typ
+
+    @override
+    def _ctorargs(self) -> tuple[str, IntType]:
+        return (self._name, self._type)
+
+    @override
+    def _equals(self, other: ImmediateValue) -> bool:
         return self._name == other._name
 
     @override
