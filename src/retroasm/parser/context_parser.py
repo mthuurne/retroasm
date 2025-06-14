@@ -55,7 +55,7 @@ class MatchPlaceholderSpec:
         return self.mode.encoding_width
 
     @property
-    def type(self) -> None | IntType | ReferenceType:
+    def type(self) -> IntType | ReferenceType:
         return self.mode.semantics_type
 
     @property

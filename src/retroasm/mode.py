@@ -809,7 +809,7 @@ class Mode(ModeTable):
         return self._name
 
     @property
-    def semantics_type(self) -> None | IntType | ReferenceType:
+    def semantics_type(self) -> IntType | ReferenceType:
         return self._sem_type
 
     @property
@@ -821,7 +821,7 @@ class Mode(ModeTable):
         name: str,
         enc_width: int | None,
         aux_enc_width: int | None,
-        sem_type: None | IntType | ReferenceType,
+        sem_type: IntType | ReferenceType,
         location: InputLocation,
         entries: Iterable[ModeEntry],
     ):

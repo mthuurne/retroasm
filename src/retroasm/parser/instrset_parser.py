@@ -1056,9 +1056,6 @@ def _parse_mode_entries(
                         # Define placeholders in semantics builder.
                         for name, spec in placeholder_specs.items():
                             match spec.type:
-                                case None:
-                                    # TODO: Is this guaranteed impossible?
-                                    assert False
                                 case ReferenceType(type=argType) | argType:
                                     location = spec.decl.name.location
                                     sem_namespace.add_argument(name, argType, location)
@@ -1185,6 +1182,9 @@ def _parse_mode(
     mode_entries: dict[str | None, list[ParsedModeEntry]],
     want_semantics: bool,
 ) -> None:
+    # Is its safe to add this mode to 'modes'?
+    add_mode = True
+
     # Parse header line.
     match = args.match(_re_mode_args)
     if match is None:
@@ -1200,25 +1200,27 @@ def _parse_mode(
     except ValueError as ex:
         collector.error(f"bad mode type: {ex}", location=mode_type_loc)
         sem_type = None
+        add_mode = False
 
-    # Check whether it's safe to add mode to namespace.
+    # Check mode name and type.
     mode_name = mode_name_loc.text
-    add_mode = False
     if mode_name in modes:
         lineno = modes[mode_name].location.lineno
         collector.error(
             f'mode "{mode_name}" redefined; first definition was on line {lineno:d}',
             location=mode_name_loc,
         )
+        add_mode = False
     else:
         try:
             parse_type(mode_name)
         except ValueError:
-            add_mode = True
+            pass
         else:
             collector.error(
                 f'mode name "{mode_name}" conflicts with type', location=mode_name_loc
             )
+            add_mode = False
 
     # Parse entries.
     parsed_entries = list(
@@ -1240,9 +1242,12 @@ def _parse_mode(
     aux_enc_width = _determine_encoding_width(
         parsed_entries, True, mode_name, collector
     )
-    entries = tuple(parsed_entry.entry for parsed_entry in parsed_entries)
-    mode = Mode(mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries)
     if add_mode:
+        assert sem_type is not None
+        entries = tuple(parsed_entry.entry for parsed_entry in parsed_entries)
+        mode = Mode(
+            mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries
+        )
         modes[mode_name] = mode
         mode_entries[mode_name] = parsed_entries
 
