@@ -476,7 +476,7 @@ class CodeTemplate:
     def __init__(
         self,
         code: FunctionBody,
-        placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
+        placeholders: Iterable[MatchPlaceholder],
     ):
         self.code = code
         self.placeholders = tuple(placeholders)
@@ -487,30 +487,20 @@ class CodeTemplate:
         match results, if available.
         """
 
-        unfilled: list[MatchPlaceholder | ValuePlaceholder] = []
+        unfilled: list[MatchPlaceholder] = []
         values: dict[str, BitString] = {}
         for placeholder in self.placeholders:
-            match placeholder:
-                case MatchPlaceholder(name=name):
-                    try:
-                        submatch = match.get_submatch(name)
-                    except KeyError:
-                        unfilled.append(placeholder)
-                    else:
-                        sub_sem = submatch.entry.semantics.fill_placeholders(submatch)
-                        fill_code = sub_sem.code
-                        # TODO: Support submode semantics with side effects.
-                        assert len(fill_code.nodes) == 0, name
-                        values[name] = fill_code.returned[0]
-                case ValuePlaceholder(name=name):
-                    try:
-                        value = match.get_value(name)
-                    except KeyError:
-                        unfilled.append(placeholder)
-                    else:
-                        values[name] = value.bits
-                case placeholder:
-                    bad_type(placeholder)
+            name = placeholder.name
+            try:
+                submatch = match.get_submatch(name)
+            except KeyError:
+                unfilled.append(placeholder)
+            else:
+                sub_sem = submatch.entry.semantics.fill_placeholders(submatch)
+                fill_code = sub_sem.code
+                # TODO: Support submode semantics with side effects.
+                assert len(fill_code.nodes) == 0, name
+                values[name] = fill_code.returned[0]
 
         for name, arg in self.code.arguments.items():
             if name not in values:

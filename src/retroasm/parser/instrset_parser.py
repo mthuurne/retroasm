@@ -30,9 +30,11 @@ from ..mode import (
     EncodingExpr,
     EncodingItem,
     EncodingMultiMatch,
+    MatchPlaceholder,
     Mnemonic,
     Mode,
     ModeEntry,
+    ValuePlaceholder,
 )
 from ..namespace import (
     ContextNamespace,
@@ -1050,19 +1052,37 @@ def _parse_mode_entries(
 
                 # Parse semantics.
                 if want_semantics:
+                    if len(sem_loc) == 0:
+                        # Parse mnemonic field as semantics.
+                        sem_loc = mnem_loc
+
                     sem_builder = SemanticsCodeBlockBuilder()
                     sem_namespace = LocalNamespace(global_namespace, sem_builder)
                     try:
                         # Define placeholders in semantics builder.
-                        for name, spec in placeholder_specs.items():
-                            match spec.type:
-                                case ReferenceType(type=argType) | argType:
-                                    location = spec.decl.name.location
-                                    sem_namespace.add_argument(name, argType, location)
-
-                        if len(sem_loc) == 0:
-                            # Parse mnemonic field as semantics.
-                            sem_loc = mnem_loc
+                        for placeholder in placeholders:
+                            match placeholder:
+                                case MatchPlaceholder(
+                                    name=name,
+                                    mode=Mode(semantics_type=sem_type),
+                                    location=location,
+                                ):
+                                    arg_type = (
+                                        sem_type.type
+                                        if isinstance(sem_type, ReferenceType)
+                                        else sem_type
+                                    )
+                                    sem_namespace.add_argument(name, arg_type, location)
+                                case ValuePlaceholder(
+                                    name=name,
+                                    type=arg_type,
+                                    expr=expr,
+                                    location=location,
+                                ):
+                                    ref = sem_namespace.add_variable(
+                                        name, arg_type, location
+                                    )
+                                    ref.emit_store(sem_builder, expr, None)
 
                         sem_ref = parse_sem(
                             collector, sem_loc, sem_namespace, mode_type
@@ -1089,7 +1109,10 @@ def _parse_mode_entries(
                 if semantics is None:
                     template = None
                 else:
-                    template = CodeTemplate(semantics, placeholders)
+                    template = CodeTemplate(
+                        semantics,
+                        (p for p in placeholders if isinstance(p, MatchPlaceholder)),
+                    )
                 entry = ModeEntry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
