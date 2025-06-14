@@ -14,10 +14,10 @@ from typing import override
 
 from .expression import Expression
 from .types import IntType, Width, mask_for_width
-from .utils import SingletonFromABC
+from .utils import SingletonFromABC, UniqueFromABC
 
 
-class SymbolValue(Expression):
+class SymbolValue(Expression, metaclass=UniqueFromABC):
     """
     A symbol when its value is used as part of an expression.
 
@@ -25,7 +25,7 @@ class SymbolValue(Expression):
     for this once it is known.
     """
 
-    __slots__ = ("_name", "_width")
+    __slots__ = ("_name", "_width", "__weakref__")
 
     @property
     @override
@@ -53,7 +53,7 @@ class SymbolValue(Expression):
 
     @override
     def _equals(self, other: SymbolValue) -> bool:
-        return self._name == other._name
+        return self is other
 
     @override
     def __str__(self) -> str:
@@ -65,12 +65,12 @@ class SymbolValue(Expression):
         return 1
 
 
-class ImmediateValue(Expression):
+class ImmediateValue(Expression, metaclass=UniqueFromABC):
     """
     A value encoded as part of an instruction.
     """
 
-    __slots__ = ("_name", "_type")
+    __slots__ = ("_name", "_type", "__weakref__")
 
     @property
     @override
@@ -98,7 +98,7 @@ class ImmediateValue(Expression):
 
     @override
     def _equals(self, other: ImmediateValue) -> bool:
-        return self._name == other._name
+        return self is other
 
     @override
     def __str__(self) -> str:

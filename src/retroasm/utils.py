@@ -51,6 +51,12 @@ class Unique(type):
         return value
 
 
+class UniqueFromABC(Unique, ABCMeta):
+    """
+    Metaclass for classes with uniques instances that also derive from `abc.ABC`.
+    """
+
+
 class Singleton(type):
     """Metaclass that enforces that there is one shared instance of a class."""
 
