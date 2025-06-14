@@ -499,7 +499,9 @@ def _create_entry_decoder(
     # when we are certain that this entry matches.
     for placeholder in entry.value_placeholders:
         name = placeholder.name
-        decoder = PlaceholderDecoder(name, decoding[name], decoder, None, None)
+        enc_segs = decoding.get(name)
+        if enc_segs is not None:
+            decoder = PlaceholderDecoder(name, enc_segs, decoder, None, None)
 
     # Add match placeholders, from high index to low.
     for enc_idx in reversed(range(len(matchers_by_index))):

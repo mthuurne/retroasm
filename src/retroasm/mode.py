@@ -460,7 +460,7 @@ class Mnemonic:
         substituted by their value in the given mapping.
         """
         return Mnemonic(
-            item.rename(name_map[item.name])
+            item.rename(name_map)
             if isinstance(item, (MatchPlaceholder, ValuePlaceholder))
             else item
             for item in self._items
@@ -540,8 +540,7 @@ class CodeTemplate:
         new_code = builder.create_code_block(())
 
         new_placeholders = (
-            placeholder.rename(name_map[placeholder.name])
-            for placeholder in self.placeholders
+            placeholder.rename(name_map) for placeholder in self.placeholders
         )
 
         return CodeTemplate(new_code, new_placeholders)
@@ -578,19 +577,9 @@ class ModeEntry:
 
     @property
     def value_placeholders(self) -> Iterator[ValuePlaceholder]:
-        """The non-computed value placeholders in this entry."""
         for placeholder in self.placeholders:
             match placeholder:
-                case ComputedPlaceholder():
-                    pass
                 case ValuePlaceholder():
-                    yield placeholder
-
-    @property
-    def computed_placeholders(self) -> Iterator[ComputedPlaceholder]:
-        for placeholder in self.placeholders:
-            match placeholder:
-                case ComputedPlaceholder():
                     yield placeholder
 
     @property
@@ -620,7 +609,7 @@ class ModeEntry:
             self.encoding.rename(name_map),
             self.mnemonic.rename(name_map),
             None if semantics is None else semantics.rename(name_map),
-            (p.rename(name_map[p.name]) for p in self.placeholders),
+            (p.rename(name_map) for p in self.placeholders),
         )
 
 
@@ -702,7 +691,7 @@ class ModeMatch:
                 return value.expr
             return None
 
-        for placeholder in entry.computed_placeholders:
+        for placeholder in entry.value_placeholders:
             values[placeholder.name] = placeholder.bits.substitute(
                 expression_func=resolve_immediate
             )
@@ -856,19 +845,6 @@ class ValuePlaceholder:
 
     name: str
     type: IntType
-
-    @override
-    def __str__(self) -> str:
-        return f"{{{self.type} {self.name}}}"
-
-    def rename(self, name: str) -> ValuePlaceholder:
-        return ValuePlaceholder(name, self.type)
-
-
-@dataclass(frozen=True)
-class ComputedPlaceholder(ValuePlaceholder):
-    """An element from a mode context that represents a computed numeric value."""
-
     expr: Expression
 
     @property
@@ -877,11 +853,23 @@ class ComputedPlaceholder(ValuePlaceholder):
 
     @override
     def __str__(self) -> str:
-        return f"{{{self.type} {self.name} = {self.expr}}}"
+        name = self.name
+        expr = self.expr
+        if isinstance(expr, ImmediateValue):
+            if expr.name == name:
+                return f"{{{self.type} {name}}}"
+        return f"{{{self.type} {name} = {expr}}}"
 
-    @override
-    def rename(self, name: str) -> ComputedPlaceholder:
-        return ComputedPlaceholder(name, self.type, self.expr)
+    def rename(self, name_map: Mapping[str, str]) -> ValuePlaceholder:
+        def rename_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, ImmediateValue):
+                if (new_name := name_map.get(expr.name)) is not None:
+                    return ImmediateValue(new_name, expr.type)
+            return None
+
+        return ValuePlaceholder(
+            name_map[self.name], self.type, self.expr.substitute(rename_immediate)
+        )
 
 
 @dataclass(frozen=True)
@@ -898,8 +886,8 @@ class MatchPlaceholder:
     def __str__(self) -> str:
         return f"{{{self.mode.name} {self.name}}}"
 
-    def rename(self, name: str) -> MatchPlaceholder:
-        return MatchPlaceholder(name, self.mode)
+    def rename(self, name_map: Mapping[str, str]) -> MatchPlaceholder:
+        return MatchPlaceholder(name_map[self.name], self.mode)
 
 
 class EncodeMatch:
@@ -945,7 +933,7 @@ class EncodeMatch:
                 return values[expr.name].expr
             return None
 
-        for placeholder in self._entry.computed_placeholders:
+        for placeholder in self._entry.value_placeholders:
             values[placeholder.name] = placeholder.bits.substitute(
                 expression_func=resolve_immediate
             )

@@ -6,9 +6,10 @@ from typing import override
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder
 from ..codeblock_simplifier import simplify_block
+from ..expression import Expression
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
-from ..mode import ComputedPlaceholder, MatchPlaceholder, Mode, ValuePlaceholder
+from ..mode import MatchPlaceholder, Mode, ValuePlaceholder
 from ..namespace import ContextNamespace, GlobalNamespace, LocalNamespace
 from ..reference import BitString, FixedValue, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
@@ -184,9 +185,9 @@ def build_placeholders(
         match spec:
             case ValuePlaceholderSpec():
                 val_type = spec.type  # narrow Python type
+                val_expr: Expression
                 if code is None:
-                    yield ValuePlaceholder(name, val_type)
-                    value = FixedValue(ImmediateValue(name, val_type), val_type.width)
+                    val_expr = ImmediateValue(name, val_type)
                 else:
                     # Compute placeholder value.
                     builder = SemanticsCodeBlockBuilder()
@@ -197,10 +198,9 @@ def build_placeholders(
                     assert isinstance(val_bits, FixedValue), val_bits
                     val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
 
-                    placeholder = ComputedPlaceholder(name, val_type, val_expr)
-                    yield placeholder
-                    value = placeholder.bits
-                values[name] = value
+                placeholder = ValuePlaceholder(name, val_type, val_expr)
+                values[name] = placeholder.bits
+                yield placeholder
             case MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode)
             case spec:
