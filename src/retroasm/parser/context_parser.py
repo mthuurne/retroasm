@@ -162,6 +162,7 @@ def build_placeholders(
 
     for name, spec in placeholder_specs.items():
         decl = spec.decl
+        location = decl.tree_location
         val_type = spec.type
         value_node = spec.value
 
@@ -191,17 +192,17 @@ def build_placeholders(
                 else:
                     # Compute placeholder value.
                     builder = SemanticsCodeBlockBuilder()
-                    pc.emit_store(builder, CurrentAddress(), decl.tree_location)
+                    pc.emit_store(builder, CurrentAddress(), location)
                     returned = builder.inline_block(code, fetch_arg)
                     simplify_block(builder.nodes, returned)
                     (val_bits,) = returned
                     assert isinstance(val_bits, FixedValue), val_bits
                     val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
 
-                placeholder = ValuePlaceholder(name, val_type, val_expr)
+                placeholder = ValuePlaceholder(name, val_type, val_expr, location)
                 values[name] = placeholder.bits
                 yield placeholder
             case MatchPlaceholderSpec(mode=mode):
-                yield MatchPlaceholder(name, mode)
+                yield MatchPlaceholder(name, mode, location)
             case spec:
                 bad_type(spec)

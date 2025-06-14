@@ -846,6 +846,7 @@ class ValuePlaceholder:
     name: str
     type: IntType
     expr: Expression
+    location: InputLocation | None = None
 
     @property
     def bits(self) -> FixedValue:
@@ -868,7 +869,10 @@ class ValuePlaceholder:
             return None
 
         return ValuePlaceholder(
-            name_map[self.name], self.type, self.expr.substitute(rename_immediate)
+            name_map[self.name],
+            self.type,
+            self.expr.substitute(rename_immediate),
+            self.location,
         )
 
 
@@ -881,13 +885,14 @@ class MatchPlaceholder:
 
     name: str
     mode: Mode
+    location: InputLocation | None = None
 
     @override
     def __str__(self) -> str:
         return f"{{{self.mode.name} {self.name}}}"
 
     def rename(self, name_map: Mapping[str, str]) -> MatchPlaceholder:
-        return MatchPlaceholder(name_map[self.name], self.mode)
+        return MatchPlaceholder(name_map[self.name], self.mode, self.location)
 
 
 class EncodeMatch:
