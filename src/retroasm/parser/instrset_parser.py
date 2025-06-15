@@ -494,22 +494,21 @@ def _parse_encoding_expr(
             return
 
         if placeholder.encoding_width is None:
-            # Only MatchPlaceholder.encodingWidth can return None.
-            assert isinstance(placeholder, MatchPlaceholder), placeholder
-            raise BadInput(
-                f'cannot use placeholder "{name}" '
-                f'in encoding field, since mode "{placeholder.mode.name}" '
-                f"has an empty encoding sequence",
-                *locations,
-                placeholder.location,
-            ) from None
-        if not placeholder.is_encoded:
-            raise BadInput(
-                f'cannot use placeholder "{name}" in encoding field, '
-                "since its value is computed in the context",
-                *locations,
-                placeholder.location,
-            ) from None
+            if isinstance(placeholder, MatchPlaceholder):
+                raise BadInput(
+                    f'cannot use placeholder "{name}" '
+                    f'in encoding field, since mode "{placeholder.mode.name}" '
+                    f"has an empty encoding sequence",
+                    *locations,
+                    placeholder.location,
+                ) from None
+            else:
+                raise BadInput(
+                    f'cannot use placeholder "{name}" in encoding field, '
+                    "since its value is computed in the context",
+                    *locations,
+                    placeholder.location,
+                ) from None
 
     namespace = LocalNamespace(enc_namespace, SemanticsCodeBlockBuilder())
     try:
@@ -581,9 +580,7 @@ def _parse_mode_encoding(
     # Define placeholders in encoding namespace.
     enc_namespace = ContextNamespace(global_namespace)
     for placeholder in placeholders:
-        if placeholder.is_encoded:
-            enc_width = placeholder.encoding_width
-            assert enc_width is not None
+        if (enc_width := placeholder.encoding_width) is not None:
             try:
                 enc_namespace.add_argument(
                     placeholder.name, IntType.u(enc_width), placeholder.location
@@ -858,7 +855,8 @@ def _parse_mode_decoding(
         with collector.check():
             # Check placeholders that should be encoded but aren't.
             for placeholder in placeholders:
-                if not placeholder.is_encoded:
+                if placeholder.encoding_width is None:
+                    # Placeholder should not be encoded.
                     continue
                 name = placeholder.name
                 if name in multi_matches:
