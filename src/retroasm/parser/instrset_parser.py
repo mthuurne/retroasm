@@ -48,12 +48,7 @@ from ..reference import Reference, bad_reference
 from ..storage import IOChannel, IOStorage, Register
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
-from .context_parser import (
-    MatchPlaceholderSpec,
-    PlaceholderSpec,
-    build_placeholders,
-    parse_mode_context,
-)
+from .context_parser import build_placeholders, parse_mode_context
 from .expression_builder import (
     BadExpression,
     UnknownNameError,
@@ -480,38 +475,48 @@ def _parse_func(
 def _parse_encoding_expr(
     enc_node: ParseNode,
     enc_namespace: Namespace,
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
 ) -> EncodingExpr:
     """
     Parse encoding node that is not a MultiMatchNode.
     Returns the parse result as an EncodingExpr.
     Raises BadInput if the node is invalid.
     """
+
+    def explain_not_in_namespace(
+        name: str, locations: tuple[InputLocation, ...]
+    ) -> None:
+        for placeholder in placeholders:
+            if placeholder.name == name:
+                break
+        else:
+            # No placeholder with that name exists.
+            return
+
+        if placeholder.encoding_width is None:
+            # Only MatchPlaceholder.encodingWidth can return None.
+            assert isinstance(placeholder, MatchPlaceholder), placeholder
+            raise BadInput(
+                f'cannot use placeholder "{name}" '
+                f'in encoding field, since mode "{placeholder.mode.name}" '
+                f"has an empty encoding sequence",
+                *locations,
+                placeholder.location,
+            ) from None
+        if not placeholder.is_encoded:
+            raise BadInput(
+                f'cannot use placeholder "{name}" in encoding field, '
+                "since its value is computed in the context",
+                *locations,
+                placeholder.location,
+            ) from None
+
     namespace = LocalNamespace(enc_namespace, SemanticsCodeBlockBuilder())
     try:
         enc_ref = build_reference(enc_node, namespace)
     except BadInput as ex:
         if isinstance(ex, UnknownNameError):
-            spec = placeholder_specs.get(ex.name)
-            if spec is not None:
-                if spec.encoding_width is None:
-                    # Only MatchPlaceholderSpec.encodingWidth can return None.
-                    assert isinstance(spec, MatchPlaceholderSpec), spec
-                    raise BadInput(
-                        f'cannot use placeholder "{ex.name}" '
-                        f'in encoding field, since mode "{spec.mode.name}" '
-                        f"has an empty encoding sequence",
-                        *ex.locations,
-                        spec.decl.tree_location,
-                    ) from None
-                if spec.value is not None:
-                    raise BadInput(
-                        f'cannot use placeholder "{ex.name}" '
-                        f"in encoding field, since its value is "
-                        f"computed in the context",
-                        *ex.locations,
-                        spec.value.tree_location,
-                    ) from None
+            explain_not_in_namespace(ex.name, ex.locations)
         raise BadInput(
             f"error in encoding: {ex}", enc_node.tree_location, *ex.locations
         ) from ex
@@ -540,7 +545,7 @@ def _parse_encoding_expr(
 def _parse_multi_match(
     enc_node: MultiMatchNode,
     identifiers: Set[str],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
 ) -> EncodingMultiMatch:
     """
     Parse an encoding node of type MultiMatchNode.
@@ -548,17 +553,18 @@ def _parse_multi_match(
     Raises BadInput if the node is invalid.
     """
     name = enc_node.name
-    try:
-        placeholder = placeholder_specs[name]
-    except KeyError:
+    for placeholder in placeholders:
+        if placeholder.name == name:
+            break
+    else:
         raise BadInput(
             f'placeholder "{name}" does not exist in context', enc_node.tree_location
-        ) from None
-    if not isinstance(placeholder, MatchPlaceholderSpec):
+        )
+    if not isinstance(placeholder, MatchPlaceholder):
         raise BadInput(
             f'placeholder "{name}" does not represent a mode match',
             enc_node.tree_location,
-            placeholder.decl.tree_location,
+            placeholder.location,
         )
 
     mode = placeholder.mode
@@ -568,22 +574,22 @@ def _parse_multi_match(
 
 def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
     enc_namespace = ContextNamespace(global_namespace)
-    for name, spec in placeholder_specs.items():
-        if spec.value is None:
-            enc_width = spec.encoding_width
-            if enc_width is not None:
-                enc_type = IntType.u(enc_width)
-                location = spec.decl.name.location
-                try:
-                    enc_namespace.add_argument(name, enc_type, location)
-                except NameExistsError as ex:
-                    collector.error(f"bad placeholder: {ex}", location=ex.locations)
+    for placeholder in placeholders:
+        if placeholder.is_encoded:
+            enc_width = placeholder.encoding_width
+            assert enc_width is not None
+            try:
+                enc_namespace.add_argument(
+                    placeholder.name, IntType.u(enc_width), placeholder.location
+                )
+            except NameExistsError as ex:
+                collector.error(f"bad placeholder: {ex}", location=ex.locations)
 
     # Collect the names of all identifiers used in the encoding.
     identifiers = {
@@ -601,12 +607,10 @@ def _parse_mode_encoding(
                     pass
                 case MultiMatchNode():
                     # Match multiple encoding fields as-is.
-                    yield _parse_multi_match(enc_node, identifiers, placeholder_specs)
+                    yield _parse_multi_match(enc_node, identifiers, placeholders)
                 case _:
                     # Expression possibly containing single encoding field matches.
-                    yield _parse_encoding_expr(
-                        enc_node, enc_namespace, placeholder_specs
-                    )
+                    yield _parse_encoding_expr(enc_node, enc_namespace, placeholders)
         except BadInput as ex:
             collector.error(f"{ex}", location=ex.locations)
 
@@ -997,7 +1001,7 @@ def _parse_mode_entries(
                             enc_items = tuple(
                                 _parse_mode_encoding(
                                     enc_nodes,
-                                    placeholder_specs,
+                                    placeholders,
                                     global_namespace,
                                     collector,
                                 )
