@@ -9,17 +9,15 @@ from ..codeblock_simplifier import simplify_block
 from ..expression import Expression
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, Mode, ValuePlaceholder
+from ..mode import MatchPlaceholder, Mode, Placeholder, ValuePlaceholder
 from ..namespace import ContextNamespace, GlobalNamespace, LocalNamespace
 from ..reference import BitString, FixedValue, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
-from ..types import IntType, ReferenceType, Width, parse_type_decl
+from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
 from .expression_builder import BadExpression, convert_definition
 from .expression_nodes import DeclarationNode, DefinitionNode, ParseNode
 from .expression_parser import parse_context
-
-type _PlaceholderSpec = _MatchPlaceholderSpec | _ValuePlaceholderSpec
 
 
 @dataclass(frozen=True)
@@ -31,10 +29,6 @@ class _ValuePlaceholderSpec:
     @property
     def name(self) -> str:
         return self.decl.name.name
-
-    @property
-    def encoding_width(self) -> Width:
-        return self.type.width
 
     @override
     def __str__(self) -> str:
@@ -51,16 +45,8 @@ class _MatchPlaceholderSpec:
         return self.decl.name.name
 
     @property
-    def encoding_width(self) -> Width | None:
-        return self.mode.encoding_width
-
-    @property
     def type(self) -> IntType | ReferenceType:
         return self.mode.semantics_type
-
-    @property
-    def value(self) -> None:
-        return None
 
     @override
     def __str__(self) -> str:
@@ -71,7 +57,7 @@ def _parse_context(
     ctx_loc: InputLocation,
     modes: Mapping[str, Mode],
     collector: ErrorCollector,
-) -> Mapping[str, _PlaceholderSpec]:
+) -> Mapping[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec]:
     placeholder_specs = {}
     for node in parse_context(ctx_loc):
         match node:
@@ -83,7 +69,7 @@ def _parse_context(
 
                 # Figure out whether the name is a mode or type.
                 mode = modes.get(type_name)
-                placeholder: _PlaceholderSpec
+                placeholder: _MatchPlaceholderSpec | _ValuePlaceholderSpec
                 if mode is not None:
                     placeholder = _MatchPlaceholderSpec(decl, mode)
                     if isinstance(node, DefinitionNode):
@@ -128,7 +114,7 @@ def parse_placeholders(
     modes: Mapping[str, Mode],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
-) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
+) -> Iterator[Placeholder]:
     """Create placeholders from a spec."""
 
     placeholder_specs = _parse_context(ctx_loc, modes, collector)
@@ -166,29 +152,26 @@ def parse_placeholders(
     for name, spec in placeholder_specs.items():
         decl = spec.decl
         location = decl.tree_location
-        val_type = spec.type
-        value_node = spec.value
-
-        code = None
-        if val_type is not None and value_node is not None:
-            builder = SemanticsCodeBlockBuilder()
-            placeholder_namespace = LocalNamespace(ctx_namespace, builder)
-            try:
-                value_ref = convert_definition(
-                    decl.kind,
-                    decl.name.name,
-                    val_type,
-                    value_node,
-                    placeholder_namespace,
-                )
-            except BadExpression as ex:
-                collector.error(f"{ex}", location=ex.locations)
-            else:
-                code = placeholder_namespace.create_code_block(value_ref)
 
         match spec:
-            case _ValuePlaceholderSpec():
-                val_type = spec.type  # narrow Python type
+            case _ValuePlaceholderSpec(type=val_type, value=val_node):
+                code = None
+                if val_node is not None:
+                    builder = SemanticsCodeBlockBuilder()
+                    placeholder_namespace = LocalNamespace(ctx_namespace, builder)
+                    try:
+                        value_ref = convert_definition(
+                            decl.kind,
+                            decl.name.name,
+                            val_type,
+                            val_node,
+                            placeholder_namespace,
+                        )
+                    except BadExpression as ex:
+                        collector.error(f"{ex}", location=ex.locations)
+                    else:
+                        code = placeholder_namespace.create_code_block(value_ref)
+
                 val_expr: Expression
                 if code is None:
                     val_expr = ImmediateValue(name, val_type)
@@ -205,7 +188,9 @@ def parse_placeholders(
                 placeholder = ValuePlaceholder(name, val_type, val_expr, location)
                 values[name] = placeholder.bits
                 yield placeholder
+
             case _MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode, location)
+
             case spec:
                 bad_type(spec)
