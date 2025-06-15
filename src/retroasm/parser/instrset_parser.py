@@ -45,13 +45,12 @@ from ..namespace import (
     Namespace,
 )
 from ..reference import Reference, bad_reference
-from ..storage import ArgStorage, IOChannel, IOStorage, Register
+from ..storage import IOChannel, IOStorage, Register
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
 from .context_parser import (
     MatchPlaceholderSpec,
     PlaceholderSpec,
-    ValuePlaceholderSpec,
     build_placeholders,
     parse_mode_context,
 )
@@ -659,64 +658,6 @@ def _check_empty_multi_matches(
                     )
 
 
-def _check_missing_placeholders(
-    enc_items: Iterable[EncodingItem],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
-    location: InputLocation,
-    collector: ErrorCollector,
-) -> None:
-    """
-    Check that our encoding field contains sufficient placeholders to be able
-    to make matches in all included mode tables.
-    """
-    # Take inventory of placeholders in the encoding.
-    identifiers = set()
-    multi_matches = set()
-    for enc_item in enc_items:
-        match enc_item:
-            case EncodingExpr(bits=bits):
-                for storage in bits.iter_storages():
-                    if isinstance(storage, ArgStorage):
-                        identifiers.add(storage.name)
-            case EncodingMultiMatch(name=name):
-                multi_matches.add(name)
-            case item:
-                bad_type(item)
-
-    # Check whether all placeholders from the context occur in the encoding.
-    for name, spec in placeholder_specs.items():
-        match spec:
-            case ValuePlaceholderSpec(value=value, decl=decl):
-                if value is not None:
-                    # The value is computed, so we don't need to encode it.
-                    continue
-                if name not in identifiers:
-                    collector.error(
-                        f'value placeholder "{name}" does not occur in encoding',
-                        location=(location, decl.tree_location),
-                    )
-            case MatchPlaceholderSpec(mode=mode, decl=decl):
-                if mode.encoding_width is None:
-                    # Mode has empty encoding, no match needed.
-                    continue
-                if name in multi_matches:
-                    # Mode is matched using "X@" syntax.
-                    continue
-                if name not in identifiers:
-                    collector.error(
-                        f'no placeholder "{name}" for mode "{mode.name}" in encoding',
-                        location=(location, decl.tree_location),
-                    )
-                if mode.aux_encoding_width is not None:
-                    collector.error(
-                        f'mode "{mode.name}" matches auxiliary encoding units, '
-                        f'but there is no "{name}@" placeholder for them',
-                        location=(location, decl.tree_location),
-                    )
-            case spec:
-                bad_type(spec)
-
-
 def _check_aux_encoding_width(
     enc_items: Iterable[EncodingItem], collector: ErrorCollector
 ) -> None:
@@ -888,14 +829,47 @@ def _parse_mode_decoding(
     Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     """
+
     try:
         # Decompose the encoding expressions.
         fixed_matcher, decode_map = decompose_encoding(encoding)
     except BadInput as ex:
         collector.error(f"{ex}", location=ex.locations)
         return None
+
+    multi_matches = {
+        enc_item.name
+        for enc_item in encoding
+        if isinstance(enc_item, EncodingMultiMatch)
+    }
+
     try:
         with collector.check():
+            # Check placeholders that should be encoded but aren't.
+            for placeholder in placeholders:
+                if not placeholder.is_encoded:
+                    continue
+                name = placeholder.name
+                if name in multi_matches:
+                    # Mode is matched using "X@" syntax.
+                    continue
+                if name not in decode_map:
+                    # Note: We could instead treat missing placeholders as a special
+                    #       case of insufficient bit coverage, but having a dedicated
+                    #       error message is more clear for end users.
+                    collector.error(
+                        f'placeholder "{name}" does not occur in encoding',
+                        location=(placeholder.location, encoding.location),
+                    )
+                elif isinstance(placeholder, MatchPlaceholder):
+                    mode = placeholder.mode
+                    if mode.aux_encoding_width is not None:
+                        collector.error(
+                            f'mode "{mode.name}" matches auxiliary encoding units, '
+                            f'but there is no "{name}@" placeholder for them',
+                            location=(placeholder.location, encoding.location),
+                        )
+
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(
@@ -1027,9 +1001,6 @@ def _parse_mode_entries(
                                 enc_items, placeholder_specs, collector
                             )
                             _check_duplicate_multi_matches(enc_items, collector)
-                            _check_missing_placeholders(
-                                enc_items, placeholder_specs, enc_loc, collector
-                            )
                         # Parse required decode flags.
                         with collector.check():
                             flags_required = set(

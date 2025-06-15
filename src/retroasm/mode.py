@@ -342,6 +342,11 @@ class Encoding:
         return None if len(items) == 0 else items[0].encoding_width
 
     @property
+    def location(self) -> InputLocation:
+        """The location spanning the entire encoding definition."""
+        return self._location
+
+    @property
     def encoding_location(self) -> InputLocation | None:
         """The InputLocation of the first item in this encoding definition."""
         items = self._items
@@ -846,14 +851,24 @@ class ValuePlaceholder:
     def encoding_width(self) -> Width:
         return self.type.width
 
-    @override
-    def __str__(self) -> str:
+    @property
+    def is_encoded(self) -> bool:
+        """Is this placeholder's value encoded? (as opposed to computed)"""
         name = self.name
         expr = self.expr
+        # Could be written more compact, but pylint's type narrowing won't work then.
+        # https://github.com/pylint-dev/pylint/issues/4920
         if isinstance(expr, ImmediateValue):
             if expr.name == name:
-                return f"{{{self.type} {name}}}"
-        return f"{{{self.type} {name} = {expr}}}"
+                return True
+        return False
+
+    @override
+    def __str__(self) -> str:
+        if self.is_encoded:
+            return f"{{{self.type} {self.name}}}"
+        else:
+            return f"{{{self.type} {self.name} = {self.expr}}}"
 
     def rename(self, name_map: Mapping[str, str]) -> ValuePlaceholder:
         def rename_immediate(expr: Expression) -> Expression | None:
@@ -884,6 +899,11 @@ class MatchPlaceholder:
     @property
     def encoding_width(self) -> Width | None:
         return self.mode.encoding_width
+
+    @property
+    def is_encoded(self) -> bool:
+        """Is this placeholder's mode match encoded?"""
+        return self.encoding_width is not None
 
     @override
     def __str__(self) -> str:
