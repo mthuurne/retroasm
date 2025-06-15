@@ -629,7 +629,7 @@ def _parse_flags_required(
 
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -637,6 +637,13 @@ def _check_empty_multi_matches(
     Technically there is nothing wrong with those, but it is probably not what
     the user intended.
     """
+
+    def placeholder_location(name: str) -> InputLocation | None:
+        for placeholder in placeholders:
+            if placeholder.name == name:
+                return placeholder.location
+        raise KeyError(name)
+
     for enc_item in enc_items:
         match enc_item:
             case EncodingMultiMatch(mode=mode):
@@ -645,7 +652,7 @@ def _check_empty_multi_matches(
                         f'mode "{mode.name}" does not contain encoding elements',
                         location=(
                             enc_item.location,
-                            placeholder_specs[enc_item.name].decl.tree_location,
+                            placeholder_location(enc_item.name),
                         ),
                     )
                 elif enc_item.start >= 1 and mode.aux_encoding_width is None:
@@ -653,7 +660,7 @@ def _check_empty_multi_matches(
                         f'mode "{mode.name}" does not match auxiliary encoding units',
                         location=(
                             enc_item.location,
-                            placeholder_specs[enc_item.name].decl.tree_location,
+                            placeholder_location(enc_item.name),
                         ),
                     )
 
@@ -998,7 +1005,7 @@ def _parse_mode_entries(
                         with collector.check():
                             _check_aux_encoding_width(enc_items, collector)
                             _check_empty_multi_matches(
-                                enc_items, placeholder_specs, collector
+                                enc_items, placeholders, collector
                             )
                             _check_duplicate_multi_matches(enc_items, collector)
                         # Parse required decode flags.
