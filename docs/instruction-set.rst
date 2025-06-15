@@ -515,10 +515,17 @@ The optional context field will be explained soon, but first an example using on
    %111    . a
 
 
-Context: Placeholders
----------------------
+Context
+-------
 
-The context field can be used to define immediate values, using the syntax ``<type> <name>``. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
+The context field can be used to define *placeholders*: names for things that will be filled in at a later time. The context field can contain multiple placeholder definitions, separated by commas. The different kinds of placeholders are described below.
+
+Immediates
+^^^^^^^^^^
+
+Some instructions have values encoded in them, for example a value to load or an offset for relative addressing. These values are called *immediates*.
+
+The context field can define placeholders for immediate values, using the syntax ``<type> <name>``. For example, the definitions below describe the immediate and non-indexed zero page addressing modes of the 6502:
 
 .. code-block::
 
@@ -529,21 +536,28 @@ The context field can be used to define immediate values, using the syntax ``<ty
    A       . A         . mem[A]    . u8 A
 
 
-The names ``N`` and ``A`` that are declared in the context are used in the other fields; these uses are called placeholders. A placeholder represents a value that will substituted at a later time. In the examples above, that value will be an 8-bit unsigned integer.
+The names ``N`` and ``A`` that are declared in the context are used as placeholders in the encoding, mnemonic and semantics fields. In this example, the placeholders ``N`` and ``A`` will be replaced by an 8-bit unsigned integer value later, when a specific instruction is being (dis)assembled or executed.
 
-The context field can contain multiple items, separated by commas. It is possible to define constants using the syntax ``<type> <name> = <expr>``. A common use case for context constants is to define relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
+Constants
+^^^^^^^^^
+
+Constants can be defined in the context using the syntax ``<type> <name> = <expr>``. A common use case for context constants is to define the computed address in relative addressing, for example the following line defines a 16-bit address that is encoded relative to the program counter using an 8-bit signed offset:
 
 .. code-block::
 
    N       . A         . A         . s8 N, u16 A = pc + N
 
 
+Constant placeholders can be used in the mnemonic and semantics field, but not in the encoding field. Instead, use immediates in the encoding field and derive constants from those immediates. For example ``u16 A, s8 N = A - pc``, while mathematically equivalent to the example above, would not be allowed as the offset ``N`` is the value that has to be encoded.
+
 Context expressions are not allowed to access state such as registers or perform I/O. Note however that the program counter is considered a known constant for the purpose of (dis)assembly and is therefore allowed in context expressions.
 
-Extending Modes
----------------
+Mode Matches
+^^^^^^^^^^^^
 
-Placeholders make it possible to include a mode defined earlier as part of a new mode, using the syntax ``<mode> <name>`` in the context field:
+A mode match placeholder is defined using the syntax ``<mode> <name>``. A mode match placeholder will be later substituted by a matched entry (row) in the mode with the given name.
+
+A mode match placeholder can be used to include an existing mode in a new mode's definition:
 
 .. code-block::
 
