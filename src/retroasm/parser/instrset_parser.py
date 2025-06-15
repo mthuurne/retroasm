@@ -48,7 +48,7 @@ from ..reference import Reference, bad_reference
 from ..storage import IOChannel, IOStorage, Register
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
-from .context_parser import build_placeholders, parse_mode_context
+from .context_parser import parse_placeholders
 from .expression_builder import (
     BadExpression,
     UnknownNameError,
@@ -965,17 +965,13 @@ def _parse_mode_entries(
         if ctx_loc:
             try:
                 with collector.check():
-                    placeholder_specs = parse_mode_context(ctx_loc, modes, collector)
                     placeholders = tuple(
-                        build_placeholders(
-                            placeholder_specs, global_namespace, collector
-                        )
+                        parse_placeholders(ctx_loc, modes, global_namespace, collector)
                     )
             except DelayedError:
                 # To avoid error spam, skip this line.
                 continue
         else:
-            placeholder_specs = {}
             placeholders = ()
 
         try:

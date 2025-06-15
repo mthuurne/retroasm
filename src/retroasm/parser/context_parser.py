@@ -19,11 +19,11 @@ from .expression_builder import BadExpression, convert_definition
 from .expression_nodes import DeclarationNode, DefinitionNode, ParseNode
 from .expression_parser import parse_context
 
-type PlaceholderSpec = MatchPlaceholderSpec | ValuePlaceholderSpec
+type _PlaceholderSpec = _MatchPlaceholderSpec | _ValuePlaceholderSpec
 
 
 @dataclass(frozen=True)
-class ValuePlaceholderSpec:
+class _ValuePlaceholderSpec:
     decl: DeclarationNode
     type: IntType
     value: ParseNode | None
@@ -42,7 +42,7 @@ class ValuePlaceholderSpec:
 
 
 @dataclass(frozen=True)
-class MatchPlaceholderSpec:
+class _MatchPlaceholderSpec:
     decl: DeclarationNode
     mode: Mode
 
@@ -67,11 +67,11 @@ class MatchPlaceholderSpec:
         return f"{{{self.mode.name} {self.name}}}"
 
 
-def parse_mode_context(
+def _parse_context(
     ctx_loc: InputLocation,
     modes: Mapping[str, Mode],
     collector: ErrorCollector,
-) -> Mapping[str, PlaceholderSpec]:
+) -> Mapping[str, _PlaceholderSpec]:
     placeholder_specs = {}
     for node in parse_context(ctx_loc):
         match node:
@@ -83,9 +83,9 @@ def parse_mode_context(
 
                 # Figure out whether the name is a mode or type.
                 mode = modes.get(type_name)
-                placeholder: PlaceholderSpec
+                placeholder: _PlaceholderSpec
                 if mode is not None:
-                    placeholder = MatchPlaceholderSpec(decl, mode)
+                    placeholder = _MatchPlaceholderSpec(decl, mode)
                     if isinstance(node, DefinitionNode):
                         collector.error(
                             "filter values for mode placeholders are not supported yet",
@@ -109,7 +109,7 @@ def parse_mode_context(
                         )
                         continue
                     value = node.value if isinstance(node, DefinitionNode) else None
-                    placeholder = ValuePlaceholderSpec(decl, typ, value)
+                    placeholder = _ValuePlaceholderSpec(decl, typ, value)
                 if name in placeholder_specs:
                     collector.error(
                         f'multiple placeholders named "{name}"',
@@ -123,12 +123,15 @@ def parse_mode_context(
     return placeholder_specs
 
 
-def build_placeholders(
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+def parse_placeholders(
+    ctx_loc: InputLocation,
+    modes: Mapping[str, Mode],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
 ) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Create placeholders from a spec."""
+
+    placeholder_specs = _parse_context(ctx_loc, modes, collector)
 
     ctx_namespace = ContextNamespace(global_namespace)
     # Populate namespace with an argument for each placeholder.
@@ -150,11 +153,11 @@ def build_placeholders(
             return values[name]
         except KeyError:
             match placeholder_specs[name]:
-                case MatchPlaceholderSpec():
+                case _MatchPlaceholderSpec():
                     raise ValueError(
                         "mode match cannot be used in context value"
                     ) from None
-                case ValuePlaceholderSpec():
+                case _ValuePlaceholderSpec():
                     raise ValueError("value placeholder is declared later") from None
                 case _ as spec:
                     # Note: mypy 1.16.0 doesn't narrow 'spec' to Never
@@ -184,7 +187,7 @@ def build_placeholders(
                 code = placeholder_namespace.create_code_block(value_ref)
 
         match spec:
-            case ValuePlaceholderSpec():
+            case _ValuePlaceholderSpec():
                 val_type = spec.type  # narrow Python type
                 val_expr: Expression
                 if code is None:
@@ -202,7 +205,7 @@ def build_placeholders(
                 placeholder = ValuePlaceholder(name, val_type, val_expr, location)
                 values[name] = placeholder.bits
                 yield placeholder
-            case MatchPlaceholderSpec(mode=mode):
+            case _MatchPlaceholderSpec(mode=mode):
                 yield MatchPlaceholder(name, mode, location)
             case spec:
                 bad_type(spec)
