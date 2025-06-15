@@ -801,7 +801,8 @@ def _combine_placeholder_encodings(
     for name, slices in decode_map.items():
         placeholder_spec = placeholder_specs[name]
         imm_width = placeholder_spec.encoding_width
-        # TODO: Can this actually never happen?
+        # Note: Encoding width is only None for empty encoding sequences,
+        #       in which case the decode map will be empty as well.
         assert imm_width is not None, placeholder_spec
         decoding = []
         problems = []
