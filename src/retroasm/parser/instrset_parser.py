@@ -34,6 +34,7 @@ from ..mode import (
     Mnemonic,
     Mode,
     ModeEntry,
+    Placeholder,
     ValuePlaceholder,
 )
 from ..namespace import (
@@ -789,8 +790,9 @@ def _check_duplicate_multi_matches(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
     collector: ErrorCollector,
+    location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """
     Yield pairs of placeholder name and the locations where the placeholder
@@ -798,12 +800,14 @@ def _combine_placeholder_encodings(
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
     """
+
+    imm_widths = {p.name: p.encoding_width for p in placeholders}
+
     for name, slices in decode_map.items():
-        placeholder_spec = placeholder_specs[name]
-        imm_width = placeholder_spec.encoding_width
+        imm_width = imm_widths[name]
         # Note: Encoding width is only None for empty encoding sequences,
         #       in which case the decode map will be empty as well.
-        assert imm_width is not None, placeholder_spec
+        assert imm_width is not None, name
         decoding = []
         problems = []
         prev: Width = 0
@@ -824,7 +828,7 @@ def _combine_placeholder_encodings(
         if problems:
             collector.error(
                 f'cannot decode value for "{name}": {", ".join(problems)}',
-                location=placeholder_spec.decl.tree_location,
+                location=location,
             )
         else:
             yield name, tuple(decoding)
@@ -833,7 +837,7 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -849,9 +853,6 @@ def _check_decoding_order(
 
     for name, decoding in sequential_map.items():
         # Are we dealing with a multi-match of unknown length?
-        placeholder_spec = placeholder_specs[name]
-        if not isinstance(placeholder_spec, MatchPlaceholderSpec):
-            continue
         multi_idx = multi_match_indices.get(name)
         if multi_idx is None:
             continue
@@ -866,19 +867,21 @@ def _check_decoding_order(
             if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            mode = placeholder_spec.mode
+            (placeholder,) = (p for p in placeholders if p.name == name)
+            assert isinstance(placeholder, MatchPlaceholder)
+            mode = placeholder.mode
             collector.error(
                 f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
-                location=[placeholder_spec.decl.tree_location, matcher.location]
+                location=[placeholder.location, matcher.location]
                 + [encoding[idx].location for idx in bad_idx],
             )
 
 
 def _parse_mode_decoding(
     encoding: Encoding,
-    placeholder_specs: Mapping[str, PlaceholderSpec],
+    placeholders: Iterable[Placeholder],
     collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
@@ -895,13 +898,13 @@ def _parse_mode_decoding(
         with collector.check():
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
-                _combine_placeholder_encodings(decode_map, placeholder_specs, collector)
+                _combine_placeholder_encodings(
+                    decode_map, placeholders, collector, encoding.encoding_location
+                )
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(
-                encoding, sequential_map, placeholder_specs, collector
-            )
+            _check_decoding_order(encoding, sequential_map, placeholders, collector)
     except DelayedError:
         return None
     else:
@@ -1039,9 +1042,7 @@ def _parse_mode_entries(
                 if encoding is None:
                     decoding = None
                 else:
-                    decoding = _parse_mode_decoding(
-                        encoding, placeholder_specs, collector
-                    )
+                    decoding = _parse_mode_decoding(encoding, placeholders, collector)
 
                 # Parse mnemonic.
                 mnem_tokens = mnem_base_tokens + MnemonicTokenizer.scan(mnem_loc)

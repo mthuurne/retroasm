@@ -842,6 +842,10 @@ class ValuePlaceholder:
     def bits(self) -> FixedValue:
         return FixedValue(self.expr, self.type.width)
 
+    @property
+    def encoding_width(self) -> Width:
+        return self.type.width
+
     @override
     def __str__(self) -> str:
         name = self.name
@@ -877,12 +881,19 @@ class MatchPlaceholder:
     mode: Mode
     location: InputLocation | None = None
 
+    @property
+    def encoding_width(self) -> Width | None:
+        return self.mode.encoding_width
+
     @override
     def __str__(self) -> str:
         return f"{{{self.mode.name} {self.name}}}"
 
     def rename(self, name_map: Mapping[str, str]) -> MatchPlaceholder:
         return MatchPlaceholder(name_map[self.name], self.mode, self.location)
+
+
+type Placeholder = MatchPlaceholder | ValuePlaceholder
 
 
 class EncodeMatch:
