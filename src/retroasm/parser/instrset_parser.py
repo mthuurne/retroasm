@@ -9,7 +9,11 @@ from operator import itemgetter
 from typing import cast
 
 from ..codeblock import FunctionBody
-from ..codeblock_builder import SemanticsCodeBlockBuilder, StatelessCodeBlockBuilder
+from ..codeblock_builder import (
+    SemanticsCodeBlockBuilder,
+    StatelessCodeBlockBuilder,
+    returned_bits,
+)
 from ..decode import (
     EncodedSegment,
     FixedEncoding,
@@ -88,6 +92,7 @@ def _parse_regs(
     collector: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
+    global_builder: StatelessCodeBlockBuilder,
 ) -> None:
     if args:
         collector.error("register definition must have no arguments", location=args)
@@ -141,7 +146,12 @@ def _parse_regs(
                     name = decl.name.name
                     try:
                         ref = convert_definition(
-                            decl.kind, name, reg_type, value, global_namespace
+                            decl.kind,
+                            name,
+                            reg_type,
+                            value,
+                            global_namespace,
+                            global_builder,
                         )
                     except BadExpression as ex:
                         message = f"bad register alias: {ex}"
@@ -306,16 +316,18 @@ def _parse_prefix(
                     )
                 else:
                     sem_builder = SemanticsCodeBlockBuilder()
-                    sem_namespace = LocalNamespace(namespace, sem_builder)
+                    sem_namespace = LocalNamespace(namespace)
                     try:
-                        _parse_instr_semantics(collector, sem_loc, sem_namespace)
+                        _parse_instr_semantics(
+                            collector, sem_loc, sem_namespace, sem_builder
+                        )
                     except BadInput as ex:
                         collector.error(
                             f"bad prefix semantics: {ex}", location=ex.locations
                         )
                     else:
-                        semantics = sem_namespace.create_code_block(
-                            ret_ref=None, collector=collector
+                        semantics = sem_builder.create_code_block(
+                            returned=(), collector=collector
                         )
         except DelayedError:
             semantics = None
@@ -508,9 +520,10 @@ def _parse_encoding_expr(
                     placeholder.location,
                 ) from None
 
-    namespace = LocalNamespace(enc_namespace, SemanticsCodeBlockBuilder())
+    builder = SemanticsCodeBlockBuilder()
+    namespace = LocalNamespace(enc_namespace)
     try:
-        enc_ref = build_reference(enc_node, namespace)
+        enc_ref = build_reference(enc_node, namespace, builder)
     except BadInput as ex:
         if isinstance(ex, UnknownNameError):
             explain_not_in_namespace(ex.name, ex.locations)
@@ -518,7 +531,7 @@ def _parse_encoding_expr(
             f"error in encoding: {ex}", enc_node.tree_location, *ex.locations
         ) from ex
 
-    code = namespace.builder.create_code_block((enc_ref.bits,))
+    code = builder.create_code_block((enc_ref.bits,))
     if len(code.nodes) != 0:
         raise BadInput(
             "encoding expression accesses state or performs I/O", enc_node.tree_location
@@ -888,11 +901,12 @@ def _parse_mode_semantics(
     _collector: ErrorCollector,
     sem_loc: InputLocation,
     sem_namespace: LocalNamespace,
+    sem_builder: SemanticsCodeBlockBuilder,
     mode_type: None | IntType | ReferenceType,
 ) -> Reference | None:
     semantics = parse_expr(sem_loc)
     if isinstance(mode_type, ReferenceType):
-        ref = build_reference(semantics, sem_namespace)
+        ref = build_reference(semantics, sem_namespace, sem_builder)
         if ref.type != mode_type.type:
             raise BadInput(
                 f"semantics type {ref.type} does not match mode type {mode_type.type}",
@@ -901,12 +915,12 @@ def _parse_mode_semantics(
         sem_namespace.define("ret", ref, sem_loc)
         return ref
     else:
-        expr = build_expression(semantics, sem_namespace)
+        expr = build_expression(semantics, sem_namespace, sem_builder)
         # Note that modeType can be None because of earlier errors.
         if mode_type is None:
             return None
         ref = sem_namespace.add_variable("ret", mode_type, sem_loc)
-        ref.emit_store(sem_namespace.builder, expr, sem_loc)
+        ref.emit_store(sem_builder, expr, sem_loc)
         return ref
 
 
@@ -914,11 +928,12 @@ def _parse_instr_semantics(
     collector: ErrorCollector,
     sem_loc: InputLocation,
     namespace: LocalNamespace,
+    builder: SemanticsCodeBlockBuilder,
     mode_type: None | IntType | ReferenceType = None,
 ) -> None:
     assert mode_type is None, mode_type
     node = parse_statement(sem_loc)
-    build_statement_eval(collector, "semantics field", namespace, node)
+    build_statement_eval(collector, "semantics field", namespace, builder, node)
 
 
 def _parse_mode_entries(
@@ -930,7 +945,13 @@ def _parse_mode_entries(
     mode_type: None | IntType | ReferenceType,
     mnem_base_tokens: MnemonicTokenizer,
     parse_sem: Callable[
-        [ErrorCollector, InputLocation, LocalNamespace, None | IntType | ReferenceType],
+        [
+            ErrorCollector,
+            InputLocation,
+            LocalNamespace,
+            SemanticsCodeBlockBuilder,
+            None | IntType | ReferenceType,
+        ],
         Reference | None,
     ],
     want_semantics: bool,
@@ -1028,7 +1049,7 @@ def _parse_mode_entries(
                         sem_loc = mnem_loc
 
                     sem_builder = SemanticsCodeBlockBuilder()
-                    sem_namespace = LocalNamespace(global_namespace, sem_builder)
+                    sem_namespace = LocalNamespace(global_namespace)
                     try:
                         # Define placeholders in semantics builder.
                         for name, placeholder in placeholders.items():
@@ -1054,7 +1075,7 @@ def _parse_mode_entries(
                                     ref.emit_store(sem_builder, expr, None)
 
                         sem_ref = parse_sem(
-                            collector, sem_loc, sem_namespace, mode_type
+                            collector, sem_loc, sem_namespace, sem_builder, mode_type
                         )
                     except BadInput as ex:
                         collector.error(
@@ -1063,8 +1084,8 @@ def _parse_mode_entries(
                         # This is the last field.
                         continue
                     semantics: FunctionBody | None
-                    semantics = sem_namespace.create_code_block(
-                        ret_ref=sem_ref, collector=collector
+                    semantics = sem_builder.create_code_block(
+                        returned=returned_bits(sem_ref), collector=collector
                     )
                 else:
                     semantics = None
@@ -1323,8 +1344,8 @@ class InstructionSetParser:
 
     def __init__(self, *, want_semantics: bool = True):
         self.want_semantics = want_semantics
-        global_builder = StatelessCodeBlockBuilder()
-        self.global_namespace = global_namespace = GlobalNamespace(global_builder)
+        self.global_builder = StatelessCodeBlockBuilder()
+        self.global_namespace = global_namespace = GlobalNamespace()
         self.prefixes = PrefixMappingFactory(global_namespace)
         self.modes: dict[str, Mode] = {}
         self.mode_entries: dict[str | None, list[ParsedModeEntry]] = {None: []}
@@ -1343,6 +1364,7 @@ class InstructionSetParser:
         num_errors_start = collector.problem_counter.num_errors
 
         global_namespace = self.global_namespace
+        global_builder = self.global_builder
         prefixes = self.prefixes
         modes = self.modes
         mode_entries = self.mode_entries
@@ -1360,7 +1382,7 @@ class InstructionSetParser:
             args = match.group(2) if match.has_group(2) else header.end_location
             def_type = keyword.text
             if def_type == "reg":
-                _parse_regs(reader, collector, args, global_namespace)
+                _parse_regs(reader, collector, args, global_namespace, global_builder)
             elif def_type == "io":
                 _parse_io(reader, collector, args, global_namespace)
             elif def_type == "prefix":

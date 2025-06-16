@@ -6,12 +6,12 @@ from typing import cast, override
 from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder,
-    StatelessCodeBlockBuilder,
     no_args_to_fetch,
+    returned_bits,
 )
 from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
-from retroasm.input import InputLocation
+from retroasm.input import ErrorCollector, InputLocation
 from retroasm.namespace import (
     GlobalNamespace,
     LocalNamespace,
@@ -73,11 +73,18 @@ class TestNamespace(LocalNamespace):
     parent: GlobalNamespace
 
     def __init__(self, parent: GlobalNamespace | None = None):
-        if parent is None:
-            global_builder = StatelessCodeBlockBuilder()
-            parent = GlobalNamespace(global_builder)
-        local_builder = SemanticsCodeBlockBuilder()
-        LocalNamespace.__init__(self, parent, local_builder)
+        LocalNamespace.__init__(self, parent or GlobalNamespace())
+        self.builder = SemanticsCodeBlockBuilder()
+
+    def create_code_block(
+        self,
+        ret_ref: Reference | None,
+        collector: ErrorCollector | None = None,
+        location: InputLocation | None = None,
+    ) -> FunctionBody:
+        return self.builder.create_code_block(
+            returned_bits(ret_ref), collector, location
+        )
 
     def _parse_one(self, storage_str: str) -> tuple[Storage, Segment]:
         idx = storage_str.index("[")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import cast
 
-from ..codeblock_builder import SemanticsCodeBlockBuilder
+from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
 from ..function import Function
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..namespace import GlobalNamespace, LocalNamespace
@@ -42,7 +42,7 @@ def create_func(
     global_namespace: GlobalNamespace,
 ) -> Function:
     builder = SemanticsCodeBlockBuilder()
-    namespace = LocalNamespace(global_namespace, builder)
+    namespace = LocalNamespace(global_namespace)
     for arg_name, arg_decl in args.items():
         arg_loc = arg_name_locations[arg_name]
         if isinstance(arg_decl, ReferenceType):
@@ -68,7 +68,7 @@ def create_func(
         with collector.check():
             body_nodes = _parse_body(reader, collector)
             emit_code_from_statements(
-                collector, "function body", namespace, body_nodes, ret_type
+                collector, "function body", namespace, builder, body_nodes, ret_type
             )
 
         if ret_type is None:
@@ -76,8 +76,8 @@ def create_func(
         elif isinstance(ret_type, ReferenceType):
             ret_ref = cast(Reference, namespace.elements["ret"])
 
-        code = namespace.create_code_block(
-            ret_ref, collector=collector, location=func_name_location
+        code = builder.create_code_block(
+            returned_bits(ret_ref), collector=collector, location=func_name_location
         )
     except DelayedError:
         code = None

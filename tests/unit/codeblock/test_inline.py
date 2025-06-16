@@ -5,7 +5,6 @@ from collections.abc import Callable
 from retroasm.codeblock import FunctionBody, Load, Store
 from retroasm.expression import AddOperator, Expression, IntLiteral, XorOperator
 from retroasm.function import Function
-from retroasm.namespace import LocalNamespace
 from retroasm.reference import (
     BitString,
     ConcatenatedBits,
@@ -19,9 +18,9 @@ from retroasm.types import IntType
 from .utils import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
 
 
-def create_simplified_code(namespace: LocalNamespace) -> FunctionBody:
+def create_simplified_code(namespace: TestNamespace) -> FunctionBody:
     print(">>> Namespace:")
-    namespace.dump()
+    namespace.builder.dump()
     if "ret" in namespace:
         ret_ref = namespace.elements["ret"]
         assert isinstance(ret_ref, Reference), ret_ref

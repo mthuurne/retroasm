@@ -4,7 +4,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import override
 
-from ..codeblock_builder import SemanticsCodeBlockBuilder
+from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
 from ..codeblock_simplifier import simplify_block
 from ..expression import Expression
 from ..expression_simplifier import simplify_expression
@@ -158,7 +158,7 @@ def parse_placeholders(
                 code = None
                 if val_node is not None:
                     builder = SemanticsCodeBlockBuilder()
-                    placeholder_namespace = LocalNamespace(ctx_namespace, builder)
+                    placeholder_namespace = LocalNamespace(ctx_namespace)
                     try:
                         value_ref = convert_definition(
                             decl.kind,
@@ -166,11 +166,12 @@ def parse_placeholders(
                             val_type,
                             val_node,
                             placeholder_namespace,
+                            builder,
                         )
                     except BadExpression as ex:
                         collector.error(f"{ex}", location=ex.locations)
                     else:
-                        code = placeholder_namespace.create_code_block(value_ref)
+                        code = builder.create_code_block(returned_bits(value_ref))
 
                 val_expr: Expression
                 if code is None:

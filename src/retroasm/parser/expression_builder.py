@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 from typing import cast
 
 from ..codeblock import Load, Store
+from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from ..expression import (
     AddOperator,
     AndOperator,
@@ -114,6 +115,7 @@ def convert_definition(
     typ: IntType | ReferenceType,
     value: ParseNode,
     namespace: BuilderNamespace,
+    builder: CodeBlockBuilder,
 ) -> Reference:
     """
     Build and validate the right hand side of a definition.
@@ -122,7 +124,7 @@ def convert_definition(
     """
     if kind is DeclarationKind.constant:
         try:
-            expr = build_expression(value, namespace)
+            expr = build_expression(value, namespace, builder)
         except BadInput as ex:
             # Note: Catch BadInput rather than BadExpression because builder
             #       could throw IllegalStateAccess.
@@ -133,7 +135,7 @@ def convert_definition(
         return FixedValueReference(truncate(expr, typ.width), typ)
     elif kind is DeclarationKind.reference:
         try:
-            ref = build_reference(value, namespace)
+            ref = build_reference(value, namespace, builder)
         except BadExpression as ex:
             raise BadExpression(
                 f'bad value for reference "{typ} {name}": {ex}', *ex.locations
@@ -168,10 +170,9 @@ def _convert_identifier(
 
 
 def _convert_function_call(
-    call_node: OperatorNode, namespace: BuilderNamespace
+    call_node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference | None:
     name_node, *arg_nodes = call_node.operands
-    builder = namespace.builder
 
     # Get function object.
     assert isinstance(name_node, IdentifierNode), name_node
@@ -197,7 +198,7 @@ def _convert_function_call(
     for (name, decl), arg_node in zip(func.args.items(), arg_nodes):
         assert arg_node is not None, call_node
         try:
-            ref = build_reference(arg_node, namespace)
+            ref = build_reference(arg_node, namespace, builder)
         except BadExpression as ex:
             raise BadExpression(
                 f'in call to function "{func_name}", argument "{name}": {ex}',
@@ -237,9 +238,12 @@ def _convert_function_call(
                 return Reference(ret_bits, retType)
 
 
-def _convert_arithmetic(node: OperatorNode, namespace: BuilderNamespace) -> Expression:
+def _convert_arithmetic(
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+) -> Expression:
     exprs: Sequence[Expression] = tuple(
-        build_expression(cast(ParseNode, node), namespace) for node in node.operands
+        build_expression(cast(ParseNode, node), namespace, builder)
+        for node in node.operands
     )
     match node.operator:
         case Operator.bitwise_and:
@@ -286,35 +290,37 @@ def _convert_arithmetic(node: OperatorNode, namespace: BuilderNamespace) -> Expr
 
 
 def _convert_expression_operator(
-    node: OperatorNode, namespace: BuilderNamespace
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Expression:
     match node.operator:
         case Operator.call:
-            ref = _convert_function_call(node, namespace)
+            ref = _convert_function_call(node, namespace, builder)
             if ref is None:
                 raise BadExpression(
                     "function does not return anything; expected value",
                     node.tree_location,
                 )
             else:
-                return ref.emit_load(namespace.builder, node.tree_location)
+                return ref.emit_load(builder, node.tree_location)
         case Operator.lookup:
-            return _convert_reference_lookup(node, namespace).emit_load(
-                namespace.builder, node.tree_location
+            return _convert_reference_lookup(node, namespace, builder).emit_load(
+                builder, node.tree_location
             )
         case Operator.slice:
-            return _convert_reference_slice(node, namespace).emit_load(
-                namespace.builder, node.tree_location
+            return _convert_reference_slice(node, namespace, builder).emit_load(
+                builder, node.tree_location
             )
         case Operator.concatenation:
-            return _convert_reference_concat(node, namespace).emit_load(
-                namespace.builder, node.tree_location
+            return _convert_reference_concat(node, namespace, builder).emit_load(
+                builder, node.tree_location
             )
         case _:
-            return _convert_arithmetic(node, namespace)
+            return _convert_arithmetic(node, namespace, builder)
 
 
-def build_expression(node: ParseNode, namespace: BuilderNamespace) -> Expression:
+def build_expression(
+    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+) -> Expression:
     match node:
         case NumberNode(value=value):
             return IntLiteral(value)
@@ -327,11 +333,11 @@ def build_expression(node: ParseNode, namespace: BuilderNamespace) -> Expression
                         ident_node.location,
                     )
                 case Reference() as ref:
-                    return ref.emit_load(namespace.builder, node.location)
+                    return ref.emit_load(builder, node.location)
                 case ident:
                     bad_type(ident)
         case OperatorNode():
-            return _convert_expression_operator(node, namespace)
+            return _convert_expression_operator(node, namespace, builder)
         case DeclarationNode(tree_location=location):
             raise BadExpression("variable declaration is not allowed here", location)
         case DefinitionNode(tree_location=location):
@@ -345,20 +351,20 @@ def build_expression(node: ParseNode, namespace: BuilderNamespace) -> Expression
 
 
 def _convert_reference_lookup(
-    node: OperatorNode, namespace: BuilderNamespace
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     expr_node, index_node = node.operands
     assert index_node is not None, node
     if isinstance(expr_node, IdentifierNode):
         match _convert_identifier(expr_node, namespace):
             case IOChannel() as channel:
-                index = build_expression(index_node, namespace)
+                index = build_expression(index_node, namespace, builder)
                 return create_io_reference(channel, index)
     else:
         assert expr_node is not None, node
 
-    ref = build_reference(expr_node, namespace)
-    index = build_expression(index_node, namespace)
+    ref = build_reference(expr_node, namespace, builder)
+    index = build_expression(index_node, namespace, builder)
     try:
         bits = SlicedBits(ref.bits, index, 1)
     except ValueError as ex:
@@ -368,13 +374,15 @@ def _convert_reference_lookup(
 
 
 def _convert_reference_slice(
-    node: OperatorNode, namespace: BuilderNamespace
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     expr_node, start_node, end_node = node.operands
     assert expr_node is not None, node
-    ref = build_reference(expr_node, namespace)
+    ref = build_reference(expr_node, namespace, builder)
     start_expr = (
-        IntLiteral(0) if start_node is None else build_expression(start_node, namespace)
+        IntLiteral(0)
+        if start_node is None
+        else build_expression(start_node, namespace, builder)
     )
     if end_node is None:
         ref_width = ref.width
@@ -383,7 +391,7 @@ def _convert_reference_slice(
         else:
             end_expr = IntLiteral(ref_width)
     else:
-        end_expr = build_expression(end_node, namespace)
+        end_expr = build_expression(end_node, namespace, builder)
     width_expr: Expression | None = (
         end_expr
         if start_node is None or end_expr is None
@@ -407,13 +415,13 @@ def _convert_reference_slice(
 
 
 def _convert_reference_concat(
-    node: OperatorNode, namespace: BuilderNamespace
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     expr_node1, expr_node2 = node.operands
     assert expr_node1 is not None, node
     assert expr_node2 is not None, node
-    ref1 = build_reference(expr_node1, namespace)
-    ref2 = build_reference(expr_node2, namespace)
+    ref1 = build_reference(expr_node1, namespace, builder)
+    ref2 = build_reference(expr_node2, namespace, builder)
     if ref2.width is unlimited:
         non_first_node = expr_node2
         while (
@@ -445,11 +453,11 @@ comparison_operators = (
 
 
 def _convert_reference_operator(
-    node: OperatorNode, namespace: BuilderNamespace
+    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     operator = node.operator
     if operator is Operator.call:
-        ref = _convert_function_call(node, namespace)
+        ref = _convert_function_call(node, namespace, builder)
         if ref is None:
             raise BadExpression(
                 "function does not return anything; expected reference",
@@ -458,18 +466,20 @@ def _convert_reference_operator(
         else:
             return ref
     elif operator is Operator.lookup:
-        return _convert_reference_lookup(node, namespace)
+        return _convert_reference_lookup(node, namespace, builder)
     elif operator is Operator.slice:
-        return _convert_reference_slice(node, namespace)
+        return _convert_reference_slice(node, namespace, builder)
     elif operator is Operator.concatenation:
-        return _convert_reference_concat(node, namespace)
+        return _convert_reference_concat(node, namespace, builder)
     else:
-        expr = _convert_arithmetic(node, namespace)
+        expr = _convert_arithmetic(node, namespace, builder)
         typ = IntType.u(1) if operator in comparison_operators else IntType.int
         return FixedValueReference(expr, typ)
 
 
-def build_reference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
+def build_reference(
+    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+) -> Reference:
     match node:
         case NumberNode(value=value, width=width):
             return int_reference(value, IntType(width, width is unlimited))
@@ -493,7 +503,7 @@ def build_reference(node: ParseNode, namespace: BuilderNamespace) -> Reference:
                 location,
             )
         case OperatorNode() as operator:
-            return _convert_reference_operator(operator, namespace)
+            return _convert_reference_operator(operator, namespace, builder)
         case node:
             raise TypeError(type(node).__name__)
 
@@ -502,6 +512,7 @@ def build_statement_eval(
     collector: ErrorCollector,
     where_desc: str,
     namespace: LocalNamespace,
+    builder: SemanticsCodeBlockBuilder,
     node: ParseNode,
 ) -> None:
     """
@@ -510,13 +521,12 @@ def build_statement_eval(
     Errors and warnings are logged on the given reader, using whereDesc as the
     description of the statement's origin.
     """
-    builder = namespace.builder
     num_nodes_before = len(builder.nodes)
 
     match node:
         case AssignmentNode():
             try:
-                lhs = build_reference(node.lhs, namespace)
+                lhs = build_reference(node.lhs, namespace, builder)
             except BadExpression as ex:
                 collector.error(
                     f"bad expression on left hand side of assignment in {where_desc}: "
@@ -526,7 +536,7 @@ def build_statement_eval(
                 return
 
             try:
-                rhs = build_expression(node.rhs, namespace)
+                rhs = build_expression(node.rhs, namespace, builder)
             except BadExpression as ex:
                 collector.error(
                     f"bad expression on right hand side of assignment in {where_desc}: "
@@ -545,7 +555,7 @@ def build_statement_eval(
         case OperatorNode(operator=Operator.call):
             # Function call.
             try:
-                _ref = _convert_function_call(node, namespace)
+                _ref = _convert_function_call(node, namespace, builder)
             except BadExpression as ex:
                 collector.error(f"{ex}", location=ex.locations)
             # Skip no-effect check: if a function does nothing, it likely either
@@ -555,7 +565,7 @@ def build_statement_eval(
         case expr:
             # Evaluate statement for its side effects.
             try:
-                build_expression(expr, namespace)
+                build_expression(expr, namespace, builder)
             except BadExpression as ex:
                 collector.error(
                     f"bad expression in statement in {where_desc}: {ex}",
@@ -583,6 +593,7 @@ def emit_code_from_statements(
     collector: ErrorCollector,
     where_desc: str,
     namespace: LocalNamespace,
+    builder: SemanticsCodeBlockBuilder,
     statements: Iterable[ParseNode],
     ret_type: None | IntType | ReferenceType,
 ) -> None:
@@ -623,7 +634,7 @@ def emit_code_from_statements(
                 # Evaluate value.
                 name = name_node.name
                 try:
-                    ref = convert_definition(kind, name, typ, value, namespace)
+                    ref = convert_definition(kind, name, typ, value, namespace, builder)
                 except BadExpression as ex:
                     message = f"{ex}"
                     collector.error(message, location=ex.locations)
@@ -646,8 +657,8 @@ def emit_code_from_statements(
 
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.
-                condition = build_expression(cond, namespace)
-                namespace.builder.add_branch(
+                condition = build_expression(cond, namespace, builder)
+                builder.add_branch(
                     label.name,
                     condition,
                     label_location=label.location,
@@ -656,7 +667,7 @@ def emit_code_from_statements(
 
             case LabelNode(name=label, location=location):
                 # Label that can be branched to.
-                namespace.builder.add_label(label, location)
+                builder.add_label(label, location)
 
             case stmt:
-                build_statement_eval(collector, where_desc, namespace, stmt)
+                build_statement_eval(collector, where_desc, namespace, builder, stmt)

@@ -1,22 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import ItemsView, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, KeysView, ValuesView
 from typing import NoReturn, cast, override
 
-from .codeblock import FunctionBody
-from .codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from .expression import Expression, opt_slice
 from .function import Function
-from .input import BadInput, ErrorCollector, InputLocation
-from .reference import BitString, Reference, SingleStorage, Variable
-from .storage import (
-    ArgStorage,
-    IOChannel,
-    IOStorage,
-    Register,
-    Storage,
-)
+from .input import BadInput, InputLocation
+from .reference import Reference, SingleStorage, Variable
+from .storage import ArgStorage, IOChannel, IOStorage, Register, Storage
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
@@ -137,20 +129,7 @@ class ContextNamespace(Namespace):
 
 
 class BuilderNamespace(Namespace, ABC):
-    """A namespace with an associated code block builder."""
-
-    def __init__(self, parent: Namespace | None, builder: CodeBlockBuilder):
-        Namespace.__init__(self, parent)
-        self.builder = builder
-
-    def dump(self) -> None:
-        """
-        Prints the current state of this namespace and its code block
-        builder on stdout.
-        """
-        self.builder.dump()
-        if "ret" in self.elements:
-            print(f"    return {self.elements['ret']}")
+    """A namespace in which variables can be created."""
 
     @abstractmethod
     def add_variable(
@@ -165,8 +144,8 @@ class BuilderNamespace(Namespace, ABC):
 class GlobalNamespace(BuilderNamespace):
     """Namespace for the global scope."""
 
-    def __init__(self, builder: CodeBlockBuilder):
-        BuilderNamespace.__init__(self, None, builder)
+    def __init__(self) -> None:
+        BuilderNamespace.__init__(self, None)
 
     @property
     def program_counter(self) -> Reference:
@@ -199,10 +178,6 @@ class LocalNamespace(BuilderNamespace):
     namespace on demand.
     """
 
-    def __init__(self, parent: Namespace | None, builder: SemanticsCodeBlockBuilder):
-        super().__init__(parent, builder)
-        self.builder: SemanticsCodeBlockBuilder
-
     @override
     def _check_name(
         self, name: str, value: NamespaceValue, location: InputLocation | None
@@ -217,25 +192,6 @@ class LocalNamespace(BuilderNamespace):
         ref = Reference(bits, typ)
         self.define(name, ref, location)
         return ref
-
-    def create_code_block(
-        self,
-        ret_ref: Reference | None,
-        collector: ErrorCollector | None = None,
-        location: InputLocation | None = None,
-    ) -> FunctionBody:
-        """
-        Returns a CodeBlock object containing the items emitted so far.
-        The state of the builder does not change.
-        If `ret_ref` is None, the created code block will not return anything,
-        otherwise it returns that reference.
-        Raises `BadInput*` if our builder does not represent a valid code block.
-        """
-        if ret_ref is None:
-            returned: Sequence[BitString] = ()
-        else:
-            returned = (ret_ref.bits,)
-        return self.builder.create_code_block(returned, collector, location)
 
 
 class NameExistsError(BadInput):

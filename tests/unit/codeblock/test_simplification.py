@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from pytest import fixture
 
 from retroasm.codeblock import AccessNode, FunctionBody, Load, Store
+from retroasm.codeblock_builder import returned_bits
 from retroasm.expression import (
     AddOperator,
     AndOperator,
@@ -43,13 +44,13 @@ def namespace() -> TestNamespace:
 def create_simplified_code(namespace: TestNamespace) -> FunctionBody:
     if verbose:
         print("=" * 40)
-        namespace.dump()
+        namespace.builder.dump()
     if "ret" in namespace:
         ret_ref = namespace.elements["ret"]
         assert isinstance(ret_ref, Reference), ret_ref
     else:
         ret_ref = None
-    code = namespace.create_code_block(ret_ref)
+    code = namespace.builder.create_code_block(returned_bits(ret_ref))
     if verbose:
         print("-" * 40)
         code.dump()
@@ -72,7 +73,7 @@ def test_no_change(namespace: TestNamespace) -> None:
         assert store.storage == ref_b.bits.storage
         assert store.expr is load.expr
 
-    code = namespace.create_code_block(None)
+    code = namespace.builder.create_code_block(())
     check_nodes(code)
     code = create_simplified_code(namespace)
     check_nodes(code)

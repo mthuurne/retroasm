@@ -71,6 +71,10 @@ def _check_undefined(
                     )
 
 
+def returned_bits(ret_ref: Reference | None) -> Sequence[BitString]:
+    return () if ret_ref is None else (ret_ref.bits,)
+
+
 class CodeBlockBuilder(ABC):
     _next_block_id: ClassVar[int] = 0
 
