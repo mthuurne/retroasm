@@ -131,26 +131,6 @@ class InputLocation:
         match = pattern.match(self.line, *self.span)
         return None if match is None else InputMatch(self, match)
 
-    def find_locations(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
-        """
-        Searches the text in this location for the given compiled regular
-        expression pattern.
-        Returns an iterator that yields an InputLocation object for each
-        match.
-        """
-        for match in pattern.finditer(self.line, *self.span):
-            yield self.update_span(match.span(0))
-
-    def find_matches(self, pattern: Pattern[str]) -> Iterator[InputMatch]:
-        """
-        Searches the text in this location for the given compiled regular
-        expression pattern.
-        Returns an iterator that yields an InputMatch object for each
-        match.
-        """
-        for match in pattern.finditer(self.line, *self.span):
-            yield InputMatch(self, match)
-
     def split(self, pattern: Pattern[str]) -> Iterator[InputLocation]:
         """
         Splits the text in this location using the given pattern as a
