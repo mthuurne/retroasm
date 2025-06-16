@@ -4,17 +4,10 @@ Parser for mnemonic column in instruction set definition.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator, Mapping
 
-from ..input import (
-    ErrorCollector,
-    InputLocation,
-)
-from ..mode import (
-    MatchPlaceholder,
-    MnemItem,
-    ValuePlaceholder,
-)
+from ..input import ErrorCollector, InputLocation
+from ..mode import MnemItem, Placeholder
 from ..reference import int_reference
 from ..types import IntType
 from ..utils import bad_type
@@ -37,17 +30,16 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 def parse_mnemonic(
     tokens: MnemonicTokenizer,
-    placeholders: Iterable[MatchPlaceholder | ValuePlaceholder],
+    placeholders: Mapping[str, Placeholder],
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
-    placeholder_map = {p.name: p for p in placeholders}
     seen_placeholders: dict[str, InputLocation] = {}
 
     for token_type, token_loc in tokens:
         text = token_loc.text
         match token_type:
             case MnemonicToken.identifier:
-                placeholder = placeholder_map.get(text)
+                placeholder = placeholders.get(text)
                 if placeholder is None:
                     yield text
                 elif text in seen_placeholders:
