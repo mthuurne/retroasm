@@ -648,7 +648,7 @@ def _qualify_names(
     If `branch_name` is `None`, no renaming is performed.
     """
     entry = parsed_entry.entry
-    placeholders = entry.placeholders
+    placeholders = tuple(entry.placeholders)
     if branch_name is None or len(placeholders) == 0:
         # Do not rename.
         return parsed_entry.entry, parsed_entry.decoding

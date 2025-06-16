@@ -1087,7 +1087,16 @@ def _parse_mode_entries(
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
                     template,
-                    placeholders.values(),
+                    (
+                        p
+                        for p in placeholders.values()
+                        if isinstance(p, MatchPlaceholder)
+                    ),
+                    (
+                        p
+                        for p in placeholders.values()
+                        if isinstance(p, ValuePlaceholder)
+                    ),
                 )
                 yield ParsedModeEntry(entry, *decoding)
 
