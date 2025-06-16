@@ -121,9 +121,9 @@ def check_flatten(
         assert base.storage == expected_item[0]
         assert base_seg == expected_item[1]
         width += base_seg.width
-    assert i >= len(
-        expected
-    ), f"Bit string produced only {i} of the {len(expected)} expected items"
+    assert i >= len(expected), (
+        f"Bit string produced only {i} of the {len(expected)} expected items"
+    )
     assert width <= bits.width
 
 
@@ -149,9 +149,9 @@ def check_load(
     assert all_storages == loaded_storages
 
     # Check the loaded value expression's bit mask.
-    assert (
-        width_for_mask(value.mask) <= bits.width
-    ), "loaded value is wider than bit string"
+    assert width_for_mask(value.mask) <= bits.width, (
+        "loaded value is wider than bit string"
+    )
 
     # Check that the loaded expression's terms don't overlap.
     decomposed_val = tuple(decompose_expr(value))

@@ -243,8 +243,7 @@ def disassemble_binary(
         entry_points.append(entry_point)
     if len(entry_points) == 0:
         logger.warning(
-            "No entry points; you can manually define them using the --entry "
-            "argument"
+            "No entry points; you can manually define them using the --entry argument"
         )
         return
 

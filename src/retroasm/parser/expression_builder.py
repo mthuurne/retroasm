@@ -143,7 +143,7 @@ def convert_definition(
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
             raise BadExpression.with_text(
-                f"{ref.width}-bit value does not match " f'declared type "{typ.type}"',
+                f'{ref.width}-bit value does not match declared type "{typ.type}"',
                 value.tree_location,
             )
         return ref
@@ -431,8 +431,7 @@ def _convert_reference_concat(
             assert non_first_node.operands[0] is not None, node
             non_first_node = non_first_node.operands[0]
         raise BadExpression.with_text(
-            "only the first concatenation operand is allowed to have "
-            "unlimited width",
+            "only the first concatenation operand is allowed to have unlimited width",
             non_first_node.tree_location,
         )
     bits = ConcatenatedBits(ref2.bits, ref1.bits)
@@ -618,7 +617,7 @@ def emit_code_from_statements(
                     if not isinstance(ret_type, ReferenceType):
                         collector.error(
                             '"ret" defined as reference in function that returns '
-                            f'{"nothing" if ret_type is None else "value"}',
+                            f"{'nothing' if ret_type is None else 'value'}",
                             location=decl.location,
                         )
                         continue

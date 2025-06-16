@@ -42,7 +42,7 @@ def test_disasm_empty() -> None:
 
 def test_disasm_ldir() -> None:
     """Disassemble a simple code fragment."""
-    image = b"\x21\x00\x80" b"\x11\x00\xa0" b"\x01\x00\x20" b"\xed\xb0"
+    image = b"\x21\x00\x80" + b"\x11\x00\xa0" + b"\x01\x00\x20" + b"\xed\xb0"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
         (0x4000, "ld hl,$8000"),
@@ -93,7 +93,7 @@ def test_disasm_fixed_numbers() -> None:
 
 def test_disasm_push_ix_pop_iy() -> None:
     """Disassemble code using prefixes."""
-    image = b"\xdd\xe5" b"\xfd\xe1"
+    image = b"\xdd\xe5" + b"\xfd\xe1"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
         (0x4000, "push ix"),
@@ -115,7 +115,7 @@ def test_disasm_bad_opcode() -> None:
 @mark.xfail
 def test_disasm_multiple_opcode() -> None:
     """Disassemble an instruction that has more than one possible opcode."""
-    image = b"\x2a\x34\x12" b"\xed\x6b\x78\x56"
+    image = b"\x2a\x34\x12" + b"\xed\x6b\x78\x56"
     disassembled = list(disassemble_image(image))
     assert disassembled == [
         (0x4000, "ld hl,($1234)"),

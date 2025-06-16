@@ -7,16 +7,16 @@ from retroasm.types import IntType
 
 def assert_alias(storage1: Storage, storage2: Storage) -> None:
     assert storage1.might_be_same(storage2), f"{storage1} does not alias {storage2}"
-    assert storage2.might_be_same(
-        storage1
-    ), f"{storage1} does alias {storage2}, but not vice versa"
+    assert storage2.might_be_same(storage1), (
+        f"{storage1} does alias {storage2}, but not vice versa"
+    )
 
 
 def assert_no_alias(storage1: Storage, storage2: Storage) -> None:
     assert not storage1.might_be_same(storage2), f"{storage1} does alias {storage2}"
-    assert not storage2.might_be_same(
-        storage1
-    ), f"{storage1} does not alias {storage2}, but vice versa it does"
+    assert not storage2.might_be_same(storage1), (
+        f"{storage1} does not alias {storage2}, but vice versa it does"
+    )
 
 
 def test_register_aliasing() -> None:
