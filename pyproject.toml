@@ -63,6 +63,9 @@ line-length = 88
 target-version = "py312"
 src = ["src"]
 
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
 [tool.ruff.lint]
 ignore = [
     # ambiguous-variable-name: I really want to be able to name a register variable "l"

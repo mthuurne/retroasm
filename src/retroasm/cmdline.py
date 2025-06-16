@@ -21,9 +21,7 @@ from click import (
     option,
     version_option,
 )
-from click import (
-    Path as PathArg,
-)
+from click import Path as PathArg
 
 from .asm._mnem_parser import get_instruction_parser
 from .asm.directives import DataDirective, OriginDirective

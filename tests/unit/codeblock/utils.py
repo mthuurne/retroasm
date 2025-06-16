@@ -12,11 +12,7 @@ from retroasm.codeblock_builder import (
 from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
 from retroasm.input import ErrorCollector, InputLocation
-from retroasm.namespace import (
-    GlobalNamespace,
-    LocalNamespace,
-    create_io_reference,
-)
+from retroasm.namespace import GlobalNamespace, LocalNamespace, create_io_reference
 from retroasm.reference import BitString, FixedValue, Reference, SingleStorage
 from retroasm.storage import IOChannel, Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width

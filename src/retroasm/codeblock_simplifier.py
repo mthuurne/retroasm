@@ -2,13 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .codeblock import (
-    AccessNode,
-    Load,
-    LoadedValue,
-    Store,
-    verify_loads,
-)
+from .codeblock import AccessNode, Load, LoadedValue, Store, verify_loads
 from .expression import Expression
 from .expression_simplifier import simplify_expression
 from .reference import BitString

@@ -21,12 +21,7 @@ from ..decode import (
     Prefix,
     decompose_encoding,
 )
-from ..input import (
-    BadInput,
-    DelayedError,
-    ErrorCollector,
-    InputLocation,
-)
+from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
     CodeTemplate,

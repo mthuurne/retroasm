@@ -15,12 +15,7 @@ from retroasm.expression_simplifier import simplify_expression
 from retroasm.types import IntType, unlimited
 
 from .conftest import Equation
-from .utils import (
-    TestValue,
-    assert_int_literal,
-    assert_slice,
-    make_concat,
-)
+from .utils import TestValue, assert_int_literal, assert_slice, make_concat
 
 
 def test_zero_literal() -> None:

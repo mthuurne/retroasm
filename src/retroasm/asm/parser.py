@@ -5,12 +5,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import cast
 
-from ..input import (
-    BadInput,
-    DelayedError,
-    ErrorCollector,
-    InputLocation,
-)
+from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
     IdentifierNode,
