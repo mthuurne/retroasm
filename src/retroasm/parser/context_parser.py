@@ -138,16 +138,16 @@ def parse_placeholders(
         try:
             return values[name]
         except KeyError:
-            match placeholder_specs[name]:
+            # Note: Mypy won't narrow the default case to Never without the variable.
+            match spec := placeholder_specs[name]:
                 case _MatchPlaceholderSpec():
                     raise ValueError(
                         "mode match cannot be used in context value"
                     ) from None
                 case _ValuePlaceholderSpec():
                     raise ValueError("value placeholder is declared later") from None
-                case _ as spec:
-                    # Note: mypy 1.16.0 doesn't narrow 'spec' to Never
-                    assert False, spec  # bad_type(spec)
+                case _:
+                    bad_type(spec)
 
     for name, spec in placeholder_specs.items():
         decl = spec.decl
