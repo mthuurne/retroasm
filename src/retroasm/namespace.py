@@ -4,11 +4,10 @@ from abc import ABC, abstractmethod
 from collections.abc import ItemsView, KeysView, ValuesView
 from typing import NoReturn, cast, override
 
-from .expression import Expression, opt_slice
 from .function import Function
 from .input import BadInput, InputLocation
 from .reference import Reference, SingleStorage, Variable
-from .storage import ArgStorage, IOChannel, IOStorage, Register, Storage
+from .storage import ArgStorage, IOChannel, Register, Storage
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
@@ -222,11 +221,3 @@ def _reject_pc(name: str, location: InputLocation | None) -> None:
         raise NameExistsError(
             'the name "pc" is reserved for the program counter register', location
         )
-
-
-def create_io_reference(channel: IOChannel, index: Expression) -> Reference:
-    addr_width = channel.addr_type.width
-    truncated_index = opt_slice(index, 0, addr_width)
-    storage = IOStorage(channel, truncated_index)
-    bits = SingleStorage(storage)
-    return Reference(bits, channel.elem_type)

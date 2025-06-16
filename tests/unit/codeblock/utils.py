@@ -12,8 +12,14 @@ from retroasm.codeblock_builder import (
 from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
 from retroasm.input import ErrorCollector, InputLocation
-from retroasm.namespace import GlobalNamespace, LocalNamespace, create_io_reference
-from retroasm.reference import BitString, FixedValue, Reference, SingleStorage
+from retroasm.namespace import GlobalNamespace, LocalNamespace
+from retroasm.reference import (
+    BitString,
+    FixedValue,
+    Reference,
+    SingleStorage,
+    io_reference,
+)
 from retroasm.storage import IOChannel, Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width
 
@@ -146,7 +152,7 @@ class TestNamespace(LocalNamespace):
         local_channel = self[channel_name]
         assert local_channel is channel
         # Create I/O storage.
-        ref = create_io_reference(channel, index)
+        ref = io_reference(channel, index)
         return cast(SingleStorageReference, ref)
 
     @override

@@ -23,12 +23,7 @@ from ..expression import (
 from ..expression_simplifier import simplify_expression
 from ..function import Function
 from ..input import BadInput, ErrorCollector, InputLocation
-from ..namespace import (
-    BuilderNamespace,
-    LocalNamespace,
-    NameExistsError,
-    create_io_reference,
-)
+from ..namespace import BuilderNamespace, LocalNamespace, NameExistsError
 from ..reference import (
     ConcatenatedBits,
     FixedValue,
@@ -37,6 +32,7 @@ from ..reference import (
     SlicedBits,
     bad_reference,
     int_reference,
+    io_reference,
 )
 from ..storage import IOChannel
 from ..types import (
@@ -359,7 +355,7 @@ def _convert_reference_lookup(
         match _convert_identifier(expr_node, namespace):
             case IOChannel() as channel:
                 index = build_expression(index_node, namespace, builder)
-                return create_io_reference(channel, index)
+                return io_reference(channel, index)
     else:
         assert expr_node is not None, node
 

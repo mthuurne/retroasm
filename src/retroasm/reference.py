@@ -21,7 +21,7 @@ from .expression import (
 )
 from .expression_simplifier import simplify_expression
 from .input import InputLocation
-from .storage import Storage
+from .storage import IOChannel, IOStorage, Storage
 from .symbol import SymbolValue
 from .types import (
     IntType,
@@ -683,3 +683,14 @@ def symbol_reference(name: str, typ: IntType) -> FixedValueReference:
     Return a reference to a symbol value.
     """
     return FixedValueReference(SymbolValue(name, typ.width), typ)
+
+
+def io_reference(channel: IOChannel, index: Expression) -> Reference:
+    """
+    Return a reference to a specific index in an I/O channel.
+    """
+    addr_width = channel.addr_type.width
+    truncated_index = opt_slice(index, 0, addr_width)
+    storage = IOStorage(channel, truncated_index)
+    bits = SingleStorage(storage)
+    return Reference(bits, channel.elem_type)
