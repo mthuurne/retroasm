@@ -111,51 +111,43 @@ def parse_placeholders(
 ) -> Iterator[Placeholder]:
     """Yield the placeholders defined in the given context."""
 
-    # Populate namespace with an argument for each placeholder.
-    # This avoids a confusing "unknown name" error when an invalid placeholder is
-    # looked up and enables fetch_arg() to produce more specific error messages.
-    ctx_namespace = ContextNamespace(global_namespace)
-    specs: dict[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec] = {}
-    for spec in _parse_context(ctx_loc, modes, collector):
-        name = spec.name
-        val_type = spec.type
-        if isinstance(val_type, ReferenceType):
-            val_type = val_type.type
-        try:
-            ctx_namespace.add_argument(name, val_type, spec.decl.name.location)
-        except NameExistsError as ex:
-            collector.error(
-                f"failed to define placeholder: {ex}",
-                location=ex.locations,
-            )
-        else:
-            specs[name] = spec
-
     values: dict[str, FixedValue] = {}
 
     def fetch_arg(name: str) -> BitString:
         try:
             return values[name]
         except KeyError:
-            # Note: Mypy won't narrow the default case to Never without the variable.
-            match spec := specs[name]:
-                case _MatchPlaceholderSpec():
-                    raise ValueError(
-                        "mode match cannot be used in context value"
-                    ) from None
-                case _ValuePlaceholderSpec():
-                    raise ValueError("value placeholder is declared later") from None
-                case _:
-                    bad_type(spec)
+            raise ValueError(
+                "mode placeholder cannot be used in context value"
+            ) from None
 
     pc = global_namespace.program_counter
-
-    for name, spec in specs.items():
+    ctx_namespace = ContextNamespace(global_namespace)
+    for spec in _parse_context(ctx_loc, modes, collector):
         decl = spec.decl
         location = decl.tree_location
+        name = spec.name
+        val_type = spec.type
+        if isinstance(val_type, ReferenceType):
+            # References in value placeholders have already been rejected.
+            # Mode placeholders will be rejected later.
+            # So the value type doesn't matter, but we must provide something.
+            val_type = val_type.type
+
+        # Populate namespace with an argument for each placeholder.
+        # Mode placeholders will be added here and then rejected in fetch_arg(),
+        # to avoids a confusing "unknown name" error.
+        try:
+            ctx_namespace.add_argument(name, val_type, decl.name.location)
+        except NameExistsError as ex:
+            collector.error(
+                f"failed to define placeholder: {ex}",
+                location=ex.locations,
+            )
+            continue
 
         match spec:
-            case _ValuePlaceholderSpec(type=val_type, value=val_node):
+            case _ValuePlaceholderSpec(value=val_node):
                 code = None
                 if val_node is not None:
                     builder = SemanticsCodeBlockBuilder()
