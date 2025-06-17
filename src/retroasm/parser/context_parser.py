@@ -57,56 +57,45 @@ def _parse_context(
     ctx_loc: InputLocation,
     modes: Mapping[str, Mode],
     collector: ErrorCollector,
-) -> Mapping[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec]:
-    placeholder_specs = {}
+) -> Iterator[_MatchPlaceholderSpec | _ValuePlaceholderSpec]:
     for node in parse_context(ctx_loc):
         match node:
             case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
-                name = decl.name.name
                 decl_type = decl.type
                 assert decl_type is not None
                 type_name = decl_type.name
 
-                # Figure out whether the name is a mode or type.
-                mode = modes.get(type_name)
-                placeholder: _MatchPlaceholderSpec | _ValuePlaceholderSpec
-                if mode is not None:
-                    placeholder = _MatchPlaceholderSpec(decl, mode)
+                if (mode := modes.get(type_name)) is not None:
                     if isinstance(node, DefinitionNode):
                         collector.error(
-                            "filter values for mode placeholders are not supported yet",
+                            "mode placeholders cannot be assigned values",
                             location=InputLocation.merge_span(
                                 node.location, node.value.tree_location
                             ),
                         )
-                else:
-                    try:
-                        typ = parse_type_decl(type_name)
-                    except ValueError:
-                        collector.error(
-                            f'there is no type or mode named "{type_name}"',
-                            location=decl_type.location,
-                        )
-                        continue
-                    if isinstance(typ, ReferenceType):
-                        collector.error(
-                            "placeholders cannot be references",
-                            location=decl_type.location,
-                        )
-                        continue
-                    value = node.value if isinstance(node, DefinitionNode) else None
-                    placeholder = _ValuePlaceholderSpec(decl, typ, value)
-                if name in placeholder_specs:
+                    yield _MatchPlaceholderSpec(decl, mode)
+                    continue
+
+                try:
+                    typ = parse_type_decl(type_name)
+                except ValueError:
                     collector.error(
-                        f'multiple placeholders named "{name}"',
-                        location=decl.name.location,
+                        f'there is no type or mode named "{type_name}"',
+                        location=decl_type.location,
                     )
-                else:
-                    placeholder_specs[name] = placeholder
+                    continue
+
+                if isinstance(typ, ReferenceType):
+                    collector.error(
+                        "value placeholders cannot be references",
+                        location=decl_type.location,
+                    )
+                    continue
+
+                value = node.value if isinstance(node, DefinitionNode) else None
+                yield _ValuePlaceholderSpec(decl, typ, value)
             case node:
                 bad_type(node)
-
-    return placeholder_specs
 
 
 def parse_placeholders(
@@ -115,15 +104,24 @@ def parse_placeholders(
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
 ) -> Iterator[Placeholder]:
-    """Create placeholders from a spec."""
+    """Yield the placeholders defined in the given context."""
 
-    placeholder_specs = _parse_context(ctx_loc, modes, collector)
+    specs: dict[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec] = {}
+    for spec in _parse_context(ctx_loc, modes, collector):
+        name = spec.name
+        if name in specs:
+            collector.error(
+                f'multiple placeholders named "{name}"',
+                location=(specs[name].decl.location, spec.decl.location),
+            )
+        else:
+            specs[name] = spec
 
     ctx_namespace = ContextNamespace(global_namespace)
     # Populate namespace with an argument for each placeholder.
     # This avoids a confusing "unknown name" error when an invalid placeholder is
     # looked up and enables fetch_arg() to produce more specific error messages.
-    for name, spec in placeholder_specs.items():
+    for name, spec in specs.items():
         val_type = spec.type
         if val_type is not None:
             if isinstance(val_type, ReferenceType):
@@ -139,7 +137,7 @@ def parse_placeholders(
             return values[name]
         except KeyError:
             # Note: Mypy won't narrow the default case to Never without the variable.
-            match spec := placeholder_specs[name]:
+            match spec := specs[name]:
                 case _MatchPlaceholderSpec():
                     raise ValueError(
                         "mode match cannot be used in context value"
@@ -149,7 +147,7 @@ def parse_placeholders(
                 case _:
                     bad_type(spec)
 
-    for name, spec in placeholder_specs.items():
+    for name, spec in specs.items():
         decl = spec.decl
         location = decl.tree_location
 
