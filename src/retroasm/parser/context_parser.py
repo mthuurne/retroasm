@@ -10,7 +10,12 @@ from ..expression import Expression
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
 from ..mode import MatchPlaceholder, Mode, Placeholder, ValuePlaceholder
-from ..namespace import ContextNamespace, GlobalNamespace, LocalNamespace
+from ..namespace import (
+    ContextNamespace,
+    GlobalNamespace,
+    LocalNamespace,
+    NameExistsError,
+)
 from ..reference import BitString, FixedValue, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
@@ -106,29 +111,25 @@ def parse_placeholders(
 ) -> Iterator[Placeholder]:
     """Yield the placeholders defined in the given context."""
 
-    specs: dict[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec] = {}
-    for spec in _parse_context(ctx_loc, modes, collector):
-        name = spec.name
-        if name in specs:
-            collector.error(
-                f'multiple placeholders named "{name}"',
-                location=(specs[name].decl.location, spec.decl.location),
-            )
-        else:
-            specs[name] = spec
-
-    ctx_namespace = ContextNamespace(global_namespace)
     # Populate namespace with an argument for each placeholder.
     # This avoids a confusing "unknown name" error when an invalid placeholder is
     # looked up and enables fetch_arg() to produce more specific error messages.
-    for name, spec in specs.items():
+    ctx_namespace = ContextNamespace(global_namespace)
+    specs: dict[str, _MatchPlaceholderSpec | _ValuePlaceholderSpec] = {}
+    for spec in _parse_context(ctx_loc, modes, collector):
+        name = spec.name
         val_type = spec.type
-        if val_type is not None:
-            if isinstance(val_type, ReferenceType):
-                val_type = val_type.type
+        if isinstance(val_type, ReferenceType):
+            val_type = val_type.type
+        try:
             ctx_namespace.add_argument(name, val_type, spec.decl.name.location)
-
-    pc = global_namespace.program_counter
+        except NameExistsError as ex:
+            collector.error(
+                f"failed to define placeholder: {ex}",
+                location=ex.locations,
+            )
+        else:
+            specs[name] = spec
 
     values: dict[str, FixedValue] = {}
 
@@ -146,6 +147,8 @@ def parse_placeholders(
                     raise ValueError("value placeholder is declared later") from None
                 case _:
                     bad_type(spec)
+
+    pc = global_namespace.program_counter
 
     for name, spec in specs.items():
         decl = spec.decl
