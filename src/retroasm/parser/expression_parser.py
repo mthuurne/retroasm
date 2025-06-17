@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Any, cast
+from typing import Literal, overload
 
 from ..input import BadInput, InputLocation
 from .expression_nodes import (
@@ -55,7 +55,43 @@ class _ParseMode(Enum):
     context = auto()
 
 
-def _parse(location: InputLocation, mode: _ParseMode) -> Any:
+@overload
+def _parse(location: InputLocation, mode: Literal[_ParseMode.single]) -> ParseNode: ...
+
+
+@overload
+def _parse(
+    location: InputLocation, mode: Literal[_ParseMode.multi]
+) -> Iterable[ParseNode]: ...
+
+
+@overload
+def _parse(
+    location: InputLocation, mode: Literal[_ParseMode.registers]
+) -> Iterable[DefDeclNode]: ...
+
+
+@overload
+def _parse(
+    location: InputLocation, mode: Literal[_ParseMode.encoding]
+) -> Iterable[ParseNode]: ...
+
+
+@overload
+def _parse(
+    location: InputLocation, mode: Literal[_ParseMode.context]
+) -> Iterable[DefDeclNode]: ...
+
+
+@overload
+def _parse(
+    location: InputLocation, mode: Literal[_ParseMode.statement]
+) -> ParseNode: ...
+
+
+def _parse(
+    location: InputLocation, mode: _ParseMode
+) -> ParseNode | Iterable[ParseNode]:
     tokens = ExprTokenizer.scan(location)
 
     def bad_token_kind(where: str, expected: str) -> BadInput:
@@ -488,24 +524,24 @@ def _parse(location: InputLocation, mode: _ParseMode) -> Any:
 
 
 def parse_expr(location: InputLocation) -> ParseNode:
-    return cast(ParseNode, _parse(location, _ParseMode.single))
+    return _parse(location, _ParseMode.single)
 
 
 def parse_expr_list(location: InputLocation) -> Iterable[ParseNode]:
-    return cast(Iterable[ParseNode], _parse(location, _ParseMode.multi))
+    return _parse(location, _ParseMode.multi)
 
 
 def parse_regs(location: InputLocation) -> Iterable[DefDeclNode]:
-    return cast(Iterable[DefDeclNode], _parse(location, _ParseMode.registers))
+    return _parse(location, _ParseMode.registers)
 
 
 def parse_encoding(location: InputLocation) -> Iterable[ParseNode]:
-    return cast(Iterable[ParseNode], _parse(location, _ParseMode.encoding))
+    return _parse(location, _ParseMode.encoding)
 
 
 def parse_context(location: InputLocation) -> Iterable[DefDeclNode]:
-    return cast(Iterable[DefDeclNode], _parse(location, _ParseMode.context))
+    return _parse(location, _ParseMode.context)
 
 
 def parse_statement(location: InputLocation) -> ParseNode:
-    return cast(ParseNode, _parse(location, _ParseMode.statement))
+    return _parse(location, _ParseMode.statement)
