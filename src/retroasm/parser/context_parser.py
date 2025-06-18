@@ -154,8 +154,7 @@ def parse_placeholders(
                     placeholder_namespace = LocalNamespace(ctx_namespace)
                     try:
                         value_ref = convert_definition(
-                            decl.kind,
-                            decl.name.name,
+                            decl,
                             val_type,
                             val_node,
                             placeholder_namespace,

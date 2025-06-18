@@ -138,11 +138,9 @@ def _parse_regs(
                                 )
                 case DefinitionNode(value=value):
                     # Define register alias.
-                    name = decl.name.name
                     try:
                         ref = convert_definition(
-                            decl.kind,
-                            name,
+                            decl,
                             reg_type,
                             value,
                             global_namespace,
@@ -153,7 +151,7 @@ def _parse_regs(
                         collector.error(message, location=ex.locations)
                         ref = bad_reference(reg_type, message)
                     try:
-                        global_namespace.define(name, ref, decl.name.location)
+                        global_namespace.define(decl.name.name, ref, decl.name.location)
                     except NameExistsError as ex:
                         collector.error(
                             f"failed to define register alias: {ex}",

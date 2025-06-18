@@ -106,8 +106,7 @@ def declare_variable(node: DeclarationNode, namespace: BuilderNamespace) -> Refe
 
 
 def convert_definition(
-    kind: DeclarationKind,
-    name: str,
+    decl: DeclarationNode,
     typ: IntType | ReferenceType,
     value: ParseNode,
     namespace: BuilderNamespace,
@@ -118,33 +117,38 @@ def convert_definition(
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
     """
-    if kind is DeclarationKind.constant:
-        try:
-            expr = build_expression(value, namespace, builder)
-        except BadInput as ex:
-            # Note: Catch BadInput rather than BadExpression because builder
-            #       could throw IllegalStateAccess.
-            raise BadExpression(
-                f'bad value for constant "{typ} {name}": {ex}', *ex.locations
-            ) from ex
-        assert isinstance(typ, IntType), typ
-        return FixedValueReference(truncate(expr, typ.width), typ)
-    elif kind is DeclarationKind.reference:
-        try:
-            ref = build_reference(value, namespace, builder)
-        except BadExpression as ex:
-            raise BadExpression(
-                f'bad value for reference "{typ} {name}": {ex}', *ex.locations
-            ) from ex
-        assert isinstance(typ, ReferenceType), typ
-        if typ.type.width != ref.width:
-            raise BadExpression.with_text(
-                f'{ref.width}-bit value does not match declared type "{typ.type}"',
-                value.tree_location,
-            )
-        return ref
-    else:
-        assert False, kind
+    match decl.kind:
+        case DeclarationKind.constant:
+            try:
+                expr = build_expression(value, namespace, builder)
+            except BadInput as ex:
+                # Note: Catch BadInput rather than BadExpression because builder
+                #       could throw IllegalStateAccess.
+                raise BadExpression(
+                    f'bad value for constant "{typ} {decl.name.name}": {ex}',
+                    *ex.locations,
+                ) from ex
+            assert isinstance(typ, IntType), typ
+            return FixedValueReference(truncate(expr, typ.width), typ)
+        case DeclarationKind.reference:
+            try:
+                ref = build_reference(value, namespace, builder)
+            except BadExpression as ex:
+                raise BadExpression(
+                    f'bad value for reference "{typ} {decl.name.name}": {ex}',
+                    *ex.locations,
+                ) from ex
+            assert isinstance(typ, ReferenceType), typ
+            if typ.type.width != ref.width:
+                raise BadExpression.with_text(
+                    f'{ref.width}-bit value does not match declared type "{typ.type}"',
+                    value.tree_location,
+                )
+            return ref
+        case DeclarationKind.variable:
+            assert False, decl
+        case _ as kind:
+            bad_type(kind)
 
 
 def _convert_identifier(
@@ -603,13 +607,14 @@ def emit_code_from_statements(
                 # Constant/reference definition.
                 kind = decl.kind
                 name_node = decl.name
+                name = name_node.name
                 type_node = decl.type
                 if type_node is None:
                     # For a function returning a reference, the reference type
                     # is declared in the function header rather than on the
                     # definition line.
-                    assert kind == DeclarationKind.reference, kind
-                    assert name_node.name == "ret", name_node.name
+                    assert kind is DeclarationKind.reference, kind
+                    assert name == "ret", name
                     if not isinstance(ret_type, ReferenceType):
                         collector.error(
                             '"ret" defined as reference in function that returns '
@@ -627,9 +632,8 @@ def emit_code_from_statements(
                             f"bad type name in definition: {ex}", type_node.location
                         ) from ex
                 # Evaluate value.
-                name = name_node.name
                 try:
-                    ref = convert_definition(kind, name, typ, value, namespace, builder)
+                    ref = convert_definition(decl, typ, value, namespace, builder)
                 except BadExpression as ex:
                     message = f"{ex}"
                     collector.error(message, location=ex.locations)
