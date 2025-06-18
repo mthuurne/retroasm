@@ -67,7 +67,6 @@ def _parse_context(
         match node:
             case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
                 decl_type = decl.type
-                assert decl_type is not None
                 type_name = decl_type.name
 
                 if (mode := modes.get(type_name)) is not None:

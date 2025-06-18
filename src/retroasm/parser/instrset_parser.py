@@ -106,7 +106,6 @@ def _parse_regs(
             # Parse type declaration.
             decl = node if isinstance(node, DeclarationNode) else node.decl
             decl_type = decl.type
-            assert decl_type is not None
             type_location = decl_type.location
             try:
                 reg_type = parse_type_decl(decl_type.name)
@@ -384,7 +383,7 @@ def _parse_io(
                 )
 
 
-_re_func_header = re.compile(r"(?:" + _type_tok + r"\s)?" + _name_tok + r"\((.*)\)$")
+_re_func_header = re.compile(_name_tok + r"\((.*)\)$")
 
 
 def _parse_func(
@@ -401,28 +400,13 @@ def _parse_func(
         reader.skip_block()
         return
 
-    # Parse return type.
-    ret_type: IntType | ReferenceType | None
-    ret_type_loc: InputLocation | None
-    if match.has_group(1):
-        ret_type_loc = match.group(1)
-        try:
-            ret_type = parse_type_decl(ret_type_loc.text)
-        except ValueError as ex:
-            collector.error(f"bad return type: {ex}", location=ret_type_loc)
-            reader.skip_block()
-            return
-    else:
-        ret_type_loc = None
-        ret_type = None
-
     # Parse arguments.
     args = {}
     try:
         with collector.check():
             name_locations: dict[str, InputLocation] = {}
             for i, (arg_type, _arg_type_loc, arg_name_loc) in enumerate(
-                _parse_typed_args(collector, match.group(3), "function argument"), 1
+                _parse_typed_args(collector, match.group(2), "function argument"), 1
             ):
                 arg_name = arg_name_loc.text
                 if arg_name == "ret":
@@ -445,7 +429,7 @@ def _parse_func(
         return
 
     if want_semantics:
-        func_name_loc = match.group(2)
+        func_name_loc = match.group(1)
         func_name = func_name_loc.text
 
         # Parse body lines.
@@ -454,8 +438,6 @@ def _parse_func(
                 reader,
                 collector,
                 func_name_loc,
-                ret_type,
-                ret_type_loc,
                 args,
                 name_locations,
                 namespace,

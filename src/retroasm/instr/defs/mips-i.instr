@@ -91,8 +91,8 @@ u0 cop3[u25]
 ### Utility functions
 
 # TODO: Make this a language feature?
-func s32& s32(u32& R)
-    ret = R
+func s32(u32& R)
+    def s32& ret = R
 
 
 ### Arithmetic
@@ -166,39 +166,39 @@ instr
 
 ### Load/store
 
-func s8 lb(u32 A)
+func lb(u32 A)
     def u32 V = mem[A[2:]]
     def int I = A[:2];%000
-    ret := V >> I
+    def s8 ret = V >> I
 
 func sb(u32 A, u8 V)
     def int I = A[:2];%000
     mem[A[2:]][I:I+8] := V
 
-func u8 lbu(u32 A)
+func lbu(u32 A)
     def u32 V = mem[A[2:]]
     def int I = A[:2];%000
-    ret := V >> I
+    def u8 ret = V >> I
 
-func s16 lh(u32 A)
+func lh(u32 A)
     # TODO: Address exception is not modeled yet.
     def u32 V = mem[A[2:]]
     def int I = A[1];%0000
-    ret := V >> I
+    def s16 ret = V >> I
 
 func sh(u32 A, u16 V)
     def int I = A[1];%0000
     mem[A[2:]][I:I+16] := V
 
-func u16 lhu(u32 A)
+func lhu(u32 A)
     # TODO: Address exception is not modeled yet.
     def u32 V = mem[A[2:]]
     def int I = A[1];%0000
-    ret := V >> I
+    def u16 ret = V >> I
 
-func u32 lw(u32 A)
+func lw(u32 A)
     # TODO: Address exception is not modeled yet.
-    ret := mem[A[2:]]
+    def u32 ret = mem[A[2:]]
 
 func sw(u32 A, u32 V)
     # TODO: Address exception is not modeled yet.

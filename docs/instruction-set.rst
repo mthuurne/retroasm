@@ -388,7 +388,7 @@ Functions are defined using a ``func`` block:
 
 .. code-block::
 
-   func <return type> <name>(<arguments>)
+   func <name>(<arguments>)
    <statements>
 
 
@@ -396,12 +396,12 @@ Arguments are specified as a type followed by a name and separates by commas. Va
 
 .. code-block::
 
-   func u1 foo(u16 A, u8& V)
+   func foo(u16 A, u8& V)
 
 
 Inside a function, value arguments are treated as local variables, meaning they can be modified.
 
-If the return type is empty, the function does not return anything:
+By default, functions do not return anything:
 
 .. code-block::
 
@@ -410,24 +410,24 @@ If the return type is empty, the function does not return anything:
        s := s - 1
 
 
-If the return type is a value type, the function returns a value by assigning it to a variable named ``ret``\ :
+A function can return a value by assigning it to a variable or constant named ``ret``\ :
 
 .. code-block::
 
-   func u16 read16(u16 A)
+   func read16(u16 A)
        var u8 L := mem[A]
        var u8 H := mem[A + 1]
-       ret := H ; L
+       def u16 ret = H ; L
 
 
-If the return type is a reference type, the function returns a reference by defining a reference named ``ret``\ :
+Similarly, a function can return a reference by naming it ``ret``\ :
 
 .. code-block::
 
-   func u8& indx(u8 A)
+   func indx(u8 A)
        def u8 L = mem[(A + x    )[:8]]
        def u8 H = mem[(A + x + 1)[:8]]
-       ret = mem[H ; L]
+       def u8& ret = mem[H ; L]
 
 
 If a local variable is part of a returned reference, it will be treated as a constant containing the value of that variable at the exit of the function body. It is not possible to modify a local variable after the function has finished executing.

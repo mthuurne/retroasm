@@ -48,10 +48,10 @@ $FD                 .                   . ixf;iyf := %01
 
 # 16-bit memory access
 
-func u16 read16(u16 A)
+func read16(u16 A)
     var u8 L := mem[A]
     var u8 H := mem[A + 1]
-    ret := H ; L
+    def u16 ret = H ; L
 
 func write16(u16 A, u16 V)
     mem[A]     := V[0:8]
@@ -518,60 +518,60 @@ func postrot(u8 V)
     sf := V[7]
     zf := V == 0
 
-func u8 rlc(u8& R)
+func rlc(u8& R)
     var u8 V := R
     cf ; V := V ; V[7]
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 rrc(u8& R)
+func rrc(u8& R)
     var u8 V := R
     V ; cf := V[0] ; V
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 rl(u8& R)
+func rl(u8& R)
     var u8 V := R
     cf ; V := V ; cf
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 rr(u8& R)
+func rr(u8& R)
     var u8 V := R
     V ; cf := cf ; V
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 sla(u8& R)
+func sla(u8& R)
     var u8 V := R
     cf ; V := V ; %0
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 sra(u8& R)
+func sra(u8& R)
     var u8 V := R
     V ; cf := R[7] ; V
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 sll(u8& R)
+func sll(u8& R)
     var u8 V := R
     cf ; V := V ; %1
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
-func u8 srl(u8& R)
+func srl(u8& R)
     var u8 V := R
     V ; cf := %0 ; V
     R := V
-    ret := V
+    def u8 ret = V
     postrot(V)
 
 instr
@@ -639,22 +639,22 @@ $CB, N, %01;B;R, ?iyf       . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) 
 $CB, N, %01;B;%110, ?ixf    . B,(ix + N)    . bit(B, mem[ix + N], (ix + N)[8:]) . u3 B, s8 N
 $CB, N, %01;B;%110, ?iyf    . B,(iy + N)    . bit(B, mem[iy + N], (iy + N)[8:]) . u3 B, s8 N
 
-func u8 res(u3 B, u8& R)
+func res(u3 B, u8& R)
     var u8 V := R
     V[B] := 0
     R := V
-    ret := V
+    def u8 ret = V
 
 instr res
 $CB, %10;B;R        . B,R           . res(B, R)             . u3 B, reg8 R
 $CB, R@, %10;B;C    . B,R,C         . C := res(B, R)        . u3 B, memx R, reg8 C
 $CB, R@, %10;B;%110 . B,R           . res(B, R)             . u3 B, memx R
 
-func u8 set(u3 B, u8& R)
+func set(u3 B, u8& R)
     var u8 V := R
     V[B] := 1
     R := V
-    ret := V
+    def u8 ret = V
 
 instr set
 $CB, %11;B;R        . B,R           . set(B, R)             . u3 B, reg8 R
@@ -725,9 +725,9 @@ $ED, $4D            . reti          . ret_int()
 
 ### Input and Output (8.11)
 
-func u8 in()
+func in()
     def u8 V = port[c]
-    ret := V
+    def u8 ret = V
     hf := 0
     zf := V == 0
     pf := V[7] ^ V[6] ^ V[5] ^ V[4] ^ V[3] ^ V[2] ^ V[1] ^ V[0] ^ 1

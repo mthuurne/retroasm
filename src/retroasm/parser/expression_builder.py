@@ -81,15 +81,11 @@ def declare_variable(node: DeclarationNode, namespace: BuilderNamespace) -> Refe
     assert node.kind is DeclarationKind.variable, node.kind
 
     # Determine type.
-    # Note: The type node is None for 'ret' declarations, but those are
-    #       reference declarations, not variable declarations.
-    type_node = node.type
-    assert type_node is not None, node
     try:
-        typ = parse_type(type_node.name)
+        typ = parse_type(node.type.name)
     except ValueError as ex:
         raise BadExpression(
-            f"bad type name in definition: {ex}", type_node.location
+            f"bad type name in definition: {ex}", node.type.location
         ) from ex
 
     # Get name.
@@ -594,7 +590,6 @@ def emit_code_from_statements(
     namespace: LocalNamespace,
     builder: SemanticsCodeBlockBuilder,
     statements: Iterable[ParseNode],
-    ret_type: None | IntType | ReferenceType,
 ) -> None:
     """
     Emits a code block from the given statements.
@@ -609,28 +604,13 @@ def emit_code_from_statements(
                 name_node = decl.name
                 name = name_node.name
                 type_node = decl.type
-                if type_node is None:
-                    # For a function returning a reference, the reference type
-                    # is declared in the function header rather than on the
-                    # definition line.
-                    assert kind is DeclarationKind.reference, kind
-                    assert name == "ret", name
-                    if not isinstance(ret_type, ReferenceType):
-                        collector.error(
-                            '"ret" defined as reference in function that returns '
-                            f"{'nothing' if ret_type is None else 'value'}",
-                            location=decl.location,
-                        )
-                        continue
-                    typ: IntType | ReferenceType = ret_type
-                else:
-                    # Determine type.
-                    try:
-                        typ = parse_type_decl(type_node.name)
-                    except ValueError as ex:
-                        raise BadExpression(
-                            f"bad type name in definition: {ex}", type_node.location
-                        ) from ex
+                # Determine type.
+                try:
+                    typ = parse_type_decl(type_node.name)
+                except ValueError as ex:
+                    raise BadExpression(
+                        f"bad type name in definition: {ex}", type_node.location
+                    ) from ex
                 # Evaluate value.
                 try:
                     ref = convert_definition(decl, typ, value, namespace, builder)

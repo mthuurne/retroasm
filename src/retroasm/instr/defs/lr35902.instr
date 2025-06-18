@@ -30,10 +30,10 @@ u8 mem[u16]
 
 # 16-bit memory access
 
-func u16 read16(u16 A)
+func read16(u16 A)
     var u8 L := mem[A]
     var u8 H := mem[A + 1]
-    ret := H ; L
+    def u16 ret = H ; L
 
 func write16(u16 A, u16 V)
     mem[A]     := V[:8]
@@ -105,8 +105,8 @@ $FA, NN@            . a,(NN)            . a := mem[NN]      . imm16 NN
 $F0, N              . a,(A)             . a := mem[A]       . u8 N, u16 A = $FF;N
 $F2                 . a,($FF00 + c)     . a := mem[$FF;c]
 
-func u8& hl_off(int D)
-    ret = mem[hl]
+func hl_off(int D)
+    def u8& ret = mem[hl]
     hl := hl + D
 
 instr ldi
@@ -125,12 +125,12 @@ instr ld
 $08, NN@            . (NN),sp           . write16(NN, sp)   . imm16 NN
 $F9                 . sp,hl             . sp := hl
 
-func u16 sp_off(s8 V)
+func sp_off(s8 V)
     zf := 0
     nf := 0
     hf := (sp[:4] + V[:4])[4]
     cf := (sp[:8] + V[:8])[8]
-    ret := sp + V
+    def u16 ret = sp + V
 
 instr
 $E8, N              . add sp,N          . sp := sp_off(N)   . s8 N

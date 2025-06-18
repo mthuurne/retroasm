@@ -59,18 +59,18 @@ A[:8], A[8:]            . A,x           . mem[A+x]          . u16 A
 mode u8& absolute_y
 A[:8], A[8:]            . A,y           . mem[A+y]          . u16 A
 
-func u16 indx(u8 A)
+func indx(u8 A)
     def u8 L = mem[(A+x  )[:8]]
     def u8 H = mem[(A+x+1)[:8]]
-    ret := H;L
+    def u16 ret = H;L
 
 mode u8& indexed_indirect
 A                       . (A,x)         . mem[indx(A)]      . u8 A
 
-func u16 indy(u8 A)
+func indy(u8 A)
     def u8 L = mem[A]
     def u8 H = mem[(A+1)[:8]]
-    ret := H;L + y
+    def u16 ret = H;L + y
 
 mode u8& indirect_indexed
 A                       . (A),y         . mem[indy(A)]      . u8 A

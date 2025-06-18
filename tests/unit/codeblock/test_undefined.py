@@ -53,15 +53,15 @@ def test_variable_undefined_return_value(
 
     .. code-block:: instr
 
-        func int return_undef()
+        func return_undef()
             var int UNDEF
-            ret := UNDEF
+            def int ret = UNDEF
 
     .. code-block:: inputlog
 
         test.instr:3: ERROR: Undefined value of variable "UNDEF" is returned
-            ret := UNDEF
-                   ^^^^^
+            def int ret = UNDEF
+                          ^^^^^
     """
     instr_tester.check()
 
@@ -75,15 +75,15 @@ def test_variable_undefined_return_compute(
 
     .. code-block:: instr
 
-        func int return_undef()
+        func return_undef()
             var int UNDEF
-            ret := UNDEF + 1
+            def int ret = UNDEF + 1
 
     .. code-block:: inputlog
 
         test.instr:3: ERROR: Undefined value of variable "UNDEF" is returned
-            ret := UNDEF + 1
-                   ^^^^^
+            def int ret = UNDEF + 1
+                          ^^^^^
     """
     instr_tester.check()
 
@@ -96,9 +96,9 @@ def test_variable_undefined_return_eliminate(
 
     .. code-block:: instr
 
-        func int return_undef()
+        func return_undef()
             var int UNDEF
-            ret := UNDEF & 0
+            def int ret = UNDEF & 0
     """
     instr_tester.check()
 
@@ -111,14 +111,14 @@ def test_variable_undefined_return_reference(
 
     .. code-block:: instr
 
-        func int& return_undef()
+        func return_undef()
             var int UNDEF
-            ret = UNDEF
+            def int& ret = UNDEF
 
     .. code-block:: inputlog
 
         test.instr:1: ERROR: Undefined value of variable "UNDEF" is returned
-        func int& return_undef()
-                  ^^^^^^^^^^^^
+        func return_undef()
+             ^^^^^^^^^^^^
     """
     instr_tester.check()

@@ -299,16 +299,7 @@ def _parse_group(tokens: ExprTokenizer) -> ParseNode:
         return _parse_definition(tokens)
 
     if tokens.peek(ExprToken.identifier):
-        ident = _parse_ident(tokens)
-        if isinstance(ident, IdentifierNode) and ident.name == "ret":
-            if (def_location := tokens.eat(ExprToken.definition)) is not None:
-                decl_node = DeclarationNode(
-                    DeclarationKind.reference, None, ident, location=ident.location
-                )
-                return DefinitionNode(
-                    decl_node, _parse_expr_top(tokens), location=def_location
-                )
-        return ident
+        return _parse_ident(tokens)
 
     if tokens.peek(ExprToken.number):
         return _parse_number(tokens)

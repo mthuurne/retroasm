@@ -144,7 +144,7 @@ class DeclarationKind(Enum):
 @dataclass(frozen=True, slots=True)
 class DeclarationNode(ParseNode):
     kind: DeclarationKind
-    type: IdentifierNode | None
+    type: IdentifierNode
     name: IdentifierNode
 
     @property
