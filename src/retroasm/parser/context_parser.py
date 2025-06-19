@@ -21,13 +21,19 @@ from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
 from .expression_builder import BadExpression, convert_definition
-from .expression_nodes import DeclarationNode, DefinitionNode, ParseNode
+from .expression_nodes import (
+    ConstantDeclarationNode,
+    DefinitionNode,
+    ParseNode,
+    ReferenceDeclarationNode,
+    VariableDeclarationNode,
+)
 from .expression_parser import parse_context
 
 
 @dataclass(frozen=True)
 class _ValuePlaceholderSpec:
-    decl: DeclarationNode
+    decl: ConstantDeclarationNode | ReferenceDeclarationNode
     type: IntType
     value: ParseNode | None
 
@@ -42,7 +48,7 @@ class _ValuePlaceholderSpec:
 
 @dataclass(frozen=True)
 class _MatchPlaceholderSpec:
-    decl: DeclarationNode
+    decl: ConstantDeclarationNode | ReferenceDeclarationNode
     mode: Mode
 
     @property
@@ -65,41 +71,45 @@ def _parse_context(
 ) -> Iterator[_MatchPlaceholderSpec | _ValuePlaceholderSpec]:
     for node in parse_context(ctx_loc):
         match node:
-            case (DeclarationNode() as decl) | DefinitionNode(decl=decl):
-                decl_type = decl.type
-                type_name = decl_type.name
-
-                if (mode := modes.get(type_name)) is not None:
-                    if isinstance(node, DefinitionNode):
-                        collector.error(
-                            "mode placeholders cannot be assigned values",
-                            location=InputLocation.merge_span(
-                                node.location, node.value.tree_location
-                            ),
-                        )
-                    yield _MatchPlaceholderSpec(decl, mode)
-                    continue
-
-                try:
-                    typ = parse_type_decl(type_name)
-                except ValueError:
-                    collector.error(
-                        f'there is no type or mode named "{type_name}"',
-                        location=decl_type.location,
-                    )
-                    continue
-
-                if isinstance(typ, ReferenceType):
-                    collector.error(
-                        "value placeholders cannot be references",
-                        location=decl_type.location,
-                    )
-                    continue
-
-                value = node.value if isinstance(node, DefinitionNode) else None
-                yield _ValuePlaceholderSpec(decl, typ, value)
+            case ConstantDeclarationNode() | ReferenceDeclarationNode() as decl:
+                pass
+            case DefinitionNode(decl=decl):
+                assert not isinstance(decl, VariableDeclarationNode), decl
             case node:
                 bad_type(node)
+
+        decl_type = decl.type
+        type_name = decl_type.name
+
+        if (mode := modes.get(type_name)) is not None:
+            if isinstance(node, DefinitionNode):
+                collector.error(
+                    "mode placeholders cannot be assigned values",
+                    location=InputLocation.merge_span(
+                        node.location, node.value.tree_location
+                    ),
+                )
+            yield _MatchPlaceholderSpec(decl, mode)
+            continue
+
+        try:
+            typ = parse_type_decl(type_name)
+        except ValueError:
+            collector.error(
+                f'there is no type or mode named "{type_name}"',
+                location=decl_type.location,
+            )
+            continue
+
+        if isinstance(typ, ReferenceType):
+            collector.error(
+                "value placeholders cannot be references",
+                location=decl_type.location,
+            )
+            continue
+
+        value = node.value if isinstance(node, DefinitionNode) else None
+        yield _ValuePlaceholderSpec(decl, typ, value)
 
 
 def parse_placeholders(

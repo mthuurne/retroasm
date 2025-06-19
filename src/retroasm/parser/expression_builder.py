@@ -48,8 +48,7 @@ from ..utils import bad_type
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
-    DeclarationKind,
-    DeclarationNode,
+    ConstantDeclarationNode,
     DefinitionNode,
     EmptyNode,
     IdentifierNode,
@@ -59,6 +58,8 @@ from .expression_nodes import (
     Operator,
     OperatorNode,
     ParseNode,
+    ReferenceDeclarationNode,
+    VariableDeclarationNode,
 )
 
 
@@ -77,9 +78,9 @@ class UnknownNameError(BadExpression):
         self.name = name
 
 
-def declare_variable(node: DeclarationNode, namespace: BuilderNamespace) -> Reference:
-    assert node.kind is DeclarationKind.variable, node.kind
-
+def declare_variable(
+    node: VariableDeclarationNode, namespace: BuilderNamespace
+) -> Reference:
     # Determine type.
     try:
         typ = parse_type(node.type.name)
@@ -102,7 +103,7 @@ def declare_variable(node: DeclarationNode, namespace: BuilderNamespace) -> Refe
 
 
 def convert_definition(
-    decl: DeclarationNode,
+    decl: ConstantDeclarationNode | ReferenceDeclarationNode,
     typ: IntType | ReferenceType,
     value: ParseNode,
     namespace: BuilderNamespace,
@@ -113,8 +114,8 @@ def convert_definition(
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
     """
-    match decl.kind:
-        case DeclarationKind.constant:
+    match decl:
+        case ConstantDeclarationNode():
             try:
                 expr = build_expression(value, namespace, builder)
             except BadInput as ex:
@@ -126,7 +127,7 @@ def convert_definition(
                 ) from ex
             assert isinstance(typ, IntType), typ
             return FixedValueReference(truncate(expr, typ.width), typ)
-        case DeclarationKind.reference:
+        case ReferenceDeclarationNode():
             try:
                 ref = build_reference(value, namespace, builder)
             except BadExpression as ex:
@@ -141,10 +142,8 @@ def convert_definition(
                     value.tree_location,
                 )
             return ref
-        case DeclarationKind.variable:
-            assert False, decl
-        case _ as kind:
-            bad_type(kind)
+        case _:
+            bad_type(decl)
 
 
 def _convert_identifier(
@@ -334,7 +333,7 @@ def build_expression(
                     bad_type(ident)
         case OperatorNode():
             return _convert_expression_operator(node, namespace, builder)
-        case DeclarationNode(tree_location=location):
+        case VariableDeclarationNode(tree_location=location):
             raise BadExpression("variable declaration is not allowed here", location)
         case DefinitionNode(tree_location=location):
             raise BadExpression("definition must be only statement on a line", location)
@@ -478,7 +477,7 @@ def build_reference(
     match node:
         case NumberNode(value=value, width=width):
             return int_reference(value, IntType(width, width is unlimited))
-        case DeclarationNode() as decl:
+        case VariableDeclarationNode() as decl:
             return declare_variable(decl, namespace)
         case DefinitionNode(tree_location=location):
             raise BadExpression("definition must be only statement on a line", location)
@@ -600,7 +599,6 @@ def emit_code_from_statements(
         match node:
             case DefinitionNode(decl=decl, value=value):
                 # Constant/reference definition.
-                kind = decl.kind
                 name_node = decl.name
                 name = name_node.name
                 type_node = decl.type
@@ -613,6 +611,7 @@ def emit_code_from_statements(
                     ) from ex
                 # Evaluate value.
                 try:
+                    assert not isinstance(decl, VariableDeclarationNode), decl
                     ref = convert_definition(decl, typ, value, namespace, builder)
                 except BadExpression as ex:
                     message = f"{ex}"
@@ -623,11 +622,11 @@ def emit_code_from_statements(
                     namespace.define(name, ref, name_node.location)
                 except NameExistsError as ex:
                     collector.error(
-                        f'failed to define {kind.name} "{typ} {name}": {ex}',
+                        f'failed to define {decl.description} "{typ} {name}": {ex}',
                         location=ex.locations,
                     )
 
-            case DeclarationNode() as decl:
+            case VariableDeclarationNode() as decl:
                 # Variable declaration.
                 try:
                     declare_variable(decl, namespace)

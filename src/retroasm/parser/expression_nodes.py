@@ -135,15 +135,8 @@ class MultiMatchNode(ParseNode):
     name: str
 
 
-class DeclarationKind(Enum):
-    variable = auto()
-    constant = auto()
-    reference = auto()
-
-
 @dataclass(frozen=True, slots=True)
-class DeclarationNode(ParseNode):
-    kind: DeclarationKind
+class _BaseDeclarationNode(ParseNode):
     type: IdentifierNode
     name: IdentifierNode
 
@@ -151,6 +144,35 @@ class DeclarationNode(ParseNode):
     @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(self.location, self.name.tree_location)
+
+
+@dataclass(frozen=True, slots=True)
+class VariableDeclarationNode(_BaseDeclarationNode):
+    # TODO: In Python 3.13, we could make this a Final ClassVar instead.
+    @property
+    def description(self) -> str:
+        return "variable"
+
+
+@dataclass(frozen=True, slots=True)
+class ConstantDeclarationNode(_BaseDeclarationNode):
+    # TODO: In Python 3.13, we could make this a Final ClassVar instead.
+    @property
+    def description(self) -> str:
+        return "constant"
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceDeclarationNode(_BaseDeclarationNode):
+    # TODO: In Python 3.13, we could make this a Final ClassVar instead.
+    @property
+    def description(self) -> str:
+        return "reference"
+
+
+type DeclarationNode = (
+    VariableDeclarationNode | ConstantDeclarationNode | ReferenceDeclarationNode
+)
 
 
 @dataclass(frozen=True, slots=True)

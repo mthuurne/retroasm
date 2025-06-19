@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from typing import TypeVar
+from collections.abc import Callable, Iterable, Mapping
+from typing import Literal, TypeVar, cast, overload
 
 from ..input import BadInput, InputLocation
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
-    DeclarationKind,
+    ConstantDeclarationNode,
     DeclarationNode,
     DefinitionNode,
     EmptyNode,
@@ -19,6 +19,8 @@ from .expression_nodes import (
     Operator,
     OperatorNode,
     ParseNode,
+    ReferenceDeclarationNode,
+    VariableDeclarationNode,
     parse_int,
 )
 from .tokens import TokenEnum, Tokenizer
@@ -106,10 +108,12 @@ def _parse_encoding_top(tokens: ExprTokenizer) -> Iterable[ParseNode]:
             return exprs
 
 
-def _parse_context_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
+def _parse_context_top(
+    tokens: ExprTokenizer,
+) -> Iterable[ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode]:
     elems = []
     while True:
-        node: DefDeclNode
+        node: ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode
         if tokens.peek(ExprToken.identifier):
             node = _parse_decl(tokens, "ctx", tokens.location)
             if (location := tokens.eat(ExprToken.definition)) is not None:
@@ -316,13 +320,14 @@ def _parse_definition(tokens: ExprTokenizer) -> DefDeclNode:
     # Keyword.
     keyword_location = tokens.eat(ExprToken.keyword)
     assert keyword_location is not None, tokens.location
+    keyword = cast(Literal["def", "var"], keyword_location.text)
 
     # Declaration.
-    decl_node = _parse_decl(tokens, keyword_location.text, keyword_location)
+    decl_node = _parse_decl(tokens, keyword, keyword_location)
 
     # Value.
     def_location = tokens.eat(ExprToken.definition)
-    if decl_node.kind is DeclarationKind.variable:
+    if isinstance(decl_node, VariableDeclarationNode):
         if def_location is not None:
             raise BadInput(
                 "variables can only get values through assignment "
@@ -332,7 +337,7 @@ def _parse_definition(tokens: ExprTokenizer) -> DefDeclNode:
         return decl_node
     else:
         if def_location is None:
-            raise _bad_token_kind(tokens, f"{decl_node.kind.name} value", '"="')
+            raise _bad_token_kind(tokens, f"{decl_node.description} value", '"="')
         return DefinitionNode(decl_node, _parse_expr_top(tokens), location=def_location)
 
 
@@ -373,14 +378,15 @@ def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
         name_node = IdentifierNode(name_location.text, location=name_location)
 
         # Complete the declaration node.
+        factory: type[DeclarationNode]
         if tokens.peek(ExprToken.definition):
             if type_node.name.endswith("&"):
-                kind = DeclarationKind.reference
+                factory = ReferenceDeclarationNode
             else:
-                kind = DeclarationKind.constant
+                factory = ConstantDeclarationNode
         else:
-            kind = DeclarationKind.variable
-        decl_node = DeclarationNode(kind, type_node, name_node, location=start_location)
+            factory = VariableDeclarationNode
+        decl_node = factory(type_node, name_node, location=start_location)
 
         # Finish definition.
         def_location = tokens.eat(ExprToken.definition)
@@ -396,14 +402,29 @@ def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
             return defs
 
 
+_DECL_FACTORIES: Mapping[str, type[DeclarationNode]] = {
+    "ctx": ConstantDeclarationNode,
+    "def": ConstantDeclarationNode,
+    "var": VariableDeclarationNode,
+}
+
+
+@overload
+def _parse_decl(
+    tokens: ExprTokenizer, keyword: Literal["ctx", "def"], start_location: InputLocation
+) -> ConstantDeclarationNode | ReferenceDeclarationNode: ...
+
+
+@overload
+def _parse_decl(
+    tokens: ExprTokenizer, keyword: Literal["var"], start_location: InputLocation
+) -> VariableDeclarationNode: ...
+
+
 def _parse_decl(
     tokens: ExprTokenizer, keyword: str, start_location: InputLocation
 ) -> DeclarationNode:
-    kind = {
-        "ctx": DeclarationKind.constant,
-        "def": DeclarationKind.constant,
-        "var": DeclarationKind.variable,
-    }[keyword]
+    factory = _DECL_FACTORIES[keyword]
 
     # Type.
     type_location = tokens.eat(ExprToken.identifier)
@@ -420,22 +441,24 @@ def _parse_decl(
         amp_location = tokens.eat(ExprToken.operator, "&")
         if amp_location is not None:
             type_location = InputLocation.merge_span(type_location, amp_location)
-            if kind is DeclarationKind.variable:
+            if factory is VariableDeclarationNode:
                 raise BadInput(
                     'references can only be defined using the "def" keyword',
                     InputLocation.merge_span(start_location, amp_location),
                 )
-            kind = DeclarationKind.reference
+            factory = ReferenceDeclarationNode
 
     type_node = IdentifierNode(type_location.text, location=type_location)
 
     # Name.
     name_location = tokens.eat(ExprToken.identifier)
     if name_location is None:
-        raise _bad_token_kind(tokens, f"{kind.name} definition", f"{kind.name} name")
+        raise _bad_token_kind(
+            tokens, f"{factory.description} definition", f"{factory.description} name"
+        )
     name_node = IdentifierNode(name_location.text, location=name_location)
 
-    return DeclarationNode(kind, type_node, name_node, location=start_location)
+    return factory(type_node, name_node, location=start_location)
 
 
 def _parse_ident(tokens: ExprTokenizer) -> IdentifierNode | OperatorNode:
@@ -511,7 +534,9 @@ def parse_encoding(location: InputLocation) -> Iterable[ParseNode]:
     return _parse(location, _parse_encoding_top)
 
 
-def parse_context(location: InputLocation) -> Iterable[DefDeclNode]:
+def parse_context(
+    location: InputLocation,
+) -> Iterable[ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode]:
     return _parse(location, _parse_context_top)
 
 

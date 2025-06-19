@@ -57,12 +57,14 @@ from .expression_builder import (
     convert_definition,
 )
 from .expression_nodes import (
-    DeclarationNode,
+    ConstantDeclarationNode,
     DefinitionNode,
     FlagTestNode,
     IdentifierNode,
     MultiMatchNode,
     ParseNode,
+    ReferenceDeclarationNode,
+    VariableDeclarationNode,
 )
 from .expression_parser import (
     parse_encoding,
@@ -104,7 +106,7 @@ def _parse_regs(
         last_type_location = None
         for node in nodes:
             # Parse type declaration.
-            decl = node if isinstance(node, DeclarationNode) else node.decl
+            decl = node.decl if isinstance(node, DefinitionNode) else node
             decl_type = decl.type
             type_location = decl_type.location
             try:
@@ -117,26 +119,26 @@ def _parse_regs(
             last_type_location = type_location
 
             match node:
-                case DeclarationNode():
+                case ConstantDeclarationNode() | VariableDeclarationNode():
                     # Define base register.
-                    match reg_type:
-                        case ReferenceType():
-                            collector.error(
-                                "base register cannot have a reference type",
-                                location=(decl.name.location, type_location),
-                            )
-                        case typ:
-                            try:
-                                global_namespace.add_register(
-                                    decl.name.name, typ, decl.name.location
-                                )
-                            except NameExistsError as ex:
-                                collector.error(
-                                    f"bad base register definition: {ex}",
-                                    location=ex.locations,
-                                )
+                    assert not isinstance(reg_type, ReferenceType), reg_type
+                    try:
+                        global_namespace.add_register(
+                            decl.name.name, reg_type, decl.name.location
+                        )
+                    except NameExistsError as ex:
+                        collector.error(
+                            f"bad base register definition: {ex}",
+                            location=ex.locations,
+                        )
+                case ReferenceDeclarationNode():
+                    collector.error(
+                        "base register cannot have a reference type",
+                        location=(decl.name.location, type_location),
+                    )
                 case DefinitionNode(value=value):
                     # Define register alias.
+                    assert isinstance(decl, ReferenceDeclarationNode), decl
                     try:
                         ref = convert_definition(
                             decl,
