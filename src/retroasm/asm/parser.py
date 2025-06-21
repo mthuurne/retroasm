@@ -125,246 +125,274 @@ def build_instruction(
     )
 
 
-def parse_value(tokens: AsmTokenizer) -> ParseNode:
-    def bad_token_kind(where: str, expected: str) -> BadInput:
-        if tokens.end_of_statement:
-            got_desc = "end of statement"
-        else:
-            got_desc = f'{tokens.kind.name} "{tokens.value}"'
-        msg = f"bad {where} expression: expected {expected}, got {got_desc}"
-        return BadInput(msg, tokens.location)
+def _bad_token_kind(tokens: AsmTokenizer, where: str, expected: str) -> BadInput:
+    if tokens.end_of_statement:
+        got_desc = "end of statement"
+    else:
+        got_desc = f'{tokens.kind.name} "{tokens.value}"'
+    msg = f"bad {where} expression: expected {expected}, got {got_desc}"
+    return BadInput(msg, tokens.location)
 
-    def parse_or() -> ParseNode:
-        expr = parse_xor()
-        if (location := tokens.eat(AsmToken.operator, "|")) is not None:
-            return OperatorNode(
-                Operator.bitwise_or, (expr, parse_or()), location=location
-            )
-        return expr
 
-    def parse_xor() -> ParseNode:
-        expr = parse_and()
-        if (location := tokens.eat(AsmToken.operator, "^")) is not None:
-            return OperatorNode(
-                Operator.bitwise_xor, (expr, parse_xor()), location=location
-            )
-        return expr
+def _parse_or(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_xor(tokens)
+    if (location := tokens.eat(AsmToken.operator, "|")) is not None:
+        return OperatorNode(
+            Operator.bitwise_or, (expr, _parse_or(tokens)), location=location
+        )
+    return expr
 
-    def parse_and() -> ParseNode:
-        expr = parse_equal()
-        if (location := tokens.eat(AsmToken.operator, "&")) is not None:
-            return OperatorNode(
-                Operator.bitwise_and, (expr, parse_and()), location=location
-            )
-        return expr
 
-    def parse_equal() -> ParseNode:
-        expr = parse_compare()
-        if (location := tokens.eat(AsmToken.operator, "=")) is not None:
-            return OperatorNode(
-                Operator.equal, (expr, parse_equal()), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, "!=")) is not None:
-            return OperatorNode(
-                Operator.unequal, (expr, parse_equal()), location=location
-            )
-        return expr
+def _parse_xor(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_and(tokens)
+    if (location := tokens.eat(AsmToken.operator, "^")) is not None:
+        return OperatorNode(
+            Operator.bitwise_xor, (expr, _parse_xor(tokens)), location=location
+        )
+    return expr
 
-    def parse_compare() -> ParseNode:
-        expr = parse_shift()
-        if (location := tokens.eat(AsmToken.operator, "<")) is not None:
-            return OperatorNode(
-                Operator.lesser, (expr, parse_compare()), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, "<=")) is not None:
-            return OperatorNode(
-                Operator.lesser_equal, (expr, parse_compare()), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, ">=")) is not None:
-            return OperatorNode(
-                Operator.greater_equal, (expr, parse_compare()), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, ">")) is not None:
-            return OperatorNode(
-                Operator.greater, (expr, parse_compare()), location=location
-            )
-        return expr
 
-    def parse_shift() -> ParseNode:
-        expr = parse_add_sub()
-        if (location := tokens.eat(AsmToken.operator, "<<")) is not None:
-            return OperatorNode(
-                Operator.shift_left, (expr, parse_shift()), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, ">>")) is not None:
-            return OperatorNode(
-                Operator.shift_right, (expr, parse_shift()), location=location
-            )
-        return expr
+def _parse_and(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_equal(tokens)
+    if (location := tokens.eat(AsmToken.operator, "&")) is not None:
+        return OperatorNode(
+            Operator.bitwise_and, (expr, _parse_and(tokens)), location=location
+        )
+    return expr
 
-    def parse_add_sub(expr: ParseNode | None = None) -> ParseNode:
-        if expr is None:
-            expr = parse_mul_div()
-        if (location := tokens.eat(AsmToken.operator, "+")) is not None:
-            return parse_add_sub(
-                OperatorNode(Operator.add, (expr, parse_mul_div()), location=location)
-            )
-        if (location := tokens.eat(AsmToken.operator, "-")) is not None:
-            return parse_add_sub(
-                OperatorNode(Operator.sub, (expr, parse_mul_div()), location=location)
-            )
-        return expr
 
-    def parse_mul_div(expr: ParseNode | None = None) -> ParseNode:
-        if expr is None:
-            expr = parse_unary()
-        if (location := tokens.eat(AsmToken.operator, "*")) is not None:
-            return parse_mul_div(
-                OperatorNode(
-                    Operator.multiply, (expr, parse_unary()), location=location
-                )
-            )
-        if (location := tokens.eat(AsmToken.operator, "/")) is not None:
-            return parse_mul_div(
-                OperatorNode(Operator.divide, (expr, parse_unary()), location=location)
-            )
-        if (location := tokens.eat(AsmToken.operator, "%")) is not None:
-            return parse_mul_div(
-                OperatorNode(Operator.modulo, (expr, parse_unary()), location=location)
-            )
-        return expr
+def _parse_equal(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_compare(tokens)
+    if (location := tokens.eat(AsmToken.operator, "=")) is not None:
+        return OperatorNode(
+            Operator.equal, (expr, _parse_equal(tokens)), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, "!=")) is not None:
+        return OperatorNode(
+            Operator.unequal, (expr, _parse_equal(tokens)), location=location
+        )
+    return expr
 
-    def parse_unary() -> ParseNode:
-        if (location := tokens.eat(AsmToken.operator, "-")) is not None:
-            return OperatorNode(
-                Operator.complement, (parse_unary(),), location=location
-            )
-        if (location := tokens.eat(AsmToken.operator, "!")) is not None:
-            return OperatorNode(Operator.negation, (parse_unary(),), location=location)
-        if (location := tokens.eat(AsmToken.operator, "~")) is not None:
-            return OperatorNode(
-                Operator.bitwise_complement, (parse_unary(),), location=location
-            )
-        return parse_indexed()
 
-    def parse_indexed() -> ParseNode:
-        expr = parse_group()
-        while True:
-            open_location = tokens.eat(AsmToken.bracket, "[")
-            if open_location is None:
-                return expr
+def _parse_compare(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_shift(tokens)
+    if (location := tokens.eat(AsmToken.operator, "<")) is not None:
+        return OperatorNode(
+            Operator.lesser, (expr, _parse_compare(tokens)), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, "<=")) is not None:
+        return OperatorNode(
+            Operator.lesser_equal, (expr, _parse_compare(tokens)), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, ">=")) is not None:
+        return OperatorNode(
+            Operator.greater_equal, (expr, _parse_compare(tokens)), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, ">")) is not None:
+        return OperatorNode(
+            Operator.greater, (expr, _parse_compare(tokens)), location=location
+        )
+    return expr
 
-            start: ParseNode | None
+
+def _parse_shift(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_add_sub(tokens)
+    if (location := tokens.eat(AsmToken.operator, "<<")) is not None:
+        return OperatorNode(
+            Operator.shift_left, (expr, _parse_shift(tokens)), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, ">>")) is not None:
+        return OperatorNode(
+            Operator.shift_right, (expr, _parse_shift(tokens)), location=location
+        )
+    return expr
+
+
+def _parse_add_sub(tokens: AsmTokenizer, expr: ParseNode | None = None) -> ParseNode:
+    if expr is None:
+        expr = _parse_mul_div(tokens)
+    if (location := tokens.eat(AsmToken.operator, "+")) is not None:
+        return _parse_add_sub(
+            tokens,
+            OperatorNode(
+                Operator.add, (expr, _parse_mul_div(tokens)), location=location
+            ),
+        )
+    if (location := tokens.eat(AsmToken.operator, "-")) is not None:
+        return _parse_add_sub(
+            tokens,
+            OperatorNode(
+                Operator.sub, (expr, _parse_mul_div(tokens)), location=location
+            ),
+        )
+    return expr
+
+
+def _parse_mul_div(tokens: AsmTokenizer, expr: ParseNode | None = None) -> ParseNode:
+    if expr is None:
+        expr = _parse_unary(tokens)
+    if (location := tokens.eat(AsmToken.operator, "*")) is not None:
+        return _parse_mul_div(
+            tokens,
+            OperatorNode(
+                Operator.multiply, (expr, _parse_unary(tokens)), location=location
+            ),
+        )
+    if (location := tokens.eat(AsmToken.operator, "/")) is not None:
+        return _parse_mul_div(
+            tokens,
+            OperatorNode(
+                Operator.divide, (expr, _parse_unary(tokens)), location=location
+            ),
+        )
+    if (location := tokens.eat(AsmToken.operator, "%")) is not None:
+        return _parse_mul_div(
+            tokens,
+            OperatorNode(
+                Operator.modulo, (expr, _parse_unary(tokens)), location=location
+            ),
+        )
+    return expr
+
+
+def _parse_unary(tokens: AsmTokenizer) -> ParseNode:
+    if (location := tokens.eat(AsmToken.operator, "-")) is not None:
+        return OperatorNode(
+            Operator.complement, (_parse_unary(tokens),), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, "!")) is not None:
+        return OperatorNode(
+            Operator.negation, (_parse_unary(tokens),), location=location
+        )
+    if (location := tokens.eat(AsmToken.operator, "~")) is not None:
+        return OperatorNode(
+            Operator.bitwise_complement, (_parse_unary(tokens),), location=location
+        )
+    return _parse_indexed(tokens)
+
+
+def _parse_indexed(tokens: AsmTokenizer) -> ParseNode:
+    expr = _parse_group(tokens)
+    while True:
+        open_location = tokens.eat(AsmToken.bracket, "[")
+        if open_location is None:
+            return expr
+
+        start: ParseNode | None
+        sep_location = tokens.eat(AsmToken.separator, ":")
+        if sep_location is None:
+            start = _parse_expr_top(tokens)
             sep_location = tokens.eat(AsmToken.separator, ":")
-            if sep_location is None:
-                start = parse_expr_top()
-                sep_location = tokens.eat(AsmToken.separator, ":")
-            else:
-                start = None
-
-            end: ParseNode | None
-            close_location = tokens.eat(AsmToken.bracket, "]")
-            if sep_location is None:
-                if close_location is None:
-                    raise bad_token_kind("slice/lookup", '":" or "]"')
-                expr = OperatorNode(
-                    Operator.lookup,
-                    (expr, start),
-                    location=InputLocation.merge_span(open_location, close_location),
-                )
-            else:
-                if close_location is None:
-                    end = parse_expr_top()
-                    close_location = tokens.eat(AsmToken.bracket, "]")
-                    if close_location is None:
-                        raise bad_token_kind("slice", '"]"')
-                else:
-                    end = None
-                expr = OperatorNode(
-                    Operator.slice,
-                    (expr, start, end),
-                    location=InputLocation.merge_span(open_location, close_location),
-                )
-
-    def parse_group() -> ParseNode:
-        if tokens.eat(AsmToken.bracket, "(") is not None:
-            expr = parse_expr_top()
-            if tokens.eat(AsmToken.bracket, ")") is not None:
-                return expr
-            raise bad_token_kind("parenthesized", ")")
-
-        if tokens.peek(AsmToken.word):
-            return parse_ident()
-
-        if tokens.peek(AsmToken.number):
-            return parse_number()
-
-        if (location := tokens.eat_string()) is not None:
-            # Arbitrary strings are not allowed as instruction
-            # operands, but single characters should be replaced
-            # by their character numbers.
-            try:
-                value = ord(location.text)
-            except TypeError:
-                desc = "empty" if len(location) == 0 else "multi-character"
-                raise BadInput(f"{desc} string in expression", location) from None
-            else:
-                return NumberNode(value, 8, location=location)
-
-        raise bad_token_kind("innermost", "identifier or number")
-
-    def parse_ident() -> IdentifierNode | OperatorNode:
-        location = tokens.eat(AsmToken.word)
-        assert location is not None, tokens.location
-
-        return IdentifierNode(location.text, location=location)
-
-    def parse_number() -> NumberNode:
-        location = tokens.eat(AsmToken.number)
-        assert location is not None, tokens.location
-
-        value = location.text
-        width: Width
-        if value[0] == "$":
-            digits = value[1:]
-            radix = 16
-            width = 4 * len(digits)
-        elif value[0] == "%":
-            digits = value[1:]
-            radix = 2
-            width = len(digits)
-        elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
-            digits = value[2:]
-            digit_width = 4 if value[1] in "xX" else 1
-            radix = 1 << digit_width
-            width = digit_width * len(digits)
-        elif value[-1].isdigit():
-            digits = value
-            radix = 10
-            # Decimal numbers have no integer per-digit width.
-            width = unlimited
         else:
-            digits = value[:-1]
-            try:
-                digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
-            except KeyError:
-                raise BadInput(
-                    f'bad number suffix "{value[-1]}"', location[-1:]
-                ) from None
-            radix = 1 << digit_width
-            width = digit_width * len(digits)
+            start = None
 
+        end: ParseNode | None
+        close_location = tokens.eat(AsmToken.bracket, "]")
+        if sep_location is None:
+            if close_location is None:
+                raise _bad_token_kind(tokens, "slice/lookup", '":" or "]"')
+            expr = OperatorNode(
+                Operator.lookup,
+                (expr, start),
+                location=InputLocation.merge_span(open_location, close_location),
+            )
+        else:
+            if close_location is None:
+                end = _parse_expr_top(tokens)
+                close_location = tokens.eat(AsmToken.bracket, "]")
+                if close_location is None:
+                    raise _bad_token_kind(tokens, "slice", '"]"')
+            else:
+                end = None
+            expr = OperatorNode(
+                Operator.slice,
+                (expr, start, end),
+                location=InputLocation.merge_span(open_location, close_location),
+            )
+
+
+def _parse_group(tokens: AsmTokenizer) -> ParseNode:
+    if tokens.eat(AsmToken.bracket, "(") is not None:
+        expr = _parse_expr_top(tokens)
+        if tokens.eat(AsmToken.bracket, ")") is not None:
+            return expr
+        raise _bad_token_kind(tokens, "parenthesized", ")")
+
+    if tokens.peek(AsmToken.word):
+        return _parse_ident(tokens)
+
+    if tokens.peek(AsmToken.number):
+        return _parse_number(tokens)
+
+    if (location := tokens.eat_string()) is not None:
+        # Arbitrary strings are not allowed as instruction
+        # operands, but single characters should be replaced
+        # by their character numbers.
         try:
-            num_val = parse_digits(digits, radix)
-        except ValueError as ex:
-            # TODO: Have the span point to the first offending character.
-            raise BadInput(f"{ex}", location) from None
+            value = ord(location.text)
+        except TypeError:
+            desc = "empty" if len(location) == 0 else "multi-character"
+            raise BadInput(f"{desc} string in expression", location) from None
         else:
-            return NumberNode(num_val, width, location=location)
+            return NumberNode(value, 8, location=location)
 
-    parse_expr_top = parse_or
+    raise _bad_token_kind(tokens, "innermost", "identifier or number")
 
-    return parse_expr_top()
+
+def _parse_ident(tokens: AsmTokenizer) -> IdentifierNode | OperatorNode:
+    location = tokens.eat(AsmToken.word)
+    assert location is not None, tokens.location
+
+    return IdentifierNode(location.text, location=location)
+
+
+def _parse_number(tokens: AsmTokenizer) -> NumberNode:
+    location = tokens.eat(AsmToken.number)
+    assert location is not None, tokens.location
+
+    value = location.text
+    width: Width
+    if value[0] == "$":
+        digits = value[1:]
+        radix = 16
+        width = 4 * len(digits)
+    elif value[0] == "%":
+        digits = value[1:]
+        radix = 2
+        width = len(digits)
+    elif value[0] == "0" and len(value) >= 2 and value[1] in "xXbB":
+        digits = value[2:]
+        digit_width = 4 if value[1] in "xX" else 1
+        radix = 1 << digit_width
+        width = digit_width * len(digits)
+    elif value[-1].isdigit():
+        digits = value
+        radix = 10
+        # Decimal numbers have no integer per-digit width.
+        width = unlimited
+    else:
+        digits = value[:-1]
+        try:
+            digit_width = {"b": 1, "h": 4}[value[-1].casefold()]
+        except KeyError:
+            raise BadInput(f'bad number suffix "{value[-1]}"', location[-1:]) from None
+        radix = 1 << digit_width
+        width = digit_width * len(digits)
+
+    try:
+        num_val = parse_digits(digits, radix)
+    except ValueError as ex:
+        # TODO: Have the span point to the first offending character.
+        raise BadInput(f"{ex}", location) from None
+    else:
+        return NumberNode(num_val, width, location=location)
+
+
+_parse_expr_top = _parse_or
+
+
+def parse_value(tokens: AsmTokenizer) -> ParseNode:
+    return _parse_expr_top(tokens)
 
 
 _data_widths = {
