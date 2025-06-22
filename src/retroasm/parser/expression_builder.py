@@ -607,7 +607,6 @@ def emit_code_from_statements(
                     ) from ex
                 # Evaluate value.
                 try:
-                    assert not isinstance(decl, VariableDeclarationNode), decl
                     ref = convert_definition(decl, typ, value, namespace, builder)
                 except BadExpression as ex:
                     message = f"{ex}"

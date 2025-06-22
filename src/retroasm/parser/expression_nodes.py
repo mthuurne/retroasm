@@ -165,12 +165,9 @@ class ConstRefDeclarationNode(_BaseDeclarationNode):
         return "reference" if self.is_reference else "constant"
 
 
-type DeclarationNode = VariableDeclarationNode | ConstRefDeclarationNode
-
-
 @dataclass(frozen=True, slots=True)
 class DefinitionNode(ParseNode):
-    decl: DeclarationNode
+    decl: ConstRefDeclarationNode
     value: ParseNode
 
     @property

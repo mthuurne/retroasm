@@ -21,12 +21,7 @@ from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
 from .expression_builder import BadExpression, convert_definition
-from .expression_nodes import (
-    ConstRefDeclarationNode,
-    DefinitionNode,
-    ParseNode,
-    VariableDeclarationNode,
-)
+from .expression_nodes import ConstRefDeclarationNode, DefinitionNode, ParseNode
 from .expression_parser import parse_context
 
 
@@ -73,7 +68,7 @@ def _parse_context(
             case ConstRefDeclarationNode() as decl:
                 pass
             case DefinitionNode(decl=decl):
-                assert not isinstance(decl, VariableDeclarationNode), decl
+                pass
             case node:
                 bad_type(node)
 

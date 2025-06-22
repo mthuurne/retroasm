@@ -135,9 +135,8 @@ def _parse_regs(
                             f"bad base register definition: {ex}",
                             location=ex.locations,
                         )
-                case DefinitionNode(value=value):
+                case DefinitionNode(decl=decl, value=value):
                     # Define register alias.
-                    assert isinstance(decl, ConstRefDeclarationNode), decl
                     try:
                         ref = convert_definition(
                             decl,

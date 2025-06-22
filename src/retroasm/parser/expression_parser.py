@@ -8,7 +8,6 @@ from .expression_nodes import (
     AssignmentNode,
     BranchNode,
     ConstRefDeclarationNode,
-    DeclarationNode,
     DefinitionNode,
     EmptyNode,
     FlagTestNode,
@@ -23,8 +22,6 @@ from .expression_nodes import (
     parse_int,
 )
 from .tokens import TokenEnum, Tokenizer
-
-type DefDeclNode = DeclarationNode | DefinitionNode
 
 _T = TypeVar("_T")
 
@@ -320,7 +317,7 @@ def _parse_group(tokens: ExprTokenizer) -> ParseNode:
 
 def _parse_definition(
     tokens: ExprTokenizer, keyword_location: InputLocation
-) -> DefDeclNode:
+) -> DefinitionNode:
     # Declaration.
     decl_node = _parse_decl(tokens, "def", keyword_location)
 
@@ -334,7 +331,7 @@ def _parse_definition(
 
 def _parse_variable(
     tokens: ExprTokenizer, keyword_location: InputLocation
-) -> DefDeclNode:
+) -> VariableDeclarationNode:
     # Declaration.
     decl_node = _parse_decl(tokens, "var", keyword_location)
 
@@ -349,8 +346,10 @@ def _parse_variable(
     return decl_node
 
 
-def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
-    defs: list[DefDeclNode] = []
+def _parse_regs_top(
+    tokens: ExprTokenizer,
+) -> Iterable[VariableDeclarationNode | DefinitionNode]:
+    defs: list[VariableDeclarationNode | DefinitionNode] = []
     type_node: IdentifierNode | None = None
     while True:
         start_location = tokens.location
@@ -382,32 +381,31 @@ def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
         else:
             # Second identifier; first identifier is a type declaration.
             type_node = IdentifierNode(location.text, location=location)
-
         name_node = IdentifierNode(name_location.text, location=name_location)
 
-        # Complete the declaration node.
-        factory = (
-            ConstRefDeclarationNode
-            if tokens.peek(ExprToken.definition)
-            else VariableDeclarationNode
-        )
-        decl_node = factory(type_node, name_node, location=start_location)
-
-        # Finish definition.
-        def_location = tokens.eat(ExprToken.definition)
-        defs.append(
-            decl_node
-            if def_location is None
-            else DefinitionNode(
-                decl_node, _parse_expr_top(tokens), location=def_location
+        # Finish definition/declaration.
+        if def_location := tokens.eat(ExprToken.definition):
+            defs.append(
+                DefinitionNode(
+                    ConstRefDeclarationNode(
+                        type_node, name_node, location=start_location
+                    ),
+                    _parse_expr_top(tokens),
+                    location=def_location,
+                )
             )
-        )
+        else:
+            defs.append(
+                VariableDeclarationNode(type_node, name_node, location=start_location)
+            )
 
         if tokens.eat(ExprToken.separator, ",") is None:
             return defs
 
 
-_DECL_FACTORIES: Mapping[str, type[DeclarationNode]] = {
+_DECL_FACTORIES: Mapping[
+    str, type[ConstRefDeclarationNode | VariableDeclarationNode]
+] = {
     "ctx": ConstRefDeclarationNode,
     "def": ConstRefDeclarationNode,
     "var": VariableDeclarationNode,
@@ -428,7 +426,7 @@ def _parse_decl(
 
 def _parse_decl(
     tokens: ExprTokenizer, keyword: str, start_location: InputLocation
-) -> DeclarationNode:
+) -> ConstRefDeclarationNode | VariableDeclarationNode:
     factory = _DECL_FACTORIES[keyword]
 
     # Type.
@@ -443,8 +441,7 @@ def _parse_decl(
 
     # Merge reference indicator '&' into type.
     if tokens.location.span[0] == type_location.span[1]:
-        amp_location = tokens.eat(ExprToken.operator, "&")
-        if amp_location is not None:
+        if amp_location := tokens.eat(ExprToken.operator, "&"):
             if factory is VariableDeclarationNode:
                 raise BadInput(
                     'references can only be defined using the "def" keyword',
@@ -530,7 +527,9 @@ def parse_expr_list(location: InputLocation) -> Iterable[ParseNode]:
     return _parse(location, _parse_list)
 
 
-def parse_regs(location: InputLocation) -> Iterable[DefDeclNode]:
+def parse_regs(
+    location: InputLocation,
+) -> Iterable[VariableDeclarationNode | DefinitionNode]:
     return _parse(location, _parse_regs_top)
 
 
