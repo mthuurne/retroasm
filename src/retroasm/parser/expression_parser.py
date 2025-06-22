@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Literal, TypeVar, cast, overload
+from typing import Literal, TypeVar, overload
 
 from ..input import BadInput, InputLocation
 from .expression_nodes import (
@@ -299,8 +299,11 @@ def _parse_group(tokens: ExprTokenizer) -> ParseNode:
             return expr
         raise _bad_token_kind(tokens, "parenthesized", ")")
 
-    if tokens.peek(ExprToken.keyword, "var") or tokens.peek(ExprToken.keyword, "def"):
-        return _parse_definition(tokens)
+    if keyword_location := tokens.eat(ExprToken.keyword, "def"):
+        return _parse_definition(tokens, keyword_location)
+
+    if keyword_location := tokens.eat(ExprToken.keyword, "var"):
+        return _parse_variable(tokens, keyword_location)
 
     if tokens.peek(ExprToken.identifier):
         return _parse_ident(tokens)
@@ -316,29 +319,35 @@ def _parse_group(tokens: ExprTokenizer) -> ParseNode:
     raise _bad_token_kind(tokens, "innermost", "identifier, number or function call")
 
 
-def _parse_definition(tokens: ExprTokenizer) -> DefDeclNode:
-    # Keyword.
-    keyword_location = tokens.eat(ExprToken.keyword)
-    assert keyword_location is not None, tokens.location
-    keyword = cast(Literal["def", "var"], keyword_location.text)
-
+def _parse_definition(
+    tokens: ExprTokenizer, keyword_location: InputLocation
+) -> DefDeclNode:
     # Declaration.
-    decl_node = _parse_decl(tokens, keyword, keyword_location)
+    decl_node = _parse_decl(tokens, "def", keyword_location)
 
     # Value.
     def_location = tokens.eat(ExprToken.definition)
-    if isinstance(decl_node, VariableDeclarationNode):
-        if def_location is not None:
-            raise BadInput(
-                "variables can only get values through assignment "
-                '(use ":=" instead of "=")',
-                def_location,
-            )
-        return decl_node
-    else:
-        if def_location is None:
-            raise _bad_token_kind(tokens, f"{decl_node.description} value", '"="')
-        return DefinitionNode(decl_node, _parse_expr_top(tokens), location=def_location)
+    if def_location is None:
+        raise _bad_token_kind(tokens, f"{decl_node.description} value", '"="')
+
+    return DefinitionNode(decl_node, _parse_expr_top(tokens), location=def_location)
+
+
+def _parse_variable(
+    tokens: ExprTokenizer, keyword_location: InputLocation
+) -> DefDeclNode:
+    # Declaration.
+    decl_node = _parse_decl(tokens, "var", keyword_location)
+
+    # No value.
+    if (def_location := tokens.eat(ExprToken.definition)) is not None:
+        raise BadInput(
+            "variables can only get values through assignment "
+            '(use ":=" instead of "=")',
+            def_location,
+        )
+
+    return decl_node
 
 
 def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
