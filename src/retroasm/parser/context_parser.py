@@ -22,10 +22,9 @@ from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
 from .expression_builder import BadExpression, convert_definition
 from .expression_nodes import (
-    ConstantDeclarationNode,
+    ConstRefDeclarationNode,
     DefinitionNode,
     ParseNode,
-    ReferenceDeclarationNode,
     VariableDeclarationNode,
 )
 from .expression_parser import parse_context
@@ -33,7 +32,7 @@ from .expression_parser import parse_context
 
 @dataclass(frozen=True)
 class _ValuePlaceholderSpec:
-    decl: ConstantDeclarationNode | ReferenceDeclarationNode
+    decl: ConstRefDeclarationNode
     type: IntType
     value: ParseNode | None
 
@@ -48,7 +47,7 @@ class _ValuePlaceholderSpec:
 
 @dataclass(frozen=True)
 class _MatchPlaceholderSpec:
-    decl: ConstantDeclarationNode | ReferenceDeclarationNode
+    decl: ConstRefDeclarationNode
     mode: Mode
 
     @property
@@ -71,7 +70,7 @@ def _parse_context(
 ) -> Iterator[_MatchPlaceholderSpec | _ValuePlaceholderSpec]:
     for node in parse_context(ctx_loc):
         match node:
-            case ConstantDeclarationNode() | ReferenceDeclarationNode() as decl:
+            case ConstRefDeclarationNode() as decl:
                 pass
             case DefinitionNode(decl=decl):
                 assert not isinstance(decl, VariableDeclarationNode), decl

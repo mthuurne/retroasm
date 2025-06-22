@@ -48,7 +48,7 @@ from ..utils import bad_type
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
-    ConstantDeclarationNode,
+    ConstRefDeclarationNode,
     DefinitionNode,
     EmptyNode,
     IdentifierNode,
@@ -58,7 +58,6 @@ from .expression_nodes import (
     Operator,
     OperatorNode,
     ParseNode,
-    ReferenceDeclarationNode,
     VariableDeclarationNode,
 )
 
@@ -103,7 +102,7 @@ def declare_variable(
 
 
 def convert_definition(
-    decl: ConstantDeclarationNode | ReferenceDeclarationNode,
+    decl: ConstRefDeclarationNode,
     typ: IntType | ReferenceType,
     value: ParseNode,
     namespace: BuilderNamespace,
@@ -114,36 +113,33 @@ def convert_definition(
     Returns a Reference to the value.
     Raises BadExpression if validation fails.
     """
-    match decl:
-        case ConstantDeclarationNode():
-            try:
-                expr = build_expression(value, namespace, builder)
-            except BadInput as ex:
-                # Note: Catch BadInput rather than BadExpression because builder
-                #       could throw IllegalStateAccess.
-                raise BadExpression(
-                    f'bad value for constant "{typ} {decl.name.name}": {ex}',
-                    *ex.locations,
-                ) from ex
-            assert isinstance(typ, IntType), typ
-            return FixedValueReference(truncate(expr, typ.width), typ)
-        case ReferenceDeclarationNode():
-            try:
-                ref = build_reference(value, namespace, builder)
-            except BadExpression as ex:
-                raise BadExpression(
-                    f'bad value for reference "{typ} {decl.name.name}": {ex}',
-                    *ex.locations,
-                ) from ex
-            assert isinstance(typ, ReferenceType), typ
-            if typ.type.width != ref.width:
-                raise BadExpression.with_text(
-                    f'{ref.width}-bit value does not match declared type "{typ.type}"',
-                    value.tree_location,
-                )
-            return ref
-        case _:
-            bad_type(decl)
+    if decl.is_reference:
+        try:
+            ref = build_reference(value, namespace, builder)
+        except BadExpression as ex:
+            raise BadExpression(
+                f'bad value for reference "{typ} {decl.name.name}": {ex}',
+                *ex.locations,
+            ) from ex
+        assert isinstance(typ, ReferenceType), typ
+        if typ.type.width != ref.width:
+            raise BadExpression.with_text(
+                f'{ref.width}-bit value does not match declared type "{typ.type}"',
+                value.tree_location,
+            )
+        return ref
+    else:
+        try:
+            expr = build_expression(value, namespace, builder)
+        except BadInput as ex:
+            # Note: Catch BadInput rather than BadExpression because builder
+            #       could throw IllegalStateAccess.
+            raise BadExpression(
+                f'bad value for constant "{typ} {decl.name.name}": {ex}',
+                *ex.locations,
+            ) from ex
+        assert isinstance(typ, IntType), typ
+        return FixedValueReference(truncate(expr, typ.width), typ)
 
 
 def _convert_identifier(

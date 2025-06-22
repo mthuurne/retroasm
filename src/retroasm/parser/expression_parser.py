@@ -7,7 +7,7 @@ from ..input import BadInput, InputLocation
 from .expression_nodes import (
     AssignmentNode,
     BranchNode,
-    ConstantDeclarationNode,
+    ConstRefDeclarationNode,
     DeclarationNode,
     DefinitionNode,
     EmptyNode,
@@ -19,7 +19,6 @@ from .expression_nodes import (
     Operator,
     OperatorNode,
     ParseNode,
-    ReferenceDeclarationNode,
     VariableDeclarationNode,
     parse_int,
 )
@@ -110,10 +109,10 @@ def _parse_encoding_top(tokens: ExprTokenizer) -> Iterable[ParseNode]:
 
 def _parse_context_top(
     tokens: ExprTokenizer,
-) -> Iterable[ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode]:
+) -> Iterable[ConstRefDeclarationNode | DefinitionNode]:
     elems = []
     while True:
-        node: ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode
+        node: ConstRefDeclarationNode | DefinitionNode
         if tokens.peek(ExprToken.identifier):
             node = _parse_decl(tokens, "ctx", tokens.location)
             if (location := tokens.eat(ExprToken.definition)) is not None:
@@ -387,14 +386,11 @@ def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
         name_node = IdentifierNode(name_location.text, location=name_location)
 
         # Complete the declaration node.
-        factory: type[DeclarationNode]
-        if tokens.peek(ExprToken.definition):
-            if type_node.name.endswith("&"):
-                factory = ReferenceDeclarationNode
-            else:
-                factory = ConstantDeclarationNode
-        else:
-            factory = VariableDeclarationNode
+        factory = (
+            ConstRefDeclarationNode
+            if tokens.peek(ExprToken.definition)
+            else VariableDeclarationNode
+        )
         decl_node = factory(type_node, name_node, location=start_location)
 
         # Finish definition.
@@ -412,8 +408,8 @@ def _parse_regs_top(tokens: ExprTokenizer) -> Iterable[DefDeclNode]:
 
 
 _DECL_FACTORIES: Mapping[str, type[DeclarationNode]] = {
-    "ctx": ConstantDeclarationNode,
-    "def": ConstantDeclarationNode,
+    "ctx": ConstRefDeclarationNode,
+    "def": ConstRefDeclarationNode,
     "var": VariableDeclarationNode,
 }
 
@@ -421,7 +417,7 @@ _DECL_FACTORIES: Mapping[str, type[DeclarationNode]] = {
 @overload
 def _parse_decl(
     tokens: ExprTokenizer, keyword: Literal["ctx", "def"], start_location: InputLocation
-) -> ConstantDeclarationNode | ReferenceDeclarationNode: ...
+) -> ConstRefDeclarationNode: ...
 
 
 @overload
@@ -449,13 +445,12 @@ def _parse_decl(
     if tokens.location.span[0] == type_location.span[1]:
         amp_location = tokens.eat(ExprToken.operator, "&")
         if amp_location is not None:
-            type_location = InputLocation.merge_span(type_location, amp_location)
             if factory is VariableDeclarationNode:
                 raise BadInput(
                     'references can only be defined using the "def" keyword',
                     InputLocation.merge_span(start_location, amp_location),
                 )
-            factory = ReferenceDeclarationNode
+            type_location = InputLocation.merge_span(type_location, amp_location)
 
     type_node = IdentifierNode(type_location.text, location=type_location)
 
@@ -545,7 +540,7 @@ def parse_encoding(location: InputLocation) -> Iterable[ParseNode]:
 
 def parse_context(
     location: InputLocation,
-) -> Iterable[ConstantDeclarationNode | ReferenceDeclarationNode | DefinitionNode]:
+) -> Iterable[ConstRefDeclarationNode | DefinitionNode]:
     return _parse(location, _parse_context_top)
 
 

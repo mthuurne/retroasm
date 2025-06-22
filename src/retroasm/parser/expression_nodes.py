@@ -155,24 +155,17 @@ class VariableDeclarationNode(_BaseDeclarationNode):
 
 
 @dataclass(frozen=True, slots=True)
-class ConstantDeclarationNode(_BaseDeclarationNode):
-    # TODO: In Python 3.13, we could make this a Final ClassVar instead.
+class ConstRefDeclarationNode(_BaseDeclarationNode):
+    @property
+    def is_reference(self) -> bool:
+        return self.type.name.endswith("&")
+
     @property
     def description(self) -> str:
-        return "constant"
+        return "reference" if self.is_reference else "constant"
 
 
-@dataclass(frozen=True, slots=True)
-class ReferenceDeclarationNode(_BaseDeclarationNode):
-    # TODO: In Python 3.13, we could make this a Final ClassVar instead.
-    @property
-    def description(self) -> str:
-        return "reference"
-
-
-type DeclarationNode = (
-    VariableDeclarationNode | ConstantDeclarationNode | ReferenceDeclarationNode
-)
+type DeclarationNode = VariableDeclarationNode | ConstRefDeclarationNode
 
 
 @dataclass(frozen=True, slots=True)
