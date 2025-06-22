@@ -151,8 +151,9 @@ def parse_placeholders(
 
         match spec:
             case _ValuePlaceholderSpec(value=val_node):
-                code = None
+                val_expr: Expression | None = None
                 if val_node is not None:
+                    # Compute placeholder value.
                     builder = SemanticsCodeBlockBuilder()
                     placeholder_namespace = LocalNamespace(ctx_namespace)
                     try:
@@ -167,19 +168,18 @@ def parse_placeholders(
                         collector.error(f"{ex}", location=ex.locations)
                     else:
                         code = builder.create_code_block(returned_bits(value_ref))
+                        builder = SemanticsCodeBlockBuilder()
+                        pc.emit_store(builder, CurrentAddress(), location)
+                        returned = builder.inline_block(code, fetch_arg)
+                        simplify_block(builder.nodes, returned)
+                        (val_bits,) = returned
+                        assert isinstance(val_bits, FixedValue), val_bits
+                        val_expr = simplify_expression(
+                            decode_int(val_bits.expr, val_type)
+                        )
 
-                val_expr: Expression
-                if code is None:
+                if val_expr is None:
                     val_expr = ImmediateValue(name, val_type)
-                else:
-                    # Compute placeholder value.
-                    builder = SemanticsCodeBlockBuilder()
-                    pc.emit_store(builder, CurrentAddress(), location)
-                    returned = builder.inline_block(code, fetch_arg)
-                    simplify_block(builder.nodes, returned)
-                    (val_bits,) = returned
-                    assert isinstance(val_bits, FixedValue), val_bits
-                    val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
 
                 placeholder = ValuePlaceholder(name, val_type, val_expr, location)
                 values[name] = placeholder.bits
