@@ -2,38 +2,21 @@
 name = "retroasm"
 version = "0.1.0"
 description = "Library and tools to convert between assembly and machine code"
+readme = "README.rst"
+requires-python = ">= 3.12"
+license = "MIT"
 authors = [
-    {name = "Maarten ter Huurne", email = "maarten@treewalker.org"}
+  { name = "Maarten ter Huurne", email = "maarten@treewalker.org" },
 ]
 maintainers = [
-    {name = "Maarten ter Huurne", email = "maarten@treewalker.org"}
+  { name = "Maarten ter Huurne", email = "maarten@treewalker.org" },
 ]
-readme = "README.rst"
-license = "MIT"
-requires-python = ">= 3.12"
 dependencies = [
-    "click ~= 8.0"
+  "click ~= 8.0",
 ]
 
 [project.scripts]
-retro = 'retroasm.cmdline:main'
-
-[tool.poetry.group.dev.dependencies]
-invoke = "^2.0"
-pytest = "^8.0.0"
-coverage = {version = "^7.4.0", extras = ["toml"]}
-pytest-cov = "^4.1.0"
-hypothesis = "^6.32.1"
-pylint = "^3.0"
-mypy = "^1.0.0"
-lxml = "^5.0.0"
-pre-commit = "^4.0.0"
-pyupgrade = "^3.15.2"
-ruff = "0.11.13"
-vulture = "^2.3"
-sphinx = "^8.0.0"
-sphinxcontrib-spelling = "^8.0.0"
-sphinx-click = "^6.0.0"
+retro = "retroasm.cmdline:main"
 
 [build-system]
 requires = ["poetry-core ~= 2.0.0"]
@@ -45,30 +28,47 @@ source = ["src"]
 
 [tool.coverage.report]
 exclude_lines = [
-    # Explicit override:
-    "pragma: no cover",
-    # Intended to be unreachable:
-    "raise NotImplementedError$",
-    "assert False($|,)",
-    # Debug-only code:
-    "def __repr__\\(",
-    "def dump\\(",
-    # Exclusive to mypy:
-    "if TYPE_CHECKING:$",
-    "\\.\\.\\.$",
+  # Explicit override:
+  "pragma: no cover",
+  # Intended to be unreachable:
+  "raise NotImplementedError$",
+  "assert False($|,)",
+  # Debug-only code:
+  "def __repr__\\(",
+  "def dump\\(",
+  # Exclusive to mypy:
+  "if TYPE_CHECKING:$",
+  "\\.\\.\\.$",
 ]
+
+[tool.poetry.group.dev.dependencies]
+coverage = { version = "^7.4.0", extras = ["toml"] }
+hypothesis = "^6.32.1"
+invoke = "^2.0"
+lxml = "^5.0.0"
+mypy = "^1.0.0"
+pre-commit = "^4.0.0"
+pylint = "^3.0"
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+pyupgrade = "^3.15.2"
+ruff = "0.11.13"
+sphinx = "^8.0.0"
+sphinx-click = "^6.0.0"
+sphinxcontrib-spelling = "^8.0.0"
+vulture = "^2.3"
 
 [tool.ruff]
 line-length = 88
 target-version = "py312"
 src = ["src"]
 
-[tool.ruff.lint.isort]
-split-on-trailing-comma = false
-
 [tool.ruff.lint]
 ignore = [
-    # ambiguous-variable-name: I really want to be able to name a register variable "l"
-    # Also I don't think that coding style should be used to work around poor font selection.
-    "E741",
+  # ambiguous-variable-name: I really want to be able to name a register variable "l"
+  # Also I don't think that coding style should be used to work around poor font selection.
+  "E741",
 ]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
