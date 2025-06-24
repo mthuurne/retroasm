@@ -1024,6 +1024,6 @@ class EncodeMatch:
                     length += 1
                 case EncodingMultiMatch(name=name, start=start):
                     length += subs[name].encoded_length - start
-                case _ as obj:
+                case obj:
                     bad_type(obj)
         return length

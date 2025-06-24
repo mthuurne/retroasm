@@ -102,7 +102,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
             return IntLiteral(multi_expr_cls.identity)
         case 1:
             return exprs[0]
-        case _ as num_exprs:
+        case num_exprs:
             if num_exprs == len(composed.exprs) and all(
                 new_expr is old_expr
                 for new_expr, old_expr in zip(exprs, composed.exprs)
