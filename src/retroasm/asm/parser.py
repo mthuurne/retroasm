@@ -8,6 +8,7 @@ from typing import cast
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet
 from ..parser.expression_nodes import (
+    EmptyNode,
     IdentifierNode,
     NumberNode,
     Operator,
@@ -284,7 +285,7 @@ def _parse_indexed(tokens: AsmTokenizer) -> ParseNode:
             start = _parse_expr_top(tokens)
             sep_location = tokens.eat(AsmToken.separator, ":")
         else:
-            start = None
+            start = EmptyNode(location=open_location.end_location)
 
         end: ParseNode | None
         close_location = tokens.eat(AsmToken.bracket, "]")
@@ -303,7 +304,7 @@ def _parse_indexed(tokens: AsmTokenizer) -> ParseNode:
                 if close_location is None:
                     raise _bad_token_kind(tokens, "slice", '"]"')
             else:
-                end = None
+                end = EmptyNode(location=sep_location.end_location)
             expr = OperatorNode(
                 Operator.slice,
                 (expr, start, end),

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import cast
 
 from ..codeblock import Load, Store
 from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -233,8 +232,7 @@ def _convert_arithmetic(
     node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Expression:
     exprs: Sequence[Expression] = tuple(
-        build_expression(cast(ParseNode, node), namespace, builder)
-        for node in node.operands
+        build_expression(node, namespace, builder) for node in node.operands
     )
     match node.operator:
         case Operator.bitwise_and:
@@ -372,10 +370,10 @@ def _convert_reference_slice(
     ref = build_reference(expr_node, namespace, builder)
     start_expr = (
         IntLiteral(0)
-        if start_node is None
+        if isinstance(start_node, EmptyNode)
         else build_expression(start_node, namespace, builder)
     )
-    if end_node is None:
+    if isinstance(end_node, EmptyNode):
         ref_width = ref.width
         if ref_width is unlimited:
             end_expr: Expression | None = None

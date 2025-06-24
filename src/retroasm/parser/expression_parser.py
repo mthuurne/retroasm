@@ -261,7 +261,7 @@ def _parse_indexed(tokens: ExprTokenizer) -> ParseNode:
             start = _parse_expr_top(tokens)
             sep_location = tokens.eat(ExprToken.separator, ":")
         else:
-            start = None
+            start = EmptyNode(location=open_location.end_location)
 
         end: ParseNode | None
         close_location = tokens.eat(ExprToken.bracket, "]")
@@ -280,7 +280,7 @@ def _parse_indexed(tokens: ExprTokenizer) -> ParseNode:
                 if close_location is None:
                     raise _bad_token_kind(tokens, "slice", '"]"')
             else:
-                end = None
+                end = EmptyNode(location=sep_location.end_location)
             expr = OperatorNode(
                 Operator.slice,
                 (expr, start, end),

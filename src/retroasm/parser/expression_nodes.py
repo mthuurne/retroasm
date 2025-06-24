@@ -95,26 +95,21 @@ class Operator(Enum):
 @dataclass(frozen=True, slots=True)
 class OperatorNode(ParseNode):
     operator: Operator
-    operands: tuple[ParseNode | None, ...]
+    operands: tuple[ParseNode, ...]
 
     @property
     @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
             self.location,
-            *(
-                operand.tree_location
-                for operand in self.operands
-                if operand is not None
-            ),
+            *(operand.tree_location for operand in self.operands),
         )
 
     @override
     def __iter__(self) -> Iterator[ParseNode]:
         yield self
         for operand in self.operands:
-            if operand is not None:
-                yield from operand
+            yield from operand
 
     @override
     def __str__(self) -> str:
