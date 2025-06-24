@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import ItemsView, KeysView, ValuesView
-from typing import NoReturn, cast, override
+from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
+from typing import NoReturn, TypeVar, cast, overload, override
 
 from .function import Function
 from .input import BadInput, InputLocation
@@ -12,8 +12,10 @@ from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
 
+_T = TypeVar("_T")
 
-class Namespace:
+
+class Namespace(Mapping[str, NamespaceValue]):
     """
     Container in which named elements such as variables, arguments,
     functions etc. are stored.
@@ -31,13 +33,23 @@ class Namespace:
         args = ", ".join(f"{name}={value}" for name, value in self.elements.items())
         return f"{self.__class__.__name__}({args})"
 
-    def __contains__(self, key: str) -> bool:
+    @override
+    def __len__(self) -> int:
+        return len(self.elements)
+
+    @override
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.elements)
+
+    @override
+    def __contains__(self, key: object) -> bool:
         if key in self.elements:
             return True
         else:
             parent = self.parent
             return parent is not None and key in parent
 
+    @override
     def __getitem__(self, key: str) -> NamespaceValue:
         try:
             return self.elements[key]
@@ -49,15 +61,25 @@ class Namespace:
             self.elements[key] = value
             return value
 
-    def get(self, key: str) -> NamespaceValue | None:
+    @overload
+    def get(self, key: str, /) -> NamespaceValue | None: ...
+
+    @overload
+    def get(self, key: str, /, default: NamespaceValue | _T) -> NamespaceValue | _T: ...
+
+    @override
+    def get(self, key: str, /, default: _T | None = None) -> NamespaceValue | _T | None:
         return self.elements.get(key)
 
+    @override
     def keys(self) -> KeysView[str]:
         return self.elements.keys()
 
+    @override
     def values(self) -> ValuesView[NamespaceValue]:
         return self.elements.values()
 
+    @override
     def items(self) -> ItemsView[str, NamespaceValue]:
         return self.elements.items()
 
