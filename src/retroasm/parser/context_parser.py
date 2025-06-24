@@ -16,7 +16,7 @@ from ..namespace import (
     LocalNamespace,
     NameExistsError,
 )
-from ..reference import BitString, FixedValue, decode_int
+from ..reference import BitString, FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
@@ -106,6 +106,10 @@ def _parse_context(
         yield _ValuePlaceholderSpec(decl, typ, value)
 
 
+def _reject_mode_match_arg(name: str) -> BitString:
+    raise ValueError("mode placeholder cannot be used in context value")
+
+
 def parse_placeholders(
     ctx_loc: InputLocation,
     modes: Mapping[str, Mode],
@@ -113,16 +117,6 @@ def parse_placeholders(
     collector: ErrorCollector,
 ) -> Iterator[Placeholder]:
     """Yield the placeholders defined in the given context."""
-
-    values: dict[str, FixedValue] = {}
-
-    def fetch_arg(name: str) -> BitString:
-        try:
-            return values[name]
-        except KeyError:
-            raise ValueError(
-                "mode placeholder cannot be used in context value"
-            ) from None
 
     pc = global_namespace.program_counter
     ctx_namespace = ContextNamespace(global_namespace)
@@ -136,18 +130,6 @@ def parse_placeholders(
             # Mode placeholders will be rejected later.
             # So the value type doesn't matter, but we must provide something.
             val_type = val_type.type
-
-        # Populate namespace with an argument for each placeholder.
-        # Mode placeholders will be added here and then rejected in fetch_arg(),
-        # to avoids a confusing "unknown name" error.
-        try:
-            ctx_namespace.add_argument(name, val_type, decl.name.location)
-        except NameExistsError as ex:
-            collector.error(
-                f"failed to define placeholder: {ex}",
-                location=ex.locations,
-            )
-            continue
 
         match spec:
             case _ValuePlaceholderSpec(value=val_node):
@@ -170,7 +152,7 @@ def parse_placeholders(
                         code = builder.create_code_block(returned_bits(value_ref))
                         builder = SemanticsCodeBlockBuilder()
                         pc.emit_store(builder, CurrentAddress(), location)
-                        returned = builder.inline_block(code, fetch_arg)
+                        returned = builder.inline_block(code, _reject_mode_match_arg)
                         simplify_block(builder.nodes, returned)
                         (val_bits,) = returned
                         assert isinstance(val_bits, FixedValue), val_bits
@@ -181,11 +163,31 @@ def parse_placeholders(
                 if val_expr is None:
                     val_expr = ImmediateValue(name, val_type)
 
-                placeholder = ValuePlaceholder(name, val_type, val_expr, location)
-                values[name] = placeholder.bits
-                yield placeholder
+                # Add value placeholder to namespace.
+                val_ref = FixedValueReference(val_expr, val_type)
+                try:
+                    ctx_namespace.define(name, val_ref, decl.name.location)
+                except NameExistsError as ex:
+                    collector.error(
+                        f"failed to define value placeholder: {ex}",
+                        location=ex.locations,
+                    )
+                    continue
+
+                yield ValuePlaceholder(name, val_type, val_expr, location)
 
             case _MatchPlaceholderSpec(mode=mode):
+                # Mode placeholders are added to the namespace and then rejected
+                # in fetch_arg(), to avoid a confusing "unknown name" error.
+                try:
+                    ctx_namespace.add_argument(name, val_type, decl.name.location)
+                except NameExistsError as ex:
+                    collector.error(
+                        f"failed to define mode match placeholder: {ex}",
+                        location=ex.locations,
+                    )
+                    continue
+
                 yield MatchPlaceholder(name, mode, location)
 
             case spec:
