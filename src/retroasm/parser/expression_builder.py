@@ -506,8 +506,8 @@ def build_statement_eval(
     """
     Emits loads and stores on the given namespace that produce the (side)
     effects of evaluating the given node.
-    Errors and warnings are logged on the given reader, using whereDesc as the
-    description of the statement's origin.
+    Errors and warnings are logged on the given reader, using `where_desc`
+    as the description of the statement's origin.
     """
     num_nodes_before = len(builder.nodes)
 
