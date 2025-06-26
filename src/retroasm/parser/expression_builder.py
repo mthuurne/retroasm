@@ -443,26 +443,26 @@ comparison_operators = (
 def _convert_reference_operator(
     node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
 ) -> Reference:
-    operator = node.operator
-    if operator is Operator.call:
-        ref = _convert_function_call(node, namespace, builder)
-        if ref is None:
-            raise BadExpression(
-                "function does not return anything; expected reference",
-                node.tree_location,
-            )
-        else:
-            return ref
-    elif operator is Operator.lookup:
-        return _convert_reference_lookup(node, namespace, builder)
-    elif operator is Operator.slice:
-        return _convert_reference_slice(node, namespace, builder)
-    elif operator is Operator.concatenation:
-        return _convert_reference_concat(node, namespace, builder)
-    else:
-        expr = _convert_arithmetic(node, namespace, builder)
-        typ = IntType.u(1) if operator in comparison_operators else IntType.int
-        return FixedValueReference(expr, typ)
+    match node.operator:
+        case Operator.call:
+            ref = _convert_function_call(node, namespace, builder)
+            if ref is None:
+                raise BadExpression(
+                    "function does not return anything; expected reference",
+                    node.tree_location,
+                )
+            else:
+                return ref
+        case Operator.lookup:
+            return _convert_reference_lookup(node, namespace, builder)
+        case Operator.slice:
+            return _convert_reference_slice(node, namespace, builder)
+        case Operator.concatenation:
+            return _convert_reference_concat(node, namespace, builder)
+        case operator:
+            expr = _convert_arithmetic(node, namespace, builder)
+            typ = IntType.u(1) if operator in comparison_operators else IntType.int
+            return FixedValueReference(expr, typ)
 
 
 def build_reference(
