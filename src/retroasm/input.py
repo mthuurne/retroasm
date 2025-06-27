@@ -412,7 +412,7 @@ def _iter_parts(
 ) -> Iterator[
     tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
 ]:
-    if location is None:
+    if not location:  # both None and ()
         yield msg, None, -1, None, []
     elif isinstance(location, InputLocation):
         loc = location
