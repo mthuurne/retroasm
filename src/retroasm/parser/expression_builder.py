@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 
 from ..codeblock import Load, Store
 from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -300,9 +300,9 @@ def _convert_expression_operator(
                 builder, node.tree_location
             )
         case Operator.concatenation:
-            return _convert_reference_concat(node, namespace, builder).emit_load(
-                builder, node.tree_location
-            )
+            return _convert_reference_concat(
+                node, namespace, builder, build_reference
+            ).emit_load(builder, node.tree_location)
         case _:
             return _convert_arithmetic(node, namespace, builder)
 
@@ -404,13 +404,16 @@ def _convert_reference_slice(
 
 
 def _convert_reference_concat(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode,
+    namespace: BuilderNamespace,
+    builder: CodeBlockBuilder,
+    ref_builder: Callable[[ParseNode, BuilderNamespace, CodeBlockBuilder], Reference],
 ) -> Reference:
     expr_node1, expr_node2 = node.operands
     assert expr_node1 is not None, node
     assert expr_node2 is not None, node
-    ref1 = build_reference(expr_node1, namespace, builder)
-    ref2 = build_reference(expr_node2, namespace, builder)
+    ref1 = ref_builder(expr_node1, namespace, builder)
+    ref2 = ref_builder(expr_node2, namespace, builder)
     if ref2.width is unlimited:
         non_first_node = expr_node2
         while (
@@ -458,7 +461,7 @@ def _convert_reference_operator(
         case Operator.slice:
             return _convert_reference_slice(node, namespace, builder)
         case Operator.concatenation:
-            return _convert_reference_concat(node, namespace, builder)
+            return _convert_reference_concat(node, namespace, builder, build_reference)
         case operator:
             expr = _convert_arithmetic(node, namespace, builder)
             typ = IntType.u(1) if operator in comparison_operators else IntType.int
@@ -471,8 +474,10 @@ def build_reference(
     match node:
         case NumberNode(value=value, width=width):
             return int_reference(value, IntType(width, width is unlimited))
-        case VariableDeclarationNode() as decl:
-            return declare_variable(decl, namespace)
+        case VariableDeclarationNode(tree_location=location):
+            raise BadExpression(
+                "variable declaration is only allowed in assignment target", location
+            )
         case DefinitionNode(tree_location=location):
             raise BadExpression("definition must be only statement on a line", location)
         case IdentifierNode() as ident_node:
@@ -496,6 +501,20 @@ def build_reference(
             raise TypeError(type(node).__name__)
 
 
+def build_assignment_target(
+    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+) -> Reference:
+    match node:
+        case VariableDeclarationNode() as decl:
+            return declare_variable(decl, namespace)
+        case OperatorNode(operator=Operator.concatenation):
+            return _convert_reference_concat(
+                node, namespace, builder, build_assignment_target
+            )
+        case _:
+            return build_reference(node, namespace, builder)
+
+
 def build_statement_eval(
     collector: ErrorCollector,
     where_desc: str,
@@ -514,7 +533,7 @@ def build_statement_eval(
     match node:
         case AssignmentNode():
             try:
-                lhs = build_reference(node.lhs, namespace, builder)
+                lhs = build_assignment_target(node.lhs, namespace, builder)
             except BadExpression as ex:
                 collector.error(
                     f"bad expression on left hand side of assignment in {where_desc}: "
