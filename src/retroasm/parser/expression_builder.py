@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
+from functools import partial
 
 from ..codeblock import Load, Store
 from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
@@ -301,7 +302,8 @@ def _convert_expression_operator(
             )
         case Operator.concatenation:
             return _convert_reference_concat(
-                node, namespace, builder, build_reference
+                node,
+                partial(build_reference, namespace=namespace, builder=builder),
             ).emit_load(builder, node.tree_location)
         case _:
             return _convert_arithmetic(node, namespace, builder)
@@ -404,16 +406,13 @@ def _convert_reference_slice(
 
 
 def _convert_reference_concat(
-    node: OperatorNode,
-    namespace: BuilderNamespace,
-    builder: CodeBlockBuilder,
-    ref_builder: Callable[[ParseNode, BuilderNamespace, CodeBlockBuilder], Reference],
+    node: OperatorNode, ref_builder: Callable[[ParseNode], Reference]
 ) -> Reference:
     expr_node1, expr_node2 = node.operands
     assert expr_node1 is not None, node
     assert expr_node2 is not None, node
-    ref1 = ref_builder(expr_node1, namespace, builder)
-    ref2 = ref_builder(expr_node2, namespace, builder)
+    ref1 = ref_builder(expr_node1)
+    ref2 = ref_builder(expr_node2)
     if ref2.width is unlimited:
         non_first_node = expr_node2
         while (
@@ -461,7 +460,10 @@ def _convert_reference_operator(
         case Operator.slice:
             return _convert_reference_slice(node, namespace, builder)
         case Operator.concatenation:
-            return _convert_reference_concat(node, namespace, builder, build_reference)
+            return _convert_reference_concat(
+                node,
+                partial(build_reference, namespace=namespace, builder=builder),
+            )
         case operator:
             expr = _convert_arithmetic(node, namespace, builder)
             typ = IntType.u(1) if operator in comparison_operators else IntType.int
@@ -509,7 +511,8 @@ def build_assignment_target(
             return declare_variable(decl, namespace)
         case OperatorNode(operator=Operator.concatenation):
             return _convert_reference_concat(
-                node, namespace, builder, build_assignment_target
+                node,
+                partial(build_assignment_target, namespace=namespace, builder=builder),
             )
         case _:
             return build_reference(node, namespace, builder)
