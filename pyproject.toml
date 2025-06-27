@@ -62,6 +62,7 @@ vulture = "^2.3"
 line-length = 88
 target-version = "py312"
 src = ["src"]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 ignore = [
