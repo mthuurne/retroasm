@@ -15,6 +15,9 @@ type NamespaceValue = Reference | IOChannel | Function
 _T = TypeVar("_T")
 
 
+type ReadOnlyNamespace = Mapping[str, NamespaceValue]
+
+
 class Namespace(Mapping[str, NamespaceValue]):
     """
     Container in which named elements such as variables, arguments,
@@ -23,7 +26,7 @@ class Namespace(Mapping[str, NamespaceValue]):
     Storing elements is done by calling define().
     """
 
-    def __init__(self, parent: Namespace | None):
+    def __init__(self, parent: ReadOnlyNamespace | None):
         self.parent = parent
         self.elements: dict[str, NamespaceValue] = {}
         self.locations: dict[str, InputLocation | None] = {}

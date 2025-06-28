@@ -23,7 +23,12 @@ from ..expression import (
 from ..expression_simplifier import simplify_expression
 from ..function import Function
 from ..input import BadInput, ErrorCollector, InputLocation
-from ..namespace import BuilderNamespace, LocalNamespace, NameExistsError
+from ..namespace import (
+    BuilderNamespace,
+    LocalNamespace,
+    NameExistsError,
+    ReadOnlyNamespace,
+)
 from ..reference import (
     ConcatenatedBits,
     FixedValue,
@@ -105,7 +110,7 @@ def convert_definition(
     decl: ConstRefDeclarationNode,
     typ: IntType | ReferenceType,
     value: ParseNode,
-    namespace: BuilderNamespace,
+    namespace: ReadOnlyNamespace,
     builder: CodeBlockBuilder,
 ) -> Reference:
     """
@@ -143,7 +148,7 @@ def convert_definition(
 
 
 def _convert_identifier(
-    node: IdentifierNode, namespace: BuilderNamespace
+    node: IdentifierNode, namespace: ReadOnlyNamespace
 ) -> IOChannel | Reference:
     """Looks up an identifier in a namespace."""
     name = node.name
@@ -161,7 +166,7 @@ def _convert_identifier(
 
 
 def _convert_function_call(
-    call_node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    call_node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Reference | None:
     name_node, *arg_nodes = call_node.operands
 
@@ -230,7 +235,7 @@ def _convert_function_call(
 
 
 def _convert_arithmetic(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Expression:
     exprs: Sequence[Expression] = tuple(
         build_expression(node, namespace, builder) for node in node.operands
@@ -280,7 +285,7 @@ def _convert_arithmetic(
 
 
 def _convert_expression_operator(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Expression:
     match node.operator:
         case Operator.call:
@@ -310,7 +315,7 @@ def _convert_expression_operator(
 
 
 def build_expression(
-    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Expression:
     match node:
         case NumberNode(value=value):
@@ -342,7 +347,7 @@ def build_expression(
 
 
 def _convert_reference_lookup(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     expr_node, index_node = node.operands
     assert index_node is not None, node
@@ -365,7 +370,7 @@ def _convert_reference_lookup(
 
 
 def _convert_reference_slice(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     expr_node, start_node, end_node = node.operands
     assert expr_node is not None, node
@@ -443,7 +448,7 @@ comparison_operators = (
 
 
 def _convert_reference_operator(
-    node: OperatorNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     match node.operator:
         case Operator.call:
@@ -471,7 +476,7 @@ def _convert_reference_operator(
 
 
 def build_reference(
-    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     match node:
         case NumberNode(value=value, width=width):
