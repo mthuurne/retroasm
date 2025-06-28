@@ -4,7 +4,6 @@ from collections import defaultdict
 
 from .codeblock import AccessNode, Load, LoadedValue, Store, verify_loads
 from .expression import Expression
-from .expression_simplifier import simplify_expression
 from .reference import BitString
 
 
@@ -30,7 +29,7 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
     """Simplifies each expression in the given bit strings."""
 
     for i, ret_bits in enumerate(returned):
-        returned[i] = ret_bits.substitute(expression_func=simplify_expression)
+        returned[i] = ret_bits.simplify()
 
 
 def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:

@@ -59,6 +59,13 @@ class BitString(ABC):
     def iter_storages(self) -> Iterator[Storage]:
         """Iterates through the storages accessed through this bit string."""
 
+    def simplify(self) -> BitString:
+        """
+        Return an equivalent new bit string with all contained expressions simplified,
+        or this bit string itself if nothing could be simplified.
+        """
+        return self.substitute(expression_func=simplify_expression)
+
     @abstractmethod
     def substitute(
         self,
@@ -613,6 +620,15 @@ class Reference:
     @override
     def __str__(self) -> str:
         return f"{self._type}& {self._bits}"
+
+    def simplify(self) -> Reference:
+        """
+        Return an equivalent new reference with all contained expressions simplified,
+        or this reference itself if nothing could be simplified.
+        """
+        bits = self._bits
+        new_bits = bits.simplify()
+        return self if new_bits is bits else Reference(new_bits, self._type)
 
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
