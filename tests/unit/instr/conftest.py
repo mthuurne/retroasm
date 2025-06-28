@@ -25,16 +25,7 @@ class TestParser(InstructionSetParser):
         self.parse(reader, logger)
 
 
-@pytest.fixture
-def parser() -> TestParser:
-    """
-    An instruction set parser with a few registers and an I/O channel predefined.
-    """
-
-    logger = getLogger("test")
-    parser = TestParser("test.instr", logger)
-    parser.parse_text(
-        """
+_default_regs_definition = """
 reg
 u32 a, b
 u1 f
@@ -43,7 +34,26 @@ u32 sp, pc
 io
 u32 mem[u32]
 """
-    )
+
+
+@pytest.fixture
+def parser(request: pytest.FixtureRequest) -> TestParser:
+    """
+    An instruction set parser with optionally a few registers and an I/O channel
+    predefined.
+    """
+
+    logger = getLogger("test")
+    parser = TestParser("test.instr", logger)
+
+    # Include default register definitions?
+    if marker := request.node.get_closest_marker("default_regs"):
+        (default_regs,) = marker.args
+    else:
+        default_regs = True
+    if default_regs:
+        parser.parse_text(_default_regs_definition)
+
     return parser
 
 

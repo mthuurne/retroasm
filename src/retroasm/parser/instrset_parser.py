@@ -57,7 +57,6 @@ from .expression_builder import (
     convert_definition,
 )
 from .expression_nodes import (
-    ConstRefDeclarationNode,
     DefinitionNode,
     FlagTestNode,
     IdentifierNode,
@@ -118,14 +117,14 @@ def _parse_regs(
             last_type_location = type_location
 
             match node:
-                case ConstRefDeclarationNode(is_reference=True):
-                    collector.error(
-                        "base register cannot have a reference type",
-                        location=(decl.name.location, type_location),
-                    )
-                case ConstRefDeclarationNode() | VariableDeclarationNode():
+                case VariableDeclarationNode():
                     # Define base register.
-                    assert not isinstance(reg_type, ReferenceType), reg_type
+                    if isinstance(reg_type, ReferenceType):
+                        collector.error(
+                            "base register cannot have a reference type",
+                            location=decl_type.location,
+                        )
+                        continue
                     try:
                         global_namespace.add_register(
                             decl.name.name, reg_type, decl.name.location
