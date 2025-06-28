@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
-from typing import NoReturn, TypeVar, cast, overload, override
+from typing import TypeVar, cast, overload, override
 
 from .function import Function
 from .input import BadInput, InputLocation
@@ -152,24 +151,11 @@ class ContextNamespace(Namespace):
         _reject_ret(name, location)
 
 
-class BuilderNamespace(Namespace, ABC):
-    """A namespace in which variables can be created."""
-
-    @abstractmethod
-    def add_variable(
-        self, name: str, typ: IntType, location: InputLocation | None = None
-    ) -> Reference:
-        """
-        Adds a variable with the given name and type to this namespace.
-        Returns a reference to the variable.
-        """
-
-
-class GlobalNamespace(BuilderNamespace):
+class GlobalNamespace(Namespace):
     """Namespace for the global scope."""
 
     def __init__(self) -> None:
-        BuilderNamespace.__init__(self, None)
+        Namespace.__init__(self, None)
 
     @property
     def program_counter(self) -> Reference:
@@ -189,14 +175,8 @@ class GlobalNamespace(BuilderNamespace):
         storage = Register(name, typ.width)
         return self._add_named_storage(name, storage, typ, location)
 
-    @override
-    def add_variable(
-        self, name: str, typ: IntType, location: InputLocation | None = None
-    ) -> NoReturn:
-        raise BadInput("variables are not allowed in global context", location)
 
-
-class LocalNamespace(BuilderNamespace):
+class LocalNamespace(Namespace):
     """
     A namespace for local blocks, that can import entries from its parent
     namespace on demand.
@@ -208,7 +188,6 @@ class LocalNamespace(BuilderNamespace):
     ) -> None:
         _reject_pc(name, location)
 
-    @override
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:

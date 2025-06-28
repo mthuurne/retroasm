@@ -23,12 +23,7 @@ from ..expression import (
 from ..expression_simplifier import simplify_expression
 from ..function import Function
 from ..input import BadInput, ErrorCollector, InputLocation
-from ..namespace import (
-    BuilderNamespace,
-    LocalNamespace,
-    NameExistsError,
-    ReadOnlyNamespace,
-)
+from ..namespace import LocalNamespace, NameExistsError, ReadOnlyNamespace
 from ..reference import (
     ConcatenatedBits,
     FixedValue,
@@ -83,7 +78,7 @@ class UnknownNameError(BadExpression):
 
 
 def declare_variable(
-    node: VariableDeclarationNode, namespace: BuilderNamespace
+    node: VariableDeclarationNode, namespace: LocalNamespace
 ) -> Reference:
     # Determine type.
     try:
@@ -509,7 +504,7 @@ def build_reference(
 
 
 def build_assignment_target(
-    node: ParseNode, namespace: BuilderNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: LocalNamespace, builder: CodeBlockBuilder
 ) -> Reference:
     match node:
         case VariableDeclarationNode() as decl:
