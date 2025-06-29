@@ -124,15 +124,10 @@ def parse_placeholders(
         decl = spec.decl
         location = decl.tree_location
         name = spec.name
-        val_type = spec.type
-        if isinstance(val_type, ReferenceType):
-            # References in value placeholders have already been rejected.
-            # Mode placeholders will be rejected later.
-            # So the value type doesn't matter, but we must provide something.
-            val_type = val_type.type
 
         match spec:
             case _ValuePlaceholderSpec(value=val_node):
+                val_type = spec.type
                 val_expr: Expression | None = None
                 if val_node is not None:
                     # Compute placeholder value.
@@ -180,7 +175,9 @@ def parse_placeholders(
                 # Mode placeholders are added to the namespace and then rejected
                 # in fetch_arg(), to avoid a confusing "unknown name" error.
                 try:
-                    ctx_namespace.add_argument(name, val_type, decl.name.location)
+                    # The type doesn't matter, as the fetch will be rejected,
+                    # but we must provide something.
+                    ctx_namespace.add_argument(name, IntType.int, decl.name.location)
                 except NameExistsError as ex:
                     collector.error(
                         f"failed to define mode match placeholder: {ex}",
