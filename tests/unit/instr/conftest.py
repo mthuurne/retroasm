@@ -11,6 +11,7 @@ from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
 
 from ..docstring import unpack_docstring
+from ..utils_pytest import get_flag_marker
 
 
 class TestParser(InstructionSetParser):
@@ -25,36 +26,14 @@ class TestParser(InstructionSetParser):
         self.parse(reader, logger)
 
 
-_default_regs_definition = """
-reg
-u32 a, b
-u1 f
-u32 sp, pc
-
-io
-u32 mem[u32]
-"""
-
-
 @pytest.fixture
-def parser(request: pytest.FixtureRequest) -> TestParser:
+def parser() -> TestParser:
     """
-    An instruction set parser with optionally a few registers and an I/O channel
-    predefined.
+    An instruction set parser.
     """
 
     logger = getLogger("test")
-    parser = TestParser("test.instr", logger)
-
-    # Include default register definitions?
-    if marker := request.node.get_closest_marker("default_regs"):
-        (default_regs,) = marker.args
-    else:
-        default_regs = True
-    if default_regs:
-        parser.parse_text(_default_regs_definition)
-
-    return parser
+    return TestParser("test.instr", logger)
 
 
 @dataclass
@@ -65,6 +44,19 @@ class InstructionSetDocstringTester:
 
     def check(self) -> None:
         assert self.actual_log == self.expected_log
+
+
+_default_regs_definition = """
+reg
+u32 a, b
+u1 f
+u32 sp, pc
+"""
+
+_default_io_definition = """
+io
+u32 mem[u32]
+"""
 
 
 @pytest.fixture
@@ -88,6 +80,8 @@ def instr_tester(
         raise pytest.FixtureLookupError(
             request.fixturename, request, f"error unpacking docstring: {ex}"
         ) from ex
+    print("> code:")
+    print(code)
 
     if logs:
         (logging,) = logs
@@ -96,8 +90,11 @@ def instr_tester(
 
     caplog.handler.setFormatter(LocationFormatter())
 
-    print("> code:")
-    print(code)
+    # Include default register definitions?
+    if get_flag_marker(request, "default_regs", True):
+        parser.parse_text(_default_regs_definition)
+        parser.parse_text(_default_io_definition)
+
     parser.parse_text(code)
 
     return InstructionSetDocstringTester(parser, logging, caplog.text.rstrip())
