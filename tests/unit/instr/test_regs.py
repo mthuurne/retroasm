@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from retroasm.reference import Reference
+import pytest
+
+from retroasm.expression import AndOperator, IntLiteral, RShift
+from retroasm.namespace import ReadOnlyNamespace
+from retroasm.reference import Reference, SingleStorage
+from retroasm.storage import Register
+from retroasm.symbol import CurrentAddress
 from retroasm.types import IntType
 
 from .conftest import InstructionSetDocstringTester
@@ -120,3 +126,72 @@ def test_reg_base_ref(instr_tester: InstructionSetDocstringTester) -> None:
 
     """
     instr_tester.check()
+
+
+def _assert_register(namespace: ReadOnlyNamespace, name: str) -> Register:
+    ref = namespace[name]
+    assert isinstance(ref, Reference), ref
+    bits = ref.bits
+    assert isinstance(bits, SingleStorage), bits
+    storage = bits.storage
+    assert isinstance(storage, Register), storage
+    return storage
+
+
+@pytest.mark.default_regs(False)
+def test_reg_pc_base(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Fixate the program counter as a base register.
+
+    .. code-block:: instr
+
+        reg
+        u16 pc
+
+    """
+    instruction_set = instr_tester.create_instruction_set()
+    pc_reg = _assert_register(instruction_set._global_namespace, "pc")
+    assert instruction_set.program_counter_fixated == {
+        pc_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
+    }
+
+
+@pytest.mark.default_regs(False)
+def test_reg_pc_alias(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Fixate the program counter as a register alias.
+
+    .. code-block:: instr
+
+        reg
+        u16 ip
+        u16& pc = ip
+
+    """
+    instruction_set = instr_tester.create_instruction_set()
+    ip_reg = _assert_register(instruction_set._global_namespace, "ip")
+    assert instruction_set.program_counter_fixated == {
+        ip_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
+    }
+
+
+@pytest.mark.default_regs(False)
+def test_reg_pc_complex(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Fixate the program counter as a composite of registers and constants.
+
+    .. code-block:: instr
+
+        reg
+        u8 pch, pcl
+        u18& pc = %1 ; pch ; pcl ; %0
+
+    """
+    instruction_set = instr_tester.create_instruction_set()
+    pch_reg = _assert_register(instruction_set._global_namespace, "pch")
+    pcl_reg = _assert_register(instruction_set._global_namespace, "pcl")
+
+    assert instruction_set.program_counter_fixated == {
+        pch_reg: AndOperator(RShift(CurrentAddress(), 9), IntLiteral(0xFF)),
+        pcl_reg: AndOperator(RShift(CurrentAddress(), 1), IntLiteral(0xFF)),
+    }

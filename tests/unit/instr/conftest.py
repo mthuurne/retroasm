@@ -8,6 +8,7 @@ from logging import Logger, getLogger
 import pytest
 
 from retroasm.input import ErrorCollector, LocationFormatter
+from retroasm.instrset import InstructionSet
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
 
@@ -23,8 +24,8 @@ class TestParser(InstructionSetParser):
 
     def parse_text(self, text: str) -> None:
         reader = DefLineReader(self.path, StringIO(text))
-        logger = ErrorCollector(self.logger)
-        self.parse(reader, logger)
+        collector = ErrorCollector(self.logger)
+        self.parse(reader, collector)
 
 
 @pytest.fixture
@@ -46,6 +47,14 @@ class InstructionSetDocstringTester:
     def check(self) -> None:
         assert self.actual_log == self.expected_log
 
+    def create_instruction_set(self) -> InstructionSet:
+        parser = self.parser
+        collector = ErrorCollector(parser.logger)
+        with collector.check():
+            instruction_set = parser.finalize(collector, None)
+        assert instruction_set is not None
+        return instruction_set
+
 
 _default_regs_definition = """
 reg
@@ -57,6 +66,11 @@ u32 sp, pc
 _default_io_definition = """
 io
 u32 mem[u32]
+"""
+
+_default_instr_definition = """
+instr nop
+$00000000 . nop . nop
 """
 
 
@@ -94,18 +108,23 @@ def instr_tester(
     # Include default register definitions?
     use_default_regs = get_flag_marker(request, "default_regs", None)
     use_default_io = get_flag_marker(request, "default_io", None)
+    use_default_instr = get_flag_marker(request, "default_instr", None)
 
-    if use_default_regs is None or use_default_io is None:
+    if use_default_regs is None or use_default_io is None or use_default_instr is None:
         blocks = set(_iter_block_names(code))
         if use_default_regs is None:
             use_default_regs = "reg" not in blocks
         if use_default_io is None:
             use_default_io = "io" not in blocks
+        if use_default_instr is None:
+            use_default_instr = "instr" not in blocks
 
     if use_default_regs:
         parser.parse_text(_default_regs_definition)
     if use_default_io:
         parser.parse_text(_default_io_definition)
+    if use_default_instr:
+        parser.parse_text(_default_instr_definition)
 
     parser.parse_text(code)
 

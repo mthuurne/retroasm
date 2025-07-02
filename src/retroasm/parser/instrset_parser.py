@@ -1396,7 +1396,7 @@ class InstructionSetParser:
             self.attempt_creation = False
 
     def finalize(
-        self, collector: ErrorCollector, location: InputLocation
+        self, collector: ErrorCollector, location: InputLocation | None
     ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 
