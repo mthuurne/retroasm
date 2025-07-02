@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import pytest
-
 from retroasm.reference import Reference
 from retroasm.types import IntType
 
 from .conftest import InstructionSetDocstringTester
 
 
-@pytest.mark.default_regs(False)
 def test_reg_multiple(instr_tester: InstructionSetDocstringTester) -> None:
     """
     Multiple registers of the same type can be declared without repeating the type.
@@ -17,6 +14,8 @@ def test_reg_multiple(instr_tester: InstructionSetDocstringTester) -> None:
 
         reg
         u8 a, b, c
+
+        io
 
     """
     instr_tester.check()
@@ -28,7 +27,6 @@ def test_reg_multiple(instr_tester: InstructionSetDocstringTester) -> None:
         assert reg.type is IntType.u(8)
 
 
-@pytest.mark.default_regs(False)
 def test_reg_assign(instr_tester: InstructionSetDocstringTester) -> None:
     """
     Explicit register initialization is unsupported.
@@ -51,7 +49,6 @@ def test_reg_assign(instr_tester: InstructionSetDocstringTester) -> None:
     instr_tester.check()
 
 
-@pytest.mark.default_regs(False)
 def test_reg_const(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A register can have a constant value.
@@ -69,7 +66,6 @@ def test_reg_const(instr_tester: InstructionSetDocstringTester) -> None:
     assert reg.bits.int_value == 42
 
 
-@pytest.mark.default_regs(False)
 def test_reg_alias(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A register can be an alias of another.
@@ -87,7 +83,6 @@ def test_reg_alias(instr_tester: InstructionSetDocstringTester) -> None:
     assert reg_ip is reg_pc
 
 
-@pytest.mark.default_regs(False)
 def test_reg_alias_no_ref(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A register alias must have a reference type.
@@ -108,7 +103,6 @@ def test_reg_alias_no_ref(instr_tester: InstructionSetDocstringTester) -> None:
     instr_tester.check()
 
 
-@pytest.mark.default_regs(False)
 def test_reg_base_ref(instr_tester: InstructionSetDocstringTester) -> None:
     """
     Base registers (as opposed to aliases) cannot have a reference type.

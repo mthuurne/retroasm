@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from io import StringIO
 from logging import Logger, getLogger
@@ -91,10 +92,29 @@ def instr_tester(
     caplog.handler.setFormatter(LocationFormatter())
 
     # Include default register definitions?
-    if get_flag_marker(request, "default_regs", True):
+    use_default_regs = get_flag_marker(request, "default_regs", None)
+    use_default_io = get_flag_marker(request, "default_io", None)
+
+    if use_default_regs is None or use_default_io is None:
+        blocks = set(_iter_block_names(code))
+        if use_default_regs is None:
+            use_default_regs = "reg" not in blocks
+        if use_default_io is None:
+            use_default_io = "io" not in blocks
+
+    if use_default_regs:
         parser.parse_text(_default_regs_definition)
+    if use_default_io:
         parser.parse_text(_default_io_definition)
 
     parser.parse_text(code)
 
     return InstructionSetDocstringTester(parser, logging, caplog.text.rstrip())
+
+
+def _iter_block_names(text: str) -> Iterator[str]:
+    """Yield the names of the blocks in the given definition text."""
+    reader = DefLineReader("<dummy>", StringIO(text))
+    for line in reader:
+        yield line.text.split()[0]
+        reader.skip_block()
