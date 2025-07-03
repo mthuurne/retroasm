@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from retroasm.codeblock_builder import decompose_store
 from retroasm.expression import AndOperator, IntLiteral, RShift
 from retroasm.namespace import ReadOnlyNamespace
 from retroasm.reference import Reference, SingleStorage
@@ -149,9 +150,9 @@ def test_reg_pc_base(instr_tester: InstructionSetDocstringTester) -> None:
         u16 pc
 
     """
-    instruction_set = instr_tester.create_instruction_set()
-    pc_reg = _assert_register(instruction_set._global_namespace, "pc")
-    assert instruction_set.program_counter_fixated == {
+    namespace = instr_tester.parser.global_namespace
+    pc_reg = _assert_register(namespace, "pc")
+    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
         pc_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
     }
 
@@ -168,9 +169,9 @@ def test_reg_pc_alias(instr_tester: InstructionSetDocstringTester) -> None:
         u16& pc = ip
 
     """
-    instruction_set = instr_tester.create_instruction_set()
-    ip_reg = _assert_register(instruction_set._global_namespace, "ip")
-    assert instruction_set.program_counter_fixated == {
+    namespace = instr_tester.parser.global_namespace
+    ip_reg = _assert_register(namespace, "ip")
+    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
         ip_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
     }
 
@@ -187,11 +188,10 @@ def test_reg_pc_complex(instr_tester: InstructionSetDocstringTester) -> None:
         u18& pc = %1 ; pch ; pcl ; %0
 
     """
-    instruction_set = instr_tester.create_instruction_set()
-    pch_reg = _assert_register(instruction_set._global_namespace, "pch")
-    pcl_reg = _assert_register(instruction_set._global_namespace, "pcl")
-
-    assert instruction_set.program_counter_fixated == {
+    namespace = instr_tester.parser.global_namespace
+    pch_reg = _assert_register(namespace, "pch")
+    pcl_reg = _assert_register(namespace, "pcl")
+    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
         pch_reg: AndOperator(RShift(CurrentAddress(), 9), IntLiteral(0xFF)),
         pcl_reg: AndOperator(RShift(CurrentAddress(), 1), IntLiteral(0xFF)),
     }

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import cast, override
 
 from .codeblock import FunctionBody, Store
-from .codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
+from .codeblock_builder import SemanticsCodeBlockBuilder
 from .decode import (
     Decoder,
     DecoderFactory,
@@ -22,14 +22,13 @@ from .decode import (
     Prefix,
     create_prefix_decoder,
 )
-from .expression import Expression, IntLiteral
+from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput
 from .mode import EncodingExpr, ModeMatch, ModeTable
 from .namespace import GlobalNamespace, Namespace
 from .reference import Reference, SingleStorage
-from .storage import Register, Storage
-from .symbol import CurrentAddress
+from .storage import Storage
 from .types import IntType, Width
 from .utils import const_property
 
@@ -165,22 +164,6 @@ class InstructionSet(ModeTable):
     @property
     def program_counter(self) -> Reference:
         return self._global_namespace.program_counter
-
-    @const_property
-    def program_counter_fixated(self) -> Mapping[Register, Expression]:
-        """
-        Fixate the program counter address in the underlying base registers.
-
-        Typically, the returned dictionary will just map a single program counter
-        register to the `CurrentAddress` singleton. However, more complex program
-        counter setups could exist.
-        """
-
-        pc = self._global_namespace.program_counter
-        mapping = decompose_store(pc, CurrentAddress())
-        for storage in mapping:
-            assert isinstance(storage, Register), storage
-        return cast(Mapping[Register, Expression], mapping)
 
     @property
     def prefix_mapping(self) -> PrefixMapping:
