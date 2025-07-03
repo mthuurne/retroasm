@@ -457,3 +457,21 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             )
             for ret_bits in code.returned
         ]
+
+
+def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expression]:
+    """
+    Decompose the storing of a value to a reference.
+    Returns the values written to the underlying storages.
+    """
+
+    # Generate code for storing the value.
+    builder = SemanticsCodeBlockBuilder()
+    ref.emit_store(builder, value, None)
+
+    # Derive storage mapping from generated store nodes.
+    mapping = {}
+    for node in builder.nodes:
+        assert isinstance(node, Store), node
+        mapping[node.storage] = node.expr
+    return mapping

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import cast, override
 
 from .codeblock import FunctionBody, Store
-from .codeblock_builder import SemanticsCodeBlockBuilder
+from .codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
 from .decode import (
     Decoder,
     DecoderFactory,
@@ -176,19 +176,11 @@ class InstructionSet(ModeTable):
         counter setups could exist.
         """
 
-        # Generate code for storing the program counter value.
-        builder = SemanticsCodeBlockBuilder()
         pc = self._global_namespace.program_counter
-        pc.emit_store(builder, CurrentAddress(), None)
-
-        # Derive storage mapping from generated store nodes.
-        mapping = {}
-        for node in builder.nodes:
-            assert isinstance(node, Store), node
-            storage = node.storage
+        mapping = decompose_store(pc, CurrentAddress())
+        for storage in mapping:
             assert isinstance(storage, Register), storage
-            mapping[storage] = node.expr
-        return mapping
+        return cast(Mapping[Register, Expression], mapping)
 
     @property
     def prefix_mapping(self) -> PrefixMapping:
