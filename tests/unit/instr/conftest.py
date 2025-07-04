@@ -61,6 +61,12 @@ reg
 u32 a, b
 u1 f
 u32 sp, pc
+
+mode u32& reg32
+%00                 . a
+%01                 . b
+%10                 . sp
+%11                 . pc
 """
 
 _default_io_definition = """

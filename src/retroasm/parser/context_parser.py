@@ -56,7 +56,7 @@ def parse_placeholders(
             # Found a mode by this name.
             if isinstance(node, DefinitionNode):
                 collector.error(
-                    "mode placeholders cannot be assigned values",
+                    "mode match placeholder cannot have a defined value",
                     location=InputLocation.merge_span(
                         node.location, node.value.tree_location
                     ),
@@ -89,7 +89,7 @@ def parse_placeholders(
 
             if isinstance(val_type, ReferenceType):
                 collector.error(
-                    "value placeholders cannot be references",
+                    "value placeholder cannot be a reference",
                     location=decl_type.location,
                 )
                 continue
