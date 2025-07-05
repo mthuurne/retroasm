@@ -73,6 +73,11 @@ class Namespace(Mapping[str, NamespaceValue]):
         if name in self.elements:
             old_location = self.locations[name]
             raise NameExistsError(f'name "{name}" redefined', location, old_location)
+        if (parent := self.parent) is not None and name in parent:
+            old_location = (
+                parent.locations[name] if isinstance(parent, Namespace) else None
+            )
+            raise NameExistsError(f'name "{name}" redefined', location, old_location)
         self.locations[name] = location
         self.elements[name] = value
 

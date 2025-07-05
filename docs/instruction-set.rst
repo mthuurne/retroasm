@@ -401,6 +401,8 @@ Arguments are specified as a type followed by a name and separates by commas. Va
 
 Inside a function, value arguments are treated as local variables, meaning they can be modified.
 
+Names of arguments and local variables, constants and references are not allowed to overlap with names that have been defined in the global namespace, such as names of registers, I/O channels or functions.
+
 By default, functions do not return anything:
 
 .. code-block::

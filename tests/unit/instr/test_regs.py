@@ -129,6 +129,57 @@ def test_reg_base_ref(instr_tester: InstructionSetDocstringTester) -> None:
     instr_tester.check()
 
 
+def test_reg_shadow_arg(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    A function argument is not allowed to shadow a register name.
+    More generally, it is not allowed to shadow names from a parent namespace.
+
+    .. code-block:: instr
+
+        reg
+        u32 x
+
+        func shadow(u32 x)
+
+    .. code-block:: inputlog
+
+        test.instr:4: ERROR: error in body of function "shadow": name "x" redefined
+        func shadow(u32 x)
+                        ^
+        test.instr:2:
+        u32 x
+            ^
+
+    """
+    instr_tester.check()
+
+
+def test_reg_shadow_var(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    A local variable is not allowed to shadow a register name.
+    More generally, it is not allowed to shadow names from a parent namespace.
+
+    .. code-block:: instr
+
+        reg
+        u32 x
+
+        func shadow()
+            var u32 x
+
+    .. code-block:: inputlog
+
+        test.instr:5: ERROR: failed to declare variable "u32 x": name "x" redefined
+            var u32 x
+                    ^
+        test.instr:2:
+        u32 x
+            ^
+
+    """
+    instr_tester.check()
+
+
 def _assert_register(namespace: ReadOnlyNamespace, name: str) -> Register:
     ref = namespace[name]
     assert isinstance(ref, Reference), ref

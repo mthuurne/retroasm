@@ -110,6 +110,30 @@ def test_placeholder_value_reference(
     instr_tester.check()
 
 
+def test_placeholder_value_shadow(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Placeholder names must not shadow global names.
+
+    .. code-block:: instr
+
+        reg
+        int x
+
+        mode int test
+        x . x . x . int x
+
+    .. code-block:: inputlog
+
+        test.instr:5: ERROR: failed to define value placeholder: name "x" redefined
+        x . x . x . int x
+                        ^
+        test.instr:2:
+        int x
+            ^
+    """
+    instr_tester.check()
+
+
 def test_placeholder_constant_circular(
     instr_tester: InstructionSetDocstringTester,
 ) -> None:

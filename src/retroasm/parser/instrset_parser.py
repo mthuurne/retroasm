@@ -444,6 +444,8 @@ def _parse_func(
                 namespace,
             )
         except BadInput as ex:
+            # TODO: Errors in the arguments (such as redefining a global name) are
+            #       reported as errors in the function body, which is confusing.
             collector.error(
                 f'error in body of function "{func_name}": {ex}',
                 location=ex.locations,
