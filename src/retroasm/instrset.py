@@ -26,7 +26,7 @@ from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput
 from .mode import EncodingExpr, ModeMatch, ModeTable
-from .namespace import GlobalNamespace, Namespace
+from .namespace import Namespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import IntType, Width
@@ -163,7 +163,7 @@ class InstructionSet(ModeTable):
 
     @property
     def program_counter(self) -> Reference:
-        return self._global_namespace.program_counter
+        return self._program_counter
 
     @property
     def prefix_mapping(self) -> PrefixMapping:
@@ -173,7 +173,7 @@ class InstructionSet(ModeTable):
         self,
         enc_width: int,
         aux_enc_width: int | None,
-        global_namespace: GlobalNamespace,
+        program_counter: Reference,
         prefix_mapping: PrefixMapping,
         mode_entries: Mapping[str | None, list[ParsedModeEntry]],
     ):
@@ -187,11 +187,12 @@ class InstructionSet(ModeTable):
                 f"prefix encoding width {prefix_mapping.encoding_width} is "
                 f"different from instruction encoding width {enc_width}"
             )
+
         instructions = mode_entries[None]
         ModeTable.__init__(
             self, enc_width, aux_enc_width, (instr.entry for instr in instructions)
         )
-        self._global_namespace = global_namespace
+        self._program_counter = program_counter
         self._prefix_mapping = prefix_mapping
         self._modeEntries = mode_entries
         self._decoders: dict[frozenset[str], Decoder] = {}
@@ -309,4 +310,4 @@ class InstructionSet(ModeTable):
     @property
     def addr_type(self) -> IntType:
         """The type of the program counter."""
-        return self._global_namespace.program_counter.type
+        return self._program_counter.type

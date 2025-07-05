@@ -1409,8 +1409,7 @@ class InstructionSetParser:
                 'a register or alias named "pc" is required',
                 location=location,
             )
-        else:
-            assert isinstance(pc, Reference), pc
+            pc = None
 
         instructions = self.mode_entries[None]
         enc_width = _determine_encoding_width(instructions, False, None, collector)
@@ -1426,12 +1425,12 @@ class InstructionSetParser:
                 # encoding: either the instruction set is empty or it has a single
                 # instruction with no encoding.
                 collector.error("no instruction encodings defined", location=location)
-            else:
+            elif pc is not None:
                 try:
                     return InstructionSet(
                         enc_width,
                         aux_enc_width,
-                        self.global_namespace,
+                        pc,
                         prefix_mapping,
                         self.mode_entries,
                     )
