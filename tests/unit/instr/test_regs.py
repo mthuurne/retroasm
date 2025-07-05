@@ -140,6 +140,7 @@ def test_reg_shadow_arg(instr_tester: InstructionSetDocstringTester) -> None:
         u32 x
 
         func shadow(u32 x)
+            nop
 
     .. code-block:: inputlog
 

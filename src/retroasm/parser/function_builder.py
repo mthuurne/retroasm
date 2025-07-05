@@ -61,6 +61,7 @@ def create_func(
                 value = arg_ref.emit_load(builder, arg_loc)
                 var_ref.emit_store(builder, value, arg_loc)
         except BadInput as ex:
+            reader.skip_block()
             raise BadInput(
                 f'error in argument "{arg_name}" of function "{func_name}": {ex}',
                 *ex.locations,
