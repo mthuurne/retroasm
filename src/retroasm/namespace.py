@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
-from typing import TypeVar, cast, overload, override
+from collections.abc import Iterator, Mapping, Set
+from typing import cast, override
 
 from .function import Function
 from .input import BadInput, InputLocation
@@ -10,19 +10,16 @@ from .storage import ArgStorage, IOChannel, Register, Storage
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
-
-_T = TypeVar("_T")
-
-
 type ReadOnlyNamespace = Mapping[str, NamespaceValue]
 
 
 class Namespace(Mapping[str, NamespaceValue]):
     """
-    Container in which named elements such as variables, arguments,
+    Mapping in which named elements such as variables, arguments,
     functions etc. are stored.
-    Fetching elements is done through a dictionary-like interface.
     Storing elements is done by calling define().
+    When an element is looked up that was not stored in this namespace,
+    it is looked up in the parent namespace (if any).
     """
 
     def __init__(self, parent: ReadOnlyNamespace | None):
@@ -35,21 +32,25 @@ class Namespace(Mapping[str, NamespaceValue]):
         args = ", ".join(f"{name}={value}" for name, value in self.elements.items())
         return f"{self.__class__.__name__}({args})"
 
+    def _combine_keys(self) -> Set[str]:
+        """Return the combined keys of this namespace and its parent (if any)."""
+        keys = self.elements.keys()
+        parent = self.parent
+        return keys if parent is None else (keys | parent.keys())
+
     @override
     def __len__(self) -> int:
-        return len(self.elements)
+        return len(self._combine_keys())
 
     @override
     def __iter__(self) -> Iterator[str]:
-        return iter(self.elements)
+        return iter(self._combine_keys())
 
     @override
     def __contains__(self, key: object) -> bool:
-        if key in self.elements:
-            return True
-        else:
-            parent = self.parent
-            return parent is not None and key in parent
+        return key in self.elements or (
+            (parent := self.parent) is not None and key in parent
+        )
 
     @override
     def __getitem__(self, key: str) -> NamespaceValue:
@@ -59,31 +60,7 @@ class Namespace(Mapping[str, NamespaceValue]):
             parent = self.parent
             if parent is None:
                 raise
-            value = parent[key]
-            self.elements[key] = value
-            return value
-
-    @overload
-    def get(self, key: str, /) -> NamespaceValue | None: ...
-
-    @overload
-    def get(self, key: str, /, default: NamespaceValue | _T) -> NamespaceValue | _T: ...
-
-    @override
-    def get(self, key: str, /, default: _T | None = None) -> NamespaceValue | _T | None:
-        return self.elements.get(key)
-
-    @override
-    def keys(self) -> KeysView[str]:
-        return self.elements.keys()
-
-    @override
-    def values(self) -> ValuesView[NamespaceValue]:
-        return self.elements.values()
-
-    @override
-    def items(self) -> ItemsView[str, NamespaceValue]:
-        return self.elements.items()
+            return parent[key]
 
     def define(
         self, name: str, value: NamespaceValue, location: InputLocation | None = None
@@ -94,20 +71,8 @@ class Namespace(Mapping[str, NamespaceValue]):
         """
         self._check_name(name, value, location)
         if name in self.elements:
-            try:
-                old_location = self.locations[name]
-            except KeyError:
-                # No stored location implies this is an imported name.
-                # TODO: Showing the import location would be nice,
-                #       but we'd have to change the interface to pass
-                #       a location for lookups.
-                raise NameExistsError(
-                    f'imported name "{name}" redefined', location
-                ) from None
-            else:
-                raise NameExistsError(
-                    f'name "{name}" redefined', location, old_location
-                )
+            old_location = self.locations[name]
+            raise NameExistsError(f'name "{name}" redefined', location, old_location)
         self.locations[name] = location
         self.elements[name] = value
 
