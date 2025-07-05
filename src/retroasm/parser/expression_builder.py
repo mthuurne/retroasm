@@ -623,7 +623,8 @@ def emit_code_from_statements(
                     typ = parse_type_decl(type_node.name)
                 except ValueError as ex:
                     raise BadExpression(
-                        f"bad type name in definition: {ex}", type_node.location
+                        f"error in {where_desc}: bad type name in definition: {ex}",
+                        type_node.location,
                     ) from ex
                 # Evaluate value.
                 try:
@@ -660,7 +661,12 @@ def emit_code_from_statements(
 
             case LabelNode(name=label, location=location):
                 # Label that can be branched to.
-                builder.add_label(label, location)
+                try:
+                    builder.add_label(label, location)
+                except BadInput as ex:
+                    raise BadInput(
+                        f"error in {where_desc}: {ex}", *ex.locations
+                    ) from ex
 
             case stmt:
                 build_statement_eval(collector, where_desc, namespace, builder, stmt)

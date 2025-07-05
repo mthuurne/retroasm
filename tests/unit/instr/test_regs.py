@@ -143,7 +143,7 @@ def test_reg_shadow_arg(instr_tester: InstructionSetDocstringTester) -> None:
 
     .. code-block:: inputlog
 
-        test.instr:4: ERROR: error in body of function "shadow": name "x" redefined
+        test.instr:4: ERROR: error in argument "x" of function "shadow": name "x" redefined
         func shadow(u32 x)
                         ^
         test.instr:2:

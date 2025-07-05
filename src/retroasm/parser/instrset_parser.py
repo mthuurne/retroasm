@@ -431,7 +431,6 @@ def _parse_func(
 
     if want_semantics:
         func_name_loc = match.group(1)
-        func_name = func_name_loc.text
 
         # Parse body lines.
         try:
@@ -444,19 +443,15 @@ def _parse_func(
                 namespace,
             )
         except BadInput as ex:
-            # TODO: Errors in the arguments (such as redefining a global name) are
-            #       reported as errors in the function body, which is confusing.
-            collector.error(
-                f'error in body of function "{func_name}": {ex}',
-                location=ex.locations,
-            )
+            collector.error(str(ex), location=ex.locations)
         else:
             # Store function in namespace.
             try:
-                namespace.define(func_name, func, func_name_loc)
+                namespace.define(func_name_loc.text, func, func_name_loc)
             except NameExistsError as ex:
                 collector.error(
-                    f"error declaring function: {ex}", location=ex.locations
+                    f"error declaring function: {ex}",
+                    location=ex.locations,
                 )
     else:
         reader.skip_block()
