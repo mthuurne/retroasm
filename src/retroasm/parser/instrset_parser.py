@@ -1401,15 +1401,13 @@ class InstructionSetParser:
         """Perform final consistency checks and create the instruction set."""
 
         # Check that the program counter was defined.
-        try:
-            pc = self.global_namespace.program_counter
-        except KeyError:
+        pc = self.global_namespace.program_counter
+        if pc is None:
             collector.error(
                 "no program counter defined: "
                 'a register or alias named "pc" is required',
                 location=location,
             )
-            pc = None
 
         instructions = self.mode_entries[None]
         enc_width = _determine_encoding_width(instructions, False, None, collector)

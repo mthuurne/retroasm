@@ -151,8 +151,10 @@ def test_reg_pc_base(instr_tester: InstructionSetDocstringTester) -> None:
 
     """
     namespace = instr_tester.parser.global_namespace
+    pc = namespace.program_counter
+    assert pc is not None
     pc_reg = _assert_register(namespace, "pc")
-    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
+    assert decompose_store(pc, CurrentAddress()) == {
         pc_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
     }
 
@@ -170,8 +172,10 @@ def test_reg_pc_alias(instr_tester: InstructionSetDocstringTester) -> None:
 
     """
     namespace = instr_tester.parser.global_namespace
+    pc = namespace.program_counter
+    assert pc is not None
     ip_reg = _assert_register(namespace, "ip")
-    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
+    assert decompose_store(pc, CurrentAddress()) == {
         ip_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
     }
 
@@ -189,9 +193,11 @@ def test_reg_pc_complex(instr_tester: InstructionSetDocstringTester) -> None:
 
     """
     namespace = instr_tester.parser.global_namespace
+    pc = namespace.program_counter
+    assert pc is not None
     pch_reg = _assert_register(namespace, "pch")
     pcl_reg = _assert_register(namespace, "pcl")
-    assert decompose_store(namespace.program_counter, CurrentAddress()) == {
+    assert decompose_store(pc, CurrentAddress()) == {
         pch_reg: AndOperator(RShift(CurrentAddress(), 9), IntLiteral(0xFF)),
         pcl_reg: AndOperator(RShift(CurrentAddress(), 1), IntLiteral(0xFF)),
     }

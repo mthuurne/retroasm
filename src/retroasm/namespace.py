@@ -123,8 +123,8 @@ class GlobalNamespace(Namespace):
         Namespace.__init__(self, None)
 
     @property
-    def program_counter(self) -> Reference:
-        return cast(Reference, self.elements["pc"])
+    def program_counter(self) -> Reference | None:
+        return cast(Reference | None, self.elements.get("pc"))
 
     @override
     def _check_name(

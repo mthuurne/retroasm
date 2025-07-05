@@ -112,7 +112,8 @@ def parse_placeholders(
                 else:
                     code = builder.create_code_block(returned_bits(value_ref))
                     builder = SemanticsCodeBlockBuilder()
-                    pc.emit_store(builder, CurrentAddress(), location)
+                    if pc is not None:
+                        pc.emit_store(builder, CurrentAddress(), location)
                     returned = builder.inline_block(code, _reject_mode_match_arg)
                     simplify_block(builder.nodes, returned)
                     (val_bits,) = returned
