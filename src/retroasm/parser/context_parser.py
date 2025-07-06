@@ -109,6 +109,11 @@ def parse_placeholders(
                     collector.error(f"{ex}", location=ex.locations)
                 else:
                     code = builder.create_code_block(returned_bits(value_ref))
+                    for access in code.nodes:
+                        collector.error(
+                            f"state cannot be accessed from the context: {access}",
+                            location=access.location,
+                        )
                     (val_bits,) = code.returned
                     assert isinstance(val_bits, FixedValue), val_bits
                     val_expr = simplify_expression(decode_int(val_bits.expr, val_type))

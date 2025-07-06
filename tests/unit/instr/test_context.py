@@ -175,3 +175,24 @@ def test_placeholder_constant_circular(
 
     """
     instr_tester.check()
+
+
+def test_placeholder_constant_stateful(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    A constant's expression cannot depend on state such as register contents.
+
+    .. code-block:: instr
+
+        mode u32 test
+        . a . A . u32 A = a
+
+    .. code-block:: inputlog
+
+        test.instr:2: ERROR: state cannot be accessed from the context: load from reg32 a
+        . a . A . u32 A = a
+                          ^
+
+    """
+    instr_tester.check()
