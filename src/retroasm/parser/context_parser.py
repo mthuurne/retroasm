@@ -14,17 +14,13 @@ from ..namespace import (
     LocalNamespace,
     NameExistsError,
 )
-from ..reference import BitString, FixedValue, FixedValueReference, decode_int
+from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
-from .expression_builder import BadExpression, convert_definition
+from .expression_builder import BadExpression, TabooReference, convert_definition
 from .expression_nodes import ConstRefDeclarationNode, DefinitionNode
 from .expression_parser import parse_context
-
-
-def _reject_mode_match_arg(name: str) -> BitString:
-    raise ValueError("mode placeholder cannot be used in context value")
 
 
 def parse_placeholders(
@@ -62,12 +58,16 @@ def parse_placeholders(
                     ),
                 )
 
-            # Mode placeholders are added to the namespace as arguments and then
-            # rejected when fetched, to avoid a confusing "unknown name" error.
+            # Mode placeholders are added to the namespace and then rejected
+            # when fetched, to avoid a confusing "unknown name" error.
             try:
                 # The type doesn't matter, as the fetch will be rejected,
                 # but we must provide something.
-                ctx_namespace.add_argument(name, IntType.int, decl.name.location)
+                ref = TabooReference(
+                    IntType.int,
+                    f'mode match placeholder "{name}" cannot be used in context value',
+                )
+                ctx_namespace.define(name, ref, decl.name.location)
             except NameExistsError as ex:
                 collector.error(
                     f"failed to define mode match placeholder: {ex}",
@@ -114,7 +114,7 @@ def parse_placeholders(
                     builder = SemanticsCodeBlockBuilder()
                     if pc is not None:
                         pc.emit_store(builder, CurrentAddress(), location)
-                    returned = builder.inline_block(code, _reject_mode_match_arg)
+                    returned = builder.inline_block(code)
                     simplify_block(builder.nodes, returned)
                     (val_bits,) = returned
                     assert isinstance(val_bits, FixedValue), val_bits

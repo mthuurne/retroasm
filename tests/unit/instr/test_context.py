@@ -89,6 +89,27 @@ def test_placeholder_mode_duplicate(
     instr_tester.check()
 
 
+def test_placeholder_mode_in_expr(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    Mode match placeholders cannot be used in context expressions.
+
+    .. code-block:: instr
+
+        mode u32& test
+        R . R . R . reg32 R, u32 V = R
+
+    .. code-block:: inputlog
+
+        test.instr:2: ERROR: bad value for constant "u32 V": mode match placeholder "R" cannot be used in context value
+        R . R . R . reg32 R, u32 V = R
+                                     ^
+
+    """
+    instr_tester.check()
+
+
 def test_placeholder_value_reference(
     instr_tester: InstructionSetDocstringTester,
 ) -> None:
