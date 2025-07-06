@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import ClassVar, NoReturn, assert_never, override
+from typing import ClassVar, NoReturn, Self, assert_never, override
 
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -229,6 +229,12 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
 
 
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
+    @classmethod
+    def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
+        builder = cls()
+        builder._stored_values = dict(stored_values)
+        return builder
+
     def __init__(self) -> None:
         super().__init__()
         self.nodes: list[AccessNode] = []

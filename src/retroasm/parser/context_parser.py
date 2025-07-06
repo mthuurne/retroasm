@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
-from ..codeblock_simplifier import simplify_block
+from ..codeblock_builder import (
+    SemanticsCodeBlockBuilder,
+    decompose_store,
+    returned_bits,
+)
 from ..expression import Expression
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
 from ..mode import MatchPlaceholder, Mode, Placeholder, ValuePlaceholder
-from ..namespace import (
-    ContextNamespace,
-    GlobalNamespace,
-    LocalNamespace,
-    NameExistsError,
-)
+from ..namespace import ContextNamespace, GlobalNamespace, NameExistsError
 from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
@@ -32,6 +30,7 @@ def parse_placeholders(
     """Yield the placeholders defined in the given context."""
 
     pc = global_namespace.program_counter
+    pc_fixated = {} if pc is None else decompose_store(pc, CurrentAddress())
     ctx_namespace = ContextNamespace(global_namespace)
 
     for node in parse_context(ctx_loc):
@@ -97,26 +96,20 @@ def parse_placeholders(
             val_expr: Expression | None = None
             if isinstance(node, DefinitionNode):
                 # Compute placeholder value.
-                builder = SemanticsCodeBlockBuilder()
-                placeholder_namespace = LocalNamespace(ctx_namespace)
+                builder = SemanticsCodeBlockBuilder.with_stored_values(pc_fixated)
                 try:
                     value_ref = convert_definition(
                         decl,
                         val_type,
                         node.value,
-                        placeholder_namespace,
+                        ctx_namespace,
                         builder,
                     )
                 except BadExpression as ex:
                     collector.error(f"{ex}", location=ex.locations)
                 else:
                     code = builder.create_code_block(returned_bits(value_ref))
-                    builder = SemanticsCodeBlockBuilder()
-                    if pc is not None:
-                        pc.emit_store(builder, CurrentAddress(), location)
-                    returned = builder.inline_block(code)
-                    simplify_block(builder.nodes, returned)
-                    (val_bits,) = returned
+                    (val_bits,) = code.returned
                     assert isinstance(val_bits, FixedValue), val_bits
                     val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
 
