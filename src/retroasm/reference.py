@@ -659,8 +659,7 @@ class FixedValueReference(Reference):
 
         @property
         @override
-        def bits(self) -> FixedValue:
-            return cast(FixedValue, super().bits)
+        def bits(self) -> FixedValue: ...
 
     @property
     def expr(self) -> Expression:
