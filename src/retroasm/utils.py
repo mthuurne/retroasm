@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta
-from collections.abc import (
-    Callable,
-    Iterator,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-)
+from collections.abc import Callable, Iterator, MutableMapping, MutableSequence, MutableSet
 from functools import update_wrapper
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Never, NoReturn, override

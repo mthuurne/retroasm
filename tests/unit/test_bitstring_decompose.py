@@ -6,14 +6,7 @@ from typing import cast
 from pytest import fixture, mark
 
 from retroasm.codeblock import Load, LoadedValue, Store
-from retroasm.expression import (
-    AndOperator,
-    Expression,
-    IntLiteral,
-    LShift,
-    OrOperator,
-    RVShift,
-)
+from retroasm.expression import AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
 from retroasm.reference import BitString, ConcatenatedBits, SingleStorage, SlicedBits
 from retroasm.storage import Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width, width_for_mask
@@ -95,9 +88,7 @@ def iter_slice_loads(bits: BitString) -> Iterator[Storage]:
 
 
 def check_flatten(
-    namespace: TestNamespace,
-    bits: BitString,
-    expected: Sequence[tuple[Storage, Segment]],
+    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """
     Check that the produced bit string flattens to the expected output.
@@ -128,9 +119,7 @@ def check_flatten(
 
 
 def check_load(
-    namespace: TestNamespace,
-    bits: BitString,
-    expected: Sequence[tuple[Storage, Segment]],
+    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """Check that loading from a bit string works as expected."""
 
@@ -149,9 +138,7 @@ def check_load(
     assert all_storages == loaded_storages
 
     # Check the loaded value expression's bit mask.
-    assert width_for_mask(value.mask) <= bits.width, (
-        "loaded value is wider than bit string"
-    )
+    assert width_for_mask(value.mask) <= bits.width, "loaded value is wider than bit string"
 
     # Check that the loaded expression's terms don't overlap.
     decomposed_val = tuple(decompose_expr(value))
@@ -175,9 +162,7 @@ def check_load(
 
 
 def check_store(
-    namespace: TestNamespace,
-    bits: BitString,
-    expected: Sequence[tuple[Storage, Segment]],
+    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """Check that storing to a bit string works as expected."""
 
@@ -217,10 +202,7 @@ def check_store(
 
 check_param = mark.parametrize("check", [check_flatten, check_load, check_store])
 
-CheckFunc = Callable[
-    [TestNamespace, BitString, Sequence[tuple[Storage, Segment]]],
-    None,
-]
+CheckFunc = Callable[[TestNamespace, BitString, Sequence[tuple[Storage, Segment]]], None]
 
 
 @check_param

@@ -97,10 +97,7 @@ class BitString(ABC):
 
     @abstractmethod
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         """
         Emits store nodes for storing a bit string into the underlying
@@ -200,10 +197,7 @@ class FixedValue(BitString):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         pass
 
@@ -275,10 +269,7 @@ class SingleStorage(BitString):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         builder.emit_store_bits(self._storage, value, location)
 
@@ -338,10 +329,7 @@ class Variable(BitString):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         return builder.write_variable(self, value, location)
 
@@ -425,10 +413,7 @@ class ConcatenatedBits(BitString):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         offset = 0
         for sub in self._subs:
@@ -484,11 +469,7 @@ class SlicedBits(BitString):
                 end = "" if width is unlimited else offset_val + width
             case offset:
                 start = str(offset)
-                end = (
-                    ""
-                    if width is unlimited
-                    else str(AddOperator(offset, IntLiteral(width)))
-                )
+                end = "" if width is unlimited else str(AddOperator(offset, IntLiteral(width)))
         return f"{self._bits}[{start}:{end}]"
 
     @override
@@ -530,10 +511,7 @@ class SlicedBits(BitString):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         offset = self._offset
         width = self.width
@@ -641,10 +619,7 @@ class Reference:
         return decode_int(encoded, self._type)
 
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         """Emits store nodes for storing a value into the referenced bit string."""
         self._bits.emit_store(builder, truncate(value, self.width), location)

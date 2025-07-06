@@ -48,9 +48,7 @@ class Namespace(Mapping[str, NamespaceValue]):
 
     @override
     def __contains__(self, key: object) -> bool:
-        return key in self.elements or (
-            (parent := self.parent) is not None and key in parent
-        )
+        return key in self.elements or ((parent := self.parent) is not None and key in parent)
 
     @override
     def __getitem__(self, key: str) -> NamespaceValue:
@@ -74,9 +72,7 @@ class Namespace(Mapping[str, NamespaceValue]):
             old_location = self.locations[name]
             raise NameExistsError(f'name "{name}" redefined', location, old_location)
         if (parent := self.parent) is not None and name in parent:
-            old_location = (
-                parent.locations[name] if isinstance(parent, Namespace) else None
-            )
+            old_location = parent.locations[name] if isinstance(parent, Namespace) else None
             raise NameExistsError(f'name "{name}" redefined', location, old_location)
         self.locations[name] = location
         self.elements[name] = value
@@ -185,9 +181,7 @@ class NameExistsError(BadInput):
 
 def _reject_ret(name: str, location: InputLocation | None) -> None:
     if name == "ret":
-        raise NameExistsError(
-            'the name "ret" is reserved for function return values', location
-        )
+        raise NameExistsError('the name "ret" is reserved for function return values', location)
 
 
 def _reject_pc(name: str, location: InputLocation | None) -> None:

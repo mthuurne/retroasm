@@ -66,9 +66,7 @@ def types(c: Context, report: bool = False) -> None:
 def lint(c: Context, src: str | None = None) -> None:
     """Check sources with PyLint."""
     print("Linting...")
-    sources = (
-        (SRC_DIR / "retroasm").glob("**/*.py") if src is None else Path.cwd().glob(src)
-    )
+    sources = (SRC_DIR / "retroasm").glob("**/*.py") if src is None else Path.cwd().glob(src)
     with c.cd(str(TOP_DIR)):
         c.run("pylint %s" % " ".join(str(path) for path in sources), pty=True)
 

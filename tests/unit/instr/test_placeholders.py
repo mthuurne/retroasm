@@ -51,9 +51,7 @@ def test_placeholder_mode_forward(instr_tester: InstructionSetDocstringTester) -
     assert placeholder.mode.name == "reg32"
 
 
-def test_placeholder_mode_with_value(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_mode_with_value(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A mode match placeholder cannot have a defined value.
 
@@ -72,9 +70,7 @@ def test_placeholder_mode_with_value(
     instr_tester.check()
 
 
-def test_placeholder_mode_duplicate(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_mode_duplicate(instr_tester: InstructionSetDocstringTester) -> None:
     """
     Placeholder names must be unique.
 
@@ -93,9 +89,7 @@ def test_placeholder_mode_duplicate(
     instr_tester.check()
 
 
-def test_placeholder_mode_in_expr(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_mode_in_expr(instr_tester: InstructionSetDocstringTester) -> None:
     """
     Mode match placeholders cannot be used in context expressions.
 
@@ -114,9 +108,7 @@ def test_placeholder_mode_in_expr(
     instr_tester.check()
 
 
-def test_placeholder_value_reference(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_value_reference(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A value placeholder cannot have a reference type.
 
@@ -159,9 +151,7 @@ def test_placeholder_value_shadow(instr_tester: InstructionSetDocstringTester) -
     instr_tester.check()
 
 
-def test_placeholder_constant_circular(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_constant_circular(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A constant's expression cannot use a constant defined after it.
     This also avoids circular definitions.
@@ -181,9 +171,7 @@ def test_placeholder_constant_circular(
     instr_tester.check()
 
 
-def test_placeholder_constant_stateful(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_constant_stateful(instr_tester: InstructionSetDocstringTester) -> None:
     """
     A constant's expression cannot depend on state such as register contents.
 
@@ -202,9 +190,7 @@ def test_placeholder_constant_stateful(
     instr_tester.check()
 
 
-def test_placeholder_constant_pc_relative(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringTester) -> None:
     """
     The value of the program counter is considered a constant;
     accessing it from the context is allowed.

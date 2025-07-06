@@ -56,9 +56,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
         case 1:
             literal = literals[0]
         case _:
-            literal = IntLiteral(
-                multi_expr_cls.combine_literals(*(l.value for l in literals))
-            )
+            literal = IntLiteral(multi_expr_cls.combine_literals(*(l.value for l in literals)))
 
     # Handle special literal cases.
     if literal is not None:
@@ -104,8 +102,7 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
             return exprs[0]
         case num_exprs:
             if num_exprs == len(composed.exprs) and all(
-                new_expr is old_expr
-                for new_expr, old_expr in zip(exprs, composed.exprs)
+                new_expr is old_expr for new_expr, old_expr in zip(exprs, composed.exprs)
             ):
                 return composed
             else:
@@ -284,9 +281,7 @@ def _simplify_complement(complement: Complement) -> Expression:
         case AddOperator(exprs=terms):
             # Distribute complement over addition terms:
             #   -(x + y + z) = -x + -y + -z
-            return simplify_expression(
-                AddOperator(*(Complement(term) for term in terms))
-            )
+            return simplify_expression(AddOperator(*(Complement(term) for term in terms)))
         case expr:
             if expr is complement.expr:
                 return complement
@@ -349,9 +344,7 @@ def _simplify_negation(negation: Negation) -> Expression:
                 ):
                     # Distribute RShift over bitwise operator.
                     alt = simplify_expression(
-                        Negation(
-                            subExpr.__class__(*(RShift(term, offset) for term in terms))
-                        )
+                        Negation(subExpr.__class__(*(RShift(term, offset) for term in terms)))
                     )
     if alt is not None and alt.complexity < negation.complexity:
         return alt

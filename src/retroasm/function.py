@@ -76,14 +76,11 @@ def _check_return(
 
     if ret_type is None:
         if len(returned) != 0:
-            raise ValueError(
-                'function has no return type, but its code block defines "ret"'
-            )
+            raise ValueError('function has no return type, but its code block defines "ret"')
     elif isinstance(ret_type, ReferenceType):
         if len(returned) == 0:
             raise ValueError(
-                f"function has return type {ret_type}, but its code block "
-                f'does not define "ret"'
+                f'function has return type {ret_type}, but its code block does not define "ret"'
             )
         (ret_bits,) = returned
         if ret_type.type.width != ret_bits.width:

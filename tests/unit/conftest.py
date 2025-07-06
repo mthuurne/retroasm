@@ -24,7 +24,5 @@ def docstring(request: pytest.FixtureRequest) -> str:
     function: FunctionType = request.node.function
     docstring = function.__doc__
     if docstring is None:
-        raise pytest.FixtureLookupError(
-            request.fixturename, request, "missing docstring"
-        )
+        raise pytest.FixtureLookupError(request.fixturename, request, "missing docstring")
     return cleandoc(docstring)

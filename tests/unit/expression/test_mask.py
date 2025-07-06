@@ -149,10 +149,7 @@ def test_lvshift() -> None:
     # Test negative expression mask.
     assert LVShift(i, v1).mask == -1
     assert LVShift(LShift(i, 4), v1).mask == -1 << 4
-    assert (
-        LVShift(OrOperator(LShift(i, 32), v8), LShift(v1, 4)).mask
-        == (-1 << 32) | 0xFF00FF
-    )
+    assert LVShift(OrOperator(LShift(i, 32), v8), LShift(v1, 4)).mask == (-1 << 32) | 0xFF00FF
     # Test negative offset mask.
     assert LVShift(v8, i).mask == -1
     assert LVShift(v8, LShift(i, 4)).mask == (-1 << 16) | 0xFF

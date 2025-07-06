@@ -48,9 +48,7 @@ def parse_placeholders(
             if isinstance(node, DefinitionNode):
                 collector.error(
                     "mode match placeholder cannot have a defined value",
-                    location=InputLocation.merge_span(
-                        node.location, node.value.tree_location
-                    ),
+                    location=InputLocation.merge_span(node.location, node.value.tree_location),
                 )
 
             # Mode placeholders are added to the namespace and then rejected
@@ -65,8 +63,7 @@ def parse_placeholders(
                 ctx_namespace.define(name, ref, decl.name.location)
             except NameExistsError as ex:
                 collector.error(
-                    f"failed to define mode match placeholder: {ex}",
-                    location=ex.locations,
+                    f"failed to define mode match placeholder: {ex}", location=ex.locations
                 )
                 continue
 
@@ -77,15 +74,13 @@ def parse_placeholders(
                 val_type = parse_type_decl(type_name)
             except ValueError:
                 collector.error(
-                    f'there is no type or mode named "{type_name}"',
-                    location=decl_type.location,
+                    f'there is no type or mode named "{type_name}"', location=decl_type.location
                 )
                 continue
 
             if isinstance(val_type, ReferenceType):
                 collector.error(
-                    "value placeholder cannot be a reference",
-                    location=decl_type.location,
+                    "value placeholder cannot be a reference", location=decl_type.location
                 )
                 continue
 
@@ -122,8 +117,7 @@ def parse_placeholders(
                 ctx_namespace.define(name, val_ref, decl.name.location)
             except NameExistsError as ex:
                 collector.error(
-                    f"failed to define value placeholder: {ex}",
-                    location=ex.locations,
+                    f"failed to define value placeholder: {ex}", location=ex.locations
                 )
                 continue
 

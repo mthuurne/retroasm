@@ -66,8 +66,7 @@ class StringDirective:
     @override
     def __str__(self) -> str:
         args_str = ", ".join(
-            str(item) if isinstance(item, ParseNode) else repr(item)
-            for item in self._data
+            str(item) if isinstance(item, ParseNode) else repr(item) for item in self._data
         )
         return f"defb {args_str}"
 

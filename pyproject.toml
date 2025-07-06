@@ -59,7 +59,7 @@ sphinxcontrib-spelling = "^8.0.0"
 vulture = "^2.3"
 
 [tool.ruff]
-line-length = 88
+line-length = 96
 target-version = "py312"
 src = ["src"]
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]

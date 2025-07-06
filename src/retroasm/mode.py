@@ -8,13 +8,7 @@ from .codeblock import FunctionBody
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import Expression
 from .input import InputLocation
-from .reference import (
-    BitString,
-    FixedValue,
-    FixedValueReference,
-    Reference,
-    SingleStorage,
-)
+from .reference import BitString, FixedValue, FixedValueReference, Reference, SingleStorage
 from .storage import ArgStorage, Storage
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
@@ -63,10 +57,7 @@ class EncodingExpr:
     def __repr__(self) -> str:
         return f"EncodingExpr({self._bits!r}, {self._location!r})"
 
-    def substitute(
-        self,
-        func: Callable[[str], BitString | None],
-    ) -> EncodingExpr:
+    def substitute(self, func: Callable[[str], BitString | None]) -> EncodingExpr:
         """
         Apply the given substitution function to each placeholder.
         The function is passed a placeholder name and should either return
@@ -101,9 +92,7 @@ class EncodingExpr:
                 case _:
                     return None
 
-        return EncodingExpr(
-            self._bits.substitute(storage_func=rename_val_arg), self._location
-        )
+        return EncodingExpr(self._bits.substitute(storage_func=rename_val_arg), self._location)
 
 
 class EncodingMultiMatch:
@@ -139,9 +128,7 @@ class EncodingMultiMatch:
     def aux_encoding_width(self) -> Width | None:
         return self._mode.aux_encoding_width
 
-    def __init__(
-        self, name: str, mode: Mode, start: int, location: InputLocation | None
-    ):
+    def __init__(self, name: str, mode: Mode, start: int, location: InputLocation | None):
         self._name = name
         self._mode = mode
         self._start = start
@@ -163,9 +150,7 @@ class EncodingMultiMatch:
         Returns a new EncodingMultiMatch, with the placeholder name
         substituted by its value in the given mapping.
         """
-        return EncodingMultiMatch(
-            name_map[self._name], self._mode, self._start, self._location
-        )
+        return EncodingMultiMatch(name_map[self._name], self._mode, self._start, self._location)
 
     @const_property
     def encoded_length(self) -> int | None:
@@ -326,9 +311,7 @@ class Encoding:
         substituted by their value in the given mapping.
         """
         return Encoding(
-            (item.rename(name_map) for item in self._items),
-            self.flags_required,
-            self._location,
+            (item.rename(name_map) for item in self._items), self.flags_required, self._location
         )
 
     @property
@@ -383,9 +366,7 @@ class Encoding:
             location = self._location if len(items) == 0 else items[0].location
             return None if location is None else location.end_location
         else:
-            return InputLocation.merge_span(
-                items[first_aux_index].location, items[-1].location
-            )
+            return InputLocation.merge_span(items[first_aux_index].location, items[-1].location)
 
     @const_property
     def encoded_length(self) -> int | None:
@@ -478,11 +459,7 @@ class CodeTemplate:
     filled in later.
     """
 
-    def __init__(
-        self,
-        code: FunctionBody,
-        placeholders: Iterable[MatchPlaceholder],
-    ):
+    def __init__(self, code: FunctionBody, placeholders: Iterable[MatchPlaceholder]):
         self.code = code
         self.placeholders = tuple(placeholders)
 
@@ -534,9 +511,7 @@ class CodeTemplate:
         builder.inline_block(code, arg_map.__getitem__)
         new_code = builder.create_code_block(())
 
-        new_placeholders = (
-            placeholder.rename(name_map) for placeholder in self.placeholders
-        )
+        new_placeholders = (placeholder.rename(name_map) for placeholder in self.placeholders)
 
         return CodeTemplate(new_code, new_placeholders)
 
@@ -621,10 +596,7 @@ class ModeMatch:
     __slots__ = ("_entry", "_values", "_subs", "_mnemonic")
 
     def __init__(
-        self,
-        entry: ModeEntry,
-        values: Mapping[str, BitString],
-        subs: Mapping[str, ModeMatch],
+        self, entry: ModeEntry, values: Mapping[str, BitString], subs: Mapping[str, ModeMatch]
     ):
         self._entry = entry
         self._values = values
@@ -694,9 +666,7 @@ class ModeMatch:
                 expression_func=resolve_immediate
             )
 
-        subs = {
-            name: submatch.subst_pc(pc_val) for name, submatch in self._subs.items()
-        }
+        subs = {name: submatch.subst_pc(pc_val) for name, submatch in self._subs.items()}
 
         return ModeMatch(entry, values, subs)
 
@@ -726,9 +696,7 @@ def _format_encoding_width(width: Width | None) -> str:
 
 def _format_aux_encoding_width(width: Width | None) -> str:
     return (
-        "no auxiliary encoding items"
-        if width is None
-        else f"auxiliary encoding width {width}"
+        "no auxiliary encoding items" if width is None else f"auxiliary encoding width {width}"
     )
 
 
@@ -748,10 +716,7 @@ class ModeTable:
         return self._entries
 
     def __init__(
-        self,
-        enc_width: Width | None,
-        aux_enc_width: Width | None,
-        entries: Iterable[ModeEntry],
+        self, enc_width: Width | None, aux_enc_width: Width | None, entries: Iterable[ModeEntry]
     ):
         self._enc_width = enc_width
         self._aux_enc_width = aux_enc_width
@@ -996,9 +961,7 @@ class EncodeMatch:
             if placeholder.name not in values
         )
 
-        return ModeEntry(
-            encoding, mnemonic, semantics, unfilled_matches, unfilled_values
-        )
+        return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
 
     @const_property
     def flags_required(self) -> Set[str]:

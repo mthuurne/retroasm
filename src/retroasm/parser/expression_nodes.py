@@ -101,8 +101,7 @@ class OperatorNode(ParseNode):
     @override
     def tree_location(self) -> InputLocation | None:
         return InputLocation.merge_span(
-            self.location,
-            *(operand.tree_location for operand in self.operands),
+            self.location, *(operand.tree_location for operand in self.operands)
         )
 
     @override
@@ -168,9 +167,7 @@ class DefinitionNode(ParseNode):
     @property
     @override
     def tree_location(self) -> InputLocation | None:
-        return InputLocation.merge_span(
-            self.decl.tree_location, self.value.tree_location
-        )
+        return InputLocation.merge_span(self.decl.tree_location, self.value.tree_location)
 
     @override
     def __iter__(self) -> Iterator[ParseNode]:

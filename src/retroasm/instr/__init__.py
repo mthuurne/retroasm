@@ -35,9 +35,7 @@ def load_instruction_set(
         logger.setLevel(ERROR)
 
     try:
-        return InstructionSetParser.parse_file(
-            path, logger, want_semantics=want_semantics
-        )
+        return InstructionSetParser.parse_file(path, logger, want_semantics=want_semantics)
     except OSError as ex:
         logger.error("%s: Failed to read instruction set: %s", path, ex.strerror)
         return None

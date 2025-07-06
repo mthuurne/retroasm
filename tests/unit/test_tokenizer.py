@@ -42,10 +42,7 @@ def test_tokenize_simple() -> None:
 
 
 def test_tokenize_unmatched() -> None:
-    with raises(
-        BadInput,
-        match=r"^invalid token: \+$",
-    ):
+    with raises(BadInput, match=r"^invalid token: \+$"):
         TestTokenizer.scan(InputLocation.from_string("one + 2"))
 
 

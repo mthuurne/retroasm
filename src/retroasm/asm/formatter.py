@@ -72,9 +72,7 @@ class Formatter:
     def label(self, label: str) -> str:
         return label + ":"
 
-    def mnemonic(
-        self, mnemonic: Iterable[str | FixedValueReference | ParseNode]
-    ) -> str:
+    def mnemonic(self, mnemonic: Iterable[str | FixedValueReference | ParseNode]) -> str:
         parts = []
         for mnem_elem in mnemonic:
             match mnem_elem:
@@ -83,11 +81,7 @@ class Formatter:
                 case FixedValueReference() as ref:
                     parts.append(self.expression(ref))
                     # Shorten "X+-N" to just "X-N".
-                    if (
-                        len(parts) >= 2
-                        and parts[-1].startswith("-")
-                        and parts[-2] == "+"
-                    ):
+                    if len(parts) >= 2 and parts[-1].startswith("-") and parts[-2] == "+":
                         del parts[-2]
                 case ParseNode() as node:
                     # TODO: Proper formatting.
@@ -157,7 +151,6 @@ class Formatter:
                 "",
                 directive,
                 ", ".join(
-                    self.hex_value(byte, 8)
-                    for byte in data[offset : offset + chunk_size]
+                    self.hex_value(byte, 8) for byte in data[offset : offset + chunk_size]
                 ),
             )

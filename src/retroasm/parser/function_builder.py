@@ -28,8 +28,7 @@ def _parse_body(
             yield parse_statement(line)
         except BadInput as ex:
             collector.error(
-                f"error in {where_desc}: failed to parse statement: {ex}",
-                location=ex.locations,
+                f"error in {where_desc}: failed to parse statement: {ex}", location=ex.locations
             )
 
 
@@ -63,17 +62,14 @@ def create_func(
         except BadInput as ex:
             reader.skip_block()
             raise BadInput(
-                f'error in argument "{arg_name}" of function "{func_name}": {ex}',
-                *ex.locations,
+                f'error in argument "{arg_name}" of function "{func_name}": {ex}', *ex.locations
             ) from ex
 
     try:
         with collector.check():
             where_desc = f'body of function "{func_name}"'
             body_nodes = _parse_body(reader, collector, where_desc)
-            emit_code_from_statements(
-                collector, where_desc, namespace, builder, body_nodes
-            )
+            emit_code_from_statements(collector, where_desc, namespace, builder, body_nodes)
     except DelayedError:
         code_errors = True
     else:
@@ -91,9 +87,7 @@ def create_func(
         try:
             with collector.check():
                 code = builder.create_code_block(
-                    returned_bits(ret_ref),
-                    collector=collector,
-                    location=func_name_location,
+                    returned_bits(ret_ref), collector=collector, location=func_name_location
                 )
         except DelayedError:
             code = None
@@ -102,10 +96,7 @@ def create_func(
     try:
         func = Function(ret_type, args, code)
     except ValueError as ex:
-        collector.error(
-            f'error in function "{func_name}": {ex}',
-            location=func_name_location,
-        )
+        collector.error(f'error in function "{func_name}": {ex}', location=func_name_location)
         code = None
         func = Function(ret_type, args, code)
 

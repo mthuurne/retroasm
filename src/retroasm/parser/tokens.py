@@ -15,11 +15,7 @@ class TokenMeta(EnumMeta):
     pattern: Pattern[str]
 
     def __new__(
-        mcs,
-        name: str,
-        bases: tuple[type, ...],
-        namespace: dict[str, Any],
-        **kwargs: Any,
+        mcs, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any
     ) -> TokenMeta:
         new_class = super().__new__(
             mcs,
@@ -50,9 +46,7 @@ class TokenEnum(Enum, metaclass=TokenMeta):
     @classmethod
     def _compile_pattern(cls) -> Pattern[str]:
         patterns = [r"(\s+)"]
-        patterns += (
-            f"(?P<{name}>{token.regex})" for name, token in cls.__members__.items()
-        )
+        patterns += (f"(?P<{name}>{token.regex})" for name, token in cls.__members__.items())
         return re.compile("|".join(patterns))
 
     @classmethod
@@ -98,8 +92,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
             return cls._token_class
         except AttributeError:
             raise TypeError(
-                "Tokenizer must be specialized first, "
-                "for example Tokenizer[MyTokenEnum]"
+                "Tokenizer must be specialized first, for example Tokenizer[MyTokenEnum]"
             ) from None
 
     _empty_tokens = ((None, InputLocation.from_string("")),)
@@ -143,9 +136,7 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         """The input location of the current token."""
         return self._location
 
-    def __init__(
-        self, tokens: Iterable[tuple[TokenT | None, InputLocation]], start: int = 0
-    ):
+    def __init__(self, tokens: Iterable[tuple[TokenT | None, InputLocation]], start: int = 0):
         """Use `scan()` instead of calling this directly."""
         self._tokens = tuple(tokens)
         self._token_index = start

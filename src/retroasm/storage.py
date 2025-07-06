@@ -104,9 +104,7 @@ class Storage(ABC):
     def __init__(self, width: Width):
         self._width = width
         if width < 0:
-            raise ValueError(
-                f"storage width must not be negative: {cast(int, width):d}"
-            )
+            raise ValueError(f"storage width must not be negative: {cast(int, width):d}")
 
     @abstractmethod
     def can_load_have_side_effect(self) -> bool:

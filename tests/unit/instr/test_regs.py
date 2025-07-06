@@ -207,7 +207,7 @@ def test_reg_pc_base(instr_tester: InstructionSetDocstringTester) -> None:
     assert pc is not None
     pc_reg = _assert_register(namespace, "pc")
     assert decompose_store(pc, CurrentAddress()) == {
-        pc_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
+        pc_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF))
     }
 
 
@@ -228,7 +228,7 @@ def test_reg_pc_alias(instr_tester: InstructionSetDocstringTester) -> None:
     assert pc is not None
     ip_reg = _assert_register(namespace, "ip")
     assert decompose_store(pc, CurrentAddress()) == {
-        ip_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF)),
+        ip_reg: AndOperator(CurrentAddress(), IntLiteral(0xFFFF))
     }
 
 

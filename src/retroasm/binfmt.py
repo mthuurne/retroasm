@@ -70,9 +70,7 @@ def _yield_entry_point(
     try:
         offset = section.offset_for_addr(addr)
     except ValueError as ex:
-        logger.warning(
-            "Ignoring entry point%s: %s", "" if name is None else f' "{name}"', ex
-        )
+        logger.warning("Ignoring entry point%s: %s", "" if name is None else f' "{name}"', ex)
     else:
         yield EntryPoint(offset, name)
 
@@ -180,9 +178,7 @@ class GameBoyROM(BinaryFormat):
         # ROM bank 1+ (switchable).
         for bank in range(1, len(self._image) // 0x4000):
             offset = bank * 0x4000
-            yield CodeSection(
-                offset, offset + 0x4000, 0x4000, "lr35902", ByteOrder.little
-            )
+            yield CodeSection(offset, offset + 0x4000, 0x4000, "lr35902", ByteOrder.little)
 
     @override
     def iter_entry_points(self) -> Iterator[EntryPoint]:
@@ -311,8 +307,7 @@ class MSXROM(BinaryFormat):
             addr: int = getattr(header, name)
             if addr != 0 and not base <= addr < addr_end:
                 logger.debug(
-                    "truncating MSX ROM header because %s address looks bogus",
-                    name.upper(),
+                    "truncating MSX ROM header because %s address looks bogus", name.upper()
                 )
                 header_size = 4
 
@@ -321,9 +316,7 @@ class MSXROM(BinaryFormat):
 
         return cls(image, header_offset, header, base)
 
-    def __init__(
-        self, image: Image, header_offset: int, header: MSXROMHeader, base: int
-    ):
+    def __init__(self, image: Image, header_offset: int, header: MSXROMHeader, base: int):
         BinaryFormat.__init__(self, image)
 
         code_start = header_offset + header.size
@@ -335,11 +328,7 @@ class MSXROM(BinaryFormat):
         self._header = header
         self._headerOffset = header_offset
         self._section = CodeSection(
-            code_start,
-            code_end,
-            base + code_start,
-            "z80",
-            ByteOrder.little,
+            code_start, code_end, base + code_start, "z80", ByteOrder.little
         )
 
     @const_property
@@ -467,9 +456,7 @@ class PSXExecutable(BinaryFormat):
         text_start = header.text_offset + 0x800
         text_end = text_start + header.text_size
         text_addr = header.text_addr
-        self._text = CodeSection(
-            text_start, text_end, text_addr, "mips-i", ByteOrder.little
-        )
+        self._text = CodeSection(text_start, text_end, text_addr, "mips-i", ByteOrder.little)
 
         data_start = header.data_offset + 0x800
         data_end = data_start + header.data_size
@@ -515,9 +502,7 @@ class RawBinary(BinaryFormat):
 _formats_by_name = {
     obj.name: obj
     for obj in locals().values()
-    if isinstance(obj, type)
-    and issubclass(obj, BinaryFormat)
-    and obj is not BinaryFormat
+    if isinstance(obj, type) and issubclass(obj, BinaryFormat) and obj is not BinaryFormat
 }
 
 
@@ -572,9 +557,7 @@ def _detect_binary_formats(
         return None
 
 
-def detect_binary_format(
-    image: Image, file_name: str | None = None
-) -> BinaryFormat | None:
+def detect_binary_format(image: Image, file_name: str | None = None) -> BinaryFormat | None:
     """
     Attempt to autodetect the binary format of the given image.
 
@@ -590,9 +573,7 @@ def detect_binary_format(
         bin_path = PurePath(file_name)
         ext = bin_path.suffix.lstrip(".").lower()
         names_for_ext = {
-            binfmt.name
-            for binfmt in _formats_by_name.values()
-            if ext in binfmt.extensions
+            binfmt.name for binfmt in _formats_by_name.values() if ext in binfmt.extensions
         }
         binfmt = _detect_binary_formats(image, names_for_ext, True)
         if binfmt is not None:

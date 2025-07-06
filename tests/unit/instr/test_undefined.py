@@ -3,9 +3,7 @@ from __future__ import annotations
 from .conftest import InstructionSetDocstringTester
 
 
-def test_variable_undefined_compute(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_variable_undefined_compute(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used in a computation.
 
@@ -24,9 +22,7 @@ def test_variable_undefined_compute(
     instr_tester.check()
 
 
-def test_variable_undefined_ioindex(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_variable_undefined_ioindex(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is used as an I/O index.
 
@@ -45,9 +41,7 @@ def test_variable_undefined_ioindex(
     instr_tester.check()
 
 
-def test_variable_undefined_return_value(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_variable_undefined_return_value(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when a variable's undefined value is returned as a value.
 
@@ -66,9 +60,7 @@ def test_variable_undefined_return_value(
     instr_tester.check()
 
 
-def test_variable_undefined_return_compute(
-    instr_tester: InstructionSetDocstringTester,
-) -> None:
+def test_variable_undefined_return_compute(instr_tester: InstructionSetDocstringTester) -> None:
     """
     An error is reported when an expression that depends on variable's undefined value
     is returned as a value.

@@ -20,9 +20,7 @@ class DisasmFetcher(AdvancingFetcher):
     def from_image_fetcher(cls, fetcher: ImageFetcher, addr: int) -> DisasmFetcher:
         return cls(fetcher, 0, addr, fetcher.num_bytes)
 
-    def __init__(
-        self, fetcher: AdvancingFetcher, delta: int, addr: int, addr_step: int
-    ):
+    def __init__(self, fetcher: AdvancingFetcher, delta: int, addr: int, addr_step: int):
         super().__init__()
         self._fetcher = fetcher
         self._addr = addr

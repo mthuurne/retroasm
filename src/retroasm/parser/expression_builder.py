@@ -100,24 +100,17 @@ class TabooReference(FixedValueReference):
 
     @override
     def emit_store(
-        self,
-        builder: CodeBlockBuilder,
-        value: Expression,
-        location: InputLocation | None,
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         raise BadExpression(self.message, location)
 
 
-def declare_variable(
-    node: VariableDeclarationNode, namespace: LocalNamespace
-) -> Reference:
+def declare_variable(node: VariableDeclarationNode, namespace: LocalNamespace) -> Reference:
     # Determine type.
     try:
         typ = parse_type(node.type.name)
     except ValueError as ex:
-        raise BadExpression(
-            f"bad type name in definition: {ex}", node.type.location
-        ) from ex
+        raise BadExpression(f"bad type name in definition: {ex}", node.type.location) from ex
 
     # Get name.
     name_node = node.name
@@ -149,8 +142,7 @@ def convert_definition(
             ref = build_reference(value, namespace, builder)
         except BadExpression as ex:
             raise BadExpression(
-                f'bad value for reference "{typ} {decl.name.name}": {ex}',
-                *ex.locations,
+                f'bad value for reference "{typ} {decl.name.name}": {ex}', *ex.locations
             ) from ex
         assert isinstance(typ, ReferenceType), typ
         if typ.type.width != ref.width:
@@ -166,8 +158,7 @@ def convert_definition(
             # Note: Catch BadInput rather than BadExpression because builder
             #       could throw IllegalStateAccess.
             raise BadExpression(
-                f'bad value for constant "{typ} {decl.name.name}": {ex}',
-                *ex.locations,
+                f'bad value for constant "{typ} {decl.name.name}": {ex}', *ex.locations
             ) from ex
         assert isinstance(typ, IntType), typ
         return FixedValueReference(truncate(expr, typ.width), typ)
@@ -223,8 +214,7 @@ def _convert_function_call(
             ref = build_reference(arg_node, namespace, builder)
         except BadExpression as ex:
             raise BadExpression(
-                f'in call to function "{func_name}", argument "{name}": {ex}',
-                *ex.locations,
+                f'in call to function "{func_name}", argument "{name}": {ex}', *ex.locations
             ) from ex
         match decl:
             case ReferenceType():
@@ -318,8 +308,7 @@ def _convert_expression_operator(
             ref = _convert_function_call(node, namespace, builder)
             if ref is None:
                 raise BadExpression(
-                    "function does not return anything; expected value",
-                    node.tree_location,
+                    "function does not return anything; expected value", node.tree_location
                 )
             else:
                 return ref.emit_load(builder, node.tree_location)
@@ -333,8 +322,7 @@ def _convert_expression_operator(
             )
         case Operator.concatenation:
             return _convert_reference_concat(
-                node,
-                partial(build_reference, namespace=namespace, builder=builder),
+                node, partial(build_reference, namespace=namespace, builder=builder)
             ).emit_load(builder, node.tree_location)
         case _:
             return _convert_arithmetic(node, namespace, builder)
@@ -481,8 +469,7 @@ def _convert_reference_operator(
             ref = _convert_function_call(node, namespace, builder)
             if ref is None:
                 raise BadExpression(
-                    "function does not return anything; expected reference",
-                    node.tree_location,
+                    "function does not return anything; expected reference", node.tree_location
                 )
             else:
                 return ref
@@ -492,8 +479,7 @@ def _convert_reference_operator(
             return _convert_reference_slice(node, namespace, builder)
         case Operator.concatenation:
             return _convert_reference_concat(
-                node,
-                partial(build_reference, namespace=namespace, builder=builder),
+                node, partial(build_reference, namespace=namespace, builder=builder)
             )
         case operator:
             expr = _convert_arithmetic(node, namespace, builder)
@@ -525,8 +511,7 @@ def build_reference(
                     return ident
         case MultiMatchNode(tree_location=location):
             raise BadExpression(
-                "multi-match can only be used as a standalone encoding item",
-                location,
+                "multi-match can only be used as a standalone encoding item", location
             )
         case OperatorNode() as operator:
             return _convert_reference_operator(operator, namespace, builder)
@@ -542,8 +527,7 @@ def build_assignment_target(
             return declare_variable(decl, namespace)
         case OperatorNode(operator=Operator.concatenation):
             return _convert_reference_concat(
-                node,
-                partial(build_assignment_target, namespace=namespace, builder=builder),
+                node, partial(build_assignment_target, namespace=namespace, builder=builder)
             )
         case _:
             return build_reference(node, namespace, builder)
@@ -570,8 +554,7 @@ def build_statement_eval(
                 lhs = build_assignment_target(node.lhs, namespace, builder)
             except BadExpression as ex:
                 collector.error(
-                    f"bad expression on left hand side of assignment in {where_desc}: "
-                    f"{ex}",
+                    f"bad expression on left hand side of assignment in {where_desc}: {ex}",
                     location=ex.locations,
                 )
                 return
@@ -580,8 +563,7 @@ def build_statement_eval(
                 rhs = build_expression(node.rhs, namespace, builder)
             except BadExpression as ex:
                 collector.error(
-                    f"bad expression on right hand side of assignment in {where_desc}: "
-                    f"{ex}",
+                    f"bad expression on right hand side of assignment in {where_desc}: {ex}",
                     location=ex.locations,
                 )
                 return
@@ -609,8 +591,7 @@ def build_statement_eval(
                 build_expression(expr, namespace, builder)
             except BadExpression as ex:
                 collector.error(
-                    f"bad expression in statement in {where_desc}: {ex}",
-                    location=ex.locations,
+                    f"bad expression in statement in {where_desc}: {ex}", location=ex.locations
                 )
                 return
 
@@ -695,9 +676,7 @@ def emit_code_from_statements(
                 try:
                     builder.add_label(label, location)
                 except BadInput as ex:
-                    raise BadInput(
-                        f"error in {where_desc}: {ex}", *ex.locations
-                    ) from ex
+                    raise BadInput(f"error in {where_desc}: {ex}", *ex.locations) from ex
 
             case stmt:
                 build_statement_eval(collector, where_desc, namespace, builder, stmt)

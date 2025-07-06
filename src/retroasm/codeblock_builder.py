@@ -10,14 +10,7 @@ from .expression import Expression, Negation
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
-from .reference import (
-    BitString,
-    FixedValue,
-    Reference,
-    SingleStorage,
-    Variable,
-    bad_reference,
-)
+from .reference import BitString, FixedValue, Reference, SingleStorage, Variable, bad_reference
 from .storage import ArgStorage, IOStorage, Keeper, Register, Storage
 from .types import IntType
 
@@ -41,9 +34,7 @@ def _simplify_storage(storage: Storage) -> Storage:
 
 
 def _check_undefined(
-    nodes: Sequence[AccessNode],
-    returned: Sequence[BitString],
-    collector: ErrorCollector,
+    nodes: Sequence[AccessNode], returned: Sequence[BitString], collector: ErrorCollector
 ) -> None:
     """Report uses of uninitialized local variables."""
 
@@ -52,8 +43,7 @@ def _check_undefined(
             if isinstance((storage := node.storage), IOStorage):
                 for value in storage.index.iter_instances(InitialValue):
                     collector.error(
-                        f'Undefined value of variable "{value.name}" is used '
-                        "as an I/O index",
+                        f'Undefined value of variable "{value.name}" is used as an I/O index',
                         location=value.location,
                     )
             if isinstance(node, Store):
@@ -96,9 +86,7 @@ class CodeBlockBuilder(ABC):
         """Prints the current state of this code block builder on stdout."""
 
     @abstractmethod
-    def emit_load_bits(
-        self, storage: Storage, location: InputLocation | None
-    ) -> Expression:
+    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
         """
         Loads the value from the given storage by emitting a Load node on
         this builder.
@@ -114,9 +102,7 @@ class CodeBlockBuilder(ABC):
         emitting a Store node on this builder.
         """
 
-    def read_variable(
-        self, var: Variable, location: InputLocation | None
-    ) -> Expression:
+    def read_variable(self, var: Variable, location: InputLocation | None) -> Expression:
         name = var.name
         try:
             return self._variables[name]
@@ -205,9 +191,7 @@ class StatelessCodeBlockBuilder(CodeBlockBuilder):
     """
 
     @override
-    def emit_load_bits(
-        self, storage: Storage, location: InputLocation | None
-    ) -> Expression:
+    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
         raise IllegalStateAccess(f"attempt to read state: {storage}", location)
 
     @override
@@ -260,13 +244,9 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 if label in defined_labels:
                     unused_labels.remove(label)
                 else:
-                    collector.error(
-                        f'Label "{label}" does not exist', location=locations
-                    )
+                    collector.error(f'Label "{label}" does not exist', location=locations)
             for label in unused_labels:
-                collector.warning(
-                    f'Label "{label}" is unused', location=self._labels[label]
-                )
+                collector.warning(f'Label "{label}" is unused', location=self._labels[label])
 
     def create_code_block(
         self,
@@ -302,9 +282,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         return FunctionBody(nodes, returned)
 
     @override
-    def emit_load_bits(
-        self, storage: Storage, location: InputLocation | None
-    ) -> Expression:
+    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
         stored_values = self._stored_values
         storage = _simplify_storage(storage)
 
@@ -394,9 +372,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return None
 
     def inline_block(
-        self,
-        code: FunctionBody,
-        arg_fetcher: Callable[[str], BitString] = no_args_to_fetch,
+        self, code: FunctionBody, arg_fetcher: Callable[[str], BitString] = no_args_to_fetch
     ) -> list[BitString]:
         """
         Inlines another code block into this one.
@@ -458,9 +434,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         # Determine return value.
         return [
-            ret_bits.substitute(
-                storage_func=import_storage, expression_func=import_expr
-            )
+            ret_bits.substitute(storage_func=import_storage, expression_func=import_expr)
             for ret_bits in code.returned
         ]
 

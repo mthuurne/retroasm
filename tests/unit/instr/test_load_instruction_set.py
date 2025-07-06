@@ -79,9 +79,7 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
     assert instr is None
 
 
-def test_load_instr_minimal(
-    minimal_file: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_load_instr_minimal(minimal_file: Path, caplog: pytest.LogCaptureFixture) -> None:
     """
     Loading a minimal instruction set file succeeds and logs nothing on the root logger.
     """

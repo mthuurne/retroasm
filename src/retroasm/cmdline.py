@@ -88,9 +88,7 @@ def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
     for flags in flag_combos:
         print()
         if flags:
-            print(
-                f"with decode flag{'' if len(flags) == 1 else 's'} {', '.join(flags)}:"
-            )
+            print(f"with decode flag{'' if len(flags) == 1 else 's'} {', '.join(flags)}:")
             print()
         instr_set.get_decoder(frozenset(flags)).dump(submodes=submodes)
 
@@ -113,10 +111,7 @@ def print_decoders(instr_set: InstructionSet, submodes: bool) -> None:
 )
 @argument("instr", nargs=-1, type=str)
 def checkdef(
-    instr: Iterable[str],
-    dump_decoders: bool,
-    dump_decoders_subs: bool,
-    dump_mnemonics: bool,
+    instr: Iterable[str], dump_decoders: bool, dump_decoders_subs: bool, dump_mnemonics: bool
 ) -> NoReturn:
     """
     Check instruction set definition files.
@@ -133,9 +128,7 @@ def checkdef(
             if files_in_dir:
                 files += files_in_dir
             else:
-                print(
-                    "No definition files (*.instr) in directory:", path, file=sys.stderr
-                )
+                print("No definition files (*.instr) in directory:", path, file=sys.stderr)
         elif path.is_file():
             files.append(path)
         elif "/" not in name and "\\" not in name and "." not in name:
@@ -180,13 +173,9 @@ def determine_binary_format(
     if format_name is None:
         binfmt = detect_binary_format(image, file_name)
         if binfmt is None:
-            logger.error(
-                "Detection of binary format failed, please specify one with --binfmt"
-            )
+            logger.error("Detection of binary format failed, please specify one with --binfmt")
         else:
-            logger.info(
-                "Detected binary format: %s (%s)", binfmt.name, binfmt.description
-            )
+            logger.info("Detected binary format: %s (%s)", binfmt.name, binfmt.description)
     else:
         try:
             binfmt_class = get_binary_format(format_name)
@@ -221,9 +210,7 @@ def disassemble_binary(
         logger.debug("binfmt-defined section: %s", section)
         sections.append(section)
     if len(sections) == 0:
-        logger.warning(
-            "No sections; you can manually define them using the --section argument"
-        )
+        logger.warning("No sections; you can manually define them using the --section argument")
         return
     try:
         section_map = SectionMap(sections)
@@ -256,8 +243,7 @@ def disassemble_binary(
         entry_section = section_map.section_at(offset)
         if entry_section is None:
             logger.warning(
-                "Skipping disassembly of offset 0x%x because it does not "
-                "belong to any section",
+                "Skipping disassembly of offset 0x%x because it does not belong to any section",
                 offset,
             )
             continue
@@ -274,8 +260,7 @@ def disassemble_binary(
         instr_set = builtin_instruction_sets[instr_set_name]
         if instr_set is None:
             logger.warning(
-                "Skipping disassembly of offset 0x%x due to unknown "
-                'instruction set "%s"',
+                'Skipping disassembly of offset 0x%x due to unknown instruction set "%s"',
                 offset,
                 instr_set_name,
             )
@@ -309,9 +294,7 @@ def disassemble_binary(
             instr_width = instr_set.encoding_width
             if instr_width is None:
                 raise ValueError("unknown instruction width")
-            fetcher_factory = ImageFetcher.factory(
-                instr_width, entry_section.byte_order
-            )
+            fetcher_factory = ImageFetcher.factory(instr_width, entry_section.byte_order)
         except ValueError as ex:
             logger.warning(
                 "Skipping disassembly of offset 0x%x because no instruction fetcher "
@@ -358,9 +341,7 @@ def disassemble_binary(
                 print(line, file=out)
 
 
-def _iter_image_sections(
-    image: Image, sections: SectionMap
-) -> Iterator[tuple[Section, bytes]]:
+def _iter_image_sections(image: Image, sections: SectionMap) -> Iterator[tuple[Section, bytes]]:
     """
     Iterate through the sections and corresponding data in the given image.
 
@@ -400,9 +381,7 @@ class EntryPointParamType(ParamType):
         return "OFFSET[,LABEL]"
 
     @override
-    def convert(
-        self, value: str, param: Parameter | None, ctx: Context | None
-    ) -> EntryPoint:
+    def convert(self, value: str, param: Parameter | None, ctx: Context | None) -> EntryPoint:
         label: str | None
         if "," in value:
             offset_str, label = value.split(",")
@@ -430,9 +409,7 @@ class SectionParamType(ParamType):
         return "OPT1:...:OPTn"
 
     @override
-    def convert(
-        self, value: str, param: Parameter | None, ctx: Context | None
-    ) -> Section:
+    def convert(self, value: str, param: Parameter | None, ctx: Context | None) -> Section:
         instr_set_name: str | None = None
         byteorder = ByteOrder.undefined
         start = 0
@@ -455,9 +432,7 @@ class SectionParamType(ParamType):
                 try:
                     base = _parse_number(opt)
                 except ValueError as ex:
-                    raise BadParameter(
-                        f'Bad section base address "{opt}": {ex}'
-                    ) from ex
+                    raise BadParameter(f'Bad section base address "{opt}": {ex}') from ex
             else:
                 if "," in opt:
                     instr_set_name, byteorder_str = opt.split(",")
@@ -534,7 +509,10 @@ example:     0..0x1000:0x80000000:mips-i,le
     help="List available binary formats and instruction sets, then exit.",
 )
 @option(
-    "-b", "--binfmt", metavar="FORMAT", help="Binary format.  [default: autodetect]"
+    "-b",
+    "--binfmt",
+    metavar="FORMAT",
+    help="Binary format.  [default: autodetect]",
 )
 @option(
     "entries",
@@ -550,8 +528,7 @@ example:     0..0x1000:0x80000000:mips-i,le
     "--section",
     multiple=True,
     type=SECTION,
-    help="Code or data section. See below for sections syntax. "
-    "Can be passed multiple times.",
+    help="Code or data section. See below for sections syntax. Can be passed multiple times.",
 )
 @option(
     "-v",

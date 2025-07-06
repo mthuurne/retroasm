@@ -115,15 +115,11 @@ def build_instruction(
 ) -> None:
     try:
         with collector.check():
-            match_seq = tuple(
-                create_match_sequence(parse_instruction(name, tokens, collector))
-            )
+            match_seq = tuple(create_match_sequence(parse_instruction(name, tokens, collector)))
     except DelayedError:
         return
 
-    collector.info(
-        f"instruction {' '.join(str(elem) for elem in match_seq)}", location=name
-    )
+    collector.info(f"instruction {' '.join(str(elem) for elem in match_seq)}", location=name)
 
 
 def _bad_token_kind(tokens: AsmTokenizer, where: str, expected: str) -> BadInput:
@@ -138,49 +134,37 @@ def _bad_token_kind(tokens: AsmTokenizer, where: str, expected: str) -> BadInput
 def _parse_or(tokens: AsmTokenizer) -> ParseNode:
     expr = _parse_xor(tokens)
     if (location := tokens.eat(AsmToken.operator, "|")) is not None:
-        return OperatorNode(
-            Operator.bitwise_or, (expr, _parse_or(tokens)), location=location
-        )
+        return OperatorNode(Operator.bitwise_or, (expr, _parse_or(tokens)), location=location)
     return expr
 
 
 def _parse_xor(tokens: AsmTokenizer) -> ParseNode:
     expr = _parse_and(tokens)
     if (location := tokens.eat(AsmToken.operator, "^")) is not None:
-        return OperatorNode(
-            Operator.bitwise_xor, (expr, _parse_xor(tokens)), location=location
-        )
+        return OperatorNode(Operator.bitwise_xor, (expr, _parse_xor(tokens)), location=location)
     return expr
 
 
 def _parse_and(tokens: AsmTokenizer) -> ParseNode:
     expr = _parse_equal(tokens)
     if (location := tokens.eat(AsmToken.operator, "&")) is not None:
-        return OperatorNode(
-            Operator.bitwise_and, (expr, _parse_and(tokens)), location=location
-        )
+        return OperatorNode(Operator.bitwise_and, (expr, _parse_and(tokens)), location=location)
     return expr
 
 
 def _parse_equal(tokens: AsmTokenizer) -> ParseNode:
     expr = _parse_compare(tokens)
     if (location := tokens.eat(AsmToken.operator, "=")) is not None:
-        return OperatorNode(
-            Operator.equal, (expr, _parse_equal(tokens)), location=location
-        )
+        return OperatorNode(Operator.equal, (expr, _parse_equal(tokens)), location=location)
     if (location := tokens.eat(AsmToken.operator, "!=")) is not None:
-        return OperatorNode(
-            Operator.unequal, (expr, _parse_equal(tokens)), location=location
-        )
+        return OperatorNode(Operator.unequal, (expr, _parse_equal(tokens)), location=location)
     return expr
 
 
 def _parse_compare(tokens: AsmTokenizer) -> ParseNode:
     expr = _parse_shift(tokens)
     if (location := tokens.eat(AsmToken.operator, "<")) is not None:
-        return OperatorNode(
-            Operator.lesser, (expr, _parse_compare(tokens)), location=location
-        )
+        return OperatorNode(Operator.lesser, (expr, _parse_compare(tokens)), location=location)
     if (location := tokens.eat(AsmToken.operator, "<=")) is not None:
         return OperatorNode(
             Operator.lesser_equal, (expr, _parse_compare(tokens)), location=location
@@ -190,9 +174,7 @@ def _parse_compare(tokens: AsmTokenizer) -> ParseNode:
             Operator.greater_equal, (expr, _parse_compare(tokens)), location=location
         )
     if (location := tokens.eat(AsmToken.operator, ">")) is not None:
-        return OperatorNode(
-            Operator.greater, (expr, _parse_compare(tokens)), location=location
-        )
+        return OperatorNode(Operator.greater, (expr, _parse_compare(tokens)), location=location)
     return expr
 
 
@@ -215,16 +197,12 @@ def _parse_add_sub(tokens: AsmTokenizer, expr: ParseNode | None = None) -> Parse
     if (location := tokens.eat(AsmToken.operator, "+")) is not None:
         return _parse_add_sub(
             tokens,
-            OperatorNode(
-                Operator.add, (expr, _parse_mul_div(tokens)), location=location
-            ),
+            OperatorNode(Operator.add, (expr, _parse_mul_div(tokens)), location=location),
         )
     if (location := tokens.eat(AsmToken.operator, "-")) is not None:
         return _parse_add_sub(
             tokens,
-            OperatorNode(
-                Operator.sub, (expr, _parse_mul_div(tokens)), location=location
-            ),
+            OperatorNode(Operator.sub, (expr, _parse_mul_div(tokens)), location=location),
         )
     return expr
 
@@ -235,36 +213,26 @@ def _parse_mul_div(tokens: AsmTokenizer, expr: ParseNode | None = None) -> Parse
     if (location := tokens.eat(AsmToken.operator, "*")) is not None:
         return _parse_mul_div(
             tokens,
-            OperatorNode(
-                Operator.multiply, (expr, _parse_unary(tokens)), location=location
-            ),
+            OperatorNode(Operator.multiply, (expr, _parse_unary(tokens)), location=location),
         )
     if (location := tokens.eat(AsmToken.operator, "/")) is not None:
         return _parse_mul_div(
             tokens,
-            OperatorNode(
-                Operator.divide, (expr, _parse_unary(tokens)), location=location
-            ),
+            OperatorNode(Operator.divide, (expr, _parse_unary(tokens)), location=location),
         )
     if (location := tokens.eat(AsmToken.operator, "%")) is not None:
         return _parse_mul_div(
             tokens,
-            OperatorNode(
-                Operator.modulo, (expr, _parse_unary(tokens)), location=location
-            ),
+            OperatorNode(Operator.modulo, (expr, _parse_unary(tokens)), location=location),
         )
     return expr
 
 
 def _parse_unary(tokens: AsmTokenizer) -> ParseNode:
     if (location := tokens.eat(AsmToken.operator, "-")) is not None:
-        return OperatorNode(
-            Operator.complement, (_parse_unary(tokens),), location=location
-        )
+        return OperatorNode(Operator.complement, (_parse_unary(tokens),), location=location)
     if (location := tokens.eat(AsmToken.operator, "!")) is not None:
-        return OperatorNode(
-            Operator.negation, (_parse_unary(tokens),), location=location
-        )
+        return OperatorNode(Operator.negation, (_parse_unary(tokens),), location=location)
     if (location := tokens.eat(AsmToken.operator, "~")) is not None:
         return OperatorNode(
             Operator.bitwise_complement, (_parse_unary(tokens),), location=location
@@ -425,18 +393,13 @@ def parse_data_directive(
     while True:
         if (location := tokens.eat_string()) is not None:
             if not allow_strings:
-                raise BadInput(
-                    "string literals are not supported by this directive",
-                    location,
-                )
+                raise BadInput("string literals are not supported by this directive", location)
             data_class = StringDirective
             # TODO: Support other encodings?
             try:
                 data.append(location.text.encode("ascii"))
             except UnicodeError as ex:
-                raise BadInput(
-                    f"string literal is not pure ASCII: {ex}", location
-                ) from None
+                raise BadInput(f"string literal is not pure ASCII: {ex}", location) from None
         else:
             data.append(parse_value(tokens))
         if tokens.end_of_statement:
@@ -494,9 +457,7 @@ def parse_directive(
     elif keyword in ("segment", "code", "data", "rodata", "bss"):
         return DummyDirective()
     else:
-        raise BadInput.with_text(
-            "statement is not a known instruction or directive", name
-        )
+        raise BadInput.with_text("statement is not a known instruction or directive", name)
 
 
 def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
@@ -591,9 +552,7 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
     return source
 
 
-def read_sources(
-    paths: Iterable[Path], instr_set: InstructionSet
-) -> dict[Path, AsmSource]:
+def read_sources(paths: Iterable[Path], instr_set: InstructionSet) -> dict[Path, AsmSource]:
     """
     Parse the given source files, plus any other source files included by them.
 

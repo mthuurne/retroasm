@@ -313,9 +313,7 @@ class ErrorCollector:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
-        self._logger.log(
-            problem_counter.level, "%s", problem_counter, extra={"location": path}
-        )
+        self._logger.log(problem_counter.level, "%s", problem_counter, extra={"location": path})
 
     @contextmanager
     def check(self) -> Iterator[ErrorCollector]:
@@ -409,9 +407,7 @@ class LocationFormatter(Formatter):
 
 def _iter_parts(
     msg: str, location: None | str | InputLocation | Sequence[InputLocation]
-) -> Iterator[
-    tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
-]:
+) -> Iterator[tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]]:
     if not location:  # both None and ()
         yield msg, None, -1, None, []
     elif isinstance(location, InputLocation):
@@ -440,9 +436,7 @@ def _iter_parts(
 
 
 def _format_parts(
-    parts: Iterable[
-        tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]
-    ],
+    parts: Iterable[tuple[str | None, str | None, int, str | None, Sequence[tuple[int, int]]]],
 ) -> Iterator[str]:
     for msg, path, lineno, line, spans in parts:
         yield "".join(_format_message(msg, path, lineno))

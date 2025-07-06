@@ -76,9 +76,7 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
     __slots__ = ("_image", "_offset", "_end", "_num_bytes")
 
     @staticmethod
-    def factory(
-        width: int, byte_order: ByteOrder
-    ) -> Callable[[Image, int, int], ImageFetcher]:
+    def factory(width: int, byte_order: ByteOrder) -> Callable[[Image, int, int], ImageFetcher]:
         """
         Return a factory which builds instruction fetchers using the given instruction
         width and byte order.
@@ -140,10 +138,7 @@ class ImageFetcher(FetcherBase, AdvancingFetcher):
         one data unit advanced beyond our offset.
         """
         return self.__class__(
-            self._image,
-            self._offset + steps * self._num_bytes,
-            self._end,
-            self._num_bytes,
+            self._image, self._offset + steps * self._num_bytes, self._end, self._num_bytes
         )
 
 

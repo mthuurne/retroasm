@@ -6,13 +6,7 @@ from pytest import fixture
 
 from retroasm.codeblock import AccessNode, FunctionBody, Load, Store
 from retroasm.codeblock_builder import returned_bits
-from retroasm.expression import (
-    AddOperator,
-    AndOperator,
-    IntLiteral,
-    OrOperator,
-    truncate,
-)
+from retroasm.expression import AddOperator, AndOperator, IntLiteral, OrOperator, truncate
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.reference import (
     ConcatenatedBits,
@@ -490,9 +484,7 @@ def test_6502_pull(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_d, load_m)
 
     code = create_simplified_code(namespace)
-    (io_storage,) = (
-        node.storage for node in code.nodes if isinstance(node.storage, IOStorage)
-    )
+    (io_storage,) = (node.storage for node in code.nodes if isinstance(node.storage, IOStorage))
 
     def correct() -> Iterator[AccessNode]:
         load_s = Load(ref_s.bits.storage)

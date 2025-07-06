@@ -307,9 +307,7 @@ class CarryMask:
 
     def __add__(self, other: object) -> CarryMask:
         if isinstance(other, CarryMask):
-            return CarryMask(
-                self._merge_events(iter(self._events), iter(other._events))
-            )
+            return CarryMask(self._merge_events(iter(self._events), iter(other._events)))
         else:
             return NotImplemented
 

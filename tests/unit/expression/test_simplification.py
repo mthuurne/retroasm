@@ -420,9 +420,7 @@ sign_extension_data = [
 )
 def test_sign_extend_int(value: int, width: int, expected: int) -> None:
     """Apply sign extension to several integer literals."""
-    assert_int_literal(
-        simplify_expression(SignExtension(IntLiteral(value), width)), expected
-    )
+    assert_int_literal(simplify_expression(SignExtension(IntLiteral(value), width)), expected)
 
 
 def test_sign_extend_mask_concat() -> None:
@@ -446,9 +444,7 @@ def test_sign_extend_set() -> None:
     a = TestValue("A", IntType.u(8))
     b = IntLiteral(0x80)
     combi = OrOperator(a, b)
-    assert simplify_expression(SignExtension(combi, 8)) == OrOperator(
-        a, IntLiteral(~0x7F)
-    )
+    assert simplify_expression(SignExtension(combi, 8)) == OrOperator(a, IntLiteral(~0x7F))
 
 
 def test_add_literals(equation: Equation) -> None:

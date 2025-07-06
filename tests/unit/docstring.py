@@ -41,9 +41,7 @@ def parse_docstring(docstring: str) -> Iterator[tuple[str, str]]:
         yield language, body
 
 
-def unpack_docstring(
-    docstring: str, *req_langs: str, opt: str | None = None
-) -> Iterator[str]:
+def unpack_docstring(docstring: str, *req_langs: str, opt: str | None = None) -> Iterator[str]:
     """
     Parse a docstring and unpack the code blocks according to their language.
 
@@ -63,8 +61,6 @@ def unpack_docstring(
         if lang == exp_lang:
             yield body
         else:
-            raise ValueError(
-                f'block {idx:d} has language "{lang}", expected "{exp_lang}"'
-            )
+            raise ValueError(f'block {idx:d} has language "{lang}", expected "{exp_lang}"')
     if idx < len(req_langs):
         raise ValueError(f"only {idx:d} of {len(req_langs)} required blocks found")

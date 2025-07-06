@@ -15,13 +15,7 @@ from typing import cast, override
 
 from .codeblock import FunctionBody, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import (
-    Decoder,
-    DecoderFactory,
-    ParsedModeEntry,
-    Prefix,
-    create_prefix_decoder,
-)
+from .decode import Decoder, DecoderFactory, ParsedModeEntry, Prefix, create_prefix_decoder
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput
@@ -73,11 +67,7 @@ class PrefixMappingFactory:
         """
         return name in self._prefix_for_flag
 
-    def add_prefixes(
-        self,
-        decode_flags: Collection[str],
-        prefixes: Iterable[Prefix],
-    ) -> None:
+    def add_prefixes(self, decode_flags: Collection[str], prefixes: Iterable[Prefix]) -> None:
         """
         Add `prefixes`, which use the flags in `decodeFlags`, to this mapping.
 
@@ -134,9 +124,7 @@ class PrefixMappingFactory:
 
         unsettable_flags = set(decode_flags) - set(prefix_for_flag.keys())
         if unsettable_flags:
-            raise ValueError(
-                "unsettable decode flags: " + ", ".join(sorted(unsettable_flags))
-            )
+            raise ValueError("unsettable decode flags: " + ", ".join(sorted(unsettable_flags)))
 
     def create_mapping(self) -> PrefixMapping:
         """Create a `PrefixMapping` using the prefixes added so far."""
@@ -215,9 +203,7 @@ class InstructionSet(ModeTable):
             decoders[flags] = decoder
         return decoder
 
-    def decode_instruction(
-        self, fetcher: AdvancingFetcher
-    ) -> tuple[int, ModeMatch | None]:
+    def decode_instruction(self, fetcher: AdvancingFetcher) -> tuple[int, ModeMatch | None]:
         """
         Attempt to decode one instruction from the given fetcher.
 

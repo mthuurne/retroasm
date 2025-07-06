@@ -21,9 +21,7 @@ class Load:
     expr: LoadedValue = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "expr", LoadedValue(self, mask_for_width(self.storage.width))
-        )
+        object.__setattr__(self, "expr", LoadedValue(self, mask_for_width(self.storage.width)))
 
     @override
     def __str__(self) -> str:
@@ -96,9 +94,7 @@ class LoadedValue(Expression):
         return 8
 
 
-def verify_loads(
-    nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()
-) -> bool:
+def verify_loads(nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()) -> bool:
     """
     Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
@@ -206,9 +202,7 @@ class InitialValue(Expression):
         # we only need to care about width here.
         return mask_for_width(self._variable.width)
 
-    def __init__(
-        self, variable: Variable, block_id: int, location: InputLocation | None
-    ):
+    def __init__(self, variable: Variable, block_id: int, location: InputLocation | None):
         self._variable = variable
         self._block_id = block_id
         self._location = location

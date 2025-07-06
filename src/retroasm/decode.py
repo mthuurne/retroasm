@@ -18,13 +18,7 @@ from .mode import (
     MatchPlaceholder,
     ModeEntry,
 )
-from .reference import (
-    FixedValue,
-    FixedValueReference,
-    SingleStorage,
-    Variable,
-    int_reference,
-)
+from .reference import FixedValue, FixedValueReference, SingleStorage, Variable, int_reference
 from .storage import ArgStorage
 from .types import IntType, Segment, mask_for_width, mask_to_segments
 from .utils import SingletonFromABC, bad_type
@@ -152,9 +146,7 @@ def _format_mask(name: str, mask: int, value: int | None = None) -> str:
             digits.append("x")
         digits.reverse()
         return (
-            name
-            + ":"
-            + "_".join("".join(digits[i : i + 4]) for i in range(0, len(digits), 4))
+            name + ":" + "_".join("".join(digits[i : i + 4]) for i in range(0, len(digits), 4))
         )
 
 
@@ -240,13 +232,11 @@ class FixedPatternDecoder(Decoder):
         return self._next
 
     @classmethod
-    def create(
-        cls, index: int, mask: int, value: int, nxt: Decoder
-    ) -> FixedPatternDecoder:
+    def create(cls, index: int, mask: int, value: int, nxt: Decoder) -> FixedPatternDecoder:
         match nxt:
-            case FixedPatternDecoder(
-                index=nindex, value=nvalue, mask=nmask, next=nnxt
-            ) if nindex == index:
+            case FixedPatternDecoder(index=nindex, value=nvalue, mask=nmask, next=nnxt) if (
+                nindex == index
+            ):
                 # Combine two masks checks into one decoder.
                 assert mask & nmask == 0
                 return cls(index, mask | nmask, value | nvalue, nnxt)
@@ -486,9 +476,7 @@ def _create_entry_decoder(
                         fetch_idx += enc_len - 1
             when_idx -= 1
         matchers_by_index[when_idx].append(
-            FixedEncoding(
-                fetch_idx, fixed_encoding.fixed_mask, fixed_encoding.fixed_value
-            )
+            FixedEncoding(fetch_idx, fixed_encoding.fixed_mask, fixed_encoding.fixed_value)
         )
 
     # Start with the leaf node and work towards the root.
@@ -531,9 +519,7 @@ def _create_entry_decoder(
                 assert aux_len is not None
                 adjust = aux_len - 1
                 if adjust != 0:
-                    enc_segs = tuple(
-                        encSeg.adjust_unit(aux_idx, adjust) for encSeg in enc_segs
-                    )
+                    enc_segs = tuple(encSeg.adjust_unit(aux_idx, adjust) for encSeg in enc_segs)
             match factory.create_decoder(matcher.mode.name, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
@@ -567,11 +553,7 @@ def _create_decoder(org_decoders: Iterable[Decoder]) -> Decoder:
 
     # Figure out the lowest fetch index.
     enc_idx = min(
-        (
-            decoder.index
-            for decoder in decoders
-            if isinstance(decoder, FixedPatternDecoder)
-        ),
+        (decoder.index for decoder in decoders if isinstance(decoder, FixedPatternDecoder)),
         default=-1,
     )
 
@@ -623,9 +605,7 @@ def _create_decoder(org_decoders: Iterable[Decoder]) -> Decoder:
             )
 
         # Create lookup table.
-        return TableDecoder(
-            (_create_decoder(d) for d in table), enc_idx, table_mask, start
-        )
+        return TableDecoder((_create_decoder(d) for d in table), enc_idx, table_mask, start)
 
     # SequentialDecoder picks the first match, so reverse the order.
     decoders.reverse()
@@ -660,17 +640,13 @@ def _qualify_names(
         name_map = {(name := p.name): f"{branch_name}.{name}" for p in placeholders}
 
     renamed_entry = entry.rename(name_map)
-    renamed_decoding = {
-        name_map[name]: value for name, value in parsed_entry.decoding.items()
-    }
+    renamed_decoding = {name_map[name]: value for name, value in parsed_entry.decoding.items()}
     return renamed_entry, renamed_decoding
 
 
 class DecoderFactory:
     def __init__(
-        self,
-        mode_entries: Mapping[str | None, Iterable[ParsedModeEntry]],
-        flags: Iterable[str],
+        self, mode_entries: Mapping[str | None, Iterable[ParsedModeEntry]], flags: Iterable[str]
     ):
         self._mode_entries = mode_entries
         self._flags = frozenset(flags)
@@ -745,9 +721,7 @@ class _PrefixDecoder:
         return None
 
 
-def create_prefix_decoder(
-    prefixes: Sequence[Prefix],
-) -> Callable[[Fetcher], Prefix | None]:
+def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Prefix | None]:
     if len(prefixes) == 0:
         # Many instruction sets don't use prefixes at all.
         # Return an optimized special case for those.

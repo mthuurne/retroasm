@@ -13,13 +13,7 @@ from retroasm.expression import Expression, IntLiteral
 from retroasm.function import Function
 from retroasm.input import ErrorCollector, InputLocation
 from retroasm.namespace import GlobalNamespace, LocalNamespace
-from retroasm.reference import (
-    BitString,
-    FixedValue,
-    Reference,
-    SingleStorage,
-    io_reference,
-)
+from retroasm.reference import BitString, FixedValue, Reference, SingleStorage, io_reference
 from retroasm.storage import IOChannel, Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width
 
@@ -84,9 +78,7 @@ class TestNamespace(LocalNamespace):
         collector: ErrorCollector | None = None,
         location: InputLocation | None = None,
     ) -> FunctionBody:
-        return self.builder.create_code_block(
-            returned_bits(ret_ref), collector, location
-        )
+        return self.builder.create_code_block(returned_bits(ret_ref), collector, location)
 
     def _parse_one(self, storage_str: str) -> tuple[Storage, Segment]:
         idx = storage_str.index("[")
@@ -107,9 +99,7 @@ class TestNamespace(LocalNamespace):
     def emit_store(self, ref: BitString | Reference, expr: Expression) -> None:
         ref.emit_store(self.builder, expr, None)
 
-    def add_register(
-        self, name: str, typ: IntType = IntType.u(8)
-    ) -> SingleStorageReference:
+    def add_register(self, name: str, typ: IntType = IntType.u(8)) -> SingleStorageReference:
         try:
             ref = self[name]
         except KeyError:
@@ -157,20 +147,14 @@ class TestNamespace(LocalNamespace):
 
     @override
     def add_argument(
-        self,
-        name: str,
-        typ: IntType = IntType.u(8),
-        location: InputLocation | None = None,
+        self, name: str, typ: IntType = IntType.u(8), location: InputLocation | None = None
     ) -> SingleStorageReference:
         ref = super().add_argument(name, typ, location)
         return cast(SingleStorageReference, ref)
 
     @override
     def add_variable(
-        self,
-        name: str,
-        typ: IntType = IntType.u(8),
-        location: InputLocation | None = None,
+        self, name: str, typ: IntType = IntType.u(8), location: InputLocation | None = None
     ) -> SingleStorageReference:
         ref = super().add_variable(name, typ, location)
         return cast(SingleStorageReference, ref)
@@ -179,9 +163,7 @@ class TestNamespace(LocalNamespace):
         super().define("ret", value)
 
     def inline_block(
-        self,
-        code: FunctionBody,
-        arg_fetcher: Callable[[str], BitString] = no_args_to_fetch,
+        self, code: FunctionBody, arg_fetcher: Callable[[str], BitString] = no_args_to_fetch
     ) -> list[BitString]:
         return self.builder.inline_block(code, arg_fetcher)
 

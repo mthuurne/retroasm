@@ -6,14 +6,7 @@ from functools import reduce
 from operator import mul
 from typing import ClassVar, Self, TypeVar, cast, override
 
-from .types import (
-    CarryMask,
-    Width,
-    mask_for_width,
-    trailing_zeroes,
-    unlimited,
-    width_for_mask,
-)
+from .types import CarryMask, Width, mask_for_width, trailing_zeroes, unlimited, width_for_mask
 from .utils import const_property
 
 ExprT = TypeVar("ExprT", bound="Expression")
@@ -266,8 +259,7 @@ class MultiExpression(Expression):
     @override
     def _equals(self, other: MultiExpression) -> bool:
         return len(self._exprs) == len(other._exprs) and all(
-            myExpr == otherExpr
-            for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
+            myExpr == otherExpr for (myExpr, otherExpr) in zip(self._exprs, other._exprs)
         )
 
 
@@ -633,9 +625,7 @@ class LVShift(Expression):
         if expr_mask == 0:
             return 0
         offset_mask = self._offset.mask
-        width = cast(
-            int, width_for_mask(offset_mask if offset_mask >= 0 else ~offset_mask)
-        )
+        width = cast(int, width_for_mask(offset_mask if offset_mask >= 0 else ~offset_mask))
         mask = expr_mask
         for i in range(width):
             if 1 << i >= _SHIFT_LIMIT_BITS:
