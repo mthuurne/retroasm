@@ -2,12 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ..codeblock_builder import (
-    SemanticsCodeBlockBuilder,
-    decompose_store,
-    returned_bits,
-)
-from ..expression import Expression
+from ..codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
+from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
 from ..mode import MatchPlaceholder, Mode, Placeholder, ValuePlaceholder
@@ -16,7 +12,7 @@ from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
 from ..types import IntType, ReferenceType, parse_type_decl
 from ..utils import bad_type
-from .expression_builder import BadExpression, TabooReference, convert_definition
+from .expression_builder import BadExpression, TabooReference, build_expression
 from .expression_nodes import ConstRefDeclarationNode, DefinitionNode
 from .expression_parser import parse_context
 
@@ -98,25 +94,24 @@ def parse_placeholders(
                 # Compute placeholder value.
                 builder = SemanticsCodeBlockBuilder.with_stored_values(pc_fixated)
                 try:
-                    value_ref = convert_definition(
-                        decl,
-                        val_type,
-                        node.value,
-                        ctx_namespace,
-                        builder,
-                    )
+                    built_expr = build_expression(node.value, ctx_namespace, builder)
                 except BadExpression as ex:
-                    collector.error(f"{ex}", location=ex.locations)
+                    collector.error(
+                        f'in placeholder "{name}" value: {ex}', location=ex.locations
+                    )
                 else:
-                    code = builder.create_code_block(returned_bits(value_ref))
+                    val_width = val_type.width
+                    val_bits = FixedValue(truncate(built_expr, val_width), val_width)
+                    code = builder.create_code_block((val_bits,))
                     for access in code.nodes:
                         collector.error(
                             f"state cannot be accessed from the context: {access}",
                             location=access.location,
                         )
-                    (val_bits,) = code.returned
-                    assert isinstance(val_bits, FixedValue), val_bits
-                    val_expr = simplify_expression(decode_int(val_bits.expr, val_type))
+                    # We put in a single FixedValue, we get out a single FixedValue.
+                    (ret_bits,) = code.returned
+                    assert isinstance(ret_bits, FixedValue), ret_bits
+                    val_expr = simplify_expression(decode_int(ret_bits.expr, val_type))
 
             if val_expr is None:
                 val_expr = ImmediateValue(name, val_type)
