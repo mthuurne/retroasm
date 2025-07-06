@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from retroasm.expression import AddOperator, SignExtension
 from retroasm.mode import Mode
+from retroasm.symbol import CurrentAddress
+from retroasm.types import unlimited
 
+from ..expression.utils import assert_trunc
 from .conftest import InstructionSetDocstringTester
 
 
@@ -196,3 +200,28 @@ def test_placeholder_constant_stateful(
 
     """
     instr_tester.check()
+
+
+def test_placeholder_constant_pc_relative(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    The value of the program counter is considered a constant;
+    accessing it from the context is allowed.
+
+    .. code-block:: instr
+
+        mode u32 pc_rel
+        N . A . A . s16 N, u32 A = pc + N
+
+    """
+    instr_tester.check()
+
+    mode: Mode = instr_tester.parser.modes["pc_rel"]
+    (entry,) = mode.entries
+    value_placeholders = list(entry.value_placeholders)
+    assert len(value_placeholders) == 2
+    (placeholder_n,) = (p for p in value_placeholders if p.name == "N")
+    (placeholder_a,) = (p for p in value_placeholders if p.name == "A")
+    expected = AddOperator(SignExtension(placeholder_n.expr, 16), CurrentAddress())
+    assert_trunc(placeholder_a.expr, expected, unlimited, 32)
