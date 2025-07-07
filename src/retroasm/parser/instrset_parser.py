@@ -924,6 +924,7 @@ def _parse_mode_entries(
                     decoding = _parse_mode_decoding(encoding, placeholders, collector)
 
                 # Parse mnemonic.
+                # Additional placeholders may be inserted by the mnemonic parser.
                 mnem_tokens = mnem_base_tokens + MnemonicTokenizer.scan(mnem_loc)
                 mnem_items = tuple(parse_mnemonic(mnem_tokens, placeholders, collector))
                 if len(mnem_items) == 0:

@@ -4,11 +4,11 @@ Parser for mnemonic column in instruction set definition.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 
+from ..expression import IntLiteral
 from ..input import ErrorCollector, InputLocation
-from ..mode import MnemItem, Placeholder
-from ..reference import int_reference
+from ..mode import MnemItem, Placeholder, ValuePlaceholder
 from ..types import IntType
 from ..utils import bad_type
 from .expression_nodes import parse_int
@@ -30,11 +30,12 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 def parse_mnemonic(
     tokens: MnemonicTokenizer,
-    placeholders: Mapping[str, Placeholder],
+    placeholders: dict[str, Placeholder],
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     seen_placeholders: dict[str, InputLocation] = {}
 
+    int_literal_counter = 0
     for token_type, token_loc in tokens:
         text = token_loc.text
         match token_type:
@@ -60,7 +61,14 @@ def parse_mnemonic(
                 except ValueError as ex:
                     collector.error(f"{ex}", location=token_loc)
                 else:
-                    yield int_reference(value, IntType.u(width))
+                    # Create a synthetic placeholder for integer literal.
+                    name = f"#{int_literal_counter}"
+                    int_literal_counter += 1
+                    placeholder = ValuePlaceholder(
+                        name, IntType.u(width), IntLiteral(value), token_loc
+                    )
+                    placeholders[name] = placeholder
+                    yield placeholder
             case MnemonicToken.operator:
                 yield text.lstrip("\\")
             case MnemonicToken.bracket:

@@ -5,7 +5,7 @@ from retroasm.mode import Mode
 from retroasm.symbol import CurrentAddress
 from retroasm.types import unlimited
 
-from ..expression.utils import assert_trunc
+from ..expression.utils import assert_int_literal, assert_trunc
 from .conftest import InstructionSetDocstringTester
 
 
@@ -211,3 +211,24 @@ def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringT
     (placeholder_a,) = (p for p in value_placeholders if p.name == "A")
     expected = AddOperator(SignExtension(placeholder_n.expr, 16), CurrentAddress())
     assert_trunc(placeholder_a.expr, expected, unlimited, 32)
+
+
+def test_placeholder_mnemonic(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Constants from mnemonics are also captured in value placeholders.
+
+    .. code-block:: instr
+
+        instr
+        0 . blub 12,$34 . nop
+
+    """
+    instr_tester.check()
+
+    (instruction,) = instr_tester.parser.mode_entries[None]
+    assert len(list(instruction.entry.match_placeholders)) == 0
+    assert len(list(instruction.entry.value_placeholders)) == 2
+    (p0,) = (p for p in instruction.entry.value_placeholders if p.name == "#0")
+    (p1,) = (p for p in instruction.entry.value_placeholders if p.name == "#1")
+    assert_int_literal(p0.expr, 12)
+    assert_int_literal(p1.expr, 0x34)
