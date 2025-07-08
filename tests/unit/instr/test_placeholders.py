@@ -44,7 +44,7 @@ def test_placeholder_mode_forward(instr_tester: InstructionSetDocstringTester) -
     (entry,) = mode.entries
     match_placeholders = list(entry.match_placeholders)
     assert len(match_placeholders) == 1
-    value_placeholders = list(entry.value_placeholders)
+    value_placeholders = entry.value_placeholders
     assert len(value_placeholders) == 0
     (placeholder,) = match_placeholders
     assert placeholder.name == "R"
@@ -205,10 +205,10 @@ def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringT
 
     mode: Mode = instr_tester.parser.modes["pc_rel"]
     (entry,) = mode.entries
-    value_placeholders = list(entry.value_placeholders)
+    value_placeholders = entry.value_placeholders
     assert len(value_placeholders) == 2
-    (placeholder_n,) = (p for p in value_placeholders if p.name == "N")
-    (placeholder_a,) = (p for p in value_placeholders if p.name == "A")
+    placeholder_n = value_placeholders["N"]
+    placeholder_a = value_placeholders["A"]
     expected = AddOperator(SignExtension(placeholder_n.expr, 16), CurrentAddress())
     assert_trunc(placeholder_a.expr, expected, unlimited, 32)
 
@@ -227,8 +227,8 @@ def test_placeholder_mnemonic(instr_tester: InstructionSetDocstringTester) -> No
 
     (instruction,) = instr_tester.parser.mode_entries[None]
     assert len(list(instruction.entry.match_placeholders)) == 0
-    assert len(list(instruction.entry.value_placeholders)) == 2
-    (p0,) = (p for p in instruction.entry.value_placeholders if p.name == "#0")
-    (p1,) = (p for p in instruction.entry.value_placeholders if p.name == "#1")
+    assert len(instruction.entry.value_placeholders) == 2
+    p0 = instruction.entry.value_placeholders["#0"]
+    p1 = instruction.entry.value_placeholders["#1"]
     assert_int_literal(p0.expr, 12)
     assert_int_literal(p1.expr, 0x34)

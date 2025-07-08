@@ -485,8 +485,7 @@ def _create_entry_decoder(
     # Add value placeholders.
     # Since these do not cause rejections, it is most efficient to do them last,
     # when we are certain that this entry matches.
-    for placeholder in entry.value_placeholders:
-        name = placeholder.name
+    for name in entry.value_placeholders.keys():
         enc_segs = decoding.get(name)
         if enc_segs is not None:
             decoder = PlaceholderDecoder(name, enc_segs, decoder, None, None)
@@ -628,16 +627,17 @@ def _qualify_names(
     If `branch_name` is `None`, no renaming is performed.
     """
     entry = parsed_entry.entry
-    placeholders = tuple(entry.placeholders)
-    if branch_name is None or len(placeholders) == 0:
+    placeholder_names = [p.name for p in entry.match_placeholders]
+    placeholder_names += entry.value_placeholders
+    if branch_name is None or len(placeholder_names) == 0:
         # Do not rename.
         return parsed_entry.entry, parsed_entry.decoding
-    elif len(placeholders) == 1:
+    elif len(placeholder_names) == 1:
         # Replace current name with branch name.
-        name_map = {placeholders[0].name: branch_name}
+        name_map = {placeholder_names[0]: branch_name}
     else:
         # Prefix current names with branch name.
-        name_map = {(name := p.name): f"{branch_name}.{name}" for p in placeholders}
+        name_map = {name: f"{branch_name}.{name}" for name in placeholder_names}
 
     renamed_entry = entry.rename(name_map)
     renamed_decoding = {name_map[name]: value for name, value in parsed_entry.decoding.items()}

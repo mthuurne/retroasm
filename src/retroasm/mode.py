@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Final, overload, override
 
 from .codeblock import FunctionBody
@@ -525,34 +526,29 @@ class ModeEntry:
         mnemonic: Mnemonic,
         semantics: CodeTemplate | None,
         match_placeholders: Iterable[MatchPlaceholder],
-        value_placeholders: Iterable[ValuePlaceholder],
+        value_placeholders: Mapping[str, FixedValueReference],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self._match_placeholders = tuple(match_placeholders)
-        self._value_placeholders = tuple(value_placeholders)
+        self._value_placeholders = dict(value_placeholders)
 
     @override
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
             f"{self._semantics!r}, {self.match_placeholders!r}, "
-            f"{self.value_placeholders!r})"
+            f"{self._value_placeholders!r})"
         )
-
-    @property
-    def placeholders(self) -> Iterator[Placeholder]:
-        yield from self._match_placeholders
-        yield from self._value_placeholders
 
     @property
     def match_placeholders(self) -> Iterator[MatchPlaceholder]:
         return iter(self._match_placeholders)
 
     @property
-    def value_placeholders(self) -> Iterator[ValuePlaceholder]:
-        return iter(self._value_placeholders)
+    def value_placeholders(self) -> Mapping[str, FixedValueReference]:
+        return self._value_placeholders
 
     @property
     def semantics(self) -> CodeTemplate:
@@ -582,7 +578,10 @@ class ModeEntry:
             self.mnemonic.rename(name_map),
             None if semantics is None else semantics.rename(name_map),
             (p.rename(name_map) for p in self._match_placeholders),
-            (p.rename(name_map) for p in self._value_placeholders),
+            {
+                name_map[name]: ref.substitute(partial(_rename_immediate, name_map=name_map))
+                for name, ref in self._value_placeholders.items()
+            },
         )
 
 
@@ -661,10 +660,8 @@ class ModeMatch:
                 return value.expr
             return None
 
-        for placeholder in entry.value_placeholders:
-            values[placeholder.name] = placeholder.bits.substitute(
-                expression_func=resolve_immediate
-            )
+        for name, ref in entry.value_placeholders.items():
+            values[name] = ref.substitute(resolve_immediate).bits
 
         subs = {name: submatch.subst_pc(pc_val) for name, submatch in self._subs.items()}
 
@@ -802,6 +799,13 @@ class Mode(ModeTable):
         return f"{self.__class__.__name__}({self._name!r})"
 
 
+def _rename_immediate(expr: Expression, name_map: Mapping[str, str]) -> Expression | None:
+    if isinstance(expr, ImmediateValue):
+        if (new_name := name_map.get(expr.name)) is not None:
+            return ImmediateValue(new_name, expr.type)
+    return None
+
+
 @dataclass(frozen=True)
 class ValuePlaceholder:
     """An element from a mode context that represents a numeric value."""
@@ -845,15 +849,9 @@ class ValuePlaceholder:
             return f"{{{self.type} {self.name}}}"
 
     def rename(self, name_map: Mapping[str, str]) -> ValuePlaceholder:
-        def rename_immediate(expr: Expression) -> Expression | None:
-            if isinstance(expr, ImmediateValue):
-                if (new_name := name_map.get(expr.name)) is not None:
-                    return ImmediateValue(new_name, expr.type)
-            return None
-
         return ValuePlaceholder(
             name_map[self.name],
-            self.ref.substitute(rename_immediate),
+            self.ref.substitute(partial(_rename_immediate, name_map=name_map)),
             self.location,
         )
 
@@ -931,10 +929,8 @@ class EncodeMatch:
                 return values[expr.name].expr
             return None
 
-        for placeholder in self._entry.value_placeholders:
-            values[placeholder.name] = placeholder.bits.substitute(
-                expression_func=resolve_immediate
-            )
+        for name, ref in self._entry.value_placeholders.items():
+            values[name] = ref.substitute(resolve_immediate).bits
 
         return ModeMatch(self._entry, values, subs)
 
@@ -961,11 +957,9 @@ class EncodeMatch:
             for placeholder in entry.match_placeholders
             if placeholder.name not in subs
         )
-        unfilled_values = (
-            placeholder
-            for placeholder in entry.value_placeholders
-            if placeholder.name not in values
-        )
+        unfilled_values = {
+            name: ref for name, ref in entry.value_placeholders.items() if name not in values
+        }
 
         return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
 

@@ -112,11 +112,11 @@ class Formatter:
                         if value & 1 << (width - 1):
                             value -= 1 << width
                 return self.value(value, expr_type)
-            case _:
+            case expr:
                 # TODO: Use a recursive expression pretty printer.
                 #       Once we start formatting actual sources instead of only
                 #       disassembly, we will encounter operators as well.
-                raise NotImplementedError
+                raise NotImplementedError(expr)
 
     org_keyword = "org"
 

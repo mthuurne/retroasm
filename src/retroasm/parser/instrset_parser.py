@@ -991,7 +991,11 @@ def _parse_mode_entries(
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
                     template,
                     (p for p in placeholders.values() if isinstance(p, MatchPlaceholder)),
-                    (p for p in placeholders.values() if isinstance(p, ValuePlaceholder)),
+                    {
+                        p.name: p.ref
+                        for p in placeholders.values()
+                        if isinstance(p, ValuePlaceholder)
+                    },
                 )
                 yield ParsedModeEntry(entry, *decoding)
 
