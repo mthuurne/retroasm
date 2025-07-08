@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, cast, override
+from typing import TYPE_CHECKING, Self, cast, override
 
 from .expression import (
     AddOperator,
@@ -646,6 +646,16 @@ class FixedValueReference(Reference):
     @override
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.expr!r}, {self._type!r})"
+
+    def substitute(self, func: Callable[[Expression], Expression | None]) -> Self:
+        """
+        Applies the given substitution function to the referenced expression and
+        returns the resulting reference.
+        See `Expression.substitute()` for how the function is applied.
+        """
+        old_expr = self.bits.expr
+        new_expr = simplify_expression(old_expr.substitute(func))
+        return self if new_expr is old_expr else self.__class__(new_expr, self._type)
 
 
 def bad_reference(decl: ReferenceType | IntType, message: str) -> Reference:
