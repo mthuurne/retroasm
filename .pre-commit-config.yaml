@@ -8,11 +8,11 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.12.2
     hooks:
       - id: ruff-check
       - id: ruff-check
-        args: [ --select, I, --fix ]
+        args: [--select, I, --fix]
       - id: ruff-format
 
   - repo: local
