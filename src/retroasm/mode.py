@@ -807,13 +807,20 @@ class ValuePlaceholder:
     """An element from a mode context that represents a numeric value."""
 
     name: str
-    type: IntType
-    expr: Expression
+    ref: FixedValueReference
     location: InputLocation | None = None
 
     @property
+    def type(self) -> IntType:
+        return self.ref.type
+
+    @property
+    def expr(self) -> Expression:
+        return self.ref.expr
+
+    @property
     def bits(self) -> FixedValue:
-        return FixedValue(self.expr, self.type.width)
+        return self.ref.bits
 
     @property
     def encoding_width(self) -> Width | None:
@@ -846,8 +853,7 @@ class ValuePlaceholder:
 
         return ValuePlaceholder(
             name_map[self.name],
-            self.type,
-            self.expr.substitute(rename_immediate),
+            self.ref.substitute(rename_immediate),
             self.location,
         )
 

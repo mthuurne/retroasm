@@ -121,4 +121,4 @@ def parse_placeholders(
                 )
                 continue
 
-            yield ValuePlaceholder(name, val_type, val_expr, location)
+            yield ValuePlaceholder(name, val_ref, location)

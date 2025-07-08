@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from ..expression import IntLiteral
 from ..input import ErrorCollector, InputLocation
 from ..mode import MnemItem, Placeholder, ValuePlaceholder
+from ..reference import int_reference
 from ..types import IntType
 from ..utils import bad_type
 from .expression_nodes import parse_int
@@ -65,7 +65,7 @@ def parse_mnemonic(
                     name = f"#{int_literal_counter}"
                     int_literal_counter += 1
                     placeholder = ValuePlaceholder(
-                        name, IntType.u(width), IntLiteral(value), token_loc
+                        name, int_reference(value, IntType.u(width)), token_loc
                     )
                     placeholders[name] = placeholder
                     yield placeholder
