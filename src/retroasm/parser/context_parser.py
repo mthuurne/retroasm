@@ -6,7 +6,7 @@ from ..codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
 from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, Mode, Placeholder, ValuePlaceholder
+from ..mode import MatchPlaceholder, Mode, ValuePlaceholder
 from ..namespace import ContextNamespace, GlobalNamespace, NameExistsError
 from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
@@ -22,7 +22,7 @@ def parse_placeholders(
     modes: Mapping[str, Mode],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
-) -> Iterator[Placeholder]:
+) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
     """Yield the placeholders defined in the given context."""
 
     pc = global_namespace.program_counter

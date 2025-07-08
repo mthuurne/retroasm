@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from ..input import ErrorCollector, InputLocation
-from ..mode import MnemItem, Placeholder, ValuePlaceholder
+from ..mode import MatchPlaceholder, MnemItem, ValuePlaceholder
 from ..reference import int_reference
 from ..types import IntType
 from ..utils import bad_type
@@ -30,7 +30,7 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 def parse_mnemonic(
     tokens: MnemonicTokenizer,
-    placeholders: dict[str, Placeholder],
+    placeholders: dict[str, MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     seen_placeholders: dict[str, InputLocation] = {}

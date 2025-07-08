@@ -27,7 +27,6 @@ from ..mode import (
     Mnemonic,
     Mode,
     ModeEntry,
-    Placeholder,
     ValuePlaceholder,
 )
 from ..namespace import (
@@ -414,7 +413,9 @@ def _parse_func(
 
 
 def _parse_encoding_expr(
-    enc_node: ParseNode, enc_namespace: Namespace, placeholders: Mapping[str, Placeholder]
+    enc_node: ParseNode,
+    enc_namespace: Namespace,
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
 ) -> EncodingExpr:
     """
     Parse encoding node that is not a MultiMatchNode.
@@ -478,7 +479,9 @@ def _parse_encoding_expr(
 
 
 def _parse_multi_match(
-    enc_node: MultiMatchNode, identifiers: Set[str], placeholders: Mapping[str, Placeholder]
+    enc_node: MultiMatchNode,
+    identifiers: Set[str],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
 ) -> EncodingMultiMatch:
     """
     Parse an encoding node of type MultiMatchNode.
@@ -506,7 +509,7 @@ def _parse_multi_match(
 
 def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode],
-    placeholders: Mapping[str, Placeholder],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
 ) -> Iterator[EncodingItem]:
@@ -558,7 +561,7 @@ def _parse_flags_required(
 
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
-    placeholders: Mapping[str, Placeholder],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -653,7 +656,7 @@ def _check_duplicate_multi_matches(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    placeholders: Mapping[str, Placeholder],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -697,7 +700,7 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    placeholders: Mapping[str, Placeholder],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -738,7 +741,9 @@ def _check_decoding_order(
 
 
 def _parse_mode_decoding(
-    encoding: Encoding, placeholders: Mapping[str, Placeholder], collector: ErrorCollector
+    encoding: Encoding,
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the

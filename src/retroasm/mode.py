@@ -883,9 +883,6 @@ class MatchPlaceholder:
         return MatchPlaceholder(name_map[self.name], self.mode, self.location)
 
 
-type Placeholder = MatchPlaceholder | ValuePlaceholder
-
-
 class EncodeMatch:
     """A match on the encoding field of a mode entry."""
 
