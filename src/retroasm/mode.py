@@ -6,7 +6,6 @@ from functools import partial
 from typing import Any, Final, overload, override
 
 from .codeblock import FunctionBody
-from .codeblock_builder import SemanticsCodeBlockBuilder
 from .expression import Expression
 from .input import InputLocation
 from .reference import BitString, FixedValue, FixedValueReference, Reference, SingleStorage
@@ -465,69 +464,6 @@ class Mnemonic:
         return Mnemonic(rename_item(item) for item in self._items)
 
 
-class CodeTemplate:
-    """
-    A container for a code block which contains placeholders that will be
-    filled in later.
-    """
-
-    def __init__(self, code: FunctionBody, placeholders: Iterable[MatchPlaceholder]):
-        self.code = code
-        self.placeholders = tuple(placeholders)
-
-    def fill_placeholders(self, match: EncodeMatch) -> CodeTemplate:
-        """
-        Return a new code template, in which placeholders are replaced by
-        match results, if available.
-        """
-
-        unfilled: list[MatchPlaceholder] = []
-        values: dict[str, BitString] = {}
-        for placeholder in self.placeholders:
-            name = placeholder.name
-            try:
-                submatch = match.get_submatch(name)
-            except KeyError:
-                unfilled.append(placeholder)
-            else:
-                sub_sem = submatch.entry.semantics.fill_placeholders(submatch)
-                fill_code = sub_sem.code
-                # TODO: Support submode semantics with side effects.
-                assert len(fill_code.nodes) == 0, name
-                values[name] = fill_code.returned[0]
-
-        for name, arg in self.code.arguments.items():
-            if name not in values:
-                values[name] = SingleStorage(arg)
-
-        builder = SemanticsCodeBlockBuilder()
-        returned = builder.inline_block(self.code, values.__getitem__)
-        new_code = builder.create_code_block(returned)
-
-        return CodeTemplate(new_code, unfilled)
-
-    def rename(self, name_map: Mapping[str, str]) -> CodeTemplate:
-        """
-        Returns a new CodeTemplate, in which all placeholder names are
-        substituted by their value in the given mapping.
-        """
-        code = self.code
-        arg_map = {
-            storage.name: SingleStorage(
-                storage.__class__(name_map[storage.name], storage.width)
-            )
-            for storage in code.storages
-            if isinstance(storage, ArgStorage)
-        }
-        builder = SemanticsCodeBlockBuilder()
-        builder.inline_block(code, arg_map.__getitem__)
-        new_code = builder.create_code_block(())
-
-        new_placeholders = (placeholder.rename(name_map) for placeholder in self.placeholders)
-
-        return CodeTemplate(new_code, new_placeholders)
-
-
 class ModeEntry:
     """One row in a mode table."""
 
@@ -535,7 +471,7 @@ class ModeEntry:
         self,
         encoding: Encoding,
         mnemonic: Mnemonic,
-        semantics: CodeTemplate | None,
+        semantics: FunctionBody | None,
         match_placeholders: Iterable[MatchPlaceholder],
         value_placeholders: Mapping[str, FixedValueReference],
     ):
@@ -562,11 +498,11 @@ class ModeEntry:
         return self._value_placeholders
 
     @property
-    def semantics(self) -> CodeTemplate:
+    def semantics(self) -> FunctionBody:
         """
         The semantics of this mode entry.
         It is an error to access this property for instruction sets that were
-        loaded with the `wantSemantics=False` option.
+        loaded with the `want_semantics=False` option.
         """
         semantics = self._semantics
         if semantics is None:
@@ -583,11 +519,11 @@ class ModeEntry:
         Returns a new ModeEntry, in which all placeholder names are
         substituted by their value in the given mapping.
         """
-        semantics = self._semantics
         return ModeEntry(
             self.encoding.rename(name_map),
             self.mnemonic.rename(name_map),
-            None if semantics is None else semantics.rename(name_map),
+            # TODO: Rename immediates in semantics as well.
+            self._semantics,
             (p.rename(name_map) for p in self._match_placeholders),
             {
                 name_map[name]: ref.substitute(partial(_rename_immediate, name_map=name_map))
@@ -958,7 +894,8 @@ class EncodeMatch:
 
         encoding = entry.encoding.fill_placeholders(self)
         mnemonic = entry.mnemonic.fill_placeholders(self)
-        semantics = entry.semantics.fill_placeholders(self)
+        # TODO: Fill in placeholders in semantics too.
+        semantics = entry.semantics
         unfilled_matches = (
             placeholder
             for placeholder in entry.match_placeholders

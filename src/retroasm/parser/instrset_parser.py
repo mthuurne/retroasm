@@ -18,7 +18,6 @@ from ..decode import EncodedSegment, FixedEncoding, ParsedModeEntry, Prefix, dec
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
-    CodeTemplate,
     Encoding,
     EncodingExpr,
     EncodingItem,
@@ -984,17 +983,11 @@ def _parse_mode_entries(
             #       with a None encoding or decoding; was that better or
             #       incorrect?
             if encoding is not None and decoding is not None:
-                if semantics is None:
-                    template = None
-                else:
-                    template = CodeTemplate(
-                        semantics, (p for p in placeholders if isinstance(p, MatchPlaceholder))
-                    )
                 entry = ModeEntry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
-                    template,
+                    semantics,
                     (p for p in placeholders.values() if isinstance(p, MatchPlaceholder)),
                     {
                         p.name: p.ref
