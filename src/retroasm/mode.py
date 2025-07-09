@@ -385,7 +385,7 @@ class Encoding:
         return total
 
 
-type MnemItem = str | FixedValueReference | MatchPlaceholder | ValuePlaceholder
+type MnemItem = str | FixedValueReference | MatchPlaceholder
 
 
 class Mnemonic:
@@ -415,6 +415,16 @@ class Mnemonic:
         Return a new mnemonic, in which placeholders are replaced by
         match results, if available.
         """
+
+        def fill_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, ImmediateValue):
+                try:
+                    # TODO: Are the matched values already truncated?
+                    return match.get_value(expr.name).expr
+                except KeyError:
+                    pass
+            return None
+
         items: list[MnemItem] = []
         for item in self._items:
             match item:
@@ -426,19 +436,13 @@ class Mnemonic:
                         items.append(item)
                     else:
                         items += submatch.entry.mnemonic.fill_placeholders(submatch)
-                case ValuePlaceholder(name=name) as item:
-                    # Immediate value.
-                    try:
-                        value = match.get_value(name)
-                    except KeyError:
-                        # TODO: Apply substitutions inside computed values.
-                        #       See EncodeMatch.complete() for a blueprint.
-                        items.append(item)
-                    else:
-                        items.append(value)
-                case item:
-                    # Fixed item.
+                case FixedValueReference():
+                    # Expression that may or may not include immediate values.
+                    items.append(item.substitute(fill_immediate))
+                case str():
                     items.append(item)
+                case _:
+                    bad_type(item)
         return Mnemonic(items)
 
     def rename(self, name_map: Mapping[str, str]) -> Mnemonic:
@@ -446,12 +450,19 @@ class Mnemonic:
         Returns a new Mnemonic, in which all placeholder names are
         substituted by their value in the given mapping.
         """
-        return Mnemonic(
-            item.rename(name_map)
-            if isinstance(item, (MatchPlaceholder, ValuePlaceholder))
-            else item
-            for item in self._items
-        )
+
+        def rename_item(item: MnemItem) -> MnemItem:
+            match item:
+                case MatchPlaceholder():
+                    return item.rename(name_map)
+                case FixedValueReference():
+                    return item.substitute(partial(_rename_immediate, name_map=name_map))
+                case str():
+                    return item
+                case _:
+                    bad_type(item)
+
+        return Mnemonic(rename_item(item) for item in self._items)
 
 
 class CodeTemplate:
@@ -667,22 +678,28 @@ class ModeMatch:
 
         return ModeMatch(entry, values, subs)
 
+    # TODO: This property has a lot of overlap with Mnemonic.fill_placeholders().
     @const_property
     def mnemonic(self) -> Iterator[str | FixedValueReference]:
         entry = self._entry
         subs = self._subs
         values = self._values
 
+        def fill_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, ImmediateValue):
+                value = values[expr.name]
+                assert isinstance(value, FixedValue), value
+                return value.expr
+            return None
+
         for mnem_elem in entry.mnemonic:
             match mnem_elem:
-                case str() | FixedValueReference() as elem:
-                    yield elem
                 case MatchPlaceholder(name=name):
                     yield from subs[name].mnemonic
-                case ValuePlaceholder(name=name, type=typ):
-                    value = values[name]
-                    assert isinstance(value, FixedValue), value
-                    yield FixedValueReference(value.expr, typ)
+                case FixedValueReference() as elem:
+                    yield elem.substitute(fill_immediate)
+                case str() as elem:
+                    yield elem
                 case elem:
                     bad_type(elem)
 
@@ -847,13 +864,6 @@ class ValuePlaceholder:
             return f"{{{self.type} {self.name} = {self.expr}}}"
         else:
             return f"{{{self.type} {self.name}}}"
-
-    def rename(self, name_map: Mapping[str, str]) -> ValuePlaceholder:
-        return ValuePlaceholder(
-            name_map[self.name],
-            self.ref.substitute(partial(_rename_immediate, name_map=name_map)),
-            self.location,
-        )
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeAlias, Union, override
 
 from ..instrset import InstructionSet
-from ..mode import MatchPlaceholder, Mode, ModeEntry, ValuePlaceholder
+from ..mode import MatchPlaceholder, Mode, ModeEntry
 from ..reference import FixedValueReference
 from ..utils import bad_type
 
@@ -56,7 +56,7 @@ class MnemTreeNode:
             match token:
                 case str() as text:
                     match = text
-                case FixedValueReference() | ValuePlaceholder():
+                case FixedValueReference():
                     match = int
                 case MatchPlaceholder(mode=mode):
                     match = mode

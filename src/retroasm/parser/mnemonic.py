@@ -4,7 +4,7 @@ Parser for mnemonic column in instruction set definition.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 from ..input import ErrorCollector, InputLocation
 from ..mode import MatchPlaceholder, MnemItem, ValuePlaceholder
@@ -30,12 +30,11 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 def parse_mnemonic(
     tokens: MnemonicTokenizer,
-    placeholders: dict[str, MatchPlaceholder | ValuePlaceholder],
+    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     seen_placeholders: dict[str, InputLocation] = {}
 
-    int_literal_counter = 0
     for token_type, token_loc in tokens:
         text = token_loc.text
         match token_type:
@@ -53,7 +52,10 @@ def parse_mnemonic(
                         location=(token_loc, seen_placeholders[text]),
                     )
                 else:
-                    yield placeholder
+                    if isinstance(placeholder, MatchPlaceholder):
+                        yield placeholder
+                    else:
+                        yield placeholder.ref
                     seen_placeholders[text] = token_loc
             case MnemonicToken.number:
                 try:
@@ -61,14 +63,7 @@ def parse_mnemonic(
                 except ValueError as ex:
                     collector.error(f"{ex}", location=token_loc)
                 else:
-                    # Create a synthetic placeholder for integer literal.
-                    name = f"#{int_literal_counter}"
-                    int_literal_counter += 1
-                    placeholder = ValuePlaceholder(
-                        name, int_reference(value, IntType.u(width)), token_loc
-                    )
-                    placeholders[name] = placeholder
-                    yield placeholder
+                    yield int_reference(value, IntType.u(width))
             case MnemonicToken.operator:
                 yield text.lstrip("\\")
             case MnemonicToken.bracket:
