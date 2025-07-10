@@ -8,8 +8,7 @@ from typing import Any, Final, overload, override
 from .codeblock import FunctionBody
 from .expression import Expression
 from .input import InputLocation
-from .reference import BitString, FixedValue, FixedValueReference, Reference, SingleStorage
-from .storage import ArgStorage, Storage
+from .reference import BitString, FixedValue, FixedValueReference, Reference
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
@@ -57,7 +56,7 @@ class EncodingExpr:
     def __repr__(self) -> str:
         return f"EncodingExpr({self._bits!r}, {self._location!r})"
 
-    def substitute(self, func: Callable[[str], BitString | None]) -> EncodingExpr:
+    def substitute(self, func: Callable[[str], Expression | None]) -> EncodingExpr:
         """
         Apply the given substitution function to each placeholder.
         The function is passed a placeholder name and should either return
@@ -65,15 +64,15 @@ class EncodingExpr:
         to preserve the placeholder.
         """
 
-        def subst_placeholder(storage: Storage) -> BitString | None:
-            match storage:
-                case ArgStorage(name=name):
+        def subst_placeholder(expr: Expression) -> Expression | None:
+            match expr:
+                case ImmediateValue(name=name):
                     return func(name)
                 case _:
                     return None
 
         bits = self._bits
-        new_bits = bits.substitute(storage_func=subst_placeholder)
+        new_bits = bits.substitute(expression_func=subst_placeholder)
         if bits is new_bits:
             return self
         else:
@@ -85,14 +84,12 @@ class EncodingExpr:
         their value in the given mapping.
         """
 
-        def rename_val_arg(storage: Storage) -> SingleStorage | None:
-            match storage:
-                case ArgStorage(name=name, width=width):
-                    return SingleStorage(ArgStorage(name_map[name], width))
-                case _:
-                    return None
-
-        return EncodingExpr(self._bits.substitute(storage_func=rename_val_arg), self._location)
+        return EncodingExpr(
+            self._bits.substitute(
+                expression_func=partial(_rename_immediate, name_map=name_map)
+            ),
+            self._location,
+        )
 
 
 class EncodingMultiMatch:
@@ -264,7 +261,7 @@ class Encoding:
                 sub_encodings[name] = sub_enc
                 return sub_enc
 
-        def subst_placeholder(name: str) -> BitString | None:
+        def subst_placeholder(name: str) -> Expression | None:
             try:
                 submatch = match.get_submatch(name)
             except KeyError:
@@ -274,7 +271,9 @@ class Encoding:
             first_item = get_sub_encoding(name, submatch)[0]
             match first_item:
                 case EncodingExpr(bits=bits):
-                    return bits
+                    # TODO: Currently the unit tests don't reach this.
+                    #       Is the code unreachable or are the tests incomplete?
+                    assert False, bits
                 case EncodingMultiMatch():
                     # TODO: Add support.
                     #       I think this will happen in practice, for example
@@ -566,11 +565,18 @@ class ModeMatch:
         Each yielded item has the instruction set's encoding width.
         """
 
-        def subst(name: str) -> BitString:
+        def subst(name: str) -> Expression:
             value = self._values.get(name)
             if value is not None:
-                return value
-            return next(self._subs[name].iter_bits())
+                # TODO: This is sufficient to pass the current unit tests, but can it really
+                #       only be FixedValue? If so, narrow annotations.
+                assert isinstance(value, FixedValue), type(value)
+                return value.expr
+            bits = next(self._subs[name].iter_bits())
+            # TODO: This is sufficient to pass the current unit tests, but can it really
+            #       only be FixedValue? If so, narrow annotations.
+            assert isinstance(bits, FixedValue), type(bits)
+            return bits.expr
 
         for enc_item in self._entry.encoding:
             match enc_item:

@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast, override
 
+from retroasm.symbol import ImmediateValue
+
 from .codeblock import FunctionBody
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
@@ -19,7 +21,6 @@ from .mode import (
     ModeEntry,
 )
 from .reference import FixedValue, FixedValueReference, SingleStorage, Variable, int_reference
-from .storage import ArgStorage
 from .types import IntType, Segment, mask_for_width, mask_to_segments
 from .utils import SingletonFromABC, bad_type
 
@@ -87,20 +88,20 @@ def decompose_encoding(
             for base, base_seg in enc_elem.bits.decompose():
                 segment = Segment(start, base_seg.width)
                 match base:
-                    case SingleStorage(storage=ArgStorage(name=name)):
+                    case FixedValue(expr=IntLiteral(value=value)):
+                        fixed_mask |= segment.mask
+                        fixed_value |= base_seg.cut(value) << start
+                    case FixedValue(expr=ImmediateValue(name=name)):
                         decode_map[name].append(
                             (base_seg.start, EncodedSegment(enc_idx, segment))
                         )
+                    case FixedValue():
+                        raise ValueError("unsupported operation in encoding")
                     case SingleStorage(storage=storage):
                         raise ValueError(
                             f"unsupported storage type in encoding: "
                             f"{storage.__class__.__name__}"
                         )
-                    case FixedValue(expr=IntLiteral(value=value)):
-                        fixed_mask |= segment.mask
-                        fixed_value |= base_seg.cut(value) << start
-                    case FixedValue():
-                        raise ValueError("unsupported operation in encoding")
                     case Variable():
                         raise ValueError("local variable cannot be used in encoding")
                     case base:

@@ -35,8 +35,9 @@ from ..namespace import (
     NameExistsError,
     ReadOnlyNamespace,
 )
-from ..reference import Reference, bad_reference
+from ..reference import FixedValueReference, Reference, bad_reference
 from ..storage import IOChannel, IOStorage, Register
+from ..symbol import ImmediateValue
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
 from .context_parser import parse_placeholders
@@ -516,8 +517,11 @@ def _parse_mode_encoding(
     enc_namespace = ContextNamespace(global_namespace)
     for name, placeholder in placeholders.items():
         if (enc_width := placeholder.encoding_width) is not None:
+            imm_type = IntType.u(enc_width)
+            imm_expr = ImmediateValue(name, imm_type)
+            imm_ref = FixedValueReference(imm_expr, imm_type)
             try:
-                enc_namespace.add_argument(name, IntType.u(enc_width), placeholder.location)
+                enc_namespace.define(name, imm_ref, placeholder.location)
             except NameExistsError as ex:
                 collector.error(f"bad placeholder: {ex}", location=ex.locations)
 
