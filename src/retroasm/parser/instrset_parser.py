@@ -33,7 +33,7 @@ from ..namespace import (
     GlobalNamespace,
     LocalNamespace,
     NameExistsError,
-    Namespace,
+    ReadOnlyNamespace,
 )
 from ..reference import Reference, bad_reference
 from ..storage import IOChannel, IOStorage, Register
@@ -413,7 +413,7 @@ def _parse_func(
 
 def _parse_encoding_expr(
     enc_node: ParseNode,
-    enc_namespace: Namespace,
+    enc_namespace: ReadOnlyNamespace,
     placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
 ) -> EncodingExpr:
     """

@@ -20,7 +20,7 @@ from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput
 from .mode import EncodingExpr, ModeMatch, ModeTable
-from .namespace import Namespace
+from .namespace import GlobalNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import IntType, Width
@@ -53,7 +53,7 @@ def flags_set_by_code(code: FunctionBody) -> Iterator[Storage]:
 
 
 class PrefixMappingFactory:
-    def __init__(self, namespace: Namespace):
+    def __init__(self, namespace: GlobalNamespace):
         self._namespace = namespace
         self._prefixes: list[Prefix] = []
         self._init_builder = SemanticsCodeBlockBuilder()

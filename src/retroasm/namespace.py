@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Set
-from typing import cast, override
+from typing import Never, TypeVar, cast, override
 
 from .function import Function
 from .input import BadInput, InputLocation
-from .reference import Reference, SingleStorage, Variable
+from .reference import FixedValueReference, Reference, SingleStorage, Variable
 from .storage import ArgStorage, IOChannel, Register, Storage
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
 type ReadOnlyNamespace = Mapping[str, NamespaceValue]
 
+ET = TypeVar("ET")
+PT = TypeVar("PT")
 
-class Namespace(Mapping[str, NamespaceValue]):
+
+class Namespace(Mapping[str, ET | PT]):
     """
     Mapping in which named elements such as variables, arguments,
     functions etc. are stored.
@@ -22,9 +25,9 @@ class Namespace(Mapping[str, NamespaceValue]):
     it is looked up in the parent namespace (if any).
     """
 
-    def __init__(self, parent: ReadOnlyNamespace | None):
+    def __init__(self, parent: Mapping[str, PT] | None):
         self.parent = parent
-        self.elements: dict[str, NamespaceValue] = {}
+        self.elements: dict[str, ET] = {}
         self.locations: dict[str, InputLocation | None] = {}
 
     @override
@@ -51,7 +54,7 @@ class Namespace(Mapping[str, NamespaceValue]):
         return key in self.elements or ((parent := self.parent) is not None and key in parent)
 
     @override
-    def __getitem__(self, key: str) -> NamespaceValue:
+    def __getitem__(self, key: str) -> ET | PT:
         try:
             return self.elements[key]
         except KeyError:
@@ -60,9 +63,7 @@ class Namespace(Mapping[str, NamespaceValue]):
                 raise
             return parent[key]
 
-    def define(
-        self, name: str, value: NamespaceValue, location: InputLocation | None = None
-    ) -> None:
+    def define(self, name: str, value: ET, location: InputLocation | None = None) -> None:
         """
         Define a named item in this namespace.
         Raises NameExistsError if the name was already taken.
@@ -77,9 +78,7 @@ class Namespace(Mapping[str, NamespaceValue]):
         self.locations[name] = location
         self.elements[name] = value
 
-    def _check_name(
-        self, name: str, value: NamespaceValue, location: InputLocation | None
-    ) -> None:
+    def _check_name(self, name: str, value: ET, location: InputLocation | None) -> None:
         """
         Check whether the given name can be used in this namespace for the given value.
 
@@ -92,7 +91,10 @@ class Namespace(Mapping[str, NamespaceValue]):
     ) -> Reference:
         bits = SingleStorage(storage)
         ref = Reference(bits, typ)
-        self.define(name, ref, location)
+        # TODO: We assume that T always includes Reference.
+        #       That's actually not true for ContextNamespace.
+        #       Instead, we should move add_argument() to a subclass.
+        self.define(name, cast(ET, ref), location)
         return ref
 
     def add_argument(
@@ -106,7 +108,7 @@ class Namespace(Mapping[str, NamespaceValue]):
         return self._add_named_storage(name, storage, typ, location)
 
 
-class ContextNamespace(Namespace):
+class ContextNamespace(Namespace[FixedValueReference, NamespaceValue]):
     """A namespace for a mode entry context."""
 
     @override
@@ -117,7 +119,7 @@ class ContextNamespace(Namespace):
         _reject_ret(name, location)
 
 
-class GlobalNamespace(Namespace):
+class GlobalNamespace(Namespace[NamespaceValue, Never]):
     """Namespace for the global scope."""
 
     def __init__(self) -> None:
@@ -142,7 +144,7 @@ class GlobalNamespace(Namespace):
         return self._add_named_storage(name, storage, typ, location)
 
 
-class LocalNamespace(Namespace):
+class LocalNamespace(Namespace[Reference, NamespaceValue]):
     """
     A namespace for local blocks, that can import entries from its parent
     namespace on demand.

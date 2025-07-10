@@ -69,7 +69,7 @@ class TestNamespace(LocalNamespace):
     parent: GlobalNamespace
 
     def __init__(self, parent: GlobalNamespace | None = None):
-        LocalNamespace.__init__(self, parent or GlobalNamespace())
+        super().__init__(parent or GlobalNamespace())
         self.builder = SemanticsCodeBlockBuilder()
 
     def create_code_block(
