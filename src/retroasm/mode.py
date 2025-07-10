@@ -84,12 +84,14 @@ class EncodingExpr:
         their value in the given mapping.
         """
 
-        return EncodingExpr(
-            self._bits.substitute(
-                expression_func=partial(_rename_immediate, name_map=name_map)
-            ),
-            self._location,
+        bits = self._bits
+        new_bits = bits.substitute(
+            expression_func=partial(_rename_immediate, name_map=name_map)
         )
+        if new_bits is bits:
+            return self
+        else:
+            return EncodingExpr(new_bits, self._location)
 
 
 class EncodingMultiMatch:
