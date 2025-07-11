@@ -26,7 +26,6 @@ from ..mode import (
     Mnemonic,
     Mode,
     ModeEntry,
-    ValuePlaceholder,
 )
 from ..namespace import (
     ContextNamespace,
@@ -40,7 +39,7 @@ from ..storage import IOChannel, IOStorage, Register
 from ..symbol import ImmediateValue
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
 from ..utils import bad_type
-from .context_parser import parse_placeholders
+from .context_parser import ModeMatchReference, parse_placeholders
 from .expression_builder import (
     BadExpression,
     UnknownNameError,
@@ -73,6 +72,16 @@ _name_tok = r"\s*(" + _name_pat + r")\s*"
 _type_tok = r"\s*(" + _name_pat + r"&?)\s*"
 
 _re_dot_sep = re.compile(r"\s*\.\s*")
+
+
+def _get_encoding_width(name: str, ref: FixedValueReference) -> Width | None:
+    match ref:
+        case ModeMatchReference(mode=mode):
+            return mode.encoding_width
+        case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+            return ref.type.width
+        case _:
+            return None
 
 
 def _parse_regs(
@@ -258,7 +267,11 @@ def _parse_prefix(
                         enc_items = []
                         for enc_node in enc_nodes:
                             try:
-                                enc_items.append(_parse_encoding_expr(enc_node, namespace, {}))
+                                enc_items.append(
+                                    _parse_encoding_expr(
+                                        enc_node, namespace, ContextNamespace(namespace)
+                                    )
+                                )
                             except BadInput as ex:
                                 collector.error(
                                     f"bad prefix encoding: {ex}", location=ex.locations
@@ -413,9 +426,7 @@ def _parse_func(
 
 
 def _parse_encoding_expr(
-    enc_node: ParseNode,
-    enc_namespace: ReadOnlyNamespace,
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    enc_node: ParseNode, enc_namespace: ReadOnlyNamespace, ctx_namespace: ContextNamespace
 ) -> EncodingExpr:
     """
     Parse encoding node that is not a MultiMatchNode.
@@ -423,28 +434,35 @@ def _parse_encoding_expr(
     Raises BadInput if the node is invalid.
     """
 
+    # TODO: Maybe TabooReference is a simpler way of explaining why a name is unavailable,
+    #       as the decision not to add and the rejection message can be kept together.
     def explain_not_in_namespace(name: str, locations: tuple[InputLocation, ...]) -> None:
-        placeholder = placeholders.get(name)
-        if placeholder is None:
-            # No placeholder with that name exists.
-            return
-
-        if placeholder.encoding_width is None:
-            if isinstance(placeholder, MatchPlaceholder):
-                raise BadInput(
-                    f'cannot use placeholder "{name}" '
-                    f'in encoding field, since mode "{placeholder.mode.name}" '
-                    f"has an empty encoding sequence",
-                    *locations,
-                    placeholder.location,
-                ) from None
-            else:
+        match ctx_namespace.elements.get(name):
+            case ModeMatchReference(mode=mode):
+                if mode.encoding_width is None:
+                    raise BadInput(
+                        f'cannot use placeholder "{name}" '
+                        f'in encoding field, since mode "{mode.name}" '
+                        f"has an empty encoding sequence",
+                        *locations,
+                        ctx_namespace.locations[name],
+                    ) from None
+            case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+                # TODO: The name exists in ctx_namespace but not in enc_namespace.
+                #       What does that mean? Is it a bug? User error?
+                pass
+            case FixedValueReference():
                 raise BadInput(
                     f'cannot use placeholder "{name}" in encoding field, '
                     "since its value is computed in the context",
                     *locations,
-                    placeholder.location,
+                    ctx_namespace.locations[name],
                 ) from None
+            case None:
+                # No placeholder with that name exists.
+                pass
+            case ref:
+                bad_type(ref)
 
     builder = SemanticsCodeBlockBuilder()
     namespace = LocalNamespace(enc_namespace)
@@ -479,9 +497,7 @@ def _parse_encoding_expr(
 
 
 def _parse_multi_match(
-    enc_node: MultiMatchNode,
-    identifiers: Set[str],
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    enc_node: MultiMatchNode, identifiers: Set[str], ctx_namespace: ContextNamespace
 ) -> EncodingMultiMatch:
     """
     Parse an encoding node of type MultiMatchNode.
@@ -490,38 +506,35 @@ def _parse_multi_match(
     """
     name = enc_node.name
     try:
-        placeholder = placeholders[name]
+        ref = ctx_namespace.elements[name]
     except KeyError:
         raise BadInput(
             f'placeholder "{name}" does not exist in context', enc_node.tree_location
         ) from None
-    if not isinstance(placeholder, MatchPlaceholder):
+    if not isinstance(ref, ModeMatchReference):
         raise BadInput(
             f'placeholder "{name}" does not represent a mode match',
             enc_node.tree_location,
-            placeholder.location,
+            ctx_namespace.locations[name],
         )
 
-    mode = placeholder.mode
+    mode = ref.mode
     start = 1 if name in identifiers else 0
     return EncodingMultiMatch(name, mode, start, enc_node.tree_location)
 
 
 def _parse_mode_encoding(
-    enc_nodes: Iterable[ParseNode],
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
-    global_namespace: GlobalNamespace,
-    collector: ErrorCollector,
+    enc_nodes: Iterable[ParseNode], ctx_namespace: ContextNamespace, collector: ErrorCollector
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
-    enc_namespace = ContextNamespace(global_namespace)
-    for name, placeholder in placeholders.items():
-        if (enc_width := placeholder.encoding_width) is not None:
+    enc_namespace = ContextNamespace(ctx_namespace.parent)
+    for name, ref in ctx_namespace.elements.items():
+        if (enc_width := _get_encoding_width(name, ref)) is not None:
             imm_type = IntType.u(enc_width)
             imm_expr = ImmediateValue(name, imm_type)
             imm_ref = FixedValueReference(imm_expr, imm_type)
             try:
-                enc_namespace.define(name, imm_ref, placeholder.location)
+                enc_namespace.define(name, imm_ref, ctx_namespace.locations[name])
             except NameExistsError as ex:
                 collector.error(f"bad placeholder: {ex}", location=ex.locations)
 
@@ -541,10 +554,10 @@ def _parse_mode_encoding(
                     pass
                 case MultiMatchNode():
                     # Match multiple encoding fields as-is.
-                    yield _parse_multi_match(enc_node, identifiers, placeholders)
+                    yield _parse_multi_match(enc_node, identifiers, ctx_namespace)
                 case _:
                     # Expression possibly containing single encoding field matches.
-                    yield _parse_encoding_expr(enc_node, enc_namespace, placeholders)
+                    yield _parse_encoding_expr(enc_node, enc_namespace, ctx_namespace)
         except BadInput as ex:
             collector.error(f"{ex}", location=ex.locations)
 
@@ -564,7 +577,7 @@ def _parse_flags_required(
 
 def _check_empty_multi_matches(
     enc_items: Iterable[EncodingItem],
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    ctx_namespace: ContextNamespace,
     collector: ErrorCollector,
 ) -> None:
     """
@@ -579,12 +592,12 @@ def _check_empty_multi_matches(
                 if mode.encoding_width is None:
                     collector.warning(
                         f'mode "{mode.name}" does not contain encoding elements',
-                        location=(enc_item.location, placeholders[enc_item.name].location),
+                        location=(enc_item.location, ctx_namespace.locations[enc_item.name]),
                     )
                 elif enc_item.start >= 1 and mode.aux_encoding_width is None:
                     collector.warning(
                         f'mode "{mode.name}" does not match auxiliary encoding units',
-                        location=(enc_item.location, placeholders[enc_item.name].location),
+                        location=(enc_item.location, ctx_namespace.locations[enc_item.name]),
                     )
 
 
@@ -659,7 +672,7 @@ def _check_duplicate_multi_matches(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    ctx_namespace: ContextNamespace,
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -670,7 +683,9 @@ def _combine_placeholder_encodings(
     within that item and width in bits.
     """
 
-    imm_widths = {name: p.encoding_width for name, p in placeholders.items()}
+    imm_widths = {
+        name: _get_encoding_width(name, ref) for name, ref in ctx_namespace.elements.items()
+    }
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
@@ -703,13 +718,14 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    ctx_namespace: ContextNamespace,
     collector: ErrorCollector,
 ) -> None:
     """
     Verifies that there is an order in which placeholders can be decoded.
     Such an order might not exist because of circular dependencies.
     """
+
     # Find indices of multi-matches.
     multi_match_indices = {
         enc_elem.name: enc_idx
@@ -731,22 +747,19 @@ def _check_decoding_order(
             enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            placeholder = placeholders[name]
-            assert isinstance(placeholder, MatchPlaceholder)
-            mode = placeholder.mode
+            ref = ctx_namespace.elements[name]
+            assert isinstance(ref, ModeMatchReference), (name, ref)
             collector.error(
-                f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
+                f'cannot match "{name}": mode "{ref.mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
-                location=[placeholder.location, matcher.location]
+                location=[ctx_namespace.locations[name], matcher.location]
                 + [encoding[idx].location for idx in bad_idx],
             )
 
 
 def _parse_mode_decoding(
-    encoding: Encoding,
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
-    collector: ErrorCollector,
+    encoding: Encoding, ctx_namespace: ContextNamespace, collector: ErrorCollector
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
@@ -767,8 +780,8 @@ def _parse_mode_decoding(
     try:
         with collector.check():
             # Check placeholders that should be encoded but aren't.
-            for name, placeholder in placeholders.items():
-                if placeholder.encoding_width is None:
+            for name, ref in ctx_namespace.elements.items():
+                if _get_encoding_width(name, ref) is None:
                     # Placeholder should not be encoded.
                     continue
                 if name in multi_matches:
@@ -780,26 +793,25 @@ def _parse_mode_decoding(
                     #       error message is more clear for end users.
                     collector.error(
                         f'placeholder "{name}" does not occur in encoding',
-                        location=(placeholder.location, encoding.location),
+                        location=(ctx_namespace.locations[name], encoding.location),
                     )
-                elif isinstance(placeholder, MatchPlaceholder):
-                    mode = placeholder.mode
-                    if mode.aux_encoding_width is not None:
+                elif isinstance(ref, ModeMatchReference):
+                    if (mode := ref.mode).aux_encoding_width is not None:
                         collector.error(
                             f'mode "{mode.name}" matches auxiliary encoding units, '
                             f'but there is no "{name}@" placeholder for them',
-                            location=(placeholder.location, encoding.location),
+                            location=(ctx_namespace.locations[name], encoding.location),
                         )
 
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(
-                    decode_map, placeholders, collector, encoding.encoding_location
+                    decode_map, ctx_namespace, collector, encoding.encoding_location
                 )
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, placeholders, collector)
+            _check_decoding_order(encoding, sequential_map, ctx_namespace, collector)
     except DelayedError:
         return None
     else:
@@ -880,15 +892,14 @@ def _parse_mode_entries(
         if ctx_loc:
             try:
                 with collector.check():
-                    placeholders = {
-                        p.name: p
-                        for p in parse_placeholders(ctx_loc, modes, global_namespace, collector)
-                    }
+                    ctx_namespace = parse_placeholders(
+                        ctx_loc, modes, global_namespace, collector
+                    )
             except DelayedError:
                 # To avoid error spam, skip this line.
                 continue
         else:
-            placeholders = {}
+            ctx_namespace = ContextNamespace(global_namespace)
 
         try:
             with collector.check():
@@ -909,13 +920,11 @@ def _parse_mode_entries(
                     try:
                         with collector.check():
                             enc_items = tuple(
-                                _parse_mode_encoding(
-                                    enc_nodes, placeholders, global_namespace, collector
-                                )
+                                _parse_mode_encoding(enc_nodes, ctx_namespace, collector)
                             )
                         with collector.check():
                             _check_aux_encoding_width(enc_items, collector)
-                            _check_empty_multi_matches(enc_items, placeholders, collector)
+                            _check_empty_multi_matches(enc_items, ctx_namespace, collector)
                             _check_duplicate_multi_matches(enc_items, collector)
                         # Parse required decode flags.
                         with collector.check():
@@ -929,12 +938,12 @@ def _parse_mode_entries(
                 if encoding is None:
                     decoding = None
                 else:
-                    decoding = _parse_mode_decoding(encoding, placeholders, collector)
+                    decoding = _parse_mode_decoding(encoding, ctx_namespace, collector)
 
                 # Parse mnemonic.
                 # Additional placeholders may be inserted by the mnemonic parser.
                 mnem_tokens = mnem_base_tokens + MnemonicTokenizer.scan(mnem_loc)
-                mnem_items = tuple(parse_mnemonic(mnem_tokens, placeholders, collector))
+                mnem_items = tuple(parse_mnemonic(mnem_tokens, ctx_namespace, collector))
                 if len(mnem_items) == 0:
                     collector.error("missing mnemonic", location=mnem_loc)
                 else:
@@ -950,22 +959,23 @@ def _parse_mode_entries(
                     sem_namespace = LocalNamespace(global_namespace)
                     try:
                         # Define placeholders in semantics builder.
-                        for name, placeholder in placeholders.items():
-                            match placeholder:
-                                case MatchPlaceholder(
-                                    mode=Mode(semantics_type=sem_type), location=location
-                                ):
+                        for name, ref in ctx_namespace.elements.items():
+                            location = ctx_namespace.locations[name]
+                            match ref:
+                                case ModeMatchReference(mode=mode):
+                                    sem_type = mode.semantics_type
                                     arg_type = (
                                         sem_type.type
                                         if isinstance(sem_type, ReferenceType)
                                         else sem_type
                                     )
                                     sem_namespace.add_argument(name, arg_type, location)
-                                case ValuePlaceholder(
-                                    type=arg_type, expr=expr, location=location
-                                ):
-                                    ref = sem_namespace.add_variable(name, arg_type, location)
-                                    ref.emit_store(sem_builder, expr, None)
+                                case FixedValueReference(expr=expr, type=arg_type):
+                                    sem_namespace.add_variable(
+                                        name, arg_type, location
+                                    ).emit_store(sem_builder, expr, None)
+                                case _:
+                                    bad_type(ref)
 
                         sem_ref = parse_sem(
                             collector, sem_loc, sem_namespace, sem_builder, mode_type
@@ -992,11 +1002,15 @@ def _parse_mode_entries(
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
                     semantics,
-                    (p for p in placeholders.values() if isinstance(p, MatchPlaceholder)),
+                    (
+                        MatchPlaceholder(name, ref.mode, ctx_namespace.locations[name])
+                        for name, ref in ctx_namespace.elements.items()
+                        if isinstance(ref, ModeMatchReference)
+                    ),
                     {
-                        p.name: p.ref
-                        for p in placeholders.values()
-                        if isinstance(p, ValuePlaceholder)
+                        name: ref
+                        for name, ref in ctx_namespace.elements.items()
+                        if not isinstance(ref, ModeMatchReference)
                     },
                 )
                 yield ParsedModeEntry(entry, *decoding)

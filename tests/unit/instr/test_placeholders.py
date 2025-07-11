@@ -81,7 +81,7 @@ def test_placeholder_mode_duplicate(instr_tester: InstructionSetDocstringTester)
 
     .. code-block:: inputlog
 
-        test.instr:2: ERROR: failed to define mode match placeholder: name "R" redefined
+        test.instr:2: ERROR: failed to define placeholder: name "R" redefined
         R . R . R . reg32 R, reg32 R
                           ~        ^
 
@@ -141,7 +141,7 @@ def test_placeholder_value_shadow(instr_tester: InstructionSetDocstringTester) -
 
     .. code-block:: inputlog
 
-        test.instr:5: ERROR: failed to define value placeholder: name "x" redefined
+        test.instr:5: ERROR: failed to define placeholder: name "x" redefined
         x . x . x . int x
                         ^
         test.instr:2:

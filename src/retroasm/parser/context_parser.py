@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
 from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, Mode, ValuePlaceholder
+from ..mode import Mode
 from ..namespace import ContextNamespace, GlobalNamespace, NameExistsError
 from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
@@ -17,12 +17,25 @@ from .expression_nodes import ConstRefDeclarationNode, DefinitionNode
 from .expression_parser import parse_context
 
 
+class ModeMatchReference(TabooReference):
+    __slots__ = ("mode",)
+
+    def __init__(self, name: str, mode: Mode):
+        super().__init__(
+            # The type doesn't matter, as the fetch will be rejected,
+            # but we must provide something.
+            IntType.int,
+            f'mode match placeholder "{name}" cannot be used in context value',
+        )
+        self.mode = mode
+
+
 def parse_placeholders(
     ctx_loc: InputLocation,
     modes: Mapping[str, Mode],
     global_namespace: GlobalNamespace,
     collector: ErrorCollector,
-) -> Iterator[MatchPlaceholder | ValuePlaceholder]:
+) -> ContextNamespace:
     """Yield the placeholders defined in the given context."""
 
     pc = global_namespace.program_counter
@@ -41,7 +54,6 @@ def parse_placeholders(
         decl_type = decl.type
         type_name = decl_type.name
         name = decl.name.name
-        location = decl.tree_location
 
         if (mode := modes.get(type_name)) is not None:
             # Found a mode by this name.
@@ -53,21 +65,7 @@ def parse_placeholders(
 
             # Mode placeholders are added to the namespace and then rejected
             # when fetched, to avoid a confusing "unknown name" error.
-            try:
-                # The type doesn't matter, as the fetch will be rejected,
-                # but we must provide something.
-                ref = TabooReference(
-                    IntType.int,
-                    f'mode match placeholder "{name}" cannot be used in context value',
-                )
-                ctx_namespace.define(name, ref, decl.name.location)
-            except NameExistsError as ex:
-                collector.error(
-                    f"failed to define mode match placeholder: {ex}", location=ex.locations
-                )
-                continue
-
-            yield MatchPlaceholder(name, mode, location)
+            val_ref: FixedValueReference = ModeMatchReference(name, mode)
         else:
             # Since it's not a mode, it must be a value type.
             try:
@@ -111,14 +109,11 @@ def parse_placeholders(
             if val_expr is None:
                 val_expr = ImmediateValue(name, val_type)
 
-            # Add value placeholder to namespace.
             val_ref = FixedValueReference(val_expr, val_type)
-            try:
-                ctx_namespace.define(name, val_ref, decl.name.location)
-            except NameExistsError as ex:
-                collector.error(
-                    f"failed to define value placeholder: {ex}", location=ex.locations
-                )
-                continue
 
-            yield ValuePlaceholder(name, val_ref, location)
+        try:
+            ctx_namespace.define(name, val_ref, decl.name.location)
+        except NameExistsError as ex:
+            collector.error(f"failed to define placeholder: {ex}", location=ex.locations)
+
+    return ctx_namespace

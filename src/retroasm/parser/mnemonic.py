@@ -4,13 +4,15 @@ Parser for mnemonic column in instruction set definition.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, MnemItem, ValuePlaceholder
-from ..reference import int_reference
+from ..mode import MatchPlaceholder, MnemItem
+from ..namespace import ContextNamespace
+from ..reference import FixedValueReference, int_reference
 from ..types import IntType
 from ..utils import bad_type
+from .context_parser import ModeMatchReference
 from .expression_nodes import parse_int
 from .tokens import TokenEnum, Tokenizer
 
@@ -30,7 +32,7 @@ class MnemonicTokenizer(Tokenizer[MnemonicToken]):
 
 def parse_mnemonic(
     tokens: MnemonicTokenizer,
-    placeholders: Mapping[str, MatchPlaceholder | ValuePlaceholder],
+    ctx_namespace: ContextNamespace,
     collector: ErrorCollector,
 ) -> Iterator[MnemItem]:
     seen_placeholders: dict[str, InputLocation] = {}
@@ -39,8 +41,8 @@ def parse_mnemonic(
         text = token_loc.text
         match token_type:
             case MnemonicToken.identifier:
-                placeholder = placeholders.get(text)
-                if placeholder is None:
+                ctx_ref = ctx_namespace.elements.get(text)
+                if ctx_ref is None:
                     yield text
                 elif text in seen_placeholders:
                     # In theory we could support repeated placeholders, but the only
@@ -52,10 +54,13 @@ def parse_mnemonic(
                         location=(token_loc, seen_placeholders[text]),
                     )
                 else:
-                    if isinstance(placeholder, MatchPlaceholder):
-                        yield placeholder
+                    if isinstance(ctx_ref, ModeMatchReference):
+                        yield MatchPlaceholder(
+                            text, ctx_ref.mode, ctx_namespace.locations[text]
+                        )
                     else:
-                        yield placeholder.ref
+                        assert isinstance(ctx_ref, FixedValueReference), ctx_ref
+                        yield ctx_ref
                     seen_placeholders[text] = token_loc
             case MnemonicToken.number:
                 try:
