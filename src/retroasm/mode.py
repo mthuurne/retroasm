@@ -768,49 +768,6 @@ def _rename_immediate(expr: Expression, name_map: Mapping[str, str]) -> Expressi
 
 
 @dataclass(frozen=True)
-class ValuePlaceholder:
-    """An element from a mode context that represents a numeric value."""
-
-    name: str
-    ref: FixedValueReference
-    location: InputLocation | None = None
-
-    @property
-    def type(self) -> IntType:
-        return self.ref.type
-
-    @property
-    def expr(self) -> Expression:
-        return self.ref.expr
-
-    @property
-    def bits(self) -> FixedValue:
-        return self.ref.bits
-
-    @property
-    def encoding_width(self) -> Width | None:
-        """
-        The number of bits used to encode this placeholder,
-        or ``None`` if this placeholder is not encoded.
-        """
-        name = self.name
-        expr = self.expr
-        # Could be written more compact, but pylint's type narrowing won't work then.
-        # https://github.com/pylint-dev/pylint/issues/4920
-        if isinstance(expr, ImmediateValue):
-            if expr.name == name:
-                return self.type.width
-        return None
-
-    @override
-    def __str__(self) -> str:
-        if self.encoding_width is None:
-            return f"{{{self.type} {self.name} = {self.expr}}}"
-        else:
-            return f"{{{self.type} {self.name}}}"
-
-
-@dataclass(frozen=True)
 class MatchPlaceholder:
     """
     An element from a mode context that will be filled in by a match made
