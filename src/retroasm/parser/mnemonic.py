@@ -55,9 +55,7 @@ def parse_mnemonic(
                     )
                 else:
                     if isinstance(ctx_ref, ModeMatchReference):
-                        yield MatchPlaceholder(
-                            text, ctx_ref.mode, ctx_namespace.locations[text]
-                        )
+                        yield MatchPlaceholder(text, ctx_ref.mode)
                     else:
                         assert isinstance(ctx_ref, FixedValueReference), ctx_ref
                         yield ctx_ref

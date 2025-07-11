@@ -22,7 +22,6 @@ from ..mode import (
     EncodingExpr,
     EncodingItem,
     EncodingMultiMatch,
-    MatchPlaceholder,
     Mnemonic,
     Mode,
     ModeEntry,
@@ -1002,11 +1001,11 @@ def _parse_mode_entries(
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
                     semantics,
-                    (
-                        MatchPlaceholder(name, ref.mode, ctx_namespace.locations[name])
+                    {
+                        name: ref.mode
                         for name, ref in ctx_namespace.elements.items()
                         if isinstance(ref, ModeMatchReference)
-                    ),
+                    },
                     {
                         name: ref
                         for name, ref in ctx_namespace.elements.items()

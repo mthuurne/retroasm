@@ -417,10 +417,9 @@ def _create_entry_decoder(
     # Match placeholders that are not represented in the encoding.
     # Typically these are matched on decode flags.
     match = EncodeMatch(entry)
-    for match_placeholder in entry.match_placeholders:
-        name = match_placeholder.name
+    for name, mode in entry.match_placeholders.items():
         if name not in decoding and name not in multi_matches:
-            match factory.create_decoder(match_placeholder.mode.name, name):
+            match factory.create_decoder(mode.name, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
                 case MatchFoundDecoder(entry=entry):
@@ -435,8 +434,7 @@ def _create_entry_decoder(
 
     # Insert matchers at the last index they need.
     matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding))]
-    for match_placeholder in entry.match_placeholders:
-        name = match_placeholder.name
+    for name, mode in entry.match_placeholders.items():
         try:
             encoded_segments = decoding[name]
         except KeyError:
@@ -445,7 +443,7 @@ def _create_entry_decoder(
             last_idx = max(seg.enc_idx for seg in encoded_segments)
             multi_match_idx = multi_matches.get(name)
             if multi_match_idx is None:
-                matcher: _EncodingMatcher = match_placeholder
+                matcher: _EncodingMatcher = MatchPlaceholder(name, mode)
             else:
                 last_idx = max(last_idx, multi_match_idx)
                 matcher = cast(EncodingMultiMatch, encoding[multi_match_idx])
@@ -628,7 +626,7 @@ def _qualify_names(
     If `branch_name` is `None`, no renaming is performed.
     """
     entry = parsed_entry.entry
-    placeholder_names = [p.name for p in entry.match_placeholders]
+    placeholder_names = list(entry.match_placeholders)
     placeholder_names += entry.value_placeholders
     if branch_name is None or len(placeholder_names) == 0:
         # Do not rename.

@@ -473,26 +473,26 @@ class ModeEntry:
         encoding: Encoding,
         mnemonic: Mnemonic,
         semantics: FunctionBody | None,
-        match_placeholders: Iterable[MatchPlaceholder],
+        match_placeholders: Mapping[str, Mode],
         value_placeholders: Mapping[str, FixedValueReference],
     ):
         self.encoding = encoding
         self.mnemonic = mnemonic
         self._semantics = semantics
-        self._match_placeholders = tuple(match_placeholders)
+        self._match_placeholders = dict(match_placeholders)
         self._value_placeholders = dict(value_placeholders)
 
     @override
     def __repr__(self) -> str:
         return (
             f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
-            f"{self._semantics!r}, {self.match_placeholders!r}, "
+            f"{self._semantics!r}, {self._match_placeholders!r}, "
             f"{self._value_placeholders!r})"
         )
 
     @property
-    def match_placeholders(self) -> Iterator[MatchPlaceholder]:
-        return iter(self._match_placeholders)
+    def match_placeholders(self) -> Mapping[str, Mode]:
+        return self._match_placeholders
 
     @property
     def value_placeholders(self) -> Mapping[str, FixedValueReference]:
@@ -525,7 +525,7 @@ class ModeEntry:
             self.mnemonic.rename(name_map),
             # TODO: Rename immediates in semantics as well.
             self._semantics,
-            (p.rename(name_map) for p in self._match_placeholders),
+            {name_map[name]: mode for name, mode in self._match_placeholders.items()},
             {
                 name_map[name]: ref.substitute(partial(_rename_immediate, name_map=name_map))
                 for name, ref in self._value_placeholders.items()
@@ -776,7 +776,6 @@ class MatchPlaceholder:
 
     name: str
     mode: Mode
-    location: InputLocation | None = None
 
     @property
     def encoding_width(self) -> Width | None:
@@ -791,7 +790,7 @@ class MatchPlaceholder:
         return f"{{{self.mode.name} {self.name}}}"
 
     def rename(self, name_map: Mapping[str, str]) -> MatchPlaceholder:
-        return MatchPlaceholder(name_map[self.name], self.mode, self.location)
+        return MatchPlaceholder(name_map[self.name], self.mode)
 
 
 class EncodeMatch:
@@ -861,11 +860,9 @@ class EncodeMatch:
         mnemonic = entry.mnemonic.fill_placeholders(self)
         # TODO: Fill in placeholders in semantics too.
         semantics = entry.semantics
-        unfilled_matches = (
-            placeholder
-            for placeholder in entry.match_placeholders
-            if placeholder.name not in subs
-        )
+        unfilled_matches = {
+            name: mode for name, mode in entry._match_placeholders.items() if name not in subs
+        }
         unfilled_values = {
             name: ref for name, ref in entry.value_placeholders.items() if name not in values
         }

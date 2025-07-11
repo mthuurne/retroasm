@@ -40,15 +40,12 @@ def test_placeholder_mode_forward(instr_tester: InstructionSetDocstringTester) -
     """
     instr_tester.check()
 
-    mode: Mode = instr_tester.parser.modes["forward"]
+    mode = instr_tester.parser.modes["forward"]
     (entry,) = mode.entries
-    match_placeholders = list(entry.match_placeholders)
-    assert len(match_placeholders) == 1
+    reg32 = instr_tester.parser.modes["reg32"]
+    assert entry.match_placeholders == {"R": reg32}
     value_placeholders = entry.value_placeholders
     assert len(value_placeholders) == 0
-    (placeholder,) = match_placeholders
-    assert placeholder.name == "R"
-    assert placeholder.mode.name == "reg32"
 
 
 def test_placeholder_mode_with_value(instr_tester: InstructionSetDocstringTester) -> None:
