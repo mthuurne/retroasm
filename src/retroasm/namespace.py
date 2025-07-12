@@ -6,7 +6,7 @@ from typing import Never, TypeVar, cast, override
 from .function import Function
 from .input import BadInput, InputLocation
 from .reference import FixedValueReference, Reference, SingleStorage, Variable
-from .storage import ArgStorage, IOChannel, Register, Storage
+from .storage import ArgStorage, IOChannel, Register
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
@@ -86,27 +86,6 @@ class Namespace(Mapping[str, ET | PT]):
         The default implementation accepts all names.
         """
 
-    def _add_named_storage(
-        self, name: str, storage: Storage, typ: IntType, location: InputLocation | None
-    ) -> Reference:
-        bits = SingleStorage(storage)
-        ref = Reference(bits, typ)
-        # TODO: We assume that T always includes Reference.
-        #       That's actually not true for ContextNamespace.
-        #       Instead, we should move add_argument() to a subclass.
-        self.define(name, cast(ET, ref), location)
-        return ref
-
-    def add_argument(
-        self, name: str, typ: IntType, location: InputLocation | None = None
-    ) -> Reference:
-        """
-        Add an pass-by-reference argument to this namespace.
-        Returns a reference to the argument's storage.
-        """
-        storage = ArgStorage(name, typ.width)
-        return self._add_named_storage(name, storage, typ, location)
-
 
 class ContextNamespace(Namespace[FixedValueReference, NamespaceValue]):
     """A namespace for a mode entry context."""
@@ -141,7 +120,10 @@ class GlobalNamespace(Namespace[NamespaceValue, Never]):
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
         storage = Register(name, typ.width)
-        return self._add_named_storage(name, storage, typ, location)
+        bits = SingleStorage(storage)
+        ref = Reference(bits, typ)
+        self.define(name, ref, location)
+        return ref
 
 
 class LocalNamespace(Namespace[Reference, NamespaceValue]):
@@ -155,6 +137,19 @@ class LocalNamespace(Namespace[Reference, NamespaceValue]):
         self, name: str, value: NamespaceValue, location: InputLocation | None
     ) -> None:
         _reject_pc(name, location)
+
+    def add_argument(
+        self, name: str, typ: IntType, location: InputLocation | None = None
+    ) -> Reference:
+        """
+        Add an pass-by-reference argument to this namespace.
+        Returns a reference to the argument's storage.
+        """
+        storage = ArgStorage(name, typ.width)
+        bits = SingleStorage(storage)
+        ref = Reference(bits, typ)
+        self.define(name, ref, location)
+        return ref
 
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
