@@ -119,9 +119,7 @@ class GlobalNamespace(Namespace[NamespaceValue, Never]):
     def add_register(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        storage = Register(name, typ.width)
-        bits = SingleStorage(storage)
-        ref = Reference(bits, typ)
+        ref = Reference(SingleStorage(Register(name, typ.width)), typ)
         self.define(name, ref, location)
         return ref
 
@@ -145,17 +143,14 @@ class LocalNamespace(Namespace[Reference, NamespaceValue]):
         Add an pass-by-reference argument to this namespace.
         Returns a reference to the argument's storage.
         """
-        storage = ArgStorage(name, typ.width)
-        bits = SingleStorage(storage)
-        ref = Reference(bits, typ)
+        ref = Reference(SingleStorage(ArgStorage(name, typ.width)), typ)
         self.define(name, ref, location)
         return ref
 
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        bits = Variable(name, typ.width)
-        ref = Reference(bits, typ)
+        ref = Reference(Variable(name, typ.width), typ)
         self.define(name, ref, location)
         return ref
 
