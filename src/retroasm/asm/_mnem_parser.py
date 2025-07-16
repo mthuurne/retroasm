@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TypeAlias, Union, override
+from typing import override
 
 from ..instrset import InstructionSet
 from ..mode import MatchPlaceholder, Mode, ModeEntry
 from ..reference import FixedValueReference
 from ..utils import bad_type
 
-MnemMatch: TypeAlias = Union[str, type[int], "Mode"]
+type MnemMatch = str | type[int] | Mode
 
 
 class MnemTreeNode:
