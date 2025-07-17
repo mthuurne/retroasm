@@ -231,7 +231,7 @@ class FunctionBody:
     A code block with returned bit strings.
     """
 
-    __slots__ = ("_block", "_returned", "_storages")
+    __slots__ = ("_block", "_returned", "_storages", "_arguments")
 
     def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
         self._block = BasicBlock(nodes)
@@ -266,6 +266,11 @@ class FunctionBody:
             storages.update(ret_bits.iter_storages())
         return storages
 
-    @property
+    @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        return self._block.arguments
+        args = dict(self._block.arguments)
+        for ret in self._returned:
+            for storage in ret.iter_storages():
+                if isinstance(storage, ArgStorage):
+                    args[storage.name] = storage
+        return args
