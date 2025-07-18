@@ -8,7 +8,7 @@ from typing import Any, Final, overload, override
 from .codeblock import FunctionBody
 from .expression import Expression
 from .input import InputLocation
-from .reference import BitString, FixedValue, FixedValueReference, Reference
+from .reference import BitString, FixedValue, FixedValueReference
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
@@ -35,10 +35,6 @@ class EncodingExpr:
     @property
     def encoding_type(self) -> IntType:
         return IntType.u(self.encoding_width)
-
-    @property
-    def reference(self) -> Reference:
-        return Reference(self.bits, self.encoding_type)
 
     @property
     def encoded_length(self) -> int:
