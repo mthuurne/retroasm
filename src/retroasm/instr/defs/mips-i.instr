@@ -114,14 +114,10 @@ instr
 %001001;RS;RT;N                     . addiu RT,RS,N     . RT := RS + N          . reg RS, reg RT, s16 N
 
 func mult(s32 V0, s32 V1)
-    # TODO: Implement actual multiplication support.
-    lo := V0 # low word of V0*V1
-    hi := V1 # high word of V0*V1
+    hi ; lo := V0 * V1
 
 func multu(u32 V0, u32 V1)
-    # TODO: Implement actual multiplication support.
-    lo := V0 # low word of V0*V1
-    hi := V1 # high word of V0*V1
+    hi ; lo := V0 * V1
 
 func div(s32 N, s32 D)
     # TODO: Implement actual div/mod support.
