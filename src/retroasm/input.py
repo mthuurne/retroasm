@@ -283,7 +283,7 @@ class ErrorCollector:
         *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.error("%s", msg, extra={"location": location})
+        self._logger.error("%s", msg, extra={"location": location}, stacklevel=2)
         self.problem_counter.num_errors += 1
 
         if isinstance(location, Sequence):
@@ -298,7 +298,7 @@ class ErrorCollector:
         *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.warning("%s", msg, extra={"location": location})
+        self._logger.warning("%s", msg, extra={"location": location}, stacklevel=2)
         self.problem_counter.num_warnings += 1
 
     def info(
@@ -307,13 +307,15 @@ class ErrorCollector:
         *,
         location: InputLocation | None | Sequence[InputLocation | None] = None,
     ) -> None:
-        self._logger.info("%s", msg, extra={"location": location})
+        self._logger.info("%s", msg, extra={"location": location}, stacklevel=2)
 
     def summarize(self, path: str) -> None:
         """Log a message containing the error and warning counts."""
         problem_counter = self.problem_counter
         # Call superclass implementation to skip problem counter update.
-        self._logger.log(problem_counter.level, "%s", problem_counter, extra={"location": path})
+        self._logger.log(
+            problem_counter.level, "%s", problem_counter, extra={"location": path}, stacklevel=2
+        )
 
     @contextmanager
     def check(self) -> Iterator[ErrorCollector]:
