@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
+from typing import override
 
 from ..input import ProblemCounter
 from ..reference import FixedValueReference
@@ -15,6 +16,10 @@ class Instruction:
 
     def __init__(self, mnemonic: Iterable[str | FixedValueReference]):
         self._mnemonic = tuple(mnemonic)
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._mnemonic})"
 
 
 class AsmSource:
