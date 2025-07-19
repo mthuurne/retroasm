@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from retroasm.expression import AddOperator, IntLiteral, SignExtension
+from retroasm.expression import AddOperator, IntLiteral
 from retroasm.mode import Mode, ModeMatch
 from retroasm.reference import FixedValue
 from retroasm.symbol import CurrentAddress
 from retroasm.types import unlimited
 
-from ..expression.utils import assert_trunc
+from ..expression.utils import assert_int_literal, assert_trunc
 from .conftest import InstructionSetDocstringTester
 
 
@@ -104,6 +104,25 @@ def test_placeholder_mode_in_expr(instr_tester: InstructionSetDocstringTester) -
 
     """
     instr_tester.check()
+
+
+def test_placeholder_value_negative(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    A signed placeholder can have a negative constant value.
+
+    .. code-block:: instr
+
+        mode s8 signed_const
+        .. N . s8 N = -123
+
+    """
+    instr_tester.check()
+
+    mode: Mode = instr_tester.parser.modes["signed_const"]
+    (entry,) = mode.entries
+
+    (placeholder,) = entry.value_placeholders.values()
+    assert_int_literal(placeholder.expr, -123)
 
 
 def test_placeholder_value_reference(instr_tester: InstructionSetDocstringTester) -> None:
@@ -207,7 +226,7 @@ def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringT
     assert len(value_placeholders) == 2
     placeholder_n = value_placeholders["N"]
     placeholder_a = value_placeholders["A"]
-    expected = AddOperator(SignExtension(placeholder_n.expr, 16), CurrentAddress())
+    expected = AddOperator(CurrentAddress(), placeholder_n.expr)
     assert_trunc(placeholder_a.expr, expected, unlimited, 32)
 
 

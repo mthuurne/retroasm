@@ -23,15 +23,8 @@ from .expression_simplifier import simplify_expression
 from .input import InputLocation
 from .storage import IOChannel, IOStorage, Storage
 from .symbol import SymbolValue
-from .types import (
-    IntType,
-    ReferenceType,
-    Segment,
-    Width,
-    mask_for_width,
-    unlimited,
-    width_for_mask,
-)
+from .types import IntType, ReferenceType, Segment, Width, mask_for_width, unlimited
+from .utils import const_property
 
 if TYPE_CHECKING:
     from .codeblock_builder import CodeBlockBuilder
@@ -150,11 +143,10 @@ class FixedValue(BitString):
     def __init__(self, expr: Expression, width: Width):
         """
         Construct a FixedValue with the given value and width.
-        The mask of the value Expression must fit within the given width.
+        The expression will be truncated to the given width.
         """
         super().__init__(width)
-        self._expr = expr
-        assert width_for_mask(expr.mask) <= width, expr
+        self._expr = simplify_expression(truncate(expr, width))
 
     @override
     def __repr__(self) -> str:
@@ -628,7 +620,7 @@ class Reference:
 class FixedValueReference(Reference):
     """Reference to a value defined by an expression."""
 
-    __slots__ = ()
+    __slots__ = ("_expr",)
 
     if TYPE_CHECKING:
 
@@ -636,9 +628,9 @@ class FixedValueReference(Reference):
         @override
         def bits(self) -> FixedValue: ...
 
-    @property
+    @const_property
     def expr(self) -> Expression:
-        return self.bits.expr
+        return simplify_expression(decode_int(self.bits.expr, self.type))
 
     def __init__(self, expr: Expression, typ: IntType):
         super().__init__(FixedValue(expr, typ.width), typ)

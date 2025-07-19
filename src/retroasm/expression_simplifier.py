@@ -23,7 +23,7 @@ from .expression import (
     XorOperator,
     opt_slice,
 )
-from .symbol import SymbolValue
+from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
@@ -377,6 +377,10 @@ def _simplify_sign_extension(sign_extend: SignExtension) -> Expression:
             value &= mask
             value -= (value << 1) & (1 << width)
             return IntLiteral(value)
+        case ImmediateValue(type=typ) as imm if typ.signed and typ.width <= width:
+            # Besides efficiency, this simplification is also enables easy detection of
+            # value placeholders without an assigned value.
+            return imm
         case expr:
             pass
 

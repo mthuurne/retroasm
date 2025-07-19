@@ -104,14 +104,7 @@ class Formatter:
             case CurrentAddress():
                 return "$"
             case IntLiteral(value=value):
-                expr_type = ref.type
-                width = expr_type.width
-                if expr_type.signed:
-                    if width != 0 and width is not unlimited:
-                        assert isinstance(width, int)
-                        if value & 1 << (width - 1):
-                            value -= 1 << width
-                return self.value(value, expr_type)
+                return self.value(value, ref.type)
             case expr:
                 # TODO: Use a recursive expression pretty printer.
                 #       Once we start formatting actual sources instead of only
