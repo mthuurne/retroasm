@@ -943,10 +943,9 @@ def _parse_mode_entries(
                 # Additional placeholders may be inserted by the mnemonic parser.
                 mnem_tokens = mnem_base_tokens + MnemonicTokenizer.scan(mnem_loc)
                 mnem_items = tuple(parse_mnemonic(mnem_tokens, ctx_namespace, collector))
-                if len(mnem_items) == 0:
-                    collector.error("missing mnemonic", location=mnem_loc)
-                else:
-                    mnemonic = Mnemonic(mnem_items)
+                if mode_type is None and (not mnem_items or not isinstance(mnem_items[0], str)):
+                    collector.error("missing instruction name", location=mnem_loc)
+                mnemonic = Mnemonic(mnem_items)
 
                 # Parse semantics.
                 if want_semantics:
