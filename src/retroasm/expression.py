@@ -428,6 +428,8 @@ class SingleExpression(Expression):
 class Complement(SingleExpression):
     __slots__ = ("_mask",)
 
+    operator = "-"
+
     @override
     def __str__(self) -> str:
         return f"-{self._expr}"
@@ -441,6 +443,8 @@ class Complement(SingleExpression):
 
 class Negation(SingleExpression):
     __slots__ = ()
+
+    operator = "!"
 
     @property
     @override
@@ -516,6 +520,8 @@ class LShift(SingleExpression):
 
     __slots__ = ("_offset", "_mask")
 
+    operator = "<<"
+
     @property
     def offset(self) -> int:
         return self._offset
@@ -555,6 +561,8 @@ class RShift(SingleExpression):
     """Drops the lower N bits from a bit string."""
 
     __slots__ = ("_offset", "_mask")
+
+    operator = ">>"
 
     @property
     def offset(self) -> int:
@@ -599,6 +607,8 @@ class LVShift(Expression):
     """
 
     __slots__ = ("_expr", "_offset", "_mask")
+
+    operator = "<<"
 
     @property
     def expr(self) -> Expression:
@@ -659,6 +669,8 @@ class RVShift(Expression):
     """
 
     __slots__ = ("_expr", "_offset", "_mask")
+
+    operator = ">>"
 
     @property
     def expr(self) -> Expression:

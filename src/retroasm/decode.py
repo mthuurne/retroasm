@@ -95,8 +95,13 @@ def decompose_encoding(
                         decode_map[name].append(
                             (base_seg.start, EncodedSegment(enc_idx, segment))
                         )
-                    case FixedValue():
-                        raise ValueError("unsupported operation in encoding")
+                    case FixedValue(expr=expr):
+                        if (op := getattr(expr, "operator", None)) is not None:
+                            raise ValueError(f"unsupported operator in encoding: {op}")
+                        raise ValueError(
+                            f"unsupported expression type in encoding: "
+                            f"{expr.__class__.__name__}"
+                        )
                     case SingleStorage(storage=storage):
                         raise ValueError(
                             f"unsupported storage type in encoding: "
