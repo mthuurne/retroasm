@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from retroasm.expression import AddOperator, SignExtension
-from retroasm.mode import Mode
+from retroasm.expression import AddOperator, IntLiteral, SignExtension
+from retroasm.mode import Mode, ModeMatch
+from retroasm.reference import FixedValue
 from retroasm.symbol import CurrentAddress
 from retroasm.types import unlimited
 
@@ -208,3 +209,48 @@ def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringT
     placeholder_a = value_placeholders["A"]
     expected = AddOperator(SignExtension(placeholder_n.expr, 16), CurrentAddress())
     assert_trunc(placeholder_a.expr, expected, unlimited, 32)
+
+
+def test_placeholder_encode_func_ref(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Function calls are supported in the encoding.
+
+    .. code-block:: instr
+
+        func pad(u8& N)
+            def u16& ret = $0;N;$0
+
+        mode u8 pad_imm
+        pad(N) . N . N . u8 N
+
+    """
+    instr_tester.check()
+
+    mode: Mode = instr_tester.parser.modes["pad_imm"]
+    (entry,) = mode.entries
+
+    mode_match = ModeMatch(entry, {"N": FixedValue(IntLiteral(0xEB), 8)}, {})
+    (bits,) = mode_match.iter_bits()
+    assert bits.width == 16
+    assert bits.int_value == 0x0EB0
+
+
+def test_placeholder_encode_func_val(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    Function calls that return something other than simple references are not supported.
+
+    .. code-block:: instr
+
+        func pad(u8& N)
+            def u16 ret = $0;N;$0
+
+        mode u8 pad_imm
+        pad(N) . N . N . u8 N
+
+    .. code-block:: inputlog
+
+        test.instr:5: ERROR: unsupported operator in encoding: <<
+        pad(N) . N . N . u8 N
+        ^^^^^^
+    """
+    instr_tester.check()
