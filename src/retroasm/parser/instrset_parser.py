@@ -1204,14 +1204,14 @@ class InstructionSetParser:
         if logger is None:
             logger = getLogger(__name__)
             logger.setLevel(WARNING)
-        input_logger = ErrorCollector(logger)
+        collector = ErrorCollector(logger)
 
         parser = cls(want_semantics=want_semantics)
 
         with DefLineReader.open(path) as reader:
-            parser.parse(reader, input_logger)
-            instr_set = parser.finalize(input_logger, reader.location)
-            input_logger.summarize(str(path))
+            parser.parse(reader, collector)
+            instr_set = parser.finalize(collector, reader.location)
+            collector.summarize(str(path))
 
         return instr_set
 
