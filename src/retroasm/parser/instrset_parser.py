@@ -464,9 +464,8 @@ def _parse_encoding_expr(
                 bad_type(ref)
 
     builder = SemanticsCodeBlockBuilder()
-    namespace = LocalNamespace(enc_namespace)
     try:
-        enc_ref = build_reference(enc_node, namespace, builder)
+        enc_ref = build_reference(enc_node, enc_namespace, builder)
     except BadInput as ex:
         if isinstance(ex, UnknownNameError):
             explain_not_in_namespace(ex.name, ex.locations)
