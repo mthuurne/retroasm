@@ -273,3 +273,27 @@ def test_placeholder_encode_func_val(instr_tester: InstructionSetDocstringTester
         ^^^^^^
     """
     instr_tester.check()
+
+
+def test_placeholder_encode_extend(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    An 8-bit immediate value in a 16-bit reference takes up 16 bits in the encoding.
+
+    .. code-block:: instr
+
+        func extend(u8& N)
+            def u16 V = N
+            def u16& ret = V
+
+        mode u8 extend_imm
+        extend(N) . N . N . u8 N
+    """
+    instr_tester.check()
+
+    mode: Mode = instr_tester.parser.modes["extend_imm"]
+    (entry,) = mode.entries
+
+    mode_match = ModeMatch(entry, {"N": FixedValue(IntLiteral(0x94), 8)}, {})
+    (bits,) = mode_match.iter_bits()
+    assert bits.width == 16
+    assert bits.int_value == 0x0094

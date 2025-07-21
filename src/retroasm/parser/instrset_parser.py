@@ -703,8 +703,6 @@ def _combine_placeholder_encodings(
             decoding.append(enc_segment)
         if prev < imm_width:
             problems.append(f"gap at [{prev:d}:{imm_width:d}]")
-        elif prev > imm_width:
-            assert False, (name, slices)
         if problems:
             collector.error(
                 f'cannot decode value for "{name}": {", ".join(problems)}', location=location
