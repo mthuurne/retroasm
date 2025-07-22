@@ -83,19 +83,6 @@ def _get_encoding_width(name: str, ref: FixedValueReference) -> Width | None:
             return None
 
 
-def _create_encode_namespace(
-    parent: ReadOnlyNamespace | None,
-    value_placeholders: Mapping[str, FixedValueReference],
-    match_placeholders: Mapping[str, Mode],
-) -> ContextNamespace:
-    enc_namespace = ContextNamespace(parent)
-    for name, val_ref in value_placeholders.items():
-        enc_namespace.define(name, val_ref)
-    for name, mode in match_placeholders.items():
-        enc_namespace.define(name, ModeMatchReference(name, mode))
-    return enc_namespace
-
-
 def _parse_regs(
     reader: DefLineReader,
     collector: ErrorCollector,
@@ -683,7 +670,7 @@ def _check_duplicate_multi_matches(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    ctx_namespace: ContextNamespace,
+    placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -694,9 +681,7 @@ def _combine_placeholder_encodings(
     within that item and width in bits.
     """
 
-    imm_widths = {
-        name: _get_encoding_width(name, ref) for name, ref in ctx_namespace.elements.items()
-    }
+    imm_widths = {name: _get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
@@ -727,7 +712,7 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    ctx_namespace: ContextNamespace,
+    placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -756,28 +741,28 @@ def _check_decoding_order(
             enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            ref = ctx_namespace.elements[name]
+            ref = placeholders[name]
             assert isinstance(ref, ModeMatchReference), (name, ref)
             collector.error(
                 f'cannot match "{name}": mode "{ref.mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
-                location=[ctx_namespace.locations[name], matcher.location]
-                + [encoding[idx].location for idx in bad_idx],
+                location=[matcher.location] + [encoding[idx].location for idx in bad_idx],
             )
 
 
 def _parse_mode_decoding(
-    entry: ModeEntry, global_namespace: GlobalNamespace, collector: ErrorCollector
+    entry: ModeEntry, collector: ErrorCollector
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     """
 
-    enc_namespace = _create_encode_namespace(
-        global_namespace, entry.value_placeholders, entry.match_placeholders
-    )
+    placeholders = dict(entry.value_placeholders)
+    for name, mode in entry.match_placeholders.items():
+        placeholders[name] = ModeMatchReference(name, mode)
+
     encoding = entry.encoding
 
     try:
@@ -794,7 +779,7 @@ def _parse_mode_decoding(
     try:
         with collector.check():
             # Check placeholders that should be encoded but aren't.
-            for name, ref in enc_namespace.elements.items():
+            for name, ref in placeholders.items():
                 if _get_encoding_width(name, ref) is None:
                     # Placeholder should not be encoded.
                     continue
@@ -807,25 +792,25 @@ def _parse_mode_decoding(
                     #       error message is more clear for end users.
                     collector.error(
                         f'placeholder "{name}" does not occur in encoding',
-                        location=(enc_namespace.locations[name], encoding.location),
+                        location=encoding.location,
                     )
                 elif isinstance(ref, ModeMatchReference):
                     if (mode := ref.mode).aux_encoding_width is not None:
                         collector.error(
                             f'mode "{mode.name}" matches auxiliary encoding units, '
                             f'but there is no "{name}@" placeholder for them',
-                            location=(enc_namespace.locations[name], encoding.location),
+                            location=encoding.location,
                         )
 
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(
-                    decode_map, enc_namespace, collector, encoding.encoding_location
+                    decode_map, placeholders, collector, encoding.encoding_location
                 )
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, enc_namespace, collector)
+            _check_decoding_order(encoding, sequential_map, placeholders, collector)
     except DelayedError:
         return None
     else:
@@ -1316,7 +1301,7 @@ class InstructionSetParser:
         parsed_mode_entries = defaultdict(list)
         for name, entries in self.mode_entries.items():
             for entry in entries:
-                decoding = _parse_mode_decoding(entry, self.global_namespace, collector)
+                decoding = _parse_mode_decoding(entry, collector)
                 if decoding is not None:
                     parsed_mode_entries[name].append(ParsedModeEntry(entry, *decoding))
 
