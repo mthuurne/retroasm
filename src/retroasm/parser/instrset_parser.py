@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from importlib.resources.abc import Traversable
+from itertools import chain
 from logging import WARNING, Logger, getLogger
 from operator import itemgetter
 from typing import cast
@@ -1075,7 +1076,6 @@ def _parse_mode(
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
     modes: dict[str, Mode],
-    mode_entries: dict[str | None, list[ModeEntry]],
     want_semantics: bool,
 ) -> None:
     # Is its safe to add this mode to 'modes'?
@@ -1140,7 +1140,6 @@ def _parse_mode(
             mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, parsed_entries
         )
         modes[mode_name] = mode
-        mode_entries[mode_name] = parsed_entries
 
 
 def _parse_instr(
@@ -1212,7 +1211,7 @@ class InstructionSetParser:
         self.global_namespace = global_namespace = GlobalNamespace()
         self.prefixes = PrefixMappingFactory(global_namespace)
         self.modes: dict[str, Mode] = {}
-        self.mode_entries: dict[str | None, list[ModeEntry]] = {None: []}
+        self.instructions: list[ModeEntry] = []
 
         self.attempt_creation = True
         """
@@ -1231,8 +1230,7 @@ class InstructionSetParser:
         global_builder = self.global_builder
         prefixes = self.prefixes
         modes = self.modes
-        mode_entries = self.mode_entries
-        instructions = mode_entries[None]
+        instructions = self.instructions
         want_semantics = self.want_semantics
 
         for header in reader:
@@ -1261,7 +1259,6 @@ class InstructionSetParser:
                     global_namespace,
                     prefixes,
                     modes,
-                    mode_entries,
                     want_semantics,
                 )
             elif def_type == "instr":
@@ -1290,15 +1287,18 @@ class InstructionSetParser:
                 location=location,
             )
 
-        instructions = self.mode_entries[None]
+        instructions = self.instructions
         enc_width = _determine_encoding_width(instructions, False, None, collector)
         any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
 
         prefix_mapping = self.prefixes.create_mapping()
 
-        parsed_mode_entries = defaultdict(list)
-        for name, entries in self.mode_entries.items():
+        parsed_mode_entries = defaultdict[str | None, list[ParsedModeEntry]](list)
+        for name, entries in chain(
+            [(None, instructions)],
+            ((name, mode.entries) for name, mode in self.modes.items()),
+        ):
             for entry in entries:
                 decoding = _parse_mode_decoding(entry, collector)
                 if decoding is not None:
