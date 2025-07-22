@@ -83,6 +83,19 @@ def _get_encoding_width(name: str, ref: FixedValueReference) -> Width | None:
             return None
 
 
+def _create_encode_namespace(
+    parent: ReadOnlyNamespace | None,
+    value_placeholders: Mapping[str, FixedValueReference],
+    match_placeholders: Mapping[str, Mode],
+) -> ContextNamespace:
+    enc_namespace = ContextNamespace(parent)
+    for name, val_ref in value_placeholders.items():
+        enc_namespace.define(name, val_ref)
+    for name, mode in match_placeholders.items():
+        enc_namespace.define(name, ModeMatchReference(name, mode))
+    return enc_namespace
+
+
 def _parse_regs(
     reader: DefLineReader,
     collector: ErrorCollector,
@@ -755,12 +768,17 @@ def _check_decoding_order(
 
 
 def _parse_mode_decoding(
-    encoding: Encoding, ctx_namespace: ContextNamespace, collector: ErrorCollector
+    entry: ModeEntry, global_namespace: GlobalNamespace, collector: ErrorCollector
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
     Construct a mapping that, given an encoded instruction, produces the
     values for context placeholders.
     """
+
+    enc_namespace = _create_encode_namespace(
+        global_namespace, entry.value_placeholders, entry.match_placeholders
+    )
+    encoding = entry.encoding
 
     try:
         # Decompose the encoding expressions.
@@ -776,7 +794,7 @@ def _parse_mode_decoding(
     try:
         with collector.check():
             # Check placeholders that should be encoded but aren't.
-            for name, ref in ctx_namespace.elements.items():
+            for name, ref in enc_namespace.elements.items():
                 if _get_encoding_width(name, ref) is None:
                     # Placeholder should not be encoded.
                     continue
@@ -789,25 +807,25 @@ def _parse_mode_decoding(
                     #       error message is more clear for end users.
                     collector.error(
                         f'placeholder "{name}" does not occur in encoding',
-                        location=(ctx_namespace.locations[name], encoding.location),
+                        location=(enc_namespace.locations[name], encoding.location),
                     )
                 elif isinstance(ref, ModeMatchReference):
                     if (mode := ref.mode).aux_encoding_width is not None:
                         collector.error(
                             f'mode "{mode.name}" matches auxiliary encoding units, '
                             f'but there is no "{name}@" placeholder for them',
-                            location=(ctx_namespace.locations[name], encoding.location),
+                            location=(enc_namespace.locations[name], encoding.location),
                         )
 
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(
-                    decode_map, ctx_namespace, collector, encoding.encoding_location
+                    decode_map, enc_namespace, collector, encoding.encoding_location
                 )
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, ctx_namespace, collector)
+            _check_decoding_order(encoding, sequential_map, enc_namespace, collector)
     except DelayedError:
         return None
     else:
@@ -871,7 +889,7 @@ def _parse_mode_entries(
         Reference | None,
     ],
     want_semantics: bool,
-) -> Iterator[ParsedModeEntry]:
+) -> Iterator[ModeEntry]:
     for line in reader.iter_block():
         # Split mode line into 4 fields.
         fields = list(line.split(_re_dot_sep))
@@ -931,10 +949,6 @@ def _parse_mode_entries(
                         encoding = None
                     else:
                         encoding = Encoding(enc_items, flags_required, enc_loc)
-                if encoding is None:
-                    decoding = None
-                else:
-                    decoding = _parse_mode_decoding(encoding, ctx_namespace, collector)
 
                 # Parse mnemonic.
                 # Additional placeholders may be inserted by the mnemonic parser.
@@ -988,11 +1002,8 @@ def _parse_mode_entries(
         except DelayedError:
             pass
         else:
-            # TODO: An older version of this code created the ModeEntry
-            #       with a None encoding or decoding; was that better or
-            #       incorrect?
-            if encoding is not None and decoding is not None:
-                entry = ModeEntry(
+            if encoding is not None:
+                yield ModeEntry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
@@ -1008,7 +1019,6 @@ def _parse_mode_entries(
                         if not isinstance(ref, ModeMatchReference)
                     },
                 )
-                yield ParsedModeEntry(entry, *decoding)
 
 
 def _format_encoding_width(width: Width | None) -> str:
@@ -1016,7 +1026,7 @@ def _format_encoding_width(width: Width | None) -> str:
 
 
 def _determine_encoding_width(
-    entries: list[ParsedModeEntry], aux: bool, mode_name: str | None, collector: ErrorCollector
+    entries: list[ModeEntry], aux: bool, mode_name: str | None, collector: ErrorCollector
 ) -> int | None:
     """
     Returns the common encoding width for the given list of mode entries.
@@ -1031,7 +1041,7 @@ def _determine_encoding_width(
 
     width_freqs = defaultdict[int | None, int](int)
     for entry in entries:
-        width_freqs[getattr(entry.entry.encoding, width_attr)] += 1
+        width_freqs[getattr(entry.encoding, width_attr)] += 1
     if aux:
         width_freqs.pop(None, None)
 
@@ -1051,7 +1061,7 @@ def _determine_encoding_width(
             valid_widths = (enc_width,)
         bad_entry_indices = []
         for idx, entry in enumerate(entries):
-            enc_def = entry.entry.encoding
+            enc_def = entry.encoding
             if cast(Width, getattr(enc_def, width_attr)) not in valid_widths:
                 match_type = f"{'auxiliary ' if aux else ''}encoding match"
                 actual_width = _format_encoding_width(getattr(enc_def, width_attr))
@@ -1081,7 +1091,7 @@ def _parse_mode(
     global_namespace: GlobalNamespace,
     prefixes: PrefixMappingFactory,
     modes: dict[str, Mode],
-    mode_entries: dict[str | None, list[ParsedModeEntry]],
+    mode_entries: dict[str | None, list[ModeEntry]],
     want_semantics: bool,
 ) -> None:
     # Is its safe to add this mode to 'modes'?
@@ -1142,8 +1152,9 @@ def _parse_mode(
     aux_enc_width = _determine_encoding_width(parsed_entries, True, mode_name, collector)
     if add_mode:
         assert sem_type is not None
-        entries = tuple(parsed_entry.entry for parsed_entry in parsed_entries)
-        mode = Mode(mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries)
+        mode = Mode(
+            mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, parsed_entries
+        )
         modes[mode_name] = mode
         mode_entries[mode_name] = parsed_entries
 
@@ -1156,7 +1167,7 @@ def _parse_instr(
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     want_semantics: bool,
-) -> Iterator[ParsedModeEntry]:
+) -> Iterator[ModeEntry]:
     for instr in _parse_mode_entries(
         reader,
         collector,
@@ -1168,7 +1179,7 @@ def _parse_instr(
         _parse_instr_semantics,
         want_semantics,
     ):
-        enc_def = instr.entry.encoding
+        enc_def = instr.encoding
         enc_width = enc_def.encoding_width
         if enc_width is None:
             collector.error(
@@ -1217,7 +1228,7 @@ class InstructionSetParser:
         self.global_namespace = global_namespace = GlobalNamespace()
         self.prefixes = PrefixMappingFactory(global_namespace)
         self.modes: dict[str, Mode] = {}
-        self.mode_entries: dict[str | None, list[ParsedModeEntry]] = {None: []}
+        self.mode_entries: dict[str | None, list[ModeEntry]] = {None: []}
 
         self.attempt_creation = True
         """
@@ -1285,6 +1296,8 @@ class InstructionSetParser:
     ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 
+        num_errors_start = collector.problem_counter.num_errors
+
         # Check that the program counter was defined.
         pc = self.global_namespace.program_counter
         if pc is None:
@@ -1295,10 +1308,17 @@ class InstructionSetParser:
 
         instructions = self.mode_entries[None]
         enc_width = _determine_encoding_width(instructions, False, None, collector)
-        any_aux = any(len(instr.entry.encoding) >= 2 for instr in instructions)
+        any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
 
         prefix_mapping = self.prefixes.create_mapping()
+
+        parsed_mode_entries = defaultdict(list)
+        for name, entries in self.mode_entries.items():
+            for entry in entries:
+                decoding = _parse_mode_decoding(entry, self.global_namespace, collector)
+                if decoding is not None:
+                    parsed_mode_entries[name].append(ParsedModeEntry(entry, *decoding))
 
         if self.attempt_creation:
             if enc_width is None:
@@ -1307,10 +1327,11 @@ class InstructionSetParser:
                 # encoding: either the instruction set is empty or it has a single
                 # instruction with no encoding.
                 collector.error("no instruction encodings defined", location=location)
-            elif pc is not None:
+            elif collector.problem_counter.num_errors == num_errors_start:
+                assert pc is not None
                 try:
                     return InstructionSet(
-                        enc_width, aux_enc_width, pc, prefix_mapping, self.mode_entries
+                        enc_width, aux_enc_width, pc, prefix_mapping, parsed_mode_entries
                     )
                 except ValueError as ex:
                     collector.error(

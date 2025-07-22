@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from io import StringIO
 from logging import Logger, getLogger
+from typing import Literal, overload
 
 import pytest
 
@@ -47,12 +48,17 @@ class InstructionSetDocstringTester:
     def check(self) -> None:
         assert self.actual_log == self.expected_log
 
-    def create_instruction_set(self) -> InstructionSet:
+    @overload
+    def create_instruction_set(self, expect_fail: Literal[False] = False) -> InstructionSet: ...
+
+    @overload
+    def create_instruction_set(self, expect_fail: Literal[True]) -> None: ...
+
+    def create_instruction_set(self, expect_fail: bool = False) -> InstructionSet | None:
         parser = self.parser
         collector = ErrorCollector(parser.logger)
-        with collector.check():
-            instruction_set = parser.finalize(collector, None)
-        assert instruction_set is not None
+        instruction_set = parser.finalize(collector, None)
+        assert (instruction_set is None) == expect_fail
         return instruction_set
 
 

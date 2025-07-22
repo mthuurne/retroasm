@@ -272,7 +272,7 @@ def test_placeholder_encode_func_val(instr_tester: InstructionSetDocstringTester
         pad(N) . N . N . u8 N
         ^^^^^^
     """
-    instr_tester.check()
+    instr_tester.create_instruction_set(expect_fail=True)
 
 
 def test_placeholder_encode_extend(instr_tester: InstructionSetDocstringTester) -> None:
