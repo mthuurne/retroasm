@@ -1011,7 +1011,7 @@ def _format_encoding_width(width: Width | None) -> str:
 
 
 def _determine_encoding_width(
-    entries: list[ModeEntry], aux: bool, mode_name: str | None, collector: ErrorCollector
+    entries: list[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
 ) -> int | None:
     """
     Returns the common encoding width for the given list of mode entries.
@@ -1019,7 +1019,6 @@ def _determine_encoding_width(
     given logger and removed from the entries list.
     If the 'aux' argument is False, the first matched unit width of each entry
     is checked, otherwise the width of auxiliary encoding units is checked.
-    If the entries represent instructions, pass None for the mode name.
     """
 
     width_attr = "aux_encoding_width" if aux else "encoding_width"
@@ -1051,10 +1050,9 @@ def _determine_encoding_width(
                 match_type = f"{'auxiliary ' if aux else ''}encoding match"
                 actual_width = _format_encoding_width(getattr(enc_def, width_attr))
                 expected_width = _format_encoding_width(enc_width)
-                context = "for instructions" if mode_name is None else f'in mode "{mode_name}"'
                 collector.error(
                     f"{match_type} is {actual_width}, while {expected_width} is "
-                    f"dominant {context}",
+                    f"dominant {where_desc}",
                     location=(
                         enc_def.aux_encoding_location if aux else enc_def.encoding_location
                     ),
@@ -1132,8 +1130,9 @@ def _parse_mode(
     )
 
     # Create and remember mode object.
-    enc_width = _determine_encoding_width(parsed_entries, False, mode_name, collector)
-    aux_enc_width = _determine_encoding_width(parsed_entries, True, mode_name, collector)
+    where_desc = f'in mode "{mode_name}"'
+    enc_width = _determine_encoding_width(parsed_entries, False, where_desc, collector)
+    aux_enc_width = _determine_encoding_width(parsed_entries, True, where_desc, collector)
     if add_mode:
         assert sem_type is not None
         mode = Mode(
@@ -1288,7 +1287,8 @@ class InstructionSetParser:
             )
 
         instructions = self.instructions
-        enc_width = _determine_encoding_width(instructions, False, None, collector)
+        where_desc = "for instructions"
+        enc_width = _determine_encoding_width(instructions, False, where_desc, collector)
         any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
 
