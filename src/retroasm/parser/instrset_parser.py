@@ -670,7 +670,7 @@ def _check_duplicate_multi_matches(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    placeholders: Mapping[str, FixedValueReference],
+    imm_widths: Mapping[str, Width | None],
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -680,8 +680,6 @@ def _combine_placeholder_encodings(
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
     """
-
-    imm_widths = {name: _get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
@@ -712,7 +710,7 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding: Encoding,
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    placeholders: Mapping[str, FixedValueReference],
+    match_placeholders: Mapping[str, Mode],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -741,10 +739,9 @@ def _check_decoding_order(
             enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            ref = placeholders[name]
-            assert isinstance(ref, ModeMatchReference), (name, ref)
+            mode = match_placeholders[name]
             collector.error(
-                f'cannot match "{name}": mode "{ref.mode.name}" has a variable encoding '
+                f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
                 location=[matcher.location] + [encoding[idx].location for idx in bad_idx],
@@ -763,6 +760,8 @@ def _parse_mode_decoding(
     for name, mode in entry.match_placeholders.items():
         placeholders[name] = ModeMatchReference(name, mode)
 
+    imm_widths = {name: _get_encoding_width(name, ref) for name, ref in placeholders.items()}
+
     encoding = entry.encoding
 
     try:
@@ -780,7 +779,7 @@ def _parse_mode_decoding(
         with collector.check():
             # Check placeholders that should be encoded but aren't.
             for name, ref in placeholders.items():
-                if _get_encoding_width(name, ref) is None:
+                if imm_widths[name] is None:
                     # Placeholder should not be encoded.
                     continue
                 if name in multi_matches:
@@ -805,12 +804,12 @@ def _parse_mode_decoding(
             # Create a mapping to extract immediate values from encoded items.
             sequential_map = dict(
                 _combine_placeholder_encodings(
-                    decode_map, placeholders, collector, encoding.encoding_location
+                    decode_map, imm_widths, collector, encoding.encoding_location
                 )
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, placeholders, collector)
+            _check_decoding_order(encoding, sequential_map, entry.match_placeholders, collector)
     except DelayedError:
         return None
     else:
