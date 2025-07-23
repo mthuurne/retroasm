@@ -8,7 +8,7 @@ from typing import Any, Final, overload, override
 from .codeblock import FunctionBody
 from .expression import Expression
 from .input import InputLocation
-from .reference import BitString, FixedValue, FixedValueReference
+from .reference import BitString, FixedValue, FixedValueReference, TabooReference
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
@@ -787,6 +787,29 @@ class MatchPlaceholder:
 
     def rename(self, name_map: Mapping[str, str]) -> MatchPlaceholder:
         return MatchPlaceholder(name_map[self.name], self.mode)
+
+
+class ModeMatchReference(TabooReference):
+    __slots__ = ("mode",)
+
+    def __init__(self, name: str, mode: Mode):
+        super().__init__(
+            # The type doesn't matter, as the fetch will be rejected,
+            # but we must provide something.
+            IntType.int,
+            f'mode match placeholder "{name}" cannot be used in context value',
+        )
+        self.mode = mode
+
+
+def get_encoding_width(name: str, ref: FixedValueReference) -> Width | None:
+    match ref:
+        case ModeMatchReference(mode=mode):
+            return mode.encoding_width
+        case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+            return ref.type.width
+        case _:
+            return None
 
 
 class EncodeMatch:

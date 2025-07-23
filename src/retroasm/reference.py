@@ -20,7 +20,7 @@ from .expression import (
     truncate,
 )
 from .expression_simplifier import simplify_expression
-from .input import InputLocation
+from .input import BadInput, InputLocation
 from .storage import IOChannel, IOStorage, Storage
 from .symbol import SymbolValue
 from .types import IntType, ReferenceType, Segment, Width, mask_for_width, unlimited
@@ -648,6 +648,32 @@ class FixedValueReference(Reference):
         old_expr = self.bits.expr
         new_expr = simplify_expression(old_expr.substitute(func))
         return self if new_expr is old_expr else self.__class__(new_expr, self._type)
+
+
+class TabooReference(FixedValueReference):
+    """Reference that raises `BadInput` when loaded or stored through."""
+
+    __slots__ = ("message",)
+
+    def __init__(self, typ: IntType, message: str):
+        self.message = message
+        FixedValueReference.__init__(self, BadValue(message, typ.mask), typ)
+
+    @override
+    def simplify(self) -> Reference:
+        return self
+
+    @override
+    def emit_load(
+        self, builder: CodeBlockBuilder, location: InputLocation | None
+    ) -> Expression:
+        raise BadInput(self.message, location)
+
+    @override
+    def emit_store(
+        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+    ) -> None:
+        raise BadInput(self.message, location)
 
 
 def bad_reference(decl: ReferenceType | IntType, message: str) -> Reference:

@@ -5,29 +5,16 @@ from collections.abc import Mapping
 from ..codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
 from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
-from ..input import ErrorCollector, InputLocation
-from ..mode import Mode
+from ..input import BadInput, ErrorCollector, InputLocation
+from ..mode import Mode, ModeMatchReference
 from ..namespace import ContextNamespace, GlobalNamespace, NameExistsError
 from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue
-from ..types import IntType, ReferenceType, parse_type_decl
+from ..types import ReferenceType, parse_type_decl
 from ..utils import bad_type
-from .expression_builder import BadExpression, TabooReference, build_expression
+from .expression_builder import build_expression
 from .expression_nodes import ConstRefDeclarationNode, DefinitionNode
 from .expression_parser import parse_context
-
-
-class ModeMatchReference(TabooReference):
-    __slots__ = ("mode",)
-
-    def __init__(self, name: str, mode: Mode):
-        super().__init__(
-            # The type doesn't matter, as the fetch will be rejected,
-            # but we must provide something.
-            IntType.int,
-            f'mode match placeholder "{name}" cannot be used in context value',
-        )
-        self.mode = mode
 
 
 def parse_placeholders(
@@ -88,7 +75,7 @@ def parse_placeholders(
                 builder = SemanticsCodeBlockBuilder.with_stored_values(pc_fixated)
                 try:
                     built_expr = build_expression(node.value, ctx_namespace, builder)
-                except BadExpression as ex:
+                except BadInput as ex:
                     collector.error(
                         f'in placeholder "{name}" value: {ex}', location=ex.locations
                     )

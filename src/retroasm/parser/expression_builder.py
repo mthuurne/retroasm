@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from typing import override
 
 from ..codeblock import Load, Store
 from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
 from ..expression import (
     AddOperator,
     AndOperator,
-    BadValue,
     Complement,
     Expression,
     IntLiteral,
@@ -77,32 +75,6 @@ class UnknownNameError(BadExpression):
     def __init__(self, name: str, msg: str, location: InputLocation | None):
         BadExpression.__init__(self, msg, location)
         self.name = name
-
-
-class TabooReference(FixedValueReference):
-    """Reference that raises `BadExpression` when loaded or stored through."""
-
-    __slots__ = ("message",)
-
-    def __init__(self, typ: IntType, message: str):
-        self.message = message
-        FixedValueReference.__init__(self, BadValue(message, typ.mask), typ)
-
-    @override
-    def simplify(self) -> Reference:
-        return self
-
-    @override
-    def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
-    ) -> Expression:
-        raise BadExpression(self.message, location)
-
-    @override
-    def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
-    ) -> None:
-        raise BadExpression(self.message, location)
 
 
 def declare_variable(node: VariableDeclarationNode, namespace: LocalNamespace) -> Reference:

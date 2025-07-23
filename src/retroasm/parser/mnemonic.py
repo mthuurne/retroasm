@@ -7,12 +7,11 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, MnemItem
+from ..mode import MatchPlaceholder, MnemItem, ModeMatchReference
 from ..namespace import ContextNamespace
 from ..reference import FixedValueReference, int_reference
 from ..types import IntType
 from ..utils import bad_type
-from .context_parser import ModeMatchReference
 from .expression_nodes import parse_int
 from .tokens import TokenEnum, Tokenizer
 
