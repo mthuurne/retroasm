@@ -195,7 +195,7 @@ class Encoding:
         self,
         items: Iterable[EncodingItem],
         flags_required: Iterable[str],
-        location: InputLocation,
+        location: InputLocation | None = None,
     ):
         # Filter out zero-length encoding items.
         # There is no good reason to ban them, but keeping them around would
@@ -322,7 +322,7 @@ class Encoding:
         return None if len(items) == 0 else items[0].encoding_width
 
     @property
-    def location(self) -> InputLocation:
+    def location(self) -> InputLocation | None:
         """The location spanning the entire encoding definition."""
         return self._location
 
