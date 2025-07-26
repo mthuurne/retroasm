@@ -853,14 +853,13 @@ def _format_encoding_width(width: Width | None) -> str:
 
 
 def _determine_encoding_width(
-    entries: list[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
+    entries: Iterable[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
 ) -> int | None:
     """
-    Returns the common encoding width for the given list of mode entries.
-    Entries with a deviating encoding width will be logged as errors on the
-    given logger and removed from the entries list.
-    If the 'aux' argument is False, the first matched unit width of each entry
-    is checked, otherwise the width of auxiliary encoding units is checked.
+    Return the common encoding width for the given list of mode entries.
+    Entries with a deviating encoding width will be logged as errors on the given logger.
+    If the 'aux' argument is False, the first matched unit width of each entry is checked,
+    otherwise the width of auxiliary encoding units is checked.
     """
 
     width_attr = "aux_encoding_width" if aux else "encoding_width"
@@ -885,8 +884,7 @@ def _determine_encoding_width(
             valid_widths = (enc_width, None)
         else:
             valid_widths = (enc_width,)
-        bad_entry_indices = []
-        for idx, entry in enumerate(entries):
+        for entry in entries:
             enc_def = entry.encoding
             width: Width = getattr(enc_def, width_attr)
             if width not in valid_widths:
@@ -900,9 +898,6 @@ def _determine_encoding_width(
                         enc_def.aux_encoding_location if aux else enc_def.encoding_location
                     ),
                 )
-                bad_entry_indices.append(idx)
-        for idx in reversed(bad_entry_indices):
-            del entries[idx]
 
     return enc_width
 
@@ -958,7 +953,7 @@ def _parse_mode(
             add_mode = False
 
     # Parse entries.
-    parsed_entries = list(
+    entries = tuple(
         _parse_mode_entries(
             reader,
             collector,
@@ -973,15 +968,20 @@ def _parse_mode(
     )
 
     # Create and remember mode object.
-    where_desc = f'in mode "{mode_name}"'
-    enc_width = _determine_encoding_width(parsed_entries, False, where_desc, collector)
-    aux_enc_width = _determine_encoding_width(parsed_entries, True, where_desc, collector)
+    try:
+        with collector.check():
+            where_desc = f'in mode "{mode_name}"'
+            enc_width = _determine_encoding_width(entries, False, where_desc, collector)
+            aux_enc_width = _determine_encoding_width(entries, True, where_desc, collector)
+    except DelayedError:
+        # Avoid creating a mode with inconsistent entries, but don't block mode creation
+        # altogether as that could cause error spam when parsing the remainder of the file.
+        entries = ()
     if add_mode:
         assert sem_type is not None
-        mode = Mode(
-            mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, parsed_entries
+        modes[mode_name] = Mode(
+            mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries
         )
-        modes[mode_name] = mode
 
 
 def _parse_instr(
