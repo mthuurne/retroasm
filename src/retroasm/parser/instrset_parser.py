@@ -7,7 +7,6 @@ from importlib.resources.abc import Traversable
 from itertools import chain
 from logging import WARNING, Logger, getLogger
 from operator import itemgetter
-from typing import cast
 
 from ..codeblock import FunctionBody
 from ..codeblock_builder import (
@@ -889,9 +888,10 @@ def _determine_encoding_width(
         bad_entry_indices = []
         for idx, entry in enumerate(entries):
             enc_def = entry.encoding
-            if cast(Width, getattr(enc_def, width_attr)) not in valid_widths:
+            width: Width = getattr(enc_def, width_attr)
+            if width not in valid_widths:
                 match_type = f"{'auxiliary ' if aux else ''}encoding match"
-                actual_width = _format_encoding_width(getattr(enc_def, width_attr))
+                actual_width = _format_encoding_width(width)
                 expected_width = _format_encoding_width(enc_width)
                 collector.error(
                     f"{match_type} is {actual_width}, while {expected_width} is "
