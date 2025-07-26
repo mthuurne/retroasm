@@ -209,6 +209,12 @@ class InstructionSet(ModeTable):
                         location=enc_def.aux_encoding_location,
                     )
 
+        if prefix_mapping.encoding_width not in (None, enc_width):
+            collector.error(
+                f"prefix encoding width {prefix_mapping.encoding_width} is "
+                f"different from instruction encoding width {enc_width}"
+            )
+
         mode_entries = defaultdict[str | None, list[ParsedModeEntry]](list)
         for name, entries in chain(
             [(None, instructions)],
@@ -229,17 +235,6 @@ class InstructionSet(ModeTable):
         prefix_mapping: PrefixMapping,
         mode_entries: Mapping[str | None, list[ParsedModeEntry]],
     ):
-        if aux_enc_width not in (enc_width, None):
-            raise ValueError(
-                f"auxiliary encoding width must be None or equal to base "
-                f"encoding width {enc_width}, got {aux_enc_width} instead"
-            )
-        if prefix_mapping.encoding_width not in (None, enc_width):
-            raise ValueError(
-                f"prefix encoding width {prefix_mapping.encoding_width} is "
-                f"different from instruction encoding width {enc_width}"
-            )
-
         instructions = mode_entries[None]
         ModeTable.__init__(
             self, enc_width, aux_enc_width, (instr.entry for instr in instructions)
