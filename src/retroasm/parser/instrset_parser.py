@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Set
 from importlib.resources.abc import Traversable
-from itertools import chain
 from logging import WARNING, Logger, getLogger
-from operator import itemgetter
 
 from ..codeblock import FunctionBody
 from ..codeblock_builder import (
@@ -14,7 +11,7 @@ from ..codeblock_builder import (
     StatelessCodeBlockBuilder,
     returned_bits,
 )
-from ..decode import ParsedModeEntry, Prefix, calc_mode_entry_decoding
+from ..decode import Prefix
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
@@ -848,60 +845,6 @@ def _parse_mode_entries(
                 )
 
 
-def _format_encoding_width(width: Width | None) -> str:
-    return "empty" if width is None else f"{width} bits wide"
-
-
-def _determine_encoding_width(
-    entries: Iterable[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
-) -> int | None:
-    """
-    Return the common encoding width for the given list of mode entries.
-    Entries with a deviating encoding width will be logged as errors on the given logger.
-    If the 'aux' argument is False, the first matched unit width of each entry is checked,
-    otherwise the width of auxiliary encoding units is checked.
-    """
-
-    width_attr = "aux_encoding_width" if aux else "encoding_width"
-
-    width_freqs = defaultdict[int | None, int](int)
-    for entry in entries:
-        width_freqs[getattr(entry.encoding, width_attr)] += 1
-    if aux:
-        width_freqs.pop(None, None)
-
-    if len(width_freqs) == 0:
-        # Empty mode, only errors or aux check with no aux items.
-        enc_width = None
-    elif len(width_freqs) == 1:
-        # Single type.
-        (enc_width,) = width_freqs.keys()
-    else:
-        # Multiple widths; use one with the maximum frequency.
-        enc_width, _ = max(width_freqs.items(), key=itemgetter(1))
-        valid_widths: Iterable[Width | None]
-        if aux:
-            valid_widths = (enc_width, None)
-        else:
-            valid_widths = (enc_width,)
-        for entry in entries:
-            enc_def = entry.encoding
-            width: Width = getattr(enc_def, width_attr)
-            if width not in valid_widths:
-                match_type = f"{'auxiliary ' if aux else ''}encoding match"
-                actual_width = _format_encoding_width(width)
-                expected_width = _format_encoding_width(enc_width)
-                collector.error(
-                    f"{match_type} is {actual_width}, while {expected_width} is "
-                    f"dominant {where_desc}",
-                    location=(
-                        enc_def.aux_encoding_location if aux else enc_def.encoding_location
-                    ),
-                )
-
-    return enc_width
-
-
 _re_mode_args = re.compile(_type_tok + r"\s" + _name_tok + r"$")
 
 
@@ -924,12 +867,12 @@ def _parse_mode(
         reader.skip_block()
         return
     mode_type_loc, mode_name_loc = match.groups
-    sem_type: None | IntType | ReferenceType
+    sem_type: IntType | ReferenceType
     try:
         sem_type = parse_type_decl(mode_type_loc.text)
     except ValueError as ex:
         collector.error(f"bad mode type: {ex}", location=mode_type_loc)
-        sem_type = None
+        sem_type = IntType.u(0)
         add_mode = False
 
     # Check mode name and type.
@@ -970,18 +913,13 @@ def _parse_mode(
     # Create and remember mode object.
     try:
         with collector.check():
-            where_desc = f'in mode "{mode_name}"'
-            enc_width = _determine_encoding_width(entries, False, where_desc, collector)
-            aux_enc_width = _determine_encoding_width(entries, True, where_desc, collector)
+            mode = Mode.create(mode_name, sem_type, mode_name_loc, entries, collector)
     except DelayedError:
         # Avoid creating a mode with inconsistent entries, but don't block mode creation
         # altogether as that could cause error spam when parsing the remainder of the file.
-        entries = ()
+        mode = Mode.create(mode_name, sem_type, mode_name_loc, (), collector)
     if add_mode:
-        assert sem_type is not None
-        modes[mode_name] = Mode(
-            mode_name, enc_width, aux_enc_width, sem_type, mode_name_loc, entries
-        )
+        modes[mode_name] = mode
 
 
 def _parse_instr(
@@ -1119,50 +1057,23 @@ class InstructionSetParser:
     ) -> InstructionSet | None:
         """Perform final consistency checks and create the instruction set."""
 
-        num_errors_start = collector.problem_counter.num_errors
-
-        # Check that the program counter was defined.
-        pc = self.global_namespace.program_counter
-        if pc is None:
-            collector.error(
-                'no program counter defined: a register or alias named "pc" is required',
-                location=location,
-            )
-
-        instructions = self.instructions
-        where_desc = "for instructions"
-        enc_width = _determine_encoding_width(instructions, False, where_desc, collector)
-        any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
-        aux_enc_width = enc_width if any_aux else None
-
-        prefix_mapping = self.prefixes.create_mapping()
-
-        parsed_mode_entries = defaultdict[str | None, list[ParsedModeEntry]](list)
-        for name, entries in chain(
-            [(None, instructions)],
-            ((name, mode.entries) for name, mode in self.modes.items()),
-        ):
-            for entry in entries:
-                decoding = calc_mode_entry_decoding(entry, collector)
-                if decoding is not None:
-                    parsed_mode_entries[name].append(ParsedModeEntry(entry, *decoding))
-
-        if self.attempt_creation:
-            if enc_width is None:
-                # Since the last instruction with an identical encoding overrides
-                # earlier ones, only degenerate instruction sets can have an empty
-                # encoding: either the instruction set is empty or it has a single
-                # instruction with no encoding.
-                collector.error("no instruction encodings defined", location=location)
-            elif collector.problem_counter.num_errors == num_errors_start:
-                assert pc is not None
-                try:
-                    return InstructionSet(
-                        enc_width, aux_enc_width, pc, prefix_mapping, parsed_mode_entries
-                    )
-                except ValueError as ex:
+        try:
+            with collector.check():
+                # Check that the program counter was defined.
+                pc = self.global_namespace.program_counter
+                if pc is None:
                     collector.error(
-                        f"final validation of instruction set failed: {ex}", location=location
+                        'no program counter defined: a register or alias named "pc" is required',
+                        location=location,
                     )
+                    pc = bad_reference(IntType.int, "undefined program counter")
 
-        return None
+                if self.attempt_creation:
+                    prefix_mapping = self.prefixes.create_mapping()
+                    return InstructionSet.create(
+                        self.instructions, self.modes, pc, prefix_mapping, collector
+                    )
+                else:
+                    return None
+        except DelayedError:
+            return None

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Final, overload, override
+from operator import itemgetter
+from typing import Any, Final, Self, overload, override
 
 from .codeblock import FunctionBody
 from .expression import Expression
-from .input import InputLocation
+from .input import ErrorCollector, InputLocation
 from .reference import BitString, FixedValue, FixedValueReference, TabooReference
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
@@ -645,13 +647,57 @@ class ModeMatch:
 
 
 def _format_encoding_width(width: Width | None) -> str:
-    return "empty encoding" if width is None else f"encoding width {width}"
+    return "empty" if width is None else f"{width} bits wide"
 
 
-def _format_aux_encoding_width(width: Width | None) -> str:
-    return (
-        "no auxiliary encoding items" if width is None else f"auxiliary encoding width {width}"
-    )
+def determine_encoding_width(
+    entries: Iterable[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
+) -> int | None:
+    """
+    Return the common encoding width for the given list of mode entries.
+    Entries with a deviating encoding width will be logged as errors on the given logger.
+    If the 'aux' argument is False, the first matched unit width of each entry is checked,
+    otherwise the width of auxiliary encoding units is checked.
+    """
+
+    width_attr = "aux_encoding_width" if aux else "encoding_width"
+
+    width_freqs = defaultdict[int | None, int](int)
+    for entry in entries:
+        width_freqs[getattr(entry.encoding, width_attr)] += 1
+    if aux:
+        width_freqs.pop(None, None)
+
+    if len(width_freqs) == 0:
+        # Empty mode, only errors or aux check with no aux items.
+        enc_width = None
+    elif len(width_freqs) == 1:
+        # Single type.
+        (enc_width,) = width_freqs.keys()
+    else:
+        # Multiple widths; use one with the maximum frequency.
+        enc_width, _ = max(width_freqs.items(), key=itemgetter(1))
+        valid_widths: Iterable[Width | None]
+        if aux:
+            valid_widths = (enc_width, None)
+        else:
+            valid_widths = (enc_width,)
+        for entry in entries:
+            enc_def = entry.encoding
+            width: Width = getattr(enc_def, width_attr)
+            if width not in valid_widths:
+                match_type = f"{'auxiliary ' if aux else ''}encoding match"
+                actual_width = _format_encoding_width(width)
+                expected_width = _format_encoding_width(enc_width)
+                collector.error(
+                    f"{match_type} is {actual_width}, while {expected_width} is "
+                    f"dominant {where_desc}",
+                    location=(
+                        enc_def.aux_encoding_location if aux else enc_def.encoding_location
+                    ),
+                )
+
+    return enc_width
 
 
 class ModeTable:
@@ -674,21 +720,7 @@ class ModeTable:
     ):
         self._enc_width = enc_width
         self._aux_enc_width = aux_enc_width
-        self._entries = entries = tuple(entries)
-
-        for entry in entries:
-            enc_def = entry.encoding
-            if enc_def.encoding_width != enc_width:
-                raise ValueError(
-                    f"mode with {_format_encoding_width(enc_width)} contains "
-                    f"entry with {_format_encoding_width(enc_def.encoding_width)}"
-                )
-            if enc_def.aux_encoding_width not in (None, aux_enc_width):
-                raise ValueError(
-                    f"mode with {_format_aux_encoding_width(aux_enc_width)}"
-                    " contains entry with "
-                    f"{_format_aux_encoding_width(enc_def.aux_encoding_width)}"
-                )
+        self._entries = tuple(entries)
 
     @const_property
     def encoded_length(self) -> int | None:
@@ -717,8 +749,7 @@ class ModeTable:
 
 class Mode(ModeTable):
     """
-    A pattern for operands, such as an addressing mode or a table defining
-    register encoding.
+    A pattern for operands, such as an addressing mode or a table defining register encoding.
     """
 
     @property
@@ -733,6 +764,20 @@ class Mode(ModeTable):
     def location(self) -> InputLocation:
         return self._location
 
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        sem_type: IntType | ReferenceType,
+        location: InputLocation,
+        entries: Iterable[ModeEntry],
+        collector: ErrorCollector,
+    ) -> Self:
+        where_desc = f'in mode "{name}"'
+        enc_width = determine_encoding_width(entries, False, where_desc, collector)
+        aux_enc_width = determine_encoding_width(entries, True, where_desc, collector)
+        return cls(name, enc_width, aux_enc_width, sem_type, location, entries)
+
     def __init__(
         self,
         name: str,
@@ -742,6 +787,10 @@ class Mode(ModeTable):
         location: InputLocation,
         entries: Iterable[ModeEntry],
     ):
+        """
+        Generally you should be using `create()` instead of calling the constructor directly,
+        to get a more streamlined interface and consistency checks.
+        """
         ModeTable.__init__(self, enc_width, aux_enc_width, entries)
         self._name = name
         self._sem_type = sem_type

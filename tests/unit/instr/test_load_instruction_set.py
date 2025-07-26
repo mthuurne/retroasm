@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from logging import ERROR, getLogger
+from logging import ERROR, WARNING, getLogger
 from pathlib import Path
 
 import pytest
@@ -67,13 +67,13 @@ def test_load_instr_empty(empty_file: Path, caplog: pytest.LogCaptureFixture) ->
         ),
         (
             "test",
-            ERROR,
-            "no instruction encodings defined",
+            WARNING,
+            "no instructions defined",
         ),
         (
             "test",
             ERROR,
-            "2 errors and 0 warnings",
+            "1 error and 1 warning",
         ),
     ]
     assert instr is None

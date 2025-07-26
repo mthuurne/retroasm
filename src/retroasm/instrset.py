@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import (
     Callable,
     Collection,
@@ -11,15 +12,23 @@ from collections.abc import (
     Set,
 )
 from dataclasses import dataclass
-from typing import cast, override
+from itertools import chain
+from typing import Self, cast, override
 
 from .codeblock import FunctionBody, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import Decoder, DecoderFactory, ParsedModeEntry, Prefix, create_prefix_decoder
+from .decode import (
+    Decoder,
+    DecoderFactory,
+    ParsedModeEntry,
+    Prefix,
+    calc_mode_entry_decoding,
+    create_prefix_decoder,
+)
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
-from .input import BadInput
-from .mode import EncodingExpr, ModeMatch, ModeTable
+from .input import BadInput, ErrorCollector
+from .mode import EncodingExpr, Mode, ModeEntry, ModeMatch, ModeTable, determine_encoding_width
 from .namespace import GlobalNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -156,6 +165,61 @@ class InstructionSet(ModeTable):
     @property
     def prefix_mapping(self) -> PrefixMapping:
         return self._prefix_mapping
+
+    @classmethod
+    def create(
+        cls,
+        instructions: Iterable[ModeEntry],
+        modes: Mapping[str, Mode],
+        program_counter: Reference,
+        prefix_mapping: PrefixMapping,
+        collector: ErrorCollector,
+    ) -> Self:
+        """
+        Create an instruction set containing the given instructions.
+
+        Errors are reported on the given error collector; if any errors are reported
+        the returned instruction set may not work correctly or at all.
+        """
+        instructions = tuple(instructions)
+
+        where_desc = "for instructions"
+        enc_width = determine_encoding_width(instructions, False, where_desc, collector)
+        any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
+        aux_enc_width = enc_width if any_aux else None
+        if enc_width is None:
+            # Since the last instruction with an identical encoding overrides earlier ones,
+            # only degenerate instruction sets can have an empty encoding: either the
+            # instruction set is empty or it has a single instruction with no encoding.
+            if instructions:
+                collector.error(
+                    "no instruction encodings defined",
+                    location=instructions[-1].encoding.location,
+                )
+            else:
+                collector.warning("no instructions defined")
+            enc_width = 0
+        elif any_aux:
+            for entry in instructions:
+                enc_def = entry.encoding
+                if (width := enc_def.aux_encoding_width) not in (None, aux_enc_width):
+                    collector.error(
+                        f"instruction entry has auxiliary encoding width of {width} bits, "
+                        f"expected {aux_enc_width} bits",
+                        location=enc_def.aux_encoding_location,
+                    )
+
+        mode_entries = defaultdict[str | None, list[ParsedModeEntry]](list)
+        for name, entries in chain(
+            [(None, instructions)],
+            ((name, mode.entries) for name, mode in modes.items()),
+        ):
+            for entry in entries:
+                decoding = calc_mode_entry_decoding(entry, collector)
+                if decoding is not None:
+                    mode_entries[name].append(ParsedModeEntry(entry, *decoding))
+
+        return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, mode_entries)
 
     def __init__(
         self,
