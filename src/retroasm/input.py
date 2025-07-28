@@ -286,11 +286,8 @@ class ErrorCollector:
         self._logger.error("%s", msg, extra={"location": location}, stacklevel=2)
         self.problem_counter.num_errors += 1
 
-        if isinstance(location, Sequence):
-            main_location = location[0] if location else None
-        else:
-            main_location = location
-        self._errors.append(BadInput(msg, main_location))
+        locations = location if isinstance(location, Sequence) else (location,)
+        self._errors.append(BadInput(msg, *locations))
 
     def warning(
         self,
