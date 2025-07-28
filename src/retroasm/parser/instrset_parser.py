@@ -11,7 +11,7 @@ from ..codeblock_builder import (
     StatelessCodeBlockBuilder,
     returned_bits,
 )
-from ..decode import Prefix
+from ..decode import Prefix, create_mode_entry
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
@@ -827,7 +827,7 @@ def _parse_mode_entries(
             pass
         else:
             if encoding is not None:
-                yield ModeEntry(
+                yield create_mode_entry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
@@ -842,6 +842,7 @@ def _parse_mode_entries(
                         for name, ref in ctx_namespace.elements.items()
                         if not isinstance(ref, ModeMatchReference)
                     },
+                    collector,
                 )
 
 

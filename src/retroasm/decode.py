@@ -16,6 +16,7 @@ from .mode import (
     EncodingExpr,
     EncodingMultiMatch,
     MatchPlaceholder,
+    Mnemonic,
     Mode,
     ModeEntry,
     ModeMatchReference,
@@ -63,7 +64,7 @@ class FixedEncoding:
     fixed_value: int
 
 
-def decompose_encoding(
+def _decompose_encoding(
     encoding: Encoding,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[tuple[int, EncodedSegment]]]]:
     """
@@ -617,27 +618,19 @@ def _create_decoder(org_decoders: Iterable[Decoder]) -> Decoder:
     return SequentialDecoder(decoders)
 
 
-@dataclass(frozen=True)
-class ParsedModeEntry:
-    entry: ModeEntry
-    fixed_matcher: Sequence[FixedEncoding]
-    decoding: Mapping[str, Sequence[EncodedSegment]]
-
-
 def _qualify_names(
-    parsed_entry: ParsedModeEntry, branch_name: str | None
+    entry: ModeEntry, branch_name: str | None
 ) -> tuple[ModeEntry, Mapping[str, Sequence[EncodedSegment]]]:
     """
     Returns a pair containing a `ModeEntry` and decode mapping, where each
     name starts with the given branch name.
     If `branch_name` is `None`, no renaming is performed.
     """
-    entry = parsed_entry.entry
     placeholder_names = list(entry.match_placeholders)
     placeholder_names += entry.value_placeholders
     if branch_name is None or len(placeholder_names) == 0:
         # Do not rename.
-        return parsed_entry.entry, parsed_entry.decoding
+        return entry, entry.decoding
     elif len(placeholder_names) == 1:
         # Replace current name with branch name.
         name_map = {placeholder_names[0]: branch_name}
@@ -646,13 +639,13 @@ def _qualify_names(
         name_map = {name: f"{branch_name}.{name}" for name in placeholder_names}
 
     renamed_entry = entry.rename(name_map)
-    renamed_decoding = {name_map[name]: value for name, value in parsed_entry.decoding.items()}
+    renamed_decoding = {name_map[name]: value for name, value in entry.decoding.items()}
     return renamed_entry, renamed_decoding
 
 
 class DecoderFactory:
     def __init__(
-        self, mode_entries: Mapping[str | None, Iterable[ParsedModeEntry]], flags: Iterable[str]
+        self, mode_entries: Mapping[str | None, Iterable[ModeEntry]], flags: Iterable[str]
     ):
         self._mode_entries = mode_entries
         self._flags = frozenset(flags)
@@ -663,16 +656,16 @@ class DecoderFactory:
         key = (mode_name, branch_name)
         decoder = cache.get(key)
         if decoder is None:
-            parsed_entries = self._mode_entries[mode_name]
+            entries = self._mode_entries[mode_name]
             flags_are_set = self._flags.issuperset
             decoder = _create_decoder(
                 _create_entry_decoder(
-                    *_qualify_names(parsed_entry, branch_name),
-                    parsed_entry.fixed_matcher,
+                    *_qualify_names(entry, branch_name),
+                    entry.fixed_matcher,
                     factory=self,
                 )
-                for parsed_entry in parsed_entries
-                if flags_are_set(parsed_entry.entry.encoding.flags_required)
+                for entry in entries
+                if flags_are_set(entry.encoding.flags_required)
             )
             cache[key] = decoder
         return decoder
@@ -738,7 +731,7 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
         # Note that since we have no placeholders in prefixes, the
         # errors that decomposeEncoding() could report cannot happen.
         encoding = prefix.encoding
-        fixed_matcher, decode_map = decompose_encoding(encoding)
+        fixed_matcher, decode_map = _decompose_encoding(encoding)
         assert len(decode_map) == 0, decode_map
         values: list[int] = []
         for idx, fixed_encoding in enumerate(sorted(fixed_matcher)):
@@ -752,25 +745,46 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
     return root.try_decode
 
 
+def create_mode_entry(
+    encoding: Encoding,
+    mnemonic: Mnemonic,
+    semantics: FunctionBody | None,
+    match_placeholders: Mapping[str, Mode],
+    value_placeholders: Mapping[str, FixedValueReference],
+    collector: ErrorCollector,
+) -> ModeEntry:
+    decoding = calc_mode_entry_decoding(
+        encoding, match_placeholders, value_placeholders, collector
+    )
+    # TODO: Abort creation instead of returning dummy.
+    if decoding is None:
+        decoding = (), {}
+
+    return ModeEntry(
+        encoding, *decoding, mnemonic, semantics, match_placeholders, value_placeholders
+    )
+
+
 def calc_mode_entry_decoding(
-    entry: ModeEntry, collector: ErrorCollector
+    encoding: Encoding,
+    match_placeholders: Mapping[str, Mode],
+    value_placeholders: Mapping[str, FixedValueReference],
+    collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
     """
-    Construct a mapping that, given an encoded instruction, produces the
-    values for context placeholders.
+    Construct a mapping that, given an encoded (part of an) instruction, produces the values
+    for context placeholders.
     """
 
-    placeholders = dict(entry.value_placeholders)
-    for name, mode in entry.match_placeholders.items():
+    placeholders = dict(value_placeholders)
+    for name, mode in match_placeholders.items():
         placeholders[name] = ModeMatchReference(name, mode)
 
     imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
-    encoding = entry.encoding
-
     try:
         # Decompose the encoding expressions.
-        fixed_matcher, decode_map = decompose_encoding(encoding)
+        fixed_matcher, decode_map = _decompose_encoding(encoding)
     except BadInput as ex:
         collector.error(f"{ex}", location=ex.locations)
         return None
@@ -813,7 +827,7 @@ def calc_mode_entry_decoding(
             )
         with collector.check():
             # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, entry.match_placeholders, collector)
+            _check_decoding_order(encoding, sequential_map, match_placeholders, collector)
     except DelayedError:
         return None
     else:

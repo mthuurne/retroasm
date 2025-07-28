@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from functools import partial
 from operator import itemgetter
-from typing import Any, Final, Self, overload, override
+from typing import TYPE_CHECKING, Any, Final, Self, overload, override
 
 from .codeblock import FunctionBody
 from .expression import Expression
@@ -14,6 +14,9 @@ from .reference import BitString, FixedValue, FixedValueReference, TabooReferenc
 from .symbol import CurrentAddress, ImmediateValue
 from .types import IntType, ReferenceType, Width
 from .utils import bad_type, const_property
+
+if TYPE_CHECKING:
+    from .decode import EncodedSegment, FixedEncoding
 
 
 class EncodingExpr:
@@ -469,12 +472,16 @@ class ModeEntry:
     def __init__(
         self,
         encoding: Encoding,
+        fixed_matcher: Sequence[FixedEncoding],
+        decoding: Mapping[str, Sequence[EncodedSegment]],
         mnemonic: Mnemonic,
         semantics: FunctionBody | None,
         match_placeholders: Mapping[str, Mode],
         value_placeholders: Mapping[str, FixedValueReference],
     ):
         self.encoding = encoding
+        self.fixed_matcher = fixed_matcher
+        self.decoding = decoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self._match_placeholders = dict(match_placeholders)
@@ -520,6 +527,9 @@ class ModeEntry:
         """
         return ModeEntry(
             self.encoding.rename(name_map),
+            self.fixed_matcher,
+            # TODO: Rename immediates in decoding as well.
+            self.decoding,
             self.mnemonic.rename(name_map),
             # TODO: Rename immediates in semantics as well.
             self._semantics,
@@ -935,7 +945,16 @@ class EncodeMatch:
             name: ref for name, ref in entry.value_placeholders.items() if name not in values
         }
 
-        return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
+        return ModeEntry(
+            encoding,
+            entry.fixed_matcher,
+            # TODO: Rename immediates in decoding as well.
+            entry.decoding,
+            mnemonic,
+            semantics,
+            unfilled_matches,
+            unfilled_values,
+        )
 
     @const_property
     def flags_required(self) -> Set[str]:

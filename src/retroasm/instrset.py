@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import (
     Callable,
     Collection,
@@ -17,14 +16,7 @@ from typing import Self, cast, override
 
 from .codeblock import FunctionBody, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
-from .decode import (
-    Decoder,
-    DecoderFactory,
-    ParsedModeEntry,
-    Prefix,
-    calc_mode_entry_decoding,
-    create_prefix_decoder,
-)
+from .decode import Decoder, DecoderFactory, Prefix, create_prefix_decoder
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
@@ -215,15 +207,12 @@ class InstructionSet(ModeTable):
                 f"different from instruction encoding width {enc_width}"
             )
 
-        mode_entries = defaultdict[str | None, list[ParsedModeEntry]](list)
-        for name, entries in chain(
-            [(None, instructions)],
-            ((name, mode.entries) for name, mode in modes.items()),
-        ):
-            for entry in entries:
-                decoding = calc_mode_entry_decoding(entry, collector)
-                if decoding is not None:
-                    mode_entries[name].append(ParsedModeEntry(entry, *decoding))
+        mode_entries = dict(
+            chain(
+                [(None, instructions)],
+                ((name, mode.entries) for name, mode in modes.items()),
+            )
+        )
 
         return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, mode_entries)
 
@@ -233,15 +222,13 @@ class InstructionSet(ModeTable):
         aux_enc_width: int | None,
         program_counter: Reference,
         prefix_mapping: PrefixMapping,
-        mode_entries: Mapping[str | None, list[ParsedModeEntry]],
+        mode_entries: Mapping[str | None, Sequence[ModeEntry]],
     ):
         instructions = mode_entries[None]
-        ModeTable.__init__(
-            self, enc_width, aux_enc_width, (instr.entry for instr in instructions)
-        )
+        ModeTable.__init__(self, enc_width, aux_enc_width, instructions)
         self._program_counter = program_counter
         self._prefix_mapping = prefix_mapping
-        self._modeEntries = mode_entries
+        self._mode_entries = mode_entries
         self._decoders: dict[frozenset[str], Decoder] = {}
 
     @const_property
@@ -257,7 +244,7 @@ class InstructionSet(ModeTable):
         decoders = self._decoders
         decoder = decoders.get(flags)
         if decoder is None:
-            decoder_factory = DecoderFactory(self._modeEntries, flags)
+            decoder_factory = DecoderFactory(self._mode_entries, flags)
             decoder = decoder_factory.create_decoder(None, None)
             decoders[flags] = decoder
         return decoder
