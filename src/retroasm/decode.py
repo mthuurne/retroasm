@@ -786,7 +786,7 @@ def calc_mode_entry_decoding(
         # Decompose the encoding expressions.
         fixed_matcher, decode_map = _decompose_encoding(encoding)
     except BadInput as ex:
-        collector.error(f"{ex}", location=ex.locations)
+        collector.add(ex)
         return None
 
     multi_matches = {

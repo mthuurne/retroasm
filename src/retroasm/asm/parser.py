@@ -516,7 +516,7 @@ def parse_asm(
                 try:
                     directive = parse_directive(statement, tokens, instr_set)
                 except BadInput as ex:
-                    collector.error(f"{ex}", location=ex.locations)
+                    collector.add(ex)
                 else:
                     collector.info(f"directive: {directive}", location=statement)
                     source.add_directive(directive)

@@ -552,7 +552,7 @@ def build_statement_eval(
             try:
                 _ref = _convert_function_call(node, namespace, builder)
             except BadExpression as ex:
-                collector.error(f"{ex}", location=ex.locations)
+                collector.add(ex)
             # Skip no-effect check: if a function does nothing, it likely either
             # does so on purpose or a warning will already have been issued there.
             return
@@ -614,9 +614,8 @@ def emit_code_from_statements(
                 try:
                     ref = convert_definition(decl, typ, value, namespace, builder)
                 except BadExpression as ex:
-                    message = f"{ex}"
-                    collector.error(message, location=ex.locations)
-                    ref = bad_reference(typ, message)
+                    collector.add(ex)
+                    ref = bad_reference(typ, f"{ex}")
                 # Add definition to namespace.
                 try:
                     namespace.define(name, ref, name_node.location)
@@ -631,7 +630,7 @@ def emit_code_from_statements(
                 try:
                     declare_variable(decl, namespace)
                 except BadExpression as ex:
-                    collector.error(f"{ex}", location=ex.locations)
+                    collector.add(ex)
 
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.

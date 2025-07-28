@@ -545,7 +545,7 @@ def _parse_mode_encoding(
                     # Expression possibly containing single encoding field matches.
                     yield _parse_encoding_expr(enc_node, enc_namespace, ctx_namespace)
         except BadInput as ex:
-            collector.error(f"{ex}", location=ex.locations)
+            collector.add(ex)
 
 
 def _parse_flags_required(

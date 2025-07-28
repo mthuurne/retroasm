@@ -277,6 +277,9 @@ class ErrorCollector:
     def __str__(self) -> str:
         return str(self.problem_counter)
 
+    def add(self, ex: BadInput) -> None:
+        self.error(f"{ex}", location=ex.locations)
+
     def error(
         self,
         msg: str,
