@@ -1063,7 +1063,8 @@ class InstructionSetParser:
                 pc = self.global_namespace.program_counter
                 if pc is None:
                     collector.error(
-                        'no program counter defined: a register or alias named "pc" is required',
+                        "no program counter defined: "
+                        'a register or alias named "pc" is required',
                         location=location,
                     )
                     pc = bad_reference(IntType.int, "undefined program counter")
