@@ -9,7 +9,7 @@ from typing import cast, override
 from .codeblock import FunctionBody
 from .expression import IntLiteral
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
-from .input import BadInput, DelayedError, ErrorCollector, InputLocation
+from .input import BadInput, ErrorCollector, InputLocation
 from .mode import (
     EncodeMatch,
     Encoding,
@@ -756,10 +756,6 @@ def create_mode_entry(
     decoding = calc_mode_entry_decoding(
         encoding, match_placeholders, value_placeholders, collector
     )
-    # TODO: Abort creation instead of returning dummy.
-    if decoding is None:
-        decoding = (), {}
-
     return ModeEntry(
         encoding, *decoding, mnemonic, semantics, match_placeholders, value_placeholders
     )
@@ -770,11 +766,18 @@ def calc_mode_entry_decoding(
     match_placeholders: Mapping[str, Mode],
     value_placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
-) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]] | None:
+) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
     """
     Construct a mapping that, given an encoded (part of an) instruction, produces the values
     for context placeholders.
     """
+
+    with collector.check():
+        try:
+            # Decompose the encoding expressions.
+            fixed_matcher, decode_map = _decompose_encoding(encoding)
+        except BadInput as ex:
+            collector.add(ex)
 
     placeholders = dict(value_placeholders)
     for name, mode in match_placeholders.items():
@@ -782,56 +785,46 @@ def calc_mode_entry_decoding(
 
     imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
-    try:
-        # Decompose the encoding expressions.
-        fixed_matcher, decode_map = _decompose_encoding(encoding)
-    except BadInput as ex:
-        collector.add(ex)
-        return None
-
     multi_matches = {
         enc_item.name for enc_item in encoding if isinstance(enc_item, EncodingMultiMatch)
     }
 
-    try:
-        with collector.check():
-            # Check placeholders that should be encoded but aren't.
-            for name, ref in placeholders.items():
-                if imm_widths[name] is None:
-                    # Placeholder should not be encoded.
-                    continue
-                if name in multi_matches:
-                    # Mode is matched using "X@" syntax.
-                    continue
-                if name not in decode_map:
-                    # Note: We could instead treat missing placeholders as a special
-                    #       case of insufficient bit coverage, but having a dedicated
-                    #       error message is more clear for end users.
+    with collector.check():
+        # Check placeholders that should be encoded but aren't.
+        for name, ref in placeholders.items():
+            if imm_widths[name] is None:
+                # Placeholder should not be encoded.
+                continue
+            if name in multi_matches:
+                # Mode is matched using "X@" syntax.
+                continue
+            if name not in decode_map:
+                # Note: We could instead treat missing placeholders as a special
+                #       case of insufficient bit coverage, but having a dedicated
+                #       error message is more clear for end users.
+                collector.error(
+                    f'placeholder "{name}" does not occur in encoding',
+                    location=encoding.location,
+                )
+            elif isinstance(ref, ModeMatchReference):
+                if (mode := ref.mode).aux_encoding_width is not None:
                     collector.error(
-                        f'placeholder "{name}" does not occur in encoding',
+                        f'mode "{mode.name}" matches auxiliary encoding units, '
+                        f'but there is no "{name}@" placeholder for them',
                         location=encoding.location,
                     )
-                elif isinstance(ref, ModeMatchReference):
-                    if (mode := ref.mode).aux_encoding_width is not None:
-                        collector.error(
-                            f'mode "{mode.name}" matches auxiliary encoding units, '
-                            f'but there is no "{name}@" placeholder for them',
-                            location=encoding.location,
-                        )
 
-            # Create a mapping to extract immediate values from encoded items.
-            sequential_map = dict(
-                _combine_placeholder_encodings(
-                    decode_map, imm_widths, collector, encoding.encoding_location
-                )
+        # Create a mapping to extract immediate values from encoded items.
+        sequential_map = dict(
+            _combine_placeholder_encodings(
+                decode_map, imm_widths, collector, encoding.encoding_location
             )
-        with collector.check():
-            # Check whether unknown-length multi-matches are blocking decoding.
-            _check_decoding_order(encoding, sequential_map, match_placeholders, collector)
-    except DelayedError:
-        return None
-    else:
-        return fixed_matcher, sequential_map
+        )
+    with collector.check():
+        # Check whether unknown-length multi-matches are blocking decoding.
+        _check_decoding_order(encoding, sequential_map, match_placeholders, collector)
+
+    return fixed_matcher, sequential_map
 
 
 def _combine_placeholder_encodings(

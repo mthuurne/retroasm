@@ -823,9 +823,7 @@ def _parse_mode_entries(
                     )
                 else:
                     semantics = None
-        except DelayedError:
-            pass
-        else:
+
             if encoding is not None:
                 yield create_mode_entry(
                     encoding,
@@ -844,6 +842,8 @@ def _parse_mode_entries(
                     },
                     collector,
                 )
+        except DelayedError:
+            pass
 
 
 _re_mode_args = re.compile(_type_tok + r"\s" + _name_tok + r"$")
