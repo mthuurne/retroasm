@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from functools import partial
 from operator import itemgetter
-from typing import TYPE_CHECKING, Any, Final, Self, overload, override
+from typing import TYPE_CHECKING, Final, Self, override
 
 from .codeblock import FunctionBody
 from .expression import Expression
@@ -196,6 +196,10 @@ class Encoding:
     The items within an encoding definition are exposed as a sequence.
     """
 
+    @property
+    def items(self) -> Sequence[EncodingItem]:
+        return self._items
+
     def __init__(
         self,
         items: Iterable[EncodingItem],
@@ -231,21 +235,6 @@ class Encoding:
     def __repr__(self) -> str:
         return f"Encoding({self._items!r}, {self._location!r})"
 
-    def __iter__(self) -> Iterator[EncodingItem]:
-        return iter(self._items)
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    @overload
-    def __getitem__(self, index: int) -> EncodingItem: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> Sequence[EncodingItem]: ...
-
-    def __getitem__(self, index: int | slice) -> Any:
-        return self._items[index]
-
     def fill_placeholders(self, match: EncodeMatch) -> Encoding:
         """
         Return a new encoding, in which placeholders are replaced by
@@ -256,13 +245,13 @@ class Encoding:
         # multiple times, so cache them.
         sub_encodings: dict[str, Encoding] = {}
 
-        def get_sub_encoding(name: str, submatch: EncodeMatch) -> Encoding:
+        def get_sub_encoding(name: str, submatch: EncodeMatch) -> Sequence[EncodingItem]:
             try:
-                return sub_encodings[name]
+                return sub_encodings[name].items
             except KeyError:
                 sub_enc = submatch.entry.encoding.fill_placeholders(submatch)
                 sub_encodings[name] = sub_enc
-                return sub_enc
+                return sub_enc.items
 
         def subst_placeholder(name: str) -> Expression | None:
             try:
@@ -588,7 +577,7 @@ class ModeMatch:
             assert isinstance(bits, FixedValue), type(bits)
             return bits.expr
 
-        for enc_item in self._entry.encoding:
+        for enc_item in self._entry.encoding.items:
             match enc_item:
                 case EncodingExpr() as expr:
                     yield expr.substitute(subst).bits
@@ -974,7 +963,7 @@ class EncodeMatch:
         # Mode entry has variable encoded length.
         subs = self._subs
         length = 0
-        for enc_item in enc_def:
+        for enc_item in enc_def.items:
             match enc_item:
                 case EncodingExpr():
                     length += 1

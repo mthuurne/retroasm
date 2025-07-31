@@ -81,7 +81,7 @@ def _decompose_encoding(
     """
     fixed_matcher: list[FixedEncoding] = []
     decode_map = defaultdict[str, list[tuple[int, EncodedSegment]]](list)
-    for enc_idx, enc_elem in enumerate(encoding):
+    for enc_idx, enc_elem in enumerate(encoding.items):
         if not isinstance(enc_elem, EncodingExpr):
             continue
         fixed_mask = 0
@@ -418,7 +418,7 @@ def _create_entry_decoder(
     # Find all indices that contain multi-matches.
     multi_matches = {
         enc_item.name: enc_idx
-        for enc_idx, enc_item in enumerate(encoding)
+        for enc_idx, enc_item in enumerate(encoding.items)
         if isinstance(enc_item, EncodingMultiMatch)
     }
 
@@ -441,7 +441,7 @@ def _create_entry_decoder(
     entry = match.fill_placeholders()
 
     # Insert matchers at the last index they need.
-    matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding))]
+    matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding.items))]
     for name, mode in entry.match_placeholders.items():
         try:
             encoded_segments = decoding[name]
@@ -454,7 +454,7 @@ def _create_entry_decoder(
                 matcher: _EncodingMatcher = MatchPlaceholder(name, mode)
             else:
                 last_idx = max(last_idx, multi_match_idx)
-                matcher = cast(EncodingMultiMatch, encoding[multi_match_idx])
+                matcher = cast(EncodingMultiMatch, encoding.items[multi_match_idx])
                 if matcher.encoded_length is None and last_idx > multi_match_idx:
                     raise ValueError(
                         f"Variable-length matcher at index "
@@ -463,7 +463,7 @@ def _create_entry_decoder(
             matchers_by_index[last_idx].append(matcher)
     # Insert multi-matchers without slices.
     for enc_idx in multi_matches.values():
-        matcher = cast(EncodingMultiMatch, encoding[enc_idx])
+        matcher = cast(EncodingMultiMatch, encoding.items[enc_idx])
         if matcher.start == 0:
             matchers_by_index[enc_idx].append(matcher)
 
@@ -473,7 +473,7 @@ def _create_entry_decoder(
         # fetched and the index that should be requested from the fetcher.
         when_idx = fetch_idx = fixed_encoding.enc_idx
         while when_idx != 0:
-            match encoding[when_idx - 1]:
+            match encoding.items[when_idx - 1]:
                 case EncodingMultiMatch(encoded_length=enc_len):
                     if enc_len is None:
                         # Can't move past variable-length matcher.
@@ -521,7 +521,7 @@ def _create_entry_decoder(
                 assert enc_segs is not None
                 assert aux_idx is not None
                 assert aux_idx < enc_idx, matcher
-                aux_len = encoding[aux_idx].encoded_length
+                aux_len = encoding.items[aux_idx].encoded_length
                 assert aux_len is not None
                 adjust = aux_len - 1
                 if adjust != 0:
@@ -786,7 +786,7 @@ def calc_mode_entry_decoding(
     imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
     multi_matches = {
-        enc_item.name for enc_item in encoding if isinstance(enc_item, EncodingMultiMatch)
+        enc_item.name for enc_item in encoding.items if isinstance(enc_item, EncodingMultiMatch)
     }
 
     with collector.check():
@@ -880,7 +880,7 @@ def _check_decoding_order(
     # Find indices of multi-matches.
     multi_match_indices = {
         enc_elem.name: enc_idx
-        for enc_idx, enc_elem in enumerate(encoding)
+        for enc_idx, enc_elem in enumerate(encoding.items)
         if isinstance(enc_elem, EncodingMultiMatch)
     }
 
@@ -889,7 +889,7 @@ def _check_decoding_order(
         multi_idx = multi_match_indices.get(name)
         if multi_idx is None:
             continue
-        matcher = encoding[multi_idx]
+        matcher = encoding.items[multi_idx]
         if matcher.encoded_length is not None:
             continue
 
@@ -903,5 +903,5 @@ def _check_decoding_order(
                 f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
-                location=[matcher.location] + [encoding[idx].location for idx in bad_idx],
+                location=[matcher.location] + [encoding.items[idx].location for idx in bad_idx],
             )

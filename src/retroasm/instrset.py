@@ -84,7 +84,7 @@ class PrefixMappingFactory:
         # Check encoding width consistency.
         enc_width = self._encoding_width
         for prefix in prefixes:
-            for enc_item in prefix.encoding:
+            for enc_item in prefix.encoding.items:
                 if enc_width is None:
                     enc_width = enc_item.encoding_width
                 elif enc_width != enc_item.encoding_width:
@@ -120,7 +120,7 @@ class PrefixMappingFactory:
                 # Note: In theory we could support prefixes that set multiple
                 #       flags, but let's keep things simple until we encounter
                 #       a processor that actually requires it.
-                enc_str = " ".join(str(enc) for enc in prefix.encoding)
+                enc_str = " ".join(str(enc) for enc in prefix.encoding.items)
                 raise ValueError(f'prefix "{enc_str}" sets {len(set_flags):d} flags')
 
         unsettable_flags = set(decode_flags) - set(prefix_for_flag.keys())
@@ -177,7 +177,7 @@ class InstructionSet(ModeTable):
 
         where_desc = "for instructions"
         enc_width = determine_encoding_width(instructions, False, where_desc, collector)
-        any_aux = any(len(instr.encoding) >= 2 for instr in instructions)
+        any_aux = any(len(instr.encoding.items) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
         if enc_width is None:
             # Since the last instruction with an identical encoding overrides earlier ones,
@@ -299,7 +299,7 @@ class InstructionSet(ModeTable):
         #       may not be the right order.
         for name in sorted(mode_match.flags_required):
             prefix = self._prefix_mapping.prefix_for_flag[name]
-            for enc_item in prefix.encoding:
+            for enc_item in prefix.encoding.items:
                 assert isinstance(enc_item, EncodingExpr), enc_item
                 yield enc_item.bits.int_value
 
