@@ -14,6 +14,7 @@ from .mode import (
     EncodeMatch,
     Encoding,
     EncodingExpr,
+    EncodingItem,
     EncodingMultiMatch,
     MatchPlaceholder,
     Mnemonic,
@@ -65,7 +66,7 @@ class FixedEncoding:
 
 
 def _decompose_encoding(
-    encoding: Encoding,
+    encoding_items: Iterable[EncodingItem],
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[tuple[int, EncodedSegment]]]]:
     """
     Decomposes the given Encoding into a matcher for the fixed bit strings
@@ -81,7 +82,7 @@ def _decompose_encoding(
     """
     fixed_matcher: list[FixedEncoding] = []
     decode_map = defaultdict[str, list[tuple[int, EncodedSegment]]](list)
-    for enc_idx, enc_elem in enumerate(encoding.items):
+    for enc_idx, enc_elem in enumerate(encoding_items):
         if not isinstance(enc_elem, EncodingExpr):
             continue
         fixed_mask = 0
@@ -731,7 +732,7 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
         # Note that since we have no placeholders in prefixes, the
         # errors that decomposeEncoding() could report cannot happen.
         encoding = prefix.encoding
-        fixed_matcher, decode_map = _decompose_encoding(encoding)
+        fixed_matcher, decode_map = _decompose_encoding(encoding.items)
         assert len(decode_map) == 0, decode_map
         values: list[int] = []
         for idx, fixed_encoding in enumerate(sorted(fixed_matcher)):
@@ -754,7 +755,7 @@ def create_mode_entry(
     collector: ErrorCollector,
 ) -> ModeEntry:
     decoding = calc_mode_entry_decoding(
-        encoding, match_placeholders, value_placeholders, collector
+        encoding.items, encoding.location, match_placeholders, value_placeholders, collector
     )
     return ModeEntry(
         encoding, *decoding, mnemonic, semantics, match_placeholders, value_placeholders
@@ -762,7 +763,8 @@ def create_mode_entry(
 
 
 def calc_mode_entry_decoding(
-    encoding: Encoding,
+    encoding_items: Sequence[EncodingItem],
+    encoding_location: InputLocation | None,
     match_placeholders: Mapping[str, Mode],
     value_placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
@@ -775,7 +777,7 @@ def calc_mode_entry_decoding(
     with collector.check():
         try:
             # Decompose the encoding expressions.
-            fixed_matcher, decode_map = _decompose_encoding(encoding)
+            fixed_matcher, decode_map = _decompose_encoding(encoding_items)
         except BadInput as ex:
             collector.add(ex)
 
@@ -786,7 +788,7 @@ def calc_mode_entry_decoding(
     imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
     multi_matches = {
-        enc_item.name for enc_item in encoding.items if isinstance(enc_item, EncodingMultiMatch)
+        enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
     }
 
     with collector.check():
@@ -804,25 +806,23 @@ def calc_mode_entry_decoding(
                 #       error message is more clear for end users.
                 collector.error(
                     f'placeholder "{name}" does not occur in encoding',
-                    location=encoding.location,
+                    location=encoding_location,
                 )
             elif isinstance(ref, ModeMatchReference):
                 if (mode := ref.mode).aux_encoding_width is not None:
                     collector.error(
                         f'mode "{mode.name}" matches auxiliary encoding units, '
                         f'but there is no "{name}@" placeholder for them',
-                        location=encoding.location,
+                        location=encoding_location,
                     )
 
         # Create a mapping to extract immediate values from encoded items.
         sequential_map = dict(
-            _combine_placeholder_encodings(
-                decode_map, imm_widths, collector, encoding.encoding_location
-            )
+            _combine_placeholder_encodings(decode_map, imm_widths, collector, encoding_location)
         )
     with collector.check():
         # Check whether unknown-length multi-matches are blocking decoding.
-        _check_decoding_order(encoding, sequential_map, match_placeholders, collector)
+        _check_decoding_order(encoding_items, sequential_map, match_placeholders, collector)
 
     return fixed_matcher, sequential_map
 
@@ -867,7 +867,7 @@ def _combine_placeholder_encodings(
 
 
 def _check_decoding_order(
-    encoding: Encoding,
+    encoding_items: Sequence[EncodingItem],
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
     match_placeholders: Mapping[str, Mode],
     collector: ErrorCollector,
@@ -880,7 +880,7 @@ def _check_decoding_order(
     # Find indices of multi-matches.
     multi_match_indices = {
         enc_elem.name: enc_idx
-        for enc_idx, enc_elem in enumerate(encoding.items)
+        for enc_idx, enc_elem in enumerate(encoding_items)
         if isinstance(enc_elem, EncodingMultiMatch)
     }
 
@@ -889,7 +889,7 @@ def _check_decoding_order(
         multi_idx = multi_match_indices.get(name)
         if multi_idx is None:
             continue
-        matcher = encoding.items[multi_idx]
+        matcher = encoding_items[multi_idx]
         if matcher.encoded_length is not None:
             continue
 
@@ -903,5 +903,5 @@ def _check_decoding_order(
                 f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
                 f'the multi-match placeholder "{name}@"',
-                location=[matcher.location] + [encoding.items[idx].location for idx in bad_idx],
+                location=[matcher.location] + [encoding_items[idx].location for idx in bad_idx],
             )
