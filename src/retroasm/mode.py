@@ -679,7 +679,7 @@ def _format_encoding_width(width: Width | None) -> str:
 
 
 def determine_encoding_width(
-    entries: Iterable[ModeEntry], aux: bool, where_desc: str, collector: ErrorCollector
+    encodings: Iterable[Encoding], aux: bool, where_desc: str, collector: ErrorCollector
 ) -> int | None:
     """
     Return the common encoding width for the given list of mode entries.
@@ -691,8 +691,8 @@ def determine_encoding_width(
     width_attr = "aux_encoding_width" if aux else "encoding_width"
 
     width_freqs = defaultdict[int | None, int](int)
-    for entry in entries:
-        width_freqs[getattr(entry.encoding, width_attr)] += 1
+    for encoding in encodings:
+        width_freqs[getattr(encoding, width_attr)] += 1
     if aux:
         width_freqs.pop(None, None)
 
@@ -710,9 +710,8 @@ def determine_encoding_width(
             valid_widths = (enc_width, None)
         else:
             valid_widths = (enc_width,)
-        for entry in entries:
-            enc_def = entry.encoding
-            width: Width = getattr(enc_def, width_attr)
+        for encoding in encodings:
+            width: Width = getattr(encoding, width_attr)
             if width not in valid_widths:
                 match_type = f"{'auxiliary ' if aux else ''}encoding match"
                 actual_width = _format_encoding_width(width)
@@ -721,7 +720,7 @@ def determine_encoding_width(
                     f"{match_type} is {actual_width}, while {expected_width} is "
                     f"dominant {where_desc}",
                     location=(
-                        enc_def.aux_encoding_location if aux else enc_def.encoding_location
+                        encoding.aux_encoding_location if aux else encoding.encoding_location
                     ),
                 )
 
@@ -801,9 +800,10 @@ class Mode(ModeTable):
         entries: Iterable[ModeEntry],
         collector: ErrorCollector,
     ) -> Self:
+        encodings = [entry.encoding for entry in entries]
         where_desc = f'in mode "{name}"'
-        enc_width = determine_encoding_width(entries, False, where_desc, collector)
-        aux_enc_width = determine_encoding_width(entries, True, where_desc, collector)
+        enc_width = determine_encoding_width(encodings, False, where_desc, collector)
+        aux_enc_width = determine_encoding_width(encodings, True, where_desc, collector)
         return cls(name, enc_width, aux_enc_width, sem_type, location, entries)
 
     def __init__(

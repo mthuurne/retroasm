@@ -175,8 +175,9 @@ class InstructionSet(ModeTable):
         """
         instructions = tuple(instructions)
 
+        encodings = [instr.encoding for instr in instructions]
         where_desc = "for instructions"
-        enc_width = determine_encoding_width(instructions, False, where_desc, collector)
+        enc_width = determine_encoding_width(encodings, False, where_desc, collector)
         any_aux = any(len(instr.encoding.items) >= 2 for instr in instructions)
         aux_enc_width = enc_width if any_aux else None
         if enc_width is None:
