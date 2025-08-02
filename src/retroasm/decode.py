@@ -17,7 +17,6 @@ from .mode import (
     EncodingItem,
     EncodingMultiMatch,
     MatchPlaceholder,
-    Mnemonic,
     Mode,
     ModeEntry,
     ModeMatchReference,
@@ -631,7 +630,7 @@ def _qualify_names(
     placeholder_names += entry.value_placeholders
     if branch_name is None or len(placeholder_names) == 0:
         # Do not rename.
-        return entry, entry.decoding
+        return entry, entry.encoding.decoding
     elif len(placeholder_names) == 1:
         # Replace current name with branch name.
         name_map = {placeholder_names[0]: branch_name}
@@ -640,7 +639,9 @@ def _qualify_names(
         name_map = {name: f"{branch_name}.{name}" for name in placeholder_names}
 
     renamed_entry = entry.rename(name_map)
-    renamed_decoding = {name_map[name]: value for name, value in entry.decoding.items()}
+    renamed_decoding = {
+        name_map[name]: value for name, value in entry.encoding.decoding.items()
+    }
     return renamed_entry, renamed_decoding
 
 
@@ -662,7 +663,7 @@ class DecoderFactory:
             decoder = _create_decoder(
                 _create_entry_decoder(
                     *_qualify_names(entry, branch_name),
-                    entry.fixed_matcher,
+                    entry.encoding.fixed_matcher,
                     factory=self,
                 )
                 for entry in entries
@@ -746,27 +747,10 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
     return root.try_decode
 
 
-def create_mode_entry(
-    encoding: Encoding,
-    mnemonic: Mnemonic,
-    semantics: FunctionBody | None,
-    match_placeholders: Mapping[str, Mode],
-    value_placeholders: Mapping[str, FixedValueReference],
-    collector: ErrorCollector,
-) -> ModeEntry:
-    decoding = calc_mode_entry_decoding(
-        encoding.items, encoding.location, match_placeholders, value_placeholders, collector
-    )
-    return ModeEntry(
-        encoding, *decoding, mnemonic, semantics, match_placeholders, value_placeholders
-    )
-
-
 def calc_mode_entry_decoding(
     encoding_items: Sequence[EncodingItem],
     encoding_location: InputLocation | None,
-    match_placeholders: Mapping[str, Mode],
-    value_placeholders: Mapping[str, FixedValueReference],
+    placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
     """
@@ -781,10 +765,6 @@ def calc_mode_entry_decoding(
         except BadInput as ex:
             collector.add(ex)
 
-    placeholders = dict(value_placeholders)
-    for name, mode in match_placeholders.items():
-        placeholders[name] = ModeMatchReference(name, mode)
-
     imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
 
     multi_matches = {
@@ -793,6 +773,9 @@ def calc_mode_entry_decoding(
 
     with collector.check():
         # Check placeholders that should be encoded but aren't.
+        # TODO: This is something we should check at the mode entry level,
+        #       instead of at the encoding level, such that the encoding
+        #       does not depend on the context.
         for name, ref in placeholders.items():
             if imm_widths[name] is None:
                 # Placeholder should not be encoded.
@@ -820,8 +803,14 @@ def calc_mode_entry_decoding(
         sequential_map = dict(
             _combine_placeholder_encodings(decode_map, imm_widths, collector, encoding_location)
         )
+
+    # Check whether unknown-length multi-matches are blocking decoding.
+    match_placeholders = {
+        name: ref.mode
+        for name, ref in placeholders.items()
+        if isinstance(ref, ModeMatchReference)
+    }
     with collector.check():
-        # Check whether unknown-length multi-matches are blocking decoding.
         _check_decoding_order(encoding_items, sequential_map, match_placeholders, collector)
 
     return fixed_matcher, sequential_map

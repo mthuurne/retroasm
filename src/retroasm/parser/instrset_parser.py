@@ -11,7 +11,7 @@ from ..codeblock_builder import (
     StatelessCodeBlockBuilder,
     returned_bits,
 )
-from ..decode import Prefix, create_mode_entry
+from ..decode import Prefix
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
 from ..mode import (
@@ -263,10 +263,9 @@ def _parse_prefix(
                                 collector.error(
                                     f"bad prefix encoding: {ex}", location=ex.locations
                                 )
+            encoding = Encoding.create(enc_items, {}, {}, collector, enc_loc)
         except DelayedError:
             encoding = None
-        else:
-            encoding = Encoding(enc_items, {}, enc_loc)
 
         # Parse mnemonic.
         if len(mnem_loc) != 0:
@@ -769,10 +768,15 @@ def _parse_mode_entries(
                             flags_required = set(
                                 _parse_flags_required(enc_nodes, prefixes, collector)
                             )
+                            encoding = Encoding.create(
+                                enc_items,
+                                flags_required,
+                                ctx_namespace.elements,
+                                collector,
+                                enc_loc,
+                            )
                     except DelayedError:
                         encoding = None
-                    else:
-                        encoding = Encoding(enc_items, flags_required, enc_loc)
 
                 # Parse mnemonic.
                 # Additional placeholders may be inserted by the mnemonic parser.
@@ -825,7 +829,7 @@ def _parse_mode_entries(
                     semantics = None
 
             if encoding is not None:
-                yield create_mode_entry(
+                yield ModeEntry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
@@ -840,7 +844,6 @@ def _parse_mode_entries(
                         for name, ref in ctx_namespace.elements.items()
                         if not isinstance(ref, ModeMatchReference)
                     },
-                    collector,
                 )
         except DelayedError:
             pass

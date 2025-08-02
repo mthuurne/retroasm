@@ -200,10 +200,33 @@ class Encoding:
     def items(self) -> Sequence[EncodingItem]:
         return self._items
 
+    @classmethod
+    def create(
+        cls,
+        items: Sequence[EncodingItem],
+        flags_required: Iterable[str],
+        placeholders: Mapping[str, FixedValueReference],
+        collector: ErrorCollector,
+        location: InputLocation | None = None,
+    ) -> Self:
+        """
+        Create an encoding object and computes the corresponding decoding.
+        If decoding is not possible, that's reported as an error.
+        Raises `DelayedError` if any errors were logged on the given collector.
+        """
+
+        # TODO: Redistribute code over modules.
+        from .decode import calc_mode_entry_decoding
+
+        decoding = calc_mode_entry_decoding(items, location, placeholders, collector)
+        return cls(items, flags_required, *decoding, location)
+
     def __init__(
         self,
         items: Iterable[EncodingItem],
         flags_required: Iterable[str],
+        fixed_matcher: Sequence[FixedEncoding],
+        decoding: Mapping[str, Sequence[EncodedSegment]],
         location: InputLocation | None = None,
     ):
         # Filter out zero-length encoding items.
@@ -214,6 +237,9 @@ class Encoding:
         )
         self._items = non_empty_items
         self._first_aux_index = _find_first_aux_index(non_empty_items)
+
+        self.fixed_matcher = fixed_matcher
+        self.decoding = decoding
 
         # Verify that all auxiliary units have the same width.
         aux_width = self.aux_encoding_width
@@ -294,7 +320,12 @@ class Encoding:
                         items += get_sub_encoding(name, submatch)[item.start :]
                 case item:
                     bad_type(item)
-        return Encoding(items, match.flags_required, self._location)
+
+        # TODO: Update the decoding as well.
+        fixed_matcher = self.fixed_matcher
+        decoding = self.decoding
+
+        return Encoding(items, match.flags_required, fixed_matcher, decoding, self._location)
 
     def rename(self, name_map: Mapping[str, str]) -> Encoding:
         """
@@ -302,7 +333,12 @@ class Encoding:
         substituted by their value in the given mapping.
         """
         return Encoding(
-            (item.rename(name_map) for item in self._items), self.flags_required, self._location
+            (item.rename(name_map) for item in self._items),
+            self.flags_required,
+            self.fixed_matcher,
+            # TODO: Rename immediates in decoding as well.
+            self.decoding,
+            self._location,
         )
 
     @property
@@ -461,16 +497,12 @@ class ModeEntry:
     def __init__(
         self,
         encoding: Encoding,
-        fixed_matcher: Sequence[FixedEncoding],
-        decoding: Mapping[str, Sequence[EncodedSegment]],
         mnemonic: Mnemonic,
         semantics: FunctionBody | None,
         match_placeholders: Mapping[str, Mode],
         value_placeholders: Mapping[str, FixedValueReference],
     ):
         self.encoding = encoding
-        self.fixed_matcher = fixed_matcher
-        self.decoding = decoding
         self.mnemonic = mnemonic
         self._semantics = semantics
         self._match_placeholders = dict(match_placeholders)
@@ -516,9 +548,6 @@ class ModeEntry:
         """
         return ModeEntry(
             self.encoding.rename(name_map),
-            self.fixed_matcher,
-            # TODO: Rename immediates in decoding as well.
-            self.decoding,
             self.mnemonic.rename(name_map),
             # TODO: Rename immediates in semantics as well.
             self._semantics,
@@ -934,16 +963,7 @@ class EncodeMatch:
             name: ref for name, ref in entry.value_placeholders.items() if name not in values
         }
 
-        return ModeEntry(
-            encoding,
-            entry.fixed_matcher,
-            # TODO: Rename immediates in decoding as well.
-            entry.decoding,
-            mnemonic,
-            semantics,
-            unfilled_matches,
-            unfilled_values,
-        )
+        return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
 
     @const_property
     def flags_required(self) -> Set[str]:
