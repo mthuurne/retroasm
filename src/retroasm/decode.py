@@ -1,134 +1,131 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from typing import cast, override
 
 from .codeblock import FunctionBody
-from .expression import IntLiteral
-from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
-from .input import BadInput, ErrorCollector, InputLocation
-from .mode import (
-    EncodeMatch,
+from .encoding import (
+    EncodedSegment,
     Encoding,
     EncodingExpr,
-    EncodingItem,
     EncodingMultiMatch,
-    MatchPlaceholder,
-    Mode,
-    ModeEntry,
-    ModeMatchReference,
-    get_encoding_width,
+    FixedEncoding,
+    decompose_encoding,
 )
-from .reference import FixedValue, FixedValueReference, SingleStorage, Variable, int_reference
+from .expression import Expression
+from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
+from .mode import MatchPlaceholder, ModeEntry, ModeMatch
+from .reference import FixedValueReference, int_reference
 from .symbol import ImmediateValue
-from .types import IntType, Segment, Width, mask_for_width, mask_to_segments
-from .utils import SingletonFromABC, bad_type
+from .types import IntType, mask_for_width, mask_to_segments
+from .utils import SingletonFromABC, bad_type, const_property
 
 
-@dataclass(frozen=True, order=True)
-class EncodedSegment:
-    """Part of an instruction encoding."""
+class EncodeMatch:
+    """A match on the encoding field of a mode entry."""
 
-    enc_idx: int
-    """Index of encoding unit that contains the segment."""
+    @property
+    def entry(self) -> ModeEntry:
+        return self._entry
 
-    segment: Segment
-    """Bit range."""
+    def __init__(self, entry: ModeEntry):
+        self._entry = entry
+        self._subs: dict[str, EncodeMatch] = {}
+        self._values: dict[str, FixedValueReference] = {}
 
     @override
-    def __str__(self) -> str:
-        return f"enc{self.enc_idx:d}{self.segment}"
+    def __repr__(self) -> str:
+        return f"EncodeMatch({self._entry!r}, {self._subs!r}, {self._values!r})"
 
-    def adjust_unit(self, idx: int, adjust: int) -> EncodedSegment:
+    def add_submatch(self, name: str, submatch: EncodeMatch) -> None:
+        assert name not in self._subs, name
+        assert name not in self._values, name
+        self._subs[name] = submatch
+
+    def add_value(self, name: str, value: FixedValueReference) -> None:
+        assert name not in self._subs, name
+        assert name not in self._values, name
+        self._values[name] = value
+
+    def get_submatch(self, name: str) -> EncodeMatch:
+        return self._subs[name]
+
+    def get_value(self, name: str) -> FixedValueReference:
+        return self._values[name]
+
+    def complete(self) -> ModeMatch:
+        """Construct a ModeMatch using the captured data."""
+
+        subs = {name: value.complete() for name, value in self._subs.items()}
+        values = {name: value.bits for name, value in self._values.items()}
+
+        def resolve_immediate(expr: Expression) -> Expression | None:
+            if isinstance(expr, ImmediateValue):
+                return values[expr.name].expr
+            return None
+
+        for name, ref in self._entry.value_placeholders.items():
+            values[name] = ref.substitute(resolve_immediate).bits
+
+        return ModeMatch(self._entry, values, subs)
+
+    def fill_placeholders(self) -> ModeEntry:
         """
-        Adjust the encoding unit index by 'adjust' if the current index
-        is below 'idx'.
-        Return the adjusted segment.
+        Return a new entry, in which those placeholders that are present
+        in this match are replaced by the mode/value they are mapped to.
+        It is not necessary for the match to provide modes/values for every
+        placeholder: whatever is not matched is left untouched.
         """
-        enc_idx = self.enc_idx
-        if enc_idx < idx:
-            return self
-        else:
-            return EncodedSegment(enc_idx + adjust, self.segment)
 
+        entry = self._entry
+        subs = self._subs
+        values = self._values
+        if not subs and not values:
+            # Skip no-op substitution for efficiency's sake.
+            return entry
 
-@dataclass(frozen=True, order=True)
-class FixedEncoding:
-    """Constant part of an instruction encoding."""
+        encoding = entry.encoding.fill_placeholders(self)
+        mnemonic = entry.mnemonic.fill_placeholders(self)
+        # TODO: Fill in placeholders in semantics too.
+        semantics = entry.semantics
+        unfilled_matches = {
+            name: mode for name, mode in entry._match_placeholders.items() if name not in subs
+        }
+        unfilled_values = {
+            name: ref for name, ref in entry.value_placeholders.items() if name not in values
+        }
 
-    enc_idx: int
-    fixed_mask: int
-    fixed_value: int
+        return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
 
+    @const_property
+    def flags_required(self) -> Set[str]:
+        flags_required = self._entry.encoding.flags_required
+        for match in self._subs.values():
+            flags_required |= match.entry.encoding.flags_required
+        return flags_required
 
-def _decompose_encoding(
-    encoding_items: Iterable[EncodingItem],
-) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[tuple[int, EncodedSegment]]]]:
-    """
-    Decomposes the given Encoding into a matcher for the fixed bit strings
-    and a decode map describing where the placeholders values can be found.
-    Returns a pair of the fixed matcher and the decode map.
-    The fixed matcher is a sequence of tuples, where each tuple contains the
-    index in the encoding followed by the mask and value of the fixed bits
-    pattern at that index.
-    The decode map stores a sequence of tuples for each name, where each tuple
-    contains the index in the placeholder's argument storage, the index of
-    the encoding item, the index within the encoding item and the width.
-    Raises BadInput if the given encoding cannot be decomposed.
-    """
-    fixed_matcher: list[FixedEncoding] = []
-    decode_map = defaultdict[str, list[tuple[int, EncodedSegment]]](list)
-    for enc_idx, enc_elem in enumerate(encoding_items):
-        if not isinstance(enc_elem, EncodingExpr):
-            continue
-        fixed_mask = 0
-        fixed_value = 0
-        try:
-            start = 0
-            for base, base_seg in enc_elem.bits.decompose():
-                segment = Segment(start, base_seg.width)
-                match base:
-                    case FixedValue(expr=IntLiteral(value=value)):
-                        fixed_mask |= segment.mask
-                        fixed_value |= base_seg.cut(value) << start
-                    case FixedValue(expr=ImmediateValue(name=name)):
-                        decode_map[name].append(
-                            (base_seg.start, EncodedSegment(enc_idx, segment))
-                        )
-                    case FixedValue(expr=expr):
-                        if (op := getattr(expr, "operator", None)) is not None:
-                            raise ValueError(f"unsupported operator in encoding: {op}")
-                        raise ValueError(
-                            f"unsupported expression type in encoding: "
-                            f"{expr.__class__.__name__}"
-                        )
-                    case SingleStorage(storage=storage):
-                        raise ValueError(
-                            f"unsupported storage type in encoding: "
-                            f"{storage.__class__.__name__}"
-                        )
-                    case Variable():
-                        raise ValueError("local variable cannot be used in encoding")
-                    case base:
-                        bad_type(base)
-                # Note: It is possible for the width to be unlimited, but only
-                #       at the end of a string, in which case we don't use
-                #       the start offset anymore.
-                start += cast(int, base_seg.width)
-        except ValueError as ex:
-            # TODO: This message is particularly unclear, because we do not
-            #       have the exact location nor can we print the offending
-            #       expression.
-            #       We could store locations in non-simplified expressions
-            #       or decompose parse trees instead of references.
-            raise BadInput(str(ex), enc_elem.location) from ex
-        else:
-            if fixed_mask != 0:
-                fixed_matcher.append(FixedEncoding(enc_idx, fixed_mask, fixed_value))
-    return fixed_matcher, decode_map
+    @const_property
+    def encoded_length(self) -> int:
+        enc_def = self._entry.encoding
+        length = enc_def.encoded_length
+        if length is not None:
+            # Mode entry has fixed encoded length.
+            return length
+
+        # Mode entry has variable encoded length.
+        subs = self._subs
+        length = 0
+        for enc_item in enc_def.items:
+            match enc_item:
+                case EncodingExpr():
+                    length += 1
+                case EncodingMultiMatch(name=name, start=start):
+                    length += subs[name].encoded_length - start
+                case obj:
+                    bad_type(obj)
+        return length
 
 
 def _format_mask(name: str, mask: int, value: int | None = None) -> str:
@@ -733,7 +730,7 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
         # Note that since we have no placeholders in prefixes, the
         # errors that decomposeEncoding() could report cannot happen.
         encoding = prefix.encoding
-        fixed_matcher, decode_map = _decompose_encoding(encoding.items)
+        fixed_matcher, decode_map = decompose_encoding(encoding.items)
         assert len(decode_map) == 0, decode_map
         values: list[int] = []
         for idx, fixed_encoding in enumerate(sorted(fixed_matcher)):
@@ -745,152 +742,3 @@ def create_prefix_decoder(prefixes: Sequence[Prefix]) -> Callable[[Fetcher], Pre
         assert len(values) == encoding.encoded_length
         root.add_prefix(values, prefix)
     return root.try_decode
-
-
-def calc_mode_entry_decoding(
-    encoding_items: Sequence[EncodingItem],
-    encoding_location: InputLocation | None,
-    placeholders: Mapping[str, FixedValueReference],
-    collector: ErrorCollector,
-) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
-    """
-    Construct a mapping that, given an encoded (part of an) instruction, produces the values
-    for context placeholders.
-    """
-
-    with collector.check():
-        try:
-            # Decompose the encoding expressions.
-            fixed_matcher, decode_map = _decompose_encoding(encoding_items)
-        except BadInput as ex:
-            collector.add(ex)
-
-    imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
-
-    multi_matches = {
-        enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
-    }
-
-    with collector.check():
-        # Check placeholders that should be encoded but aren't.
-        # TODO: This is something we should check at the mode entry level,
-        #       instead of at the encoding level, such that the encoding
-        #       does not depend on the context.
-        for name, ref in placeholders.items():
-            if imm_widths[name] is None:
-                # Placeholder should not be encoded.
-                continue
-            if name in multi_matches:
-                # Mode is matched using "X@" syntax.
-                continue
-            if name not in decode_map:
-                # Note: We could instead treat missing placeholders as a special
-                #       case of insufficient bit coverage, but having a dedicated
-                #       error message is more clear for end users.
-                collector.error(
-                    f'placeholder "{name}" does not occur in encoding',
-                    location=encoding_location,
-                )
-            elif isinstance(ref, ModeMatchReference):
-                if (mode := ref.mode).aux_encoding_width is not None:
-                    collector.error(
-                        f'mode "{mode.name}" matches auxiliary encoding units, '
-                        f'but there is no "{name}@" placeholder for them',
-                        location=encoding_location,
-                    )
-
-        # Create a mapping to extract immediate values from encoded items.
-        sequential_map = dict(
-            _combine_placeholder_encodings(decode_map, imm_widths, collector, encoding_location)
-        )
-
-    # Check whether unknown-length multi-matches are blocking decoding.
-    match_placeholders = {
-        name: ref.mode
-        for name, ref in placeholders.items()
-        if isinstance(ref, ModeMatchReference)
-    }
-    with collector.check():
-        _check_decoding_order(encoding_items, sequential_map, match_placeholders, collector)
-
-    return fixed_matcher, sequential_map
-
-
-def _combine_placeholder_encodings(
-    decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    imm_widths: Mapping[str, Width | None],
-    collector: ErrorCollector,
-    location: InputLocation | None,
-) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
-    """
-    Yield pairs of placeholder name and the locations where the placeholder
-    resides in the encoded items.
-    Each such location is a triple of index in the encoded items, bit offset
-    within that item and width in bits.
-    """
-
-    for name, slices in decode_map.items():
-        imm_width = imm_widths[name]
-        # Note: Encoding width is only None for empty encoding sequences,
-        #       in which case the decode map will be empty as well.
-        assert imm_width is not None, name
-        decoding = []
-        problems = []
-        prev: Width = 0
-        for imm_idx, enc_segment in sorted(slices):
-            width = enc_segment.segment.width
-            if prev < imm_idx:
-                problems.append(f"gap at [{prev:d}:{imm_idx:d}]")
-            elif prev > imm_idx:
-                problems.append(f"overlap at [{imm_idx:d}:{min(imm_idx + width, prev)}]")
-            prev = max(imm_idx + width, prev)
-            decoding.append(enc_segment)
-        if prev < imm_width:
-            problems.append(f"gap at [{prev:d}:{imm_width:d}]")
-        if problems:
-            collector.error(
-                f'cannot decode value for "{name}": {", ".join(problems)}', location=location
-            )
-        else:
-            yield name, tuple(decoding)
-
-
-def _check_decoding_order(
-    encoding_items: Sequence[EncodingItem],
-    sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    match_placeholders: Mapping[str, Mode],
-    collector: ErrorCollector,
-) -> None:
-    """
-    Verifies that there is an order in which placeholders can be decoded.
-    Such an order might not exist because of circular dependencies.
-    """
-
-    # Find indices of multi-matches.
-    multi_match_indices = {
-        enc_elem.name: enc_idx
-        for enc_idx, enc_elem in enumerate(encoding_items)
-        if isinstance(enc_elem, EncodingMultiMatch)
-    }
-
-    for name, decoding in sequential_map.items():
-        # Are we dealing with a multi-match of unknown length?
-        multi_idx = multi_match_indices.get(name)
-        if multi_idx is None:
-            continue
-        matcher = encoding_items[multi_idx]
-        if matcher.encoded_length is not None:
-            continue
-
-        # Are any parts of the placeholder are located after the multi-match?
-        bad_idx = [
-            enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
-        ]
-        if bad_idx:
-            mode = match_placeholders[name]
-            collector.error(
-                f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
-                f'length and (parts of) the placeholder "{name}" are placed after '
-                f'the multi-match placeholder "{name}@"',
-                location=[matcher.location] + [encoding_items[idx].location for idx in bad_idx],
-            )

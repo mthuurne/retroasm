@@ -3,10 +3,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..codeblock_builder import SemanticsCodeBlockBuilder, decompose_store
+from ..encoding import ModeMatchReference
 from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
 from ..input import BadInput, ErrorCollector, InputLocation
-from ..mode import Mode, ModeMatchReference
+from ..mode import Mode
 from ..namespace import ContextNamespace, GlobalNamespace, NameExistsError
 from ..reference import FixedValue, FixedValueReference, decode_int
 from ..symbol import CurrentAddress, ImmediateValue

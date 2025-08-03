@@ -17,10 +17,11 @@ from typing import Self, cast, override
 from .codeblock import FunctionBody, Store
 from .codeblock_builder import SemanticsCodeBlockBuilder
 from .decode import Decoder, DecoderFactory, Prefix, create_prefix_decoder
+from .encoding import EncodingExpr, determine_encoding_width
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
-from .mode import EncodingExpr, Mode, ModeEntry, ModeMatch, ModeTable, determine_encoding_width
+from .mode import Mode, ModeEntry, ModeMatch, ModeTable
 from .namespace import GlobalNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage

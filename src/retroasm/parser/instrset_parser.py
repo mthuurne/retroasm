@@ -12,19 +12,17 @@ from ..codeblock_builder import (
     returned_bits,
 )
 from ..decode import Prefix
-from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
-from ..instrset import InstructionSet, PrefixMappingFactory
-from ..mode import (
+from ..encoding import (
     Encoding,
     EncodingExpr,
     EncodingItem,
     EncodingMultiMatch,
-    Mnemonic,
-    Mode,
-    ModeEntry,
     ModeMatchReference,
     get_encoding_width,
 )
+from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
+from ..instrset import InstructionSet, PrefixMappingFactory
+from ..mode import Mnemonic, Mode, ModeEntry
 from ..namespace import (
     ContextNamespace,
     GlobalNamespace,

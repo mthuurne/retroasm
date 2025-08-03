@@ -10,6 +10,7 @@ Two kinds of symbols are supported:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import override
 
 from .expression import Expression
@@ -108,6 +109,13 @@ class ImmediateValue(Expression, metaclass=UniqueFromABC):
     @override
     def complexity(self) -> int:
         return 1
+
+
+def rename_immediate(expr: Expression, name_map: Mapping[str, str]) -> Expression | None:
+    if isinstance(expr, ImmediateValue):
+        if (new_name := name_map.get(expr.name)) is not None:
+            return ImmediateValue(new_name, expr.type)
+    return None
 
 
 class CurrentAddress(Expression, metaclass=SingletonFromABC):

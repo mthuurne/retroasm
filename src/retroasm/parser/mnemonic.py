@@ -6,8 +6,9 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+from ..encoding import ModeMatchReference
 from ..input import ErrorCollector, InputLocation
-from ..mode import MatchPlaceholder, MnemItem, ModeMatchReference
+from ..mode import MatchPlaceholder, MnemItem
 from ..namespace import ContextNamespace
 from ..reference import FixedValueReference, int_reference
 from ..types import IntType
