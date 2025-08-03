@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import chain
 from operator import itemgetter
-from typing import ClassVar, Never, NoReturn, cast, override
+from typing import ClassVar, Final, Never, NoReturn, cast, override
 
 from .utils import Unique
 
@@ -86,7 +86,7 @@ class Unlimited(Enum):
         raise ArithmeticError('Cannot subtract "unlimited"')
 
 
-unlimited = Unlimited.instance
+unlimited: Final[Unlimited] = Unlimited.instance
 
 type Width = int | Unlimited
 
