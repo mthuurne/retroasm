@@ -385,17 +385,15 @@ def _simplify_sign_extension(sign_extend: SignExtension) -> Expression:
             pass
 
     # If the sign is known, we can replace the sign extension operator.
-    if width != 0:
-        sign_mask = 1 << (width - 1)
-        match _simplify_masked(expr, sign_mask):
-            case IntLiteral(value=value):
-                non_sign = _simplify_masked(expr, mask & ~sign_mask)
-                if value & sign_mask:
-                    return simplify_expression(
-                        OrOperator(non_sign, IntLiteral(-1 << (width - 1)))
-                    )
-                else:
-                    return non_sign
+    # Note: width cannot be 0 because _simplify_masked() would have returned a literal 0 then.
+    sign_mask = 1 << (width - 1)
+    match _simplify_masked(expr, sign_mask):
+        case IntLiteral(value=value):
+            non_sign = _simplify_masked(expr, mask & ~sign_mask)
+            if value & sign_mask:
+                return simplify_expression(OrOperator(non_sign, IntLiteral(-1 << (width - 1))))
+            else:
+                return non_sign
 
     if expr is sign_extend.expr:
         return sign_extend
