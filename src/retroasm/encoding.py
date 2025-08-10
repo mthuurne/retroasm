@@ -39,16 +39,6 @@ class ModeMatchReference(TabooReference):
         self.mode = mode
 
 
-def get_encoding_width(name: str, ref: FixedValueReference) -> Width | None:
-    match ref:
-        case ModeMatchReference(mode=mode):
-            return mode.encoding_width
-        case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
-            return ref.type.width
-        case _:
-            return None
-
-
 @dataclass(frozen=True, order=True)
 class EncodedSegment:
     """Part of an instruction encoding."""
@@ -310,7 +300,14 @@ def _calc_mode_entry_decoding(
         except BadInput as ex:
             collector.add(ex)
 
-    imm_widths = {name: get_encoding_width(name, ref) for name, ref in placeholders.items()}
+    imm_widths = {}
+    for name, ref in placeholders.items():
+        match ref:
+            case ModeMatchReference(mode=mode):
+                if (enc_width := mode.encoding_width) is not None:
+                    imm_widths[name] = enc_width
+            case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+                imm_widths[name] = ref.type.width
 
     multi_matches = {
         enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
@@ -322,7 +319,7 @@ def _calc_mode_entry_decoding(
         #       instead of at the encoding level, such that the encoding
         #       does not depend on the context.
         for name, ref in placeholders.items():
-            if imm_widths[name] is None:
+            if name not in imm_widths:
                 # Placeholder should not be encoded.
                 continue
             if name in multi_matches:
@@ -363,7 +360,7 @@ def _calc_mode_entry_decoding(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    imm_widths: Mapping[str, Width | None],
+    imm_widths: Mapping[str, Width],
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -376,9 +373,6 @@ def _combine_placeholder_encodings(
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
-        # Note: Encoding width is only None for empty encoding sequences,
-        #       in which case the decode map will be empty as well.
-        assert imm_width is not None, name
         decoding = []
         problems = []
         prev: Width = 0

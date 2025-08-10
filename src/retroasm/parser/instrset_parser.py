@@ -18,7 +18,6 @@ from ..encoding import (
     EncodingItem,
     EncodingMultiMatch,
     ModeMatchReference,
-    get_encoding_width,
 )
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
@@ -510,16 +509,21 @@ def _parse_mode_encoding(
     enc_nodes: Iterable[ParseNode], ctx_namespace: ContextNamespace, collector: ErrorCollector
 ) -> Iterator[EncodingItem]:
     # Define placeholders in encoding namespace.
+    # Note: The names in the encoding namespace are a subset of the names in the context
+    #       namespace and they share the same parent, so there is no risk of redefining names.
     enc_namespace = ContextNamespace(ctx_namespace.parent)
     for name, ref in ctx_namespace.elements.items():
-        if (enc_width := get_encoding_width(name, ref)) is not None:
-            imm_type = IntType.u(enc_width)
-            imm_expr = ImmediateValue(name, imm_type)
-            imm_ref = FixedValueReference(imm_expr, imm_type)
-            # Note: The names in the encoding namespace are a subset of the names in
-            #       the context namespace and they share the same parent, so there is
-            #       no risk of redefining names.
-            enc_namespace.define(name, imm_ref, ctx_namespace.locations[name])
+        match ref:
+            case ModeMatchReference(mode=mode):
+                enc_width = mode.encoding_width
+                if enc_width is None:
+                    continue
+                imm_type = IntType.u(enc_width)
+                imm_expr = ImmediateValue(name, imm_type)
+                imm_ref = FixedValueReference(imm_expr, imm_type)
+                enc_namespace.define(name, imm_ref, ctx_namespace.locations[name])
+            case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+                enc_namespace.define(name, ref, ctx_namespace.locations[name])
 
     # Collect the names of all identifiers used in the encoding.
     identifiers = {
