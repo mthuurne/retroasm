@@ -194,7 +194,7 @@ class FixedValue(BitString):
         pass
 
     @override
-    def decompose(self) -> Iterator[tuple[FixedValue, Segment]]:
+    def decompose(self) -> Iterator[tuple[Self, Segment]]:
         yield self, Segment(0, self.width)
 
 
@@ -266,7 +266,7 @@ class SingleStorage(BitString):
         builder.emit_store_bits(self._storage, value, location)
 
     @override
-    def decompose(self) -> Iterator[tuple[SingleStorage, Segment]]:
+    def decompose(self) -> Iterator[tuple[Self, Segment]]:
         yield self, Segment(0, self.width)
 
 
@@ -326,7 +326,7 @@ class Variable(BitString):
         return builder.write_variable(self, value, location)
 
     @override
-    def decompose(self) -> Iterator[tuple[Variable, Segment]]:
+    def decompose(self) -> Iterator[tuple[Self, Segment]]:
         yield self, Segment(0, self.width)
 
 
