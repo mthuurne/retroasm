@@ -516,10 +516,10 @@ def _parse_mode_encoding(
             imm_type = IntType.u(enc_width)
             imm_expr = ImmediateValue(name, imm_type)
             imm_ref = FixedValueReference(imm_expr, imm_type)
-            try:
-                enc_namespace.define(name, imm_ref, ctx_namespace.locations[name])
-            except NameExistsError as ex:
-                collector.error(f"bad placeholder: {ex}", location=ex.locations)
+            # Note: The names in the encoding namespace are a subset of the names in
+            #       the context namespace and they share the same parent, so there is
+            #       no risk of redefining names.
+            enc_namespace.define(name, imm_ref, ctx_namespace.locations[name])
 
     # Collect the names of all identifiers used in the encoding.
     identifiers = {
