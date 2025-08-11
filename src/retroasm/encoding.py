@@ -282,7 +282,7 @@ def decompose_encoding(
     return fixed_matcher, decode_map
 
 
-def _calc_mode_entry_decoding(
+def _calc_decoding(
     encoding_items: Sequence[EncodingItem],
     encoding_location: InputLocation | None,
     placeholders: Mapping[str, FixedValueReference],
@@ -489,7 +489,7 @@ class Encoding:
         Raises `DelayedError` if any errors were logged on the given collector.
         """
 
-        decoding = _calc_mode_entry_decoding(items, location, placeholders, collector)
+        decoding = _calc_decoding(items, location, placeholders, collector)
         return cls(items, flags_required, *decoding, location)
 
     def __init__(
