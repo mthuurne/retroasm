@@ -300,15 +300,6 @@ def _calc_decoding(
         except BadInput as ex:
             collector.add(ex)
 
-    imm_widths = {}
-    for name, ref in placeholders.items():
-        match ref:
-            case ModeMatchReference(mode=mode):
-                if (enc_width := mode.encoding_width) is not None:
-                    imm_widths[name] = enc_width
-            case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
-                imm_widths[name] = ref.type.width
-
     multi_matches = {
         enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
     }
@@ -319,12 +310,21 @@ def _calc_decoding(
         #       instead of at the encoding level, such that the encoding
         #       does not depend on the context.
         for name, ref in placeholders.items():
-            if name not in imm_widths:
-                # Placeholder should not be encoded.
-                continue
-            if name in multi_matches:
-                # Mode is matched using "X@" syntax.
-                continue
+            # Skip placeholders that should not be encoded.
+            match ref:
+                case ModeMatchReference(mode=mode):
+                    if mode.encoding_width is None:
+                        continue
+                    if name in multi_matches:
+                        # Mode is matched using "X@" syntax.
+                        continue
+                case FixedValueReference(expr=ImmediateValue(name=imm_name)) if (
+                    imm_name == name
+                ):
+                    pass
+                case _:
+                    continue
+
             if name not in decode_map:
                 # Note: We could instead treat missing placeholders as a special
                 #       case of insufficient bit coverage, but having a dedicated
@@ -343,7 +343,9 @@ def _calc_decoding(
 
         # Create a mapping to extract immediate values from encoded items.
         sequential_map = dict(
-            _combine_placeholder_encodings(decode_map, imm_widths, collector, encoding_location)
+            _combine_placeholder_encodings(
+                decode_map, encoding_items, collector, encoding_location
+            )
         )
 
     # Check whether unknown-length multi-matches are blocking decoding.
@@ -360,7 +362,7 @@ def _calc_decoding(
 
 def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
-    imm_widths: Mapping[str, Width],
+    encoding_items: Sequence[EncodingItem],
     collector: ErrorCollector,
     location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
@@ -370,6 +372,13 @@ def _combine_placeholder_encodings(
     Each such location is a triple of index in the encoded items, bit offset
     within that item and width in bits.
     """
+
+    imm_widths = {}
+    for enc_item in encoding_items:
+        if isinstance(enc_item, EncodingExpr):
+            for expr in enc_item.bits.iter_expressions():
+                if isinstance(expr, ImmediateValue):
+                    imm_widths[expr.name] = expr.type.width
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
