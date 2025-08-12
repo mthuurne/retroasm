@@ -282,10 +282,61 @@ def decompose_encoding(
     return fixed_matcher, decode_map
 
 
-def _calc_decoding(
+def _check_placeholder_encoding(
     encoding_items: Sequence[EncodingItem],
     encoding_location: InputLocation | None,
     placeholders: Mapping[str, FixedValueReference],
+    collector: ErrorCollector,
+) -> None:
+    """
+    Report placeholders that should be encoded but aren't.
+    """
+
+    single_matches = {
+        expr.name
+        for enc_item in encoding_items
+        if isinstance(enc_item, EncodingExpr)
+        for expr in enc_item.bits.iter_expressions()
+        if isinstance(expr, ImmediateValue)
+    }
+    multi_matches = {
+        enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
+    }
+
+    for name, ref in placeholders.items():
+        # Skip placeholders that should not be encoded.
+        match ref:
+            case ModeMatchReference(mode=mode):
+                if mode.encoding_width is None:
+                    continue
+                if name in multi_matches:
+                    # Mode is matched using "X@" syntax.
+                    continue
+            case FixedValueReference(expr=ImmediateValue(name=imm_name)) if imm_name == name:
+                pass
+            case _:
+                continue
+
+        if name not in single_matches:
+            # Note: We could instead treat missing placeholders as a special
+            #       case of insufficient bit coverage, but having a dedicated
+            #       error message is more clear for end users.
+            collector.error(
+                f'placeholder "{name}" does not occur in encoding',
+                location=encoding_location,
+            )
+        elif isinstance(ref, ModeMatchReference):
+            if (mode := ref.mode).aux_encoding_width is not None:
+                collector.error(
+                    f'mode "{mode.name}" matches auxiliary encoding units, '
+                    f'but there is no "{name}@" placeholder for them',
+                    location=encoding_location,
+                )
+
+
+def _calc_decoding(
+    encoding_items: Sequence[EncodingItem],
+    encoding_location: InputLocation | None,
     collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
     """
@@ -300,47 +351,7 @@ def _calc_decoding(
         except BadInput as ex:
             collector.add(ex)
 
-    multi_matches = {
-        enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
-    }
-
     with collector.check():
-        # Check placeholders that should be encoded but aren't.
-        # TODO: This is something we should check at the mode entry level,
-        #       instead of at the encoding level, such that the encoding
-        #       does not depend on the context.
-        for name, ref in placeholders.items():
-            # Skip placeholders that should not be encoded.
-            match ref:
-                case ModeMatchReference(mode=mode):
-                    if mode.encoding_width is None:
-                        continue
-                    if name in multi_matches:
-                        # Mode is matched using "X@" syntax.
-                        continue
-                case FixedValueReference(expr=ImmediateValue(name=imm_name)) if (
-                    imm_name == name
-                ):
-                    pass
-                case _:
-                    continue
-
-            if name not in decode_map:
-                # Note: We could instead treat missing placeholders as a special
-                #       case of insufficient bit coverage, but having a dedicated
-                #       error message is more clear for end users.
-                collector.error(
-                    f'placeholder "{name}" does not occur in encoding',
-                    location=encoding_location,
-                )
-            elif isinstance(ref, ModeMatchReference):
-                if (mode := ref.mode).aux_encoding_width is not None:
-                    collector.error(
-                        f'mode "{mode.name}" matches auxiliary encoding units, '
-                        f'but there is no "{name}@" placeholder for them',
-                        location=encoding_location,
-                    )
-
         # Create a mapping to extract immediate values from encoded items.
         sequential_map = dict(
             _combine_placeholder_encodings(
@@ -348,8 +359,8 @@ def _calc_decoding(
             )
         )
 
-    # Check whether unknown-length multi-matches are blocking decoding.
     with collector.check():
+        # Check whether unknown-length multi-matches are blocking decoding.
         _check_decoding_order(encoding_items, sequential_map, collector)
 
     return fixed_matcher, sequential_map
@@ -494,7 +505,12 @@ class Encoding:
         Raises `DelayedError` if any errors were logged on the given collector.
         """
 
-        decoding = _calc_decoding(items, location, placeholders, collector)
+        # TODO: This is something we should check at the mode entry level, instead of at
+        #       the encoding level, such that the encoding does not depend on the context.
+        with collector.check():
+            _check_placeholder_encoding(items, location, placeholders, collector)
+
+        decoding = _calc_decoding(items, location, collector)
         return cls(items, flags_required, *decoding, location)
 
     def __init__(
