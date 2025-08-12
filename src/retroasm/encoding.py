@@ -349,13 +349,8 @@ def _calc_decoding(
         )
 
     # Check whether unknown-length multi-matches are blocking decoding.
-    match_placeholders = {
-        name: ref.mode
-        for name, ref in placeholders.items()
-        if isinstance(ref, ModeMatchReference)
-    }
     with collector.check():
-        _check_decoding_order(encoding_items, sequential_map, match_placeholders, collector)
+        _check_decoding_order(encoding_items, sequential_map, collector)
 
     return fixed_matcher, sequential_map
 
@@ -406,7 +401,6 @@ def _combine_placeholder_encodings(
 def _check_decoding_order(
     encoding_items: Sequence[EncodingItem],
     sequential_map: Mapping[str, Sequence[EncodedSegment]],
-    match_placeholders: Mapping[str, Mode],
     collector: ErrorCollector,
 ) -> None:
     """
@@ -414,12 +408,14 @@ def _check_decoding_order(
     Such an order might not exist because of circular dependencies.
     """
 
-    # Find indices of multi-matches.
-    multi_match_indices = {
-        enc_elem.name: enc_idx
-        for enc_idx, enc_elem in enumerate(encoding_items)
-        if isinstance(enc_elem, EncodingMultiMatch)
-    }
+    # Find indices and modes of multi-matches.
+    multi_match_indices = {}
+    multi_match_modes = {}
+    for enc_idx, enc_elem in enumerate(encoding_items):
+        if isinstance(enc_elem, EncodingMultiMatch):
+            name = enc_elem.name
+            multi_match_indices[name] = enc_idx
+            multi_match_modes[name] = enc_elem.mode
 
     for name, decoding in sequential_map.items():
         # Are we dealing with a multi-match of unknown length?
@@ -435,7 +431,7 @@ def _check_decoding_order(
             enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            mode = match_placeholders[name]
+            mode = multi_match_modes[name]
             collector.error(
                 f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
                 f'length and (parts of) the placeholder "{name}" are placed after '
