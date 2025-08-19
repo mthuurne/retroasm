@@ -92,6 +92,12 @@ class EncodingExpr:
     def encoded_length(self) -> int:
         return 1
 
+    @property
+    def immediates(self) -> Set[ImmediateValue]:
+        return {
+            expr for expr in self._bits.iter_expressions() if isinstance(expr, ImmediateValue)
+        }
+
     def __init__(self, bits: BitString, location: InputLocation | None):
         self._bits = bits
         self._location = location
@@ -336,7 +342,6 @@ def _check_placeholder_encoding(
 
 def _calc_decoding(
     encoding_items: Sequence[EncodingItem],
-    encoding_location: InputLocation | None,
     collector: ErrorCollector,
 ) -> tuple[Sequence[FixedEncoding], Mapping[str, Sequence[EncodedSegment]]]:
     """
@@ -354,9 +359,7 @@ def _calc_decoding(
     with collector.check():
         # Create a mapping to extract immediate values from encoded items.
         sequential_map = dict(
-            _combine_placeholder_encodings(
-                decode_map, encoding_items, collector, encoding_location
-            )
+            _combine_placeholder_encodings(decode_map, encoding_items, collector)
         )
 
     with collector.check():
@@ -370,7 +373,6 @@ def _combine_placeholder_encodings(
     decode_map: Mapping[str, Sequence[tuple[int, EncodedSegment]]],
     encoding_items: Sequence[EncodingItem],
     collector: ErrorCollector,
-    location: InputLocation | None,
 ) -> Iterator[tuple[str, Sequence[EncodedSegment]]]:
     """
     Yield pairs of placeholder name and the locations where the placeholder
@@ -379,12 +381,12 @@ def _combine_placeholder_encodings(
     within that item and width in bits.
     """
 
-    imm_widths = {}
-    for enc_item in encoding_items:
-        if isinstance(enc_item, EncodingExpr):
-            for expr in enc_item.bits.iter_expressions():
-                if isinstance(expr, ImmediateValue):
-                    imm_widths[expr.name] = expr.type.width
+    imm_widths = {
+        imm.name: imm.type.width
+        for enc_item in encoding_items
+        if isinstance(enc_item, EncodingExpr)
+        for imm in enc_item.immediates
+    }
 
     for name, slices in decode_map.items():
         imm_width = imm_widths[name]
@@ -402,8 +404,14 @@ def _combine_placeholder_encodings(
         if prev < imm_width:
             problems.append(f"gap at [{prev:d}:{imm_width:d}]")
         if problems:
+            locations = [
+                enc_item.location
+                for enc_item in encoding_items
+                if isinstance(enc_item, EncodingExpr)
+                and any(imm.name == name for imm in enc_item.immediates)
+            ]
             collector.error(
-                f'cannot decode value for "{name}": {", ".join(problems)}', location=location
+                f'cannot decode value for "{name}": {", ".join(problems)}', location=locations
             )
         else:
             yield name, tuple(decoding)
@@ -510,7 +518,7 @@ class Encoding:
         with collector.check():
             _check_placeholder_encoding(items, location, placeholders, collector)
 
-        decoding = _calc_decoding(items, location, collector)
+        decoding = _calc_decoding(items, collector)
         return cls(items, flags_required, *decoding, location)
 
     def __init__(
