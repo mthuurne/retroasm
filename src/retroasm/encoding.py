@@ -288,9 +288,8 @@ def decompose_encoding(
     return fixed_matcher, decode_map
 
 
-def _check_placeholder_encoding(
-    encoding_items: Sequence[EncodingItem],
-    encoding_location: InputLocation | None,
+def check_for_missing_placeholders(
+    encoding: Encoding,
     placeholders: Mapping[str, FixedValueReference],
     collector: ErrorCollector,
 ) -> None:
@@ -299,14 +298,13 @@ def _check_placeholder_encoding(
     """
 
     single_matches = {
-        expr.name
-        for enc_item in encoding_items
+        imm.name
+        for enc_item in encoding.items
         if isinstance(enc_item, EncodingExpr)
-        for expr in enc_item.bits.iter_expressions()
-        if isinstance(expr, ImmediateValue)
+        for imm in enc_item.immediates
     }
     multi_matches = {
-        enc_item.name for enc_item in encoding_items if isinstance(enc_item, EncodingMultiMatch)
+        enc_item.name for enc_item in encoding.items if isinstance(enc_item, EncodingMultiMatch)
     }
 
     for name, ref in placeholders.items():
@@ -329,14 +327,14 @@ def _check_placeholder_encoding(
             #       error message is more clear for end users.
             collector.error(
                 f'placeholder "{name}" does not occur in encoding',
-                location=encoding_location,
+                location=encoding.location,
             )
         elif isinstance(ref, ModeMatchReference):
             if (mode := ref.mode).aux_encoding_width is not None:
                 collector.error(
                     f'mode "{mode.name}" matches auxiliary encoding units, '
                     f'but there is no "{name}@" placeholder for them',
-                    location=encoding_location,
+                    location=encoding.location,
                 )
 
 
@@ -503,7 +501,6 @@ class Encoding:
         cls,
         items: Sequence[EncodingItem],
         flags_required: Iterable[str],
-        placeholders: Mapping[str, FixedValueReference],
         collector: ErrorCollector,
         location: InputLocation | None = None,
     ) -> Self:
@@ -512,11 +509,6 @@ class Encoding:
         If decoding is not possible, that's reported as an error.
         Raises `DelayedError` if any errors were logged on the given collector.
         """
-
-        # TODO: This is something we should check at the mode entry level, instead of at
-        #       the encoding level, such that the encoding does not depend on the context.
-        with collector.check():
-            _check_placeholder_encoding(items, location, placeholders, collector)
 
         decoding = _calc_decoding(items, collector)
         return cls(items, flags_required, *decoding, location)

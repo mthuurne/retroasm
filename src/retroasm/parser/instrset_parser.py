@@ -18,6 +18,7 @@ from ..encoding import (
     EncodingItem,
     EncodingMultiMatch,
     ModeMatchReference,
+    check_for_missing_placeholders,
 )
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
@@ -260,7 +261,7 @@ def _parse_prefix(
                                 collector.error(
                                     f"bad prefix encoding: {ex}", location=ex.locations
                                 )
-            encoding = Encoding.create(enc_items, {}, {}, collector, enc_loc)
+            encoding = Encoding.create(enc_items, {}, collector, enc_loc)
         except DelayedError:
             encoding = None
 
@@ -773,7 +774,6 @@ def _parse_mode_entries(
                             encoding = Encoding.create(
                                 enc_items,
                                 flags_required,
-                                ctx_namespace.elements,
                                 collector,
                                 enc_loc,
                             )
@@ -831,6 +831,8 @@ def _parse_mode_entries(
                     semantics = None
 
             if encoding is not None:
+                with collector.check():
+                    check_for_missing_placeholders(encoding, ctx_namespace.elements, collector)
                 yield ModeEntry(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
