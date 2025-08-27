@@ -246,11 +246,6 @@ class MultiExpression(Expression):
     def complexity(self) -> int:
         return self.node_complexity + sum(expr.complexity for expr in self._exprs)
 
-    @classmethod
-    def combine_literals(cls, *values: int) -> int:
-        """Combine the given literal values into a single value."""
-        return reduce(cls.int_operator, values, cls.identity)
-
     @override
     def __str__(self) -> str:
         sep = f" {self.operator} "

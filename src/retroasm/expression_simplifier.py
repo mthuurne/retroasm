@@ -27,20 +27,45 @@ from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
-def _simplify_composed(composed: MultiExpression) -> Expression:
+def _simplify_int_literal(literal: IntLiteral, mask: int) -> IntLiteral:
+    # Apply mask to value.
+    value = literal.value
+    masked_value = value & mask
+    if (masked_value := value & mask) != value:
+        return IntLiteral(masked_value)
+    return literal
+
+
+def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
     multi_expr_cls = type(composed)
+
+    match composed:
+        case AndOperator():
+            # We don't care about bits that will be reset by other terms.
+            # However, we do have to be careful not to remove the resetting of a particular
+            # bit altogether by assuming for every term that another term will take care of
+            # the reset. We will ensure that when computing the literal value later.
+            term_mask = mask & composed.mask
+        case OrOperator() | XorOperator():
+            term_mask = mask
+        case AddOperator() | MultiplyOperator():
+            term_mask = mask_for_width(width_for_mask(mask))
+        case _:
+            assert False, composed
+
     exprs = []
-    literals = []
+    literal = multi_expr_cls.identity & term_mask
 
     def append_subexpr(expr: Expression) -> None:
         if isinstance(expr, IntLiteral):
-            literals.append(expr)
+            nonlocal literal
+            literal = multi_expr_cls.int_operator(literal, expr.value) & term_mask
         else:
             exprs.append(expr)
 
     for expr in composed.exprs:
         # Simplify the subexpression individually.
-        simplified = simplify_expression(expr)
+        simplified = simplify_expression(expr, term_mask)
 
         if isinstance(simplified, multi_expr_cls):
             # Merge subexpressions of the same type into this expression.
@@ -48,29 +73,18 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
                 append_subexpr(subexpr)
         else:
             append_subexpr(simplified)
-
-    # Merge literals.
-    match len(literals):
-        case 0:
-            literal = None
-        case 1:
-            literal = literals[0]
-        case _:
-            literal = IntLiteral(multi_expr_cls.combine_literals(*(l.value for l in literals)))
-
-    # Handle special literal cases.
-    if literal is not None:
-        match literal.value:
-            case multi_expr_cls.absorber:
-                # The result is the absorber.
-                return literal
-            case multi_expr_cls.identity:
-                # Omit identity literal.
-                literal = None
+    if multi_expr_cls is AndOperator:
+        # TODO: In the case of AND, the term mask depends on the terms, so it is possible
+        #       that simplifying a term narrows the term mask which could enable further
+        #       simplifications in other terms. However, none of the current test cases
+        #       require repeating this simplification step for non-literal terms.
+        term_mask &= AndOperator.compute_mask(exprs)
+        literal &= term_mask
 
     if multi_expr_cls.idempotent:
         # Remove duplicate values.
         # TODO: If we'd sort by type, we could check duplicates across shorter segments.
+        #       Or we could make 'exprs' a set for idempotent operations.
         i = 0
         while i + 1 < len(exprs):
             expr = exprs[i]
@@ -89,11 +103,33 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
     exprs.sort(key=lambda expr: -expr.complexity)
     exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)
 
-    if literal is not None:
-        exprs.append(literal)
+    # Handle special literal cases.
+    literal_opt: int | None = literal
+    if multi_expr_cls.absorber is not None and literal == multi_expr_cls.absorber & term_mask:
+        # Every other term will be absorbed by the literal.
+        exprs = []
+    if multi_expr_cls.identity is not None and literal == multi_expr_cls.identity & mask:
+        # Omit identity literal.
+        literal_opt = None
+    if multi_expr_cls is AndOperator:
+        # TODO: We already computed this mask.
+        if literal_opt == AndOperator.compute_mask(exprs):
+            literal_opt = None
+
+    if literal_opt is not None:
+        if (
+            composed.exprs
+            and isinstance(last := composed.exprs[-1], IntLiteral)
+            and last.value == literal_opt
+        ):
+            # Preserve the instance.
+            # TODO: Maybe IntLiteral should have unique instances.
+            exprs.append(last)
+        else:
+            exprs.append(IntLiteral(literal_opt))
 
     # Perform simplifications specific to this operator.
-    _custom_simplifiers[multi_expr_cls](exprs)
+    _custom_simplifiers[multi_expr_cls](exprs, mask)
 
     match len(exprs):
         case 0:
@@ -109,46 +145,13 @@ def _simplify_composed(composed: MultiExpression) -> Expression:
                 return multi_expr_cls(*exprs)
 
 
-def _custom_simplify_and(exprs: list[Expression]) -> None:
-    if len(exprs) < 2:
-        return
-
-    # Remove mask literal from subexpressions; we'll re-add it later if needed.
-    org_mask_literal: IntLiteral | None
-    match exprs[-1]:
-        case IntLiteral(value=explicit_mask) as org_mask_literal:
-            del exprs[-1]
-        case _:
-            explicit_mask = -1
-            org_mask_literal = None
-
-    expr_mask = AndOperator.compute_mask(exprs)
-    mask = expr_mask & explicit_mask
-
-    # Try to simplify individual subexpressions by applying bit mask.
-    changed = False
-    for i, expr in enumerate(exprs):
-        masked = _simplify_masked(expr, mask)
-        if masked is not expr:
-            exprs[i] = masked
-            changed = True
-
-    # Append mask if it is not redundant.
-    if mask != expr_mask:
-        # Non-simplified expressions should remain the same objects.
-        if org_mask_literal is None or mask != explicit_mask:
-            exprs.append(IntLiteral(mask))
-        else:
-            exprs.append(org_mask_literal)
-
-    # If _simplify_masked() resulted in simplfications, force earlier steps to
-    # run again.
-    if changed:
-        exprs[:] = [simplify_expression(AndOperator(*exprs))]
-        return
+def _custom_simplify_and(exprs: list[Expression], applied_mask: int) -> None:
+    # TODO: The code to drop a redundant literal could go here, but it seems easier
+    #       to have it in _simplify_composed() where the literal is already separated.
+    return
 
 
-def _custom_simplify_or(exprs: list[Expression]) -> None:
+def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
     if not exprs:
         return
 
@@ -157,19 +160,18 @@ def _custom_simplify_or(exprs: list[Expression]) -> None:
         # Try to simplify individual subexpressions by applying bit mask.
         changed = False
         for i, expr in enumerate(exprs[:-1]):
-            masked = _simplify_masked(expr, mask)
+            masked = simplify_expression(expr, mask)
             if masked is not expr:
                 exprs[i] = masked
                 changed = True
 
-        # If _simplify_masked() resulted in simplfications, force earlier steps to
-        # run again.
+        # If subexpressions were simplified, force earlier steps to run again.
         if changed:
-            exprs[:] = [simplify_expression(OrOperator(*exprs))]
+            exprs[:] = [simplify_expression(OrOperator(*exprs), applied_mask)]
             return
 
 
-def _custom_simplify_xor(exprs: list[Expression]) -> None:
+def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -185,7 +187,7 @@ def _custom_simplify_xor(exprs: list[Expression]) -> None:
     # TODO: Distribution over AND and OR.
 
 
-def _custom_simplify_add(exprs: list[Expression]) -> None:
+def _custom_simplify_add(exprs: list[Expression], applied_mask: int) -> None:
     # Remove pairs of A and -A.
     compl_idx = 0
     while compl_idx < len(exprs):
@@ -204,7 +206,7 @@ def _custom_simplify_add(exprs: list[Expression]) -> None:
             del exprs[compl_idx]
 
 
-def _custom_simplify_multiply_complement(exprs: list[Expression]) -> None:
+def _custom_simplify_multiply_complement(exprs: list[Expression], applied_mask: int) -> None:
     # Strip and count (even/odd) complements.
     complement = False
     for idx, expr in enumerate(exprs):
@@ -224,10 +226,10 @@ def _custom_simplify_multiply_complement(exprs: list[Expression]) -> None:
         del exprs[-1]
     # Implicit literal: 1 or -1.
     if complement:
-        exprs[:] = [simplify_expression(Complement(MultiplyOperator(*exprs)))]
+        exprs[:] = [simplify_expression(Complement(MultiplyOperator(*exprs)), applied_mask)]
 
 
-def _custom_simplify_multiply_shift(exprs: list[Expression]) -> None:
+def _custom_simplify_multiply_shift(exprs: list[Expression], applied_mask: int) -> None:
     if len(exprs) < 2:
         return
 
@@ -247,7 +249,7 @@ def _custom_simplify_multiply_shift(exprs: list[Expression]) -> None:
         offset = factor.bit_length() - 1
         if literal_value != 1:
             del exprs[-1]
-        exprs[:] = [simplify_expression(LShift(MultiplyOperator(*exprs), offset))]
+        exprs[:] = [simplify_expression(LShift(MultiplyOperator(*exprs), offset), applied_mask)]
         return
 
     # Update literal.
@@ -258,12 +260,12 @@ def _custom_simplify_multiply_shift(exprs: list[Expression]) -> None:
             exprs[-1] = IntLiteral(factor)
 
 
-def _custom_simplify_multiply(exprs: list[Expression]) -> None:
-    _custom_simplify_multiply_complement(exprs)
-    _custom_simplify_multiply_shift(exprs)
+def _custom_simplify_multiply(exprs: list[Expression], applied_mask: int) -> None:
+    _custom_simplify_multiply_complement(exprs, applied_mask)
+    _custom_simplify_multiply_shift(exprs, applied_mask)
 
 
-_custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression]], None]] = {
+_custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression], int], None]] = {
     AndOperator: _custom_simplify_and,
     OrOperator: _custom_simplify_or,
     XorOperator: _custom_simplify_xor,
@@ -272,16 +274,16 @@ _custom_simplifiers: dict[type[MultiExpression], Callable[[list[Expression]], No
 }
 
 
-def _simplify_complement(complement: Complement) -> Expression:
-    match simplify_expression(complement.expr):
+def _simplify_complement(complement: Complement, mask: int) -> Expression:
+    match simplify_expression(complement.expr, mask_for_width(width_for_mask(mask))):
         case IntLiteral(value=value):
-            return IntLiteral(-value)
+            return IntLiteral(-value & mask)
         case Complement(expr=expr):
             return expr
         case AddOperator(exprs=terms):
             # Distribute complement over addition terms:
             #   -(x + y + z) = -x + -y + -z
-            return simplify_expression(AddOperator(*(Complement(term) for term in terms)))
+            return simplify_expression(AddOperator(*(Complement(term) for term in terms)), mask)
         case expr:
             if expr is complement.expr:
                 return complement
@@ -294,16 +296,19 @@ def _test_bit(expr: Expression, bit: int) -> bool:
     Returns True if the given bit of the given expression is certainly set,
     or False if it is unknown or certainly unset.
     """
-    masked = _simplify_masked(expr, 1 << bit)
+    masked = simplify_expression(expr, 1 << bit)
     return isinstance(masked, IntLiteral) and masked.value != 0
 
 
-def _simplify_negation(negation: Negation) -> Expression:
+def _simplify_negation(negation: Negation, mask: int) -> Expression:
+    if mask & 1 == 0:
+        return IntLiteral(0)
+
     match simplify_expression(negation.expr):
         case IntLiteral(value=value):
             return IntLiteral(int(not value))
         case LShift(expr=expr) | Complement(expr=expr):
-            return _simplify_negation(Negation(expr))
+            return _simplify_negation(Negation(expr), 1)
         case Negation(expr=expr) if expr.mask == 1:
             return expr
         case expr:
@@ -311,12 +316,11 @@ def _simplify_negation(negation: Negation) -> Expression:
                 negation = Negation(expr)
 
     # If any bit of the expression's value is 1, the value is non-zero.
-    if expr.mask >= 0:
+    if (negated_mask := expr.mask) >= 0:
         # Test each individual bit position that could possibly be set.
-        mask = expr.mask
         bit = 0
-        while mask >> bit:
-            if (mask >> bit) & 1:
+        while negated_mask >> bit:
+            if (negated_mask >> bit) & 1:
                 if _test_bit(expr, bit):
                     return IntLiteral(0)
             bit += 1
@@ -352,9 +356,12 @@ def _simplify_negation(negation: Negation) -> Expression:
         return negation
 
 
-def _simplify_sign_test(sign_test: SignTest) -> Expression:
+def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
+    if mask & 1 == 0:
+        return IntLiteral(0)
+
     match simplify_expression(sign_test.expr):
-        case Expression(mask=mask) if mask >= 0:
+        case Expression(mask=expr_mask) if expr_mask >= 0:
             # Negative values must have a negative mask.
             return IntLiteral(0)
         case IntLiteral(value=value):
@@ -368,11 +375,11 @@ def _simplify_sign_test(sign_test: SignTest) -> Expression:
                 return SignTest(expr)
 
 
-def _simplify_sign_extension(sign_extend: SignExtension) -> Expression:
+def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:
     width = sign_extend.width
-    mask = mask_for_width(width)
+    mask &= mask_for_width(width)
 
-    match _simplify_masked(simplify_expression(sign_extend.expr), mask):
+    match simplify_expression(sign_extend.expr, mask):
         case IntLiteral(value=value) as expr:
             value &= mask
             value -= (value << 1) & (1 << width)
@@ -385,11 +392,11 @@ def _simplify_sign_extension(sign_extend: SignExtension) -> Expression:
             pass
 
     # If the sign is known, we can replace the sign extension operator.
-    # Note: width cannot be 0 because _simplify_masked() would have returned a literal 0 then.
+    # Note: width cannot be 0 because then the subexpression would simplify to a literal 0.
     sign_mask = 1 << (width - 1)
-    match _simplify_masked(expr, sign_mask):
+    match simplify_expression(expr, sign_mask):
         case IntLiteral(value=value):
-            non_sign = _simplify_masked(expr, mask & ~sign_mask)
+            non_sign = simplify_expression(expr, mask & ~sign_mask)
             if value & sign_mask:
                 return simplify_expression(OrOperator(non_sign, IntLiteral(-1 << (width - 1))))
             else:
@@ -401,10 +408,10 @@ def _simplify_sign_extension(sign_extend: SignExtension) -> Expression:
         return SignExtension(expr, width)
 
 
-def _simplify_lshift(lshift: LShift) -> Expression:
-    expr = simplify_expression(lshift.expr)
-
+def _simplify_lshift(lshift: LShift, mask: int) -> Expression:
     offset = lshift.offset
+    expr = simplify_expression(lshift.expr, mask >> offset)
+
     if offset == 0:
         # No actual shift occurs.
         return expr
@@ -414,29 +421,32 @@ def _simplify_lshift(lshift: LShift) -> Expression:
             return IntLiteral(value << offset)
         case LShift(expr=expr, offset=loffset):
             # Combine both shifts into one.
-            return simplify_expression(LShift(expr, offset + loffset))
+            return simplify_expression(LShift(expr, offset + loffset), mask)
         case RShift(expr=expr, mask=mask, offset=roffset):
             masked = AndOperator(expr, IntLiteral(mask << roffset))
             if roffset < offset:
                 # Left shift wins.
-                return simplify_expression(LShift(masked, offset - roffset))
+                return simplify_expression(LShift(masked, offset - roffset), mask)
             elif roffset == offset:
                 # Left and right shift cancel each other out.
-                return simplify_expression(masked)
+                return simplify_expression(masked, mask)
             else:
                 # Right shift wins.
-                return simplify_expression(RShift(masked, roffset - offset))
+                return simplify_expression(RShift(masked, roffset - offset), mask)
         case AndOperator() | OrOperator():
             alt = simplify_expression(
-                expr.__class__(*(LShift(term, offset) for term in expr.exprs))
+                expr.__class__(*(LShift(term, offset) for term in expr.exprs)), mask
             )
             if alt.complexity <= lshift.complexity:
                 return alt
         case MultiplyOperator(exprs=exprs):
             if isinstance(exprs[-1], IntLiteral):
                 # Merge shift into multiplication literal.
-                return MultiplyOperator(
-                    *(tuple(exprs[:-1]) + (IntLiteral(exprs[-1].value << offset),))
+                return simplify_expression(
+                    MultiplyOperator(
+                        *(tuple(exprs[:-1]) + (IntLiteral(exprs[-1].value << offset),))
+                    ),
+                    mask,
                 )
 
     if expr is lshift.expr:
@@ -445,17 +455,13 @@ def _simplify_lshift(lshift: LShift) -> Expression:
         return LShift(expr, offset)
 
 
-def _simplify_rshift(rshift: RShift) -> Expression:
-    expr = simplify_expression(rshift.expr)
-
+def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
     offset = rshift.offset
+    expr = simplify_expression(rshift.expr, mask << offset)
+
     if offset == 0:
         # No actual shift occurs.
         return expr
-
-    if expr.mask >> offset == 0:
-        # Entire subexpression is discarded by the shift.
-        return IntLiteral(0)
 
     match expr:
         case IntLiteral(value=value):
@@ -463,19 +469,19 @@ def _simplify_rshift(rshift: RShift) -> Expression:
         case LShift(offset=loffset):
             if loffset < offset:
                 # Right shift wins.
-                return simplify_expression(RShift(expr.expr, offset - loffset))
+                return simplify_expression(RShift(expr.expr, offset - loffset), mask)
             elif loffset == offset:
                 # Left and right shift cancel each other out.
                 return expr.expr
             else:
                 # Left shift wins.
-                return simplify_expression(LShift(expr.expr, loffset - offset))
+                return simplify_expression(LShift(expr.expr, loffset - offset), mask)
         case RShift(expr=expr, offset=roffset):
             # Combine both shifts into one.
-            return simplify_expression(RShift(expr, offset + roffset))
+            return simplify_expression(RShift(expr, offset + roffset), mask)
         case AndOperator() | OrOperator():
             alt = simplify_expression(
-                expr.__class__(*(RShift(term, offset) for term in expr.exprs))
+                expr.__class__(*(RShift(term, offset) for term in expr.exprs)), mask
             )
             if alt.complexity < rshift.complexity:
                 return alt
@@ -486,7 +492,7 @@ def _simplify_rshift(rshift: RShift) -> Expression:
         return RShift(expr, offset)
 
 
-def _simplify_lvshift(lvshift: LVShift) -> Expression:
+def _simplify_lvshift(lvshift: LVShift, mask: int) -> Expression:
     match simplify_expression(lvshift.offset):
         case IntLiteral(value=value):
             # The offset is constant; convert to LShift.
@@ -495,7 +501,7 @@ def _simplify_lvshift(lvshift: LVShift) -> Expression:
             except ValueError as ex:
                 return BadValue(f"bad left-shift: {ex}")
             else:
-                return _simplify_lshift(lshift)
+                return _simplify_lshift(lshift, mask)
         case offset:
             pass
 
@@ -508,7 +514,7 @@ def _simplify_lvshift(lvshift: LVShift) -> Expression:
         return LVShift(expr, offset)
 
 
-def _simplify_rvshift(rvshift: RVShift) -> Expression:
+def _simplify_rvshift(rvshift: RVShift, mask: int) -> Expression:
     match simplify_expression(rvshift.offset):
         case IntLiteral(value=value):
             # The offset is constant; convert to RShift.
@@ -517,7 +523,7 @@ def _simplify_rvshift(rvshift: RVShift) -> Expression:
             except ValueError as ex:
                 return BadValue(f"bad right-shift: {ex}")
             else:
-                return _simplify_rshift(rshift)
+                return _simplify_rshift(rshift, mask)
         case offset:
             pass
 
@@ -530,73 +536,8 @@ def _simplify_rvshift(rvshift: RVShift) -> Expression:
         return RVShift(expr, offset)
 
 
-def _simplify_masked(expr: Expression, mask: int) -> Expression:
-    """
-    Returns a simplified version of the given expression, such that it
-    has the same value when the given mask is applied to it. If no such
-    simplification can be found, the original expression object is returned.
-    Only mask-related simplifications are examined: typically callers will
-    already have performed simplification of the full expression.
-    """
-    if expr.mask & mask == 0:
-        # All potentially set bits are zeroed after masking.
-        return IntLiteral(0)
-
-    match expr:
-        case IntLiteral(value=value):
-            # Apply mask to value.
-            masked_value = value & mask
-            if value != masked_value:
-                return IntLiteral(masked_value)
-        case LShift(expr=subExpr, offset=offset):
-            # Shift mask in the opposite direction.
-            sub_masked = _simplify_masked(subExpr, mask >> offset)
-            if sub_masked is not subExpr:
-                return simplify_expression(LShift(sub_masked, offset))
-        case RShift(expr=subExpr, offset=offset):
-            # Shift mask in the opposite direction.
-            sub_masked = _simplify_masked(subExpr, mask << offset)
-            if sub_masked is not subExpr:
-                return simplify_expression(RShift(sub_masked, offset))
-        case AndOperator() | OrOperator() | XorOperator() | AddOperator():
-            # Apply mask to each term.
-            match expr:
-                case AddOperator():
-                    # Note: Only take truncation at the front into account.
-                    #       While truncation could be done inside holes as well,
-                    #       implementing that might not be worth the effort.
-                    term_mask = mask_for_width(width_for_mask(mask))
-                case _:
-                    term_mask = mask
-            terms = []
-            changed = False
-            for term in expr.exprs:
-                masked_term = _simplify_masked(term, term_mask)
-                terms.append(masked_term)
-                changed |= masked_term is not term
-            match expr:
-                case AndOperator():
-                    match terms:
-                        case [_, *_, IntLiteral(value=value)] if value == mask:
-                            # Eliminate inner mask that is equal to the applied mask.
-                            del terms[-1]
-                            changed = True
-                case OrOperator():
-                    match terms:
-                        case [_, *_, IntLiteral(value=value)] if value == mask:
-                            # Eliminate OR that is all-ones in masked area.
-                            return IntLiteral(-1)
-            if changed:
-                return simplify_expression(expr.__class__(*terms))
-        case Complement(expr=subExpr):
-            sub_masked = _simplify_masked(subExpr, mask_for_width(width_for_mask(mask)))
-            if sub_masked is not subExpr:
-                return simplify_expression(Complement(sub_masked))
-
-    return expr
-
-
-_simplifiers: dict[type[Expression], Callable[[Any], Expression]] = {
+_simplifiers: dict[type[Expression], Callable[[Any, int], Expression]] = {
+    IntLiteral: _simplify_int_literal,
     AndOperator: _simplify_composed,
     OrOperator: _simplify_composed,
     XorOperator: _simplify_composed,
@@ -613,17 +554,17 @@ _simplifiers: dict[type[Expression], Callable[[Any], Expression]] = {
 }
 
 
-def simplify_expression(expr: Expression) -> Expression:
+def simplify_expression(expr: Expression, mask: int = -1) -> Expression:
     """
-    Returns an equivalent expression that is simpler (fewer nodes), or the
-    given expression object itself if no simplification was found.
-    Simplified expressions can have reduced width.
+    Return an equivalent expression that is simpler (fewer nodes),
+    or the given expression object itself if no simplification was found.
+    If a mask is given, only bits that are set in the mask are considered relevant:
+    the simplified expression can have other values for other bits.
     """
-    if expr.mask == 0:
+    if mask & expr.mask == 0:
         # The only value that matches a 0 mask is 0.
         match expr:
-            case IntLiteral(value=value):
-                assert value == 0, value
+            case IntLiteral(value=0):
                 return expr
             case _:
                 return IntLiteral(0)
@@ -632,4 +573,4 @@ def simplify_expression(expr: Expression) -> Expression:
     if simplifier is None:
         return expr
     else:
-        return simplifier(expr)
+        return simplifier(expr, mask)
