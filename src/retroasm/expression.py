@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
-from operator import mul
 from typing import ClassVar, Self, TypeVar, cast, override
 
 from .types import CarryMask, Width, mask_for_width, trailing_zeroes, unlimited, width_for_mask
@@ -213,6 +212,7 @@ class MultiExpression(Expression):
     idempotent: ClassVar[bool]
     identity: ClassVar[int]
     absorber: ClassVar[int | None]
+    int_operator: ClassVar[Callable[[int, int], int]]
 
     node_complexity = 1
     """Contribution of the expression node itself to expression complexity."""
@@ -247,9 +247,9 @@ class MultiExpression(Expression):
         return self.node_complexity + sum(expr.complexity for expr in self._exprs)
 
     @classmethod
-    @abstractmethod
     def combine_literals(cls, *values: int) -> int:
         """Combine the given literal values into a single value."""
+        return reduce(cls.int_operator, values, cls.identity)
 
     @override
     def __str__(self) -> str:
@@ -269,6 +269,7 @@ class AndOperator(MultiExpression):
     idempotent = True
     identity = -1
     absorber = 0
+    int_operator = int.__and__
 
     @override
     def __str__(self) -> str:
@@ -299,11 +300,6 @@ class AndOperator(MultiExpression):
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__and__, (expr.mask for expr in exprs), -1)
 
-    @classmethod
-    @override
-    def combine_literals(cls, *values: int) -> int:
-        return reduce(int.__and__, values, -1)
-
 
 class OrOperator(MultiExpression):
     __slots__ = ()
@@ -311,16 +307,12 @@ class OrOperator(MultiExpression):
     idempotent = True
     identity = 0
     absorber = -1
+    int_operator = int.__or__
 
     @classmethod
     @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
-
-    @classmethod
-    @override
-    def combine_literals(cls, *values: int) -> int:
-        return reduce(int.__or__, values, 0)
 
 
 class XorOperator(MultiExpression):
@@ -329,6 +321,7 @@ class XorOperator(MultiExpression):
     idempotent = False
     identity = 0
     absorber = None
+    int_operator = int.__xor__
 
     @classmethod
     @override
@@ -337,11 +330,6 @@ class XorOperator(MultiExpression):
         #       even or an odd number of subexpressions.
         return reduce(int.__or__, (expr.mask for expr in exprs), 0)
 
-    @classmethod
-    @override
-    def combine_literals(cls, *values: int) -> int:
-        return reduce(int.__xor__, values, 0)
-
 
 class AddOperator(MultiExpression):
     __slots__ = ()
@@ -349,6 +337,7 @@ class AddOperator(MultiExpression):
     idempotent = False
     identity = 0
     absorber = None
+    int_operator = int.__add__
 
     @classmethod
     @override
@@ -356,11 +345,6 @@ class AddOperator(MultiExpression):
         return reduce(
             CarryMask.__add__, (CarryMask.from_pattern(expr.mask) for expr in exprs)
         ).pattern
-
-    @classmethod
-    @override
-    def combine_literals(cls, *values: int) -> int:
-        return sum(values)
 
     @override
     def __str__(self) -> str:
@@ -381,17 +365,13 @@ class MultiplyOperator(MultiExpression):
     idempotent = False
     identity = 1
     absorber = 0
+    int_operator = int.__mul__
 
     @classmethod
     @override
     def compute_mask(cls, exprs: Iterable[Expression]) -> int:
         # TODO: Produce a more accurate mask using CarryMask.
         return -1
-
-    @classmethod
-    @override
-    def combine_literals(cls, *values: int) -> int:
-        return reduce(mul, values, 1)
 
     @override
     def __str__(self) -> str:
