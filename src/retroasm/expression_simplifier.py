@@ -53,7 +53,17 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
         case _:
             assert False, composed
 
-    exprs = []
+    def init_collect() -> tuple[Callable[[Expression], None], Callable[[], list[Expression]]]:
+        if multi_expr_cls.idempotent:
+            # Pick a collection that filters out duplicates.
+            expr_set: set[Expression] = set()
+            return expr_set.add, lambda: list(expr_set)
+        else:
+            # Pick a collection that preserves duplicates.
+            expr_list: list[Expression] = []
+            return expr_list.append, lambda: expr_list
+
+    add_expr, get_exprs = init_collect()
     literal = multi_expr_cls.identity & term_mask
 
     def append_subexpr(expr: Expression) -> None:
@@ -61,7 +71,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
             nonlocal literal
             literal = multi_expr_cls.int_operator(literal, expr.value) & term_mask
         else:
-            exprs.append(expr)
+            add_expr(expr)
 
     for expr in composed.exprs:
         # Simplify the subexpression individually.
@@ -73,6 +83,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
                 append_subexpr(subexpr)
         else:
             append_subexpr(simplified)
+    exprs = get_exprs()
     if multi_expr_cls is AndOperator:
         # TODO: In the case of AND, the term mask depends on the terms, so it is possible
         #       that simplifying a term narrows the term mask which could enable further
@@ -80,21 +91,6 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
         #       require repeating this simplification step for non-literal terms.
         term_mask &= AndOperator.compute_mask(exprs)
         literal &= term_mask
-
-    if multi_expr_cls.idempotent:
-        # Remove duplicate values.
-        # TODO: If we'd sort by type, we could check duplicates across shorter segments.
-        #       Or we could make 'exprs' a set for idempotent operations.
-        i = 0
-        while i + 1 < len(exprs):
-            expr = exprs[i]
-            i += 1
-            j = i
-            while j < len(exprs):
-                if exprs[j] == expr:
-                    del exprs[j]
-                else:
-                    j += 1
 
     # Make the order of terms somewhat predictable.
     # This does not produce canonical expressions, but it should be enough to
