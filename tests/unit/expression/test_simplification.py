@@ -118,6 +118,19 @@ def test_and_mask_literal(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_and_mask_term(equation: Equation) -> None:
+    """
+    Simplify logical AND expressions where one terms mask another.
+
+    These require more than one iteration of the AND subexpression simplifier.
+
+    .. code-block:: expr
+
+        (L ^ H;$00 ^ L) & (H;L) = H;$00
+    """
+    equation.check_simplify()
+
+
 def test_or_literals(equation: Equation) -> None:
     """
     Apply logical OR to integer literals.

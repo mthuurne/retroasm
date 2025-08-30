@@ -63,34 +63,39 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
             expr_list: list[Expression] = []
             return expr_list.append, lambda: expr_list
 
-    add_expr, get_exprs = init_collect()
-    literal = multi_expr_cls.identity & term_mask
+    subexprs = composed.exprs
+    while True:
+        add_expr, get_exprs = init_collect()
+        literal = multi_expr_cls.identity & term_mask
 
-    def append_subexpr(expr: Expression) -> None:
-        if isinstance(expr, IntLiteral):
-            nonlocal literal
-            literal = multi_expr_cls.int_operator(literal, expr.value) & term_mask
+        def append_subexpr(expr: Expression) -> None:
+            if isinstance(expr, IntLiteral):
+                nonlocal literal
+                literal = multi_expr_cls.int_operator(literal, expr.value) & term_mask
+            else:
+                add_expr(expr)
+
+        for expr in subexprs:
+            # Simplify the subexpression individually.
+            simplified = simplify_expression(expr, term_mask)
+
+            if isinstance(simplified, multi_expr_cls):
+                # Merge subexpressions of the same type into this expression.
+                for subexpr in simplified.exprs:
+                    append_subexpr(subexpr)
+            else:
+                append_subexpr(simplified)
+        exprs = get_exprs()
+        if multi_expr_cls is AndOperator:
+            # The term mask depends on the terms, so it is possible that simplifying a term
+            # narrows the term mask which could enable further simplifications in other terms.
+            new_term_mask = term_mask & AndOperator.compute_mask(exprs)
+            if new_term_mask == term_mask:
+                break
+            term_mask = new_term_mask
+            literal &= term_mask
         else:
-            add_expr(expr)
-
-    for expr in composed.exprs:
-        # Simplify the subexpression individually.
-        simplified = simplify_expression(expr, term_mask)
-
-        if isinstance(simplified, multi_expr_cls):
-            # Merge subexpressions of the same type into this expression.
-            for subexpr in simplified.exprs:
-                append_subexpr(subexpr)
-        else:
-            append_subexpr(simplified)
-    exprs = get_exprs()
-    if multi_expr_cls is AndOperator:
-        # TODO: In the case of AND, the term mask depends on the terms, so it is possible
-        #       that simplifying a term narrows the term mask which could enable further
-        #       simplifications in other terms. However, none of the current test cases
-        #       require repeating this simplification step for non-literal terms.
-        term_mask &= AndOperator.compute_mask(exprs)
-        literal &= term_mask
+            break
 
     # Make the order of terms somewhat predictable.
     # This does not produce canonical expressions, but it should be enough to
