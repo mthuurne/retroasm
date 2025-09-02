@@ -157,7 +157,7 @@ def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
         return
 
     if isinstance(literal := exprs[-1], IntLiteral):
-        mask = OrOperator.compute_mask(exprs[:-1]) & ~literal.value
+        mask = applied_mask & ~literal.value
         # Try to simplify individual subexpressions by applying bit mask.
         changed = False
         for i, expr in enumerate(exprs[:-1]):
