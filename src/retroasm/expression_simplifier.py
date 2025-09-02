@@ -147,9 +147,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
 
 
 def _custom_simplify_and(exprs: list[Expression], applied_mask: int) -> None:
-    # TODO: The code to drop a redundant literal could go here, but it seems easier
-    #       to have it in _simplify_composed() where the literal is already separated.
-    return
+    pass
 
 
 def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
