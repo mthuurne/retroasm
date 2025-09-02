@@ -112,9 +112,9 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
     if multi_expr_cls.identity is not None and literal == multi_expr_cls.identity & mask:
         # Omit identity literal.
         literal_opt = None
-    if multi_expr_cls is AndOperator:
-        # TODO: We already computed this mask.
-        if literal_opt == AndOperator.compute_mask(exprs):
+    elif multi_expr_cls is AndOperator:
+        # TODO: We already computed the combined exprs mask.
+        if literal_opt == AndOperator.compute_mask(exprs) & mask:
             literal_opt = None
 
     if literal_opt is not None:
