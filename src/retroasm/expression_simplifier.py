@@ -64,9 +64,9 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
             return expr_list.append, lambda: expr_list
 
     subexprs = composed.exprs
+    literal = multi_expr_cls.identity & term_mask
     while True:
         add_expr, get_exprs = init_collect()
-        literal = multi_expr_cls.identity & term_mask
 
         def append_subexpr(expr: Expression) -> None:
             if isinstance(expr, IntLiteral):
