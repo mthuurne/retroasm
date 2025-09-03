@@ -376,6 +376,13 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
                 # The terms total cannot exceed its mask.
                 if terms_mask + literal < 0:
                     return IntLiteral(1)
+            else:
+                compl = simplify_expression(Complement(terms_sum))
+                if (compl_mask := compl.mask) >= 0:
+                    if literal < 0:
+                        return IntLiteral(1)
+                    if literal >= -compl_mask:
+                        return IntLiteral(0)
 
     return sign_test if subexpr is sign_test.expr else SignTest(subexpr)
 

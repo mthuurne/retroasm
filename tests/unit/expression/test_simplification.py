@@ -396,8 +396,16 @@ def test_range_unsigned(equation: Equation) -> None:
         L >= 0 = 1
         L <= 0 = L == 0
         L > 0 = L != 0
+        L < -1 = 0
+        L >= -1 = 1
+        L <= -1 = 0
+        L > -1 = 1
+        L <= $FF = 1
+        L > $FF = 0
         L < $100 = 1
         L >= $100 = 0
+        L <= $100 = 1
+        L > $100 = 0
     """
     equation.check_simplify()
 
