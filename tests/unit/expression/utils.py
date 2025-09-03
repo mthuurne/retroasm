@@ -8,7 +8,6 @@ from retroasm.expression import (
     LShift,
     MultiExpression,
     OrOperator,
-    RShift,
     truncate,
 )
 from retroasm.types import IntType, Width
@@ -80,13 +79,11 @@ def assert_or(expr: Expression, *args: Expression) -> None:
         )
 
 
-def assert_slice(
-    expr: Expression, sub_expr: Expression, sub_width: Width, index: int, width: Width
+def assert_trunc(
+    expr: Expression, sub_expr: Expression, sub_width: Width, width: Width
 ) -> None:
-    needs_shift = index != 0
-    shift = RShift(sub_expr, index) if needs_shift else sub_expr
-    needs_trunc = sub_width > index + width
-    trunc = truncate(shift, width) if needs_trunc else shift
+    needs_trunc = sub_width > width
+    trunc = truncate(sub_expr, width) if needs_trunc else sub_expr
     assert str(expr) == str(trunc)
     assert expr == trunc
     assert isinstance(expr, type(trunc))
@@ -95,17 +92,4 @@ def assert_slice(
         shift_expr = expr.exprs[0]
     else:
         shift_expr = expr
-    if needs_shift:
-        assert str(shift_expr) == str(shift)
-        assert shift_expr == shift
-        assert isinstance(shift_expr, RShift)
-        assert shift_expr.offset == index
-        assert shift_expr.expr == sub_expr
-    else:
-        assert shift_expr == sub_expr
-
-
-def assert_trunc(
-    expr: Expression, sub_expr: Expression, sub_width: Width, width: Width
-) -> None:
-    assert_slice(expr, sub_expr, sub_width, 0, width)
+    assert shift_expr == sub_expr
