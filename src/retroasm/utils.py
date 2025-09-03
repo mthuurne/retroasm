@@ -31,7 +31,7 @@ class Unique(type):
 
     def __init__(cls, name: str, bases: tuple[type, ...], nmspc: dict[str, object]):
         type.__init__(cls, name, bases, nmspc)
-        cls.__cache: MutableMapping[object, object] = WeakValueDictionary()
+        cls.__cache: MutableMapping[tuple[object, ...], object] = WeakValueDictionary()
 
     @override
     def __call__(cls, *args: object, **kwargs: object) -> object:
