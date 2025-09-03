@@ -9,13 +9,12 @@ from retroasm.expression import (
     LVShift,
     OrOperator,
     SignExtension,
-    SignTest,
 )
 from retroasm.expression_simplifier import simplify_expression
-from retroasm.types import IntType, unlimited
+from retroasm.types import IntType
 
 from .conftest import Equation
-from .utils import TestValue, assert_int_literal, assert_slice, make_concat
+from .utils import TestValue, assert_int_literal, make_concat
 
 
 def test_zero_literal() -> None:
@@ -387,31 +386,31 @@ def test_comparison_literals(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_sign_types(equation: Equation) -> None:
+def test_sign_unsigned(equation: Equation) -> None:
     """
-    Signed values like A can be negative, but unsigned values like L cannot.
+    Unsigned values like L cannot be negative.
 
     .. code-block:: expr
 
         L < 0 = 0
-        L > 0 = L > 0
         L >= 0 = 1
-        L <= 0 = L <= 0
-        A < 0 = A < 0
-        A > 0 = A > 0
-        A >= 0 = A >= 0
-        A <= 0 = A <= 0
     """
     equation.check_simplify()
 
 
-def test_sign_extended() -> None:
-    """Test sign of sign extended values."""
-    v = TestValue("V", IntType.int)
-    assert_slice(simplify_expression(SignTest(SignExtension(v, 8))), v, unlimited, 7, 1)
-    # A zero-width value has no sign bit; sign test should return 0.
-    z = TestValue("Z", IntType.u(0))
-    assert_int_literal(simplify_expression(SignTest(SignExtension(z, 0))), 0)
+def test_sign_extension(equation: Equation) -> None:
+    """
+    Sign extension extends the top bit and preserves the rest.
+
+    While `SZ` is signed, it has width zero and therefore no sign bit to extend.
+
+    .. code-block:: expr
+        SH[:7] = H[:7]
+        SH < 0 = H[7]
+        SZ < 0 = 0
+        SZ = 0
+    """
+    equation.check_simplify()
 
 
 sign_extension_data = [

@@ -29,6 +29,9 @@ def expression_from_string(text: str) -> Expression:
     namespace.define("H", symbol_reference("H", IntType.u(8)))
     namespace.define("L", symbol_reference("L", IntType.u(8)))
     namespace.define("Z", symbol_reference("Z", IntType.u(0)))
+    namespace.define("SH", symbol_reference("H", IntType.s(8)))
+    namespace.define("SL", symbol_reference("L", IntType.s(8)))
+    namespace.define("SZ", symbol_reference("Z", IntType.s(0)))
     return build_expression(node, namespace, builder)
 
 
