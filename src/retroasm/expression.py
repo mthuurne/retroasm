@@ -6,7 +6,7 @@ from functools import reduce
 from typing import ClassVar, Self, TypeVar, cast, override
 
 from .types import CarryMask, Width, mask_for_width, trailing_zeroes, unlimited, width_for_mask
-from .utils import const_property
+from .utils import UniqueFromABC, const_property
 
 ExprT = TypeVar("ExprT", bound="Expression")
 
@@ -157,10 +157,10 @@ class BadValue(Expression):
         return 1
 
 
-class IntLiteral(Expression):
+class IntLiteral(Expression, metaclass=UniqueFromABC):
     """An integer literal."""
 
-    __slots__ = ("_value",)
+    __slots__ = ("__weakref__", "_value")
 
     @property
     def value(self) -> int:

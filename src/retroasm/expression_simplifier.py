@@ -118,16 +118,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
             literal_opt = None
 
     if literal_opt is not None:
-        if (
-            composed.exprs
-            and isinstance(last := composed.exprs[-1], IntLiteral)
-            and last.value == literal_opt
-        ):
-            # Preserve the instance.
-            # TODO: Maybe IntLiteral should have unique instances.
-            exprs.append(last)
-        else:
-            exprs.append(IntLiteral(literal_opt))
+        exprs.append(IntLiteral(literal_opt))
 
     # Perform simplifications specific to this operator.
     _custom_simplifiers[multi_expr_cls](exprs, mask)
@@ -562,11 +553,7 @@ def simplify_expression(expr: Expression, mask: int = -1) -> Expression:
     """
     if mask & expr.mask == 0:
         # The only value that matches a 0 mask is 0.
-        match expr:
-            case IntLiteral(value=0):
-                return expr
-            case _:
-                return IntLiteral(0)
+        return IntLiteral(0)
 
     simplifier = _simplifiers.get(type(expr))
     if simplifier is None:
