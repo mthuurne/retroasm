@@ -350,7 +350,8 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
     if mask & 1 == 0:
         return IntLiteral(0)
 
-    match simplify_expression(sign_test.expr):
+    subexpr = simplify_expression(sign_test.expr)
+    match subexpr:
         case Expression(mask=expr_mask) if expr_mask >= 0:
             # Negative values must have a negative mask.
             return IntLiteral(0)
@@ -358,11 +359,17 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
             return IntLiteral(1 if value < 0 else 0)
         case SignExtension(expr=expr, width=width):
             return simplify_expression(opt_slice(expr, width - 1, 1))
-        case expr:
-            if expr is sign_test.expr:
-                return sign_test
-            else:
-                return SignTest(expr)
+        case Complement(expr=expr):
+            # Simplify using: (-X < 0) = (X != 0 && !(X < 0)).
+            # While this doesn't seem simpler at first glance, it can be reduced quite a bit
+            # when X is an unsigned value.
+            alt = simplify_expression(
+                AndOperator(Negation(Negation(expr)), Negation(SignTest(expr)))
+            )
+            if alt.complexity < sign_test.complexity:
+                return alt
+
+    return sign_test if subexpr is sign_test.expr else SignTest(subexpr)
 
 
 def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:

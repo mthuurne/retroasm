@@ -394,6 +394,8 @@ def test_sign_unsigned(equation: Equation) -> None:
 
         L < 0 = 0
         L >= 0 = 1
+        L <= 0 = L == 0
+        L > 0 = L != 0
     """
     equation.check_simplify()
 
