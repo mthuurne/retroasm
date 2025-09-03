@@ -368,6 +368,14 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
             )
             if alt.complexity < sign_test.complexity:
                 return alt
+        case AddOperator(exprs=(*terms, IntLiteral(value=literal))):
+            # Note that the case where the overall mask is non-negative has already been
+            # dealt with, so the terms mask is negative or the literal is, or both.
+            terms_sum = simplify_expression(AddOperator(*terms))
+            if (terms_mask := terms_sum.mask) >= 0:
+                # The terms total cannot exceed its mask.
+                if terms_mask + literal < 0:
+                    return IntLiteral(1)
 
     return sign_test if subexpr is sign_test.expr else SignTest(subexpr)
 

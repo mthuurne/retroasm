@@ -386,9 +386,9 @@ def test_comparison_literals(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_sign_unsigned(equation: Equation) -> None:
+def test_range_unsigned(equation: Equation) -> None:
     """
-    Unsigned values like L cannot be negative.
+    Unsigned values like L cannot be negative nor larger than their width allows.
 
     .. code-block:: expr
 
@@ -396,6 +396,8 @@ def test_sign_unsigned(equation: Equation) -> None:
         L >= 0 = 1
         L <= 0 = L == 0
         L > 0 = L != 0
+        L < $100 = 1
+        L >= $100 = 0
     """
     equation.check_simplify()
 
