@@ -378,6 +378,9 @@ class SingleExpression(Expression):
 
     __slots__ = ("_expr",)
 
+    node_complexity = 1
+    """Contribution of the expression node itself to expression complexity."""
+
     @property
     def expr(self) -> Expression:
         return self._expr
@@ -397,13 +400,14 @@ class SingleExpression(Expression):
     @property
     @override
     def complexity(self) -> int:
-        return 1 + self._expr.complexity
+        return self.node_complexity + self._expr.complexity
 
 
 class Complement(SingleExpression):
     __slots__ = ("_mask",)
 
     operator = "-"
+    node_complexity = 2
 
     @override
     def __str__(self) -> str:

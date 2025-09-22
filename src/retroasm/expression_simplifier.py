@@ -302,8 +302,7 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
         case Negation(expr=expr) if expr.mask == 1:
             return expr
         case expr:
-            if expr is not negation.expr:
-                negation = Negation(expr)
+            pass
 
     # If any bit of the expression's value is 1, the value is non-zero.
     if (negated_mask := expr.mask) >= 0:
@@ -319,6 +318,9 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
         # high bit position and test that.
         if _test_bit(expr, 1025):
             return IntLiteral(0)
+
+    if expr is not negation.expr:
+        negation = Negation(expr)
 
     alt = None
     match expr:
@@ -351,6 +353,10 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
         return IntLiteral(0)
 
     subexpr = simplify_expression(sign_test.expr)
+
+    if subexpr is not sign_test.expr:
+        sign_test = SignTest(subexpr)
+
     match subexpr:
         case Expression(mask=expr_mask) if expr_mask >= 0:
             # Negative values must have a negative mask.
@@ -384,7 +390,7 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
                     if literal >= -compl_mask:
                         return IntLiteral(0)
 
-    return sign_test if subexpr is sign_test.expr else SignTest(subexpr)
+    return sign_test
 
 
 def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:
@@ -428,6 +434,9 @@ def _simplify_lshift(lshift: LShift, mask: int) -> Expression:
         # No actual shift occurs.
         return expr
 
+    if expr is not lshift.expr:
+        lshift = LShift(expr, offset)
+
     match expr:
         case IntLiteral(value=value):
             return IntLiteral(value << offset)
@@ -461,10 +470,7 @@ def _simplify_lshift(lshift: LShift, mask: int) -> Expression:
                     mask,
                 )
 
-    if expr is lshift.expr:
-        return lshift
-    else:
-        return LShift(expr, offset)
+    return lshift
 
 
 def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
@@ -474,6 +480,9 @@ def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
     if offset == 0:
         # No actual shift occurs.
         return expr
+
+    if expr is not rshift.expr:
+        rshift = RShift(expr, offset)
 
     match expr:
         case IntLiteral(value=value):
@@ -495,13 +504,10 @@ def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
             alt = simplify_expression(
                 expr.__class__(*(RShift(term, offset) for term in expr.exprs)), mask
             )
-            if alt.complexity < rshift.complexity:
+            if alt.complexity <= rshift.complexity:
                 return alt
 
-    if expr is rshift.expr:
-        return rshift
-    else:
-        return RShift(expr, offset)
+    return rshift
 
 
 def _simplify_lvshift(lvshift: LVShift, mask: int) -> Expression:
