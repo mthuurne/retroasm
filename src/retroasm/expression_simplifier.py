@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from .expression import (
@@ -25,6 +25,23 @@ from .expression import (
 )
 from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
+
+
+def _pick_alternative(alternatives: Iterable[Expression]) -> Expression:
+    """
+    Pick the simplest form among the base expression and the given alternatives.
+    If there is a tie, prefer the alternative that occurs first.
+    """
+    simplest = None
+    complexity = None
+    for alt in alternatives:
+        alt_complexity = alt.complexity
+        if complexity is None or alt_complexity < complexity:
+            simplest = alt
+            complexity = alt_complexity
+    if simplest is None:
+        raise ValueError("no alternatives")
+    return simplest
 
 
 def _simplify_int_literal(literal: IntLiteral, mask: int) -> IntLiteral:
@@ -321,31 +338,30 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
 
     if expr is not negation.expr:
         negation = Negation(expr)
+    return _pick_alternative(_iter_negation_alternatives(negation))
 
-    alt = None
-    match expr:
+
+def _iter_negation_alternatives(negation: Negation) -> Iterator[Expression]:
+    yield negation
+    match negation.expr:
         case AddOperator(exprs=terms) if all(term.mask >= 0 for term in terms):
             # If all terms are non-negative, one non-zero term will take the
             # result above zero.
-            alt = simplify_expression(AndOperator(*(Negation(term) for term in terms)))
+            yield simplify_expression(AndOperator(*(Negation(term) for term in terms)))
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.
-            alt = simplify_expression(AndOperator(*(Negation(term) for term in terms)))
-        case RShift(expr=subExpr, offset=offset):
-            match subExpr:
+            yield simplify_expression(AndOperator(*(Negation(term) for term in terms)))
+        case RShift(expr=subexpr, offset=offset):
+            match subexpr:
                 case (
                     AndOperator(exprs=terms)
                     | OrOperator(exprs=terms)
                     | XorOperator(exprs=terms)
                 ):
                     # Distribute RShift over bitwise operator.
-                    alt = simplify_expression(
-                        Negation(subExpr.__class__(*(RShift(term, offset) for term in terms)))
+                    yield simplify_expression(
+                        Negation(subexpr.__class__(*(RShift(term, offset) for term in terms)))
                     )
-    if alt is not None and alt.complexity < negation.complexity:
-        return alt
-    else:
-        return negation
 
 
 def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
@@ -354,9 +370,7 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
 
     subexpr = simplify_expression(sign_test.expr)
 
-    if subexpr is not sign_test.expr:
-        sign_test = SignTest(subexpr)
-
+    alts: list[Expression] = [sign_test if subexpr is sign_test.expr else SignTest(subexpr)]
     match subexpr:
         case Expression(mask=expr_mask) if expr_mask >= 0:
             # Negative values must have a negative mask.
@@ -369,11 +383,11 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
             # Simplify using: (-X < 0) = (X != 0 && !(X < 0)).
             # While this doesn't seem simpler at first glance, it can be reduced quite a bit
             # when X is an unsigned value.
-            alt = simplify_expression(
-                AndOperator(Negation(Negation(expr)), Negation(SignTest(expr)))
+            alts.append(
+                simplify_expression(
+                    AndOperator(Negation(Negation(expr)), Negation(SignTest(expr)))
+                )
             )
-            if alt.complexity < sign_test.complexity:
-                return alt
         case AddOperator(exprs=(*terms, IntLiteral(value=literal))):
             # Note that the case where the overall mask is non-negative has already been
             # dealt with, so the terms mask is negative or the literal is, or both.
@@ -390,7 +404,7 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
                     if literal >= -compl_mask:
                         return IntLiteral(0)
 
-    return sign_test
+    return _pick_alternative(alts)
 
 
 def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:
@@ -428,16 +442,14 @@ def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expressio
 
 def _simplify_lshift(lshift: LShift, mask: int) -> Expression:
     offset = lshift.offset
-    expr = simplify_expression(lshift.expr, mask >> offset)
+    subexpr = simplify_expression(lshift.expr, mask >> offset)
 
     if offset == 0:
         # No actual shift occurs.
-        return expr
+        return subexpr
 
-    if expr is not lshift.expr:
-        lshift = LShift(expr, offset)
-
-    match expr:
+    alts: list[Expression] = [lshift if subexpr is lshift.expr else LShift(subexpr, offset)]
+    match subexpr:
         case IntLiteral(value=value):
             return IntLiteral(value << offset)
         case LShift(expr=expr, offset=loffset):
@@ -454,60 +466,58 @@ def _simplify_lshift(lshift: LShift, mask: int) -> Expression:
             else:
                 # Right shift wins.
                 return simplify_expression(RShift(masked, roffset - offset), mask)
-        case AndOperator() | OrOperator():
-            alt = simplify_expression(
-                expr.__class__(*(LShift(term, offset) for term in expr.exprs)), mask
+        case AndOperator(exprs=terms) | OrOperator(exprs=terms):
+            # Prefer having the shifts deeper in the tree.
+            alts.insert(
+                0,
+                simplify_expression(
+                    subexpr.__class__(*(LShift(term, offset) for term in terms)), mask
+                ),
             )
-            if alt.complexity <= lshift.complexity:
-                return alt
-        case MultiplyOperator(exprs=exprs):
-            if isinstance(exprs[-1], IntLiteral):
-                # Merge shift into multiplication literal.
-                return simplify_expression(
-                    MultiplyOperator(
-                        *(tuple(exprs[:-1]) + (IntLiteral(exprs[-1].value << offset),))
-                    ),
-                    mask,
-                )
+        case MultiplyOperator(exprs=(*terms, IntLiteral(value=literal))):
+            # Merge shift into multiplication literal.
+            return simplify_expression(
+                MultiplyOperator(*terms, IntLiteral(literal << offset)), mask
+            )
 
-    return lshift
+    return _pick_alternative(alts)
 
 
 def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
     offset = rshift.offset
-    expr = simplify_expression(rshift.expr, mask << offset)
+    subexpr = simplify_expression(rshift.expr, mask << offset)
 
     if offset == 0:
         # No actual shift occurs.
-        return expr
+        return subexpr
 
-    if expr is not rshift.expr:
-        rshift = RShift(expr, offset)
-
-    match expr:
+    alts: list[Expression] = [rshift if subexpr is rshift.expr else RShift(subexpr, offset)]
+    match subexpr:
         case IntLiteral(value=value):
             return IntLiteral(value >> offset)
-        case LShift(offset=loffset):
+        case LShift(expr=expr, offset=loffset):
             if loffset < offset:
                 # Right shift wins.
-                return simplify_expression(RShift(expr.expr, offset - loffset), mask)
+                return simplify_expression(RShift(expr, offset - loffset), mask)
             elif loffset == offset:
                 # Left and right shift cancel each other out.
-                return expr.expr
+                return expr
             else:
                 # Left shift wins.
-                return simplify_expression(LShift(expr.expr, loffset - offset), mask)
+                return simplify_expression(LShift(expr, loffset - offset), mask)
         case RShift(expr=expr, offset=roffset):
             # Combine both shifts into one.
             return simplify_expression(RShift(expr, offset + roffset), mask)
-        case AndOperator() | OrOperator():
-            alt = simplify_expression(
-                expr.__class__(*(RShift(term, offset) for term in expr.exprs)), mask
+        case AndOperator(exprs=terms) | OrOperator(exprs=terms):
+            # Prefer having the shifts deeper in the tree.
+            alts.insert(
+                0,
+                simplify_expression(
+                    subexpr.__class__(*(RShift(term, offset) for term in terms)), mask
+                ),
             )
-            if alt.complexity <= rshift.complexity:
-                return alt
 
-    return rshift
+    return _pick_alternative(alts)
 
 
 def _simplify_lvshift(lvshift: LVShift, mask: int) -> Expression:
