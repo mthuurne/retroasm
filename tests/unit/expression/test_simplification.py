@@ -356,6 +356,20 @@ def test_negation_twice(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_negation_equality(equation: Equation) -> None:
+    """
+    Negation can be used for equality checks using addition or XOR.
+
+    .. code-block:: expr
+
+        !(A - B) = A == B
+        !(A ^ B) = A == B
+        !!(A - B) = A != B
+        !!(A ^ B) = A != B
+    """
+    equation.check_simplify()
+
+
 def test_comparison_literals(equation: Equation) -> None:
     """
     Tests sign of several integer literals.
