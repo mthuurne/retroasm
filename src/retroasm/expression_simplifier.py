@@ -347,7 +347,7 @@ def _iter_negation_alternatives(negation: Negation) -> Iterator[Expression]:
         case AddOperator(exprs=terms) if all(term.mask >= 0 for term in terms):
             # If all terms are non-negative, one non-zero term will take the
             # result above zero.
-            yield simplify_expression(AndOperator(*(Negation(term) for term in terms)))
+            yield simplify_expression(Negation(OrOperator(*terms)))
         case AddOperator(exprs=terms):
             # Simplify !(A - B) to !(A ^ B).
             for idx, term in enumerate(terms):

@@ -301,7 +301,7 @@ def test_negation_literal(equation: Equation) -> None:
     equation.check_simplify()
 
 
-def test_negation_subexpr(equation: Equation) -> None:
+def test_negation_subliteral(equation: Equation) -> None:
     """
     Negate a subexpression that simplifies to a literal.
 
@@ -366,6 +366,18 @@ def test_negation_equality(equation: Equation) -> None:
         !(A ^ B) = A == B
         !!(A - B) = A != B
         !!(A ^ B) = A != B
+    """
+    equation.check_simplify()
+
+
+def test_negation_subexpr(equation: Equation) -> None:
+    """
+    Cases where we can't simplify away the negation, but we can negate a simpler subexpression
+    that isn't ordinarily a simplification of the original subexpression.
+
+    .. code-block:: expr
+
+        !((H | L) + F) = !(H | L | F)
     """
     equation.check_simplify()
 
