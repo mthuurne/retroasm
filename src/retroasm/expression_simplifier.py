@@ -154,7 +154,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
                 return multi_expr_cls(*exprs)
 
 
-def _custom_simplify_and(exprs: list[Expression], applied_mask: int) -> None:
+def _custom_simplify_and(_exprs: list[Expression], _applied_mask: int) -> None:
     pass
 
 
@@ -178,7 +178,7 @@ def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
             return
 
 
-def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
+def _custom_simplify_xor(exprs: list[Expression], _applied_mask: int) -> None:
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -194,7 +194,7 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     # TODO: Distribution over AND and OR.
 
 
-def _custom_simplify_add(exprs: list[Expression], applied_mask: int) -> None:
+def _custom_simplify_add(exprs: list[Expression], _applied_mask: int) -> None:
     # Remove pairs of A and -A.
     compl_idx = 0
     while compl_idx < len(exprs):
