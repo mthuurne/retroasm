@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from .expression import (
@@ -318,50 +318,46 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
             return _simplify_negation(Negation(expr), 1)
         case Negation(expr=expr) if expr.mask == 1:
             return expr
-        case expr:
+        case subexpr:
             pass
 
     # If any bit of the expression's value is 1, the value is non-zero.
-    if (negated_mask := expr.mask) >= 0:
+    if (negated_mask := subexpr.mask) >= 0:
         # Test each individual bit position that could possibly be set.
         bit = 0
         while negated_mask >> bit:
             if (negated_mask >> bit) & 1:
-                if _test_bit(expr, bit):
+                if _test_bit(subexpr, bit):
                     return IntLiteral(0)
             bit += 1
     else:
         # The expression's value likely has leading ones, so pick an arbitrary
         # high bit position and test that.
-        if _test_bit(expr, 1025):
+        if _test_bit(subexpr, 1025):
             return IntLiteral(0)
 
-    if expr is not negation.expr:
-        negation = Negation(expr)
-    return _pick_alternative(_iter_negation_alternatives(negation))
-
-
-def _iter_negation_alternatives(negation: Negation) -> Iterator[Expression]:
-    yield negation
-    match negation.expr:
+    alts: list[Expression] = [negation if subexpr is negation.expr else Negation(subexpr)]
+    match subexpr:
         case AddOperator(exprs=terms) if all(term.mask >= 0 for term in terms):
             # If all terms are non-negative, one non-zero term will take the
             # result above zero.
-            yield simplify_expression(Negation(OrOperator(*terms)))
+            alts.append(simplify_expression(Negation(OrOperator(*terms))))
         case AddOperator(exprs=terms):
             # Simplify !(A - B) to !(A ^ B).
             for idx, term in enumerate(terms):
-                yield simplify_expression(
-                    Negation(
-                        XorOperator(
-                            Complement(term),
-                            AddOperator(*terms[:idx], *terms[idx + 1 :]),
+                alts.append(
+                    simplify_expression(
+                        Negation(
+                            XorOperator(
+                                Complement(term),
+                                AddOperator(*terms[:idx], *terms[idx + 1 :]),
+                            )
                         )
                     )
                 )
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.
-            yield simplify_expression(AndOperator(*(Negation(term) for term in terms)))
+            alts.append(simplify_expression(AndOperator(*(Negation(term) for term in terms))))
         case RShift(expr=subexpr, offset=offset):
             match subexpr:
                 case (
@@ -370,9 +366,15 @@ def _iter_negation_alternatives(negation: Negation) -> Iterator[Expression]:
                     | XorOperator(exprs=terms)
                 ):
                     # Distribute RShift over bitwise operator.
-                    yield simplify_expression(
-                        Negation(subexpr.__class__(*(RShift(term, offset) for term in terms)))
+                    alts.append(
+                        simplify_expression(
+                            Negation(
+                                subexpr.__class__(*(RShift(term, offset) for term in terms))
+                            )
+                        )
                     )
+
+    return _pick_alternative(alts)
 
 
 def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
