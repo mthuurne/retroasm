@@ -345,7 +345,8 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
         case AddOperator(exprs=terms):
             # Simplify !(A - B) to !(A ^ B).
             for idx, term in enumerate(terms):
-                alts.append(
+                alts.insert(
+                    0,
                     simplify_expression(
                         Negation(
                             XorOperator(
@@ -353,7 +354,7 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
                                 AddOperator(*terms[:idx], *terms[idx + 1 :]),
                             )
                         )
-                    )
+                    ),
                 )
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.

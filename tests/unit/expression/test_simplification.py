@@ -360,12 +360,17 @@ def test_negation_equality(equation: Equation) -> None:
     """
     Negation can be used for equality checks using addition or XOR.
 
+    Note that literals need a separate test case, as the complement can be folded into
+    the literal, which reduces the complexity of the addition form.
+
     .. code-block:: expr
 
         !(A - B) = A == B
         !(A ^ B) = A == B
         !!(A - B) = A != B
         !!(A ^ B) = A != B
+        !(A - 1234) = A == 1234
+        !!(A - 1234) = A != 1234
     """
     equation.check_simplify()
 
