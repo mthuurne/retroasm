@@ -440,6 +440,8 @@ class SignTest(SingleExpression):
 
     __slots__ = ()
 
+    node_complexity = 2
+
     @property
     @override
     def mask(self) -> int:

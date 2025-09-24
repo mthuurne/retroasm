@@ -410,6 +410,8 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
                 # The terms total cannot exceed its mask.
                 if terms_mask + literal < 0:
                     return IntLiteral(1)
+                if terms_mask + literal == 0:
+                    alts.insert(0, simplify_expression(Negation(Negation(subexpr))))
             else:
                 compl = simplify_expression(Complement(terms_sum))
                 if (compl_mask := compl.mask) >= 0:

@@ -431,6 +431,8 @@ def test_range_unsigned(equation: Equation) -> None:
         L >= -1 = 1
         L <= -1 = 0
         L > -1 = 1
+        L < $FF = L != $FF
+        L >= $FF = L == $FF
         L <= $FF = 1
         L > $FF = 0
         L < $100 = 1
