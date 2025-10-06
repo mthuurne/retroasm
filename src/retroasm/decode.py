@@ -16,7 +16,7 @@ from .encoding import (
 )
 from .expression import Expression
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
-from .mode import MatchPlaceholder, ModeMatch, ModeRow
+from .mode import MatchPlaceholder, ModeMatch, ModeRow, ModeTable
 from .reference import FixedValueReference, int_reference
 from .symbol import ImmediateValue
 from .types import IntType, mask_for_width, mask_to_segments
@@ -424,7 +424,7 @@ def _create_row_decoder(
     match = EncodeMatch(row)
     for name, mode in row.match_placeholders.items():
         if name not in decoding and name not in multi_matches:
-            match factory.create_decoder(mode.name, name):
+            match factory.create_decoder(mode, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
                 case MatchFoundDecoder(mode_row=row):
@@ -523,7 +523,7 @@ def _create_row_decoder(
                 adjust = aux_len - 1
                 if adjust != 0:
                     enc_segs = tuple(encSeg.adjust_unit(aux_idx, adjust) for encSeg in enc_segs)
-            match factory.create_decoder(matcher.mode.name, name):
+            match factory.create_decoder(matcher.mode, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
                 case sub:
@@ -641,17 +641,15 @@ def _qualify_names(
 
 
 class DecoderFactory:
-    def __init__(self, mode_rows: Mapping[str | None, Iterable[ModeRow]], flags: Iterable[str]):
-        self._mode_rows = mode_rows
+    def __init__(self, flags: Iterable[str]):
         self._flags = frozenset(flags)
-        self._cache: dict[tuple[str | None, str | None], Decoder] = {}
+        self._cache: dict[tuple[ModeTable, str | None], Decoder] = {}
 
-    def create_decoder(self, mode_name: str | None, branch_name: str | None) -> Decoder:
+    def create_decoder(self, mode: ModeTable, branch_name: str | None) -> Decoder:
         cache = self._cache
-        key = (mode_name, branch_name)
+        key = (mode, branch_name)
         decoder = cache.get(key)
         if decoder is None:
-            rows = self._mode_rows[mode_name]
             flags_are_set = self._flags.issuperset
             decoder = _create_decoder(
                 _create_row_decoder(
@@ -659,7 +657,7 @@ class DecoderFactory:
                     row.encoding.fixed_matcher,
                     factory=self,
                 )
-                for row in rows
+                for row in mode.rows
                 if flags_are_set(row.encoding.flags_required)
             )
             cache[key] = decoder

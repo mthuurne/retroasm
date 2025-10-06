@@ -246,8 +246,8 @@ class InstructionSet(ModeTable):
         decoders = self._decoders
         decoder = decoders.get(flags)
         if decoder is None:
-            decoder_factory = DecoderFactory(self._mode_rows, flags)
-            decoder = decoder_factory.create_decoder(None, None)
+            decoder_factory = DecoderFactory(flags)
+            decoder = decoder_factory.create_decoder(self, None)
             decoders[flags] = decoder
         return decoder
 
