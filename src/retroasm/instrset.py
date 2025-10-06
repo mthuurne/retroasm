@@ -11,7 +11,6 @@ from collections.abc import (
     Set,
 )
 from dataclasses import dataclass
-from itertools import chain
 from typing import Self, cast, override
 
 from .codeblock import FunctionBody, Store
@@ -21,7 +20,7 @@ from .encoding import EncodingExpr, determine_encoding_width
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
-from .mode import Mode, ModeMatch, ModeRow, ModeTable
+from .mode import ModeMatch, ModeRow, ModeTable
 from .namespace import GlobalNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -163,7 +162,6 @@ class InstructionSet(ModeTable):
     def create(
         cls,
         instructions: Iterable[ModeRow],
-        modes: Mapping[str, Mode],
         program_counter: Reference,
         prefix_mapping: PrefixMapping,
         collector: ErrorCollector,
@@ -209,14 +207,7 @@ class InstructionSet(ModeTable):
                 f"different from instruction encoding width {enc_width}"
             )
 
-        mode_rows = dict(
-            chain(
-                [(None, instructions)],
-                ((name, mode.rows) for name, mode in modes.items()),
-            )
-        )
-
-        return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, mode_rows)
+        return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, instructions)
 
     def __init__(
         self,
@@ -224,13 +215,11 @@ class InstructionSet(ModeTable):
         aux_enc_width: int | None,
         program_counter: Reference,
         prefix_mapping: PrefixMapping,
-        mode_rows: Mapping[str | None, Sequence[ModeRow]],
+        instructions: Sequence[ModeRow],
     ):
-        instructions = mode_rows[None]
         ModeTable.__init__(self, enc_width, aux_enc_width, instructions)
         self._program_counter = program_counter
         self._prefix_mapping = prefix_mapping
-        self._mode_rows = mode_rows
         self._decoders: dict[frozenset[str], Decoder] = {}
 
     @const_property

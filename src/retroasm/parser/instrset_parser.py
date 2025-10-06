@@ -1080,7 +1080,7 @@ class InstructionSetParser:
                 if self.attempt_creation:
                     prefix_mapping = self.prefixes.create_mapping()
                     return InstructionSet.create(
-                        self.instructions, self.modes, pc, prefix_mapping, collector
+                        self.instructions, pc, prefix_mapping, collector
                     )
                 else:
                     return None
