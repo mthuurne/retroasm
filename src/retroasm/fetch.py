@@ -217,7 +217,7 @@ class LittleEndianFetcher(MultiByteFetcher):
 
 
 class ModeFetcher(FetcherBase):
-    """Instruction fetcher for looking up an entry in a mode table."""
+    """Instruction fetcher for looking up a row in a mode table."""
 
     __slots__ = ("_first", "_aux_fetcher", "_aux_index")
 

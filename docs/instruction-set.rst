@@ -472,7 +472,7 @@ A mode definition uses the syntax below:
 
 The type in the header is the type for expressions the semantics field. For modes defining register sets and addressing modes this will be a reference type, such as ``u8&`` for 8-bit registers and I/O, while for modes defining immediates or conditions this will be a value type, such as ``u16`` for 16-bit immediates and ``u1`` (Boolean) for conditions.
 
-There can be as many dot-separated lines as necessary to define all entries of a mode, creating a 4-column table.
+There can be as many dot-separated lines as necessary to define all patterns within a mode, creating a 4-column table.
 
 Encoding
 --------
@@ -557,7 +557,7 @@ Context expressions are not allowed to access state such as registers or perform
 Mode Matches
 ^^^^^^^^^^^^
 
-A mode match placeholder is defined using the syntax ``<mode> <name>``. A mode match placeholder will be later substituted by a matched entry (row) in the mode with the given name.
+A mode match placeholder is defined using the syntax ``<mode> <name>``. A mode match placeholder will be later substituted by a matched row in the mode with the given name.
 
 A mode match placeholder can be used to include an existing mode in a new mode's definition:
 
@@ -574,9 +574,9 @@ A mode match placeholder can be used to include an existing mode in a new mode's
    %11     . af
 
 
-In the first entry of mode ``reg16af``\ , the context field is used to match according to the ``reg16`` mode and use the match as-is. The second entry then replaces ``sp`` with ``af``. In general, when more than one mode entry matches during instruction encoding or decoding, the later one is picked; see `Matching Rules`_ for details.
+In the first row of mode ``reg16af``\ , the context field is used to match according to the ``reg16`` mode and use the match as-is. The second row then replaces ``sp`` with ``af``. In general, when more than one mode row matches during instruction encoding or decoding, the later one is picked; see `Matching Rules`_ for details.
 
-In the encoding, mnemonic and semantics field, the placeholder represents that same field in the matched entry from the included mode. For example, the ``R`` in the encoding field represents the encoding of the matched entry, while the ``R`` in the mnemonic field represents the mnemonic of the matched entry.
+In the encoding, mnemonic and semantics field, the placeholder represents that same field in the matched row from the included mode. For example, the ``R`` in the encoding field represents the encoding of the matched row, while the ``R`` in the mnemonic field represents the mnemonic of the matched row.
 
 Placeholders can be used in expressions, for example to define the Z80 flag tests:
 
@@ -596,9 +596,9 @@ Placeholders can be used in expressions, for example to define the Z80 flag test
    %111    . m         .  sf
 
 
-In the above example, the placeholder ``C`` represents the match made in the ``cond2`` mode table. Let's say that the third entry in ``cond2`` was the one matched. In the first entry of ``cond3``\ , the ``C`` in the second column reproduces the matched mnemonic ``nc`` as-is, while the ``C`` in the third column reproduces the semantic expression ``!cf`` as-is. In the first column, ``C`` matches the encoding ``%10`` which is concatenated to a fixed bit of 0 to form the 3-bit encoding ``%010``.
+In the above example, the placeholder ``C`` represents the match made in the ``cond2`` mode table. Let's say that the third row in ``cond2`` was the one matched. In the first row of ``cond3``\ , the ``C`` in the second column reproduces the matched mnemonic ``nc`` as-is, while the ``C`` in the third column reproduces the semantic expression ``!cf`` as-is. In the first column, ``C`` matches the encoding ``%10`` which is concatenated to a fixed bit of 0 to form the 3-bit encoding ``%010``.
 
-In instruction sets with variable instruction lengths, some mode entries can have more than one encoding item. A placeholder in the encoding field represents the first encoding item of the matched mode entry. Any unclaimed additional encoding elements are included by adding ``@`` as a suffix to the placeholder. The following theoretical example shows various ways of including encoding elements from one mode into another:
+In instruction sets with variable instruction lengths, some mode rows can have more than one encoding item. A placeholder in the encoding field represents the first encoding item of the matched row. Any unclaimed additional encoding elements are included by adding ``@`` as a suffix to the placeholder. The following theoretical example shows various ways of including encoding elements from one mode into another:
 
 .. code-block::
 
@@ -621,11 +621,11 @@ In instruction sets with variable instruction lengths, some mode entries can hav
    B;D, B@, D@     . (B + D)   . mem[B + D]    . base B, offset D
 
 
-The mode ``imm16`` defines a 16-bit immediate that is encoded in little endian byte order (lower 8 bits first). It is used in the fourth entry of mode ``base``\ , where the placeholder ``A@`` includes both bytes from the encoding field of ``imm16``\ : both were unclaimed, since this entry only has ``A@`` in it, not ``A`` by itself.
+The mode ``imm16`` defines a 16-bit immediate that is encoded in little endian byte order (lower 8 bits first). It is used in the fourth row of mode ``base``\ , where the placeholder ``A@`` includes both bytes from the encoding field of ``imm16``\ : both were unclaimed, since this row only has ``A@`` in it, not ``A`` by itself.
 
 The mode ``relative`` defines relative addressing using a 16-bit base addresses defined in the ``base`` mode and an 8-bit offset defined in the ``offset`` mode. In the encoding field, ``B`` matches the first encoding element of ``base``\ , which is a 2-bit pattern that selects which register or immediate to use. Since ``B`` claimed the first encoding element, ``B@`` here includes only elements after the first, which is none for the ``x`` and ``y`` register options, one byte for the 8-bit address (zero page) option and two bytes for the 16-bit address (absolute) option.
 
-Similarly, ``D`` in the encoding of mode ``relative`` matches the 2-bit pattern that selects the offset to use. ``D@`` is empty when the offset is one of the 8-bit registers ``a``\ , ``b`` or ``c``\ , while it contains the 8-bit immediate offset if the fourth entry in the ``offset`` mode is matched.
+Similarly, ``D`` in the encoding of mode ``relative`` matches the 2-bit pattern that selects the offset to use. ``D@`` is empty when the offset is one of the 8-bit registers ``a``\ , ``b`` or ``c``\ , while it contains the 8-bit immediate offset if the fourth row in the ``offset`` mode is matched.
 
 Instructions
 ============
@@ -642,7 +642,7 @@ There can be as many dot-separated lines as necessary, creating a 4-column table
 
 Unlike mode definitions, where the semantics field contains an expression, the semantics field for an instruction contains a statement, such as an assignment or a call to a function that changes a register or performs I/O.
 
-The mnemonic base is prepended to the mnemonic field of every entry. For example, the definition below defines ``ld D,S`` and ``ld D,N`` -- two forms of ``ld``\ , the Z80 load instruction:
+The mnemonic base is prepended to the mnemonic field of every row. For example, the definition below defines ``ld D,S`` and ``ld D,N`` -- two forms of ``ld``\ , the Z80 load instruction:
 
 .. code-block::
 
@@ -651,7 +651,7 @@ The mnemonic base is prepended to the mnemonic field of every entry. For example
    %00;D;%110, N       . D,N       . D := N    . reg8 D, u8 N
 
 
-The mnemonic ``ld b,h`` is matched by the first entry (\ ``D`` matching ``b`` and ``S`` matching ``h``\ ), while ``ld b,12`` is matched by the second entry (\ ``D`` matching ``b`` and ``N`` matching ``12``\ ).
+The mnemonic ``ld b,h`` is matched by the first row (\ ``D`` matching ``b`` and ``S`` matching ``h``\ ), while ``ld b,12`` is matched by the second row (\ ``D`` matching ``b`` and ``N`` matching ``12``\ ).
 
 The mnemonic base can be empty if you want to define separate instructions in a single instruction block. For example, these are definitions for the 6502 instructions that set and clear flags:
 
@@ -669,7 +669,7 @@ The mnemonic base can be empty if you want to define separate instructions in a 
 Matching Rules
 ==============
 
-When multiple instruction/mode table entries match the same encoding, the later entry fully replaces the earlier entry. Let's look at how the Z80 encodes its ``push`` and ``pop`` instructions:
+When multiple instruction/mode table rows match the same encoding, the later row fully replaces the earlier row. Let's look at how the Z80 encodes its ``push`` and ``pop`` instructions:
 
 .. code-block::
 
@@ -693,8 +693,8 @@ In mode ``reg16af``\ , not only does the encoding ``%11`` map to the mnemonic ``
 When there is more than one way of encoding the same instruction, the assembler will use the following priorities:
 
 - shorter encodings are always picked over longer ones
-- later entries in instruction/mode tables are picked over earlier entries,
-  such that it is always possible to override the preferred interpretation of a mnemonic by adding an entry
+- later rows in instruction/mode tables are picked over earlier rows,
+  such that it is always possible to override the preferred interpretation of a mnemonic by adding a row
 
 Instruction Decoding
 ====================
@@ -736,7 +736,7 @@ Opcode bytes that select different instructions rather than modify existing inst
 Decode Flag Filter
 ------------------
 
-The decode flags set by prefixes can be checked in the encoding column using the syntax ``?<name>``. A mode entry (row) can be matched only if all checked prefix flags are set.
+The decode flags set by prefixes can be checked in the encoding column using the syntax ``?<name>``. A mode row can be matched only if all checked prefix flags are set.
 
 For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could be added to the ``reg8`` mode from the earlier example:
 
@@ -749,7 +749,7 @@ For example, the undocumented IXH, IXL, IYH and IYL registers of the Z80 could b
    %101, ?ixf  . ixl
    %101, ?iyf  . iyl
 
-The entries that test decode flags are placed after the corresponding entries that don't test flags, since the last matched entry is picked when decoding.
+The rows that test decode flags are placed after the corresponding rows that don't test flags, since the last matched row is picked when decoding.
 
 Here is an example that defines Z80 indexed addressing:
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import override
 
 from ..instrset import InstructionSet
-from ..mode import MatchPlaceholder, Mode, ModeEntry
+from ..mode import MatchPlaceholder, Mode, ModeRow
 from ..reference import FixedValueReference
 from ..utils import bad_type
 
@@ -14,13 +14,13 @@ class MnemTreeNode:
     """
     A node in a mnemonic match tree.
 
-    A mnemonic match tree efficiently finds the matching mode entry for a given
+    A mnemonic match tree efficiently finds the matching mode row for a given
     mnemonic sequence.
     """
 
     def __init__(self) -> None:
         self._children: dict[MnemMatch, MnemTreeNode] = {}
-        self._leaves: list[ModeEntry] = []
+        self._leaves: list[ModeRow] = []
 
     @override
     def __repr__(self) -> str:
@@ -40,18 +40,18 @@ class MnemTreeNode:
                 bad_type(match)
 
     def dump(self, indent: str) -> None:
-        for entry in self._leaves:
-            tokens = " ".join(str(token) for token in entry.mnemonic)
+        for row in self._leaves:
+            tokens = " ".join(str(token) for token in row.mnemonic)
             print(f"{indent}= {tokens}")
         children = self._children
         for match in sorted(children.keys(), key=self._match_key):
             print(f"{indent}+ {match}")
             children[match].dump(" " * len(indent) + "`---")
 
-    def add_mode_entry(self, entry: ModeEntry) -> None:
-        """Add the given mode entry to this tree."""
+    def add_mode_row(self, row: ModeRow) -> None:
+        """Add the given mode row to this tree."""
         node = self
-        for token in entry.mnemonic:
+        for token in row.mnemonic:
             match: MnemMatch
             match token:
                 case str() as text:
@@ -66,11 +66,11 @@ class MnemTreeNode:
                 node = node._children[match]
             except KeyError:
                 node._children[match] = node = MnemTreeNode()
-        node._leaves.append(entry)
+        node._leaves.append(row)
 
 
 def get_instruction_parser(instr_set: InstructionSet) -> MnemTreeNode:
     mnem_tree = MnemTreeNode()
-    for entry in instr_set.entries:
-        mnem_tree.add_mode_entry(entry)
+    for row in instr_set.rows:
+        mnem_tree.add_mode_row(row)
     return mnem_tree

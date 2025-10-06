@@ -47,7 +47,7 @@ def parse_mnemonic(
                 elif text in seen_placeholders:
                     # In theory we could support repeated placeholders, but the only
                     # meaning that would make sense is that they would all match the
-                    # same mode entry or expression and I don't know of any situation
+                    # same mode row or expression and I don't know of any situation
                     # in which that would be a useful feature.
                     collector.error(
                         f'placeholder "{text}" occurs multiple times in mnemonic',

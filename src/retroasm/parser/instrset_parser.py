@@ -22,7 +22,7 @@ from ..encoding import (
 )
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet, PrefixMappingFactory
-from ..mode import Mnemonic, Mode, ModeEntry
+from ..mode import Mnemonic, Mode, ModeRow
 from ..namespace import (
     ContextNamespace,
     GlobalNamespace,
@@ -696,7 +696,7 @@ def _parse_instr_semantics(
     build_statement_eval(collector, "semantics field", namespace, builder, node)
 
 
-def _parse_mode_entries(
+def _parse_mode_rows(
     reader: DefLineReader,
     collector: ErrorCollector,
     global_namespace: GlobalNamespace,
@@ -715,7 +715,7 @@ def _parse_mode_entries(
         Reference | None,
     ],
     want_semantics: bool,
-) -> Iterator[ModeEntry]:
+) -> Iterator[ModeRow]:
     for line in reader.iter_block():
         # Split mode line into 4 fields.
         fields = list(line.split(_re_dot_sep))
@@ -833,7 +833,7 @@ def _parse_mode_entries(
             if encoding is not None:
                 with collector.check():
                     check_for_missing_placeholders(encoding, ctx_namespace.elements, collector)
-                yield ModeEntry(
+                yield ModeRow(
                     encoding,
                     # If mnemonic was not defined, DelayedError will have been raised.
                     mnemonic,  # pylint: disable=possibly-used-before-assignment
@@ -903,9 +903,9 @@ def _parse_mode(
             )
             add_mode = False
 
-    # Parse entries.
-    entries = tuple(
-        _parse_mode_entries(
+    # Parse rows.
+    rows = tuple(
+        _parse_mode_rows(
             reader,
             collector,
             global_namespace,
@@ -921,9 +921,9 @@ def _parse_mode(
     # Create and remember mode object.
     try:
         with collector.check():
-            mode = Mode.create(mode_name, sem_type, mode_name_loc, entries, collector)
+            mode = Mode.create(mode_name, sem_type, mode_name_loc, rows, collector)
     except DelayedError:
-        # Avoid creating a mode with inconsistent entries, but don't block mode creation
+        # Avoid creating a mode with inconsistent rows, but don't block mode creation
         # altogether as that could cause error spam when parsing the remainder of the file.
         mode = Mode.create(mode_name, sem_type, mode_name_loc, (), collector)
     if add_mode:
@@ -938,8 +938,8 @@ def _parse_instr(
     prefixes: PrefixMappingFactory,
     modes: Mapping[str, Mode],
     want_semantics: bool,
-) -> Iterator[ModeEntry]:
-    for instr in _parse_mode_entries(
+) -> Iterator[ModeRow]:
+    for instr in _parse_mode_rows(
         reader,
         collector,
         global_namespace,
@@ -999,7 +999,7 @@ class InstructionSetParser:
         self.global_namespace = global_namespace = GlobalNamespace()
         self.prefixes = PrefixMappingFactory(global_namespace)
         self.modes: dict[str, Mode] = {}
-        self.instructions: list[ModeEntry] = []
+        self.instructions: list[ModeRow] = []
 
         self.attempt_creation = True
         """

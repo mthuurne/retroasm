@@ -149,7 +149,7 @@ class EncodingExpr:
 class EncodingMultiMatch:
     """
     A segment in an encoding sequence of zero or more elements, that will
-    be filled in by a matched entry from an included mode.
+    be filled in by a matched row from an included mode.
     """
 
     @property
@@ -567,7 +567,7 @@ class Encoding:
             try:
                 return sub_encodings[name].items
             except KeyError:
-                sub_enc = submatch.entry.encoding.fill_placeholders(submatch)
+                sub_enc = submatch.mode_row.encoding.fill_placeholders(submatch)
                 sub_encodings[name] = sub_enc
                 return sub_enc.items
 
@@ -675,9 +675,8 @@ class Encoding:
     @property
     def aux_encoding_location(self) -> InputLocation | None:
         """
-        The InputLocation of the auxiliary encoding items in this mode
-        entry. If there are no auxiliary encoding items, the end of the
-        encoding field is returned.
+        The InputLocation of the auxiliary encoding items in this mode row.
+        If there are no auxiliary encoding items, the end of the encoding field is returned.
         """
         items = self._items
         first_aux_index = self._first_aux_index
@@ -711,9 +710,9 @@ def determine_encoding_width(
     encodings: Iterable[Encoding], aux: bool, where_desc: str, collector: ErrorCollector
 ) -> int | None:
     """
-    Return the common encoding width for the given list of mode entries.
-    Entries with a deviating encoding width will be logged as errors on the given logger.
-    If the 'aux' argument is False, the first matched unit width of each entry is checked,
+    Return the common encoding width for the given encodings.
+    Encodings with a deviating width will be logged as errors on the given logger.
+    If the 'aux' argument is False, the first matched unit width of each encoding is checked,
     otherwise the width of auxiliary encoding units is checked.
     """
 

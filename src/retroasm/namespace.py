@@ -88,7 +88,7 @@ class Namespace(Mapping[str, ET | PT]):
 
 
 class ContextNamespace(Namespace[FixedValueReference, NamespaceValue]):
-    """A namespace for a mode entry context."""
+    """A namespace for a mode row's context."""
 
     @override
     def _check_name(

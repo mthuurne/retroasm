@@ -68,7 +68,7 @@ class Mnemonic:
                     except KeyError:
                         items.append(item)
                     else:
-                        items += submatch.entry.mnemonic.fill_placeholders(submatch)
+                        items += submatch.mode_row.mnemonic.fill_placeholders(submatch)
                 case FixedValueReference():
                     # Expression that may or may not include immediate values.
                     items.append(item.substitute(fill_immediate))
@@ -98,7 +98,7 @@ class Mnemonic:
         return Mnemonic(rename_item(item) for item in self._items)
 
 
-class ModeEntry:
+class ModeRow:
     """One row in a mode table."""
 
     def __init__(
@@ -118,7 +118,7 @@ class ModeEntry:
     @override
     def __repr__(self) -> str:
         return (
-            f"ModeEntry({self.encoding!r}, {self.mnemonic!r}, "
+            f"ModeRow({self.encoding!r}, {self.mnemonic!r}, "
             f"{self._semantics!r}, {self._match_placeholders!r}, "
             f"{self._value_placeholders!r})"
         )
@@ -134,7 +134,7 @@ class ModeEntry:
     @property
     def semantics(self) -> FunctionBody:
         """
-        The semantics of this mode entry.
+        The semantics of this mode row.
         It is an error to access this property for instruction sets that were
         loaded with the `want_semantics=False` option.
         """
@@ -148,12 +148,12 @@ class ModeEntry:
             raise RuntimeError("Missing semantics")
         return semantics
 
-    def rename(self, name_map: Mapping[str, str]) -> ModeEntry:
+    def rename(self, name_map: Mapping[str, str]) -> ModeRow:
         """
-        Returns a new ModeEntry, in which all placeholder names are
-        substituted by their value in the given mapping.
+        Return a new row, in which all placeholder names are substituted by their value
+        in the given mapping.
         """
-        return ModeEntry(
+        return ModeRow(
             self.encoding.rename(name_map),
             self.mnemonic.rename(name_map),
             # TODO: Rename immediates in semantics as well.
@@ -168,28 +168,28 @@ class ModeEntry:
 
 class ModeMatch:
     """
-    A flattened match of a mode entry at a particular address.
+    A flattened match of a mode row at a particular address.
     Flattened means that all submode matches have been resolved and substituted
     into this match.
     """
 
-    __slots__ = ("_entry", "_values", "_subs", "_mnemonic")
+    __slots__ = ("_row", "_values", "_subs", "_mnemonic")
 
     def __init__(
-        self, entry: ModeEntry, values: Mapping[str, BitString], subs: Mapping[str, ModeMatch]
+        self, row: ModeRow, values: Mapping[str, BitString], subs: Mapping[str, ModeMatch]
     ):
-        self._entry = entry
+        self._row = row
         self._values = values
         self._subs = subs
 
     @override
     def __repr__(self) -> str:
-        return f"ModeMatch({self._entry!r}, {self._values!r}, {self._subs!r})"
+        return f"ModeMatch({self._row!r}, {self._values!r}, {self._subs!r})"
 
     @property
     def flags_required(self) -> Set[str]:
-        """The prefix flags that must be set to match this mode entry."""
-        flags = self._entry.encoding.flags_required
+        """The prefix flags that must be set to match this mode row."""
+        flags = self._row.encoding.flags_required
         for submatch in self._subs.values():
             flags |= submatch.flags_required
         return flags
@@ -213,7 +213,7 @@ class ModeMatch:
             assert isinstance(bits, FixedValue), type(bits)
             return bits.expr
 
-        for enc_item in self._entry.encoding.items:
+        for enc_item in self._row.encoding.items:
             match enc_item:
                 case EncodingExpr() as expr:
                     yield expr.substitute(subst).bits
@@ -232,7 +232,7 @@ class ModeMatch:
         the program counter `pc`.
         """
 
-        entry = self._entry
+        row = self._row
         values = dict(self._values)
 
         def resolve_immediate(expr: Expression) -> Expression | None:
@@ -248,17 +248,17 @@ class ModeMatch:
                 return value.expr
             return None
 
-        for name, ref in entry.value_placeholders.items():
+        for name, ref in row.value_placeholders.items():
             values[name] = ref.substitute(resolve_immediate).bits
 
         subs = {name: submatch.subst_pc(pc_val) for name, submatch in self._subs.items()}
 
-        return ModeMatch(entry, values, subs)
+        return ModeMatch(row, values, subs)
 
     # TODO: This property has a lot of overlap with Mnemonic.fill_placeholders().
     @const_property
     def mnemonic(self) -> Iterator[str | FixedValueReference]:
-        entry = self._entry
+        row = self._row
         subs = self._subs
         values = self._values
 
@@ -269,7 +269,7 @@ class ModeMatch:
                 return value.expr
             return None
 
-        for mnem_elem in entry.mnemonic:
+        for mnem_elem in row.mnemonic:
             match mnem_elem:
                 case MatchPlaceholder(name=name):
                     yield from subs[name].mnemonic
@@ -293,35 +293,34 @@ class ModeTable:
         return self._aux_enc_width
 
     @property
-    def entries(self) -> Sequence[ModeEntry]:
-        return self._entries
+    def rows(self) -> Sequence[ModeRow]:
+        return self._rows
 
     def __init__(
-        self, enc_width: Width | None, aux_enc_width: Width | None, entries: Iterable[ModeEntry]
+        self, enc_width: Width | None, aux_enc_width: Width | None, rows: Iterable[ModeRow]
     ):
         self._enc_width = enc_width
         self._aux_enc_width = aux_enc_width
-        self._entries = tuple(entries)
+        self._rows = tuple(rows)
 
     @const_property
     def encoded_length(self) -> int | None:
         """
-        The number of encoded data units (bytes, words etc.) that all
-        entries in this mode use, or None if that number may vary depending
-        on which match is made.
+        The number of encoded data units (bytes, words etc.) that all rows in this mode use,
+        or `None` if that number may vary depending on which match is made.
         """
         if self._enc_width is None:
             return 0
         if self._aux_enc_width is None:
             return 1
         common_len: int | None = None
-        for entry in self._entries:
-            entry_len = entry.encoding.encoded_length
-            if entry_len is None:
+        for row in self._rows:
+            row_len = row.encoding.encoded_length
+            if row_len is None:
                 return None
-            if entry_len != common_len:
+            if row_len != common_len:
                 if common_len is None:
-                    common_len = entry_len
+                    common_len = row_len
                 else:
                     return None
         assert common_len is not None, self
@@ -351,14 +350,14 @@ class Mode(ModeTable):
         name: str,
         sem_type: IntType | ReferenceType,
         location: InputLocation,
-        entries: Iterable[ModeEntry],
+        rows: Iterable[ModeRow],
         collector: ErrorCollector,
     ) -> Self:
-        encodings = [entry.encoding for entry in entries]
+        encodings = [row.encoding for row in rows]
         where_desc = f'in mode "{name}"'
         enc_width = determine_encoding_width(encodings, False, where_desc, collector)
         aux_enc_width = determine_encoding_width(encodings, True, where_desc, collector)
-        return cls(name, enc_width, aux_enc_width, sem_type, location, entries)
+        return cls(name, enc_width, aux_enc_width, sem_type, location, rows)
 
     def __init__(
         self,
@@ -367,13 +366,13 @@ class Mode(ModeTable):
         aux_enc_width: int | None,
         sem_type: IntType | ReferenceType,
         location: InputLocation,
-        entries: Iterable[ModeEntry],
+        rows: Iterable[ModeRow],
     ):
         """
         Generally you should be using `create()` instead of calling the constructor directly,
         to get a more streamlined interface and consistency checks.
         """
-        ModeTable.__init__(self, enc_width, aux_enc_width, entries)
+        ModeTable.__init__(self, enc_width, aux_enc_width, rows)
         self._name = name
         self._sem_type = sem_type
         self._location = location

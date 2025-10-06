@@ -21,7 +21,7 @@ from .encoding import EncodingExpr, determine_encoding_width
 from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
-from .mode import Mode, ModeEntry, ModeMatch, ModeTable
+from .mode import Mode, ModeMatch, ModeRow, ModeTable
 from .namespace import GlobalNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
@@ -162,7 +162,7 @@ class InstructionSet(ModeTable):
     @classmethod
     def create(
         cls,
-        instructions: Iterable[ModeEntry],
+        instructions: Iterable[ModeRow],
         modes: Mapping[str, Mode],
         program_counter: Reference,
         prefix_mapping: PrefixMapping,
@@ -194,11 +194,11 @@ class InstructionSet(ModeTable):
                 collector.warning("no instructions defined")
             enc_width = 0
         elif any_aux:
-            for entry in instructions:
-                enc_def = entry.encoding
+            for instruction in instructions:
+                enc_def = instruction.encoding
                 if (width := enc_def.aux_encoding_width) not in (None, aux_enc_width):
                     collector.error(
-                        f"instruction entry has auxiliary encoding width of {width} bits, "
+                        f"instruction row has auxiliary encoding width of {width} bits, "
                         f"expected {aux_enc_width} bits",
                         location=enc_def.aux_encoding_location,
                     )
@@ -209,14 +209,14 @@ class InstructionSet(ModeTable):
                 f"different from instruction encoding width {enc_width}"
             )
 
-        mode_entries = dict(
+        mode_rows = dict(
             chain(
                 [(None, instructions)],
-                ((name, mode.entries) for name, mode in modes.items()),
+                ((name, mode.rows) for name, mode in modes.items()),
             )
         )
 
-        return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, mode_entries)
+        return cls(enc_width, aux_enc_width, program_counter, prefix_mapping, mode_rows)
 
     def __init__(
         self,
@@ -224,13 +224,13 @@ class InstructionSet(ModeTable):
         aux_enc_width: int | None,
         program_counter: Reference,
         prefix_mapping: PrefixMapping,
-        mode_entries: Mapping[str | None, Sequence[ModeEntry]],
+        mode_rows: Mapping[str | None, Sequence[ModeRow]],
     ):
-        instructions = mode_entries[None]
+        instructions = mode_rows[None]
         ModeTable.__init__(self, enc_width, aux_enc_width, instructions)
         self._program_counter = program_counter
         self._prefix_mapping = prefix_mapping
-        self._mode_entries = mode_entries
+        self._mode_rows = mode_rows
         self._decoders: dict[frozenset[str], Decoder] = {}
 
     @const_property
@@ -246,7 +246,7 @@ class InstructionSet(ModeTable):
         decoders = self._decoders
         decoder = decoders.get(flags)
         if decoder is None:
-            decoder_factory = DecoderFactory(self._mode_entries, flags)
+            decoder_factory = DecoderFactory(self._mode_rows, flags)
             decoder = decoder_factory.create_decoder(None, None)
             decoders[flags] = decoder
         return decoder

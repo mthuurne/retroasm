@@ -16,7 +16,7 @@ from .encoding import (
 )
 from .expression import Expression
 from .fetch import AfterModeFetcher, Fetcher, ModeFetcher
-from .mode import MatchPlaceholder, ModeEntry, ModeMatch
+from .mode import MatchPlaceholder, ModeMatch, ModeRow
 from .reference import FixedValueReference, int_reference
 from .symbol import ImmediateValue
 from .types import IntType, mask_for_width, mask_to_segments
@@ -24,20 +24,20 @@ from .utils import SingletonFromABC, bad_type, const_property
 
 
 class EncodeMatch:
-    """A match on the encoding field of a mode entry."""
+    """A match on the encoding field of a mode row."""
 
     @property
-    def entry(self) -> ModeEntry:
-        return self._entry
+    def mode_row(self) -> ModeRow:
+        return self._row
 
-    def __init__(self, entry: ModeEntry):
-        self._entry = entry
+    def __init__(self, row: ModeRow):
+        self._row = row
         self._subs: dict[str, EncodeMatch] = {}
         self._values: dict[str, FixedValueReference] = {}
 
     @override
     def __repr__(self) -> str:
-        return f"EncodeMatch({self._entry!r}, {self._subs!r}, {self._values!r})"
+        return f"EncodeMatch({self._row!r}, {self._subs!r}, {self._values!r})"
 
     def add_submatch(self, name: str, submatch: EncodeMatch) -> None:
         assert name not in self._subs, name
@@ -66,55 +66,55 @@ class EncodeMatch:
                 return values[expr.name].expr
             return None
 
-        for name, ref in self._entry.value_placeholders.items():
+        for name, ref in self._row.value_placeholders.items():
             values[name] = ref.substitute(resolve_immediate).bits
 
-        return ModeMatch(self._entry, values, subs)
+        return ModeMatch(self._row, values, subs)
 
-    def fill_placeholders(self) -> ModeEntry:
+    def fill_placeholders(self) -> ModeRow:
         """
-        Return a new entry, in which those placeholders that are present
+        Return a new mode row, in which those placeholders that are present
         in this match are replaced by the mode/value they are mapped to.
         It is not necessary for the match to provide modes/values for every
         placeholder: whatever is not matched is left untouched.
         """
 
-        entry = self._entry
+        row = self._row
         subs = self._subs
         values = self._values
         if not subs and not values:
             # Skip no-op substitution for efficiency's sake.
-            return entry
+            return row
 
-        encoding = entry.encoding.fill_placeholders(self)
-        mnemonic = entry.mnemonic.fill_placeholders(self)
+        encoding = row.encoding.fill_placeholders(self)
+        mnemonic = row.mnemonic.fill_placeholders(self)
         # TODO: Fill in placeholders in semantics too.
-        semantics = entry.semantics
+        semantics = row.semantics
         unfilled_matches = {
-            name: mode for name, mode in entry._match_placeholders.items() if name not in subs
+            name: mode for name, mode in row._match_placeholders.items() if name not in subs
         }
         unfilled_values = {
-            name: ref for name, ref in entry.value_placeholders.items() if name not in values
+            name: ref for name, ref in row.value_placeholders.items() if name not in values
         }
 
-        return ModeEntry(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
+        return ModeRow(encoding, mnemonic, semantics, unfilled_matches, unfilled_values)
 
     @const_property
     def flags_required(self) -> Set[str]:
-        flags_required = self._entry.encoding.flags_required
+        flags_required = self._row.encoding.flags_required
         for match in self._subs.values():
-            flags_required |= match.entry.encoding.flags_required
+            flags_required |= match.mode_row.encoding.flags_required
         return flags_required
 
     @const_property
     def encoded_length(self) -> int:
-        enc_def = self._entry.encoding
+        enc_def = self._row.encoding
         length = enc_def.encoded_length
         if length is not None:
-            # Mode entry has fixed encoded length.
+            # Mode row has fixed encoded length.
             return length
 
-        # Mode entry has variable encoded length.
+        # Mode row  has variable encoded length.
         subs = self._subs
         length = 0
         for enc_item in enc_def.items:
@@ -369,19 +369,19 @@ class MatchFoundDecoder(Decoder):
     """
 
     @property
-    def entry(self) -> ModeEntry:
-        return self._entry
+    def mode_row(self) -> ModeRow:
+        return self._row
 
-    def __init__(self, entry: ModeEntry):
-        self._entry = entry
+    def __init__(self, row: ModeRow):
+        self._row = row
 
     @override
     def dump(self, indent: str = "", submodes: bool = True) -> None:
-        print(indent + " ".join(str(m) for m in self._entry.mnemonic))
+        print(indent + " ".join(str(m) for m in self._row.mnemonic))
 
     @override
     def try_decode(self, fetcher: Fetcher) -> EncodeMatch:
-        return EncodeMatch(self._entry)
+        return EncodeMatch(self._row)
 
 
 class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
@@ -402,15 +402,15 @@ class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
 type _EncodingMatcher = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
 
 
-def _create_entry_decoder(
-    entry: ModeEntry,
+def _create_row_decoder(
+    row: ModeRow,
     decoding: Mapping[str, Sequence[EncodedSegment]],
     fixed_matcher: Sequence[FixedEncoding],
     factory: DecoderFactory,
 ) -> Decoder:
-    """Returns a Decoder instance that decodes this entry."""
+    """Return a Decoder instance that decodes the given mode row."""
 
-    encoding = entry.encoding
+    encoding = row.encoding
 
     # Find all indices that contain multi-matches.
     multi_matches = {
@@ -421,25 +421,25 @@ def _create_entry_decoder(
 
     # Match placeholders that are not represented in the encoding.
     # Typically these are matched on decode flags.
-    match = EncodeMatch(entry)
-    for name, mode in entry.match_placeholders.items():
+    match = EncodeMatch(row)
+    for name, mode in row.match_placeholders.items():
         if name not in decoding and name not in multi_matches:
             match factory.create_decoder(mode.name, name):
                 case NoMatchDecoder() as no_match:
                     return no_match
-                case MatchFoundDecoder(entry=entry):
-                    match.add_submatch(name, EncodeMatch(entry))
+                case MatchFoundDecoder(mode_row=row):
+                    match.add_submatch(name, EncodeMatch(row))
                 case sub:
                     # A submode match that is not represented in the encoding
                     # will either always match or never match, so if the
                     # simplifications of the sub-decoder were effective, only
                     # MatchFoundDecoder and NoMatchDecoder are possible.
                     assert False, sub
-    entry = match.fill_placeholders()
+    row = match.fill_placeholders()
 
     # Insert matchers at the last index they need.
     matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding.items))]
-    for name, mode in entry.match_placeholders.items():
+    for name, mode in row.match_placeholders.items():
         try:
             encoded_segments = decoding[name]
         except KeyError:
@@ -484,12 +484,12 @@ def _create_entry_decoder(
         )
 
     # Start with the leaf node and work towards the root.
-    decoder: Decoder = MatchFoundDecoder(entry)
+    decoder: Decoder = MatchFoundDecoder(row)
 
     # Add value placeholders.
     # Since these do not cause rejections, it is most efficient to do them last,
-    # when we are certain that this entry matches.
-    for name in entry.value_placeholders.keys():
+    # when we are certain that this row matches.
+    for name in row.value_placeholders.keys():
         enc_segs = decoding.get(name)
         if enc_segs is not None:
             decoder = PlaceholderDecoder(name, enc_segs, decoder, None, None)
@@ -616,18 +616,18 @@ def _create_decoder(org_decoders: Iterable[Decoder]) -> Decoder:
 
 
 def _qualify_names(
-    entry: ModeEntry, branch_name: str | None
-) -> tuple[ModeEntry, Mapping[str, Sequence[EncodedSegment]]]:
+    row: ModeRow, branch_name: str | None
+) -> tuple[ModeRow, Mapping[str, Sequence[EncodedSegment]]]:
     """
-    Returns a pair containing a `ModeEntry` and decode mapping, where each
-    name starts with the given branch name.
+    Return a pair containing a `ModeRow` and decode mapping, where each name starts with
+    the given branch name.
     If `branch_name` is `None`, no renaming is performed.
     """
-    placeholder_names = list(entry.match_placeholders)
-    placeholder_names += entry.value_placeholders
+    placeholder_names = list(row.match_placeholders)
+    placeholder_names += row.value_placeholders
     if branch_name is None or len(placeholder_names) == 0:
         # Do not rename.
-        return entry, entry.encoding.decoding
+        return row, row.encoding.decoding
     elif len(placeholder_names) == 1:
         # Replace current name with branch name.
         name_map = {placeholder_names[0]: branch_name}
@@ -635,18 +635,14 @@ def _qualify_names(
         # Prefix current names with branch name.
         name_map = {name: f"{branch_name}.{name}" for name in placeholder_names}
 
-    renamed_entry = entry.rename(name_map)
-    renamed_decoding = {
-        name_map[name]: value for name, value in entry.encoding.decoding.items()
-    }
-    return renamed_entry, renamed_decoding
+    renamed_row = row.rename(name_map)
+    renamed_decoding = {name_map[name]: value for name, value in row.encoding.decoding.items()}
+    return renamed_row, renamed_decoding
 
 
 class DecoderFactory:
-    def __init__(
-        self, mode_entries: Mapping[str | None, Iterable[ModeEntry]], flags: Iterable[str]
-    ):
-        self._mode_entries = mode_entries
+    def __init__(self, mode_rows: Mapping[str | None, Iterable[ModeRow]], flags: Iterable[str]):
+        self._mode_rows = mode_rows
         self._flags = frozenset(flags)
         self._cache: dict[tuple[str | None, str | None], Decoder] = {}
 
@@ -655,16 +651,16 @@ class DecoderFactory:
         key = (mode_name, branch_name)
         decoder = cache.get(key)
         if decoder is None:
-            entries = self._mode_entries[mode_name]
+            rows = self._mode_rows[mode_name]
             flags_are_set = self._flags.issuperset
             decoder = _create_decoder(
-                _create_entry_decoder(
-                    *_qualify_names(entry, branch_name),
-                    entry.encoding.fixed_matcher,
+                _create_row_decoder(
+                    *_qualify_names(row, branch_name),
+                    row.encoding.fixed_matcher,
                     factory=self,
                 )
-                for entry in entries
-                if flags_are_set(entry.encoding.flags_required)
+                for row in rows
+                if flags_are_set(row.encoding.flags_required)
             )
             cache[key] = decoder
         return decoder
