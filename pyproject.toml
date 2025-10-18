@@ -45,8 +45,7 @@ exclude_lines = [
 coverage = { version = "^7.4.0", extras = ["toml"] }
 hypothesis = "^6.32.1"
 invoke = "^2.0"
-lxml = "^5.0.0"
-mypy = "^1.0.0"
+mypy = { version = "^1.0.0", extras = ["reports"] }
 pre-commit = "^4.0.0"
 pylint = "^3.0"
 pytest = "^8.0.0"
