@@ -13,11 +13,11 @@ from ..expression import (
     IntLiteral,
     LVShift,
     MultiplyOperator,
-    Negation,
     OrOperator,
     RVShift,
     SignTest,
     XorOperator,
+    ZeroTest,
     truncate,
 )
 from ..expression_simplifier import simplify_expression
@@ -251,11 +251,11 @@ def _convert_arithmetic(
         case Operator.bitwise_complement:
             return XorOperator(IntLiteral(-1), *exprs)
         case Operator.negation:
-            return Negation(*exprs)
+            return ZeroTest(*exprs)
         case Operator.equal:
-            return Negation(XorOperator(*exprs))
+            return ZeroTest(XorOperator(*exprs))
         case Operator.unequal:
-            return Negation(Negation(XorOperator(*exprs)))
+            return ZeroTest(ZeroTest(XorOperator(*exprs)))
         case Operator.lesser:
             expr1, expr2 = exprs
             return SignTest(AddOperator(expr1, Complement(expr2)))
@@ -264,10 +264,10 @@ def _convert_arithmetic(
             return SignTest(AddOperator(expr2, Complement(expr1)))
         case Operator.lesser_equal:
             expr1, expr2 = exprs
-            return Negation(SignTest(AddOperator(expr2, Complement(expr1))))
+            return ZeroTest(SignTest(AddOperator(expr2, Complement(expr1))))
         case Operator.greater_equal:
             expr1, expr2 = exprs
-            return Negation(SignTest(AddOperator(expr1, Complement(expr2))))
+            return ZeroTest(SignTest(AddOperator(expr1, Complement(expr2))))
         case operator:
             assert False, operator
 

@@ -6,7 +6,7 @@ from typing import ClassVar, NoReturn, Self, assert_never, override
 
 from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
-from .expression import Expression, Negation
+from .expression import Expression, ZeroTest
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
@@ -149,7 +149,7 @@ class CodeBlockBuilder(ABC):
         # Force the condition to be computed.
         if condition is not None:
             ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emit_store(self, Negation(condition), condition_location)
+            ref.emit_store(self, ZeroTest(condition), condition_location)
 
     @abstractmethod
     def inline_function_call(

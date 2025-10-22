@@ -420,7 +420,9 @@ class Complement(SingleExpression):
         return 0 if expr_mask == 0 else -1 << cast(int, trailing_zeroes(expr_mask))
 
 
-class Negation(SingleExpression):
+class ZeroTest(SingleExpression):
+    """Tests whether the wrapped expression is zero."""
+
     __slots__ = ()
 
     operator = "!"
@@ -436,7 +438,7 @@ class Negation(SingleExpression):
 
 
 class SignTest(SingleExpression):
-    """Tests the sign of the given expression."""
+    """Tests the sign of the wrapped expression."""
 
     __slots__ = ()
 

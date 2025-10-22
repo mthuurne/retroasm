@@ -19,7 +19,7 @@ The following types of expression nodes exist:
 * integer literals (\ ``123``\ )
 * constants (\ ``X``\ )
 * integer complement (\ ``-X``\ )
-* Boolean negation / zero test (\ ``!X``\ )
+* zero test (\ ``!X``\ )
 * sign test (\ ``X < 0``\ )
 * sign extension
 * bitwise operators: *and*, *or*, *xor*

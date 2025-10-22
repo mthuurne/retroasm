@@ -14,13 +14,13 @@ from .expression import (
     LVShift,
     MultiExpression,
     MultiplyOperator,
-    Negation,
     OrOperator,
     RShift,
     RVShift,
     SignExtension,
     SignTest,
     XorOperator,
+    ZeroTest,
     opt_slice,
 )
 from .symbol import ImmediateValue, SymbolValue
@@ -307,7 +307,7 @@ def _test_bit(expr: Expression, bit: int) -> bool:
     return isinstance(masked, IntLiteral) and masked.value != 0
 
 
-def _simplify_negation(negation: Negation, mask: int) -> Expression:
+def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
     if mask & 1 == 0:
         return IntLiteral(0)
 
@@ -315,8 +315,8 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
         case IntLiteral(value=value):
             return IntLiteral(int(not value))
         case LShift(expr=expr) | Complement(expr=expr):
-            return _simplify_negation(Negation(expr), 1)
-        case Negation(expr=expr) if expr.mask == 1:
+            return _simplify_negation(ZeroTest(expr), 1)
+        case ZeroTest(expr=expr) if expr.mask == 1:
             return expr
         case subexpr:
             pass
@@ -336,19 +336,19 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
         if _test_bit(subexpr, 1025):
             return IntLiteral(0)
 
-    alts: list[Expression] = [negation if subexpr is negation.expr else Negation(subexpr)]
+    alts: list[Expression] = [negation if subexpr is negation.expr else ZeroTest(subexpr)]
     match subexpr:
         case AddOperator(exprs=terms) if all(term.mask >= 0 for term in terms):
             # If all terms are non-negative, one non-zero term will take the
             # result above zero.
-            alts.append(simplify_expression(Negation(OrOperator(*terms))))
+            alts.append(simplify_expression(ZeroTest(OrOperator(*terms))))
         case AddOperator(exprs=terms):
             # Simplify !(A - B) to !(A ^ B).
             for idx, term in enumerate(terms):
                 alts.insert(
                     0,
                     simplify_expression(
-                        Negation(
+                        ZeroTest(
                             XorOperator(
                                 Complement(term),
                                 AddOperator(*terms[:idx], *terms[idx + 1 :]),
@@ -358,7 +358,7 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
                 )
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.
-            alts.append(simplify_expression(AndOperator(*(Negation(term) for term in terms))))
+            alts.append(simplify_expression(AndOperator(*(ZeroTest(term) for term in terms))))
         case RShift(expr=subexpr, offset=offset):
             match subexpr:
                 case (
@@ -369,7 +369,7 @@ def _simplify_negation(negation: Negation, mask: int) -> Expression:
                     # Distribute RShift over bitwise operator.
                     alts.append(
                         simplify_expression(
-                            Negation(
+                            ZeroTest(
                                 subexpr.__class__(*(RShift(term, offset) for term in terms))
                             )
                         )
@@ -399,7 +399,7 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
             # when X is an unsigned value.
             alts.append(
                 simplify_expression(
-                    AndOperator(Negation(Negation(expr)), Negation(SignTest(expr)))
+                    AndOperator(ZeroTest(ZeroTest(expr)), ZeroTest(SignTest(expr)))
                 )
             )
         case AddOperator(exprs=(*terms, IntLiteral(value=literal))):
@@ -411,7 +411,7 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
                 if terms_mask + literal < 0:
                     return IntLiteral(1)
                 if terms_mask + literal == 0:
-                    alts.insert(0, simplify_expression(Negation(Negation(subexpr))))
+                    alts.insert(0, simplify_expression(ZeroTest(ZeroTest(subexpr))))
             else:
                 compl = simplify_expression(Complement(terms_sum))
                 if (compl_mask := compl.mask) >= 0:
@@ -588,7 +588,7 @@ _simplifiers: dict[type[Expression], Callable[[Any, int], Expression]] = {
     AddOperator: _simplify_composed,
     MultiplyOperator: _simplify_composed,
     Complement: _simplify_complement,
-    Negation: _simplify_negation,
+    ZeroTest: _simplify_negation,
     SignTest: _simplify_sign_test,
     SignExtension: _simplify_sign_extension,
     LShift: _simplify_lshift,
