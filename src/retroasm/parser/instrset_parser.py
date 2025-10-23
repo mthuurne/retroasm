@@ -480,7 +480,10 @@ def _parse_encoding_expr(
 
 
 def _parse_multi_match(
-    enc_node: MultiMatchNode, identifiers: Set[str], ctx_namespace: ContextNamespace
+    enc_node: MultiMatchNode,
+    identifiers: Set[str],
+    ctx_namespace: ContextNamespace,
+    collector: ErrorCollector,
 ) -> EncodingMultiMatch:
     """
     Parse an encoding node of type MultiMatchNode.
@@ -503,7 +506,22 @@ def _parse_multi_match(
 
     mode = ref.mode
     start = 1 if name in identifiers else 0
-    return EncodingMultiMatch(name, mode, start, enc_node.tree_location)
+    location = enc_node.tree_location
+
+    # Warn about multi-matches that always match zero elements. Technically there is
+    # nothing wrong with those, but it is probably not what the user intended.
+    if mode.encoding_width is None:
+        collector.warning(
+            f'mode "{mode.name}" does not contain encoding elements',
+            location=(location, ctx_namespace.locations[name]),
+        )
+    elif start >= 1 and mode.aux_encoding_width is None:
+        collector.warning(
+            f'mode "{mode.name}" does not match auxiliary encoding units',
+            location=(location, ctx_namespace.locations[name]),
+        )
+
+    return EncodingMultiMatch(name, mode, start, location)
 
 
 def _parse_mode_encoding(
@@ -542,7 +560,7 @@ def _parse_mode_encoding(
                     pass
                 case MultiMatchNode():
                     # Match multiple encoding fields as-is.
-                    yield _parse_multi_match(enc_node, identifiers, ctx_namespace)
+                    yield _parse_multi_match(enc_node, identifiers, ctx_namespace, collector)
                 case _:
                     # Expression possibly containing single encoding field matches.
                     yield _parse_encoding_expr(enc_node, enc_namespace, ctx_namespace)
@@ -561,32 +579,6 @@ def _parse_flags_required(
                 collector.error(
                     f'there is no decode flag named "{name}"', location=node.location
                 )
-
-
-def _check_empty_multi_matches(
-    enc_items: Iterable[EncodingItem],
-    ctx_namespace: ContextNamespace,
-    collector: ErrorCollector,
-) -> None:
-    """
-    Warn about multi-matches that always match zero elements.
-    Technically there is nothing wrong with those, but it is probably not what
-    the user intended.
-    """
-
-    for enc_item in enc_items:
-        match enc_item:
-            case EncodingMultiMatch(mode=mode):
-                if mode.encoding_width is None:
-                    collector.warning(
-                        f'mode "{mode.name}" does not contain encoding elements',
-                        location=(enc_item.location, ctx_namespace.locations[enc_item.name]),
-                    )
-                elif enc_item.start >= 1 and mode.aux_encoding_width is None:
-                    collector.warning(
-                        f'mode "{mode.name}" does not match auxiliary encoding units',
-                        location=(enc_item.location, ctx_namespace.locations[enc_item.name]),
-                    )
 
 
 def _check_aux_encoding_width(
@@ -764,7 +756,6 @@ def _parse_mode_rows(
                             )
                         with collector.check():
                             _check_aux_encoding_width(enc_items, collector)
-                            _check_empty_multi_matches(enc_items, ctx_namespace, collector)
                             _check_duplicate_multi_matches(enc_items, collector)
                         # Parse required decode flags.
                         with collector.check():
