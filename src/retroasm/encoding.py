@@ -154,20 +154,11 @@ class EncodingMultiMatch:
     """
 
     name: str
-    mode: Mode
+    encoding_width: Width | None
+    aux_encoding_width: Width | None
     start: int
+    encoded_length: int | None
     location: InputLocation | None
-
-    @property
-    def encoding_width(self) -> Width | None:
-        if self.start == 0:
-            return self.mode.encoding_width
-        else:
-            return self.mode.aux_encoding_width
-
-    @property
-    def aux_encoding_width(self) -> Width | None:
-        return self.mode.aux_encoding_width
 
     @override
     def __str__(self) -> str:
@@ -178,12 +169,14 @@ class EncodingMultiMatch:
         Returns a new EncodingMultiMatch, with the placeholder name
         substituted by its value in the given mapping.
         """
-        return EncodingMultiMatch(name_map[self.name], self.mode, self.start, self.location)
-
-    @property
-    def encoded_length(self) -> int | None:
-        length = self.mode.encoded_length
-        return None if length is None else length - self.start
+        return EncodingMultiMatch(
+            name_map[self.name],
+            self.encoding_width,
+            self.aux_encoding_width,
+            self.start,
+            self.encoded_length,
+            self.location,
+        )
 
 
 type EncodingItem = EncodingExpr | EncodingMultiMatch
@@ -402,14 +395,12 @@ def _check_decoding_order(
     Such an order might not exist because of circular dependencies.
     """
 
-    # Find indices and modes of multi-matches.
-    multi_match_indices = {}
-    multi_match_modes = {}
-    for enc_idx, enc_elem in enumerate(encoding_items):
-        if isinstance(enc_elem, EncodingMultiMatch):
-            name = enc_elem.name
-            multi_match_indices[name] = enc_idx
-            multi_match_modes[name] = enc_elem.mode
+    # Find indices of multi-matches.
+    multi_match_indices = {
+        enc_elem.name: enc_idx
+        for enc_idx, enc_elem in enumerate(encoding_items)
+        if isinstance(enc_elem, EncodingMultiMatch)
+    }
 
     for name, decoding in sequential_map.items():
         # Are we dealing with a multi-match of unknown length?
@@ -425,11 +416,9 @@ def _check_decoding_order(
             enc_segment.enc_idx for enc_segment in decoding if enc_segment.enc_idx > multi_idx
         ]
         if bad_idx:
-            mode = multi_match_modes[name]
             collector.error(
-                f'cannot match "{name}": mode "{mode.name}" has a variable encoding '
-                f'length and (parts of) the placeholder "{name}" are placed after '
-                f'the multi-match placeholder "{name}@"',
+                f'cannot match "{name}": (parts of) the placeholder "{name}" are placed '
+                f'after the multi-match placeholder "{name}@"',
                 location=[matcher.location] + [encoding_items[idx].location for idx in bad_idx],
             )
 

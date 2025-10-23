@@ -521,7 +521,14 @@ def _parse_multi_match(
             location=(location, ctx_namespace.locations[name]),
         )
 
-    return EncodingMultiMatch(name, mode, start, location)
+    return EncodingMultiMatch(
+        name,
+        mode.encoding_width if start == 0 else mode.aux_encoding_width,
+        mode.aux_encoding_width,
+        start,
+        None if (length := mode.encoded_length) is None else length - start,
+        location,
+    )
 
 
 def _parse_mode_encoding(

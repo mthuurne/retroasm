@@ -523,7 +523,7 @@ def _create_row_decoder(
                 adjust = aux_len - 1
                 if adjust != 0:
                     enc_segs = tuple(encSeg.adjust_unit(aux_idx, adjust) for encSeg in enc_segs)
-            match factory.create_decoder(matcher.mode, name):
+            match factory.create_decoder(row.match_placeholders[name], name):
                 case NoMatchDecoder() as no_match:
                     return no_match
                 case sub:
