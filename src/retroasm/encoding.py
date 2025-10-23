@@ -146,67 +146,44 @@ class EncodingExpr:
             return EncodingExpr(new_bits, self._location)
 
 
+@dataclass(frozen=True)
 class EncodingMultiMatch:
     """
     A segment in an encoding sequence of zero or more elements, that will
     be filled in by a matched row from an included mode.
     """
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def mode(self) -> Mode:
-        return self._mode
-
-    @property
-    def start(self) -> int:
-        return self._start
-
-    @property
-    def location(self) -> InputLocation | None:
-        return self._location
+    name: str
+    mode: Mode
+    start: int
+    location: InputLocation | None
 
     @property
     def encoding_width(self) -> Width | None:
-        if self._start == 0:
-            return self._mode.encoding_width
+        if self.start == 0:
+            return self.mode.encoding_width
         else:
-            return self._mode.aux_encoding_width
+            return self.mode.aux_encoding_width
 
     @property
     def aux_encoding_width(self) -> Width | None:
-        return self._mode.aux_encoding_width
-
-    def __init__(self, name: str, mode: Mode, start: int, location: InputLocation | None):
-        self._name = name
-        self._mode = mode
-        self._start = start
-        self._location = location
+        return self.mode.aux_encoding_width
 
     @override
     def __str__(self) -> str:
-        return f"{self._name}@"
-
-    @override
-    def __repr__(self) -> str:
-        return (
-            f"EncodingMultiMatch({self._name!r}, {self._mode!r}, "
-            f" {self._start!r}, {self._location!r})"
-        )
+        return f"{self.name}@"
 
     def rename(self, name_map: Mapping[str, str]) -> EncodingMultiMatch:
         """
         Returns a new EncodingMultiMatch, with the placeholder name
         substituted by its value in the given mapping.
         """
-        return EncodingMultiMatch(name_map[self._name], self._mode, self._start, self._location)
+        return EncodingMultiMatch(name_map[self.name], self.mode, self.start, self.location)
 
-    @const_property
+    @property
     def encoded_length(self) -> int | None:
-        length = self._mode.encoded_length
-        return None if length is None else length - self._start
+        length = self.mode.encoded_length
+        return None if length is None else length - self.start
 
 
 type EncodingItem = EncodingExpr | EncodingMultiMatch
