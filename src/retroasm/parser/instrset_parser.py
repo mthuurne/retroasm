@@ -612,19 +612,12 @@ def _check_aux_encoding_width(
             case EncodingExpr(encoding_width=enc_width, location=loc):
                 check_aux(enc_width, loc)
             case EncodingMultiMatch(
-                mode=Mode(aux_encoding_width=aux_width), encoded_length=enc_len, location=loc
+                aux_encoding_width=aux_width, encoded_length=enc_len, location=loc
             ) if first:
                 if enc_len != 1 and aux_width is not None:
                     check_aux(aux_width, loc)
-            case EncodingMultiMatch(
-                mode=Mode(encoding_width=enc_width, aux_encoding_width=aux_width),
-                start=start,
-                location=loc,
-            ):
-                if start == 0:
-                    check_aux(enc_width, loc)
-                if aux_width is not None:
-                    check_aux(aux_width, loc)
+            case EncodingMultiMatch(encoding_width=enc_width, location=loc):
+                check_aux(enc_width, loc)
             case item:
                 bad_type(item)
         first = False
