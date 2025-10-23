@@ -42,10 +42,10 @@ def test_placeholder_mode_forward(instr_tester: InstructionSetDocstringTester) -
     instr_tester.check()
 
     mode = instr_tester.parser.modes["forward"]
-    (entry,) = mode.rows
+    (row,) = mode.rows
     reg32 = instr_tester.parser.modes["reg32"]
-    assert entry.match_placeholders == {"R": reg32}
-    value_placeholders = entry.value_placeholders
+    assert row.match_placeholders == {"R": reg32}
+    value_placeholders = row.value_placeholders
     assert len(value_placeholders) == 0
 
 
@@ -119,9 +119,9 @@ def test_placeholder_value_negative(instr_tester: InstructionSetDocstringTester)
     instr_tester.check()
 
     mode = instr_tester.parser.modes["signed_const"]
-    (entry,) = mode.rows
+    (row,) = mode.rows
 
-    (placeholder,) = entry.value_placeholders.values()
+    (placeholder,) = row.value_placeholders.values()
     assert_int_literal(placeholder.expr, -123)
 
 
@@ -221,8 +221,8 @@ def test_placeholder_constant_pc_relative(instr_tester: InstructionSetDocstringT
     instr_tester.check()
 
     mode = instr_tester.parser.modes["pc_rel"]
-    (entry,) = mode.rows
-    value_placeholders = entry.value_placeholders
+    (row,) = mode.rows
+    value_placeholders = row.value_placeholders
     assert len(value_placeholders) == 2
     placeholder_n = value_placeholders["N"]
     placeholder_a = value_placeholders["A"]
@@ -246,9 +246,9 @@ def test_placeholder_encode_func_ref(instr_tester: InstructionSetDocstringTester
     instr_tester.check()
 
     mode = instr_tester.parser.modes["pad_imm"]
-    (entry,) = mode.rows
+    (row,) = mode.rows
 
-    mode_match = ModeMatch(entry, {"N": FixedValue(IntLiteral(0xEB), 8)}, {})
+    mode_match = ModeMatch(row, {"N": FixedValue(IntLiteral(0xEB), 8)}, {})
     (bits,) = mode_match.iter_bits()
     assert bits.width == 16
     assert bits.int_value == 0x0EB0
@@ -291,9 +291,9 @@ def test_placeholder_encode_extend(instr_tester: InstructionSetDocstringTester) 
     instr_tester.check()
 
     mode = instr_tester.parser.modes["extend_imm"]
-    (entry,) = mode.rows
+    (row,) = mode.rows
 
-    mode_match = ModeMatch(entry, {"N": FixedValue(IntLiteral(0x94), 8)}, {})
+    mode_match = ModeMatch(row, {"N": FixedValue(IntLiteral(0x94), 8)}, {})
     (bits,) = mode_match.iter_bits()
     assert bits.width == 16
     assert bits.int_value == 0x0094
