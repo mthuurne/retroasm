@@ -149,13 +149,12 @@ class EncodingExpr:
 @dataclass(frozen=True)
 class EncodingMultiMatch:
     """
-    A segment in an encoding sequence of zero or more elements, that will
-    be filled in by a matched row from an included mode.
+    A segment in an encoding sequence of one or more elements of equal width,
+    that will be filled in by a matched row from an included mode.
     """
 
     name: str
-    encoding_width: Width | None
-    aux_encoding_width: Width | None
+    encoding_width: Width
     start: int
     encoded_length: int | None
     location: InputLocation | None
@@ -172,7 +171,6 @@ class EncodingMultiMatch:
         return EncodingMultiMatch(
             name_map[self.name],
             self.encoding_width,
-            self.aux_encoding_width,
             self.start,
             self.encoded_length,
             self.location,
@@ -502,13 +500,11 @@ class Encoding:
         # Verify that all auxiliary units have the same width.
         aux_width = self.aux_encoding_width
         if aux_width is not None:
-            consistent = True
-            for idx, item in enumerate(non_empty_items):
-                if idx != 0:
-                    consistent &= item.encoding_width == aux_width
-                if isinstance(item, EncodingMultiMatch):
-                    consistent &= item.aux_encoding_width in (None, aux_width)
-            if not consistent:
+            if any(
+                item.encoding_width != aux_width
+                for idx, item in enumerate(non_empty_items)
+                if idx != 0 or isinstance(item, EncodingMultiMatch)
+            ):
                 raise ValueError("inconsistent widths among auxiliary encoding units")
 
         self.flags_required: Final[Set[str]] = frozenset(flags_required)
@@ -633,7 +629,7 @@ class Encoding:
         elif first_aux_index == 0:
             item = self._items[0]
             assert isinstance(item, EncodingMultiMatch), item
-            return item.aux_encoding_width
+            return item.encoding_width
         else:
             assert first_aux_index == 1, first_aux_index
             return self._items[1].encoding_width

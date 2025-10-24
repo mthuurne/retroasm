@@ -30,7 +30,7 @@ from ..namespace import (
     NameExistsError,
     ReadOnlyNamespace,
 )
-from ..reference import FixedValueReference, Reference, bad_reference
+from ..reference import FixedValue, FixedValueReference, Reference, bad_reference
 from ..storage import IOChannel, IOStorage, Register
 from ..symbol import ImmediateValue
 from ..types import IntType, ReferenceType, Width, parse_type, parse_type_decl
@@ -484,7 +484,7 @@ def _parse_multi_match(
     identifiers: Set[str],
     ctx_namespace: ContextNamespace,
     collector: ErrorCollector,
-) -> EncodingMultiMatch:
+) -> Iterator[EncodingItem]:
     """
     Parse an encoding node of type MultiMatchNode.
     Returns the parse result as an EncodingMultiMatch.
@@ -508,27 +508,37 @@ def _parse_multi_match(
     start = 1 if name in identifiers else 0
     location = enc_node.tree_location
 
-    # Warn about multi-matches that always match zero elements. Technically there is
-    # nothing wrong with those, but it is probably not what the user intended.
-    if mode.encoding_width is None:
+    first_width = mode.encoding_width
+    if first_width is None:
         collector.warning(
-            f'mode "{mode.name}" does not contain encoding elements',
+            f'mode "{mode.name}" matched by "{name}@" does not contain encoding elements',
             location=(location, ctx_namespace.locations[name]),
         )
-    elif start >= 1 and mode.aux_encoding_width is None:
-        collector.warning(
-            f'mode "{mode.name}" does not match auxiliary encoding units',
-            location=(location, ctx_namespace.locations[name]),
-        )
+        return
 
-    return EncodingMultiMatch(
-        name,
-        mode.encoding_width if start == 0 else mode.aux_encoding_width,
-        mode.aux_encoding_width,
-        start,
-        None if (length := mode.encoded_length) is None else length - start,
-        location,
-    )
+    aux_width = mode.aux_encoding_width
+    if start == 0 and first_width != aux_width:
+        yield EncodingExpr(
+            FixedValue(ImmediateValue(name, IntType.u(first_width)), first_width),
+            location,
+        )
+        start = 1
+    elif aux_width is None:
+        collector.warning(
+            f'mode "{mode.name}" matched by "{name}@" does not contain '
+            "auxiliary encoding units",
+            location=(location, ctx_namespace.locations[name]),
+        )
+        return
+
+    if aux_width is not None:
+        yield EncodingMultiMatch(
+            name,
+            aux_width,
+            start,
+            None if (length := mode.encoded_length) is None else length - start,
+            location,
+        )
 
 
 def _parse_mode_encoding(
@@ -567,7 +577,9 @@ def _parse_mode_encoding(
                     pass
                 case MultiMatchNode():
                     # Match multiple encoding fields as-is.
-                    yield _parse_multi_match(enc_node, identifiers, ctx_namespace, collector)
+                    yield from _parse_multi_match(
+                        enc_node, identifiers, ctx_namespace, collector
+                    )
                 case _:
                     # Expression possibly containing single encoding field matches.
                     yield _parse_encoding_expr(enc_node, enc_namespace, ctx_namespace)
@@ -619,7 +631,7 @@ def _check_aux_encoding_width(
             case EncodingExpr(encoding_width=enc_width, location=loc):
                 check_aux(enc_width, loc)
             case EncodingMultiMatch(
-                aux_encoding_width=aux_width, encoded_length=enc_len, location=loc
+                encoding_width=aux_width, encoded_length=enc_len, location=loc
             ) if first:
                 if enc_len != 1 and aux_width is not None:
                     check_aux(aux_width, loc)

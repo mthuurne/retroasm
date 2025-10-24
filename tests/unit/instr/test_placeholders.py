@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from retroasm.encoding import EncodingExpr, EncodingMultiMatch
 from retroasm.expression import AddOperator, IntLiteral
 from retroasm.mode import ModeMatch
 from retroasm.reference import FixedValue
@@ -297,3 +298,122 @@ def test_placeholder_encode_extend(instr_tester: InstructionSetDocstringTester) 
     (bits,) = mode_match.iter_bits()
     assert bits.width == 16
     assert bits.int_value == 0x0094
+
+
+def test_placeholder_encode_multimatch_empty(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    A multi-match placeholder for a mode with an empty encoding results in a warning and
+    empty encoding in the mode row that contained the placeholder.
+
+    A real-life example of a mode with an empty encoding is the Z80 mode that selects
+    HL, IX or IY depending on the active decode flags.
+
+    .. code-block:: instr
+
+        mode u32& just_a
+        . a
+
+        mode u32& still_just_a
+        R@ . . R . just_a R
+
+    .. code-block:: inputlog
+
+        test.instr:5: warning: mode "just_a" matched by "R@" does not contain encoding elements
+        R@ . . R . just_a R
+        ^^                ~
+    """
+    instr_tester.check()
+
+    mode = instr_tester.parser.modes["still_just_a"]
+    (row,) = mode.rows
+
+    assert len(row.encoding.items) == 0
+
+
+def test_placeholder_encode_multimatch_no_aux(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    A regular plus a multi-match placeholder for a mode with no auxiliary encoding items
+    results in a warning and just the regular placeholder in the mode row.
+
+    .. code-block:: instr
+
+        mode u4 imm4
+        N . N . N . u4 N
+
+        mode u16 single_bit_mask
+        N, N@ . bit N . 1 << N . imm4 N
+
+    .. code-block:: inputlog
+
+        test.instr:5: warning: mode "imm4" matched by "N@" does not contain auxiliary encoding units
+        N, N@ . bit N . 1 << N . imm4 N
+           ^^                         ~
+    """
+    instr_tester.check()
+
+    mode = instr_tester.parser.modes["single_bit_mask"]
+    (row,) = mode.rows
+
+    assert len(row.encoding.items) == 1
+    (enc_item,) = row.encoding.items
+    assert isinstance(enc_item, EncodingExpr)
+    assert enc_item.encoding_width == 4
+
+
+def test_placeholder_encode_multimatch_single_item(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    A multi-match placeholder for a mode with a single encoding item results in
+    just the regular placeholder in the mode row.
+
+    No warning will be issued: while placeholder could have been regular rather than
+    multi-match, using a multi-match placeholder might be preferred for consistency.
+
+    .. code-block:: instr
+
+        mode s8 imm8
+        N . N . N . s8 N
+
+        mode s8 signed_byte
+        N@ . N . N . imm8 N
+    """
+    instr_tester.check()
+
+    mode = instr_tester.parser.modes["signed_byte"]
+    (row,) = mode.rows
+
+    assert len(row.encoding.items) == 1
+    (enc_item,) = row.encoding.items
+    assert isinstance(enc_item, EncodingExpr)
+
+
+def test_placeholder_encode_multimatch_mixed_width(
+    instr_tester: InstructionSetDocstringTester,
+) -> None:
+    """
+    A regular and multi-match placeholder for a mode can each have a different width.
+
+    .. code-block:: instr
+
+        mode u32& reg_offset
+        R, N . R + N . (R + N)[:32] . reg32 R, u16 N
+
+        mode u32& reg_offset_encpad
+        %0;RO, RO@ . RO . RO . reg_offset RO
+    """
+    instr_tester.check()
+
+    mode = instr_tester.parser.modes["reg_offset_encpad"]
+    (row,) = mode.rows
+
+    assert len(row.encoding.items) == 2
+    (primary_item, aux_item) = row.encoding.items
+    assert isinstance(primary_item, EncodingExpr)
+    assert primary_item.encoding_width == 3
+    assert isinstance(aux_item, EncodingMultiMatch)
+    assert aux_item.encoding_width == 16
