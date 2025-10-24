@@ -147,10 +147,6 @@ class InstructionSet(ModeTable):
         return cast(int, self._enc_width)
 
     @property
-    def encoding_type(self) -> IntType:
-        return IntType.u(self.encoding_width)
-
-    @property
     def program_counter(self) -> Reference:
         return self._program_counter
 

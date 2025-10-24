@@ -85,10 +85,6 @@ class EncodingExpr:
         return self._bits.width
 
     @property
-    def encoding_type(self) -> IntType:
-        return IntType.u(self.encoding_width)
-
-    @property
     def encoded_length(self) -> int:
         return 1
 
