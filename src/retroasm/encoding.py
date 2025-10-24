@@ -419,27 +419,21 @@ def _check_decoding_order(
 
 def _find_first_aux_index(encoding: Sequence[EncodingItem]) -> int | None:
     """
-    Returns the index of the first encoding item that can match auxiliary
-    encoding units, or None if no auxiliary encoding units can be matched.
-    The given encoding sequence must not contain matchers that never match
-    any encoding units.
+    Return the index of the first encoding item that can match auxiliary encoding units,
+    or None if no auxiliary encoding units can be matched.
+    The given encoding sequence must not contain matchers that match zero encoding units.
     """
-    if len(encoding) == 0:
-        # No units matched because there are no matchers.
-        return None
-    first_len = encoding[0].encoded_length
-    assert first_len is not None, encoding
-    if first_len >= 2:
-        # First element can match multiple encoding units.
-        return 0
-    assert first_len != 0, encoding
-    if len(encoding) == 1:
-        # First element matches 1 encoding unit, no second element.
-        return None
-    else:
-        # The second element will match the second unit.
-        assert encoding[1].encoded_length != 0, encoding
-        return 1
+
+    match len(encoding):
+        case 0:
+            # No units matched because there are no matchers.
+            return None
+        case 1:
+            # Is the only item a primary encoding?
+            return None if isinstance(encoding[0], EncodingExpr) else 0
+        case _:
+            # Is the first item a primary encoding?
+            return 1 if isinstance(encoding[0], EncodingExpr) else 0
 
 
 class Encoding:
