@@ -630,13 +630,8 @@ def _check_aux_encoding_width(
                 pass
             case EncodingExpr(encoding_width=enc_width, location=loc):
                 check_aux(enc_width, loc)
-            case EncodingMultiMatch(
-                encoding_width=aux_width, encoded_length=enc_len, location=loc
-            ) if first:
-                if enc_len != 1 and aux_width is not None:
-                    check_aux(aux_width, loc)
-            case EncodingMultiMatch(encoding_width=enc_width, location=loc):
-                check_aux(enc_width, loc)
+            case EncodingMultiMatch(encoding_width=aux_width, location=loc):
+                check_aux(aux_width, loc)
             case item:
                 bad_type(item)
         first = False
