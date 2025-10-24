@@ -613,16 +613,8 @@ class Encoding:
         encoding definition would have, or None if a match cannot contain more
         than one encoding unit.
         """
-        first_aux_index = self._first_aux_index
-        if first_aux_index is None:
-            return None
-        elif first_aux_index == 0:
-            item = self._items[0]
-            assert isinstance(item, EncodingMultiMatch), item
-            return item.encoding_width
-        else:
-            assert first_aux_index == 1, first_aux_index
-            return self._items[1].encoding_width
+        index = self._first_aux_index
+        return None if index is None else self._items[index].encoding_width
 
     @property
     def aux_encoding_location(self) -> InputLocation | None:
