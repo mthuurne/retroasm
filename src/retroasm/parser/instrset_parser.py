@@ -606,35 +606,24 @@ def _check_aux_encoding_width(
     """
     Check whether the encoding widths in the given encoding are the same
     for all auxiliary encoding items.
-    Violations are logged as errors on the given logger.
+    Violations are logged as errors on the given collector.
     """
+
     first_aux_width: Width | None = None
     first_aux_location: InputLocation | None = None
-
-    def check_aux(width: Width | None, location: InputLocation | None) -> None:
-        nonlocal first_aux_width, first_aux_location
+    for enc_idx, enc_item in enumerate(enc_items):
+        if enc_idx == 0 and isinstance(enc_item, EncodingExpr):
+            continue
+        width = enc_item.encoding_width
         if first_aux_width is None:
             first_aux_width = width
-            first_aux_location = location
+            first_aux_location = enc_item.location
         elif width != first_aux_width:
             collector.error(
                 f"encoding item matches width {width}, while first auxiliary "
                 f"encoding match has width {first_aux_width}",
-                location=(location, first_aux_location),
+                location=(enc_item.location, first_aux_location),
             )
-
-    first = True
-    for enc_item in enc_items:
-        match enc_item:
-            case EncodingExpr() if first:
-                pass
-            case EncodingExpr(encoding_width=enc_width, location=loc):
-                check_aux(enc_width, loc)
-            case EncodingMultiMatch(encoding_width=aux_width, location=loc):
-                check_aux(aux_width, loc)
-            case item:
-                bad_type(item)
-        first = False
 
 
 def _check_duplicate_multi_matches(
