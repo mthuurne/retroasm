@@ -187,7 +187,7 @@ def _parse_prefix(
     header_location = reader.location
 
     # Parse header line.
-    decode_flags = []
+    decode_flags = {}
     try:
         with collector.check():
             flag_type = IntType.u(1)
@@ -212,13 +212,13 @@ def _parse_prefix(
                         bad_type(typ)
                 arg_name = arg_name_loc.text
                 try:
-                    namespace.add_register(arg_name, arg_type, arg_name_loc)
+                    ref = namespace.add_register(arg_name, arg_type, arg_name_loc)
                 except ValueError as ex:
                     collector.error(f"{ex}", location=reader.location)
                 except NameExistsError as ex:
                     collector.error(f"error defining decode flag: {ex}", location=ex.locations)
                 else:
-                    decode_flags.append(arg_name)
+                    decode_flags[arg_name] = ref
     except DelayedError:
         reader.skip_block()
         return
@@ -983,8 +983,8 @@ class InstructionSetParser:
     def __init__(self, *, want_semantics: bool = True):
         self.want_semantics = want_semantics
         self.global_builder = StatelessCodeBlockBuilder()
-        self.global_namespace = global_namespace = GlobalNamespace()
-        self.prefixes = PrefixMappingFactory(global_namespace)
+        self.global_namespace = GlobalNamespace()
+        self.prefixes = PrefixMappingFactory()
         self.modes: dict[str, Mode] = {}
         self.instructions: list[ModeRow] = []
 

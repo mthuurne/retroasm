@@ -1,15 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import (
-    Callable,
-    Collection,
-    Iterable,
-    Iterator,
-    Mapping,
-    MutableSet,
-    Sequence,
-    Set,
-)
+from collections.abc import Callable, Iterable, Iterator, Mapping, MutableSet, Sequence, Set
 from dataclasses import dataclass
 from typing import Self, cast, override
 
@@ -21,7 +12,6 @@ from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
 from .mode import ModeMatch, ModeRow, ModeTable
-from .namespace import ReadOnlyNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import IntType, Width
@@ -54,8 +44,7 @@ def flags_set_by_code(code: FunctionBody) -> Iterator[Storage]:
 
 
 class PrefixMappingFactory:
-    def __init__(self, namespace: ReadOnlyNamespace):
-        self._namespace = namespace
+    def __init__(self) -> None:
         self._prefixes: list[Prefix] = []
         self._init_builder = SemanticsCodeBlockBuilder()
         self._flag_for_var: dict[Storage, str] = {}
@@ -68,12 +57,14 @@ class PrefixMappingFactory:
         """
         return name in self._prefix_for_flag
 
-    def add_prefixes(self, decode_flags: Collection[str], prefixes: Iterable[Prefix]) -> None:
+    def add_prefixes(
+        self, decode_flags: Mapping[str, Reference], prefixes: Iterable[Prefix]
+    ) -> None:
         """
         Add `prefixes`, which use the flags in `decode_flags`, to this mapping.
 
-        Raises KeyError if a decode flag name either does not exist in the
-        namespace or was added more than once.
+        Raises KeyError if a given decode flag name already existed in this mapping.
+        Raises ValueError if a given decode flag reference is not suitable for storing a flag.
         Raises ValueError if no reverse mapping could be computed from the
         given prefix semantics.
         Raises BadInput if an encoding item's width is inconsistent with
@@ -97,15 +88,15 @@ class PrefixMappingFactory:
 
         # Collect decode flag variables, build init code for them.
         builder = self._init_builder
-        namespace = self._namespace
         prefix_for_flag = self._prefix_for_flag
         flag_for_var = self._flag_for_var
         zero = IntLiteral(0)
-        for name in decode_flags:
-            ref = cast(Reference, namespace[name])
+        for name, ref in decode_flags.items():
             if name in prefix_for_flag:
                 raise KeyError(f"decode flag redefined: {name}")
-            flag_for_var[cast(SingleStorage, ref.bits).storage] = name
+            if not isinstance(bits := ref.bits, SingleStorage):
+                raise ValueError(f"decode flag '{name}' is not a register")
+            flag_for_var[bits.storage] = name
             ref.emit_store(builder, zero, None)
 
         # Figure out which prefix sets which flag.
@@ -198,7 +189,7 @@ class InstructionSet(ModeTable):
                     )
 
         if prefix_mapping is None:
-            prefix_mapping = PrefixMappingFactory({}).create_mapping()
+            prefix_mapping = PrefixMappingFactory().create_mapping()
         elif prefix_mapping.encoding_width not in (None, enc_width):
             collector.error(
                 f"prefix encoding width {prefix_mapping.encoding_width} is "
