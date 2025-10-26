@@ -261,7 +261,7 @@ def _parse_prefix(
                                 collector.error(
                                     f"bad prefix encoding: {ex}", location=ex.locations
                                 )
-            encoding = Encoding.create(enc_items, collector, location=enc_loc)
+            encoding = Encoding.create(enc_items, location=enc_loc, collector=collector)
         except DelayedError:
             encoding = None
 
@@ -760,9 +760,9 @@ def _parse_mode_rows(
                             )
                             encoding = Encoding.create(
                                 enc_items,
-                                collector,
-                                flags_required,
-                                enc_loc,
+                                flags_required=flags_required,
+                                location=enc_loc,
+                                collector=collector,
                             )
                     except DelayedError:
                         encoding = None

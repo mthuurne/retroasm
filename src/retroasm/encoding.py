@@ -454,17 +454,18 @@ class Encoding:
     def create(
         cls,
         items: Sequence[EncodingItem],
-        collector: ErrorCollector,
+        *,
         flags_required: Iterable[str] = (),
         location: InputLocation | None = None,
+        collector: ErrorCollector | None = None,
     ) -> Self:
         """
         Create an encoding object and computes the corresponding decoding.
         If decoding is not possible, that's reported as an error.
-        Raises `DelayedError` if any errors were logged on the given collector.
+        Raises `DelayedError` if the given encoding is not reversible (cannot be decoded).
         """
 
-        decoding = _calc_decoding(items, collector)
+        decoding = _calc_decoding(items, collector or ErrorCollector())
         return cls(items, flags_required, *decoding, location)
 
     def __init__(
