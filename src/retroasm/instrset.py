@@ -21,7 +21,7 @@ from .expression import IntLiteral
 from .fetch import AdvancingFetcher, Fetcher
 from .input import BadInput, ErrorCollector
 from .mode import ModeMatch, ModeRow, ModeTable
-from .namespace import GlobalNamespace
+from .namespace import ReadOnlyNamespace
 from .reference import Reference, SingleStorage
 from .storage import Storage
 from .types import IntType, Width
@@ -54,7 +54,7 @@ def flags_set_by_code(code: FunctionBody) -> Iterator[Storage]:
 
 
 class PrefixMappingFactory:
-    def __init__(self, namespace: GlobalNamespace):
+    def __init__(self, namespace: ReadOnlyNamespace):
         self._namespace = namespace
         self._prefixes: list[Prefix] = []
         self._init_builder = SemanticsCodeBlockBuilder()
@@ -198,7 +198,7 @@ class InstructionSet(ModeTable):
                     )
 
         if prefix_mapping is None:
-            prefix_mapping = PrefixMappingFactory(GlobalNamespace()).create_mapping()
+            prefix_mapping = PrefixMappingFactory({}).create_mapping()
         elif prefix_mapping.encoding_width not in (None, enc_width):
             collector.error(
                 f"prefix encoding width {prefix_mapping.encoding_width} is "
