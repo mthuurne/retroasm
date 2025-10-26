@@ -70,7 +70,7 @@ class PrefixMappingFactory:
 
     def add_prefixes(self, decode_flags: Collection[str], prefixes: Iterable[Prefix]) -> None:
         """
-        Add `prefixes`, which use the flags in `decodeFlags`, to this mapping.
+        Add `prefixes`, which use the flags in `decode_flags`, to this mapping.
 
         Raises KeyError if a decode flag name either does not exist in the
         namespace or was added more than once.
