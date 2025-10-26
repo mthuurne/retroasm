@@ -454,8 +454,8 @@ class Encoding:
     def create(
         cls,
         items: Sequence[EncodingItem],
-        flags_required: Iterable[str],
         collector: ErrorCollector,
+        flags_required: Iterable[str] = (),
         location: InputLocation | None = None,
     ) -> Self:
         """
