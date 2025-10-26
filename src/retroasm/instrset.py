@@ -159,8 +159,8 @@ class InstructionSet(ModeTable):
         cls,
         instructions: Iterable[ModeRow],
         program_counter: Reference,
-        prefix_mapping: PrefixMapping,
         collector: ErrorCollector,
+        prefix_mapping: PrefixMapping | None = None,
     ) -> Self:
         """
         Create an instruction set containing the given instructions.
@@ -197,7 +197,9 @@ class InstructionSet(ModeTable):
                         location=enc_def.aux_encoding_location,
                     )
 
-        if prefix_mapping.encoding_width not in (None, enc_width):
+        if prefix_mapping is None:
+            prefix_mapping = PrefixMappingFactory(GlobalNamespace()).create_mapping()
+        elif prefix_mapping.encoding_width not in (None, enc_width):
             collector.error(
                 f"prefix encoding width {prefix_mapping.encoding_width} is "
                 f"different from instruction encoding width {enc_width}"
