@@ -402,6 +402,41 @@ class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
 type _EncodingMatcher = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
 
 
+def _fill_unencoded_placeholders(
+    row: ModeRow, decoding: Mapping[str, Sequence[EncodedSegment]], factory: DecoderFactory
+) -> ModeRow | None:
+    """
+    Return a version of the given mode row in which all submode match placeholders that do not
+    occur in the encoding are filled in, or `None` if an unencoded submode cannot match.
+
+    A submode match can be possible without encoding when the submode only contains a single
+    row or when decode flags exclusively decide the match.
+    """
+
+    encoding = row.encoding
+
+    encoded_placeholders = set(decoding)
+    for enc_item in encoding.items:
+        if isinstance(enc_item, EncodingMultiMatch):
+            encoded_placeholders.add(enc_item.name)
+
+    match = EncodeMatch(row)
+    for name, mode in row.match_placeholders.items():
+        if name not in encoded_placeholders:
+            match factory.create_decoder(mode, name):
+                case NoMatchDecoder():
+                    return None
+                case MatchFoundDecoder(mode_row=row):
+                    match.add_submatch(name, EncodeMatch(row))
+                case sub:
+                    # A submode match that is not represented in the encoding will either
+                    # always match or never match, so if the simplifications of the sub-decoder
+                    # were effective, only MatchFoundDecoder and NoMatchDecoder are possible.
+                    assert False, sub
+
+    return match.fill_placeholders()
+
+
 def _create_row_decoder(
     row: ModeRow,
     decoding: Mapping[str, Sequence[EncodedSegment]],
@@ -410,6 +445,10 @@ def _create_row_decoder(
 ) -> Decoder:
     """Return a Decoder instance that decodes the given mode row."""
 
+    new_row = _fill_unencoded_placeholders(row, decoding, factory)
+    if new_row is None:
+        return NoMatchDecoder()
+    row = new_row
     encoding = row.encoding
 
     # Find all indices that contain multi-matches.
@@ -418,24 +457,6 @@ def _create_row_decoder(
         for enc_idx, enc_item in enumerate(encoding.items)
         if isinstance(enc_item, EncodingMultiMatch)
     }
-
-    # Match placeholders that are not represented in the encoding.
-    # Typically these are matched on decode flags.
-    match = EncodeMatch(row)
-    for name, mode in row.match_placeholders.items():
-        if name not in decoding and name not in multi_matches:
-            match factory.create_decoder(mode, name):
-                case NoMatchDecoder() as no_match:
-                    return no_match
-                case MatchFoundDecoder(mode_row=row):
-                    match.add_submatch(name, EncodeMatch(row))
-                case sub:
-                    # A submode match that is not represented in the encoding
-                    # will either always match or never match, so if the
-                    # simplifications of the sub-decoder were effective, only
-                    # MatchFoundDecoder and NoMatchDecoder are possible.
-                    assert False, sub
-    row = match.fill_placeholders()
 
     # Insert matchers at the last index they need.
     matchers_by_index: list[list[_EncodingMatcher]] = [[] for _ in range(len(encoding.items))]
