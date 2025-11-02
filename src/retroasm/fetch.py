@@ -246,17 +246,17 @@ class ModeFetcher(FetcherBase):
 class AfterModeFetcher(FetcherBase):
     """Instruction fetcher that adjusts indexing after a multi-match."""
 
-    __slots__ = ("_fetcher", "_auxIndex", "_delta")
+    __slots__ = ("_fetcher", "_aux_index", "_delta")
 
     def __init__(self, fetcher: Fetcher, aux_index: int, delta: int):
         self._fetcher = fetcher
-        self._auxIndex = aux_index
+        self._aux_index = aux_index
         self._delta = delta
         super().__init__()
 
     @override
     def _fetch(self, index: int) -> int | None:
-        if index >= self._auxIndex:
-            assert index > self._auxIndex
+        if index >= self._aux_index:
+            assert index > self._aux_index
             index += self._delta
         return self._fetcher[index]
