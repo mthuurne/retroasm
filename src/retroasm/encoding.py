@@ -581,8 +581,7 @@ class Encoding:
             (item.rename(name_map) for item in self._items),
             self.flags_required,
             self.fixed_matcher,
-            # TODO: Rename immediates in decoding as well.
-            self.decoding,
+            {name_map[name]: segments for name, segments in self.decoding.items()},
             self._location,
         )
 

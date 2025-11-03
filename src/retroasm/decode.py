@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Iterable, Sequence, Set
 from dataclasses import dataclass
 from typing import cast, override
 
@@ -402,9 +402,7 @@ class NoMatchDecoder(Decoder, metaclass=SingletonFromABC):
 type _EncodingMatcher = MatchPlaceholder | EncodingMultiMatch | FixedEncoding
 
 
-def _fill_unencoded_placeholders(
-    row: ModeRow, decoding: Mapping[str, Sequence[EncodedSegment]], factory: DecoderFactory
-) -> ModeRow | None:
+def _fill_unencoded_placeholders(row: ModeRow, factory: DecoderFactory) -> ModeRow | None:
     """
     Return a version of the given mode row in which all submode match placeholders that do not
     occur in the encoding are filled in, or `None` if an unencoded submode cannot match.
@@ -414,8 +412,7 @@ def _fill_unencoded_placeholders(
     """
 
     encoding = row.encoding
-
-    encoded_placeholders = set(decoding)
+    encoded_placeholders = set(encoding.decoding)
     for enc_item in encoding.items:
         if isinstance(enc_item, EncodingMultiMatch):
             encoded_placeholders.add(enc_item.name)
@@ -439,17 +436,16 @@ def _fill_unencoded_placeholders(
 
 def _create_row_decoder(
     row: ModeRow,
-    decoding: Mapping[str, Sequence[EncodedSegment]],
-    fixed_matcher: Sequence[FixedEncoding],
     factory: DecoderFactory,
 ) -> Decoder:
     """Return a Decoder instance that decodes the given mode row."""
 
-    new_row = _fill_unencoded_placeholders(row, decoding, factory)
+    new_row = _fill_unencoded_placeholders(row, factory)
     if new_row is None:
         return NoMatchDecoder()
     row = new_row
     encoding = row.encoding
+    decoding = encoding.decoding
 
     # Find all indices that contain multi-matches.
     multi_matches = {
@@ -486,7 +482,7 @@ def _create_row_decoder(
             matchers_by_index[enc_idx].append(matcher)
 
     # Insert fixed pattern matchers as early as possible.
-    for fixed_encoding in sorted(fixed_matcher, reverse=True):
+    for fixed_encoding in sorted(encoding.fixed_matcher, reverse=True):
         # Find the earliest index at which the given encoding index can be
         # fetched and the index that should be requested from the fetcher.
         when_idx = fetch_idx = fixed_encoding.enc_idx
@@ -636,31 +632,6 @@ def _create_decoder(org_decoders: Iterable[Decoder]) -> Decoder:
     return SequentialDecoder(decoders)
 
 
-def _qualify_names(
-    row: ModeRow, branch_name: str | None
-) -> tuple[ModeRow, Mapping[str, Sequence[EncodedSegment]]]:
-    """
-    Return a pair containing a `ModeRow` and decode mapping, where each name starts with
-    the given branch name.
-    If `branch_name` is `None`, no renaming is performed.
-    """
-    placeholder_names = list(row.match_placeholders)
-    placeholder_names += row.value_placeholders
-    if branch_name is None or len(placeholder_names) == 0:
-        # Do not rename.
-        return row, row.encoding.decoding
-    elif len(placeholder_names) == 1:
-        # Replace current name with branch name.
-        name_map = {placeholder_names[0]: branch_name}
-    else:
-        # Prefix current names with branch name.
-        name_map = {name: f"{branch_name}.{name}" for name in placeholder_names}
-
-    renamed_row = row.rename(name_map)
-    renamed_decoding = {name_map[name]: value for name, value in row.encoding.decoding.items()}
-    return renamed_row, renamed_decoding
-
-
 class DecoderFactory:
     def __init__(self, flags: Iterable[str]):
         self._flags = frozenset(flags)
@@ -673,11 +644,7 @@ class DecoderFactory:
         if decoder is None:
             flags_are_set = self._flags.issuperset
             decoder = _create_decoder(
-                _create_row_decoder(
-                    *_qualify_names(row, branch_name),
-                    row.encoding.fixed_matcher,
-                    factory=self,
-                )
+                _create_row_decoder(row.qualify_names(branch_name), factory=self)
                 for row in mode.rows
                 if flags_are_set(row.encoding.flags_required)
             )

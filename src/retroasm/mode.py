@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 from functools import partial
+from itertools import chain
 from typing import TYPE_CHECKING, Self, override
 
 from .codeblock import FunctionBody
@@ -164,6 +165,29 @@ class ModeRow:
                 for name, ref in self._value_placeholders.items()
             },
         )
+
+    def qualify_names(self, branch_name: str | None) -> ModeRow:
+        """
+        Return a renamed version of this mode row where each name starts with the given
+        branch name.
+        If `branch_name` is `None`, this mode row is returned unchanged.
+        """
+
+        if branch_name is None:
+            return self
+
+        match list(chain(self._match_placeholders, self._value_placeholders)):
+            case []:
+                # Nothing to rename.
+                return self
+            case [name]:
+                # Replace current name with branch name.
+                name_map = {name: branch_name}
+            case names:
+                # Prefix current names with branch name.
+                name_map = {name: f"{branch_name}.{name}" for name in names}
+
+        return self.rename(name_map)
 
 
 class ModeMatch:
