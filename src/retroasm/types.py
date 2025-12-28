@@ -34,7 +34,7 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return False
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __le__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -42,7 +42,7 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return False
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __gt__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -50,7 +50,7 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return True
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __ge__(self, other: int | Unlimited) -> bool:
         if self is other:
@@ -58,7 +58,7 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return True
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __add__(self, other: int | Unlimited) -> Unlimited:
         if self is other:
@@ -66,7 +66,7 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return self
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __radd__(self, other: int | Unlimited) -> Unlimited:
         if self is other:
@@ -74,13 +74,13 @@ class Unlimited(Enum):
         elif isinstance(other, int):
             return self
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __sub__(self, other: int) -> Unlimited:
         if isinstance(other, int):
             return self
         else:
-            return NotImplemented  # type: ignore[unreachable]
+            return NotImplemented
 
     def __rsub__(self, other: Never) -> NoReturn:
         raise ArithmeticError('Cannot subtract "unlimited"')
