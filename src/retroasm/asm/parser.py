@@ -462,14 +462,13 @@ def parse_directive(
 
 def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
     """Consume and return a label if one is defined at the start of this line."""
-    lookahead = tokens.copy()
-    name = lookahead.eat(AsmToken.word)
-    if name is None:
+    if not tokens.peek(AsmToken.word):
         return None
-    elif lookahead.peek(AsmToken.separator, ":"):
-        tokens.eat(AsmToken.word)
-        tokens.eat(AsmToken.separator)
-        if tokens.peek(AsmToken.word) and tokens.value.casefold() == "equ":
+    elif tokens.peek(AsmToken.separator, ":", offset=1):
+        name = tokens.eat(AsmToken.word)
+        assert name is not None
+        next(tokens)  # colon
+        if tokens.peek(AsmToken.word, "equ", casefold=True):
             # EQU directive with colon.
             tokens.eat(AsmToken.word)
             value = parse_value(tokens)
@@ -477,10 +476,11 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
         else:
             # Label for current address.
             return LabelDirective(name.text, None)
-    elif lookahead.peek(AsmToken.word) and lookahead.value.casefold() == "equ":
+    elif tokens.peek(AsmToken.word, "equ", offset=1, casefold=True):
         # EQU directive without colon.
-        tokens.eat(AsmToken.word)
-        tokens.eat(AsmToken.word)
+        name = tokens.eat(AsmToken.word)
+        assert name is not None
+        next(tokens)  # EQU
         value = parse_value(tokens)
         return LabelDirective(name.text, value)
     else:

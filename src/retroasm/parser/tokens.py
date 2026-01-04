@@ -174,13 +174,33 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         if index != len(self._tokens):
             self._token_index = index + 1
 
-    def peek(self, kind: TokenT, value: str | None = None) -> bool:
+    def peek(
+        self, kind: TokenT, value: str | None = None, *, offset: int = 0, casefold: bool = False
+    ) -> bool:
         """
-        Check whether the current token matches the given kind and,
-        if specified, also the given value.
+        Check whether the current or a future token matches the given kind and, if specified,
+        also the given value.
+        The `offset` specifies the number of tokens to look ahead of the current tokens.
+        If `casefold` is True, the token's value is casefolded before comparing it to `value`;
+        it is assumed the `value` argument has already been casefolded.
         Return True for a match, False otherwise.
         """
-        return self._kind is kind and (value is None or self.value == value)
+        if offset < 0:
+            raise ValueError(offset)
+        index = self._token_index - 1 + offset
+        try:
+            peek_kind, peek_location = self._tokens[index]
+        except IndexError:
+            return False
+        else:
+            if peek_kind is not kind:
+                return False
+            if value is None:
+                return True
+            peek_value = peek_location.text
+            if casefold:
+                peek_value = peek_value.casefold()
+            return peek_value == value
 
     def eat(self, kind: TokenT, value: str | None = None) -> InputLocation | None:
         """
