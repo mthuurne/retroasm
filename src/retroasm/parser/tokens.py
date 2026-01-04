@@ -176,14 +176,14 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
 
     def peek(
         self, kind: TokenT, value: str | None = None, *, offset: int = 0, casefold: bool = False
-    ) -> bool:
+    ) -> InputLocation | None:
         """
         Check whether the current or a future token matches the given kind and, if specified,
         also the given value.
         The `offset` specifies the number of tokens to look ahead of the current tokens.
         If `casefold` is True, the token's value is casefolded before comparing it to `value`;
         it is assumed the `value` argument has already been casefolded.
-        Return True for a match, False otherwise.
+        Return the token's input location if the token was consumed, None otherwise.
         """
         if offset < 0:
             raise ValueError(offset)
@@ -191,28 +191,26 @@ class Tokenizer(Iterator[tuple[TokenT, InputLocation]]):
         try:
             peek_kind, peek_location = self._tokens[index]
         except IndexError:
-            return False
+            return None
         else:
             if peek_kind is not kind:
-                return False
+                return None
             if value is None:
-                return True
+                return peek_location
             peek_value = peek_location.text
             if casefold:
                 peek_value = peek_value.casefold()
-            return peek_value == value
+            return peek_location if peek_value == value else None
 
-    def eat(self, kind: TokenT, value: str | None = None) -> InputLocation | None:
+    def eat(
+        self, kind: TokenT, value: str | None = None, *, casefold: bool = False
+    ) -> InputLocation | None:
         """
-        Consume the current token if it matches the given kind and,
-        if specified, also the given value.
-        Return the token's input location if the token was consumed,
-        or None if no match was found.
+        Consume the current token if it matches the given kind and, if specified,
+        also the given value.
+        Return the token's input location if the token was consumed, None otherwise.
         """
-        found = self.peek(kind, value)
-        if found:
-            location = self._location
+        location = self.peek(kind, value, casefold=casefold)
+        if location is not None:
             self._advance()
-            return location
-        else:
-            return None
+        return location

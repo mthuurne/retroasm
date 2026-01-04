@@ -462,11 +462,11 @@ def parse_directive(
 
 def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
     """Consume and return a label if one is defined at the start of this line."""
-    if not tokens.peek(AsmToken.word):
+    name = tokens.peek(AsmToken.word)
+    if name is None:
         return None
     elif tokens.peek(AsmToken.separator, ":", offset=1):
-        name = tokens.eat(AsmToken.word)
-        assert name is not None
+        next(tokens)  # name
         next(tokens)  # colon
         if tokens.peek(AsmToken.word, "equ", casefold=True):
             # EQU directive with colon.
@@ -478,8 +478,7 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
             return LabelDirective(name.text, None)
     elif tokens.peek(AsmToken.word, "equ", offset=1, casefold=True):
         # EQU directive without colon.
-        name = tokens.eat(AsmToken.word)
-        assert name is not None
+        next(tokens)  # name
         next(tokens)  # EQU
         value = parse_value(tokens)
         return LabelDirective(name.text, value)
