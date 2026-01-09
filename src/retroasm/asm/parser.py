@@ -14,6 +14,7 @@ from ..parser.expression_nodes import (
     Operator,
     OperatorNode,
     ParseNode,
+    StringNode,
     parse_digits,
 )
 from ..parser.linereader import LineReader
@@ -294,16 +295,7 @@ def _parse_group(tokens: AsmTokenizer) -> ParseNode:
         return _parse_number(tokens)
 
     if (location := tokens.eat_string()) is not None:
-        # Arbitrary strings are not allowed as instruction
-        # operands, but single characters should be replaced
-        # by their character numbers.
-        try:
-            value = ord(location.text)
-        except TypeError:
-            desc = "empty" if len(location) == 0 else "multi-character"
-            raise BadInput(f"{desc} string in expression", location) from None
-        else:
-            return NumberNode(value, 8, location=location)
+        return StringNode(location.text, location=location)
 
     raise _bad_token_kind(tokens, "innermost", "identifier or number")
 
@@ -364,6 +356,13 @@ def parse_value(tokens: AsmTokenizer) -> ParseNode:
     return _parse_expr_top(tokens)
 
 
+def _parse_path(tokens: AsmTokenizer) -> StringNode:
+    if (location := tokens.eat_string()) is not None:
+        return StringNode(location.text, location=location)
+    else:
+        raise _bad_token_kind(tokens, "file path", "string")
+
+
 _data_widths = {
     "db": 8,
     "defb": 8,
@@ -388,18 +387,14 @@ def parse_data_directive(
     tokens: AsmTokenizer, data_type: IntType, allow_strings: bool = False
 ) -> DataDirective | StringDirective:
     data_class: type[DataDirective | StringDirective] = DataDirective
-    data: list[ParseNode | bytes] = []
+    data: list[ParseNode] = []
     width = data_type.width
     while True:
         if (location := tokens.eat_string()) is not None:
             if not allow_strings:
                 raise BadInput("string literals are not supported by this directive", location)
             data_class = StringDirective
-            # TODO: Support other encodings?
-            try:
-                data.append(location.text.encode("ascii"))
-            except UnicodeError as ex:
-                raise BadInput(f"string literal is not pure ASCII: {ex}", location) from None
+            data.append(StringNode(location.text, location=location))
         else:
             data.append(parse_value(tokens))
         if tokens.end_of_statement:
@@ -433,15 +428,9 @@ def parse_directive(
     elif keyword in ("ds", "defs"):
         return parse_space_directive(tokens)
     elif keyword == "incbin":
-        if (location := tokens.eat_string()) is not None:
-            return BinaryIncludeDirective(Path(location.text))
-        else:
-            raise BadInput.with_text("expected file path", tokens.location)
+        return BinaryIncludeDirective(_parse_path(tokens))
     elif keyword == "include":
-        if (location := tokens.eat_string()) is not None:
-            return SourceIncludeDirective(Path(location.text))
-        else:
-            raise BadInput.with_text("expected file path", tokens.location)
+        return SourceIncludeDirective(_parse_path(tokens))
     elif keyword == "if":
         return ConditionalDirective(parse_value(tokens), False)
     elif keyword == "elseif":

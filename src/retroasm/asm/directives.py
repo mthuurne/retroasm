@@ -10,10 +10,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol, override
 
-from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode
+from ..parser.expression_nodes import IdentifierNode, NumberNode, ParseNode, StringNode
 from ..types import Width
 
 
@@ -95,7 +94,7 @@ class SpaceDirective:
 class BinaryIncludeDirective:
     """Data definition directive that inserts a binary file in the output as-is."""
 
-    path: Path
+    path: StringNode
 
     @override
     def __str__(self) -> str:
@@ -106,7 +105,7 @@ class BinaryIncludeDirective:
 class SourceIncludeDirective:
     """Directive that inserts the contents of one assembly source file into another."""
 
-    path: Path
+    path: StringNode
 
     @override
     def __str__(self) -> str:

@@ -191,6 +191,15 @@ class NumberNode(ParseNode):
             return f"${{:0{(width + 3) // 4:d}x}}".format(self.value)
 
 
+@dataclass(frozen=True, slots=True)
+class StringNode(ParseNode):
+    value: str
+
+    @override
+    def __str__(self) -> str:
+        return repr(self.value)
+
+
 def parse_int(value_str: str) -> tuple[int, Width]:
     """
     Parse the given string as a binary, decimal or hexadecimal integer.
