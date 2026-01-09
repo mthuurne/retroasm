@@ -549,26 +549,3 @@ def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
         source = AsmSource()
         source.problem_counter.num_errors += 1
     return source
-
-
-def read_sources(paths: Iterable[Path], instr_set: InstructionSet) -> dict[Path, AsmSource]:
-    """
-    Parse the given source files, plus any other source files included by them.
-
-    Errors will be logged and counted; no exceptions will be raised.
-    Inspect the `problem_counter.num_errors` on the returned `AsmSource` objects
-    to know whether the sources are complete.
-
-    Returns a dictionary mapping a resolved path to its parsed contents.
-    """
-    paths_remaining = {path.resolve() for path in paths}
-    paths_done = {}
-    while paths_remaining:
-        source_path = paths_remaining.pop()
-        source = read_source(source_path, instr_set)
-        paths_done[source_path] = source
-        for path in source.iter_source_includes():
-            path = source_path.parent.joinpath(path).resolve()
-            if path not in paths_done:
-                paths_remaining.add(path)
-    return paths_done

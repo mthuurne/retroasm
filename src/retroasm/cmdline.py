@@ -26,7 +26,7 @@ from click import Path as PathArg
 from .asm._mnem_parser import get_instruction_parser
 from .asm.directives import DataDirective, OriginDirective
 from .asm.formatter import Formatter
-from .asm.parser import read_sources
+from .asm.parser import read_source
 from .asm.source import Instruction
 from .binfmt import (
     BinaryFormat,
@@ -73,12 +73,11 @@ def asm(instr: str, sources: tuple[str, ...]) -> None:
     if instr_set is None:
         get_current_context().exit(1)
 
-    parsed = read_sources((Path(source) for source in sources), instr_set)
-
     problems = ProblemCounter()
-    for source in parsed.values():
-        problems += source.problem_counter
-    logger.log(problems.level, "%s in %d source files", problems, len(parsed))
+    for source in sources:
+        parsed = read_source(Path(source), instr_set)
+        problems += parsed.problem_counter
+    logger.log(problems.level, "%s in %d source files", problems, len(sources))
     if problems.num_errors > 0:
         get_current_context().exit(1)
 
