@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Set
-from logging import getLogger
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import cast
 
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..instrset import InstructionSet
@@ -20,7 +18,6 @@ from ..parser.expression_nodes import (
 from ..parser.linereader import LineReader
 from ..parser.tokens import TokenEnum, Tokenizer
 from ..types import IntType, Width, unlimited
-from ._mnem_parser import get_instruction_parser
 from .directives import (
     BinaryIncludeDirective,
     ConditionalDirective,
@@ -28,15 +25,12 @@ from .directives import (
     DataDirective,
     Directive,
     DummyDirective,
-    LabelDirective,
     OriginDirective,
     SourceIncludeDirective,
     SpaceDirective,
     StringDirective,
 )
-from .source import AsmSource
-
-asm_parser_logger = getLogger(__name__)
+from .source import AsmLine, AsmSource, AsmStatement
 
 
 class AsmToken(TokenEnum):
@@ -449,7 +443,7 @@ def parse_directive(
         raise BadInput.with_text("statement is not a known instruction or directive", name)
 
 
-def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
+def _parse_label(tokens: AsmTokenizer) -> InputLocation | None:
     """Consume and return a label if one is defined at the start of this line."""
     name = tokens.peek(AsmToken.word)
     if name is None:
@@ -457,84 +451,66 @@ def parse_label(tokens: AsmTokenizer) -> LabelDirective | None:
     elif tokens.peek(AsmToken.separator, ":", offset=1):
         next(tokens)  # name
         next(tokens)  # colon
-        if tokens.peek(AsmToken.word, "equ", casefold=True):
-            # EQU directive with colon.
-            tokens.eat(AsmToken.word)
-            value = parse_value(tokens)
-            return LabelDirective(name.text, value)
-        else:
-            # Label for current address.
-            return LabelDirective(name.text, None)
+        return name
     elif tokens.peek(AsmToken.word, "equ", offset=1, casefold=True):
         # EQU directive without colon.
         next(tokens)  # name
-        next(tokens)  # EQU
-        value = parse_value(tokens)
-        return LabelDirective(name.text, value)
+        return name
     else:
+        # Name is a statement rather than a label.
         return None
 
 
-def parse_asm(
-    reader: LineReader, collector: ErrorCollector, instr_set: InstructionSet
-) -> AsmSource:
-    source = AsmSource()
-    parser = get_instruction_parser(instr_set)
-    instruction_names = cast(Set[str], parser._children.keys())
+def _parse_statement(tokens: AsmTokenizer) -> AsmStatement | None:
+    """Consume and return a statement if one starst at the current token."""
+    keyword = tokens.eat(AsmToken.word)
+    if keyword is None:
+        return None
+    # Directive or instruction.
+    operands = []
+    if not tokens.end_of_statement or tokens.peek(AsmToken.comment):
+        while True:
+            operands.append(parse_value(tokens))
+            if tokens.eat(AsmToken.separator, ",") is None:
+                break
+    return AsmStatement(keyword, operands)
 
+
+def parse_asm(reader: LineReader, collector: ErrorCollector) -> AsmSource:
+    source = AsmSource()
     for line in reader:
         tokens = AsmTokenizer.scan(line)
-
-        # Look for a label.
-        location = tokens.location
+        label = _parse_label(tokens)
         try:
-            label = parse_label(tokens)
+            statement = _parse_statement(tokens)
         except BadInput as ex:
-            collector.error(f"error parsing label: {ex}", location=ex.locations)
-        else:
-            if label is not None:
-                collector.info(f"label: {label}", location=location)
-                source.add_directive(label)
-
-        # Look for a directive or instruction.
-        if (statement := tokens.eat(AsmToken.word)) is not None:
-            if statement.text.casefold() in instruction_names:
-                build_instruction(statement, tokens, collector)
-            else:
-                try:
-                    directive = parse_directive(statement, tokens, instr_set)
-                except BadInput as ex:
-                    collector.add(ex)
-                else:
-                    collector.info(f"directive: {directive}", location=statement)
-                    source.add_directive(directive)
-        elif tokens.eat(AsmToken.comment) is not None:
+            collector.add(ex)
+            statement = None
+        comment = tokens.eat(AsmToken.comment)
+        if comment is not None:
             assert tokens.end, tokens.kind
         elif not tokens.end_of_statement:
             collector.error(
                 f"expected directive or instruction, got {tokens.kind.name}",
                 location=tokens.location,
             )
-
+        asm_line = AsmLine(label, statement, comment)
+        collector.warning(str(asm_line))
+        source.append_line(asm_line)
     return source
 
 
-def read_source(path: Path, instr_set: InstructionSet) -> AsmSource:
+def read_source(path: Path, collector: ErrorCollector) -> AsmSource:
     """
     Parse the given source file.
 
     Errors will be logged and counted; no exceptions will be raised.
-    Inspect the `problem_counter.num_errors` on the returned `AsmSource` object
-    to know whether the source is complete.
     """
-    collector = ErrorCollector(asm_parser_logger)
     try:
         with LineReader.open(path) as reader:
-            source = parse_asm(reader, collector, instr_set)
-            source.problem_counter += collector.problem_counter
+            source = parse_asm(reader, collector)
             collector.summarize(str(path))
     except OSError as ex:
-        asm_parser_logger.error("%s: Error reading source: %s", path, ex)
+        collector.error(f"{path}: Error reading source: {ex}")
         source = AsmSource()
-        source.problem_counter.num_errors += 1
     return source

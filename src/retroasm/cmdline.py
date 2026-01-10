@@ -38,7 +38,7 @@ from .binfmt import (
 )
 from .disasm import disassemble, format_asm
 from .fetch import ImageFetcher
-from .input import LocationFormatter, ProblemCounter
+from .input import ErrorCollector, LocationFormatter
 from .instr import (
     builtin_instruction_set_path,
     builtin_instruction_sets,
@@ -62,21 +62,22 @@ def setup_logging(root_level: int) -> Logger:
 
 
 @command()
-@option("-i", "--instr", required=True, help="Instruction set.")
+@option("-i", "--instr", required=False, help="Instruction set.")
 @argument("sources", nargs=-1, type=PathArg(exists=True))
-def asm(instr: str, sources: tuple[str, ...]) -> None:
+def asm(instr: str | None, sources: tuple[str, ...]) -> None:
     """Assembler using the RetroAsm toolkit."""
 
     logger = setup_logging(INFO)
 
-    instr_set = load_instruction_set_by_name(instr, logger, want_semantics=False)
-    if instr_set is None:
-        get_current_context().exit(1)
+    if instr is None:
+        _instr_set = None
+    else:
+        _instr_set = load_instruction_set_by_name(instr, logger, want_semantics=False)
 
-    problems = ProblemCounter()
+    collector = ErrorCollector(logger)
     for source in sources:
-        parsed = read_source(Path(source), instr_set)
-        problems += parsed.problem_counter
+        _parsed = read_source(Path(source), collector)
+    problems = collector.problem_counter
     logger.log(problems.level, "%s in %d source files", problems, len(sources))
     if problems.num_errors > 0:
         get_current_context().exit(1)

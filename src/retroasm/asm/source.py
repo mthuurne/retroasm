@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
+from dataclasses import dataclass
 from typing import override
 
-from ..input import ProblemCounter
+from ..input import InputLocation
 from ..reference import FixedValueReference
-from .directives import Directive
 
 
 class Instruction:
@@ -21,22 +21,53 @@ class Instruction:
         return f"{self.__class__.__name__}({self._mnemonic})"
 
 
+# TODO: Union of actual operand members.
+type Operand = object
+
+
+class AsmStatement:
+    """
+    An assembly instruction or directive.
+
+    TODO: Prefix keywords are not supported yet.
+    """
+
+    def __init__(self, keyword: InputLocation, operands: Iterable[Operand]):
+        self._keyword = keyword
+        self._operands = tuple(operands)
+
+    @override
+    def __str__(self) -> str:
+        return f"{self._keyword.text} {','.join(str(op) for op in self._operands)}"
+
+
+@dataclass(frozen=True)
+class AsmLine:
+    """
+    A single assembly source line.
+    """
+
+    label: InputLocation | None = None
+    statement: AsmStatement | None = None
+    comment: InputLocation | None = None
+
+    @override
+    def __str__(self) -> str:
+        label_str = "" if (label := self.label) is None else f"{label}:"
+        comment_str = "" if (comment := self.comment) is None else f"  # {comment}"
+        return f"{label_str:24}{self.statement}{comment_str}"
+
+
 class AsmSource:
     """
-    The parsed contents of a single assembly source file.
-
-    The contents may be incomplete if any errors were encountered during parsing.
+    A collection of assembly source lines.
     """
 
     def __init__(self) -> None:
-        self._statements: list[Directive | Instruction] = []
-        self.problem_counter = ProblemCounter()
+        self._lines: list[AsmLine] = []
 
-    def __iter__(self) -> Iterator[Directive | Instruction]:
-        return iter(self._statements)
+    def __iter__(self) -> Iterator[AsmLine]:
+        return iter(self._lines)
 
-    def add_directive(self, directive: Directive) -> None:
-        self._statements.append(directive)
-
-    def add_instruction(self, instruction: Instruction) -> None:
-        self._statements.append(instruction)
+    def append_line(self, line: AsmLine) -> None:
+        self._lines.append(line)
