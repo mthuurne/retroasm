@@ -569,6 +569,36 @@ def disasm(
         get_current_context().exit(1)
 
 
+@command()
+@argument("sources", nargs=-1, type=PathArg(exists=True))
+def format(sources: tuple[str, ...]) -> None:  # pylint: disable=redefined-builtin
+    """Reformat assembly source files."""
+
+    logger = setup_logging(INFO)
+    formatted_count = 0
+    for source in sources:
+        path = Path(source)
+        logger.info("%s: Reading file...", path)
+        collector = ErrorCollector(logger)
+        parsed = read_source(path, collector)
+        if collector.problem_counter.num_errors == 0:
+            logger.info("%s: Writing file...", path)
+            # Write to a temporary file first, in case writing fails or is aborted.
+            tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+            parsed.write(tmp_path)
+            path.replace(path.with_suffix(f"{path.suffix}.orig"))
+            tmp_path.rename(path)
+            formatted_count += 1
+        else:
+            logger.info("%s: Skipping file because of errors", path)
+
+    if formatted_count == len(sources):
+        logger.info("%d files reformatted", formatted_count)
+    else:
+        logger.error("%d out of %d files reformatted", formatted_count, len(sources))
+        get_current_context().exit(1)
+
+
 @group()
 @version_option(prog_name="RetroAsm", message="%(prog)s version %(version)s")
 def main() -> None:
@@ -578,3 +608,4 @@ def main() -> None:
 main.add_command(asm)
 main.add_command(checkdef)
 main.add_command(disasm)
+main.add_command(format)

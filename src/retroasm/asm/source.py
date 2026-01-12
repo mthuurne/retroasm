@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import override
 
 from ..input import InputLocation
@@ -71,3 +72,8 @@ class AsmSource:
 
     def append_line(self, line: AsmLine) -> None:
         self._lines.append(line)
+
+    def write(self, path: Path) -> None:
+        with path.open("w") as out:
+            for line in self._lines:
+                out.write(f"{line}\n")
