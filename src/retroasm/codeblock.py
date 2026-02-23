@@ -140,8 +140,10 @@ class BasicBlock:
         self._nodes = tuple(nodes)
         assert verify_loads(self._nodes)
 
+        self._storages = {node.storage for node in self._nodes}
+
         # Reject multiple arguments with the same name.
-        self._arguments = _find_arguments(self.storages)
+        self._arguments = _find_arguments(self._storages)
 
     def dump(self) -> None:
         """Print this basic block on stdout."""
@@ -152,10 +154,10 @@ class BasicBlock:
     def nodes(self) -> Sequence[AccessNode]:
         return self._nodes
 
-    @const_property
+    @property
     def storages(self) -> Set[Storage]:
         """A set of all storages that are accessed by this block."""
-        return {node.storage for node in self._nodes}
+        return self._storages
 
     @property
     def arguments(self) -> Mapping[str, ArgStorage]:
