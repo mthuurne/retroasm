@@ -134,7 +134,7 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("_nodes", "_storages", "_arguments", "_value_mapping")
+    __slots__ = ("_nodes", "_storages", "_arguments")
 
     def __init__(self, nodes: Iterable[AccessNode]):
         self._nodes = tuple(nodes)
