@@ -137,7 +137,7 @@ class BasicBlock:
     __slots__ = ("_nodes", "_storages", "_arguments", "_value_mapping")
 
     def __init__(self, nodes: Iterable[AccessNode]):
-        self._nodes = list(nodes)
+        self._nodes = tuple(nodes)
         assert verify_loads(self._nodes)
 
         # Reject multiple arguments with the same name.
