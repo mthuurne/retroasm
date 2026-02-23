@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import override
+from typing import Final, override
 
 from .expression import Expression
 from .input import InputLocation
@@ -134,37 +134,27 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("_nodes", "_storages", "_arguments")
+    __slots__ = ("nodes", "storages", "arguments")
 
     def __init__(self, nodes: Iterable[AccessNode]):
-        self._nodes = tuple(nodes)
-        assert verify_loads(self._nodes)
+        nodes = tuple(nodes)
+        assert verify_loads(nodes)
+        self.nodes: Final[Sequence[AccessNode]] = nodes
+        """The load/store operations in this block."""
 
-        self._storages = {node.storage for node in self._nodes}
+        storages = {node.storage for node in nodes}
+        self.storages: Final[Set[Storage]] = storages
+        """A set of all storages that are accessed by this block."""
 
         # Reject multiple arguments with the same name.
-        self._arguments = _find_arguments(self._storages)
+        arguments = _find_arguments(storages)
+        self.arguments: Final[Mapping[str, ArgStorage]] = arguments
+        """All arguments that occur in this block, mapped by name."""
 
     def dump(self) -> None:
         """Print this basic block on stdout."""
-        for node in self._nodes:
+        for node in self.nodes:
             node.dump()
-
-    @property
-    def nodes(self) -> Sequence[AccessNode]:
-        return self._nodes
-
-    @property
-    def storages(self) -> Set[Storage]:
-        """A set of all storages that are accessed by this block."""
-        return self._storages
-
-    @property
-    def arguments(self) -> Mapping[str, ArgStorage]:
-        """
-        A mapping containing all arguments that occur in this basic block.
-        """
-        return self._arguments
 
 
 def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
