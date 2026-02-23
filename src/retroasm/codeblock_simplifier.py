@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .codeblock import AccessNode, Load, LoadedValue, Store, verify_loads
+from .codeblock import Load, LoadedValue, Store, verify_loads
 from .expression import Expression
 from .reference import BitString
 
 
-def simplify_block(nodes: list[AccessNode], returned: list[BitString]) -> None:
+def simplify_block(nodes: list[Load | Store], returned: list[BitString]) -> None:
     """Attempt to simplify the given code block as much as possible."""
 
     # Simplify returned expressions.
@@ -32,7 +32,7 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
         returned[i] = ret_bits.simplify()
 
 
-def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:
+def _remove_overwritten_stores(nodes: list[Load | Store]) -> None:
     """Remove side-effect-free stores that will be overwritten."""
 
     will_be_overwritten = set()
@@ -50,7 +50,7 @@ def _remove_overwritten_stores(nodes: list[AccessNode]) -> None:
                         will_be_overwritten.add(storage)
 
 
-def _remove_unused_loads(nodes: list[AccessNode], returned: list[BitString]) -> None:
+def _remove_unused_loads(nodes: list[Load | Store], returned: list[BitString]) -> None:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.

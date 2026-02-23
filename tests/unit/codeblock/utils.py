@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import cast, override
 
-from retroasm.codeblock import AccessNode, FunctionBody, Load, LoadedValue, Store
+from retroasm.codeblock import FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
     SemanticsCodeBlockBuilder,
     no_args_to_fetch,
@@ -30,7 +30,7 @@ class SingleStorageReference(Reference):
 
 
 def assert_nodes(
-    actual_nodes: Sequence[AccessNode], correct_nodes: Iterable[AccessNode]
+    actual_nodes: Sequence[Load | Store], correct_nodes: Iterable[Load | Store]
 ) -> None:
     correct_nodes = tuple(correct_nodes)
     load_map: dict[LoadedValue, LoadedValue] = {}

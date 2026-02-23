@@ -47,10 +47,6 @@ class Store:
         print(f"    {self} ({self.storage.width}-bit)")
 
 
-type AccessNode = Load | Store
-"""A node that transfers a value from or to a storage location."""
-
-
 class LoadedValue(Expression):
     """A value loaded from a storage location."""
 
@@ -94,7 +90,7 @@ class LoadedValue(Expression):
         return 8
 
 
-def verify_loads(nodes: Iterable[AccessNode], returned: Iterable[BitString] = ()) -> bool:
+def verify_loads(nodes: Iterable[Load | Store], returned: Iterable[BitString] = ()) -> bool:
     """
     Performs consistency checks on the LoadedValues in the given nodes and
     returned bit strings.
@@ -136,10 +132,10 @@ class BasicBlock:
 
     __slots__ = ("nodes", "storages", "arguments")
 
-    def __init__(self, nodes: Iterable[AccessNode]):
+    def __init__(self, nodes: Iterable[Load | Store]):
         nodes = tuple(nodes)
         assert verify_loads(nodes)
-        self.nodes: Final[Sequence[AccessNode]] = nodes
+        self.nodes: Final[Sequence[Load | Store]] = nodes
         """The load/store operations in this block."""
 
         storages = {node.storage for node in nodes}
@@ -225,7 +221,7 @@ class FunctionBody:
 
     __slots__ = ("_block", "_returned", "_storages", "_arguments")
 
-    def __init__(self, nodes: Iterable[AccessNode], returned: Iterable[BitString]):
+    def __init__(self, nodes: Iterable[Load | Store], returned: Iterable[BitString]):
         self._block = BasicBlock(nodes)
         self._returned = list(returned)
         assert verify_loads(self.nodes, self._returned)
@@ -241,7 +237,7 @@ class FunctionBody:
         return self._block
 
     @property
-    def nodes(self) -> Sequence[AccessNode]:
+    def nodes(self) -> Sequence[Load | Store]:
         return self._block.nodes
 
     @property

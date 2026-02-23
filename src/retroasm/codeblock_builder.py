@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import ClassVar, NoReturn, Self, assert_never, override
 
-from .codeblock import AccessNode, FunctionBody, InitialValue, Load, Store
+from .codeblock import FunctionBody, InitialValue, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression, ZeroTest
 from .expression_simplifier import simplify_expression
@@ -34,7 +34,7 @@ def _simplify_storage(storage: Storage) -> Storage:
 
 
 def _check_undefined(
-    nodes: Sequence[AccessNode], returned: Sequence[BitString], collector: ErrorCollector
+    nodes: Sequence[Load | Store], returned: Sequence[BitString], collector: ErrorCollector
 ) -> None:
     """Report uses of uninitialized local variables."""
 
@@ -221,7 +221,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def __init__(self) -> None:
         super().__init__()
-        self.nodes: list[AccessNode] = []
+        self.nodes: list[Load | Store] = []
         self._stored_values: dict[Storage, Expression] = {}
 
     @override
