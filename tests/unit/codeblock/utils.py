@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import cast, override
+from typing import assert_never, cast, override
 
 from retroasm.codeblock import FunctionBody, Load, LoadedValue, Store
 from retroasm.codeblock_builder import (
@@ -41,15 +41,16 @@ def assert_operations(
     assert len(actual_ops) == len(correct_ops)
     for i, (actual, correct) in enumerate(zip(actual_ops, correct_ops)):
         msg = "node %d of %d" % (i + 1, len(actual_ops))
-        if isinstance(correct, Load):
-            assert isinstance(actual, Load), msg
-            load_map[actual.expr] = correct.expr
-        elif isinstance(correct, Store):
-            assert isinstance(actual, Store), msg
-            expr = actual.expr.substitute(load_subst)
-            assert expr == correct.expr, msg
-        else:
-            raise AssertionError(f"unknown node type: {correct.__class__.__name__}")
+        match correct:
+            case Load(expr=expected):
+                assert isinstance(actual, Load), msg
+                load_map[actual.expr] = expected
+            case Store(expr=expected):
+                assert isinstance(actual, Store), msg
+                expr = actual.expr.substitute(load_subst)
+                assert expr == expected, msg
+            case operation:
+                assert_never(operation)
         assert actual.storage == correct.storage, msg
 
 
