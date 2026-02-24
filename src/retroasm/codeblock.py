@@ -223,8 +223,8 @@ class FunctionBody:
 
     __slots__ = ("_block", "_returned", "_storages", "_arguments")
 
-    def __init__(self, operations: Iterable[Load | Store], returned: Iterable[BitString]):
-        self._block = BasicBlock(operations)
+    def __init__(self, block: BasicBlock, returned: Iterable[BitString]):
+        self._block = block
         self._returned = list(returned)
         assert verify_loads(self.operations, self._returned)
 
