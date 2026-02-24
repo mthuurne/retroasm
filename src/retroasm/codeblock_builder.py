@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import ClassVar, NoReturn, Self, assert_never, override
 
-from .codeblock import BasicBlock, FunctionBody, InitialValue, Load, Store
+from .codeblock import BasicBlock, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression, ZeroTest
 from .expression_simplifier import simplify_expression
@@ -12,7 +12,7 @@ from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
 from .reference import BitString, FixedValue, Reference, SingleStorage, Variable, bad_reference
 from .storage import ArgStorage, IOStorage, Keeper, Register, Storage
-from .types import IntType
+from .types import IntType, mask_for_width
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -33,6 +33,53 @@ def _simplify_storage(storage: Storage) -> Storage:
     return storage
 
 
+class _InitialValue(Expression):
+    """
+    Expression that represents the value of a traced variable at the start
+    of a basic block.
+    """
+
+    __slots__ = ("_variable", "_block_id", "_location")
+
+    @property
+    def location(self) -> InputLocation | None:
+        return self._location
+
+    @property
+    def name(self) -> str:
+        return self._variable.name
+
+    @property
+    @override
+    def mask(self) -> int:
+        # Note that sign extension is added at the Reference level,
+        # we only need to care about width here.
+        return mask_for_width(self._variable.width)
+
+    def __init__(self, variable: Variable, block_id: int, location: InputLocation | None):
+        self._variable = variable
+        self._block_id = block_id
+        self._location = location
+        Expression.__init__(self)
+
+    @override
+    def _ctorargs(self) -> tuple[Variable, int]:
+        return (self._variable, self._block_id)
+
+    @override
+    def __str__(self) -> str:
+        return f"(initial value of {self._variable} in block {self._block_id})"
+
+    @override
+    def _equals(self, other: _InitialValue) -> bool:
+        return self._variable == other._variable and self._block_id == other._block_id
+
+    @property
+    @override
+    def complexity(self) -> int:
+        return 8
+
+
 def _check_undefined(
     operations: Sequence[Load | Store], returned: Sequence[BitString], collector: ErrorCollector
 ) -> None:
@@ -41,20 +88,20 @@ def _check_undefined(
     with collector.check():
         for operation in operations:
             if isinstance((storage := operation.storage), IOStorage):
-                for value in storage.index.iter_instances(InitialValue):
+                for value in storage.index.iter_instances(_InitialValue):
                     collector.error(
                         f'Undefined value of variable "{value.name}" is used as an I/O index',
                         location=value.location,
                     )
             if isinstance(operation, Store):
-                for value in operation.expr.iter_instances(InitialValue):
+                for value in operation.expr.iter_instances(_InitialValue):
                     collector.error(
                         f'Undefined value of variable "{value.name}" is stored',
                         location=value.location,
                     )
         for ret_bits in returned:
             for expr in ret_bits.iter_expressions():
-                for value in expr.iter_instances(InitialValue):
+                for value in expr.iter_instances(_InitialValue):
                     collector.error(
                         f'Undefined value of variable "{value.name}" is returned',
                         location=value.location,
@@ -107,7 +154,7 @@ class CodeBlockBuilder(ABC):
         try:
             return self._variables[name]
         except KeyError:
-            initial = InitialValue(var, self._block_id, location)
+            initial = _InitialValue(var, self._block_id, location)
             self._variables[name] = initial
             return initial
 
