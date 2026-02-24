@@ -113,11 +113,11 @@ A *reference* adds a type to a bit string. Since RetroAsm currently only support
 Code Block
 ----------
 
-A *code block* contains a series of load/store nodes, that each load from or store into one storage.
+A *code block* contains a series of load/store operations, that each load from or store into one storage.
 
-There is no final design yet for how branching will be handled, but the currently linear series of nodes will have to be replaced by some kind of directed graph.
+There is no final design yet for how branching will be handled, but the currently linear series of operations will have to be replaced by some kind of directed graph.
 
-Mathematical computations are handled by expressions, not by nodes. For example ``A := A + 1`` would be represented by two nodes: ``load V from A`` and ``store V + 1 into A``\ ; there is no node for the addition.
+Mathematical computations are handled by expressions, not by operations. For example ``A := A + 1`` would be represented by two operations: ``load V from A`` and ``store V + 1 into A``\ ; there is no operation for the addition.
 
 .. index:: argument
 

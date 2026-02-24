@@ -34,20 +34,20 @@ def _simplify_storage(storage: Storage) -> Storage:
 
 
 def _check_undefined(
-    nodes: Sequence[Load | Store], returned: Sequence[BitString], collector: ErrorCollector
+    operations: Sequence[Load | Store], returned: Sequence[BitString], collector: ErrorCollector
 ) -> None:
     """Report uses of uninitialized local variables."""
 
     with collector.check():
-        for node in nodes:
-            if isinstance((storage := node.storage), IOStorage):
+        for operation in operations:
+            if isinstance((storage := operation.storage), IOStorage):
                 for value in storage.index.iter_instances(InitialValue):
                     collector.error(
                         f'Undefined value of variable "{value.name}" is used as an I/O index',
                         location=value.location,
                     )
-            if isinstance(node, Store):
-                for value in node.expr.iter_instances(InitialValue):
+            if isinstance(operation, Store):
+                for value in operation.expr.iter_instances(InitialValue):
                     collector.error(
                         f'Undefined value of variable "{value.name}" is stored',
                         location=value.location,
@@ -221,13 +221,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
     def __init__(self) -> None:
         super().__init__()
-        self.nodes: list[Load | Store] = []
+        self.operations: list[Load | Store] = []
         self._stored_values: dict[Storage, Expression] = {}
 
     @override
     def dump(self) -> None:
-        for node in self.nodes:
-            node.dump()
+        for operation in self.operations:
+            operation.dump()
         super().dump()
 
     def _check_labels(self, collector: ErrorCollector) -> None:
@@ -274,12 +274,12 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         # Fixate returned variables.
         returned = [bits.substitute(variable_func=fixate_variable) for bits in returned]
 
-        nodes = self.nodes
-        simplify_block(nodes, returned)
+        operations = self.operations
+        simplify_block(operations, returned)
 
-        _check_undefined(nodes, returned, collector)
+        _check_undefined(operations, returned, collector)
 
-        return FunctionBody(nodes, returned)
+        return FunctionBody(operations, returned)
 
     @override
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
@@ -293,7 +293,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return value
 
         load = Load(storage, location)
-        self.nodes.append(load)
+        self.operations.append(load)
         value = load.expr
         if storage.is_load_consistent():
             # Remember loaded value.
@@ -316,7 +316,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             # Current value is rewritten.
             return
 
-        self.nodes.append(Store(value, storage, location))
+        self.operations.append(Store(value, storage, location))
         if storage.is_sticky():
             # Remember stored value.
             stored_values[storage] = value
@@ -420,17 +420,17 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             return bits
 
         # Copy nodes.
-        for node in code.nodes:
-            bits = import_storage(node.storage)
-            match node:
+        for operation in code.operations:
+            bits = import_storage(operation.storage)
+            match operation:
                 case Load(expr=expr, location=location):
                     value = bits.emit_load(self, location)
                     load_results[expr] = value
                 case Store(expr=expr, location=location):
                     new_expr = import_expr(expr)
                     bits.emit_store(self, new_expr, location)
-                case node:
-                    assert_never(node)
+                case operation:
+                    assert_never(operation)
 
         # Determine return value.
         return [
@@ -451,7 +451,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for node in builder.nodes:
-        assert isinstance(node, Store), node
-        mapping[node.storage] = node.expr
+    for operation in builder.operations:
+        assert isinstance(operation, Store), operation
+        mapping[operation.storage] = operation.expr
     return mapping

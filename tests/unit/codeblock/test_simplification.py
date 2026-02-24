@@ -22,7 +22,7 @@ from ..expression.utils import assert_int_literal, assert_or, assert_trunc, make
 from .utils import (
     SingleStorageReference,
     TestNamespace,
-    assert_nodes,
+    assert_operations,
     assert_ret_val,
     get_ret_val,
 )
@@ -59,8 +59,8 @@ def test_no_change(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_b, load_a)
 
     def check_nodes(code: FunctionBody) -> None:
-        assert len(code.nodes) == 2
-        load, store = code.nodes
+        assert len(code.operations) == 2
+        load, store = code.operations
         assert isinstance(load, Load)
         assert isinstance(store, Store)
         assert load.storage == ref_a.bits.storage
@@ -88,7 +88,7 @@ def test_stored_expression(namespace: TestNamespace) -> None:
     )
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
 
 
 def test_unused_load(namespace: TestNamespace) -> None:
@@ -99,8 +99,8 @@ def test_unused_load(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_a, and_a)
 
     code = create_simplified_code(namespace)
-    assert len(code.nodes) == 1
-    node = code.nodes[0]
+    assert len(code.operations) == 1
+    node = code.operations[0]
     assert isinstance(node, Store)
     assert node.storage is ref_a.bits.storage
     assert_int_literal(node.expr, 0)
@@ -115,7 +115,7 @@ def test_unused_load_nonremoval(namespace: TestNamespace) -> None:
     correct = (Load(ref_m.bits.storage),)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
 
 
 def test_redundant_load_after_load(namespace: TestNamespace) -> None:
@@ -135,7 +135,7 @@ def test_redundant_load_after_load(namespace: TestNamespace) -> None:
         yield Store(load_a.expr, ref_c.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_redundant_load_after_store(namespace: TestNamespace) -> None:
@@ -149,8 +149,8 @@ def test_redundant_load_after_store(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_b, load_a2)
 
     code = create_simplified_code(namespace)
-    assert len(code.nodes) == 3
-    load, store1, store2 = code.nodes
+    assert len(code.operations) == 3
+    load, store1, store2 = code.operations
     assert isinstance(load, Load)
     assert isinstance(store1, Store)
     assert isinstance(store2, Store)
@@ -182,7 +182,7 @@ def test_redundant_same_value_store(namespace: TestNamespace) -> None:
         yield Store(load_a.expr, ref_b.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_redundant_other_value_store(namespace: TestNamespace) -> None:
@@ -201,7 +201,7 @@ def test_redundant_other_value_store(namespace: TestNamespace) -> None:
         yield Store(load_b.expr, ref_c.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_uncertain_redundant_load(namespace: TestNamespace) -> None:
@@ -227,7 +227,7 @@ def test_uncertain_redundant_load(namespace: TestNamespace) -> None:
         yield Store(load_a2.expr, ref_c.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_same_value_redundant_load(namespace: TestNamespace) -> None:
@@ -247,7 +247,7 @@ def test_same_value_redundant_load(namespace: TestNamespace) -> None:
         yield Store(load_a.expr, ref_b.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_local_value(namespace: TestNamespace) -> None:
@@ -266,7 +266,7 @@ def test_local_value(namespace: TestNamespace) -> None:
         yield Store(load_a.expr, ref_b.bits.storage)
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())
 
 
 def test_unused_storage_removal(namespace: TestNamespace) -> None:
@@ -278,7 +278,7 @@ def test_unused_storage_removal(namespace: TestNamespace) -> None:
     correct = ()
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
 
 
 def test_return_value(namespace: TestNamespace) -> None:
@@ -297,10 +297,10 @@ def test_return_value(namespace: TestNamespace) -> None:
     )
 
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
-    value_v = code.nodes[0].expr
-    value_a = code.nodes[1].expr
+    value_v = code.operations[0].expr
+    value_a = code.operations[1].expr
     assert ret_width == 8
     assert_or(ret_val, simplify_expression(value_a), simplify_expression(value_v))
 
@@ -358,7 +358,7 @@ def test_return_fixed_value_ref(namespace: TestNamespace) -> None:
     value = FixedValue(add, 8)
     namespace.add_ret_reference(Reference(value, IntType.u(8)))
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, ())
+    assert_operations(code.operations, ())
     assert len(code.returned) == 1
     (ret_bits,) = code.returned
     assert isinstance(ret_bits, FixedValue)
@@ -374,7 +374,7 @@ def test_return_complex_ref(namespace: TestNamespace) -> None:
     sliced_bits = SlicedBits(bits_hl, IntLiteral(0), 8)
     namespace.add_ret_reference(Reference(sliced_bits, IntType.u(8)))
     code = create_simplified_code(namespace)
-    assert_nodes(code.nodes, ())
+    assert_operations(code.operations, ())
     assert len(code.returned) == 1
     (ret_bits,) = code.returned
     assert ret_bits.width == 8
@@ -408,7 +408,7 @@ def run_repeated_increase(
     correct: list[Load | Store] = []
     if counter_remains:
         correct.insert(0, Store(ret_val, counter_ref.bits.storage))
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     assert_ret_val(code, 26)
     assert ret_width == 8
 
@@ -484,7 +484,7 @@ def test_6502_pull(namespace: TestNamespace) -> None:
     namespace.emit_store(ref_d, load_m)
 
     code = create_simplified_code(namespace)
-    (io_storage,) = (node.storage for node in code.nodes if isinstance(node.storage, IOStorage))
+    (io_storage,) = (op.storage for op in code.operations if isinstance(op.storage, IOStorage))
 
     def correct() -> Iterator[Load | Store]:
         load_s = Load(ref_s.bits.storage)
@@ -497,4 +497,4 @@ def test_6502_pull(namespace: TestNamespace) -> None:
         yield load_m
         yield Store(load_m.expr, ref_d.bits.storage)
 
-    assert_nodes(code.nodes, correct())
+    assert_operations(code.operations, correct())

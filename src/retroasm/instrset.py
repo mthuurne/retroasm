@@ -31,16 +31,16 @@ def flags_set_by_code(code: FunctionBody) -> Iterator[Storage]:
     """
     Yields those storages to which the value 1 is assigned by the given code block.
     """
-    for node in code.nodes:
-        if isinstance(node, Store):
-            value = node.expr
+    for operation in code.operations:
+        if isinstance(operation, Store):
+            value = operation.expr
             if isinstance(value, IntLiteral):
                 if value.value == 0:
                     continue
                 assert value.value == 1, value.value
             else:
                 raise ValueError("non-literal assigned to decode flag")
-            yield node.storage
+            yield operation.storage
 
 
 class PrefixMappingFactory:

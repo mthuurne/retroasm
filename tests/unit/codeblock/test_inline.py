@@ -15,7 +15,7 @@ from retroasm.reference import (
 )
 from retroasm.types import IntType
 
-from .utils import TestNamespace, assert_nodes, assert_ret_val, get_ret_val
+from .utils import TestNamespace, assert_operations, assert_ret_val, get_ret_val
 
 
 def create_simplified_code(namespace: TestNamespace) -> FunctionBody:
@@ -58,7 +58,7 @@ def test_inline_easy() -> None:
     code = create_simplified_code(outer)
     ret_val, ret_width = get_ret_val(code)
     correct = (Store(ret_val, outer_a.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     assert_ret_val(code, 12345)
     assert ret_width == 16
 
@@ -90,7 +90,7 @@ def test_inline_arg_ret() -> None:
 
     code = create_simplified_code(outer)
     correct = ()
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val_, ret_width = get_ret_val(code)
     assert_ret_val(code, 103)
     assert ret_width == 8
@@ -116,7 +116,7 @@ def test_inline_multiret() -> None:
 
     code = create_simplified_code(outer)
     correct = ()
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val_, ret_width = get_ret_val(code)
     assert_ret_val(code, 3000)
     assert ret_width == 16
@@ -140,7 +140,7 @@ def test_ret_truncate() -> None:
 
     code = create_simplified_code(outer)
     correct = ()
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val_, ret_width = get_ret_val(code)
     assert_ret_val(code, 0x72)
     assert ret_width == 16
@@ -169,7 +169,7 @@ def test_pass_by_reference() -> None:
     code = create_simplified_code(outer)
     ret_val, ret_width = get_ret_val(code)
     correct = (Store(ret_val, outer_a.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     assert_ret_val(code, 103)
     assert ret_width == 8
 
@@ -205,7 +205,7 @@ def test_pass_concat_by_reference() -> None:
         Store(IntLiteral(final_val & 0xFF), outer_l.bits.storage),
         Store(IntLiteral(final_val >> 8), outer_h.bits.storage),
     )
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, final_val)
     assert ret_width == 16
@@ -237,7 +237,7 @@ def test_pass_concat_fixed_by_reference() -> None:
     final_val = 0xABCD + 3 * 0x1300
     code = create_simplified_code(outer)
     correct = (Store(IntLiteral(final_val >> 8), outer_h.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, final_val)
     assert ret_width == 16
@@ -267,7 +267,7 @@ def test_pass_slice_by_reference() -> None:
     final_val = 0xC00F | (((0xDE + 3 * 0x12) & 0xFF) << 4)
     code = create_simplified_code(outer)
     correct = (Store(IntLiteral(final_val), outer_r.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, final_val)
     assert ret_width == 16
@@ -294,7 +294,7 @@ def test_inline_unsigned_reg() -> None:
     final_val = 0x00B2
     code = create_simplified_code(outer)
     correct = (Store(init_a, outer_a.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     assert_ret_val(code, final_val)
 
 
@@ -319,7 +319,7 @@ def test_inline_signed_reg() -> None:
     final_val = 0xFFB2
     code = create_simplified_code(outer)
     correct = (Store(init_a, outer_a.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, final_val)
     assert ret_width == 16
@@ -343,7 +343,7 @@ def test_load_from_unsigned_reference_arg() -> None:
 
     code = create_simplified_code(outer)
     correct = ()
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, 0x00A4)
     assert ret_width == 16
@@ -367,7 +367,7 @@ def test_load_from_signed_reference_arg() -> None:
 
     code = create_simplified_code(outer)
     correct = ()
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, 0xFFA4)
     assert ret_width == 16
@@ -396,7 +396,7 @@ def test_return_simple_reference() -> None:
 
     code = create_simplified_code(outer)
     correct = (Store(value, outer_a.bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert_ret_val(code, 0xBA)
     assert ret_width == 8
@@ -424,10 +424,10 @@ def test_return_io_reference() -> None:
 
     code = create_simplified_code(outer)
     correct = (Load(ret_bits.storage),)
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert ret_width == 8
-    assert ret_val == code.nodes[0].expr
+    assert ret_val == code.operations[0].expr
 
 
 def test_unique_loads() -> None:
@@ -462,7 +462,7 @@ def test_unique_loads() -> None:
         Load(mem_byte.bits.storage),
         Load(mem_byte.bits.storage),
     )
-    assert_nodes(code.nodes, correct)
+    assert_operations(code.operations, correct)
     ret_val, ret_width = get_ret_val(code)
     assert ret_width == 8
     assert isinstance(ret_val, XorOperator)

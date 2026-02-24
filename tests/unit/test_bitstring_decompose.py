@@ -125,16 +125,16 @@ def check_load(
 
     # Check that emit_load only emits Load nodes.
     value = namespace.emit_load(bits)
-    nodes = namespace.builder.nodes
-    for node in nodes:
-        assert isinstance(node, Load)
+    operations = namespace.builder.operations
+    for operation in operations:
+        assert isinstance(operation, Load)
 
     # Check that all underlying storages are loaded from.
     # Also check that the load order matches the depth-first tree walk.
     # Even storages that are not part of the decomposition should still be
     # loaded from since loading might trigger side effects.
     all_storages = tuple(bits.iter_storages())
-    loaded_storages = tuple(node.storage for node in nodes)
+    loaded_storages = tuple(operation.storage for operation in operations)
     assert all_storages == loaded_storages
 
     # Check the loaded value expression's bit mask.
@@ -167,32 +167,32 @@ def check_store(
     """Check that storing to a bit string works as expected."""
 
     # Check that emit_store only emits Load and Store nodes.
-    nodes = namespace.builder.nodes
+    operations = namespace.builder.operations
     value_ref = namespace.add_argument("V", IntType.int)
     value = namespace.emit_load(value_ref)
-    init_idx = len(nodes)
+    init_idx = len(operations)
     namespace.emit_store(bits, value)
-    load_nodes: list[Load] = []
-    store_nodes: list[Store] = []
-    for node in nodes[init_idx:]:
-        if isinstance(node, Load):
-            load_nodes.append(node)
-        elif isinstance(node, Store):
-            store_nodes.append(node)
+    load_ops: list[Load] = []
+    store_ops: list[Store] = []
+    for operation in operations[init_idx:]:
+        if isinstance(operation, Load):
+            load_ops.append(operation)
+        elif isinstance(operation, Store):
+            store_ops.append(operation)
         else:
-            assert False, f"unexpected node type: {type(node).__name__}"
+            assert False, f"unexpected node type: {type(operation).__name__}"
 
     # Check that all storages reachable through slicing are loaded from.
     # Also check that the load order is as expected (see iterSliceLoads
     # docstring).
     sliced_storages = tuple(iter_slice_loads(bits))
-    loaded_storages = tuple(node.storage for node in load_nodes)
+    loaded_storages = tuple(load.storage for load in load_ops)
     assert sliced_storages == loaded_storages
 
     # Check that all underlying storages are stored to.
     # Also check that the store order matches the depth-first tree walk.
     all_storages = tuple(bits.iter_storages())
-    stored_storages = tuple(node.storage for node in store_nodes)
+    stored_storages = tuple(store.storage for store in store_ops)
     assert all_storages == stored_storages
 
     # Note: Verifying that the right values are being stored based on the

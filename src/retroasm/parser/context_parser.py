@@ -84,10 +84,10 @@ def parse_placeholders(
                     val_width = val_type.width
                     val_bits = FixedValue(truncate(built_expr, val_width), val_width)
                     code = builder.create_code_block((val_bits,))
-                    for access in code.nodes:
+                    for operation in code.operations:
                         collector.error(
-                            f"state cannot be accessed from the context: {access}",
-                            location=access.location,
+                            f"state cannot be accessed from the context: {operation}",
+                            location=operation.location,
                         )
                     # We put in a single FixedValue, we get out a single FixedValue.
                     (ret_bits,) = code.returned

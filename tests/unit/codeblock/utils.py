@@ -29,18 +29,18 @@ class SingleStorageReference(Reference):
     bits: SingleStorage
 
 
-def assert_nodes(
-    actual_nodes: Sequence[Load | Store], correct_nodes: Iterable[Load | Store]
+def assert_operations(
+    actual_ops: Sequence[Load | Store], correct_ops: Iterable[Load | Store]
 ) -> None:
-    correct_nodes = tuple(correct_nodes)
+    correct_ops = tuple(correct_ops)
     load_map: dict[LoadedValue, LoadedValue] = {}
 
     def load_subst(expr: Expression) -> Expression | None:
         return load_map.get(cast(LoadedValue, expr))
 
-    assert len(actual_nodes) == len(correct_nodes)
-    for i, (actual, correct) in enumerate(zip(actual_nodes, correct_nodes)):
-        msg = "node %d of %d" % (i + 1, len(actual_nodes))
+    assert len(actual_ops) == len(correct_ops)
+    for i, (actual, correct) in enumerate(zip(actual_ops, correct_ops)):
+        msg = "node %d of %d" % (i + 1, len(actual_ops))
         if isinstance(correct, Load):
             assert isinstance(actual, Load), msg
             load_map[actual.expr] = correct.expr

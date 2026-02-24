@@ -7,7 +7,7 @@ from .expression import Expression
 from .reference import BitString
 
 
-def simplify_block(nodes: list[Load | Store], returned: list[BitString]) -> None:
+def simplify_block(operations: list[Load | Store], returned: list[BitString]) -> None:
     """Attempt to simplify the given code block as much as possible."""
 
     # Simplify returned expressions.
@@ -17,12 +17,12 @@ def simplify_block(nodes: list[Load | Store], returned: list[BitString]) -> None
 
     # With known-value loads removed by the builder, some prior stores to the same
     # storages may have become redundant.
-    _remove_overwritten_stores(nodes)
+    _remove_overwritten_stores(operations)
 
     # Removal of unused loads will not enable any other simplifications.
-    _remove_unused_loads(nodes, returned)
+    _remove_unused_loads(operations, returned)
 
-    assert verify_loads(nodes, returned)
+    assert verify_loads(operations, returned)
 
 
 def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
@@ -32,25 +32,25 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
         returned[i] = ret_bits.simplify()
 
 
-def _remove_overwritten_stores(nodes: list[Load | Store]) -> None:
+def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
     """Remove side-effect-free stores that will be overwritten."""
 
     will_be_overwritten = set()
-    for i in range(len(nodes) - 1, -1, -1):
-        node = nodes[i]
-        storage = node.storage
+    for i in range(len(operations) - 1, -1, -1):
+        operation = operations[i]
+        storage = operation.storage
         if not storage.can_store_have_side_effect():
-            match node:
+            match operation:
                 case Load():
                     will_be_overwritten.discard(storage)
                 case Store():
                     if storage in will_be_overwritten:
-                        del nodes[i]
+                        del operations[i]
                     else:
                         will_be_overwritten.add(storage)
 
 
-def _remove_unused_loads(nodes: list[Load | Store], returned: list[BitString]) -> None:
+def _remove_unused_loads(operations: list[Load | Store], returned: list[BitString]) -> None:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.
@@ -61,21 +61,21 @@ def _remove_unused_loads(nodes: list[Load | Store], returned: list[BitString]) -
             use_counts[loaded] += delta
 
     # Compute initial use counts.
-    for node in nodes:
-        if isinstance(node, Store):
-            update_counts(node.expr)
-        for expr in node.storage.iter_expressions():
+    for operation in operations:
+        if isinstance(operation, Store):
+            update_counts(operation.expr)
+        for expr in operation.storage.iter_expressions():
             update_counts(expr)
     for ret_bits in returned:
         for expr in ret_bits.iter_expressions():
             update_counts(expr)
 
     # Remove unnecesary Loads.
-    for i in range(len(nodes) - 1, -1, -1):
-        match nodes[i]:
+    for i in range(len(operations) - 1, -1, -1):
+        match operations[i]:
             case Load(expr=expr, storage=storage):
                 if use_counts[expr] == 0 and not storage.can_load_have_side_effect():
-                    del nodes[i]
+                    del operations[i]
                     # Update use_counts, so we can remove earlier Loads that
                     # became unused because the Load we just removed was
                     # the sole user of their LoadedValue.

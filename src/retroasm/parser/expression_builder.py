@@ -518,7 +518,7 @@ def build_statement_eval(
     Errors and warnings are logged on the given reader, using `where_desc`
     as the description of the statement's origin.
     """
-    num_nodes_before = len(builder.nodes)
+    num_operations_before = len(builder.operations)
 
     match node:
         case AssignmentNode():
@@ -568,8 +568,8 @@ def build_statement_eval(
                 return
 
     state_changed = False
-    for exec_node in builder.nodes[num_nodes_before:]:
-        match exec_node:
+    for operation in builder.operations[num_operations_before:]:
+        match operation:
             case Load(storage=storage):
                 state_changed |= storage.can_load_have_side_effect()
             case Store():

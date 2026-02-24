@@ -459,7 +459,7 @@ def _parse_encoding_expr(
         ) from ex
 
     code = builder.create_code_block((enc_ref.bits,))
-    if len(code.nodes) != 0:
+    if len(code.operations) != 0:
         raise BadInput(
             "encoding expression accesses state or performs I/O", enc_node.tree_location
         )

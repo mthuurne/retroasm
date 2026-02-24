@@ -14,7 +14,7 @@ from .utils import const_property
 
 @dataclass(frozen=True, slots=True, eq=False)
 class Load:
-    """A node that loads a value from a storage location."""
+    """An operation that loads a value from a storage location."""
 
     storage: Storage
     location: InputLocation | None = None
@@ -33,7 +33,7 @@ class Load:
 
 @dataclass(frozen=True, slots=True, eq=False)
 class Store:
-    """A node that stores a value into a storage location."""
+    """An operation that stores a value into a storage location."""
 
     expr: Expression
     storage: Storage
@@ -90,28 +90,30 @@ class LoadedValue(Expression):
         return 8
 
 
-def verify_loads(nodes: Iterable[Load | Store], returned: Iterable[BitString] = ()) -> bool:
+def verify_loads(
+    operations: Iterable[Load | Store], returned: Iterable[BitString] = ()
+) -> bool:
     """
-    Performs consistency checks on the LoadedValues in the given nodes and
+    Performs consistency checks on the LoadedValues in the given operations and
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
     Returns True on success, never returns False.
     """
 
-    # Check that every LoadedValue has an associated Load node, which must
+    # Check that every LoadedValue has an associated Load operation, which must
     # execute before the LoadedValue is used.
     loads: set[Load] = set()
-    for node in nodes:
+    for operation in operations:
         # Check that all expected loads have occurred.
-        match node:
+        match operation:
             case Store(expr=expr):
                 for value in expr.iter_instances(LoadedValue):
                     assert value.load in loads, value
-        for expr in node.storage.iter_expressions():
+        for expr in operation.storage.iter_expressions():
             for value in expr.iter_instances(LoadedValue):
                 assert value.load in loads, value
         # Remember this load.
-        match node:
+        match operation:
             case Load() as load:
                 loads.add(load)
 
@@ -130,15 +132,15 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("nodes", "storages", "arguments")
+    __slots__ = ("operations", "storages", "arguments")
 
-    def __init__(self, nodes: Iterable[Load | Store]):
-        nodes = tuple(nodes)
-        assert verify_loads(nodes)
-        self.nodes: Final[Sequence[Load | Store]] = nodes
+    def __init__(self, operations: Iterable[Load | Store]):
+        operations = tuple(operations)
+        assert verify_loads(operations)
+        self.operations: Final[Sequence[Load | Store]] = operations
         """The load/store operations in this block."""
 
-        storages = {node.storage for node in nodes}
+        storages = {operation.storage for operation in operations}
         self.storages: Final[Set[Storage]] = storages
         """A set of all storages that are accessed by this block."""
 
@@ -149,8 +151,8 @@ class BasicBlock:
 
     def dump(self) -> None:
         """Print this basic block on stdout."""
-        for node in self.nodes:
-            node.dump()
+        for operation in self.operations:
+            operation.dump()
 
 
 def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
@@ -221,10 +223,10 @@ class FunctionBody:
 
     __slots__ = ("_block", "_returned", "_storages", "_arguments")
 
-    def __init__(self, nodes: Iterable[Load | Store], returned: Iterable[BitString]):
-        self._block = BasicBlock(nodes)
+    def __init__(self, operations: Iterable[Load | Store], returned: Iterable[BitString]):
+        self._block = BasicBlock(operations)
         self._returned = list(returned)
-        assert verify_loads(self.nodes, self._returned)
+        assert verify_loads(self.operations, self._returned)
 
     def dump(self) -> None:
         """Print this function body on stdout."""
@@ -237,8 +239,8 @@ class FunctionBody:
         return self._block
 
     @property
-    def nodes(self) -> Sequence[Load | Store]:
-        return self._block.nodes
+    def operations(self) -> Sequence[Load | Store]:
+        return self._block.operations
 
     @property
     def returned(self) -> Sequence[BitString]:
