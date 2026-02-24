@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import Final, override
+from typing import IO, Final, override
 
 from .expression import Expression
 from .input import InputLocation
@@ -27,8 +27,8 @@ class Load:
     def __str__(self) -> str:
         return f"load from {self.storage}"
 
-    def dump(self) -> None:
-        print(f"    {self} ({self.storage.width}-bit)")
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        print(f"    {self} ({self.storage.width}-bit)", file=file)
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -43,8 +43,8 @@ class Store:
     def __str__(self) -> str:
         return f"store {self.expr} in {self.storage}"
 
-    def dump(self) -> None:
-        print(f"    {self} ({self.storage.width}-bit)")
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        print(f"    {self} ({self.storage.width}-bit)", file=file)
 
 
 class LoadedValue(Expression):
@@ -149,10 +149,10 @@ class BasicBlock:
         self.arguments: Final[Mapping[str, ArgStorage]] = arguments
         """All arguments that occur in this block, mapped by name."""
 
-    def dump(self) -> None:
+    def dump(self, *, file: IO[str] | None = None) -> None:
         """Print this basic block on stdout."""
         for operation in self.operations:
-            operation.dump()
+            operation.dump(file=file)
 
 
 def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
@@ -181,11 +181,11 @@ class FunctionBody:
         self.returned: Final[Sequence[BitString]] = tuple(returned)
         assert verify_loads(self.operations, self.returned)
 
-    def dump(self) -> None:
+    def dump(self, *, file: IO[str] | None = None) -> None:
         """Print this function body on stdout."""
-        self.block.dump()
+        self.block.dump(file=file)
         for ret_bits in self.returned:
-            print(f"    return {ret_bits}")
+            print(f"    return {ret_bits}", file=file)
 
     @property
     def operations(self) -> Sequence[Load | Store]:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import ClassVar, NoReturn, Self, assert_never, override
+from typing import IO, ClassVar, NoReturn, Self, assert_never, override
 
 from .codeblock import BasicBlock, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -129,7 +129,7 @@ class CodeBlockBuilder(ABC):
         self._labels: dict[str, InputLocation | None] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
-    def dump(self) -> None:
+    def dump(self, *, file: IO[str] | None = None) -> None:
         """Prints the current state of this code block builder on stdout."""
 
     @abstractmethod
@@ -272,10 +272,10 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         self._stored_values: dict[Storage, Expression] = {}
 
     @override
-    def dump(self) -> None:
+    def dump(self, *, file: IO[str] | None = None) -> None:
         for operation in self.operations:
-            operation.dump()
-        super().dump()
+            operation.dump(file=file)
+        super().dump(file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """

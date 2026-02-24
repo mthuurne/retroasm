@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import override
+from typing import IO, override
 
 from .codeblock import FunctionBody
 from .reference import BitString
@@ -34,12 +34,12 @@ class Function:
         ret = "unit" if self.ret_type is None else self.ret_type
         return f"({args}) -> {ret}"
 
-    def dump(self) -> None:
-        print(str(self))
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        print(f"{self}", file=file)
         if self.code is None:
-            print("    no code")
+            print("    no code", file=file)
         else:
-            self.code.dump()
+            self.code.dump(file=file)
 
 
 def _check_args(
