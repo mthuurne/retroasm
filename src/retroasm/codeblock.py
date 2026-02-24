@@ -221,45 +221,37 @@ class FunctionBody:
     A code block with returned bit strings.
     """
 
-    __slots__ = ("_block", "_returned", "_storages", "_arguments")
+    __slots__ = ("block", "returned", "_storages", "_arguments")
 
     def __init__(self, block: BasicBlock, returned: Iterable[BitString]):
-        self._block = block
-        self._returned = list(returned)
-        assert verify_loads(self.operations, self._returned)
+        self.block: Final[BasicBlock] = block
+        self.returned: Final[Sequence[BitString]] = tuple(returned)
+        assert verify_loads(self.operations, self.returned)
 
     def dump(self) -> None:
         """Print this function body on stdout."""
-        self._block.dump()
-        for ret_bits in self._returned:
+        self.block.dump()
+        for ret_bits in self.returned:
             print(f"    return {ret_bits}")
 
     @property
-    def block(self) -> BasicBlock:
-        return self._block
-
-    @property
     def operations(self) -> Sequence[Load | Store]:
-        return self._block.operations
-
-    @property
-    def returned(self) -> Sequence[BitString]:
-        return self._returned
+        return self.block.operations
 
     @const_property
     def storages(self) -> Set[Storage]:
         """
         A set of all storages that are accessed or referenced by this function body.
         """
-        storages = set(self._block.storages)
-        for ret_bits in self._returned:
+        storages = set(self.block.storages)
+        for ret_bits in self.returned:
             storages.update(ret_bits.iter_storages())
         return storages
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        args = dict(self._block.arguments)
-        for ret in self._returned:
+        args = dict(self.block.arguments)
+        for ret in self.returned:
             for storage in ret.iter_storages():
                 if isinstance(storage, ArgStorage):
                     args[storage.name] = storage
