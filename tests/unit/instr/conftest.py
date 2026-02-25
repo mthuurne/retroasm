@@ -4,10 +4,12 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from io import StringIO
 from logging import Logger, getLogger
+from textwrap import dedent
 from typing import Literal, overload
 
 import pytest
 
+from retroasm.function import Function
 from retroasm.input import ErrorCollector, LocationFormatter
 from retroasm.instrset import InstructionSet
 from retroasm.parser.instrset_parser import InstructionSetParser
@@ -65,6 +67,7 @@ class InstructionSetDocstringTester:
 _default_regs_definition = """
 reg
 u32 a, b
+u8 h, l
 u1 f
 u32 sp, pc
 
@@ -149,3 +152,62 @@ def _iter_block_names(text: str) -> Iterator[str]:
     for line in reader:
         yield line.text.split()[0]
         reader.skip_block()
+
+
+@dataclass
+class CodeBlockDocstringTester:
+    parser: TestParser
+    actual_dump: str
+    expected_dump: str
+
+    def check(self) -> None:
+        assert self.actual_dump == self.expected_dump
+
+
+@pytest.fixture
+def codeblock_tester(
+    parser: TestParser,
+    docstring: str,
+    request: pytest.FixtureRequest,
+) -> CodeBlockDocstringTester:
+    """
+    Fixture that parses a source code fragment and a code block dump from the requesting
+    test function's docstring.
+
+    The fixture will parse the source code and look up a function named "test".
+    It will then check whether the dump of that function's code block matches the dump
+    from the docstring.
+    """
+
+    try:
+        code, expected_dump = unpack_docstring(docstring, "instr", "dump")
+    except ValueError as ex:
+        raise pytest.FixtureLookupError(
+            request.fixturename, request, f"error unpacking docstring: {ex}"
+        ) from ex
+
+    parser.parse_text(_default_regs_definition)
+    parser.parse_text(_default_io_definition)
+    parser.parse_text(code)
+
+    try:
+        func = parser.global_namespace["test"]
+    except KeyError as ex:
+        raise pytest.FixtureLookupError(
+            request.fixturename, request, 'no function named "test" defined in docstring'
+        ) from ex
+    if not isinstance(func, Function):
+        raise pytest.FixtureLookupError(
+            request.fixturename, request, '"test" defined in docstring is not a function'
+        )
+
+    if func.code is None:
+        raise pytest.FixtureLookupError(
+            request.fixturename, request, 'error in "test" function; check log'
+        )
+
+    buffer = StringIO()
+    func.code.dump(file=buffer)
+    actual_dump = dedent(buffer.getvalue())
+
+    return CodeBlockDocstringTester(parser, actual_dump, expected_dump)
