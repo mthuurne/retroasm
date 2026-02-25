@@ -289,6 +289,22 @@ def test_return_fixed_value_ref(codeblock_tester: CodeBlockDocstringTester) -> N
     codeblock_tester.check()
 
 
+def test_ret_truncate(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    The returned value is truncated if it doesn't fit in the return type.
+
+    .. code-block:: instr
+
+        func test()
+            def u8 ret = $8472
+
+    .. code-block:: dump
+
+        return $72
+    """
+    codeblock_tester.check()
+
+
 def test_return_complex_ref(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     A returned reference can be non-trivial.

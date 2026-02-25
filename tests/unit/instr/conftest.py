@@ -68,6 +68,7 @@ _default_regs_definition = """
 reg
 u32 a, b
 u8 h, l
+u16& hl = h;l
 u1 f
 u32 sp, pc
 
