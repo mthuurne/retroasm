@@ -28,7 +28,7 @@ class Load:
         return f"load from {self.storage}"
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        print(f"    {self} ({self.storage.width}-bit)", file=file)
+        print(f"    {self}", file=file)
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -44,7 +44,7 @@ class Store:
         return f"store {self.expr} in {self.storage}"
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        print(f"    {self} ({self.storage.width}-bit)", file=file)
+        print(f"    {self}", file=file)
 
 
 class LoadedValue(Expression):
