@@ -140,7 +140,7 @@ def instr_tester(
 
     parser.parse_text(code)
 
-    return InstructionSetDocstringTester(parser, logging, caplog.text.rstrip())
+    return InstructionSetDocstringTester(parser, logging, caplog.text)
 
 
 def _iter_block_names(text: str) -> Iterator[str]:

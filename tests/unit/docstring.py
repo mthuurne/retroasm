@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from inspect import cleandoc
 from itertools import chain, repeat
+from textwrap import dedent
 
 
 def parse_docstring(docstring: str) -> Iterator[tuple[str, str]]:
@@ -26,13 +26,17 @@ def parse_docstring(docstring: str) -> Iterator[tuple[str, str]]:
             return None
 
         for idx in range(block_start, num_lines):
-            if (line := lines[idx]) and not line[0].isspace():
+            line = lines[idx]
+            if not line or line.isspace():
+                if idx == block_start:
+                    block_start = idx + 1
+            elif not line[0].isspace():
                 block_end = idx
                 break
         else:
             block_end = num_lines
 
-        body = cleandoc("\n".join(lines[block_start:block_end]))
+        body = dedent("\n".join(lines[block_start:block_end] + [""]))
         return block_end, language, body
 
     idx = 0
