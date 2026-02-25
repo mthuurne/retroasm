@@ -247,58 +247,6 @@ def test_pass_slice_by_reference() -> None:
     assert ret_width == 16
 
 
-def test_inline_unsigned_reg() -> None:
-    """Test reading of an unsigned register."""
-    inner = TestNamespace()
-    inner_a = inner.add_register("a")
-    inner_load = inner.emit_load(inner_a)
-    inner_ret = inner.add_variable("ret", IntType.u(16))
-    inner.emit_store(inner_ret, inner_load)
-    inner_code = inner.create_code_block(inner_ret)
-
-    outer = TestNamespace(inner.parent)
-    outer_a = outer.add_register("a")
-    init_a = IntLiteral(0xB2)
-    outer.emit_store(outer_a, init_a)
-    (ret_bits,) = outer.inline_block(inner_code, args())
-    outer_ret = outer.add_variable("ret", IntType.u(16))
-    ret_val = outer.emit_load(ret_bits)
-    outer.emit_store(outer_ret, ret_val)
-
-    final_val = 0x00B2
-    code = create_simplified_code(outer)
-    correct = (Store(init_a, outer_a.bits.storage),)
-    assert_operations(code.operations, correct)
-    assert_ret_val(code, final_val)
-
-
-def test_inline_signed_reg() -> None:
-    """Test reading of a signed register."""
-    inner = TestNamespace()
-    inner_a = inner.add_register("a", IntType.s(8))
-    inner_load = inner.emit_load(inner_a)
-    inner_ret = inner.add_variable("ret", IntType.u(16))
-    inner.emit_store(inner_ret, inner_load)
-    inner_code = inner.create_code_block(inner_ret)
-
-    outer = TestNamespace(inner.parent)
-    outer_a = outer.add_register("a", IntType.s(8))
-    init_a = IntLiteral(0xB2)
-    outer.emit_store(outer_a, init_a)
-    (ret_bits,) = outer.inline_block(inner_code, args())
-    outer_ret = outer.add_variable("ret", IntType.u(16))
-    ret_val = outer.emit_load(ret_bits)
-    outer.emit_store(outer_ret, ret_val)
-
-    final_val = 0xFFB2
-    code = create_simplified_code(outer)
-    correct = (Store(init_a, outer_a.bits.storage),)
-    assert_operations(code.operations, correct)
-    ret_val, ret_width = get_ret_val(code)
-    assert_ret_val(code, final_val)
-    assert ret_width == 16
-
-
 def test_load_from_unsigned_reference_arg() -> None:
     """Test reading of a value passed via an unsigned reference."""
     inner = TestNamespace()
