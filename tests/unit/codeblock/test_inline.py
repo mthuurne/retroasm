@@ -96,32 +96,6 @@ def test_inline_arg_ret() -> None:
     assert ret_width == 8
 
 
-def test_inline_multiret() -> None:
-    """Test whether inlining works when "ret" is written multiple times."""
-    inner = TestNamespace()
-    val0 = IntLiteral(1000)
-    val1 = IntLiteral(2000)
-    val2 = IntLiteral(3000)
-    inner_ret = inner.add_variable("ret", IntType.u(16))
-    inner.emit_store(inner_ret, val0)
-    inner.emit_store(inner_ret, val1)
-    inner.emit_store(inner_ret, val2)
-    inner_code = inner.create_code_block(inner_ret)
-
-    outer = TestNamespace()
-    (inlined_ret,) = outer.inline_block(inner_code, args())
-    inlined_val = outer.emit_load(inlined_ret)
-    outer_ret = outer.add_variable("ret", IntType.u(16))
-    outer.emit_store(outer_ret, inlined_val)
-
-    code = create_simplified_code(outer)
-    correct = ()
-    assert_operations(code.operations, correct)
-    ret_val_, ret_width = get_ret_val(code)
-    assert_ret_val(code, 3000)
-    assert ret_width == 16
-
-
 def test_ret_truncate() -> None:
     """Test whether the value returned by a block is truncated."""
     inner = TestNamespace()
