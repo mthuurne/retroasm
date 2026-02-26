@@ -169,41 +169,64 @@ def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
     return args
 
 
+class CodeGraph:
+    __slots__ = ("_block", "_storages", "_arguments")
+
+    def __init__(self, block: BasicBlock):
+        self._block = block
+
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        self._block.dump(file=file)
+
+    @property
+    def operations(self) -> Sequence[Load | Store]:
+        return self._block.operations
+
+    @const_property
+    def storages(self) -> Set[Storage]:
+        """A set of all storages that are accessed by this code graph."""
+        return self._block.storages
+
+    @const_property
+    def arguments(self) -> Mapping[str, ArgStorage]:
+        return self._block.arguments
+
+
 class FunctionBody:
     """
     A code block with returned bit strings.
     """
 
-    __slots__ = ("block", "returned", "_storages", "_arguments")
+    __slots__ = ("code", "returned", "_storages", "_arguments")
 
-    def __init__(self, block: BasicBlock, returned: Iterable[BitString]):
-        self.block: Final[BasicBlock] = block
+    def __init__(self, code: CodeGraph, returned: Iterable[BitString]):
+        self.code: Final[CodeGraph] = code
         self.returned: Final[Sequence[BitString]] = tuple(returned)
         assert verify_loads(self.operations, self.returned)
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Print this function body on stdout."""
-        self.block.dump(file=file)
+        self.code.dump(file=file)
         for ret_bits in self.returned:
             print(f"    return {ret_bits}", file=file)
 
     @property
     def operations(self) -> Sequence[Load | Store]:
-        return self.block.operations
+        return self.code.operations
 
     @const_property
     def storages(self) -> Set[Storage]:
         """
         A set of all storages that are accessed or referenced by this function body.
         """
-        storages = set(self.block.storages)
+        storages = set(self.code.storages)
         for ret_bits in self.returned:
             storages.update(ret_bits.iter_storages())
         return storages
 
     @const_property
     def arguments(self) -> Mapping[str, ArgStorage]:
-        args = dict(self.block.arguments)
+        args = dict(self.code.arguments)
         for ret in self.returned:
             for storage in ret.iter_storages():
                 if isinstance(storage, ArgStorage):

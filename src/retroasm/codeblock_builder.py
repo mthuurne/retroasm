@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, ClassVar, NoReturn, Self, assert_never, override
 
-from .codeblock import BasicBlock, FunctionBody, Load, Store
+from .codeblock import BasicBlock, CodeGraph, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
 from .expression import Expression, ZeroTest
 from .expression_simplifier import simplify_expression
@@ -327,7 +327,8 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         _check_undefined(operations, returned, collector)
 
         block = BasicBlock(operations)
-        return FunctionBody(block, returned)
+        code = CodeGraph(block)
+        return FunctionBody(code, returned)
 
     @override
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
