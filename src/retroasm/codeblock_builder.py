@@ -372,10 +372,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         # Remove stored values for storages that might be aliases.
         for storage2 in list(stored_values.keys()):
             if storage != storage2 and storage.might_be_same(storage2):
-                # However, if the store wouldn't alter the value,
-                # there is no need to remove it.
-                if stored_values[storage2] != value:
-                    del stored_values[storage2]
+                del stored_values[storage2]
 
     def _handle_side_effects(self, storage: Storage) -> None:
         """

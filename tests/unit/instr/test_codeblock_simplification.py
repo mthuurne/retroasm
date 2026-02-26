@@ -182,24 +182,28 @@ def test_uncertain_redundant_load(codeblock_tester: CodeBlockDocstringTester) ->
     codeblock_tester.check()
 
 
-def test_same_value_redundant_load(codeblock_tester: CodeBlockDocstringTester) -> None:
+def test_alias_swizzled(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
-    Test handling of writing the same value to a potential alias.
+    A reference can contain a swizzled version of a register.
 
-    TODO: This is actually incorrect: 'X' might contain a shifted version of 'a',
-          in which case writing the value of 'a' to 'X' will change 'a'.
+    There used to be a bug where the simplifier assumed that writing a register's current
+    value to a reference didn't invalidate previously loaded values. However, that is not
+    correct when the reference swizzles the bits.
 
     .. code-block:: instr
 
-        func test(u32& X)
-            X := a
+        func inner(u32& X)
+            X := a  # this changes 'a'
             b := a
+
+        func test()
+            a := $12345678
+            inner(a[:16];a[16:])
 
     .. code-block:: dump
 
-        load from reg32 a
-        store load(reg32 a) in X
-        store load(reg32 a) in reg32 b
+        store $56781234 in reg32 a
+        store $56781234 in reg32 b
     """
     codeblock_tester.check()
 
