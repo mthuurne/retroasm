@@ -6,21 +6,35 @@ from typing import cast
 from pytest import fixture, mark
 
 from retroasm.codeblock import Load, LoadedValue, Store
+from retroasm.codeblock_builder import SemanticsCodeBlockBuilder
 from retroasm.expression import AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
-from retroasm.reference import BitString, ConcatenatedBits, SingleStorage, SlicedBits
+from retroasm.namespace import GlobalNamespace, LocalNamespace, ReadOnlyNamespace
+from retroasm.reference import BitString, ConcatenatedBits, Reference, SingleStorage, SlicedBits
 from retroasm.storage import Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width, width_for_mask
 
-from .codeblock.utils import TestNamespace
+from .utils_segment import parse_segment
+
+
+def parse_slices(
+    namespace: ReadOnlyNamespace, *storage_slices: str
+) -> tuple[tuple[Storage, Segment], ...]:
+    def _parse_one(storage_str: str) -> tuple[Storage, Segment]:
+        idx = storage_str.index("[")
+        name = storage_str[:idx]
+        slice_str = storage_str[idx:]
+        ref = namespace[name]
+        assert isinstance(ref, Reference), ref
+        bits = ref.bits
+        assert isinstance(bits, SingleStorage), bits
+        return bits.storage, parse_segment(slice_str)
+
+    return tuple(_parse_one(storage_str) for storage_str in storage_slices)
 
 
 @fixture
-def namespace() -> TestNamespace:
-    return TestNamespace()
-
-
-def slice_bits(bits: BitString, offset: int, width: Width) -> SlicedBits:
-    return SlicedBits(bits, IntLiteral(offset), width)
+def namespace() -> LocalNamespace:
+    return LocalNamespace(GlobalNamespace())
 
 
 def decompose_expr(expr: Expression) -> Iterator[tuple[Expression, int, Width, int]]:
@@ -88,7 +102,7 @@ def iter_slice_loads(bits: BitString) -> Iterator[Storage]:
 
 
 def check_flatten(
-    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
+    namespace: LocalNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """
     Check that the produced bit string flattens to the expected output.
@@ -119,13 +133,16 @@ def check_flatten(
 
 
 def check_load(
-    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
+    namespace: LocalNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """Check that loading from a bit string works as expected."""
 
+    builder = SemanticsCodeBlockBuilder()
+
     # Check that emit_load only emits Load nodes.
-    value = namespace.emit_load(bits)
-    operations = namespace.builder.operations
+    value = bits.emit_load(builder, None)
+
+    operations = builder.operations
     for operation in operations:
         assert isinstance(operation, Load)
 
@@ -162,16 +179,17 @@ def check_load(
 
 
 def check_store(
-    namespace: TestNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
+    namespace: LocalNamespace, bits: BitString, expected: Sequence[tuple[Storage, Segment]]
 ) -> None:
     """Check that storing to a bit string works as expected."""
 
     # Check that emit_store only emits Load and Store nodes.
-    operations = namespace.builder.operations
-    value_ref = namespace.add_argument("V", IntType.int)
-    value = namespace.emit_load(value_ref)
+    builder = SemanticsCodeBlockBuilder()
+    operations = builder.operations
+    value_ref = namespace.add_argument("V", IntType.int, None)
+    value = value_ref.emit_load(builder, None)
     init_idx = len(operations)
-    namespace.emit_store(bits, value)
+    bits.emit_store(builder, value, None)
     load_ops: list[Load] = []
     store_ops: list[Store] = []
     for operation in operations[init_idx:]:
@@ -202,98 +220,98 @@ def check_store(
 
 check_param = mark.parametrize("check", [check_flatten, check_load, check_store])
 
-CheckFunc = Callable[[TestNamespace, BitString, Sequence[tuple[Storage, Segment]]], None]
+CheckFunc = Callable[[LocalNamespace, BitString, Sequence[tuple[Storage, Segment]]], None]
 
 
 @check_param
-def test_decompose_single(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_single(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test construction of SingleStorage."""
-    ref0 = namespace.add_argument("R0")
-    expected = namespace.parse("R0[0:8]")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    expected = parse_slices(namespace, "R0[0:8]")
     check(namespace, ref0.bits, expected)
 
 
 @check_param
-def test_decompose_basic_concat(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_basic_concat(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test construction of ConcatenatedBits."""
-    ref0 = namespace.add_argument("R0", IntType.u(7))
-    ref1 = namespace.add_argument("R1", IntType.u(3))
-    ref2 = namespace.add_argument("R2", IntType.u(13))
+    ref0 = namespace.add_argument("R0", IntType.u(7), None)
+    ref1 = namespace.add_argument("R1", IntType.u(3), None)
+    ref2 = namespace.add_argument("R2", IntType.u(13), None)
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
-    expected = namespace.parse("R2[0:13]", "R1[0:3]", "R0[0:7]")
+    expected = parse_slices(namespace, "R2[0:13]", "R1[0:3]", "R0[0:7]")
     check(namespace, concat, expected)
 
 
 @check_param
-def test_decompose_self_concat(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_self_concat(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test concatenation of a bit string to itself."""
-    ref0 = namespace.add_argument("R0")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
     concat = ConcatenatedBits(ref0.bits, ref0.bits)
-    expected = namespace.parse("R0[0:8]", "R0[0:8]")
+    expected = parse_slices(namespace, "R0[0:8]", "R0[0:8]")
     check(namespace, concat, expected)
 
 
 @check_param
-def test_decompose_basic_slice(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_basic_slice(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test construction of SlicedBits."""
-    ref0 = namespace.add_argument("R0")
-    sliced = slice_bits(ref0.bits, 2, 3)
-    expected = namespace.parse("R0[2:5]")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    sliced = SlicedBits(ref0.bits, IntLiteral(2), 3)
+    expected = parse_slices(namespace, "R0[2:5]")
     check(namespace, sliced, expected)
 
 
 @check_param
-def test_decompose_slice_past_end(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_slice_past_end(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test clipping of slice width against parent width."""
-    ref0 = namespace.add_argument("R0")
-    sliced = slice_bits(ref0.bits, 2, 30)
-    expected = namespace.parse("R0[2:8]")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    sliced = SlicedBits(ref0.bits, IntLiteral(2), 30)
+    expected = parse_slices(namespace, "R0[2:8]")
     check(namespace, sliced, expected)
 
 
 @check_param
-def test_decompose_slice_outside(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_slice_outside(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test handling of slice index outside parent width."""
-    ref0 = namespace.add_argument("R0")
-    sliced = slice_bits(ref0.bits, 12, 30)
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    sliced = SlicedBits(ref0.bits, IntLiteral(12), 30)
     expected = ()
     check(namespace, sliced, expected)
 
 
 @check_param
-def test_decompose_slice_concat(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_slice_concat(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test slicing concatenated values."""
-    ref0 = namespace.add_argument("R0")
-    ref1 = namespace.add_argument("R1")
-    ref2 = namespace.add_argument("R2")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    ref1 = namespace.add_argument("R1", IntType.u(8), None)
+    ref2 = namespace.add_argument("R2", IntType.u(8), None)
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
-    sliced = slice_bits(concat, 5, 13)
-    expected = namespace.parse("R2[5:8]", "R1[0:8]", "R0[0:2]")
+    sliced = SlicedBits(concat, IntLiteral(5), 13)
+    expected = parse_slices(namespace, "R2[5:8]", "R1[0:8]", "R0[0:2]")
     check(namespace, sliced, expected)
 
 
 @check_param
-def test_decompose_combined(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_combined(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test combinations of slicing and concatenation."""
-    ref0 = namespace.add_argument("R0")
-    ref1 = namespace.add_argument("R1")
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    ref1 = namespace.add_argument("R1", IntType.u(8), None)
     concat_a = ConcatenatedBits(ref0.bits, ref1.bits)
-    slice_a = slice_bits(concat_a, 5, 6)
-    ref2 = namespace.add_argument("R2")
+    slice_a = SlicedBits(concat_a, IntLiteral(5), 6)
+    ref2 = namespace.add_argument("R2", IntType.u(8), None)
     concat_b = ConcatenatedBits(slice_a, ref2.bits)
-    storage = slice_bits(concat_b, 4, 7)
-    expected = namespace.parse("R1[1:3]", "R2[0:5]")
+    storage = SlicedBits(concat_b, IntLiteral(4), 7)
+    expected = parse_slices(namespace, "R1[1:3]", "R2[0:5]")
     check(namespace, storage, expected)
 
 
 @check_param
-def test_decompose_nested_slice(namespace: TestNamespace, check: CheckFunc) -> None:
+def test_decompose_nested_slice(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test taking a slice from sliced bit strings."""
-    ref0 = namespace.add_argument("R0")
-    ref1 = namespace.add_argument("R1")
-    slice0 = slice_bits(ref0.bits, 2, 5)
-    slice1 = slice_bits(ref1.bits, 1, 4)
+    ref0 = namespace.add_argument("R0", IntType.u(8), None)
+    ref1 = namespace.add_argument("R1", IntType.u(8), None)
+    slice0 = SlicedBits(ref0.bits, IntLiteral(2), 5)
+    slice1 = SlicedBits(ref1.bits, IntLiteral(1), 4)
     concat = ConcatenatedBits(slice0, slice1)
-    slice_c = slice_bits(concat, 3, 3)
-    expected = namespace.parse("R0[5:7]", "R1[1:2]")
+    slice_c = SlicedBits(concat, IntLiteral(3), 3)
+    expected = parse_slices(namespace, "R0[5:7]", "R1[1:2]")
     check(namespace, slice_c, expected)
