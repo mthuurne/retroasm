@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from typing import IO, Final, override
 
@@ -170,26 +170,48 @@ def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
 
 
 class CodeGraph:
-    __slots__ = ("_block", "_storages", "_arguments")
+    __slots__ = ("entry", "storages", "arguments")
 
-    def __init__(self, block: BasicBlock):
-        self._block = block
+    def __init__(self, entry: CodeNode):
+        self.entry: Final[CodeNode] = entry
+        """The entry point for this code graph."""
+
+        self.storages: Final[Set[Storage]] = frozenset(
+            storage for block in self.iter_blocks() for storage in block.storages
+        )
+        """A set of all storages that are accessed by this code graph."""
+
+        self.arguments: Final[Mapping[str, ArgStorage]] = _find_arguments(self.storages)
+        """All arguments that occur in this graph, mapped by name."""
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        self._block.dump(file=file)
+        for node in self.iter_nodes():
+            if (label := node.label) is not None:
+                print(f"    @{label}", file=file)
+            if (block := node.block) is not None:
+                block.dump(file=file)
+
+    def iter_nodes(self) -> Iterator[CodeNode]:
+        yield self.entry
+
+    def iter_blocks(self) -> Iterator[BasicBlock]:
+        for node in self.iter_nodes():
+            if (block := node.block) is not None:
+                yield block
 
     @property
     def operations(self) -> Sequence[Load | Store]:
-        return self._block.operations
+        # TODO: What do callers use this for?
+        return [operation for block in self.iter_blocks() for operation in block.operations]
 
-    @const_property
-    def storages(self) -> Set[Storage]:
-        """A set of all storages that are accessed by this code graph."""
-        return self._block.storages
 
-    @const_property
-    def arguments(self) -> Mapping[str, ArgStorage]:
-        return self._block.arguments
+# TODO: Make immutable later?
+@dataclass(slots=True)
+class CodeNode:
+    block: BasicBlock | None = None
+    label: str | None = None
+    incoming: list[CodeNode] = field(default_factory=list)
+    outgoing: list[tuple[Expression, CodeNode]] = field(default_factory=list)
 
 
 class FunctionBody:
