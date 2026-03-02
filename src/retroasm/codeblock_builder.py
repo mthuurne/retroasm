@@ -138,49 +138,6 @@ class CodeBlockBuilder(ABC):
         """
 
 
-class IllegalStateAccess(BadInput):
-    """
-    Raised when an operation is attempted that reads or writes state
-    in a situation where that is not allowed.
-    """
-
-    def __init__(self, msg: str, location: InputLocation | None):
-        locations: Sequence[InputLocation]
-        if location is None:
-            locations = ()
-        else:
-            locations = (location,)
-        super().__init__(msg, *locations)
-
-
-class StatelessCodeBlockBuilder(CodeBlockBuilder):
-    """
-    A CodeBlockBuilder that raises IllegalStateAccess when its users attempt
-    touch any state, such as performing register access or I/O.
-    """
-
-    @override
-    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
-        raise IllegalStateAccess(f"attempt to read state: {storage}", location)
-
-    @override
-    def emit_store_bits(
-        self, storage: Storage, value: Expression, location: InputLocation | None
-    ) -> None:
-        raise IllegalStateAccess(f"attempt to write state: {storage}", location)
-
-    @override
-    def inline_function_call(
-        self,
-        func: Function,
-        arg_map: Mapping[str, BitString | None],
-        location: InputLocation | None = None,
-    ) -> BitString | None:
-        # TODO: This is probably overly strict: calling a function that does
-        #       not touch state should be fine.
-        raise IllegalStateAccess("attempt to call function", location)
-
-
 class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:

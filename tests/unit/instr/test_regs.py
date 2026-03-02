@@ -102,7 +102,7 @@ def test_reg_alias_no_ref(instr_tester: InstructionSetDocstringTester) -> None:
 
     .. code-block:: inputlog
 
-        test.instr:3: ERROR: bad register alias: bad value for constant "u16 pc": attempt to read state: reg16 ip
+        test.instr:3: ERROR: attempt to read state: reg16 ip
         u16 pc = ip
                  ^^
 

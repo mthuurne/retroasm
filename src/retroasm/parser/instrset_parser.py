@@ -5,12 +5,8 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Set
 from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
 
-from ..codeblock import FunctionBody
-from ..codeblock_builder import (
-    SemanticsCodeBlockBuilder,
-    StatelessCodeBlockBuilder,
-    returned_bits,
-)
+from ..codeblock import FunctionBody, Load, Store
+from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
 from ..decode import Prefix
 from ..encoding import (
     Encoding,
@@ -74,7 +70,6 @@ def _parse_regs(
     collector: ErrorCollector,
     args: InputLocation,
     global_namespace: GlobalNamespace,
-    global_builder: StatelessCodeBlockBuilder,
 ) -> None:
     if args:
         collector.error("register definition must have no arguments", location=args)
@@ -120,15 +115,30 @@ def _parse_regs(
                         )
                 case DefinitionNode(decl=decl, value=value):
                     # Define register alias.
+                    builder = SemanticsCodeBlockBuilder()
                     try:
                         ref = convert_definition(
-                            decl, reg_type, value, global_namespace, global_builder
+                            decl, reg_type, value, global_namespace, builder
                         )
                     except BadInput as ex:
                         message = f"bad register alias: {ex}"
                         collector.error(message, location=ex.locations)
                         ref = bad_reference(reg_type, message)
                     else:
+                        for operation in builder.operations:
+                            match operation:
+                                case Load(storage=storage, location=location):
+                                    collector.error(
+                                        f"attempt to read state: {storage}",
+                                        location=location,
+                                    )
+                                case Store(storage=storage, location=location):
+                                    collector.error(
+                                        f"attempt to write state: {storage}",
+                                        location=location,
+                                    )
+                                case operation:
+                                    bad_type(operation)
                         ref = ref.simplify()
                     try:
                         global_namespace.define(decl.name.name, ref, decl.name.location)
@@ -982,7 +992,6 @@ class InstructionSetParser:
 
     def __init__(self, *, want_semantics: bool = True):
         self.want_semantics = want_semantics
-        self.global_builder = StatelessCodeBlockBuilder()
         self.global_namespace = GlobalNamespace()
         self.prefixes = PrefixMappingFactory()
         self.modes: dict[str, Mode] = {}
@@ -1002,7 +1011,6 @@ class InstructionSetParser:
         num_errors_start = collector.problem_counter.num_errors
 
         global_namespace = self.global_namespace
-        global_builder = self.global_builder
         prefixes = self.prefixes
         modes = self.modes
         instructions = self.instructions
@@ -1019,7 +1027,7 @@ class InstructionSetParser:
             args = match.group(2) if match.has_group(2) else header.end_location
             def_type = keyword.text
             if def_type == "reg":
-                _parse_regs(reader, collector, args, global_namespace, global_builder)
+                _parse_regs(reader, collector, args, global_namespace)
             elif def_type == "io":
                 _parse_io(reader, collector, args, global_namespace)
             elif def_type == "prefix":
