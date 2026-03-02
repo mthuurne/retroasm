@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
-from typing import cast, override
+from typing import Final, cast, override
 
 from .expression import Expression
 from .types import IntType, Width
@@ -209,6 +209,47 @@ class Register(Storage):
         return self is other or isinstance(other, ArgStorage)
 
 
+class Variable(Storage):
+    """
+    A local variable in which intermediate results can be stored.
+    Variables don't persist into the final code graph.
+    """
+
+    __slots__ = ("name",)
+
+    def __init__(self, name: str, width: Width):
+        Storage.__init__(self, width)
+        self.name: Final[str] = name
+
+    @override
+    def __str__(self) -> str:
+        return f"var{self._width} {self.name}"
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.name!r}, {self._width!r})"
+
+    @override
+    def can_load_have_side_effect(self) -> bool:
+        return False
+
+    @override
+    def can_store_have_side_effect(self) -> bool:
+        return False
+
+    @override
+    def is_load_consistent(self) -> bool:
+        return True
+
+    @override
+    def is_sticky(self) -> bool:
+        return True
+
+    @override
+    def might_be_same(self, other: Storage) -> bool:
+        return self is other
+
+
 class ArgStorage(Storage):
     """
     A placeholder storage location for a storage passed to a function.
@@ -252,7 +293,9 @@ class ArgStorage(Storage):
 
     @override
     def might_be_same(self, other: Storage) -> bool:
-        return True
+        # A caller's local variables can be passed via reference arguments,
+        # but those are separate from the callee's local variables.
+        return not isinstance(other, Variable)
 
 
 class IOStorage(Storage):

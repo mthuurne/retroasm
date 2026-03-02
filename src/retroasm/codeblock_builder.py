@@ -10,9 +10,9 @@ from .expression import Expression, ZeroTest
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
-from .reference import BitString, FixedValue, Reference, SingleStorage, Variable, bad_reference
-from .storage import ArgStorage, IOStorage, Keeper, Register, Storage
-from .types import IntType, mask_for_width
+from .reference import BitString, FixedValue, Reference, SingleStorage, bad_reference
+from .storage import ArgStorage, IOStorage, Keeper, Register, Storage, Variable
+from .types import IntType
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -33,78 +33,18 @@ def _simplify_storage(storage: Storage) -> Storage:
     return storage
 
 
-class _InitialValue(Expression):
-    """
-    Expression that represents the value of a traced variable at the start
-    of a basic block.
-    """
-
-    __slots__ = ("_variable", "_block_id", "_location")
-
-    @property
-    def location(self) -> InputLocation | None:
-        return self._location
-
-    @property
-    def name(self) -> str:
-        return self._variable.name
-
-    @property
-    @override
-    def mask(self) -> int:
-        # Note that sign extension is added at the Reference level,
-        # we only need to care about width here.
-        return mask_for_width(self._variable.width)
-
-    def __init__(self, variable: Variable, block_id: int, location: InputLocation | None):
-        self._variable = variable
-        self._block_id = block_id
-        self._location = location
-        Expression.__init__(self)
-
-    @override
-    def _ctorargs(self) -> tuple[Variable, int]:
-        return (self._variable, self._block_id)
-
-    @override
-    def __str__(self) -> str:
-        return f"(initial value of {self._variable} in block {self._block_id})"
-
-    @override
-    def _equals(self, other: _InitialValue) -> bool:
-        return self._variable == other._variable and self._block_id == other._block_id
-
-    @property
-    @override
-    def complexity(self) -> int:
-        return 8
-
-
-def _check_undefined(
-    operations: Sequence[Load | Store], returned: Sequence[BitString], collector: ErrorCollector
-) -> None:
+def _check_undefined(operations: Sequence[Load | Store], collector: ErrorCollector) -> None:
     """Report uses of uninitialized local variables."""
 
     with collector.check():
         for operation in operations:
-            if isinstance((storage := operation.storage), IOStorage):
-                for value in storage.index.iter_instances(_InitialValue):
+            match operation:
+                case Load(storage=Variable(name=name), location=location):
+                    # Any remaining loads are undefined: if the value was defined,
+                    # it would have been replaced by its traced value.
                     collector.error(
-                        f'Undefined value of variable "{value.name}" is used as an I/O index',
-                        location=value.location,
-                    )
-            if isinstance(operation, Store):
-                for value in operation.expr.iter_instances(_InitialValue):
-                    collector.error(
-                        f'Undefined value of variable "{value.name}" is stored',
-                        location=value.location,
-                    )
-        for ret_bits in returned:
-            for expr in ret_bits.iter_expressions():
-                for value in expr.iter_instances(_InitialValue):
-                    collector.error(
-                        f'Undefined value of variable "{value.name}" is returned',
-                        location=value.location,
+                        f'Variable "{name}" is used while undefined',
+                        location=location,
                     )
 
 
@@ -125,7 +65,6 @@ class CodeBlockBuilder(ABC):
     def __init__(self) -> None:
         super().__init__()
         self._block_id = self._create_block_id()
-        self._variables: dict[str, Expression] = {}
         self._labels: dict[str, InputLocation | None] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
@@ -148,23 +87,6 @@ class CodeBlockBuilder(ABC):
         Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
-
-    def read_variable(self, var: Variable, location: InputLocation | None) -> Expression:
-        name = var.name
-        try:
-            return self._variables[name]
-        except KeyError:
-            initial = _InitialValue(var, self._block_id, location)
-            self._variables[name] = initial
-            return initial
-
-    def write_variable(
-        self,
-        var: Variable,
-        value: Expression,
-        location: InputLocation | None,  # pylint: disable=unused-argument
-    ) -> None:
-        self._variables[var.name] = value
 
     def add_label(self, label: str, location: InputLocation | None = None) -> None:
         """
@@ -314,17 +236,19 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
 
         self._check_labels(collector)
 
-        def fixate_variable(var: Variable) -> FixedValue:
-            value = self.read_variable(var, location)
-            return FixedValue(value, var.width)
+        def fixate_variable(storage: Storage) -> FixedValue | None:
+            if isinstance(storage, Variable):
+                value = self.emit_load_bits(storage, location)
+                return FixedValue(value, storage.width)
+            return None
 
         # Fixate returned variables.
-        returned = [bits.substitute(variable_func=fixate_variable) for bits in returned]
+        returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
         operations = self.operations
         simplify_block(operations, returned)
 
-        _check_undefined(operations, returned, collector)
+        _check_undefined(operations, collector)
 
         code = CodeGraph(CodeNode(BasicBlock(operations)))
         return FunctionBody(code, returned)
@@ -383,7 +307,7 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             # A load or store side effect on an I/O channel can affect other addresses
             # and even other channels, but it wouldn't affect registers.
             for storage2 in list(stored_values.keys()):
-                if not isinstance(storage2, Register):
+                if not isinstance(storage2, (Register, Variable)):
                     del stored_values[storage2]
 
     @override

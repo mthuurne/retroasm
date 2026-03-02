@@ -5,6 +5,7 @@ from collections import defaultdict
 from .codeblock import Load, LoadedValue, Store, verify_loads
 from .expression import Expression
 from .reference import BitString
+from .storage import Variable
 
 
 def simplify_block(operations: list[Load | Store], returned: list[BitString]) -> None:
@@ -14,6 +15,10 @@ def simplify_block(operations: list[Load | Store], returned: list[BitString]) ->
     # This can also help find additional unused loads, if a loaded value is dropped
     # during simplification because it doesn't affect the expression's value.
     _update_expressions_in_bitstrings(returned)
+
+    # Local variables don't exist after exiting the block, so once their values have
+    # been traced, we don't need the stores anymore.
+    _remove_variable_stores(operations)
 
     # With known-value loads removed by the builder, some prior stores to the same
     # storages may have become redundant.
@@ -30,6 +35,15 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
 
     for i, ret_bits in enumerate(returned):
         returned[i] = ret_bits.simplify()
+
+
+def _remove_variable_stores(operations: list[Load | Store]) -> None:
+    """Remove stores to local variables."""
+
+    for i in range(len(operations) - 1, -1, -1):
+        match operations[i]:
+            case Store(storage=Variable()):
+                del operations[i]
 
 
 def _remove_overwritten_stores(operations: list[Load | Store]) -> None:

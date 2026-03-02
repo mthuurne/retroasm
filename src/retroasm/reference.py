@@ -65,7 +65,6 @@ class BitString(ABC):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> BitString:
         """
         Applies the given substitution functions to each applicable
@@ -170,7 +169,6 @@ class FixedValue(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> FixedValue:
         if expression_func is None:
             return self
@@ -233,7 +231,6 @@ class SingleStorage(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> BitString:
         storage = self._storage
         if storage_func is not None:
@@ -264,66 +261,6 @@ class SingleStorage(BitString):
         self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         builder.emit_store_bits(self._storage, value, location)
-
-    @override
-    def decompose(self) -> Iterator[tuple[Self, Segment]]:
-        yield self, Segment(0, self.width)
-
-
-class Variable(BitString):
-    """A local variable."""
-
-    __slots__ = ("_name",)
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def __init__(self, name: str, width: Width):
-        self._name = name
-        super().__init__(width)
-
-    @override
-    def __repr__(self) -> str:
-        return f"Variable({self._name}, {self._width})"
-
-    @override
-    def __str__(self) -> str:
-        return f"var{self._width} {self._name}"
-
-    @override
-    def iter_expressions(self) -> Iterator[Expression]:
-        return iter(())
-
-    @override
-    def iter_storages(self) -> Iterator[Storage]:
-        return iter(())
-
-    @override
-    def substitute(
-        self,
-        *,
-        storage_func: Callable[[Storage], BitString | None] | None = None,
-        expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
-    ) -> BitString:
-        if variable_func is not None:
-            new_bits = variable_func(self)
-            if new_bits is not None:
-                return new_bits
-        return self
-
-    @override
-    def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
-    ) -> Expression:
-        return builder.read_variable(self, location)
-
-    @override
-    def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
-    ) -> None:
-        return builder.write_variable(self, value, location)
 
     @override
     def decompose(self) -> Iterator[tuple[Self, Segment]]:
@@ -377,15 +314,12 @@ class ConcatenatedBits(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> ConcatenatedBits:
         changed = False
         subs = []
         for sub in self._subs:
             new_bits = sub.substitute(
-                storage_func=storage_func,
-                expression_func=expression_func,
-                variable_func=variable_func,
+                storage_func=storage_func, expression_func=expression_func
             )
             subs.append(new_bits)
             changed |= new_bits is not sub
@@ -478,14 +412,9 @@ class SlicedBits(BitString):
         *,
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
-        variable_func: Callable[[Variable], BitString | None] | None = None,
     ) -> SlicedBits:
         bits = self._bits
-        new_bits = bits.substitute(
-            storage_func=storage_func,
-            expression_func=expression_func,
-            variable_func=variable_func,
-        )
+        new_bits = bits.substitute(storage_func=storage_func, expression_func=expression_func)
         if new_bits is bits:
             return self
         else:
@@ -541,7 +470,7 @@ class SlicedBits(BitString):
             slice_seg >>= width
 
 
-type AtomicBitString = FixedValue | SingleStorage | Variable
+type AtomicBitString = FixedValue | SingleStorage
 """An atomic bit string is one that decomposes into itself."""
 
 

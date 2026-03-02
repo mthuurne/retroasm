@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from retroasm.codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
 from retroasm.expression import IntLiteral
-from retroasm.reference import FixedValue, Reference, Variable
+from retroasm.reference import FixedValue, Reference, SingleStorage
+from retroasm.storage import Variable
 from retroasm.types import IntType
 
 from ..expression.utils import assert_int_literal
@@ -11,7 +12,7 @@ from ..expression.utils import assert_int_literal
 def test_ret_bits_override() -> None:
     """A returned bit string doesn't have to be named "ret"."""
 
-    ref_v = Reference(Variable("V", 20), IntType.u(20))
+    ref_v = Reference(SingleStorage(Variable("V", 20)), IntType.u(20))
 
     builder = SemanticsCodeBlockBuilder()
     ref_v.emit_store(builder, IntLiteral(604), None)

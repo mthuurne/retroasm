@@ -54,7 +54,7 @@ class TestValue(Expression):
 
 def assert_int_literal(expr: Expression, value: int) -> None:
     """Assert that the given expression is an int literal with the given value."""
-    assert isinstance(expr, IntLiteral)
+    assert isinstance(expr, IntLiteral), expr
     assert expr.value == value
 
 

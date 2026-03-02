@@ -15,7 +15,7 @@ def test_variable_undefined_compute(instr_tester: InstructionSetDocstringTester)
 
     .. code-block:: inputlog
 
-        test.instr:3: ERROR: Undefined value of variable "UNDEF" is stored
+        test.instr:3: ERROR: Variable "UNDEF" is used while undefined
             a := a + UNDEF
                      ^^^^^
     """
@@ -34,7 +34,7 @@ def test_variable_undefined_ioindex(instr_tester: InstructionSetDocstringTester)
 
     .. code-block:: inputlog
 
-        test.instr:3: ERROR: Undefined value of variable "UNDEF" is used as an I/O index
+        test.instr:3: ERROR: Variable "UNDEF" is used while undefined
             a := mem[UNDEF]
                      ^^^^^
     """
@@ -53,7 +53,7 @@ def test_variable_undefined_return_value(instr_tester: InstructionSetDocstringTe
 
     .. code-block:: inputlog
 
-        test.instr:3: ERROR: Undefined value of variable "UNDEF" is returned
+        test.instr:3: ERROR: Variable "UNDEF" is used while undefined
             def int ret = UNDEF
                           ^^^^^
     """
@@ -73,7 +73,7 @@ def test_variable_undefined_return_compute(instr_tester: InstructionSetDocstring
 
     .. code-block:: inputlog
 
-        test.instr:3: ERROR: Undefined value of variable "UNDEF" is returned
+        test.instr:3: ERROR: Variable "UNDEF" is used while undefined
             def int ret = UNDEF + 1
                           ^^^^^
     """
@@ -109,7 +109,7 @@ def test_variable_undefined_return_reference(
 
     .. code-block:: inputlog
 
-        test.instr:1: ERROR: Undefined value of variable "UNDEF" is returned
+        test.instr:1: ERROR: Variable "UNDEF" is used while undefined
         func return_undef()
              ^^^^^^^^^^^^
     """

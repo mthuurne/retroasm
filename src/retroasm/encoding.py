@@ -9,14 +9,7 @@ from typing import TYPE_CHECKING, Final, Self, cast, override
 
 from .expression import Expression, IntLiteral
 from .input import BadInput, ErrorCollector, InputLocation
-from .reference import (
-    BitString,
-    FixedValue,
-    FixedValueReference,
-    SingleStorage,
-    TabooReference,
-    Variable,
-)
+from .reference import BitString, FixedValue, FixedValueReference, SingleStorage, TabooReference
 from .symbol import ImmediateValue, rename_immediate
 from .types import IntType, Segment, Width
 from .utils import bad_type, const_property
@@ -231,8 +224,6 @@ def decompose_encoding(
                             f"unsupported storage type in encoding: "
                             f"{storage.__class__.__name__}"
                         )
-                    case Variable():
-                        raise ValueError("local variable cannot be used in encoding")
                     case base:
                         bad_type(base)
                 # Note: It is possible for the width to be unlimited, but only

@@ -5,8 +5,8 @@ from typing import Never, TypeVar, cast, override
 
 from .function import Function
 from .input import BadInput, InputLocation
-from .reference import FixedValueReference, Reference, SingleStorage, Variable
-from .storage import ArgStorage, IOChannel, Register
+from .reference import FixedValueReference, Reference, SingleStorage
+from .storage import ArgStorage, IOChannel, Register, Variable
 from .types import IntType
 
 type NamespaceValue = Reference | IOChannel | Function
@@ -150,7 +150,7 @@ class LocalNamespace(Namespace[Reference, NamespaceValue]):
     def add_variable(
         self, name: str, typ: IntType, location: InputLocation | None = None
     ) -> Reference:
-        ref = Reference(Variable(name, typ.width), typ)
+        ref = Reference(SingleStorage(Variable(name, typ.width)), typ)
         self.define(name, ref, location)
         return ref
 
