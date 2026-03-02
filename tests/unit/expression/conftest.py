@@ -5,7 +5,7 @@ from inspect import cleandoc
 
 import pytest
 
-from retroasm.codeblock_builder import SemanticsCodeBlockBuilder
+from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import Expression
 from retroasm.expression_simplifier import simplify_expression
 from retroasm.input import BadInput, InputLocation
@@ -21,7 +21,7 @@ from ..docstring import unpack_docstring
 def expression_from_string(text: str) -> Expression:
     location = InputLocation.from_string(text)
     node = parse_expr(location)
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
     namespace = LocalNamespace(None)
     namespace.define("A", symbol_reference("A", IntType.int))
     namespace.define("B", symbol_reference("B", IntType.int))

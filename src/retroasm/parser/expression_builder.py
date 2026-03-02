@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 
 from ..codeblock import Load, Store
-from ..codeblock_builder import CodeBlockBuilder, SemanticsCodeBlockBuilder
+from ..codeblock_builder import CodeBlockBuilder
 from ..expression import (
     AddOperator,
     AndOperator,
@@ -509,7 +509,7 @@ def build_statement_eval(
     collector: ErrorCollector,
     where_desc: str,
     namespace: LocalNamespace,
-    builder: SemanticsCodeBlockBuilder,
+    builder: CodeBlockBuilder,
     node: ParseNode,
 ) -> None:
     """
@@ -587,7 +587,7 @@ def emit_code_from_statements(
     collector: ErrorCollector,
     where_desc: str,
     namespace: LocalNamespace,
-    builder: SemanticsCodeBlockBuilder,
+    builder: CodeBlockBuilder,
     statements: Iterable[ParseNode],
 ) -> None:
     """

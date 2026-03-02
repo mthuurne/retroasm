@@ -6,7 +6,7 @@ from importlib.resources.abc import Traversable
 from logging import WARNING, Logger, getLogger
 
 from ..codeblock import FunctionBody, Load, Store
-from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
+from ..codeblock_builder import CodeBlockBuilder, returned_bits
 from ..decode import Prefix
 from ..encoding import (
     Encoding,
@@ -115,7 +115,7 @@ def _parse_regs(
                         )
                 case DefinitionNode(decl=decl, value=value):
                     # Define register alias.
-                    builder = SemanticsCodeBlockBuilder()
+                    builder = CodeBlockBuilder()
                     try:
                         ref = convert_definition(
                             decl, reg_type, value, global_namespace, builder
@@ -288,7 +288,7 @@ def _parse_prefix(
                         'prefix semantics cannot be empty; use "nop" instead', location=sem_loc
                     )
                 else:
-                    sem_builder = SemanticsCodeBlockBuilder()
+                    sem_builder = CodeBlockBuilder()
                     sem_namespace = LocalNamespace(namespace)
                     try:
                         _parse_instr_semantics(collector, sem_loc, sem_namespace, sem_builder)
@@ -458,7 +458,7 @@ def _parse_encoding_expr(
             case ref:
                 bad_type(ref)
 
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
     try:
         enc_ref = build_reference(enc_node, enc_namespace, builder)
     except BadInput as ex:
@@ -660,7 +660,7 @@ def _parse_mode_semantics(
     _collector: ErrorCollector,
     sem_loc: InputLocation,
     sem_namespace: LocalNamespace,
-    sem_builder: SemanticsCodeBlockBuilder,
+    sem_builder: CodeBlockBuilder,
     mode_type: None | IntType | ReferenceType,
 ) -> Reference | None:
     semantics = parse_expr(sem_loc)
@@ -686,7 +686,7 @@ def _parse_instr_semantics(
     collector: ErrorCollector,
     sem_loc: InputLocation,
     namespace: LocalNamespace,
-    builder: SemanticsCodeBlockBuilder,
+    builder: CodeBlockBuilder,
     mode_type: None | IntType | ReferenceType = None,
 ) -> None:
     assert mode_type is None, mode_type
@@ -707,7 +707,7 @@ def _parse_mode_rows(
             ErrorCollector,
             InputLocation,
             LocalNamespace,
-            SemanticsCodeBlockBuilder,
+            CodeBlockBuilder,
             None | IntType | ReferenceType,
         ],
         Reference | None,
@@ -791,7 +791,7 @@ def _parse_mode_rows(
                         # Parse mnemonic field as semantics.
                         sem_loc = mnem_loc
 
-                    sem_builder = SemanticsCodeBlockBuilder()
+                    sem_builder = CodeBlockBuilder()
                     sem_namespace = LocalNamespace(global_namespace)
                     try:
                         # Define placeholders in semantics builder.

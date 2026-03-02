@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ..codeblock_builder import SemanticsCodeBlockBuilder, returned_bits
+from ..codeblock_builder import CodeBlockBuilder, returned_bits
 from ..function import Function
 from ..input import BadInput, DelayedError, ErrorCollector, InputLocation
 from ..namespace import GlobalNamespace, LocalNamespace
@@ -41,7 +41,7 @@ def create_func(
     global_namespace: GlobalNamespace,
 ) -> Function:
     func_name = func_name_location.text
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
     namespace = LocalNamespace(global_namespace)
     for arg_name, arg_decl in args.items():
         arg_loc = arg_name_locations[arg_name]

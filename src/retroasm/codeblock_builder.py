@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import IO, ClassVar, NoReturn, Self, assert_never, override
+from typing import IO, ClassVar, NoReturn, Self, assert_never
 
 from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -52,7 +51,7 @@ def returned_bits(ret_ref: Reference | None) -> Sequence[BitString]:
     return () if ret_ref is None else (ret_ref.bits,)
 
 
-class CodeBlockBuilder(ABC):
+class CodeBlockBuilder:
     _next_block_id: ClassVar[int] = 0
 
     @classmethod
@@ -62,83 +61,6 @@ class CodeBlockBuilder(ABC):
         cls._next_block_id = block_id + 1
         return block_id
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._block_id = self._create_block_id()
-        self._labels: dict[str, InputLocation | None] = {}
-        self._branches: dict[str, list[InputLocation]] = {}
-
-    def dump(self, *, file: IO[str] | None = None) -> None:
-        """Prints the current state of this code block builder on stdout."""
-
-    @abstractmethod
-    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
-        """
-        Loads the value from the given storage by emitting a Load node on
-        this builder.
-        Returns an expression that represents the loaded value.
-        """
-
-    @abstractmethod
-    def emit_store_bits(
-        self, storage: Storage, value: Expression, location: InputLocation | None
-    ) -> None:
-        """
-        Stores the value of the given expression in the given storage by
-        emitting a Store node on this builder.
-        """
-
-    def add_label(self, label: str, location: InputLocation | None = None) -> None:
-        """
-        Add a label that identifies the current position in the code block.
-        """
-        if label in self._labels:
-            old_location = self._labels[label]
-            raise BadInput(f'label "{label}" already defined', location, old_location)
-        else:
-            self._labels[label] = location
-
-    def add_branch(
-        self,
-        label: str,
-        condition: Expression | None = None,
-        *,
-        label_location: InputLocation | None = None,
-        condition_location: InputLocation | None = None,
-    ) -> None:
-        """
-        Add a branch to a given label.
-        """
-
-        # Remember used labels so we can verify their existence later.
-        locations = self._branches.setdefault(label, [])
-        if label_location is not None:
-            locations.append(label_location)
-
-        # Force the condition to be computed.
-        if condition is not None:
-            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emit_store(self, ZeroTest(condition), condition_location)
-
-    @abstractmethod
-    def inline_function_call(
-        self,
-        func: Function,
-        arg_map: Mapping[str, BitString],
-        location: InputLocation | None = None,
-    ) -> BitString | None:
-        """
-        Inlines a call to the given function with the given arguments.
-        All arguments should be passed as references: value arguments should
-        have their expression wrapped in a FixedValue.
-        If an argument value is None, that argument won't be substituted and
-        can appear in the inlined body and in the returned reference.
-        Returns a BitString containing the reference returned by the inlined
-        function, or None if the function does not return anything.
-        """
-
-
-class SemanticsCodeBlockBuilder(CodeBlockBuilder):
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
@@ -149,12 +71,15 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
         super().__init__()
         self.operations: list[Load | Store] = []
         self._stored_values: dict[Storage, Expression] = {}
+        self._block_id = self._create_block_id()
+        self._labels: dict[str, InputLocation | None] = {}
+        self._branches: dict[str, list[InputLocation]] = {}
 
-    @override
     def dump(self, *, file: IO[str] | None = None) -> None:
+        """Prints the current state of this code block builder on stdout."""
+
         for operation in self.operations:
             operation.dump(file=file)
-        super().dump(file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """
@@ -174,44 +99,13 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             for label in unused_labels:
                 collector.warning(f'Label "{label}" is unused', location=self._labels[label])
 
-    def create_code_block(
-        self,
-        returned: Iterable[BitString],
-        collector: ErrorCollector | None = None,
-        location: InputLocation | None = None,
-    ) -> FunctionBody:
-        """
-        Returns a CodeBlock object containing the items emitted so far.
-        The state of the builder does not change.
-        The 'returned' sequence contains the bits strings that will be the
-        returned values for the created block.
-        Raises `BadInput*` if this builder does not represent a valid code block.
-        """
-
-        if collector is None:
-            collector = ErrorCollector()
-
-        self._check_labels(collector)
-
-        def fixate_variable(storage: Storage) -> FixedValue | None:
-            if isinstance(storage, Variable):
-                value = self.emit_load_bits(storage, location)
-                return FixedValue(value, storage.width)
-            return None
-
-        # Fixate returned variables.
-        returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
-
-        operations = self.operations
-        simplify_block(operations, returned)
-
-        _check_undefined(operations, collector)
-
-        code = CodeGraph(CodeNode(BasicBlock(operations)))
-        return FunctionBody(code, returned)
-
-    @override
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
+        """
+        Loads the value from the given storage by emitting a Load node on
+        this builder.
+        Returns an expression that represents the loaded value.
+        """
+
         stored_values = self._stored_values
         storage = _simplify_storage(storage)
 
@@ -229,10 +123,14 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             stored_values[storage] = value
         return value
 
-    @override
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
     ) -> None:
+        """
+        Stores the value of the given expression in the given storage by
+        emitting a Store node on this builder.
+        """
+
         stored_values = self._stored_values
         storage = _simplify_storage(storage)
 
@@ -267,13 +165,54 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
                 if not isinstance(storage2, (Register, Variable)):
                     del stored_values[storage2]
 
-    @override
+    def add_label(self, label: str, location: InputLocation | None = None) -> None:
+        """
+        Add a label that identifies the current position in the code block.
+        """
+        if label in self._labels:
+            old_location = self._labels[label]
+            raise BadInput(f'label "{label}" already defined', location, old_location)
+        else:
+            self._labels[label] = location
+
+    def add_branch(
+        self,
+        label: str,
+        condition: Expression | None = None,
+        *,
+        label_location: InputLocation | None = None,
+        condition_location: InputLocation | None = None,
+    ) -> None:
+        """
+        Add a branch to a given label.
+        """
+
+        # Remember used labels so we can verify their existence later.
+        locations = self._branches.setdefault(label, [])
+        if label_location is not None:
+            locations.append(label_location)
+
+        # Force the condition to be computed.
+        if condition is not None:
+            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
+            ref.emit_store(self, ZeroTest(condition), condition_location)
+
     def inline_function_call(
         self,
         func: Function,
         arg_map: Mapping[str, BitString],
-        location: InputLocation | None = None,
+        _location: InputLocation | None = None,
     ) -> BitString | None:
+        """
+        Inlines a call to the given function with the given arguments.
+        All arguments should be passed as references: value arguments should
+        have their expression wrapped in a FixedValue.
+        If an argument value is None, that argument won't be substituted and
+        can appear in the inlined body and in the returned reference.
+        Returns a BitString containing the reference returned by the inlined
+        function, or None if the function does not return anything.
+        """
+
         code = func.code
         if code is None:
             # Missing body, probably because of earlier errors.
@@ -364,6 +303,42 @@ class SemanticsCodeBlockBuilder(CodeBlockBuilder):
             for ret_bits in code.returned
         ]
 
+    def create_code_block(
+        self,
+        returned: Iterable[BitString],
+        collector: ErrorCollector | None = None,
+        location: InputLocation | None = None,
+    ) -> FunctionBody:
+        """
+        Returns a CodeBlock object containing the items emitted so far.
+        The state of the builder does not change.
+        The 'returned' sequence contains the bits strings that will be the
+        returned values for the created block.
+        Raises `BadInput*` if this builder does not represent a valid code block.
+        """
+
+        if collector is None:
+            collector = ErrorCollector()
+
+        self._check_labels(collector)
+
+        def fixate_variable(storage: Storage) -> FixedValue | None:
+            if isinstance(storage, Variable):
+                value = self.emit_load_bits(storage, location)
+                return FixedValue(value, storage.width)
+            return None
+
+        # Fixate returned variables.
+        returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
+
+        operations = self.operations
+        simplify_block(operations, returned)
+
+        _check_undefined(operations, collector)
+
+        code = CodeGraph(CodeNode(BasicBlock(operations)))
+        return FunctionBody(code, returned)
+
 
 def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expression]:
     """
@@ -372,7 +347,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
     """
 
     # Generate code for storing the value.
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
     ref.emit_store(builder, value, None)
 
     # Derive storage mapping from generated store nodes.

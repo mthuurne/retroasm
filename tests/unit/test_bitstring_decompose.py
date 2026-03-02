@@ -6,7 +6,7 @@ from typing import cast
 from pytest import fixture, mark
 
 from retroasm.codeblock import Load, LoadedValue, Store
-from retroasm.codeblock_builder import SemanticsCodeBlockBuilder
+from retroasm.codeblock_builder import CodeBlockBuilder
 from retroasm.expression import AndOperator, Expression, IntLiteral, LShift, OrOperator, RVShift
 from retroasm.namespace import GlobalNamespace, LocalNamespace, ReadOnlyNamespace
 from retroasm.reference import BitString, ConcatenatedBits, Reference, SingleStorage, SlicedBits
@@ -137,7 +137,7 @@ def check_load(
 ) -> None:
     """Check that loading from a bit string works as expected."""
 
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
 
     # Check that emit_load only emits Load nodes.
     value = bits.emit_load(builder, None)
@@ -184,7 +184,7 @@ def check_store(
     """Check that storing to a bit string works as expected."""
 
     # Check that emit_store only emits Load and Store nodes.
-    builder = SemanticsCodeBlockBuilder()
+    builder = CodeBlockBuilder()
     operations = builder.operations
     value_ref = namespace.add_argument("V", IntType.int, None)
     value = value_ref.emit_load(builder, None)
