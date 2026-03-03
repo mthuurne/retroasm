@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 
-from ..codeblock import Load, Store
 from ..codeblock_builder import CodeBlockBuilder
 from ..expression import (
     AddOperator,
@@ -518,7 +517,6 @@ def build_statement_eval(
     Errors and warnings are logged on the given reader, using `where_desc`
     as the description of the statement's origin.
     """
-    num_operations_before = len(builder.operations)
 
     match node:
         case AssignmentNode():
@@ -544,8 +542,7 @@ def build_statement_eval(
 
         case EmptyNode():
             # Empty statement (NOP).
-            # This is supposed to have no effect, so skip no-effect check.
-            return
+            pass
 
         case OperatorNode(operator=Operator.call):
             # Function call.
@@ -553,9 +550,6 @@ def build_statement_eval(
                 _ref = _convert_function_call(node, namespace, builder)
             except BadExpression as ex:
                 collector.add(ex)
-            # Skip no-effect check: if a function does nothing, it likely either
-            # does so on purpose or a warning will already have been issued there.
-            return
 
         case expr:
             # Evaluate statement for its side effects.
@@ -565,22 +559,6 @@ def build_statement_eval(
                 collector.error(
                     f"bad expression in statement in {where_desc}: {ex}", location=ex.locations
                 )
-                return
-
-    state_changed = False
-    for operation in builder.operations[num_operations_before:]:
-        match operation:
-            case Load(storage=storage):
-                state_changed |= storage.can_load_have_side_effect()
-            case Store():
-                state_changed = True
-    if not state_changed:
-        # TODO: This warning will be issued when no new nodes are emitted because
-        #       the statement only changed local variables.
-        pass
-        # logger.warning(
-        #     "statement in %s has no effect", where_desc, location=node.tree_location
-        # )
 
 
 def emit_code_from_statements(
