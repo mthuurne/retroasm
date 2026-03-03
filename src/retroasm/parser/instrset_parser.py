@@ -125,7 +125,11 @@ def _parse_regs(
                         collector.error(message, location=ex.locations)
                         ref = bad_reference(reg_type, message)
                     else:
-                        for operation in builder.operations:
+                        ref = ref.simplify()
+                        code = builder.create_code_block(
+                            (ref.bits,), collector, node.tree_location
+                        )
+                        for operation in code.operations:
                             match operation:
                                 case Load(storage=storage, location=location):
                                     collector.error(
@@ -139,7 +143,6 @@ def _parse_regs(
                                     )
                                 case operation:
                                     bad_type(operation)
-                        ref = ref.simplify()
                     try:
                         global_namespace.define(decl.name.name, ref, decl.name.location)
                     except NameExistsError as ex:
