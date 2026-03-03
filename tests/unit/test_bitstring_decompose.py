@@ -12,6 +12,7 @@ from retroasm.namespace import GlobalNamespace, LocalNamespace, ReadOnlyNamespac
 from retroasm.reference import BitString, ConcatenatedBits, Reference, SingleStorage, SlicedBits
 from retroasm.storage import Storage
 from retroasm.types import IntType, Segment, Width, mask_for_width, width_for_mask
+from retroasm.utils import bad_type
 
 from .utils_segment import parse_segment
 
@@ -183,39 +184,34 @@ def check_store(
 ) -> None:
     """Check that storing to a bit string works as expected."""
 
-    # Check that emit_store only emits Load and Store nodes.
+    # Gather emitted Load and Store operations.
     builder = CodeBlockBuilder()
     operations = builder.operations
     value_ref = namespace.add_argument("V", IntType.int, None)
     value = value_ref.emit_load(builder, None)
     init_idx = len(operations)
     bits.emit_store(builder, value, None)
-    load_ops: list[Load] = []
-    store_ops: list[Store] = []
+    loaded_storages = []
+    stored_storages = []
     for operation in operations[init_idx:]:
-        if isinstance(operation, Load):
-            load_ops.append(operation)
-        elif isinstance(operation, Store):
-            store_ops.append(operation)
-        else:
-            assert False, f"unexpected node type: {type(operation).__name__}"
+        match operation:
+            case Load(storage=storage):
+                loaded_storages.append(storage)
+            case Store(storage=storage):
+                stored_storages.append(storage)
+            case _:
+                bad_type(operation)
 
     # Check that all storages reachable through slicing are loaded from.
-    # Also check that the load order is as expected (see iterSliceLoads
-    # docstring).
-    sliced_storages = tuple(iter_slice_loads(bits))
-    loaded_storages = tuple(load.storage for load in load_ops)
-    assert sliced_storages == loaded_storages
+    # Also check that the load order is as expected (see iter_slice_loads docstring).
+    assert list(iter_slice_loads(bits)) == loaded_storages
 
     # Check that all underlying storages are stored to.
     # Also check that the store order matches the depth-first tree walk.
-    all_storages = tuple(bits.iter_storages())
-    stored_storages = tuple(store.storage for store in store_ops)
-    assert all_storages == stored_storages
+    assert list(bits.iter_storages()) == stored_storages
 
-    # Note: Verifying that the right values are being stored based on the
-    #       expectation list is quite complex.
-    #       We're better off writing a separate test for that.
+    # Note: Verifying that the right values are being stored based on the expectation list
+    #       is quite complex. We're better off writing a separate test for that.
 
 
 check_param = mark.parametrize("check", [check_flatten, check_load, check_store])
