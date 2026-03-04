@@ -20,6 +20,60 @@ def test_store_truncate(codeblock_tester: CodeBlockDocstringTester) -> None:
     codeblock_tester.check()
 
 
+def test_signed_load_extend(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    Loading from a limited-width signed integer introduces sign extension.
+
+    .. code-block:: instr
+
+        func test(s8& S)
+            def int ret = S
+
+    .. code-block:: dump
+
+        load from S
+        return s8(load(S))
+    """
+    codeblock_tester.check()
+
+
+def test_signed_load_unlimited(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    Load an unlimited width integer.
+
+    No sign extension should be happening here, but the code once contained a bug where
+    it would try to apply sign extension and triggered an internal consistency check.
+
+    .. code-block:: instr
+
+        func test(int& S)
+            def int ret = S
+
+    .. code-block:: dump
+
+        load from S
+        return load(S)
+    """
+    codeblock_tester.check()
+
+
+def test_signed_load_wrap(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    Store an unsigned integer and load it as signed.
+
+    .. code-block:: instr
+
+        func test()
+            var s8 S := 135
+            def int ret = S
+
+    .. code-block:: dump
+
+        return -121
+    """
+    codeblock_tester.check()
+
+
 def test_decompose_load_basic_concat(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     Concatenated references are loaded from least to most significant.

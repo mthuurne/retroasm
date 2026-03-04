@@ -369,60 +369,6 @@ def test_repeated_increase_var(codeblock_tester: CodeBlockDocstringTester) -> No
     codeblock_tester.check()
 
 
-def test_signed_load_extend(codeblock_tester: CodeBlockDocstringTester) -> None:
-    """
-    Loading from a limited-width signed integer introduces sign extension.
-
-    .. code-block:: instr
-
-        func test(s8& S)
-            def int ret = S
-
-    .. code-block:: dump
-
-        load from S
-        return s8(load(S))
-    """
-    codeblock_tester.check()
-
-
-def test_signed_load_unlimited(codeblock_tester: CodeBlockDocstringTester) -> None:
-    """
-    Load an unlimited width integer.
-
-    No sign extension should be happening here, but the code once contained a bug where
-    it would try to apply sign extension and triggered an internal consistency check.
-
-    .. code-block:: instr
-
-        func test(int& S)
-            def int ret = S
-
-    .. code-block:: dump
-
-        load from S
-        return load(S)
-    """
-    codeblock_tester.check()
-
-
-def test_signed_load_wrap(codeblock_tester: CodeBlockDocstringTester) -> None:
-    """
-    Store an unsigned integer and load it as signed.
-
-    .. code-block:: instr
-
-        func test()
-            var s8 S := 135
-            def int ret = S
-
-    .. code-block:: dump
-
-        return -121
-    """
-    codeblock_tester.check()
-
-
 def test_6502_pull(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     In the 6502 pull instructions, the load of 's' when evaluating the stack pointer
