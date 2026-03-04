@@ -55,7 +55,7 @@ class Expression(ABC):
 
     @override
     def __hash__(self) -> int:
-        return hash(self._ctorargs() + (self.__class__,))
+        return hash(self._ctorargs() + (self.__class__.__name__,))
 
     @abstractmethod
     def _equals(self, other: Self) -> bool:

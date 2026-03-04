@@ -73,8 +73,10 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
     def init_collect() -> tuple[Callable[[Expression], None], Callable[[], list[Expression]]]:
         if multi_expr_cls.idempotent:
             # Pick a collection that filters out duplicates.
-            expr_set: set[Expression] = set()
-            return expr_set.add, lambda: list(expr_set)
+            # Use 'dict' rather than 'set' because it preserves insertion order,
+            # which is necessary to reproduce golden test output.
+            expr_dict: dict[Expression, None] = {}
+            return expr_dict.setdefault, lambda: list(expr_dict)
         else:
             # Pick a collection that preserves duplicates.
             expr_list: list[Expression] = []
