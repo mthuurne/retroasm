@@ -41,3 +41,25 @@ def test_slice_width_negative(instr_tester: InstructionSetDocstringTester) -> No
              ^^^^^
     """
     instr_tester.check()
+
+
+def test_slice_index_negative(instr_tester: InstructionSetDocstringTester) -> None:
+    """
+    The index of a slice cannot be negative.
+
+    .. code-block:: instr
+
+        func test()
+            a[-3]
+            a[-3:5]
+
+    .. code-block:: inputlog
+
+        test.instr:2: ERROR: invalid bitwise lookup: slice offset (-3) cannot be negative
+            a[-3]
+             ^^^^
+        test.instr:3: ERROR: invalid slice: slice offset (-3) cannot be negative
+            a[-3:5]
+             ^^^^^^
+    """
+    instr_tester.check()
