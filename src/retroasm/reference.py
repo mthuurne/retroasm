@@ -377,6 +377,11 @@ class SlicedBits(BitString):
         match simplify_expression(offset):
             case IntLiteral(value=value) if value < 0:
                 raise ValueError(f"slice offset ({value}) cannot be negative")
+            case offset if offset.mask < 0:
+                # Demand a non-negative mask, so that the value can never be negative.
+                # This could turn out to be overly strict, but it is a fairly simple way
+                # to statically eliminate this problem.
+                raise ValueError("slice offset might be negative")
             case offset:
                 self._offset = offset
 

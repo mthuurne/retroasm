@@ -172,6 +172,8 @@ The value of a slice can be expressed using other operators as follows: ``A[K:L]
 
 The width of a slice must be known at the time of definition. This means it cannot depend on for example a function argument or a value from a register or immediate. Note that RetroAsm is able to determine that the width of ``A[K:K+N]`` is :math:`N` bits if it knows the value of :math:`N` but not the value of :math:`K`.
 
+The lower index (offset) of a slice cannot be negative. When the offset's value is not known at time of definition, the offset must have an unsigned type, such that its value couldn't possibly be negative.
+
 A bitwise lookup is equivalent to taking a single bit slice: ``A[K]`` = ``A[K:K+1]``.
 
 An I/O reference is used to read or write data through an I/O channel. The type of the index and the type of the returned value depend on the I/O channel definition, see the Input/Output section for details.
