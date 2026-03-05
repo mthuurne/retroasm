@@ -506,64 +506,37 @@ def build_assignment_target(
 
 def build_statement_eval(
     collector: ErrorCollector,
-    where_desc: str,
     namespace: LocalNamespace,
     builder: CodeBlockBuilder,
     node: ParseNode,
 ) -> None:
     """
-    Emits loads and stores on the given namespace that produce the (side)
-    effects of evaluating the given node.
-    Errors and warnings are logged on the given reader, using `where_desc`
-    as the description of the statement's origin.
+    Emit loads and stores on the given namespace that produce the (side) effects
+    of evaluating the given node.
+    Errors and warnings are logged on the given reader.
     """
 
-    match node:
-        case AssignmentNode():
-            try:
+    try:
+        match node:
+            case AssignmentNode():
                 lhs = build_assignment_target(node.lhs, namespace, builder)
-            except BadExpression as ex:
-                collector.error(
-                    f"bad expression on left hand side of assignment in {where_desc}: {ex}",
-                    location=ex.locations,
-                )
-                return
-
-            try:
                 rhs = build_expression(node.rhs, namespace, builder)
-            except BadExpression as ex:
-                collector.error(
-                    f"bad expression on right hand side of assignment in {where_desc}: {ex}",
-                    location=ex.locations,
-                )
-                return
-
-            lhs.emit_store(builder, rhs, node.lhs.tree_location)
-
-        case EmptyNode():
-            # Empty statement (NOP).
-            pass
-
-        case OperatorNode(operator=Operator.call):
-            # Function call.
-            try:
+                lhs.emit_store(builder, rhs, node.lhs.tree_location)
+            case EmptyNode():
+                # Empty statement (NOP).
+                pass
+            case OperatorNode(operator=Operator.call):
+                # Function call.
                 _ref = _convert_function_call(node, namespace, builder)
-            except BadExpression as ex:
-                collector.add(ex)
-
-        case expr:
-            # Evaluate statement for its side effects.
-            try:
+            case expr:
+                # Evaluate statement for its side effects.
                 build_expression(expr, namespace, builder)
-            except BadExpression as ex:
-                collector.error(
-                    f"bad expression in statement in {where_desc}: {ex}", location=ex.locations
-                )
+    except BadExpression as ex:
+        collector.add(ex)
 
 
 def emit_code_from_statements(
     collector: ErrorCollector,
-    where_desc: str,
     namespace: LocalNamespace,
     builder: CodeBlockBuilder,
     statements: Iterable[ParseNode],
@@ -585,7 +558,7 @@ def emit_code_from_statements(
                     typ = parse_type_decl(type_node.name)
                 except ValueError as ex:
                     raise BadExpression(
-                        f"error in {where_desc}: bad type name in definition: {ex}",
+                        f"bad type name in definition: {ex}",
                         type_node.location,
                     ) from ex
                 # Evaluate value.
@@ -622,10 +595,7 @@ def emit_code_from_statements(
 
             case LabelNode(name=label, location=location):
                 # Label that can be branched to.
-                try:
-                    builder.add_label(label, location)
-                except BadInput as ex:
-                    raise BadInput(f"error in {where_desc}: {ex}", *ex.locations) from ex
+                builder.add_label(label, location)
 
             case stmt:
-                build_statement_eval(collector, where_desc, namespace, builder, stmt)
+                build_statement_eval(collector, namespace, builder, stmt)

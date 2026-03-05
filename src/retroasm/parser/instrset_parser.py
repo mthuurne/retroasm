@@ -694,7 +694,7 @@ def _parse_instr_semantics(
 ) -> None:
     assert mode_type is None, mode_type
     node = parse_statement(sem_loc)
-    build_statement_eval(collector, "semantics field", namespace, builder, node)
+    build_statement_eval(collector, namespace, builder, node)
 
 
 def _parse_mode_rows(

@@ -15,9 +15,7 @@ from .expression_parser import parse_statement
 from .linereader import DefLineReader
 
 
-def _parse_body(
-    reader: DefLineReader, collector: ErrorCollector, where_desc: str
-) -> Iterator[ParseNode]:
+def _parse_body(reader: DefLineReader, collector: ErrorCollector) -> Iterator[ParseNode]:
     """
     Parses the lines of a code block, yielding the statements.
     The full block is parsed, even in the presence of errors.
@@ -27,9 +25,7 @@ def _parse_body(
         try:
             yield parse_statement(line)
         except BadInput as ex:
-            collector.error(
-                f"error in {where_desc}: failed to parse statement: {ex}", location=ex.locations
-            )
+            collector.add(ex)
 
 
 def create_func(
@@ -67,9 +63,8 @@ def create_func(
 
     try:
         with collector.check():
-            where_desc = f'body of function "{func_name}"'
-            body_nodes = _parse_body(reader, collector, where_desc)
-            emit_code_from_statements(collector, where_desc, namespace, builder, body_nodes)
+            body_nodes = _parse_body(reader, collector)
+            emit_code_from_statements(collector, namespace, builder, body_nodes)
     except DelayedError:
         code_errors = True
     else:

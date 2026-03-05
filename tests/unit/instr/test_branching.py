@@ -16,7 +16,7 @@ def test_branch_label_duplicate(instr_tester: InstructionSetDocstringTester) -> 
 
     .. code-block:: inputlog
 
-        test.instr:4: ERROR: error in body of function "duplicate_label": label "here" already defined
+        test.instr:4: ERROR: label "here" already defined
             @here
             ^^^^^
         test.instr:2:
