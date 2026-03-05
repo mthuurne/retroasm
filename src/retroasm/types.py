@@ -370,7 +370,7 @@ class IntType(metaclass=Unique):
     def __init__(self, width: Width, signed: bool):
         if isinstance(width, int):
             if width < 0:
-                raise ValueError(f"width must not be negative: {width:d}")
+                raise ValueError(f"width ({width:d}) cannot be negative")
         elif width is not unlimited:
             raise TypeError(f"width must be integer or unlimited, got {type(width)}")
         self._width = width

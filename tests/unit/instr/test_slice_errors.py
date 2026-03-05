@@ -33,10 +33,10 @@ def test_slice_width_negative(instr_tester: InstructionSetDocstringTester) -> No
 
     .. code-block:: inputlog
 
-        test.instr:2: ERROR: invalid slice: width must not be negative: -4
+        test.instr:2: ERROR: invalid slice: width (-4) cannot be negative
             a[5:1]
              ^^^^^
-        test.instr:3: ERROR: invalid slice: width must not be negative: -10
+        test.instr:3: ERROR: invalid slice: width (-10) cannot be negative
             a[42:]
              ^^^^^
     """
