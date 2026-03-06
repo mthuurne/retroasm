@@ -444,15 +444,16 @@ class SlicedBits(BitString):
         value_mask = LVShift(IntLiteral(mask_for_width(width)), offset)
 
         # Get mask and previous value of our bit string.
-        bits = self._ref.bits
-        full_mask = IntLiteral(mask_for_width(bits.width))
-        prev_value = bits.emit_load(builder, location)
+        # We can skip the reference level because we don't need sign extension.
+        ref = self._ref
+        full_mask = IntLiteral(mask_for_width(ref.width))
+        prev_value = ref.bits.emit_load(builder, location)
 
         # Combine previous value with new value.
         mask_lit = AndOperator(full_mask, XorOperator(IntLiteral(-1), value_mask))
         combined = OrOperator(AndOperator(prev_value, mask_lit), LVShift(value, offset))
 
-        bits.emit_store(builder, simplify_expression(combined), location)
+        ref.emit_store(builder, combined, location)
 
     @override
     def decompose(self) -> Iterator[tuple[AtomicBitString, Segment]]:

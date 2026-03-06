@@ -235,7 +235,7 @@ def test_decompose_store_slice_extend_unsigned(
     codeblock_tester: CodeBlockDocstringTester,
 ) -> None:
     """
-    Storing a slice beyond an unsigned reference's width will extend with zero bits.
+    Storing a slice beyond a reference's width will truncate the extra bits.
 
     .. code-block:: instr
 
@@ -243,13 +243,11 @@ def test_decompose_store_slice_extend_unsigned(
             def u28& S0 = R0[2:30]
             S0 := V
 
-    TODO: The mask applied to V preserves 28 bits, but R0 can only store 6 of them.
-
     .. code-block:: dump
 
         load from V
         load from R0
-        store (((load(V) << 2) & $3FFFFFFC) | load(R0)[:2]) in R0
+        store ((load(V) << 2) | load(R0)[:2])[:8] in R0
     """
     codeblock_tester.check()
 
@@ -282,13 +280,11 @@ def test_decompose_store_slice_outside(codeblock_tester: CodeBlockDocstringTeste
             def u30& S0 = R0[12:42]
             S0 := V
 
-    TODO: The mask applied to V preserves 30 bits, but all of them are outside of R0.
-
     .. code-block:: dump
 
         load from V
         load from R0
-        store (((load(V) << 12) & $3FFFFFFF000) | load(R0)) in R0
+        store load(R0) in R0
     """
     codeblock_tester.check()
 
