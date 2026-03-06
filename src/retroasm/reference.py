@@ -357,19 +357,19 @@ class ConcatenatedBits(BitString):
 class SlicedBits(BitString):
     """A slice of a bit string."""
 
-    __slots__ = ("_bits", "_offset")
+    __slots__ = ("_ref", "_offset")
 
     @property
-    def bits(self) -> BitString:
-        return self._bits
+    def ref(self) -> Reference:
+        return self._ref
 
     @property
     def offset(self) -> Expression:
         return self._offset
 
-    def __init__(self, bits: BitString, offset: Expression, width: Width):
+    def __init__(self, ref: Reference, offset: Expression, width: Width):
         """Creates a slice of the given bit string."""
-        self._bits = bits
+        self._ref = ref
 
         # Some invalid offsets can only be detected upon use, but others we
         # can detect on definition and rejecting them early is likely helpful
@@ -389,7 +389,7 @@ class SlicedBits(BitString):
 
     @override
     def __repr__(self) -> str:
-        return f"SlicedBits({self._bits!r}, {self._offset!r}, {self._width})"
+        return f"SlicedBits({self._ref!r}, {self._offset!r}, {self._width})"
 
     @override
     def __str__(self) -> str:
@@ -401,15 +401,15 @@ class SlicedBits(BitString):
             case offset:
                 start = str(offset)
                 end = "" if width is unlimited else str(AddOperator(offset, IntLiteral(width)))
-        return f"{self._bits}[{start}:{end}]"
+        return f"{self._ref.bits}[{start}:{end}]"
 
     @override
     def iter_expressions(self) -> Iterator[Expression]:
-        return self._bits.iter_expressions()
+        return self._ref.bits.iter_expressions()
 
     @override
     def iter_storages(self) -> Iterator[Storage]:
-        return self._bits.iter_storages()
+        return self._ref.bits.iter_storages()
 
     @override
     def substitute(
@@ -418,19 +418,19 @@ class SlicedBits(BitString):
         storage_func: Callable[[Storage], BitString | None] | None = None,
         expression_func: Callable[[Expression], Expression | None] | None = None,
     ) -> SlicedBits:
-        bits = self._bits
+        bits = self._ref.bits
         new_bits = bits.substitute(storage_func=storage_func, expression_func=expression_func)
         if new_bits is bits:
             return self
         else:
-            return SlicedBits(new_bits, self._offset, self._width)
+            return SlicedBits(Reference(new_bits, self._ref.type), self._offset, self._width)
 
     @override
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
         # Load value from our bit string.
-        value = self._bits.emit_load(builder, location)
+        value = self._ref.bits.emit_load(builder, location)
 
         # Slice the loaded value.
         return truncate(RVShift(value, self._offset), self.width)
@@ -444,7 +444,7 @@ class SlicedBits(BitString):
         value_mask = LVShift(IntLiteral(mask_for_width(width)), offset)
 
         # Get mask and previous value of our bit string.
-        bits = self._bits
+        bits = self._ref.bits
         full_mask = IntLiteral(mask_for_width(bits.width))
         prev_value = bits.emit_load(builder, location)
 
@@ -462,7 +462,7 @@ class SlicedBits(BitString):
             raise ValueError("Cannot decompose bit string with a variable slice offset")
 
         slice_seg = Segment(offset.value, self.width)
-        for base, base_seg in self.bits.decompose():
+        for base, base_seg in self._ref.bits.decompose():
             # Clip to slice boundaries.
             clipped = (slice_seg << base_seg.start) & base_seg
             if clipped:

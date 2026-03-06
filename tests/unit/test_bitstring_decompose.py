@@ -99,7 +99,7 @@ def iter_slice_loads(bits: BitString) -> Iterator[Storage]:
     """
     for slice_bits in iter_slices(bits):
         yield from slice_bits.iter_storages()
-        yield from iter_slice_loads(slice_bits.bits)
+        yield from iter_slice_loads(slice_bits.ref.bits)
 
 
 def check_flatten(
@@ -251,7 +251,7 @@ def test_decompose_self_concat(namespace: LocalNamespace, check: CheckFunc) -> N
 def test_decompose_basic_slice(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test construction of SlicedBits."""
     ref0 = namespace.add_argument("R0", IntType.u(8), None)
-    sliced = SlicedBits(ref0.bits, IntLiteral(2), 3)
+    sliced = SlicedBits(ref0, IntLiteral(2), 3)
     expected = parse_slices(namespace, "R0[2:5]")
     check(namespace, sliced, expected)
 
@@ -260,7 +260,7 @@ def test_decompose_basic_slice(namespace: LocalNamespace, check: CheckFunc) -> N
 def test_decompose_slice_past_end(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test clipping of slice width against parent width."""
     ref0 = namespace.add_argument("R0", IntType.u(8), None)
-    sliced = SlicedBits(ref0.bits, IntLiteral(2), 30)
+    sliced = SlicedBits(ref0, IntLiteral(2), 30)
     expected = parse_slices(namespace, "R0[2:8]")
     check(namespace, sliced, expected)
 
@@ -269,7 +269,7 @@ def test_decompose_slice_past_end(namespace: LocalNamespace, check: CheckFunc) -
 def test_decompose_slice_outside(namespace: LocalNamespace, check: CheckFunc) -> None:
     """Test handling of slice index outside parent width."""
     ref0 = namespace.add_argument("R0", IntType.u(8), None)
-    sliced = SlicedBits(ref0.bits, IntLiteral(12), 30)
+    sliced = SlicedBits(ref0, IntLiteral(12), 30)
     expected = ()
     check(namespace, sliced, expected)
 
@@ -281,7 +281,7 @@ def test_decompose_slice_concat(namespace: LocalNamespace, check: CheckFunc) -> 
     ref1 = namespace.add_argument("R1", IntType.u(8), None)
     ref2 = namespace.add_argument("R2", IntType.u(8), None)
     concat = ConcatenatedBits(ref2.bits, ref1.bits, ref0.bits)
-    sliced = SlicedBits(concat, IntLiteral(5), 13)
+    sliced = SlicedBits(Reference(concat, IntType.u(24)), IntLiteral(5), 13)
     expected = parse_slices(namespace, "R2[5:8]", "R1[0:8]", "R0[0:2]")
     check(namespace, sliced, expected)
 
@@ -292,10 +292,10 @@ def test_decompose_combined(namespace: LocalNamespace, check: CheckFunc) -> None
     ref0 = namespace.add_argument("R0", IntType.u(8), None)
     ref1 = namespace.add_argument("R1", IntType.u(8), None)
     concat_a = ConcatenatedBits(ref0.bits, ref1.bits)
-    slice_a = SlicedBits(concat_a, IntLiteral(5), 6)
+    slice_a = SlicedBits(Reference(concat_a, IntType.u(16)), IntLiteral(5), 6)
     ref2 = namespace.add_argument("R2", IntType.u(8), None)
     concat_b = ConcatenatedBits(slice_a, ref2.bits)
-    storage = SlicedBits(concat_b, IntLiteral(4), 7)
+    storage = SlicedBits(Reference(concat_b, IntType.u(14)), IntLiteral(4), 7)
     expected = parse_slices(namespace, "R1[1:3]", "R2[0:5]")
     check(namespace, storage, expected)
 
@@ -305,9 +305,9 @@ def test_decompose_nested_slice(namespace: LocalNamespace, check: CheckFunc) -> 
     """Test taking a slice from sliced bit strings."""
     ref0 = namespace.add_argument("R0", IntType.u(8), None)
     ref1 = namespace.add_argument("R1", IntType.u(8), None)
-    slice0 = SlicedBits(ref0.bits, IntLiteral(2), 5)
-    slice1 = SlicedBits(ref1.bits, IntLiteral(1), 4)
+    slice0 = SlicedBits(ref0, IntLiteral(2), 5)
+    slice1 = SlicedBits(ref1, IntLiteral(1), 4)
     concat = ConcatenatedBits(slice0, slice1)
-    slice_c = SlicedBits(concat, IntLiteral(3), 3)
+    slice_c = SlicedBits(Reference(concat, IntType.u(9)), IntLiteral(3), 3)
     expected = parse_slices(namespace, "R0[5:7]", "R1[1:2]")
     check(namespace, slice_c, expected)

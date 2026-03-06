@@ -347,7 +347,7 @@ def _convert_reference_lookup(
     ref = build_reference(expr_node, namespace, builder)
     index = build_expression(index_node, namespace, builder)
     try:
-        bits = SlicedBits(ref.bits, index, 1)
+        bits = SlicedBits(ref, index, 1)
     except ValueError as ex:
         raise BadExpression(f"invalid bitwise lookup: {ex}", node.location) from ex
     else:
@@ -387,7 +387,7 @@ def _convert_reference_slice(
                     width = value
                 case _:
                     raise ValueError("slice width cannot be determined")
-        bits = SlicedBits(ref.bits, start_expr, width)  # pylint: disable=possibly-used-before-assignment
+        bits = SlicedBits(ref, start_expr, width)  # pylint: disable=possibly-used-before-assignment
         typ = IntType(width, width is unlimited)
     except ValueError as ex:
         raise BadExpression(f"invalid slice: {ex}", node.location) from ex
