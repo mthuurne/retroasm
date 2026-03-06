@@ -429,8 +429,8 @@ class SlicedBits(BitString):
     def emit_load(
         self, builder: CodeBlockBuilder, location: InputLocation | None
     ) -> Expression:
-        # Load value from our bit string.
-        value = self._ref.bits.emit_load(builder, location)
+        # Load value from our reference.
+        value = self._ref.emit_load(builder, location)
 
         # Slice the loaded value.
         return truncate(RVShift(value, self._offset), self.width)

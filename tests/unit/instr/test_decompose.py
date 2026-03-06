@@ -190,10 +190,12 @@ def test_decompose_load_slice_extend_unsigned(
     codeblock_tester: CodeBlockDocstringTester,
 ) -> None:
     """
-    Loading a slice beyond an unsigned reference's width will extend with zero bits.
+    Loading a slice beyond an unsigned reference's width will put zeroes into the extra bits.
 
-    TODO: Does that extension make sense or would it be better to disallow it?
-          If extension is desired, test a signed variant as well.
+    This behavior was picked because it supports a dynamic offset (known only at runtime)
+    while still using a statically defined slice width.
+    Truncating the slice would make the width dynamic, while making it an error to slice
+    beyond the reference's width couldn't be enforced statically when the offset is dynamic.
 
     .. code-block:: instr
 
@@ -205,6 +207,26 @@ def test_decompose_load_slice_extend_unsigned(
 
         load from R0
         return load(R0)[2:]
+    """
+    codeblock_tester.check()
+
+
+def test_decompose_load_slice_extend_signed(
+    codeblock_tester: CodeBlockDocstringTester,
+) -> None:
+    """
+    Loading a slice beyond a signed reference's width will sign extend into the extra bits.
+
+    .. code-block:: instr
+
+        func test(s8& R0)
+            def u28& S0 = R0[2:30]
+            def int ret = S0
+
+    .. code-block:: dump
+
+        load from R0
+        return s8(load(R0))[2:30]
     """
     codeblock_tester.check()
 
@@ -236,8 +258,6 @@ def test_decompose_load_slice_outside(codeblock_tester: CodeBlockDocstringTester
     """
     A slice outside of a reference is loaded and then ignored.
 
-    TODO: Would it be better to disallow slicing outside?
-
     .. code-block:: instr
 
         func test(u8& R0)
@@ -255,8 +275,6 @@ def test_decompose_load_slice_outside(codeblock_tester: CodeBlockDocstringTester
 def test_decompose_store_slice_outside(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     A slice outside of a reference ignores stores.
-
-    TODO: Would it be better to disallow slicing outside?
 
     .. code-block:: instr
 
@@ -299,8 +317,6 @@ def test_decompose_load_concat_slice(codeblock_tester: CodeBlockDocstringTester)
 def test_decompose_store_concat_slice(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     Storing a slice of a concatenation is decomposed into slices of the components.
-
-    TODO: Does it make sense to load R1 even though it is fully written?
 
     .. code-block:: instr
 

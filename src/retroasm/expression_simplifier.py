@@ -427,6 +427,9 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
 
 def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:
     width = sign_extend.width
+    if width_for_mask(mask) <= width:
+        # The extended sign will be cut off later, so drop the sign extension altogether.
+        return simplify_expression(sign_extend.expr, mask)
     mask &= mask_for_width(width)
 
     match simplify_expression(sign_extend.expr, mask):
