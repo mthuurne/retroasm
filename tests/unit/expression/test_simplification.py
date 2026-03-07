@@ -514,6 +514,7 @@ def test_sign_extend_slice(equation: Equation) -> None:
         SH[:5] = H[:5]
         SH[2:5] = H[2:5]
         SH[7] = H[7]
+        SH[12] = H[7]
     """
     equation.check_simplify()
 

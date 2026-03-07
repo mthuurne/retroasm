@@ -435,12 +435,13 @@ def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expressio
         return simplify_expression(sign_extend.expr, mask)
 
     # Some bits of the extended sign matter, collapse those onto the sign bit.
-    sign_mask = 1 << (width - 1)
-    mask = (mask & mask_for_width(width)) | sign_mask
+    sign_index = width - 1
+    sign_mask = 1 << sign_index
+    sub_mask = (mask & mask_for_width(width)) | sign_mask
 
-    match simplify_expression(sign_extend.expr, mask):
+    match simplify_expression(sign_extend.expr, sub_mask):
         case IntLiteral(value=value) as expr:
-            value &= mask
+            value &= sub_mask
             value -= (value << 1) & (1 << width)
             return IntLiteral(value)
         case ImmediateValue(type=typ) as imm if typ.signed and typ.width <= width:
@@ -450,14 +451,25 @@ def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expressio
         case expr:
             pass
 
-    # If the sign is known, we can replace the sign extension operator.
-    match simplify_expression(expr, sign_mask):
-        case IntLiteral(value=value):
-            non_sign = simplify_expression(expr, mask & ~sign_mask)
-            if value & sign_mask:
-                return simplify_expression(OrOperator(non_sign, IntLiteral(-1 << (width - 1))))
-            else:
-                return non_sign
+    if sub_mask == sign_mask:
+        # Only the sign bit determines the output.
+        # Since 'expr' is not an IntLiteral, the sign is unknown in this case.
+        if mask > 0 and mask.bit_count() == 1:
+            result_index = mask.bit_length() - 1
+            # The case where 'mask' doesn't include an extended sign bit was already handled.
+            assert result_index > sign_index, (sign_extend, mask)
+            return simplify_expression(LShift(expr, result_index - sign_index), mask)
+    else:
+        # If the sign is known, we can replace the sign extension operator.
+        match simplify_expression(expr, sign_mask):
+            case IntLiteral(value=value):
+                non_sign = simplify_expression(expr, sub_mask & ~sign_mask)
+                if value & sign_mask:
+                    return simplify_expression(
+                        OrOperator(non_sign, IntLiteral(-1 << sign_index))
+                    )
+                else:
+                    return non_sign
 
     if expr is sign_extend.expr:
         return sign_extend
