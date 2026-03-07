@@ -427,10 +427,16 @@ def _simplify_sign_test(sign_test: SignTest, mask: int) -> Expression:
 
 def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expression:
     width = sign_extend.width
+    if width == 0:
+        # If the width is 0, there is no sign bit.
+        return IntLiteral(0)
     if width_for_mask(mask) <= width:
         # The extended sign will be cut off later, so drop the sign extension altogether.
         return simplify_expression(sign_extend.expr, mask)
-    mask &= mask_for_width(width)
+
+    # Some bits of the extended sign matter, collapse those onto the sign bit.
+    sign_mask = 1 << (width - 1)
+    mask = (mask & mask_for_width(width)) | sign_mask
 
     match simplify_expression(sign_extend.expr, mask):
         case IntLiteral(value=value) as expr:
@@ -445,8 +451,6 @@ def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expressio
             pass
 
     # If the sign is known, we can replace the sign extension operator.
-    # Note: width cannot be 0 because then the subexpression would simplify to a literal 0.
-    sign_mask = 1 << (width - 1)
     match simplify_expression(expr, sign_mask):
         case IntLiteral(value=value):
             non_sign = simplify_expression(expr, mask & ~sign_mask)

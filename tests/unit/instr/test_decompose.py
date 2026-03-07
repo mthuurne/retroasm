@@ -252,9 +252,12 @@ def test_decompose_store_slice_extend_unsigned(
     codeblock_tester.check()
 
 
-def test_decompose_load_slice_outside(codeblock_tester: CodeBlockDocstringTester) -> None:
+def test_decompose_load_slice_outside_unsigned(
+    codeblock_tester: CodeBlockDocstringTester,
+) -> None:
     """
-    A slice outside of a reference is loaded and then ignored.
+    Loading a slice outside an unsigned reference's width will produce zero bits.
+    The load still happens if it might have side effects.
 
     .. code-block:: instr
 
@@ -266,6 +269,26 @@ def test_decompose_load_slice_outside(codeblock_tester: CodeBlockDocstringTester
 
         load from R0
         return 0
+    """
+    codeblock_tester.check()
+
+
+def test_decompose_load_slice_outside_signed(
+    codeblock_tester: CodeBlockDocstringTester,
+) -> None:
+    """
+    Loading a slice outside a signed reference's width will slice the extended sign.
+
+    .. code-block:: instr
+
+        func test(s8& R0)
+            def u30& S0 = R0[12:42]
+            def int ret = S0
+
+    .. code-block:: dump
+
+        load from R0
+        return s8(load(R0))[12:42]
     """
     codeblock_tester.check()
 
