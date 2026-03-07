@@ -504,6 +504,20 @@ def test_sign_extend_set() -> None:
     assert simplify_expression(SignExtension(combi, 8)) == OrOperator(a, IntLiteral(~0x7F))
 
 
+def test_sign_extend_slice(equation: Equation) -> None:
+    """
+    Slice a signed reference.
+
+    .. code-block:: expr
+
+        SH[5] = H[5]
+        SH[:5] = H[:5]
+        SH[2:5] = H[2:5]
+        SH[7] = H[7]
+    """
+    equation.check_simplify()
+
+
 def test_add_literals(equation: Equation) -> None:
     """
     Add integer literals.
