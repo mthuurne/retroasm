@@ -278,6 +278,7 @@ def test_decompose_load_slice_outside_signed(
 ) -> None:
     """
     Loading a slice outside a signed reference's width will slice the extended sign.
+    The simplifier will pick the smallest possible offset.
 
     .. code-block:: instr
 
@@ -288,7 +289,7 @@ def test_decompose_load_slice_outside_signed(
     .. code-block:: dump
 
         load from R0
-        return s8(load(R0))[12:42]
+        return s8(load(R0))[7:37]
     """
     codeblock_tester.check()
 

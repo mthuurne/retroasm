@@ -559,6 +559,10 @@ def _simplify_rshift(rshift: RShift, mask: int) -> Expression:
                     subexpr.__class__(*(RShift(term, offset) for term in terms)), mask
                 ),
             )
+        case SignExtension(expr=expr, width=width) if offset >= width:
+            # Only sign bits remain after shift. Pick the minimal offset where this happens,
+            # to make equivalent expressions identical.
+            return simplify_expression(RShift(SignExtension(expr, width), width - 1), mask)
 
     return _pick_alternative(alts)
 
