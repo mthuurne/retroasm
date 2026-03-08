@@ -448,6 +448,12 @@ def _simplify_sign_extension(sign_extend: SignExtension, mask: int) -> Expressio
             # Besides efficiency, this simplification is also enables easy detection of
             # value placeholders without an assigned value.
             return imm
+        case LShift(expr=shifted, offset=offset):
+            # If offset >= width, the result would have been literal 0.
+            assert offset < width, sign_extend
+            return simplify_expression(
+                LShift(SignExtension(shifted, width - offset), offset), mask
+            )
         case expr:
             pass
 
