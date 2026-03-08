@@ -296,7 +296,15 @@ def test_decompose_load_slice_outside_signed(
 
 def test_decompose_store_slice_outside(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
-    A slice outside of a reference ignores stores.
+    A slice outside of a reference is unchanged by stores.
+
+    The load;store sequence for R0 cannot be removed here because of potential side effects,
+    but if for example a register is passed for R0 the sequence would be dropped when inlining
+    the function call.
+
+    The load of V cannot be removed because all arguments are passed by reference: value
+    arguments are wrapped in a FixedValue by the caller. This means the load of V will be
+    dropped when inlining the function call, but not when defining the function.
 
     .. code-block:: instr
 
