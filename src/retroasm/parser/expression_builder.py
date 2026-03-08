@@ -365,12 +365,9 @@ def _convert_reference_slice(
         if isinstance(start_node, EmptyNode)
         else build_expression(start_node, namespace, builder)
     )
+    end_expr: Expression | None
     if isinstance(end_node, EmptyNode):
-        ref_width = ref.width
-        if ref_width is unlimited:
-            end_expr: Expression | None = None
-        else:
-            end_expr = IntLiteral(ref_width)
+        end_expr = None if ref.type.signed or ref.width is unlimited else IntLiteral(ref.width)
     else:
         end_expr = build_expression(end_node, namespace, builder)
     width_expr: Expression | None = (
