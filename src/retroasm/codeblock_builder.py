@@ -69,7 +69,7 @@ class CodeBlockBuilder:
 
     def __init__(self) -> None:
         super().__init__()
-        self.operations: list[Load | Store] = []
+        self._operations: list[Load | Store] = []
         self._stored_values: dict[Storage, Expression] = {}
         self._block_id = self._create_block_id()
         self._labels: dict[str, InputLocation | None] = {}
@@ -78,7 +78,7 @@ class CodeBlockBuilder:
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Prints the current state of this code block builder on stdout."""
 
-        for operation in self.operations:
+        for operation in self._operations:
             operation.dump(file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
@@ -116,7 +116,7 @@ class CodeBlockBuilder:
             return value
 
         load = Load(storage, location)
-        self.operations.append(load)
+        self._operations.append(load)
         value = load.expr
         if storage.is_load_consistent():
             # Remember loaded value.
@@ -143,7 +143,7 @@ class CodeBlockBuilder:
             # Current value is rewritten.
             return
 
-        self.operations.append(Store(value, storage, location))
+        self._operations.append(Store(value, storage, location))
         if storage.is_sticky():
             # Remember stored value.
             stored_values[storage] = value
@@ -331,7 +331,7 @@ class CodeBlockBuilder:
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
-        operations = self.operations
+        operations = self._operations
         simplify_block(operations, returned)
 
         _check_undefined(operations, collector)
@@ -352,7 +352,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for operation in builder.operations:
+    for operation in builder._operations:
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
