@@ -58,27 +58,6 @@ def assert_int_literal(expr: Expression, value: int) -> None:
     assert expr.value == value
 
 
-def assert_or(expr: Expression, *args: Expression) -> None:
-    assert isinstance(expr, OrOperator)
-    exprs = expr.exprs
-    assert len(exprs) == len(args)
-    found = [False] * len(exprs)
-    missing = []
-    for arg in args:
-        try:
-            found[exprs.index(arg)] = True
-        except ValueError:
-            missing.append(arg)
-    if missing:
-        raise AssertionError(
-            "mismatch on OR arguments: expected %s, got %s"
-            % (
-                ", ".join("'%s'" % e for e in missing),
-                ", ".join("'%s'" % e for f, e in zip(found, exprs) if not f),
-            )
-        )
-
-
 def assert_trunc(
     expr: Expression, sub_expr: Expression, sub_width: Width, width: Width
 ) -> None:
