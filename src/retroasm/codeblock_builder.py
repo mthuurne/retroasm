@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import IO, ClassVar, NoReturn, Self, assert_never
+from typing import IO, NoReturn, Self, assert_never
 
 from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
@@ -52,15 +52,6 @@ def returned_bits(ret_ref: Reference | None) -> Sequence[BitString]:
 
 
 class CodeBlockBuilder:
-    _next_block_id: ClassVar[int] = 0
-
-    @classmethod
-    def _create_block_id(cls) -> int:
-        """Return a unique identifier for the block we're building."""
-        block_id = cls._next_block_id
-        cls._next_block_id = block_id + 1
-        return block_id
-
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
@@ -71,7 +62,6 @@ class CodeBlockBuilder:
         super().__init__()
         self._operations: list[Load | Store] = []
         self._stored_values: dict[Storage, Expression] = {}
-        self._block_id = self._create_block_id()
         self._labels: dict[str, InputLocation | None] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
