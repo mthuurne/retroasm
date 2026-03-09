@@ -55,21 +55,18 @@ class CodeBlockBuilder:
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
-        builder._stored_values = dict(stored_values)
+        builder._current._stored_values = dict(stored_values)
         return builder
 
     def __init__(self) -> None:
-        super().__init__()
-        self._operations: list[Load | Store] = []
-        self._stored_values: dict[Storage, Expression] = {}
+        self._current = BasicBlockBuilder()
         self._labels: dict[str, InputLocation | None] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Prints the current state of this code block builder on stdout."""
 
-        for operation in self._operations:
-            operation.dump(file=file)
+        self._current.dump(file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """
@@ -95,23 +92,7 @@ class CodeBlockBuilder:
         this builder.
         Returns an expression that represents the loaded value.
         """
-
-        stored_values = self._stored_values
-        storage = _simplify_storage(storage)
-
-        if storage.can_load_have_side_effect():
-            self._handle_side_effects(storage)
-        elif (value := stored_values.get(storage)) is not None:
-            # Use known value instead of loading it.
-            return value
-
-        load = Load(storage, location)
-        self._operations.append(load)
-        value = load.expr
-        if storage.is_load_consistent():
-            # Remember loaded value.
-            stored_values[storage] = value
-        return value
+        return self._current.emit_load_bits(storage, location)
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
@@ -120,40 +101,7 @@ class CodeBlockBuilder:
         Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
-
-        stored_values = self._stored_values
-        storage = _simplify_storage(storage)
-
-        # Simplifying gets rid of unnecessary truncation.
-        value = simplify_expression(value)
-
-        if storage.can_store_have_side_effect():
-            self._handle_side_effects(storage)
-        elif stored_values.get(storage) == value:
-            # Current value is rewritten.
-            return
-
-        self._operations.append(Store(value, storage, location))
-        if storage.is_sticky():
-            # Remember stored value.
-            stored_values[storage] = value
-
-        # Remove stored values for storages that might be aliases.
-        for storage2 in list(stored_values.keys()):
-            if storage != storage2 and storage.might_be_same(storage2):
-                del stored_values[storage2]
-
-    def _handle_side_effects(self, storage: Storage) -> None:
-        """
-        Drop stored values that might be invalidated by an I/O side effect.
-        """
-        stored_values = self._stored_values
-        if isinstance(storage, (IOStorage, ArgStorage)):
-            # A load or store side effect on an I/O channel can affect other addresses
-            # and even other channels, but it wouldn't affect registers.
-            for storage2 in list(stored_values.keys()):
-                if not isinstance(storage2, (Register, Variable)):
-                    del stored_values[storage2]
+        self._current.emit_store_bits(storage, value, location)
 
     def add_label(self, label: str, location: InputLocation | None = None) -> None:
         """
@@ -321,13 +269,104 @@ class CodeBlockBuilder:
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
-        operations = self._operations
+        operations = self._current._operations
         simplify_block(operations, returned)
 
         _check_undefined(operations, collector)
 
-        code = CodeGraph(CodeNode(BasicBlock(operations)))
+        basic_block = self._current.create_basic_block()
+        code = CodeGraph(CodeNode(basic_block))
         return FunctionBody(code, returned)
+
+
+class BasicBlockBuilder:
+    def __init__(self) -> None:
+        self._operations: list[Load | Store] = []
+        self._stored_values: dict[Storage, Expression] = {}
+
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        """Prints the current state of this code block builder on stdout."""
+
+        for operation in self._operations:
+            operation.dump(file=file)
+
+    def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
+        """
+        Loads the value from the given storage by emitting a Load node on
+        this builder.
+        Returns an expression that represents the loaded value.
+        """
+
+        stored_values = self._stored_values
+        storage = _simplify_storage(storage)
+
+        if storage.can_load_have_side_effect():
+            self._handle_side_effects(storage)
+        elif (value := stored_values.get(storage)) is not None:
+            # Use known value instead of loading it.
+            return value
+
+        load = Load(storage, location)
+        self._operations.append(load)
+        value = load.expr
+        if storage.is_load_consistent():
+            # Remember loaded value.
+            stored_values[storage] = value
+        return value
+
+    def emit_store_bits(
+        self, storage: Storage, value: Expression, location: InputLocation | None
+    ) -> None:
+        """
+        Stores the value of the given expression in the given storage by
+        emitting a Store node on this builder.
+        """
+
+        stored_values = self._stored_values
+        storage = _simplify_storage(storage)
+
+        # Simplifying gets rid of unnecessary truncation.
+        value = simplify_expression(value)
+
+        if storage.can_store_have_side_effect():
+            self._handle_side_effects(storage)
+        elif stored_values.get(storage) == value:
+            # Current value is rewritten.
+            return
+
+        self._operations.append(Store(value, storage, location))
+        if storage.is_sticky():
+            # Remember stored value.
+            stored_values[storage] = value
+
+        # Remove stored values for storages that might be aliases.
+        for storage2 in list(stored_values.keys()):
+            if storage != storage2 and storage.might_be_same(storage2):
+                del stored_values[storage2]
+
+    def _handle_side_effects(self, storage: Storage) -> None:
+        """
+        Drop stored values that might be invalidated by an I/O side effect.
+        """
+        stored_values = self._stored_values
+        if isinstance(storage, (IOStorage, ArgStorage)):
+            # A load or store side effect on an I/O channel can affect other addresses
+            # and even other channels, but it wouldn't affect registers.
+            for storage2 in list(stored_values.keys()):
+                if not isinstance(storage2, (Register, Variable)):
+                    del stored_values[storage2]
+
+    def create_basic_block(self) -> BasicBlock:
+        """
+        Build a basic block containing the operations emitted so far.
+        The state of the builder does not change.
+        """
+
+        operations = self._operations
+        # TODO: Are there worthwhile simplifications that can be performed at this point
+        #       or is it better to wait until the graph is finallized?
+
+        return BasicBlock(operations)
 
 
 def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expression]:
@@ -342,7 +381,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for operation in builder._operations:
+    for operation in builder._current._operations:
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
