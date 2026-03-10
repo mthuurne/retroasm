@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from typing import IO, Final, override
 
-from .expression import Expression
+from .expression import Expression, is_literal_true
 from .input import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
@@ -186,13 +186,34 @@ class CodeGraph:
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         for node in self.iter_nodes():
-            if (label := node.label) is not None:
-                print(f"    @{label}", file=file)
+            if (label := node.label) not in (None, "0"):
+                print(f"@{label}", file=file)
             if (block := node.block) is not None:
                 block.dump(file=file)
+            if node.outgoing:
+                verb = "goto"
+                for condition, out_node in node.outgoing:
+                    cond = "" if is_literal_true(condition) else f" if {condition}"
+                    print(f"    {verb} @{out_node.label}{cond}", file=file)
+                    verb = " " * len(verb)
 
     def iter_nodes(self) -> Iterator[CodeNode]:
-        yield self.entry
+        # Note: For the tiny graphs of single instructions, lists are fast enough.
+        #       If we ever start building much larger graphs, reconsider.
+        # TODO: If we give all nodes labels, we can use those.
+        done = []
+        pending = [self.entry]
+        while pending:
+            node = pending.pop()
+            done.append(node)
+            for _condition, out_node in node.outgoing:
+                if out_node not in done and out_node not in pending:
+                    if out_node.outgoing:
+                        pending.append(out_node)
+                    else:
+                        # Place the exit node last.
+                        pending.insert(0, out_node)
+            yield node
 
     def iter_blocks(self) -> Iterator[BasicBlock]:
         for node in self.iter_nodes():
@@ -210,6 +231,7 @@ class CodeGraph:
 class CodeNode:
     block: BasicBlock | None = None
     label: str | None = None
+    location: InputLocation | None = None
     incoming: list[CodeNode] = field(default_factory=list)
     outgoing: list[tuple[Expression, CodeNode]] = field(default_factory=list)
 

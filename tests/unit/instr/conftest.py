@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from io import StringIO
 from logging import Logger, getLogger
-from textwrap import dedent
 from typing import Literal, overload
 
 import pytest
@@ -207,8 +206,15 @@ def codeblock_tester(
             request.fixturename, request, 'error in "test" function; check log'
         )
 
+    if "@" not in expected_dump:
+        # If there are no labels in the dump, the operations will end up at the left margin
+        # and we have to re-indent them to line up with the dump.
+        expected_dump = "\n".join(
+            f"    {line}" if line else "" for line in expected_dump.split("\n")
+        )
+
     buffer = StringIO()
     func.code.dump(file=buffer)
-    actual_dump = dedent(buffer.getvalue())
+    actual_dump = buffer.getvalue()
 
     return CodeBlockDocstringTester(parser, actual_dump, expected_dump)

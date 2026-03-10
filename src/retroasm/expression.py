@@ -197,6 +197,24 @@ class IntLiteral(Expression, metaclass=UniqueFromABC):
         return 1
 
 
+def is_literal_true(expr: Expression) -> bool:
+    """Is the given expression a literal for the Boolean true value (1)?"""
+    match expr:
+        case IntLiteral(value=1):
+            return True
+        case _:
+            return False
+
+
+def is_literal_false(expr: Expression) -> bool:
+    """Is the given expression a literal for the Boolean false value (0)?"""
+    match expr:
+        case IntLiteral(value=0):
+            return True
+        case _:
+            return False
+
+
 class MultiExpression(Expression):
     """
     Base class for expressions that combine zero or more subexpressions.

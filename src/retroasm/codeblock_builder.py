@@ -5,13 +5,12 @@ from typing import IO, NoReturn, Self, assert_never
 
 from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store
 from .codeblock_simplifier import simplify_block
-from .expression import Expression, ZeroTest
+from .expression import Expression, IntLiteral, ZeroTest, is_literal_false
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
 from .reference import BitString, FixedValue, Reference, SingleStorage, bad_reference
-from .storage import ArgStorage, IOStorage, Keeper, Register, Storage, Variable
-from .types import IntType
+from .storage import ArgStorage, IOStorage, Register, Storage, Variable
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -55,18 +54,19 @@ class CodeBlockBuilder:
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
-        builder._current._stored_values = dict(stored_values)
+        builder._current_block._stored_values = dict(stored_values)
         return builder
 
     def __init__(self) -> None:
-        self._current = BasicBlockBuilder()
-        self._labels: dict[str, InputLocation | None] = {}
+        self._current_block = BasicBlockBuilder()
+        self._current_node = self._entry = CodeNode()
+        self._nodes_by_label: dict[str, CodeNode] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Prints the current state of this code block builder on stdout."""
 
-        self._current.dump(file=file)
+        self._current_block.dump(file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """
@@ -76,15 +76,13 @@ class CodeBlockBuilder:
         """
 
         with collector.check():
-            defined_labels = self._labels.keys()
-            unused_labels = set(defined_labels)
-            for label, locations in self._branches.items():
-                if label in defined_labels:
-                    unused_labels.remove(label)
-                else:
-                    collector.error(f'Label "{label}" does not exist', location=locations)
-            for label in unused_labels:
-                collector.warning(f'Label "{label}" is unused', location=self._labels[label])
+            for label, node in self._nodes_by_label.items():
+                if node.label is None:
+                    collector.error(
+                        f'Label "{label}" does not exist', location=self._branches[label]
+                    )
+                elif label not in self._branches:
+                    collector.warning(f'Label "{label}" is unused', location=node.location)
 
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
         """
@@ -92,7 +90,9 @@ class CodeBlockBuilder:
         this builder.
         Returns an expression that represents the loaded value.
         """
-        return self._current.emit_load_bits(storage, location)
+        if self._current_node.location is None:
+            self._current_node.location = location
+        return self._current_block.emit_load_bits(storage, location)
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
@@ -101,22 +101,45 @@ class CodeBlockBuilder:
         Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
-        self._current.emit_store_bits(storage, value, location)
+        if self._current_node.location is None:
+            self._current_node.location = location
+        self._current_block.emit_store_bits(storage, value, location)
+
+    def _node_for_label(self, label: str) -> CodeNode:
+        """
+        Return the code node for the given label, creating it if necessary.
+        A new node will not have its `label` field filled in initially;
+        that will only happen when `add_label()` is called for the label.
+        """
+        nodes_by_label = self._nodes_by_label
+        node = nodes_by_label.get(label)
+        if node is None:
+            node = CodeNode()
+            nodes_by_label[label] = node
+        return node
 
     def add_label(self, label: str, location: InputLocation | None = None) -> None:
         """
         Add a label that identifies the current position in the code block.
         """
-        if label in self._labels:
-            old_location = self._labels[label]
-            raise BadInput(f'label "{label}" already defined', location, old_location)
-        else:
-            self._labels[label] = location
+
+        node = self._node_for_label(label)
+        if node.label is not None:
+            raise BadInput(f'label "{label}" already defined', location, node.location)
+        node.label = label
+
+        # Complete previous node and link it to label node.
+        prev_node = self._current_node
+        self._complete_node()
+        prev_node.outgoing.append((IntLiteral(1), node))
+
+        self._current_node = node
+        self._current_node.location = location
 
     def add_branch(
         self,
         label: str,
-        condition: Expression | None = None,
+        condition: Expression = IntLiteral(1),
         *,
         label_location: InputLocation | None = None,
         condition_location: InputLocation | None = None,
@@ -130,10 +153,19 @@ class CodeBlockBuilder:
         if label_location is not None:
             locations.append(label_location)
 
-        # Force the condition to be computed.
-        if condition is not None:
-            ref = Reference(SingleStorage(Keeper(1)), IntType.u(1))
-            ref.emit_store(self, ZeroTest(condition), condition_location)
+        # Find the destination nodes.
+        node_from = self._current_node
+        self._complete_node()
+        node_false = self._current_node
+        node_true = self._node_for_label(label)
+
+        # Link outgoing edges.
+        condition_false = simplify_expression(ZeroTest(condition))
+        condition_true = simplify_expression(ZeroTest(condition_false))
+        if not is_literal_false(condition_true):
+            node_from.outgoing.append((condition_true, node_true))
+        if not is_literal_false(condition_false):
+            node_from.outgoing.append((condition_false, node_false))
 
     def inline_function_call(
         self,
@@ -258,8 +290,6 @@ class CodeBlockBuilder:
         if collector is None:
             collector = ErrorCollector()
 
-        self._check_labels(collector)
-
         def fixate_variable(storage: Storage) -> FixedValue | None:
             if isinstance(storage, Variable):
                 value = self.emit_load_bits(storage, location)
@@ -269,14 +299,34 @@ class CodeBlockBuilder:
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
-        operations = self._current._operations
+        operations = self._current_block._operations
         simplify_block(operations, returned)
 
         _check_undefined(operations, collector)
 
-        basic_block = self._current.create_basic_block()
-        code = CodeGraph(CodeNode(basic_block))
+        self._complete_node()
+
+        self._check_labels(collector)
+
+        code = CodeGraph(self._entry)
+
+        # Add a synthetic label to each unlabeled node.
+        label_idx = 0
+        for node in code.iter_nodes():
+            if node.label is None:
+                node.label = str(label_idx)
+                label_idx += 1
+
         return FunctionBody(code, returned)
+
+    def _complete_node(self) -> None:
+        # Complete and archive previous node.
+        node = self._current_node
+        node.block = self._current_block.create_basic_block()
+
+        # Start a new node.
+        self._current_node = CodeNode()
+        self._current_block = BasicBlockBuilder()
 
 
 class BasicBlockBuilder:
@@ -381,7 +431,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for operation in builder._current._operations:
+    for operation in builder._current_block._operations:
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .conftest import InstructionSetDocstringTester
+from .conftest import CodeBlockDocstringTester, InstructionSetDocstringTester
 
 
 def test_branch_label_duplicate(instr_tester: InstructionSetDocstringTester) -> None:
@@ -63,3 +63,39 @@ def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> Non
             ^^^^^^^
     """
     instr_tester.check()
+
+
+# TODO: Add a test case for unreachable code detection.
+
+
+def test_branch_dump(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    The dump format can handle a branch.
+
+    .. code-block:: instr
+
+        func test()
+            branch a < 8 @small
+            b := 8
+            branch 1 @end
+            @small
+            b := a
+            @end
+
+    TODO: The load in the @small block can be eliminated in cross-block simplification.
+
+    .. code-block:: dump
+
+            load from reg32 a
+            goto @small if sign((load(reg32 a) + -8))
+                 @1 if !sign((load(reg32 a) + -8))
+        @1
+            store 8 in reg32 b
+            goto @end
+        @small
+            load from reg32 a
+            store load(reg32 a) in reg32 b
+            goto @end
+        @end
+    """
+    codeblock_tester.check()
