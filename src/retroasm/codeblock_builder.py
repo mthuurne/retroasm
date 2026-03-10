@@ -118,9 +118,10 @@ class CodeBlockBuilder:
             nodes_by_label[label] = node
         return node
 
-    def add_label(self, label: str, location: InputLocation | None = None) -> None:
+    def emit_label(self, label: str, location: InputLocation | None = None) -> None:
         """
         Add a label that identifies the current position in the code block.
+        Raises `BadInput` if the label was already defined.
         """
 
         node = self._node_for_label(label)
@@ -136,7 +137,7 @@ class CodeBlockBuilder:
         self._current_node = node
         self._current_node.location = location
 
-    def add_branch(
+    def emit_branch(
         self,
         label: str,
         condition: Expression = IntLiteral(1),

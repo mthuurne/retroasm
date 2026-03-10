@@ -583,7 +583,7 @@ def emit_code_from_statements(
             case BranchNode(cond=cond, target=label):
                 # Conditional branch.
                 condition = build_expression(cond, namespace, builder)
-                builder.add_branch(
+                builder.emit_branch(
                     label.name,
                     condition,
                     label_location=label.location,
@@ -592,7 +592,7 @@ def emit_code_from_statements(
 
             case LabelNode(name=label, location=location):
                 # Label that can be branched to.
-                builder.add_label(label, location)
+                builder.emit_label(label, location)
 
             case stmt:
                 build_statement_eval(collector, namespace, builder, stmt)
