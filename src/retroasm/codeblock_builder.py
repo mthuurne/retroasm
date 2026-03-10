@@ -143,7 +143,6 @@ class CodeBlockBuilder:
         condition: Expression = IntLiteral(1),
         *,
         label_location: InputLocation | None = None,
-        condition_location: InputLocation | None = None,
     ) -> None:
         """
         Add a branch to a given label.
