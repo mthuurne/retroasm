@@ -9,7 +9,6 @@ from .input import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
 from .types import mask_for_width
-from .utils import const_property
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -132,7 +131,7 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("operations", "storages", "traceables", "arguments")
+    __slots__ = ("operations", "storages", "traceables")
 
     def __init__(self, operations: Iterable[Load | Store]):
         operations = tuple(operations)
@@ -147,11 +146,6 @@ class BasicBlock:
         traceables = {storage for storage in storages if storage.traceable}
         self.traceables: Final[Set[Storage]] = traceables
         """A set of all traceable storages that are accessed by this block."""
-
-        # Reject multiple arguments with the same name.
-        arguments = _find_arguments(storages)
-        self.arguments: Final[Mapping[str, ArgStorage]] = arguments
-        """All arguments that occur in this block, mapped by name."""
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Print this basic block on stdout."""
@@ -174,19 +168,11 @@ def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
 
 
 class CodeGraph:
-    __slots__ = ("entry", "storages", "arguments")
+    __slots__ = ("entry",)
 
     def __init__(self, entry: CodeNode):
         self.entry: Final[CodeNode] = entry
         """The entry point for this code graph."""
-
-        self.storages: Final[Set[Storage]] = frozenset(
-            storage for block in self.iter_blocks() for storage in block.storages
-        )
-        """A set of all storages that are accessed by this code graph."""
-
-        self.arguments: Final[Mapping[str, ArgStorage]] = _find_arguments(self.storages)
-        """All arguments that occur in this graph, mapped by name."""
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         for node in walk_nodes(self.entry):
@@ -250,11 +236,21 @@ class FunctionBody:
     A code block with returned bit strings.
     """
 
-    __slots__ = ("code", "returned", "_storages", "_arguments")
+    __slots__ = ("code", "returned", "arguments")
 
     def __init__(self, code: CodeGraph, returned: Iterable[BitString]):
+        returned = tuple(returned)
+        storages = {storage for block in code.iter_blocks() for storage in block.storages}
+        storages.update(storage for ret in returned for storage in ret.iter_storages())
+
         self.code: Final[CodeGraph] = code
-        self.returned: Final[Sequence[BitString]] = tuple(returned)
+        self.returned: Final[Sequence[BitString]] = returned
+
+        # Compute the mapping now because _find_arguments() will reject multiple arguments
+        # with the same name.
+        self.arguments: Final[Mapping[str, ArgStorage]] = dict(_find_arguments(storages))
+        """The arguments that occur in this function body, mapped by name."""
+
         assert verify_loads(self.operations, self.returned)
 
     def dump(self, *, file: IO[str] | None = None) -> None:
@@ -266,22 +262,3 @@ class FunctionBody:
     @property
     def operations(self) -> Sequence[Load | Store]:
         return self.code.operations
-
-    @const_property
-    def storages(self) -> Set[Storage]:
-        """
-        A set of all storages that are accessed or referenced by this function body.
-        """
-        storages = set(self.code.storages)
-        for ret_bits in self.returned:
-            storages.update(ret_bits.iter_storages())
-        return storages
-
-    @const_property
-    def arguments(self) -> Mapping[str, ArgStorage]:
-        args = dict(self.code.arguments)
-        for ret in self.returned:
-            for storage in ret.iter_storages():
-                if isinstance(storage, ArgStorage):
-                    args[storage.name] = storage
-        return args
