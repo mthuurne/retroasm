@@ -153,20 +153,6 @@ class BasicBlock:
             operation.dump(file=file)
 
 
-def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
-    """
-    A name to storage mapping containing all arguments among the given storages.
-    ValueError is raised if the same name is used for multiple arguments.
-    """
-    args: dict[str, ArgStorage] = {}
-    for storage in storages:
-        match storage:
-            case ArgStorage(name=name) as arg:
-                if args.setdefault(name, arg) is not arg:
-                    raise ValueError(f'multiple arguments named "{name}"')
-    return args
-
-
 class CodeGraph:
     __slots__ = ("entry",)
 
@@ -262,3 +248,17 @@ class FunctionBody:
     @property
     def operations(self) -> Sequence[Load | Store]:
         return self.code.operations
+
+
+def _find_arguments(storages: Iterable[Storage]) -> Mapping[str, ArgStorage]:
+    """
+    A name to storage mapping containing all arguments among the given storages.
+    ValueError is raised if the same name is used for multiple arguments.
+    """
+    args: dict[str, ArgStorage] = {}
+    for storage in storages:
+        match storage:
+            case ArgStorage(name=name) as arg:
+                if args.setdefault(name, arg) is not arg:
+                    raise ValueError(f'multiple arguments named "{name}"')
+    return args
