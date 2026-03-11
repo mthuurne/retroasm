@@ -11,32 +11,20 @@ from .types import IntType, Width
 class IOChannel:
     """A channel through which a CPU can do input and output."""
 
-    __slots__ = ("_name", "_elem_type", "_addr_type")
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def elem_type(self) -> IntType:
-        return self._elem_type
-
-    @property
-    def addr_type(self) -> IntType:
-        return self._addr_type
+    __slots__ = ("name", "elem_type", "addr_type")
 
     def __init__(self, name: str, elem_type: IntType, addr_type: IntType):
-        self._name = name
-        self._elem_type = elem_type
-        self._addr_type = addr_type
+        self.name: Final[str] = name
+        self.elem_type: Final[IntType] = elem_type
+        self.addr_type: Final[IntType] = addr_type
 
     @override
     def __repr__(self) -> str:
-        return f"IOChannel({self._name!r}, {self._elem_type!r}, {self._addr_type!r})"
+        return f"IOChannel({self.name!r}, {self.elem_type!r}, {self.addr_type!r})"
 
     @override
     def __str__(self) -> str:
-        return f"{self._elem_type} {self._name}[{self._addr_type}]"
+        return f"{self.elem_type} {self.name}[{self.addr_type}]"
 
     # TODO: Allow the system model to provide a more accurate responses
     #       by examining the index.
@@ -95,16 +83,12 @@ class IOChannel:
 class Storage(ABC):
     """A location in which bits can be stored."""
 
-    __slots__ = ("_width",)
-
-    @property
-    def width(self) -> Width:
-        return self._width
+    __slots__ = ("width",)
 
     def __init__(self, width: Width):
-        self._width = width
         if width < 0:
             raise ValueError(f"storage width ({cast(int, width):d}) cannot be negative")
+        self.width: Final[Width] = width
 
     @abstractmethod
     def can_load_have_side_effect(self) -> bool:
@@ -169,23 +153,19 @@ class Register(Storage):
     A processor register.
     """
 
-    __slots__ = ("_name",)
-
-    @property
-    def name(self) -> str:
-        return self._name
+    __slots__ = ("name",)
 
     def __init__(self, name: str, width: Width):
         Storage.__init__(self, width)
-        self._name = name
+        self.name: Final[str] = name
 
     @override
     def __str__(self) -> str:
-        return f"reg{self._width} {self._name}"
+        return f"reg{self.width} {self.name}"
 
     @override
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._name}, {self._width})"
+        return f"{self.__class__.__name__}({self.name}, {self.width})"
 
     @override
     def can_load_have_side_effect(self) -> bool:
@@ -223,11 +203,11 @@ class Variable(Storage):
 
     @override
     def __str__(self) -> str:
-        return f"var{self._width} {self.name}"
+        return f"var{self.width} {self.name}"
 
     @override
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.name!r}, {self._width!r})"
+        return f"{self.__class__.__name__}({self.name!r}, {self.width!r})"
 
     @override
     def can_load_have_side_effect(self) -> bool:
@@ -257,23 +237,19 @@ class ArgStorage(Storage):
     so until we know the concrete storage we have to assume the worst case.
     """
 
-    __slots__ = ("_name",)
-
-    @property
-    def name(self) -> str:
-        return self._name
+    __slots__ = ("name",)
 
     def __init__(self, name: str, width: Width):
-        self._name = name
+        self.name: Final[str] = name
         Storage.__init__(self, width)
 
     @override
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._name!r}, {self._width})"
+        return f"{self.__class__.__name__}({self.name!r}, {self.width})"
 
     @override
     def __str__(self) -> str:
-        return self._name
+        return self.name
 
     @override
     def can_load_have_side_effect(self) -> bool:
@@ -301,82 +277,74 @@ class ArgStorage(Storage):
 class IOStorage(Storage):
     """Storage location accessed via an I/O channel at a particular index."""
 
-    __slots__ = ("_channel", "_index")
-
-    @property
-    def channel(self) -> IOChannel:
-        return self._channel
-
-    @property
-    def index(self) -> Expression:
-        return self._index
+    __slots__ = ("channel", "index")
 
     def __init__(self, channel: IOChannel, index: Expression):
-        self._channel = channel
-        self._index = index
+        self.channel: Final[IOChannel] = channel
+        self.index: Final[Expression] = index
         Storage.__init__(self, channel.elem_type.width)
 
     @override
     def __repr__(self) -> str:
-        return f"IOStorage({self._channel!r}, {self._index!r})"
+        return f"IOStorage({self.channel!r}, {self.index!r})"
 
     @override
     def __str__(self) -> str:
-        return f"{self._channel.name}[{self._index}]"
+        return f"{self.channel.name}[{self.index}]"
 
     @override
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, IOStorage)
-            and self._channel is other._channel
-            and self._index == other._index
+            and self.channel is other.channel
+            and self.index == other.index
         )
 
     @override
     def __hash__(self) -> int:
-        return hash((self._channel, self._index))
+        return hash((self.channel, self.index))
 
     @override
     def can_load_have_side_effect(self) -> bool:
-        return self._channel.can_load_have_side_effect(self._index)
+        return self.channel.can_load_have_side_effect(self.index)
 
     @override
     def can_store_have_side_effect(self) -> bool:
-        return self._channel.can_store_have_side_effect(self._index)
+        return self.channel.can_store_have_side_effect(self.index)
 
     @override
     def is_load_consistent(self) -> bool:
-        return self._channel.is_load_consistent(self._index)
+        return self.channel.is_load_consistent(self.index)
 
     @override
     def is_sticky(self) -> bool:
-        return self._channel.is_sticky(self._index)
+        return self.channel.is_sticky(self.index)
 
     @override
     def might_be_same(self, other: Storage) -> bool:
         if isinstance(other, IOStorage):
             # TODO: This is an oversimplification: some MSX devices have their
             #       registers both I/O-mapped and memory-mapped.
-            return self._channel == other._channel and self._channel.might_be_same(
-                self._index, other._index
+            return self.channel == other.channel and self.channel.might_be_same(
+                self.index, other.index
             )
         else:
             return isinstance(other, ArgStorage)
 
     @override
     def iter_expressions(self) -> Iterator[Expression]:
-        yield self._index
+        yield self.index
 
     @override
     def substitute_expressions(
         self, func: Callable[[Expression], Expression | None]
     ) -> IOStorage:
-        index = self._index
+        index = self.index
         new_index = index.substitute(func)
         if new_index is index:
             return self
         else:
-            return IOStorage(self._channel, new_index)
+            return IOStorage(self.channel, new_index)
 
 
 class Keeper(Storage):
@@ -389,11 +357,11 @@ class Keeper(Storage):
 
     @override
     def __repr__(self) -> str:
-        return f"Keeper({self._width})"
+        return f"Keeper({self.width})"
 
     @override
     def __str__(self) -> str:
-        return f"keep{self._width}"
+        return f"keep{self.width}"
 
     @override
     def can_load_have_side_effect(self) -> bool:
