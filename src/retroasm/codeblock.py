@@ -185,8 +185,8 @@ class CodeGraph:
         """All arguments that occur in this graph, mapped by name."""
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        for node in self.iter_nodes():
-            if (label := node.label) not in (None, "0"):
+        for node in walk_nodes(self.entry):
+            if (label := node.label) is not None and not (label == "0" and node is self.entry):
                 print(f"@{label}", file=file)
             if (block := node.block) is not None:
                 block.dump(file=file)
@@ -197,26 +197,8 @@ class CodeGraph:
                     print(f"    {verb} @{out_node.label}{cond}", file=file)
                     verb = " " * len(verb)
 
-    def iter_nodes(self) -> Iterator[CodeNode]:
-        # Note: For the tiny graphs of single instructions, lists are fast enough.
-        #       If we ever start building much larger graphs, reconsider.
-        # TODO: If we give all nodes labels, we can use those.
-        done = []
-        pending = [self.entry]
-        while pending:
-            node = pending.pop()
-            done.append(node)
-            for _condition, out_node in node.outgoing:
-                if out_node not in done and out_node not in pending:
-                    if out_node.outgoing:
-                        pending.append(out_node)
-                    else:
-                        # Place the exit node last.
-                        pending.insert(0, out_node)
-            yield node
-
     def iter_blocks(self) -> Iterator[BasicBlock]:
-        for node in self.iter_nodes():
+        for node in walk_nodes(self.entry):
             if (block := node.block) is not None:
                 yield block
 
@@ -224,6 +206,24 @@ class CodeGraph:
     def operations(self) -> Sequence[Load | Store]:
         # TODO: What do callers use this for?
         return [operation for block in self.iter_blocks() for operation in block.operations]
+
+
+def walk_nodes(entry: CodeNode) -> Iterator[CodeNode]:
+    # Note: For the tiny graphs of single instructions, lists are fast enough.
+    #       If we ever start building much larger graphs, reconsider.
+    done = []
+    pending = [entry]
+    while pending:
+        node = pending.pop()
+        done.append(node)
+        for _condition, out_node in node.outgoing:
+            if out_node not in done and out_node not in pending:
+                if out_node.outgoing:
+                    pending.append(out_node)
+                else:
+                    # Place the exit node last.
+                    pending.insert(0, out_node)
+        yield node
 
 
 # TODO: Make immutable later?
@@ -234,6 +234,11 @@ class CodeNode:
     location: InputLocation | None = None
     incoming: list[CodeNode] = field(default_factory=list)
     outgoing: list[tuple[Expression, CodeNode]] = field(default_factory=list)
+
+    @property
+    def empty(self) -> bool:
+        """Is this a node without operations?"""
+        return (block := self.block) is None or not block.operations
 
 
 class FunctionBody:

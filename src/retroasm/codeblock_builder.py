@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, NoReturn, Self, assert_never
 
-from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store
+from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store, walk_nodes
 from .codeblock_simplifier import simplify_block
-from .expression import Expression, IntLiteral, ZeroTest, is_literal_false
+from .expression import Expression, IntLiteral, ZeroTest, is_literal_false, is_literal_true
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
@@ -308,15 +308,36 @@ class CodeBlockBuilder:
 
         self._check_labels(collector)
 
-        code = CodeGraph(self._entry)
+        # Fill in the incoming nodes.
+        for node in walk_nodes(self._entry):
+            for _cond, succ in node.outgoing:
+                succ.incoming.append(node)
+
+        # Replace empty nodes with a single fixed successor by that successor.
+        for node in list(walk_nodes(self._entry)):
+            if node.empty and len(node.outgoing) == 1:
+                ((cond, new_succ),) = node.outgoing
+                if is_literal_true(cond):
+                    if node is self._entry:
+                        self._entry = new_succ
+                    else:
+                        for prev in node.incoming:
+                            for idx, (cond, succ) in enumerate(prev.outgoing):
+                                if succ is node:
+                                    prev.outgoing[idx] = (cond, new_succ)
+                        new_succ.incoming.remove(node)
+                        new_succ.incoming += node.incoming
+                    if (label := node.label) is not None:
+                        new_succ.label = label
 
         # Add a synthetic label to each unlabeled node.
         label_idx = 0
-        for node in code.iter_nodes():
+        for node in walk_nodes(self._entry):
             if node.label is None:
                 node.label = str(label_idx)
                 label_idx += 1
 
+        code = CodeGraph(self._entry)
         return FunctionBody(code, returned)
 
     def _complete_node(self) -> None:

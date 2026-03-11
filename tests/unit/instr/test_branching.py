@@ -68,7 +68,7 @@ def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> Non
 # TODO: Add a test case for unreachable code detection.
 
 
-def test_branch_dump(codeblock_tester: CodeBlockDocstringTester) -> None:
+def test_branch_dump_min(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     The dump format can handle a branch.
 
@@ -96,6 +96,38 @@ def test_branch_dump(codeblock_tester: CodeBlockDocstringTester) -> None:
             load from reg32 a
             store load(reg32 a) in reg32 b
             goto @end
+        @end
+    """
+    codeblock_tester.check()
+
+
+def test_branch_redundant_blocks(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    The final graph has no empty blocks before `@loop` and `@end`.
+
+    .. code-block:: instr
+
+        func test()
+            @loop
+            branch a == b @end
+            a := a + 1
+            branch a < 8 @loop
+            @end
+
+    TODO: The load in the @0 block can be eliminated in cross-block simplification.
+
+    .. code-block:: dump
+
+        @loop
+            load from reg32 a
+            load from reg32 b
+            goto @end if !(load(reg32 a) ^ load(reg32 b))
+                 @0 if !!(load(reg32 a) ^ load(reg32 b))
+        @0
+            load from reg32 a
+            store (load(reg32 a) + 1)[:32] in reg32 a
+            goto @loop if sign(((load(reg32 a) + 1)[:32] + -8))
+                 @end if !sign(((load(reg32 a) + 1)[:32] + -8))
         @end
     """
     codeblock_tester.check()

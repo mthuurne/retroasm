@@ -22,6 +22,7 @@ disable=
         invalid-name,
         protected-access,
         too-many-lines,
+        too-many-nested-blocks,
     # Eventually all public API should have docstrings, but I don't want to spend
     # too much time documenting interfaces that are still going to radically change.
         missing-docstring,
