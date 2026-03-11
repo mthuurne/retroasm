@@ -132,7 +132,7 @@ class BasicBlock:
     A sequence of load/store operations without any branches.
     """
 
-    __slots__ = ("operations", "storages", "arguments")
+    __slots__ = ("operations", "storages", "traceables", "arguments")
 
     def __init__(self, operations: Iterable[Load | Store]):
         operations = tuple(operations)
@@ -143,6 +143,10 @@ class BasicBlock:
         storages = {operation.storage for operation in operations}
         self.storages: Final[Set[Storage]] = storages
         """A set of all storages that are accessed by this block."""
+
+        traceables = {storage for storage in storages if storage.traceable}
+        self.traceables: Final[Set[Storage]] = traceables
+        """A set of all traceable storages that are accessed by this block."""
 
         # Reject multiple arguments with the same name.
         arguments = _find_arguments(storages)

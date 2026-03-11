@@ -83,12 +83,25 @@ class IOChannel:
 class Storage(ABC):
     """A location in which bits can be stored."""
 
-    __slots__ = ("width",)
+    __slots__ = ("width", "traceable")
 
     def __init__(self, width: Width):
         if width < 0:
             raise ValueError(f"storage width ({cast(int, width):d}) cannot be negative")
         self.width: Final[Width] = width
+
+        self.traceable: Final[bool] = (
+            not self.can_load_have_side_effect()
+            and not self.can_store_have_side_effect()
+            and self.is_load_consistent()
+            and self.is_sticky()
+        )
+        """
+        Can we eliminate loads and stores on this storage by tracing its value?
+        For this to be possible, the storage must be side-effect free, have a consistent load
+        and be sticky.
+        Local variables, most CPU registers and RAM satisfy these criteria.
+        """
 
     @abstractmethod
     def can_load_have_side_effect(self) -> bool:
@@ -156,8 +169,8 @@ class Register(Storage):
     __slots__ = ("name",)
 
     def __init__(self, name: str, width: Width):
-        Storage.__init__(self, width)
         self.name: Final[str] = name
+        Storage.__init__(self, width)
 
     @override
     def __str__(self) -> str:
@@ -198,8 +211,8 @@ class Variable(Storage):
     __slots__ = ("name",)
 
     def __init__(self, name: str, width: Width):
-        Storage.__init__(self, width)
         self.name: Final[str] = name
+        Storage.__init__(self, width)
 
     @override
     def __str__(self) -> str:
