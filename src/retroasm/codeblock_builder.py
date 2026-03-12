@@ -3,8 +3,22 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, NoReturn, Self, assert_never
 
-from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, Store, walk_nodes
-from .codeblock_simplifier import simplify_block
+from .codeblock import (
+    BasicBlock,
+    CodeGraph,
+    CodeNode,
+    FunctionBody,
+    Load,
+    Store,
+    verify_loads,
+    walk_nodes,
+)
+from .codeblock_simplifier import (
+    remove_overwritten_stores,
+    remove_unused_loads,
+    remove_variable_stores,
+    update_expressions_in_bitstrings,
+)
 from .expression import Expression, IntLiteral, ZeroTest, is_literal_false, is_literal_true
 from .expression_simplifier import simplify_expression
 from .function import Function
@@ -296,11 +310,28 @@ class CodeBlockBuilder:
                 return FixedValue(value, storage.width)
             return None
 
+        operations = self._current_block._operations
+
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
-        operations = self._current_block._operations
-        simplify_block(operations, returned)
+        # Simplify returned expressions.
+        # This can also help find additional unused loads, if a loaded value is dropped
+        # during simplification because it doesn't affect the expression's value.
+        update_expressions_in_bitstrings(returned)
+
+        # Local variables don't exist after exiting the block, so once their values have
+        # been traced, we don't need the stores anymore.
+        remove_variable_stores(operations)
+
+        # With known-value loads removed by the builder, some prior stores to the same
+        # storages may have become redundant.
+        remove_overwritten_stores(operations)
+
+        # Removal of unused loads will not enable any other simplifications.
+        remove_unused_loads(operations, returned)
+
+        assert verify_loads(operations, returned)
 
         _check_undefined(operations, collector)
 
