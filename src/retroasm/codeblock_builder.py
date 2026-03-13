@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, NoReturn, Self, assert_never
 
@@ -9,15 +10,10 @@ from .codeblock import (
     CodeNode,
     FunctionBody,
     Load,
+    LoadedValue,
     Store,
     verify_loads,
     walk_nodes,
-)
-from .codeblock_simplifier import (
-    remove_overwritten_stores,
-    remove_unused_loads,
-    remove_variable_stores,
-    update_expressions_in_bitstrings,
 )
 from .expression import Expression, IntLiteral, ZeroTest, is_literal_false, is_literal_true
 from .expression_simplifier import simplify_expression
@@ -318,18 +314,18 @@ class CodeBlockBuilder:
         # Simplify returned expressions.
         # This can also help find additional unused loads, if a loaded value is dropped
         # during simplification because it doesn't affect the expression's value.
-        update_expressions_in_bitstrings(returned)
+        _update_expressions_in_bitstrings(returned)
 
         # Local variables don't exist after exiting the block, so once their values have
         # been traced, we don't need the stores anymore.
-        remove_variable_stores(operations)
+        _remove_variable_stores(operations)
 
         # With known-value loads removed by the builder, some prior stores to the same
         # storages may have become redundant.
-        remove_overwritten_stores(operations)
+        _remove_overwritten_stores(operations)
 
         # Removal of unused loads will not enable any other simplifications.
-        remove_unused_loads(operations, returned)
+        _remove_unused_loads(operations, returned)
 
         assert verify_loads(operations, returned)
 
@@ -487,3 +483,70 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
+
+
+def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
+    """Simplifies each expression in the given bit strings."""
+
+    for i, ret_bits in enumerate(returned):
+        returned[i] = ret_bits.simplify()
+
+
+def _remove_variable_stores(operations: list[Load | Store]) -> None:
+    """Remove stores to local variables."""
+
+    for i in range(len(operations) - 1, -1, -1):
+        match operations[i]:
+            case Store(storage=Variable()):
+                del operations[i]
+
+
+def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
+    """Remove side-effect-free stores that will be overwritten."""
+
+    will_be_overwritten = set()
+    for i in range(len(operations) - 1, -1, -1):
+        operation = operations[i]
+        storage = operation.storage
+        if not storage.can_store_have_side_effect():
+            match operation:
+                case Load():
+                    will_be_overwritten.discard(storage)
+                case Store():
+                    if storage in will_be_overwritten:
+                        del operations[i]
+                    else:
+                        will_be_overwritten.add(storage)
+
+
+def _remove_unused_loads(operations: list[Load | Store], returned: list[BitString]) -> None:
+    """Remove side-effect-free loads of which the LoadedValue is unused."""
+
+    # Keep track of how often each LoadedValue is used.
+    use_counts = defaultdict[LoadedValue, int](int)
+
+    def update_counts(expr: Expression, delta: int = 1) -> None:
+        for loaded in expr.iter_instances(LoadedValue):
+            use_counts[loaded] += delta
+
+    # Compute initial use counts.
+    for operation in operations:
+        if isinstance(operation, Store):
+            update_counts(operation.expr)
+        for expr in operation.storage.iter_expressions():
+            update_counts(expr)
+    for ret_bits in returned:
+        for expr in ret_bits.iter_expressions():
+            update_counts(expr)
+
+    # Remove unnecesary Loads.
+    for i in range(len(operations) - 1, -1, -1):
+        match operations[i]:
+            case Load(expr=expr, storage=storage):
+                if use_counts[expr] == 0 and not storage.can_load_have_side_effect():
+                    del operations[i]
+                    # Update use_counts, so we can remove earlier Loads that
+                    # became unused because the Load we just removed was
+                    # the sole user of their LoadedValue.
+                    for expr in storage.iter_expressions():
+                        update_counts(expr, -1)
