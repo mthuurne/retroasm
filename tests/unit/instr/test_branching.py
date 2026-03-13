@@ -159,3 +159,41 @@ def test_branch_redundant_blocks(codeblock_tester: CodeBlockDocstringTester) -> 
         @end
     """
     codeblock_tester.check()
+
+
+def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    Unused load and store operations can be eliminated across branches.
+
+    .. code-block:: instr
+
+        func test(u1 F)
+            var u32 I
+            branch F @pick_b
+            I := a
+            branch @read
+            @pick_b
+            I  := b
+            @read
+            def u32 ret = ram[I] & 0
+
+    TODO: Eventually, this should be reducible to just "load from F" and "return 0".
+
+    .. code-block:: dump
+
+            load from F
+            store load(F) in var1 F
+            goto @pick_b if load(F)
+                 @1 if !load(F)
+        @1
+            load from reg32 a
+            store load(reg32 a) in var32 I
+            goto @read
+        @pick_b
+            load from reg32 b
+            store load(reg32 b) in var32 I
+            goto @read
+        @read
+            return 0
+    """
+    codeblock_tester.check()
