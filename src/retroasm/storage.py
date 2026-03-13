@@ -9,28 +9,18 @@ from .expression_simplifier import simplify_expression
 from .types import IntType, Width
 
 
-class IOChannel:
-    """A channel through which a CPU can do input and output."""
+class Device:
+    """A peripheral device accessible via an I/O channel."""
 
-    __slots__ = ("name", "elem_type", "addr_type")
-
-    def __init__(self, name: str, elem_type: IntType, addr_type: IntType):
-        self.name: Final[str] = name
-        self.elem_type: Final[IntType] = elem_type
-        self.addr_type: Final[IntType] = addr_type
+    __slots__ = ()
 
     @override
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}({self.name!r}, {self.elem_type!r}, {self.addr_type!r})"
-        )
+        return f"{self.__class__.__name__}()"
 
     @override
     def __str__(self) -> str:
-        return f"{self.elem_type} {self.name}[{self.addr_type}]"
-
-    # TODO: Allow the system model to provide a more accurate responses
-    #       by examining the index.
+        return "UnknownDevice"
 
     # pylint: disable=unused-argument
 
@@ -83,10 +73,14 @@ class IOChannel:
         return True
 
 
-class RAMChannel(IOChannel):
-    """An I/O channel connected to a read/write memory without side effects and aliasing."""
+class RAMDevice(Device):
+    """A read/write memory without side effects and aliasing."""
 
     __slots__ = ()
+
+    @override
+    def __str__(self) -> str:
+        return "RAM"
 
     @override
     def can_load_have_side_effect(self, index: Expression) -> bool:
@@ -107,6 +101,45 @@ class RAMChannel(IOChannel):
     @override
     def might_be_same(self, index1: Expression, index2: Expression) -> bool:
         return not is_literal_false(simplify_expression(ZeroTest(XorOperator(index1, index2))))
+
+
+class IOChannel:
+    """A channel through which a CPU can do input and output."""
+
+    __slots__ = ("name", "elem_type", "addr_type", "_device")
+
+    _device_class = Device
+
+    def __init__(self, name: str, elem_type: IntType, addr_type: IntType):
+        self.name: Final[str] = name
+        self.elem_type: Final[IntType] = elem_type
+        self.addr_type: Final[IntType] = addr_type
+        self._device: Final[Device] = self._device_class()
+
+    def map_io(self, index: Expression) -> tuple[Device, Expression]:
+        """Map a given index to a device + index on the device."""
+
+        # TODO: Add a system model to determine which device might be accessed (and at what
+        #       address) by examining channel + address.
+        return (self._device, index)
+
+    @override
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}({self.name!r}, {self.elem_type!r}, {self.addr_type!r})"
+        )
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.elem_type} {self.name}[{self.addr_type}]"
+
+
+class RAMChannel(IOChannel):
+    """An I/O channel connected to a RAMDevice."""
+
+    __slots__ = ()
+
+    _device_class = RAMDevice
 
 
 class Storage(ABC):
@@ -348,28 +381,30 @@ class IOStorage(Storage):
 
     @override
     def can_load_have_side_effect(self) -> bool:
-        return self.channel.can_load_have_side_effect(self.index)
+        device, index = self.channel.map_io(self.index)
+        return device.can_load_have_side_effect(index)
 
     @override
     def can_store_have_side_effect(self) -> bool:
-        return self.channel.can_store_have_side_effect(self.index)
+        device, index = self.channel.map_io(self.index)
+        return device.can_store_have_side_effect(index)
 
     @override
     def is_load_consistent(self) -> bool:
-        return self.channel.is_load_consistent(self.index)
+        device, index = self.channel.map_io(self.index)
+        return device.is_load_consistent(index)
 
     @override
     def is_sticky(self) -> bool:
-        return self.channel.is_sticky(self.index)
+        device, index = self.channel.map_io(self.index)
+        return device.is_sticky(index)
 
     @override
     def might_be_same(self, other: Storage) -> bool:
         if isinstance(other, IOStorage):
-            # TODO: This is an oversimplification: some MSX devices have their
-            #       registers both I/O-mapped and memory-mapped.
-            return self.channel == other.channel and self.channel.might_be_same(
-                self.index, other.index
-            )
+            device1, index1 = self.channel.map_io(self.index)
+            device2, index2 = other.channel.map_io(other.index)
+            return device1 is device2 and device1.might_be_same(index1, index2)
         else:
             return isinstance(other, ArgStorage)
 
