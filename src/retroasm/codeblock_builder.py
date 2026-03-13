@@ -12,7 +12,6 @@ from .codeblock import (
     Load,
     LoadedValue,
     Store,
-    verify_loads,
     walk_nodes,
 )
 from .expression import Expression, IntLiteral, ZeroTest, is_literal_false, is_literal_true
@@ -324,13 +323,6 @@ class CodeBlockBuilder:
         # storages may have become redundant.
         _remove_overwritten_stores(operations)
 
-        # Removal of unused loads will not enable any other simplifications.
-        _remove_unused_loads(operations, returned)
-
-        assert verify_loads(operations, returned)
-
-        _check_undefined(operations, collector)
-
         self._complete_node()
 
         self._check_labels(collector)
@@ -363,6 +355,15 @@ class CodeBlockBuilder:
             if node.label is None:
                 node.label = str(label_idx)
                 label_idx += 1
+
+        # Removal of unused loads will not enable any other simplifications.
+        _remove_unused_loads(self._entry, returned)
+
+        for node in walk_nodes(self._entry):
+            if (block := node.block) is not None:
+                _check_undefined(block.operations, collector)
+                # TODO: Enable checking of all blocks once value tracing works across nodes.
+                break
 
         code = CodeGraph(self._entry)
         return FunctionBody(code, returned)
@@ -519,7 +520,7 @@ def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
                         will_be_overwritten.add(storage)
 
 
-def _remove_unused_loads(operations: list[Load | Store], returned: list[BitString]) -> None:
+def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.
@@ -530,23 +531,37 @@ def _remove_unused_loads(operations: list[Load | Store], returned: list[BitStrin
             use_counts[loaded] += delta
 
     # Compute initial use counts.
-    for operation in operations:
-        if isinstance(operation, Store):
-            update_counts(operation.expr)
-        for expr in operation.storage.iter_expressions():
-            update_counts(expr)
+    for node in walk_nodes(entry):
+        if (block := node.block) is not None:
+            for operation in block.operations:
+                if isinstance(operation, Store):
+                    update_counts(operation.expr)
+                for expr in operation.storage.iter_expressions():
+                    update_counts(expr)
+        for cond, _succ in node.outgoing:
+            update_counts(cond)
+
     for ret_bits in returned:
         for expr in ret_bits.iter_expressions():
             update_counts(expr)
 
     # Remove unnecesary Loads.
-    for i in range(len(operations) - 1, -1, -1):
-        match operations[i]:
-            case Load(expr=expr, storage=storage):
-                if use_counts[expr] == 0 and not storage.can_load_have_side_effect():
-                    del operations[i]
-                    # Update use_counts, so we can remove earlier Loads that
-                    # became unused because the Load we just removed was
-                    # the sole user of their LoadedValue.
-                    for expr in storage.iter_expressions():
-                        update_counts(expr, -1)
+    for node in walk_nodes(entry):
+        block = node.block
+        if block is None:
+            # TODO: Is it actually useful to have an optional block?
+            #       We could have empty blocks instead.
+            continue
+        operations = list(block.operations)
+        for i in range(len(operations) - 1, -1, -1):
+            match operations[i]:
+                case Load(expr=expr, storage=storage):
+                    if use_counts[expr] == 0 and not storage.can_load_have_side_effect():
+                        del operations[i]
+                        # Update use_counts, so we can remove earlier Loads that
+                        # became unused because the Load we just removed was
+                        # the sole user of their LoadedValue.
+                        for expr in storage.iter_expressions():
+                            update_counts(expr, -1)
+        # TODO: We should probably have a CodeNodeBuilder that wraps BasicBlockBuilder.
+        setattr(block, "operations", tuple(operations))

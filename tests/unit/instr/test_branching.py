@@ -68,6 +68,34 @@ def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> Non
 # TODO: Add a test case for unreachable code detection.
 
 
+def test_branch_dump_conditional_jump(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    TODO: The local variable should be eliminated.
+
+    .. code-block:: instr
+
+        func test(u32 A, u1 F)
+            branch !F @skip
+            pc := A
+            @skip
+
+    .. code-block:: dump
+
+            load from A
+            store load(A) in var32 A
+            load from F
+            store load(F) in var1 F
+            goto @skip if !load(F)
+                 @1 if load(F)
+        @1
+            load from var32 A
+            store load(var32 A) in reg32 pc
+            goto @skip
+        @skip
+    """
+    codeblock_tester.check()
+
+
 def test_branch_dump_min(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     The dump format can handle a branch.

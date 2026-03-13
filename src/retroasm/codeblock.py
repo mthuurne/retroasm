@@ -97,6 +97,8 @@ def verify_loads(
     returned bit strings.
     Raises AssertionError if an inconsistency is found.
     Returns True on success, never returns False.
+
+    TODO: Update this for code graphs.
     """
 
     # Check that every LoadedValue has an associated Load operation, which must
