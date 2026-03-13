@@ -36,7 +36,7 @@ def test_stored_expression(codeblock_tester: CodeBlockDocstringTester) -> None:
     codeblock_tester.check()
 
 
-def test_unused_load_removal(codeblock_tester: CodeBlockDocstringTester) -> None:
+def test_unused_load_removal_register(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     Unused loads without side effects are removed.
 
@@ -60,10 +60,27 @@ def test_unused_load_nonremoval(codeblock_tester: CodeBlockDocstringTester) -> N
 
         func test()
             a := mem[$D0D0] & 0
+            a := ram[$D0D0] & 0
 
     .. code-block:: dump
 
         load from mem[$D0D0]
+        store 0 in reg32 a
+    """
+    codeblock_tester.check()
+
+
+def test_unused_load_removal_index(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    After an unused I/O channel is removed, the index expression is also considered unused.
+
+    .. code-block:: instr
+
+        func test()
+            a := ram[hl] & 0
+
+    .. code-block:: dump
+
         store 0 in reg32 a
     """
     codeblock_tester.check()

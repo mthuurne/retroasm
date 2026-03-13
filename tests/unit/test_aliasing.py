@@ -1,7 +1,16 @@
 from __future__ import annotations
 
-from retroasm.expression import IntLiteral
-from retroasm.storage import ArgStorage, IOChannel, IOStorage, Register, Storage, Variable
+from retroasm.expression import IntLiteral, truncate
+from retroasm.storage import (
+    ArgStorage,
+    IOChannel,
+    IOStorage,
+    RAMChannel,
+    Register,
+    Storage,
+    Variable,
+)
+from retroasm.symbol import SymbolValue
 from retroasm.types import IntType
 
 
@@ -80,3 +89,18 @@ def test_io_aliasing() -> None:
     assert_no_alias(m, a)
     assert_no_alias(m, l)
     assert_alias(m, r)
+
+
+def test_ram_aliasing() -> None:
+    """Two RAM storages are only considered aliases if the address might match."""
+    a = SymbolValue("A", 16)
+    ram = RAMChannel("ram", IntType.u(8), IntType.u(16))
+    m1 = IOStorage(ram, IntLiteral(0xC000))
+    m2 = IOStorage(ram, IntLiteral(0xE000))
+    ma = IOStorage(ram, a)
+    mt = IOStorage(ram, truncate(a, 15))
+    assert_alias(ma, ma)
+    assert_alias(ma, m1)
+    assert_no_alias(m1, m2)
+    assert_no_alias(mt, m1)
+    assert_alias(mt, ma)

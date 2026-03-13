@@ -13,6 +13,8 @@ from retroasm.input import ErrorCollector, LocationFormatter
 from retroasm.instrset import InstructionSet
 from retroasm.parser.instrset_parser import InstructionSetParser
 from retroasm.parser.linereader import DefLineReader
+from retroasm.storage import RAMChannel
+from retroasm.types import IntType
 
 from ..docstring import unpack_docstring
 from ..utils_pytest import get_flag_marker
@@ -188,6 +190,7 @@ def codeblock_tester(
 
     parser.parse_text(_default_regs_definition)
     parser.parse_text(_default_io_definition)
+    parser.global_namespace.define("ram", RAMChannel("ram", IntType.u(8), IntType.u(16)))
     parser.parse_text(code)
 
     try:

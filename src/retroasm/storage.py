@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import Final, cast, override
 
-from .expression import Expression
+from .expression import Expression, XorOperator, ZeroTest, is_literal_false
+from .expression_simplifier import simplify_expression
 from .types import IntType, Width
 
 
@@ -20,7 +21,9 @@ class IOChannel:
 
     @override
     def __repr__(self) -> str:
-        return f"IOChannel({self.name!r}, {self.elem_type!r}, {self.addr_type!r})"
+        return (
+            f"{self.__class__.__name__}({self.name!r}, {self.elem_type!r}, {self.addr_type!r})"
+        )
 
     @override
     def __str__(self) -> str:
@@ -78,6 +81,32 @@ class IOChannel:
         indices can point to the same storage.
         """
         return True
+
+
+class RAMChannel(IOChannel):
+    """An I/O channel connected to a read/write memory without side effects and aliasing."""
+
+    __slots__ = ()
+
+    @override
+    def can_load_have_side_effect(self, index: Expression) -> bool:
+        return False
+
+    @override
+    def can_store_have_side_effect(self, index: Expression) -> bool:
+        return False
+
+    @override
+    def is_load_consistent(self, index: Expression) -> bool:
+        return True
+
+    @override
+    def is_sticky(self, index: Expression) -> bool:
+        return True
+
+    @override
+    def might_be_same(self, index1: Expression, index2: Expression) -> bool:
+        return not is_literal_false(simplify_expression(ZeroTest(XorOperator(index1, index2))))
 
 
 class Storage(ABC):
