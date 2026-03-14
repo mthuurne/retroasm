@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
-from typing import ClassVar, Self, TypeVar, cast, override
+from typing import ClassVar, Final, Self, TypeVar, cast, override
 
 from .types import CarryMask, Width, mask_for_width, trailing_zeroes, unlimited, width_for_mask
 from .utils import UniqueFromABC, const_property
@@ -725,6 +725,43 @@ class RVShift(Expression):
     @override
     def _equals(self, other: RVShift) -> bool:
         return self._offset == other._offset and self._expr == other._expr
+
+
+class Select(Expression):
+    """
+    Selects one expression from a number of possibilities.
+
+    TODO: Add a way to perform the actual selection.
+    """
+
+    __slots__ = ("exprs",)
+
+    @property
+    @override
+    def mask(self) -> int:
+        return reduce(int.__or__, (expr.mask for expr in self.exprs))
+
+    def __init__(self, *exprs: Expression):
+        if not exprs:
+            raise ValueError("there must be at least one expression to select from")
+        self.exprs: Final[tuple[Expression, ...]] = exprs
+
+    @override
+    def __str__(self) -> str:
+        return f"sel({' # '.join(str(expr) for expr in self.exprs)})"
+
+    @override
+    def _ctorargs(self) -> tuple[object, ...]:
+        return self.exprs
+
+    @override
+    def _equals(self, other: Self) -> bool:
+        return self.exprs == other.exprs
+
+    @property
+    @override
+    def complexity(self) -> int:
+        return sum((expr.complexity for expr in self.exprs), start=3)
 
 
 def truncate(expr: Expression, width: Width) -> Expression:

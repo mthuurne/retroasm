@@ -17,6 +17,7 @@ from .expression import (
     OrOperator,
     RShift,
     RVShift,
+    Select,
     SignExtension,
     SignTest,
     XorOperator,
@@ -611,6 +612,25 @@ def _simplify_rvshift(rvshift: RVShift, mask: int) -> Expression:
         return RVShift(expr, offset)
 
 
+def _simplify_select(select: Select, mask: int) -> Expression:
+    exprs = tuple(simplify_expression(expr, mask) for expr in select.exprs)
+
+    if len(exprs) == 1:
+        # There is only one option.
+        (expr,) = exprs
+        return expr
+
+    expr = exprs[0]
+    if all(e2 == expr for e2 in exprs[1:]):
+        # All options are equal.
+        return expr
+
+    if all(e1 is e2 for e1, e2 in zip(exprs, select.exprs, strict=True)):
+        return select
+    else:
+        return Select(*exprs)
+
+
 _simplifiers: dict[type[Expression], Callable[[Any, int], Expression]] = {
     IntLiteral: _simplify_int_literal,
     AndOperator: _simplify_composed,
@@ -626,6 +646,7 @@ _simplifiers: dict[type[Expression], Callable[[Any, int], Expression]] = {
     RShift: _simplify_rshift,
     LVShift: _simplify_lvshift,
     RVShift: _simplify_rvshift,
+    Select: _simplify_select,
 }
 
 

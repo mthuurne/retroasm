@@ -88,8 +88,7 @@ def test_branch_dump_conditional_jump(codeblock_tester: CodeBlockDocstringTester
             goto @skip if !load(F)
                  @1 if load(F)
         @1
-            load from var32 A
-            store load(var32 A) in reg32 pc
+            store load(A) in reg32 pc
             goto @skip
         @skip
     """
@@ -110,8 +109,6 @@ def test_branch_dump_min(codeblock_tester: CodeBlockDocstringTester) -> None:
             b := a
             @end
 
-    TODO: The load in the @small block can be eliminated in cross-block simplification.
-
     .. code-block:: dump
 
             load from reg32 a
@@ -121,7 +118,6 @@ def test_branch_dump_min(codeblock_tester: CodeBlockDocstringTester) -> None:
             store 8 in reg32 b
             goto @end
         @small
-            load from reg32 a
             store load(reg32 a) in reg32 b
             goto @end
         @end
@@ -142,8 +138,6 @@ def test_branch_redundant_blocks(codeblock_tester: CodeBlockDocstringTester) -> 
             branch a < 8 @loop
             @end
 
-    TODO: The load in the @0 block can be eliminated in cross-block simplification.
-
     .. code-block:: dump
 
         @loop
@@ -152,7 +146,6 @@ def test_branch_redundant_blocks(codeblock_tester: CodeBlockDocstringTester) -> 
             goto @end if !(load(reg32 a) ^ load(reg32 b))
                  @0 if !!(load(reg32 a) ^ load(reg32 b))
         @0
-            load from reg32 a
             store (load(reg32 a) + 1)[:32] in reg32 a
             goto @loop if sign(((load(reg32 a) + 1)[:32] + -8))
                  @end if !sign(((load(reg32 a) + 1)[:32] + -8))

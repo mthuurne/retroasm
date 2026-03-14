@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
-from typing import Final, cast, override
+from typing import Final, Self, cast, override
 
 from .expression import Expression, XorOperator, ZeroTest, is_literal_false
 from .expression_simplifier import simplify_expression
@@ -207,12 +207,15 @@ class Storage(ABC):
         """Iterates through the expressions in this storage, if any."""
         return iter(())
 
+    def simplify(self) -> Self:
+        return self.substitute_expressions(simplify_expression)
+
     def substitute_expressions(
         # pylint: disable=unused-argument
         # The default implementation doesn't use the argument, but subclasses do.
         self,
         func: Callable[[Expression], Expression | None],
-    ) -> Storage:
+    ) -> Self:
         """
         Applies the given substitution function to the expressions in this
         storage, if any.

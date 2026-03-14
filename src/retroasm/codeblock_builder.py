@@ -4,6 +4,8 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, NoReturn, Self, assert_never
 
+from retroasm.utils import bad_type
+
 from .codeblock import (
     BasicBlock,
     CodeGraph,
@@ -14,7 +16,14 @@ from .codeblock import (
     Store,
     walk_nodes,
 )
-from .expression import Expression, IntLiteral, ZeroTest, is_literal_false, is_literal_true
+from .expression import (
+    Expression,
+    IntLiteral,
+    Select,
+    ZeroTest,
+    is_literal_false,
+    is_literal_true,
+)
 from .expression_simplifier import simplify_expression
 from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
@@ -300,6 +309,7 @@ class CodeBlockBuilder:
         # Simplify returned expressions.
         # This can also help find additional unused loads, if a loaded value is dropped
         # during simplification because it doesn't affect the expression's value.
+        # TODO: Is this still needed as a separate step?
         _update_expressions_in_bitstrings(returned)
 
         # Local variables don't exist after exiting the block, so once their values have
@@ -342,6 +352,8 @@ class CodeBlockBuilder:
             if node.label is None:
                 node.label = str(label_idx)
                 label_idx += 1
+
+        _trace_stored_values(self._entry, returned)
 
         # Removal of unused loads will not enable any other simplifications.
         _remove_unused_loads(self._entry, returned)
@@ -387,7 +399,7 @@ class BasicBlockBuilder:
         storage = storage.substitute_expressions(simplify_expression)
 
         if storage.can_load_have_side_effect():
-            self._handle_side_effects(storage)
+            _handle_side_effects(storage, stored_values)
         elif (value := stored_values.get(storage)) is not None:
             # Use known value instead of loading it.
             return value
@@ -415,7 +427,7 @@ class BasicBlockBuilder:
         value = simplify_expression(value)
 
         if storage.can_store_have_side_effect():
-            self._handle_side_effects(storage)
+            _handle_side_effects(storage, stored_values)
         elif stored_values.get(storage) == value:
             # Current value is rewritten.
             return
@@ -429,18 +441,6 @@ class BasicBlockBuilder:
         for storage2 in list(stored_values.keys()):
             if storage != storage2 and storage.might_be_same(storage2):
                 del stored_values[storage2]
-
-    def _handle_side_effects(self, storage: Storage) -> None:
-        """
-        Drop stored values that might be invalidated by an I/O side effect.
-        """
-        stored_values = self._stored_values
-        if isinstance(storage, (IOStorage, ArgStorage)):
-            # A load or store side effect on an I/O channel can affect other addresses
-            # and even other channels, but it wouldn't affect registers.
-            for storage2 in list(stored_values.keys()):
-                if not isinstance(storage2, (Register, Variable)):
-                    del stored_values[storage2]
 
     def create_basic_block(self) -> BasicBlock:
         """
@@ -471,6 +471,17 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
+
+
+def _handle_side_effects(storage: Storage, stored_values: dict[Storage, Expression]) -> None:
+    """Drop stored values that might be invalidated by an I/O side effect."""
+
+    if isinstance(storage, (IOStorage, ArgStorage)):
+        # A load or store side effect on an I/O channel can affect other addresses
+        # and even other channels, but it wouldn't affect registers.
+        for storage2 in list(stored_values.keys()):
+            if not isinstance(storage2, (Register, Variable)):
+                del stored_values[storage2]
 
 
 def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
@@ -505,6 +516,88 @@ def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
                         del operations[i]
                     else:
                         will_be_overwritten.add(storage)
+
+
+def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
+    """
+    Trace the value of registers and local variables.
+    This simplification step replaces `LoadedValue` uses by known expressions,
+    which could also be `LoadedValue` expressions from earlier loads.
+    Removal of loads of which the value is no longer used can be done in a later step.
+    """
+
+    exit_values: defaultdict[Storage, dict[str, Expression]] = defaultdict(dict)
+    replacements: dict[Expression, Expression] = {}
+
+    for node in walk_nodes(entry):
+        # Gather storage value known at the start of this basic block.
+        stored_values: dict[Storage, Expression] = {}
+        for storage, value_by_label in exit_values.items():
+            incoming_values = []
+            for inc in node.incoming:
+                assert inc.label is not None
+                value = value_by_label.get(inc.label)
+                if value is None:
+                    break
+                incoming_values.append(value)
+            else:
+                stored_values[storage] = simplify_expression(Select(*incoming_values))
+
+        if (block := node.block) is not None:
+            operations = list(block.operations)
+            for idx, operation in enumerate(operations):
+                expr: Expression
+                match operation:
+                    case Load(storage=old_storage, expr=expr):
+                        storage = old_storage.substitute_expressions(
+                            replacements.get
+                        ).simplify()
+                        if storage is not old_storage:
+                            operations[idx] = load = Load(storage)
+                            replacements[expr] = load.expr
+                        if storage.can_load_have_side_effect():
+                            _handle_side_effects(storage, stored_values)
+                        elif (value := stored_values.get(storage)) is not None:
+                            replacements[expr] = value
+                            continue
+                        if storage.is_load_consistent():
+                            stored_values[storage] = expr
+
+                    case Store(storage=old_storage, expr=old_expr):
+                        expr = old_expr.substitute(replacements.get)
+                        storage = old_storage.substitute_expressions(
+                            replacements.get
+                        ).simplify()
+                        if expr is not old_expr or storage is not old_storage:
+                            operations[idx] = Store(expr, storage)
+                        if storage.can_store_have_side_effect():
+                            _handle_side_effects(storage, stored_values)
+                        if storage.is_sticky():
+                            stored_values[storage] = expr
+                        # Remove stored values for storages that might be aliases.
+                        for storage2 in list(stored_values.keys()):
+                            if storage != storage2 and storage.might_be_same(storage2):
+                                del stored_values[storage2]
+
+                    case operation:
+                        bad_type(operation)
+
+            # TODO: We should probably have a CodeNodeBuilder that wraps BasicBlockBuilder.
+            setattr(block, "operations", tuple(operations))
+
+        # Remember last known value for each storage.
+        label = node.label
+        assert label is not None
+        for storage, value in stored_values.items():
+            exit_values[storage][label] = value
+
+        for idx, (cond, succ) in enumerate(node.outgoing):
+            if (new_cond := cond.substitute(replacements.get)) is not cond:
+                node.outgoing[idx] = (simplify_expression(new_cond), succ)
+
+    # Replace known loaded values in returned bitstrings.
+    for i, ret_bits in enumerate(returned):
+        returned[i] = ret_bits.substitute(expression_func=replacements.get).simplify()
 
 
 def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
