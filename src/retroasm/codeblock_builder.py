@@ -27,19 +27,6 @@ def no_args_to_fetch(name: str) -> NoReturn:
     raise ValueError(f'No arguments provided, "{name}" requested')
 
 
-def _simplify_storage(storage: Storage) -> Storage:
-    """
-    Return a simplified version of the given storage.
-    If no simplification is possible, the given storage is returned.
-    """
-    if isinstance(storage, IOStorage):
-        original_index = storage.index
-        simplified_index = simplify_expression(original_index)
-        if simplified_index is not original_index:
-            return IOStorage(storage.channel, simplified_index)
-    return storage
-
-
 def _check_undefined(operations: Sequence[Load | Store], collector: ErrorCollector) -> None:
     """Report uses of uninitialized local variables."""
 
@@ -397,7 +384,7 @@ class BasicBlockBuilder:
         """
 
         stored_values = self._stored_values
-        storage = _simplify_storage(storage)
+        storage = storage.substitute_expressions(simplify_expression)
 
         if storage.can_load_have_side_effect():
             self._handle_side_effects(storage)
@@ -422,7 +409,7 @@ class BasicBlockBuilder:
         """
 
         stored_values = self._stored_values
-        storage = _simplify_storage(storage)
+        storage = storage.substitute_expressions(simplify_expression)
 
         # Simplifying gets rid of unnecessary truncation.
         value = simplify_expression(value)
