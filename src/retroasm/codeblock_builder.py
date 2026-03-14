@@ -341,8 +341,8 @@ class CodeBlockBuilder:
                             for idx, (cond, succ) in enumerate(prev.outgoing):
                                 if succ is node:
                                     prev.outgoing[idx] = (cond, new_succ)
-                        new_succ.incoming.remove(node)
-                        new_succ.incoming += node.incoming
+                    new_succ.incoming.remove(node)
+                    new_succ.incoming += node.incoming
                     if (label := node.label) is not None:
                         new_succ.label = label
 
