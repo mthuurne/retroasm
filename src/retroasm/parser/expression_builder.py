@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 
-from ..codeblock_builder import CodeBlockBuilder
+from ..codeblock_builder import CodeGraphBuilder
 from ..expression import (
     AddOperator,
     AndOperator,
@@ -101,7 +101,7 @@ def convert_definition(
     typ: IntType | ReferenceType,
     value: ParseNode,
     namespace: ReadOnlyNamespace,
-    builder: CodeBlockBuilder,
+    builder: CodeGraphBuilder,
 ) -> Reference:
     """
     Build and validate the right hand side of a definition.
@@ -154,7 +154,7 @@ def _convert_identifier(
 
 
 def _convert_function_call(
-    call_node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    call_node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Reference | None:
     name_node, *arg_nodes = call_node.operands
 
@@ -222,7 +222,7 @@ def _convert_function_call(
 
 
 def _convert_arithmetic(
-    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Expression:
     exprs: Sequence[Expression] = tuple(
         build_expression(node, namespace, builder) for node in node.operands
@@ -272,7 +272,7 @@ def _convert_arithmetic(
 
 
 def _convert_expression_operator(
-    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Expression:
     match node.operator:
         case Operator.call:
@@ -300,7 +300,7 @@ def _convert_expression_operator(
 
 
 def build_expression(
-    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Expression:
     match node:
         case NumberNode(value=value):
@@ -332,7 +332,7 @@ def build_expression(
 
 
 def _convert_reference_lookup(
-    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Reference:
     expr_node, index_node = node.operands
     assert index_node is not None, node
@@ -355,7 +355,7 @@ def _convert_reference_lookup(
 
 
 def _convert_reference_slice(
-    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Reference:
     expr_node, start_node, end_node = node.operands
     assert expr_node is not None, node
@@ -430,7 +430,7 @@ comparison_operators = (
 
 
 def _convert_reference_operator(
-    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: OperatorNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Reference:
     match node.operator:
         case Operator.call:
@@ -456,7 +456,7 @@ def _convert_reference_operator(
 
 
 def build_reference(
-    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: ReadOnlyNamespace, builder: CodeGraphBuilder
 ) -> Reference:
     match node:
         case NumberNode(value=value, width=width):
@@ -488,7 +488,7 @@ def build_reference(
 
 
 def build_assignment_target(
-    node: ParseNode, namespace: LocalNamespace, builder: CodeBlockBuilder
+    node: ParseNode, namespace: LocalNamespace, builder: CodeGraphBuilder
 ) -> Reference:
     match node:
         case VariableDeclarationNode() as decl:
@@ -504,7 +504,7 @@ def build_assignment_target(
 def build_statement_eval(
     collector: ErrorCollector,
     namespace: LocalNamespace,
-    builder: CodeBlockBuilder,
+    builder: CodeGraphBuilder,
     node: ParseNode,
 ) -> None:
     """
@@ -535,7 +535,7 @@ def build_statement_eval(
 def emit_code_from_statements(
     collector: ErrorCollector,
     namespace: LocalNamespace,
-    builder: CodeBlockBuilder,
+    builder: CodeGraphBuilder,
     statements: Iterable[ParseNode],
 ) -> None:
     """

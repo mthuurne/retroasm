@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Self, cast, override
 
 from .codeblock import FunctionBody, Store
-from .codeblock_builder import CodeBlockBuilder
+from .codeblock_builder import CodeGraphBuilder
 from .decode import Decoder, DecoderFactory, Prefix, create_prefix_decoder
 from .encoding import EncodingExpr, determine_encoding_width
 from .expression import IntLiteral
@@ -46,7 +46,7 @@ def flags_set_by_code(code: FunctionBody) -> Iterator[Storage]:
 class PrefixMappingFactory:
     def __init__(self) -> None:
         self._prefixes: list[Prefix] = []
-        self._init_builder = CodeBlockBuilder()
+        self._init_builder = CodeGraphBuilder()
         self._flag_for_var: dict[Storage, str] = {}
         self._prefix_for_flag: dict[str, Prefix] = {}
         self._encoding_width: Width | None = None
@@ -250,7 +250,7 @@ class InstructionSet(ModeTable):
         # Compute prefix flags.
         if prefixes:
             prefix_mapping = self.prefix_mapping
-            prefix_builder = CodeBlockBuilder()
+            prefix_builder = CodeGraphBuilder()
             prefix_builder.inline_block(prefix_mapping.init_code)
             for prefix in prefixes:
                 prefix_builder.inline_block(prefix.semantics)
@@ -305,7 +305,7 @@ class InstructionSet(ModeTable):
             for prefix in prefixes:
                 # Build a code block that describes the decoder state changes
                 # from the given code and encountering the current prefix.
-                builder = CodeBlockBuilder()
+                builder = CodeGraphBuilder()
                 builder.inline_block(code)
                 builder.inline_block(prefix.semantics)
                 new_code = builder.create_code_block(())

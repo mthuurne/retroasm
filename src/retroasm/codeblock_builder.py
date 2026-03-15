@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import IO, NoReturn, Self, assert_never
-
-from retroasm.utils import bad_type
 
 from .codeblock import (
     BasicBlock,
@@ -29,6 +28,7 @@ from .function import Function
 from .input import BadInput, ErrorCollector, InputLocation
 from .reference import BitString, FixedValue, Reference, SingleStorage, bad_reference
 from .storage import ArgStorage, IOStorage, Register, Storage, Variable
+from .utils import bad_type
 
 
 def no_args_to_fetch(name: str) -> NoReturn:
@@ -55,23 +55,31 @@ def returned_bits(ret_ref: Reference | None) -> Sequence[BitString]:
     return () if ret_ref is None else (ret_ref.bits,)
 
 
-class CodeBlockBuilder:
+class CodeGraphBuilder:
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
-        builder._current_block._stored_values = dict(stored_values)
+        builder._current_node.block._stored_values = dict(stored_values)
         return builder
 
     def __init__(self) -> None:
-        self._current_block = BasicBlockBuilder()
-        self._current_node = self._entry = CodeNode()
-        self._nodes_by_label: dict[str, CodeNode] = {}
+        self._current_node = self._entry = CodeNodeBuilder()
+        self._nodes_by_label: dict[str, CodeNodeBuilder] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        """Prints the current state of this code block builder on stdout."""
+        """Print the code graph under construction."""
 
-        self._current_block.dump(file=file)
+        for node in walk_nodes(self._entry):
+            if (label := node.label) is not None and not (label == "0" and node is self._entry):
+                print(f"@{label}", file=file)
+            node.block.dump(file=file)
+            if node.outgoing:
+                verb = "goto"
+                for condition, out_node in node.outgoing:
+                    cond = "" if is_literal_true(condition) else f" if {condition}"
+                    print(f"    {verb} @{out_node.label}{cond}", file=file)
+                    verb = " " * len(verb)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """
@@ -97,7 +105,7 @@ class CodeBlockBuilder:
         """
         if self._current_node.location is None:
             self._current_node.location = location
-        return self._current_block.emit_load_bits(storage, location)
+        return self._current_node.block.emit_load_bits(storage, location)
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
@@ -108,9 +116,9 @@ class CodeBlockBuilder:
         """
         if self._current_node.location is None:
             self._current_node.location = location
-        self._current_block.emit_store_bits(storage, value, location)
+        self._current_node.block.emit_store_bits(storage, value, location)
 
-    def _node_for_label(self, label: str) -> CodeNode:
+    def _node_for_label(self, label: str) -> CodeNodeBuilder:
         """
         Return the code node for the given label, creating it if necessary.
         A new node will not have its `label` field filled in initially;
@@ -119,7 +127,7 @@ class CodeBlockBuilder:
         nodes_by_label = self._nodes_by_label
         node = nodes_by_label.get(label)
         if node is None:
-            node = CodeNode()
+            node = CodeNodeBuilder()
             nodes_by_label[label] = node
         return node
 
@@ -301,7 +309,7 @@ class CodeBlockBuilder:
                 return FixedValue(value, storage.width)
             return None
 
-        operations = self._current_block._operations
+        operations = self._current_node.block._operations
 
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
@@ -359,22 +367,28 @@ class CodeBlockBuilder:
         _remove_unused_loads(self._entry, returned)
 
         for node in walk_nodes(self._entry):
-            if (block := node.block) is not None:
-                _check_undefined(block.operations, collector)
-                # TODO: Enable checking of all blocks once value tracing works across nodes.
-                break
+            _check_undefined(node.block._operations, collector)
+            # TODO: Enable checking of all blocks once value tracing works across nodes.
+            break
 
-        code = CodeGraph(self._entry)
+        code = self._create_graph()
         return FunctionBody(code, returned)
 
-    def _complete_node(self) -> None:
-        # Complete and archive previous node.
-        node = self._current_node
-        node.block = self._current_block.create_basic_block()
+    def _create_graph(self) -> CodeGraph:
+        """Create final code graph from node builders."""
 
+        builders = list(walk_nodes(self._entry))
+        nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
+        for node, builder in zip(nodes, builders, strict=True):
+            for inc in builder.incoming:
+                node._incoming.append(nodes[builders.index(inc)])
+            for cond, out in builder.outgoing:
+                node._outgoing.append((cond, nodes[builders.index(out)]))
+        return CodeGraph(nodes[0])
+
+    def _complete_node(self) -> None:
         # Start a new node.
-        self._current_node = CodeNode()
-        self._current_block = BasicBlockBuilder()
+        self._current_node = CodeNodeBuilder()
 
 
 class BasicBlockBuilder:
@@ -455,6 +469,20 @@ class BasicBlockBuilder:
         return BasicBlock(operations)
 
 
+@dataclass(slots=True)
+class CodeNodeBuilder:
+    block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
+    label: str | None = None
+    location: InputLocation | None = None
+    incoming: list[CodeNodeBuilder] = field(default_factory=list)
+    outgoing: list[tuple[Expression, CodeNodeBuilder]] = field(default_factory=list)
+
+    @property
+    def empty(self) -> bool:
+        """Is this a node without operations?"""
+        return not self.block._operations
+
+
 def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expression]:
     """
     Decompose the storing of a value to a reference.
@@ -462,12 +490,12 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
     """
 
     # Generate code for storing the value.
-    builder = CodeBlockBuilder()
+    builder = CodeGraphBuilder()
     ref.emit_store(builder, value, None)
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for operation in builder._current_block._operations:
+    for operation in builder._current_node.block._operations:
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
@@ -518,7 +546,7 @@ def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
                         will_be_overwritten.add(storage)
 
 
-def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
+def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> None:
     """
     Trace the value of registers and local variables.
     This simplification step replaces `LoadedValue` uses by known expressions,
@@ -543,47 +571,39 @@ def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
             else:
                 stored_values[storage] = simplify_expression(Select(*incoming_values))
 
-        if (block := node.block) is not None:
-            operations = list(block.operations)
-            for idx, operation in enumerate(operations):
-                expr: Expression
-                match operation:
-                    case Load(storage=old_storage, expr=expr):
-                        storage = old_storage.substitute_expressions(
-                            replacements.get
-                        ).simplify()
-                        if storage is not old_storage:
-                            operations[idx] = load = Load(storage)
-                            replacements[expr] = load.expr
-                        if storage.can_load_have_side_effect():
-                            _handle_side_effects(storage, stored_values)
-                        elif (value := stored_values.get(storage)) is not None:
-                            replacements[expr] = value
-                            continue
-                        if storage.is_load_consistent():
-                            stored_values[storage] = expr
+        operations = node.block._operations
+        for idx, operation in enumerate(operations):
+            expr: Expression
+            match operation:
+                case Load(storage=old_storage, expr=expr):
+                    storage = old_storage.substitute_expressions(replacements.get).simplify()
+                    if storage is not old_storage:
+                        operations[idx] = load = Load(storage)
+                        replacements[expr] = load.expr
+                    if storage.can_load_have_side_effect():
+                        _handle_side_effects(storage, stored_values)
+                    elif (value := stored_values.get(storage)) is not None:
+                        replacements[expr] = value
+                        continue
+                    if storage.is_load_consistent():
+                        stored_values[storage] = expr
 
-                    case Store(storage=old_storage, expr=old_expr):
-                        expr = old_expr.substitute(replacements.get)
-                        storage = old_storage.substitute_expressions(
-                            replacements.get
-                        ).simplify()
-                        if expr is not old_expr or storage is not old_storage:
-                            operations[idx] = Store(expr, storage)
-                        if storage.can_store_have_side_effect():
-                            _handle_side_effects(storage, stored_values)
-                        if storage.is_sticky():
-                            stored_values[storage] = expr
-                        # Remove stored values for storages that might be aliases.
-                        for storage2 in list(stored_values.keys()):
-                            if storage != storage2 and storage.might_be_same(storage2):
-                                del stored_values[storage2]
+                case Store(storage=old_storage, expr=old_expr):
+                    expr = old_expr.substitute(replacements.get)
+                    storage = old_storage.substitute_expressions(replacements.get).simplify()
+                    if expr is not old_expr or storage is not old_storage:
+                        operations[idx] = Store(expr, storage)
+                    if storage.can_store_have_side_effect():
+                        _handle_side_effects(storage, stored_values)
+                    if storage.is_sticky():
+                        stored_values[storage] = expr
+                    # Remove stored values for storages that might be aliases.
+                    for storage2 in list(stored_values.keys()):
+                        if storage != storage2 and storage.might_be_same(storage2):
+                            del stored_values[storage2]
 
-                    case operation:
-                        bad_type(operation)
-
-            # TODO: We should probably have a CodeNodeBuilder that wraps BasicBlockBuilder.
-            setattr(block, "operations", tuple(operations))
+                case operation:
+                    bad_type(operation)
 
         # Remember last known value for each storage.
         label = node.label
@@ -600,7 +620,7 @@ def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
         returned[i] = ret_bits.substitute(expression_func=replacements.get).simplify()
 
 
-def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
+def _remove_unused_loads(entry: CodeNodeBuilder, returned: list[BitString]) -> None:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.
@@ -612,12 +632,11 @@ def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
 
     # Compute initial use counts.
     for node in walk_nodes(entry):
-        if (block := node.block) is not None:
-            for operation in block.operations:
-                if isinstance(operation, Store):
-                    update_counts(operation.expr)
-                for expr in operation.storage.iter_expressions():
-                    update_counts(expr)
+        for operation in node.block._operations:
+            if isinstance(operation, Store):
+                update_counts(operation.expr)
+            for expr in operation.storage.iter_expressions():
+                update_counts(expr)
         for cond, _succ in node.outgoing:
             update_counts(cond)
 
@@ -627,12 +646,7 @@ def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
 
     # Remove unnecesary Loads.
     for node in walk_nodes(entry):
-        block = node.block
-        if block is None:
-            # TODO: Is it actually useful to have an optional block?
-            #       We could have empty blocks instead.
-            continue
-        operations = list(block.operations)
+        operations = node.block._operations
         for i in range(len(operations) - 1, -1, -1):
             match operations[i]:
                 case Load(expr=expr, storage=storage):
@@ -643,5 +657,3 @@ def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> None:
                         # the sole user of their LoadedValue.
                         for expr in storage.iter_expressions():
                             update_counts(expr, -1)
-        # TODO: We should probably have a CodeNodeBuilder that wraps BasicBlockBuilder.
-        setattr(block, "operations", tuple(operations))

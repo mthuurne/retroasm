@@ -46,7 +46,7 @@ def test_branch_label_undefined(instr_tester: InstructionSetDocstringTester) -> 
 
 def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> None:
     """
-    An warning is reported when a label is not used.
+    A warning is reported when a label is not used.
 
     .. code-block:: instr
 
@@ -85,12 +85,12 @@ def test_branch_dump_conditional_jump(codeblock_tester: CodeBlockDocstringTester
             store load(A) in var32 A
             load from F
             store load(F) in var1 F
-            goto @skip if !load(F)
+            goto @2 if !load(F)
                  @1 if load(F)
         @1
             store load(A) in reg32 pc
-            goto @skip
-        @skip
+            goto @2
+        @2
     """
     codeblock_tester.check()
 
@@ -112,15 +112,15 @@ def test_branch_dump_min(codeblock_tester: CodeBlockDocstringTester) -> None:
     .. code-block:: dump
 
             load from reg32 a
-            goto @small if sign((load(reg32 a) + -8))
+            goto @2 if sign((load(reg32 a) + -8))
                  @1 if !sign((load(reg32 a) + -8))
         @1
             store 8 in reg32 b
-            goto @end
-        @small
+            goto @3
+        @2
             store load(reg32 a) in reg32 b
-            goto @end
-        @end
+            goto @3
+        @3
     """
     codeblock_tester.check()
 
@@ -140,16 +140,16 @@ def test_branch_redundant_blocks(codeblock_tester: CodeBlockDocstringTester) -> 
 
     .. code-block:: dump
 
-        @loop
+        @0
             load from reg32 a
             load from reg32 b
-            goto @end if !(load(reg32 a) ^ load(reg32 b))
-                 @0 if !!(load(reg32 a) ^ load(reg32 b))
-        @0
+            goto @2 if !(load(reg32 a) ^ load(reg32 b))
+                 @1 if !!(load(reg32 a) ^ load(reg32 b))
+        @1
             store (load(reg32 a) + 1)[:32] in reg32 a
-            goto @loop if sign(((load(reg32 a) + 1)[:32] + -8))
-                 @end if !sign(((load(reg32 a) + 1)[:32] + -8))
-        @end
+            goto @0 if sign(((load(reg32 a) + 1)[:32] + -8))
+                 @2 if !sign(((load(reg32 a) + 1)[:32] + -8))
+        @2
     """
     codeblock_tester.check()
 
@@ -176,17 +176,17 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
 
             load from F
             store load(F) in var1 F
-            goto @pick_b if load(F)
+            goto @2 if load(F)
                  @1 if !load(F)
         @1
             load from reg32 a
             store load(reg32 a) in var32 I
-            goto @read
-        @pick_b
+            goto @3
+        @2
             load from reg32 b
             store load(reg32 b) in var32 I
-            goto @read
-        @read
+            goto @3
+        @3
             return 0
     """
     codeblock_tester.check()

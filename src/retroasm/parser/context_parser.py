@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..codeblock_builder import CodeBlockBuilder, decompose_store
+from ..codeblock_builder import CodeGraphBuilder, decompose_store
 from ..encoding import ModeMatchReference
 from ..expression import Expression, truncate
 from ..expression_simplifier import simplify_expression
@@ -73,7 +73,7 @@ def parse_placeholders(
             val_expr: Expression | None = None
             if isinstance(node, DefinitionNode):
                 # Compute placeholder value.
-                builder = CodeBlockBuilder.with_stored_values(pc_fixated)
+                builder = CodeGraphBuilder.with_stored_values(pc_fixated)
                 try:
                     built_expr = build_expression(node.value, ctx_namespace, builder)
                 except BadInput as ex:

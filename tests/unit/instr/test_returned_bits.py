@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from retroasm.codeblock_builder import CodeBlockBuilder, returned_bits
+from retroasm.codeblock_builder import CodeGraphBuilder, returned_bits
 from retroasm.expression import IntLiteral
 from retroasm.reference import FixedValue, Reference, SingleStorage
 from retroasm.storage import Variable
@@ -14,7 +14,7 @@ def test_ret_bits_override() -> None:
 
     ref_v = Reference(SingleStorage(Variable("V", 20)), IntType.u(20))
 
-    builder = CodeBlockBuilder()
+    builder = CodeGraphBuilder()
     ref_v.emit_store(builder, IntLiteral(604), None)
     code = builder.create_code_block(returned_bits(ref_v))
 

@@ -27,9 +27,9 @@ from .types import IntType, ReferenceType, Segment, Width, mask_for_width, unlim
 from .utils import const_property
 
 if TYPE_CHECKING:
-    from .codeblock_builder import CodeBlockBuilder
+    from .codeblock_builder import CodeGraphBuilder
 else:
-    CodeBlockBuilder = object
+    CodeGraphBuilder = object
 
 
 class BitString(ABC):
@@ -79,7 +79,7 @@ class BitString(ABC):
 
     @abstractmethod
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         """
         Emits load nodes for loading a bit string from the underlying
@@ -89,7 +89,7 @@ class BitString(ABC):
 
     @abstractmethod
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         """
         Emits store nodes for storing a bit string into the underlying
@@ -181,13 +181,13 @@ class FixedValue(BitString):
 
     @override
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         return self._expr
 
     @override
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         pass
 
@@ -252,13 +252,13 @@ class SingleStorage(BitString):
 
     @override
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         return builder.emit_load_bits(self._storage, location)
 
     @override
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         builder.emit_store_bits(self._storage, value, location)
 
@@ -327,7 +327,7 @@ class ConcatenatedBits(BitString):
 
     @override
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         terms = []
         offset = 0
@@ -339,7 +339,7 @@ class ConcatenatedBits(BitString):
 
     @override
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         offset = 0
         for sub in self._subs:
@@ -427,7 +427,7 @@ class SlicedBits(BitString):
 
     @override
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         # Load value from our reference.
         value = self._ref.emit_load(builder, location)
@@ -437,7 +437,7 @@ class SlicedBits(BitString):
 
     @override
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         offset = self._offset
         width = self.width
@@ -535,7 +535,7 @@ class Reference:
         return self if new_bits is bits else Reference(new_bits, self._type)
 
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         """
         Emits load nodes for loading a typed value from the referenced
@@ -546,7 +546,7 @@ class Reference:
         return decode_int(encoded, self._type)
 
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         """Emits store nodes for storing a value into the referenced bit string."""
         self._bits.emit_store(builder, truncate(value, self.width), location)
@@ -600,13 +600,13 @@ class TabooReference(FixedValueReference):
 
     @override
     def emit_load(
-        self, builder: CodeBlockBuilder, location: InputLocation | None
+        self, builder: CodeGraphBuilder, location: InputLocation | None
     ) -> Expression:
         raise BadInput(self.message, location)
 
     @override
     def emit_store(
-        self, builder: CodeBlockBuilder, value: Expression, location: InputLocation | None
+        self, builder: CodeGraphBuilder, value: Expression, location: InputLocation | None
     ) -> None:
         raise BadInput(self.message, location)
 

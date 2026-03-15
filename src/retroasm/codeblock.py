@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import IO, Final, override
+from typing import IO, TYPE_CHECKING, Final, override
 
 from .expression import Expression, is_literal_true
 from .input import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
 from .types import mask_for_width
+
+if TYPE_CHECKING:
+    from .codeblock_builder import CodeNodeBuilder
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -137,7 +140,6 @@ class BasicBlock:
 
     def __init__(self, operations: Iterable[Load | Store]):
         operations = tuple(operations)
-        assert verify_loads(operations)
         self.operations: Final[Sequence[Load | Store]] = operations
         """The load/store operations in this block."""
 
@@ -150,7 +152,7 @@ class BasicBlock:
         """A set of all traceable storages that are accessed by this block."""
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        """Print this basic block on stdout."""
+        """Print this basic block."""
         for operation in self.operations:
             operation.dump(file=file)
 
@@ -162,31 +164,51 @@ class CodeGraph:
         self.entry: Final[CodeNode] = entry
         """The entry point for this code graph."""
 
-    def dump(self, *, file: IO[str] | None = None) -> None:
-        for node in walk_nodes(self.entry):
-            if (label := node.label) is not None and not (label == "0" and node is self.entry):
-                print(f"@{label}", file=file)
-            if (block := node.block) is not None:
-                block.dump(file=file)
-            if node.outgoing:
-                verb = "goto"
-                for condition, out_node in node.outgoing:
-                    cond = "" if is_literal_true(condition) else f" if {condition}"
-                    print(f"    {verb} @{out_node.label}{cond}", file=file)
-                    verb = " " * len(verb)
+        # TODO: Verify loads across the graph.
 
     def iter_blocks(self) -> Iterator[BasicBlock]:
         for node in walk_nodes(self.entry):
-            if (block := node.block) is not None:
-                yield block
+            yield node.block
 
     @property
     def operations(self) -> Sequence[Load | Store]:
         # TODO: What do callers use this for?
         return [operation for block in self.iter_blocks() for operation in block.operations]
 
+    def dump(self, *, file: IO[str] | None = None) -> None:
+        """Print this code graph."""
 
-def walk_nodes(entry: CodeNode) -> Iterator[CodeNode]:
+        nodes = list(walk_nodes(self.entry))
+        for idx, node in enumerate(nodes):
+            if idx != 0 or any(out is node for node2 in nodes for _cond, out in node2.outgoing):
+                print(f"@{idx:d}", file=file)
+            node.block.dump(file=file)
+            if node.outgoing:
+                verb = "goto"
+                for condition, out_node in node.outgoing:
+                    cond = "" if is_literal_true(condition) else f" if {condition}"
+                    print(f"    {verb} @{nodes.index(out_node):d}{cond}", file=file)
+                    verb = " " * len(verb)
+
+
+class CodeNode:
+    __slots__ = ("block", "_incoming", "_outgoing")
+
+    @property
+    def incoming(self) -> Sequence[CodeNode]:
+        return self._incoming
+
+    @property
+    def outgoing(self) -> Sequence[tuple[Expression, CodeNode]]:
+        return self._outgoing
+
+    def __init__(self, block: BasicBlock):
+        self.block: Final[BasicBlock] = block
+        self._incoming: list[CodeNode] = []
+        self._outgoing: list[tuple[Expression, CodeNode]] = []
+
+
+def walk_nodes[T: (CodeNode, CodeNodeBuilder)](entry: T) -> Iterator[T]:
     # Note: For the tiny graphs of single instructions, lists are fast enough.
     #       If we ever start building much larger graphs, reconsider.
     done = []
@@ -202,21 +224,6 @@ def walk_nodes(entry: CodeNode) -> Iterator[CodeNode]:
                     # Place the exit node last.
                     pending.insert(0, out_node)
         yield node
-
-
-# TODO: Make immutable later?
-@dataclass(slots=True)
-class CodeNode:
-    block: BasicBlock | None = None
-    label: str | None = None
-    location: InputLocation | None = None
-    incoming: list[CodeNode] = field(default_factory=list)
-    outgoing: list[tuple[Expression, CodeNode]] = field(default_factory=list)
-
-    @property
-    def empty(self) -> bool:
-        """Is this a node without operations?"""
-        return (block := self.block) is None or not block.operations
 
 
 class FunctionBody:
@@ -242,7 +249,8 @@ class FunctionBody:
         assert verify_loads(self.operations, self.returned)
 
     def dump(self, *, file: IO[str] | None = None) -> None:
-        """Print this function body on stdout."""
+        """Print this function body."""
+
         self.code.dump(file=file)
         for ret_bits in self.returned:
             print(f"    return {ret_bits}", file=file)
