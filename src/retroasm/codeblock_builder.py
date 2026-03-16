@@ -5,16 +5,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import IO, NoReturn, Self, assert_never
 
-from .codeblock import (
-    BasicBlock,
-    CodeGraph,
-    CodeNode,
-    FunctionBody,
-    Load,
-    LoadedValue,
-    Store,
-    walk_nodes,
-)
+from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, LoadedValue, Store
 from .expression import (
     Expression,
     IntLiteral,
@@ -59,34 +50,35 @@ class CodeGraphBuilder:
     @classmethod
     def with_stored_values(cls, stored_values: Mapping[Storage, Expression]) -> Self:
         builder = cls()
-        builder._current_node.block._stored_values = dict(stored_values)
+        builder._nodes[0].block._stored_values = dict(stored_values)
         return builder
 
     def __init__(self) -> None:
-        self._node_idx = 0
-        self._entry = self._add_node()
-        self._nodes_by_label: dict[str, CodeNodeBuilder] = {}
+        self._nodes: list[CodeNodeBuilder] = []
+        self._add_node()
+        self._labels: dict[str, int] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
     def _add_node(self) -> CodeNodeBuilder:
         """Create a new node builder and add it to the end of the nodes list."""
-        self._current_node = node = CodeNodeBuilder()
+        nodes = self._nodes
+        node = CodeNodeBuilder()
         # Add a synthetic label, so each node has at least one label.
-        node.labels.append(str(self._node_idx))
-        self._node_idx += 1
+        node.labels.append(str(len(nodes)))
+        nodes.append(node)
         return node
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Print the code graph under construction."""
 
-        for node in walk_nodes(self._entry):
+        for node in self._nodes:
             print(" ".join(f"@{label}" for label in node.labels), file=file)
             node.block.dump(file=file)
             if node.outgoing:
                 verb = "goto"
-                for condition, out_node in node.outgoing:
+                for condition, out_label in node.outgoing:
                     cond = "" if is_literal_true(condition) else f" if {condition}"
-                    print(f"    {verb} @{out_node.labels[-1]}{cond}", file=file)
+                    print(f"    {verb} @{out_label}{cond}", file=file)
                     verb = " " * len(verb)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
@@ -97,13 +89,13 @@ class CodeGraphBuilder:
         """
 
         with collector.check():
-            for label, node in self._nodes_by_label.items():
-                if label not in node.labels:
-                    collector.error(
-                        f'Label "{label}" does not exist', location=self._branches[label]
-                    )
-                elif label not in self._branches:
-                    collector.warning(f'Label "{label}" is unused', location=node.location)
+            for label, location in self._branches.items():
+                if label not in self._labels:
+                    collector.error(f'Label "{label}" does not exist', location=location)
+            for node in self._nodes:
+                for label in node.labels:
+                    if not label.isdigit() and label not in self._branches:
+                        collector.warning(f'Label "{label}" is unused', location=node.location)
 
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
         """
@@ -111,9 +103,10 @@ class CodeGraphBuilder:
         this builder.
         Returns an expression that represents the loaded value.
         """
-        if self._current_node.location is None:
-            self._current_node.location = location
-        return self._current_node.block.emit_load_bits(storage, location)
+        node = self._nodes[-1]
+        if node.location is None:
+            node.location = location
+        return node.block.emit_load_bits(storage, location)
 
     def emit_store_bits(
         self, storage: Storage, value: Expression, location: InputLocation | None
@@ -122,22 +115,21 @@ class CodeGraphBuilder:
         Stores the value of the given expression in the given storage by
         emitting a Store node on this builder.
         """
-        if self._current_node.location is None:
-            self._current_node.location = location
-        self._current_node.block.emit_store_bits(storage, value, location)
+        node = self._nodes[-1]
+        if node.location is None:
+            node.location = location
+        node.block.emit_store_bits(storage, value, location)
+
+    def _index_for_label(self, label: str) -> int:
+        """Return the node builder index for the given label."""
+        try:
+            return int(label)
+        except ValueError:
+            return self._labels[label]
 
     def _node_for_label(self, label: str) -> CodeNodeBuilder:
-        """
-        Return the code node for the given label, creating it if necessary.
-        A new node will not have its `label` field filled in initially;
-        that will only happen when `add_label()` is called for the label.
-        """
-        nodes_by_label = self._nodes_by_label
-        node = nodes_by_label.get(label)
-        if node is None:
-            node = self._add_node()
-            nodes_by_label[label] = node
-        return node
+        """Return the node builder for the given label."""
+        return self._nodes[self._index_for_label(label)]
 
     def emit_label(self, label: str, location: InputLocation | None = None) -> None:
         """
@@ -145,17 +137,23 @@ class CodeGraphBuilder:
         Raises `BadInput` if the label was already defined.
         """
 
-        prev_node = self._current_node
+        if (idx := self._labels.get(label)) is not None:
+            first_location = self._nodes[idx].location
+            raise BadInput(f'label "{label}" already defined', location, first_location)
 
-        node = self._node_for_label(label)
-        if label in node.labels:
-            raise BadInput(f'label "{label}" already defined', location, node.location)
-        node.labels.append(label)
-        node.location = location
-
-        # Make label node current and link previous node to it.
-        prev_node.outgoing.append((IntLiteral(1), node))
-        self._current_node = node  # pylint: disable=attribute-defined-outside-init
+        prev_node = self._nodes[-1]
+        if prev_node.empty:
+            # Add label to fresh node.
+            prev_node.labels.append(label)
+            if prev_node.location is None:
+                prev_node.location = location
+        else:
+            # Start a new node.
+            prev_node.outgoing.append((IntLiteral(1), label))
+            node = self._add_node()
+            node.labels.append(label)
+            node.location = location
+        self._labels[label] = len(self._nodes) - 1
 
     def emit_branch(
         self,
@@ -174,17 +172,17 @@ class CodeGraphBuilder:
             locations.append(label_location)
 
         # Find the destination nodes.
-        node_from = self._current_node
-        node_true = self._node_for_label(label)
-        node_false = self._add_node()
+        node_from = self._nodes[-1]
+        label_true = label
+        label_false = self._add_node().labels[0]
 
         # Link outgoing edges.
         condition_false = simplify_expression(ZeroTest(condition))
         condition_true = simplify_expression(ZeroTest(condition_false))
         if not is_literal_false(condition_true):
-            node_from.outgoing.append((condition_true, node_true))
+            node_from.outgoing.append((condition_true, label_true))
         if not is_literal_false(condition_false):
-            node_from.outgoing.append((condition_false, node_false))
+            node_from.outgoing.append((condition_false, label_false))
 
     def inline_function_call(
         self,
@@ -315,7 +313,7 @@ class CodeGraphBuilder:
                 return FixedValue(value, storage.width)
             return None
 
-        operations = self._current_node.block._operations
+        operations = self._nodes[-1].block._operations
 
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
@@ -337,32 +335,31 @@ class CodeGraphBuilder:
         self._check_labels(collector)
 
         # Fill in the incoming nodes.
-        for node in walk_nodes(self._entry):
-            for _cond, succ in node.outgoing:
-                succ.incoming.append(node)
+        for node in self._nodes:
+            for _cond, succ_label in node.outgoing:
+                self._node_for_label(succ_label).incoming.append(node)
 
-        # Replace empty nodes with a single fixed successor by that successor.
-        for node in list(walk_nodes(self._entry)):
+        # Skip over empty nodes with a single fixed successor.
+        # The skipped nodes remain in the '_nodes' list to preserve the node indices.
+        for node in self._nodes:
             if node.empty and len(node.outgoing) == 1:
-                ((cond, new_succ),) = node.outgoing
+                ((cond, new_succ_label),) = node.outgoing
                 if is_literal_true(cond):
-                    if node is self._entry:
-                        self._entry = new_succ
-                    else:
-                        for prev in node.incoming:
-                            for idx, (cond, succ) in enumerate(prev.outgoing):
-                                if succ is node:
-                                    prev.outgoing[idx] = (cond, new_succ)
-                    new_succ.incoming.remove(node)
-                    new_succ.incoming += node.incoming
-                    new_succ.labels += node.labels
+                    for prev in node.incoming:
+                        for idx, (cond, succ_label) in enumerate(prev.outgoing):
+                            if self._node_for_label(succ_label) is node:
+                                prev.outgoing[idx] = (cond, new_succ_label)
+                    new_succ_node = self._node_for_label(succ_label)
+                    new_succ_node.incoming.remove(node)
+                    new_succ_node.incoming += node.incoming
+                    new_succ_node.labels += node.labels
 
-        _trace_stored_values(self._entry, returned)
+        _trace_stored_values(self._nodes, returned)
 
         # Removal of unused loads will not enable any other simplifications.
-        _remove_unused_loads(self._entry, returned)
+        _remove_unused_loads(self._nodes, returned)
 
-        for node in walk_nodes(self._entry):
+        for node in self._nodes:
             _check_undefined(node.block._operations, collector)
             # TODO: Enable checking of all blocks once value tracing works across nodes.
             break
@@ -373,13 +370,13 @@ class CodeGraphBuilder:
     def _create_graph(self) -> CodeGraph:
         """Create final code graph from node builders."""
 
-        builders = list(walk_nodes(self._entry))
+        builders = self._nodes
         nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
         for node, builder in zip(nodes, builders, strict=True):
             for inc in builder.incoming:
                 node._incoming.append(nodes[builders.index(inc)])
             for cond, out in builder.outgoing:
-                node._outgoing.append((cond, nodes[builders.index(out)]))
+                node._outgoing.append((cond, nodes[self._index_for_label(out)]))
         return CodeGraph(nodes[0])
 
 
@@ -461,13 +458,15 @@ class BasicBlockBuilder:
         return BasicBlock(operations)
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class CodeNodeBuilder:
     block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
     labels: list[str] = field(default_factory=list)
     location: InputLocation | None = None
+    # TODO: Should incoming links be a builder property or something we temporarily maintain
+    #       during the final graph simplification?
     incoming: list[CodeNodeBuilder] = field(default_factory=list)
-    outgoing: list[tuple[Expression, CodeNodeBuilder]] = field(default_factory=list)
+    outgoing: list[tuple[Expression, str]] = field(default_factory=list)
 
     @property
     def empty(self) -> bool:
@@ -487,7 +486,7 @@ def decompose_store(ref: Reference, value: Expression) -> Mapping[Storage, Expre
 
     # Derive storage mapping from generated store nodes.
     mapping = {}
-    for operation in builder._current_node.block._operations:
+    for operation in builder._nodes[-1].block._operations:
         assert isinstance(operation, Store), operation
         mapping[operation.storage] = operation.expr
     return mapping
@@ -538,7 +537,7 @@ def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
                         will_be_overwritten.add(storage)
 
 
-def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> None:
+def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitString]) -> None:
     """
     Trace the value of registers and local variables.
     This simplification step replaces `LoadedValue` uses by known expressions,
@@ -549,7 +548,7 @@ def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> N
     exit_values: defaultdict[Storage, dict[str, Expression]] = defaultdict(dict)
     replacements: dict[Expression, Expression] = {}
 
-    for node in walk_nodes(entry):
+    for node in nodes:
         # Gather storage value known at the start of this basic block.
         stored_values: dict[Storage, Expression] = {}
         for storage, value_by_label in exit_values.items():
@@ -610,7 +609,7 @@ def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> N
         returned[i] = ret_bits.substitute(expression_func=replacements.get).simplify()
 
 
-def _remove_unused_loads(entry: CodeNodeBuilder, returned: list[BitString]) -> None:
+def _remove_unused_loads(nodes: Iterable[CodeNodeBuilder], returned: list[BitString]) -> None:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.
@@ -621,7 +620,7 @@ def _remove_unused_loads(entry: CodeNodeBuilder, returned: list[BitString]) -> N
             use_counts[loaded] += delta
 
     # Compute initial use counts.
-    for node in walk_nodes(entry):
+    for node in nodes:
         for operation in node.block._operations:
             if isinstance(operation, Store):
                 update_counts(operation.expr)
@@ -635,7 +634,7 @@ def _remove_unused_loads(entry: CodeNodeBuilder, returned: list[BitString]) -> N
             update_counts(expr)
 
     # Remove unnecesary Loads.
-    for node in walk_nodes(entry):
+    for node in nodes:
         operations = node.block._operations
         for i in range(len(operations) - 1, -1, -1):
             match operations[i]:

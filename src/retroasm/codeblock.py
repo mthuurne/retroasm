@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass, field
-from typing import IO, TYPE_CHECKING, Final, override
+from typing import IO, Final, override
 
 from .expression import Expression, is_literal_true
 from .input import InputLocation
 from .reference import BitString
 from .storage import ArgStorage, Storage
 from .types import mask_for_width
-
-if TYPE_CHECKING:
-    from .codeblock_builder import CodeNodeBuilder
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -208,7 +205,7 @@ class CodeNode:
         self._outgoing: list[tuple[Expression, CodeNode]] = []
 
 
-def walk_nodes[T: (CodeNode, CodeNodeBuilder)](entry: T) -> Iterator[T]:
+def walk_nodes(entry: CodeNode) -> Iterator[CodeNode]:
     # Note: For the tiny graphs of single instructions, lists are fast enough.
     #       If we ever start building much larger graphs, reconsider.
     done = []
