@@ -63,22 +63,30 @@ class CodeGraphBuilder:
         return builder
 
     def __init__(self) -> None:
-        self._current_node = self._entry = CodeNodeBuilder()
+        self._node_idx = 0
+        self._entry = self._add_node()
         self._nodes_by_label: dict[str, CodeNodeBuilder] = {}
         self._branches: dict[str, list[InputLocation]] = {}
+
+    def _add_node(self) -> CodeNodeBuilder:
+        """Create a new node builder and add it to the end of the nodes list."""
+        self._current_node = node = CodeNodeBuilder()
+        # Add a synthetic label, so each node has at least one label.
+        node.labels.append(str(self._node_idx))
+        self._node_idx += 1
+        return node
 
     def dump(self, *, file: IO[str] | None = None) -> None:
         """Print the code graph under construction."""
 
         for node in walk_nodes(self._entry):
-            if (label := node.label) is not None and not (label == "0" and node is self._entry):
-                print(f"@{label}", file=file)
+            print(" ".join(f"@{label}" for label in node.labels), file=file)
             node.block.dump(file=file)
             if node.outgoing:
                 verb = "goto"
                 for condition, out_node in node.outgoing:
                     cond = "" if is_literal_true(condition) else f" if {condition}"
-                    print(f"    {verb} @{out_node.label}{cond}", file=file)
+                    print(f"    {verb} @{out_node.labels[-1]}{cond}", file=file)
                     verb = " " * len(verb)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
@@ -90,7 +98,7 @@ class CodeGraphBuilder:
 
         with collector.check():
             for label, node in self._nodes_by_label.items():
-                if node.label is None:
+                if label not in node.labels:
                     collector.error(
                         f'Label "{label}" does not exist', location=self._branches[label]
                     )
@@ -127,7 +135,7 @@ class CodeGraphBuilder:
         nodes_by_label = self._nodes_by_label
         node = nodes_by_label.get(label)
         if node is None:
-            node = CodeNodeBuilder()
+            node = self._add_node()
             nodes_by_label[label] = node
         return node
 
@@ -137,18 +145,17 @@ class CodeGraphBuilder:
         Raises `BadInput` if the label was already defined.
         """
 
-        node = self._node_for_label(label)
-        if node.label is not None:
-            raise BadInput(f'label "{label}" already defined', location, node.location)
-        node.label = label
-
-        # Complete previous node and link it to label node.
         prev_node = self._current_node
-        self._complete_node()
-        prev_node.outgoing.append((IntLiteral(1), node))
 
-        self._current_node = node
-        self._current_node.location = location
+        node = self._node_for_label(label)
+        if label in node.labels:
+            raise BadInput(f'label "{label}" already defined', location, node.location)
+        node.labels.append(label)
+        node.location = location
+
+        # Make label node current and link previous node to it.
+        prev_node.outgoing.append((IntLiteral(1), node))
+        self._current_node = node  # pylint: disable=attribute-defined-outside-init
 
     def emit_branch(
         self,
@@ -168,9 +175,8 @@ class CodeGraphBuilder:
 
         # Find the destination nodes.
         node_from = self._current_node
-        self._complete_node()
-        node_false = self._current_node
         node_true = self._node_for_label(label)
+        node_false = self._add_node()
 
         # Link outgoing edges.
         condition_false = simplify_expression(ZeroTest(condition))
@@ -328,8 +334,6 @@ class CodeGraphBuilder:
         # storages may have become redundant.
         _remove_overwritten_stores(operations)
 
-        self._complete_node()
-
         self._check_labels(collector)
 
         # Fill in the incoming nodes.
@@ -351,15 +355,7 @@ class CodeGraphBuilder:
                                     prev.outgoing[idx] = (cond, new_succ)
                     new_succ.incoming.remove(node)
                     new_succ.incoming += node.incoming
-                    if (label := node.label) is not None:
-                        new_succ.label = label
-
-        # Add a synthetic label to each unlabeled node.
-        label_idx = 0
-        for node in walk_nodes(self._entry):
-            if node.label is None:
-                node.label = str(label_idx)
-                label_idx += 1
+                    new_succ.labels += node.labels
 
         _trace_stored_values(self._entry, returned)
 
@@ -385,10 +381,6 @@ class CodeGraphBuilder:
             for cond, out in builder.outgoing:
                 node._outgoing.append((cond, nodes[builders.index(out)]))
         return CodeGraph(nodes[0])
-
-    def _complete_node(self) -> None:
-        # Start a new node.
-        self._current_node = CodeNodeBuilder()
 
 
 class BasicBlockBuilder:
@@ -472,7 +464,7 @@ class BasicBlockBuilder:
 @dataclass(slots=True)
 class CodeNodeBuilder:
     block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
-    label: str | None = None
+    labels: list[str] = field(default_factory=list)
     location: InputLocation | None = None
     incoming: list[CodeNodeBuilder] = field(default_factory=list)
     outgoing: list[tuple[Expression, CodeNodeBuilder]] = field(default_factory=list)
@@ -563,8 +555,7 @@ def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> N
         for storage, value_by_label in exit_values.items():
             incoming_values = []
             for inc in node.incoming:
-                assert inc.label is not None
-                value = value_by_label.get(inc.label)
+                value = value_by_label.get(inc.labels[0])
                 if value is None:
                     break
                 incoming_values.append(value)
@@ -606,8 +597,7 @@ def _trace_stored_values(entry: CodeNodeBuilder, returned: list[BitString]) -> N
                     bad_type(operation)
 
         # Remember last known value for each storage.
-        label = node.label
-        assert label is not None
+        label = node.labels[0]
         for storage, value in stored_values.items():
             exit_values[storage][label] = value
 
