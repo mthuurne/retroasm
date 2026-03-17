@@ -6,7 +6,7 @@ from typing import Final, Self, cast, override
 
 from .expression import Expression, XorOperator, ZeroTest, is_literal_false
 from .expression_simplifier import simplify_expression
-from .types import IntType, Width
+from .types import IntType, Width, unlimited
 
 
 class Device:
@@ -281,7 +281,7 @@ class Variable(Storage):
 
     @override
     def __str__(self) -> str:
-        return f"var{self.width} {self.name}"
+        return f"var{'int' if (w := self.width) is unlimited else w} {self.name}"
 
     @override
     def __repr__(self) -> str:
