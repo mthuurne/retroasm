@@ -365,20 +365,8 @@ class CodeGraphBuilder:
             # TODO: Enable checking of all blocks once value tracing works across nodes.
             break
 
-        code = self._create_graph()
+        code = _create_graph(self._nodes)
         return FunctionBody(code, returned)
-
-    def _create_graph(self) -> CodeGraph:
-        """Create final code graph from node builders."""
-
-        builders = self._nodes
-        nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
-        for node, builder in zip(nodes, builders, strict=True):
-            for inc_label in builder.incoming:
-                node._incoming.append(nodes[self._index_for_label(inc_label)])
-            for cond, out in builder.outgoing:
-                node._outgoing.append((cond, nodes[self._index_for_label(out)]))
-        return CodeGraph(nodes[0])
 
 
 class BasicBlockBuilder:
@@ -651,3 +639,16 @@ def _remove_unused_loads(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
                         # the sole user of their LoadedValue.
                         for expr in storage.iter_expressions():
                             update_counts(expr, -1)
+
+
+def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeGraph:
+    """Create final code graph from node builders."""
+
+    labels = {label: idx for idx, builder in enumerate(builders) for label in builder.labels}
+    nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
+    for node, builder in zip(nodes, builders, strict=True):
+        for inc_label in builder.incoming:
+            node._incoming.append(nodes[labels[inc_label]])
+        for cond, out_label in builder.outgoing:
+            node._outgoing.append((cond, nodes[labels[out_label]]))
+    return CodeGraph(nodes[0])
