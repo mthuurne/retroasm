@@ -337,7 +337,7 @@ class CodeGraphBuilder:
         # Fill in the incoming nodes.
         for node in self._nodes:
             for _cond, succ_label in node.outgoing:
-                self._node_for_label(succ_label).incoming.append(node)
+                self._node_for_label(succ_label).incoming.append(node.labels[0])
 
         # Skip over empty nodes with a single fixed successor.
         # The skipped nodes remain in the '_nodes' list to preserve the node indices.
@@ -345,12 +345,13 @@ class CodeGraphBuilder:
             if node.empty and len(node.outgoing) == 1:
                 ((cond, new_succ_label),) = node.outgoing
                 if is_literal_true(cond):
-                    for prev in node.incoming:
-                        for idx, (cond, succ_label) in enumerate(prev.outgoing):
+                    for prev_label in node.incoming:
+                        prev_node = self._node_for_label(prev_label)
+                        for idx, (cond, succ_label) in enumerate(prev_node.outgoing):
                             if self._node_for_label(succ_label) is node:
-                                prev.outgoing[idx] = (cond, new_succ_label)
+                                prev_node.outgoing[idx] = (cond, new_succ_label)
                     new_succ_node = self._node_for_label(succ_label)
-                    new_succ_node.incoming.remove(node)
+                    new_succ_node.incoming.remove(node.labels[0])
                     new_succ_node.incoming += node.incoming
                     new_succ_node.labels += node.labels
 
@@ -373,8 +374,8 @@ class CodeGraphBuilder:
         builders = self._nodes
         nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
         for node, builder in zip(nodes, builders, strict=True):
-            for inc in builder.incoming:
-                node._incoming.append(nodes[builders.index(inc)])
+            for inc_label in builder.incoming:
+                node._incoming.append(nodes[self._index_for_label(inc_label)])
             for cond, out in builder.outgoing:
                 node._outgoing.append((cond, nodes[self._index_for_label(out)]))
         return CodeGraph(nodes[0])
@@ -463,9 +464,13 @@ class CodeNodeBuilder:
     block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
     labels: list[str] = field(default_factory=list)
     location: InputLocation | None = None
-    # TODO: Should incoming links be a builder property or something we temporarily maintain
-    #       during the final graph simplification?
-    incoming: list[CodeNodeBuilder] = field(default_factory=list)
+
+    incoming: list[str] = field(default_factory=list)
+    """
+    Labels of nodes that might be executed immediately before this node.
+    The first label of each node is used in this list.
+    """
+
     outgoing: list[tuple[Expression, str]] = field(default_factory=list)
 
     @property
@@ -553,8 +558,8 @@ def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
         stored_values: dict[Storage, Expression] = {}
         for storage, value_by_label in exit_values.items():
             incoming_values = []
-            for inc in node.incoming:
-                value = value_by_label.get(inc.labels[0])
+            for inc_label in node.incoming:
+                value = value_by_label.get(inc_label)
                 if value is None:
                     break
                 incoming_values.append(value)
