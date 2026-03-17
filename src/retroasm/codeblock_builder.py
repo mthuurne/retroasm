@@ -360,13 +360,12 @@ class CodeGraphBuilder:
         # Removal of unused loads will not enable any other simplifications.
         _remove_unused_loads(self._nodes, returned)
 
-        for node in self._nodes:
-            _check_undefined(node.block._operations, collector)
-            # TODO: Enable checking of all blocks once value tracing works across nodes.
-            break
+        entry = _create_graph(self._nodes)
 
-        code = _create_graph(self._nodes)
-        return FunctionBody(code, returned)
+        # TODO: Check all blocks once value tracing works across nodes.
+        _check_undefined(entry.block.operations, collector)
+
+        return FunctionBody(CodeGraph(entry), returned)
 
 
 class BasicBlockBuilder:
@@ -641,7 +640,7 @@ def _remove_unused_loads(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
                             update_counts(expr, -1)
 
 
-def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeGraph:
+def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
     """Create final code graph from node builders."""
 
     labels = {label: idx for idx, builder in enumerate(builders) for label in builder.labels}
@@ -651,4 +650,4 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeGraph:
             node._incoming.append(nodes[labels[inc_label]])
         for cond, out_label in builder.outgoing:
             node._outgoing.append((cond, nodes[labels[out_label]]))
-    return CodeGraph(nodes[0])
+    return nodes[0]
