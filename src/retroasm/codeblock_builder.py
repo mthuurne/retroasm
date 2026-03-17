@@ -630,8 +630,8 @@ def _remove_unused_loads(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
         operations = node.block._operations
         for i in range(len(operations) - 1, -1, -1):
             match operations[i]:
-                case Load(expr=expr, storage=storage):
-                    if use_counts[expr] == 0 and not storage.can_load_have_side_effect():
+                case Load(expr=loaded, storage=storage):
+                    if use_counts[loaded] == 0 and not storage.can_load_have_side_effect():
                         del operations[i]
                         # Update use_counts, so we can remove earlier Loads that
                         # became unused because the Load we just removed was

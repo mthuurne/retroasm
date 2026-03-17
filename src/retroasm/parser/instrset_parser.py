@@ -84,8 +84,7 @@ def _parse_regs(
         last_type_location = None
         for node in nodes:
             # Parse type declaration.
-            decl = node.decl if isinstance(node, DefinitionNode) else node
-            decl_type = decl.type
+            decl_type = (node.decl if isinstance(node, DefinitionNode) else node).type
             type_location = decl_type.location
             try:
                 reg_type = parse_type_decl(decl_type.name)
@@ -97,7 +96,7 @@ def _parse_regs(
             last_type_location = type_location
 
             match node:
-                case VariableDeclarationNode():
+                case VariableDeclarationNode(name=name):
                     # Define base register.
                     if isinstance(reg_type, ReferenceType):
                         collector.error(
@@ -106,9 +105,7 @@ def _parse_regs(
                         )
                         continue
                     try:
-                        global_namespace.add_register(
-                            decl.name.name, reg_type, decl.name.location
-                        )
+                        global_namespace.add_register(name.name, reg_type, name.location)
                     except NameExistsError as ex:
                         collector.error(
                             f"bad base register definition: {ex}", location=ex.locations
