@@ -34,7 +34,7 @@ def _pick_alternative(alternatives: Iterable[Expression]) -> Expression:
     If there is a tie, prefer the alternative that occurs first.
     """
     simplest = None
-    complexity = None
+    complexity: int | None = None
     for alt in alternatives:
         alt_complexity = alt.complexity
         if complexity is None or alt_complexity < complexity:
