@@ -200,9 +200,6 @@ def test_branch_halfway_loop(codeblock_tester: CodeBlockDocstringTester) -> None
     While this would be less efficient during execution, for analysis it makes no difference
     as the graph is the same.
 
-    The empty block at the start can't be optimized away because node 0 must be the entry
-    point in the current graph representation in the builder.
-
     .. code-block:: instr
 
         func test()
@@ -215,17 +212,16 @@ def test_branch_halfway_loop(codeblock_tester: CodeBlockDocstringTester) -> None
 
     .. code-block:: dump
 
-            goto @1
-        @1
+        @0
             load from reg32 a
             store (load(reg32 a) + $FFFFFFFF)[:32] in reg32 a
-            goto @2 if !(load(reg32 a) + $FFFFFFFF)[:32]
-                 @3 if !!(load(reg32 a) + $FFFFFFFF)[:32]
-        @2
+            goto @1 if !(load(reg32 a) + $FFFFFFFF)[:32]
+                 @2 if !!(load(reg32 a) + $FFFFFFFF)[:32]
+        @1
             load from reg32 b
             load from reg32 a
             store (load(reg32 b) + load(reg32 a))[:32] in reg32 b
-            goto @1
-        @3
+            goto @0
+        @2
     """
     codeblock_tester.check()

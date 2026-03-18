@@ -339,31 +339,14 @@ class CodeGraphBuilder:
             for _cond, succ_label in node.outgoing:
                 self._node_for_label(succ_label).incoming.append(node.labels[0])
 
-        # Skip over empty nodes with a single fixed successor.
-        # The skipped nodes remain in the '_nodes' list to preserve the node indices.
-        for node in self._nodes:
-            if node.empty and len(node.outgoing) == 1:
-                if not node.incoming:
-                    # We can't remove the entry point.
-                    continue
-                ((cond, new_succ_label),) = node.outgoing
-                if is_literal_true(cond):
-                    for prev_label in node.incoming:
-                        prev_node = self._node_for_label(prev_label)
-                        for idx, (cond, succ_label) in enumerate(prev_node.outgoing):
-                            if self._node_for_label(succ_label) is node:
-                                prev_node.outgoing[idx] = (cond, new_succ_label)
-                    new_succ_node = self._node_for_label(succ_label)
-                    new_succ_node.incoming.remove(node.labels[0])
-                    new_succ_node.incoming += node.incoming
-                    new_succ_node.labels += node.labels
-
         _trace_stored_values(self._nodes, returned)
 
         # Removal of unused loads will not enable any other simplifications.
         _remove_unused_loads(self._nodes, returned)
 
         entry = _create_graph(self._nodes)
+
+        entry = _reduce_graph(entry)
 
         # TODO: Check all blocks once value tracing works across nodes.
         _check_undefined(entry.block.operations, collector)
@@ -654,3 +637,31 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
         for cond, out_label in builder.outgoing:
             node._outgoing.append((cond, nodes[labels[out_label]]))
     return nodes[0]
+
+
+def _reduce_graph(entry: CodeNode) -> CodeNode:
+    """
+    Reduce the number of nodes in the given graph, if possible.
+    Empty nodes with a single fixed successor are removed.
+    """
+    done = set()
+    remaining = {entry}
+    while remaining:
+        node = remaining.pop()
+        if not node.block.operations and len(node.outgoing) == 1:
+            ((cond, new_succ_node),) = node.outgoing
+            if is_literal_true(cond):
+                for prev_node in node.incoming:
+                    for idx, (cond, old_succ_node) in enumerate(prev_node.outgoing):
+                        if old_succ_node is node:
+                            prev_node._outgoing[idx] = (cond, new_succ_node)
+                new_succ_node._incoming.remove(node)
+                new_succ_node._incoming += node.incoming
+                if node is entry:
+                    entry = new_succ_node
+                node = new_succ_node
+        done.add(node)
+        for _cond, out in node.outgoing:
+            if out not in done:
+                remaining.add(out)
+    return entry
