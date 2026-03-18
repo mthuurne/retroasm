@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from io import StringIO
-from logging import Logger, getLogger
+from logging import Logger, StreamHandler, getLogger
 from typing import Literal, overload
 
 import pytest
@@ -32,14 +32,22 @@ class TestParser(InstructionSetParser):
         self.parse(reader, collector)
 
 
-@pytest.fixture
-def parser() -> TestParser:
-    """
-    An instruction set parser.
-    """
+@pytest.fixture(scope="session")
+def instr_logger() -> Logger:
+    """A logger configured to format instruction set parse issues."""
 
     logger = getLogger("test")
-    return TestParser("test.instr", logger)
+    handler = StreamHandler()
+    handler.setFormatter(LocationFormatter())
+    logger.addHandler(handler)
+    return logger
+
+
+@pytest.fixture
+def parser(instr_logger: Logger) -> TestParser:
+    """An instruction set parser."""
+
+    return TestParser("test.instr", instr_logger)
 
 
 @dataclass
