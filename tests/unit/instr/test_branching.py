@@ -190,3 +190,42 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
             return 0
     """
     codeblock_tester.check()
+
+
+def test_branch_halfway_loop(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    A proper graph is produced when the actual entry point is halfway a loop.
+
+    Note that the graph linearization reverses the order of the two halves of the loop body.
+    While this would be less efficient during execution, for analysis it makes no difference
+    as the graph is the same.
+
+    The empty block at the start can't be optimized away because node 0 must be the entry
+    point in the current graph representation in the builder.
+
+    .. code-block:: instr
+
+        func test()
+            branch @halfway
+            @loop
+            b := b + a
+            @halfway
+            a := a - 1
+            branch a == 0 @loop
+
+    .. code-block:: dump
+
+            goto @1
+        @1
+            load from reg32 a
+            store (load(reg32 a) + $FFFFFFFF)[:32] in reg32 a
+            goto @2 if !(load(reg32 a) + $FFFFFFFF)[:32]
+                 @3 if !!(load(reg32 a) + $FFFFFFFF)[:32]
+        @2
+            load from reg32 b
+            load from reg32 a
+            store (load(reg32 b) + load(reg32 a))[:32] in reg32 b
+            goto @1
+        @3
+    """
+    codeblock_tester.check()

@@ -343,6 +343,9 @@ class CodeGraphBuilder:
         # The skipped nodes remain in the '_nodes' list to preserve the node indices.
         for node in self._nodes:
             if node.empty and len(node.outgoing) == 1:
+                if not node.incoming:
+                    # We can't remove the entry point.
+                    continue
                 ((cond, new_succ_label),) = node.outgoing
                 if is_literal_true(cond):
                     for prev_label in node.incoming:
