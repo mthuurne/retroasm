@@ -5,7 +5,16 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import IO, NoReturn, Self, assert_never
 
-from .codeblock import BasicBlock, CodeGraph, CodeNode, FunctionBody, Load, LoadedValue, Store
+from .codeblock import (
+    BasicBlock,
+    CodeGraph,
+    CodeNode,
+    FunctionBody,
+    Load,
+    LoadedValue,
+    Store,
+    walk_nodes,
+)
 from .expression import (
     Expression,
     IntLiteral,
@@ -341,10 +350,11 @@ class CodeGraphBuilder:
 
         _trace_stored_values(self._nodes, returned)
 
-        # Removal of unused loads will not enable any other simplifications.
-        _remove_unused_loads(self._nodes, returned)
-
         entry = _create_graph(self._nodes)
+
+        # TODO: Try several simplifications in successing until no more changes are made.
+        while _remove_unused_loads(entry, returned):
+            pass
 
         entry = _reduce_graph(entry)
 
@@ -587,43 +597,46 @@ def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
         returned[i] = ret_bits.substitute(expression_func=replacements.get).simplify()
 
 
-def _remove_unused_loads(nodes: Iterable[CodeNodeBuilder], returned: list[BitString]) -> None:
+def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> bool:
     """Remove side-effect-free loads of which the LoadedValue is unused."""
 
     # Keep track of how often each LoadedValue is used.
     use_counts = defaultdict[LoadedValue, int](int)
 
-    def update_counts(expr: Expression, delta: int = 1) -> None:
+    def update_use_counts(expr: Expression) -> None:
         for loaded in expr.iter_instances(LoadedValue):
-            use_counts[loaded] += delta
+            use_counts[loaded] += 1
 
     # Compute initial use counts.
-    for node in nodes:
-        for operation in node.block._operations:
+    for node in walk_nodes(entry):
+        for operation in node.block.operations:
             if isinstance(operation, Store):
-                update_counts(operation.expr)
+                update_use_counts(operation.expr)
             for expr in operation.storage.iter_expressions():
-                update_counts(expr)
+                update_use_counts(expr)
         for cond, _succ in node.outgoing:
-            update_counts(cond)
+            update_use_counts(cond)
 
     for ret_bits in returned:
         for expr in ret_bits.iter_expressions():
-            update_counts(expr)
+            update_use_counts(expr)
 
     # Remove unnecesary Loads.
-    for node in nodes:
-        operations = node.block._operations
+    any_changed = False
+    for node in walk_nodes(entry):
+        changed = False
+        operations = list(node.block.operations)
         for i in range(len(operations) - 1, -1, -1):
             match operations[i]:
                 case Load(expr=loaded, storage=storage):
                     if use_counts[loaded] == 0 and not storage.can_load_have_side_effect():
                         del operations[i]
-                        # Update use_counts, so we can remove earlier Loads that
-                        # became unused because the Load we just removed was
-                        # the sole user of their LoadedValue.
-                        for expr in storage.iter_expressions():
-                            update_counts(expr, -1)
+                        changed = True
+                        any_changed = True
+        if changed:
+            node._block = BasicBlock(operations)
+
+    return any_changed
 
 
 def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:

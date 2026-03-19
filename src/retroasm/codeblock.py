@@ -189,7 +189,11 @@ class CodeGraph:
 
 
 class CodeNode:
-    __slots__ = ("block", "_incoming", "_outgoing")
+    __slots__ = ("_block", "_incoming", "_outgoing")
+
+    @property
+    def block(self) -> BasicBlock:
+        return self._block
 
     @property
     def incoming(self) -> Sequence[CodeNode]:
@@ -200,7 +204,7 @@ class CodeNode:
         return self._outgoing
 
     def __init__(self, block: BasicBlock):
-        self.block: Final[BasicBlock] = block
+        self._block: BasicBlock = block
         self._incoming: list[CodeNode] = []
         self._outgoing: list[tuple[Expression, CodeNode]] = []
 
