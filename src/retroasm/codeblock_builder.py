@@ -343,11 +343,6 @@ class CodeGraphBuilder:
 
         self._check_labels(collector)
 
-        # Fill in the incoming nodes.
-        for node in self._nodes:
-            for _cond, succ_label in node.outgoing:
-                self._node_for_label(succ_label).incoming.append(node.labels[0])
-
         entry = _create_graph(self._nodes)
 
         _trace_stored_values(entry, returned)
@@ -447,13 +442,6 @@ class CodeNodeBuilder:
     block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
     labels: list[str] = field(default_factory=list)
     location: InputLocation | None = None
-
-    incoming: list[str] = field(default_factory=list)
-    """
-    Labels of nodes that might be executed immediately before this node.
-    The first label of each node is used in this list.
-    """
-
     outgoing: list[tuple[Expression, str]] = field(default_factory=list)
 
     @property
@@ -653,10 +641,10 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
     labels = {label: idx for idx, builder in enumerate(builders) for label in builder.labels}
     nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
     for node, builder in zip(nodes, builders, strict=True):
-        for inc_label in builder.incoming:
-            node._incoming.append(nodes[labels[inc_label]])
         for cond, out_label in builder.outgoing:
-            node._outgoing.append((cond, nodes[labels[out_label]]))
+            out_node = nodes[labels[out_label]]
+            node._outgoing.append((cond, out_node))
+            out_node._incoming.append(node)
     return nodes[0]
 
 
