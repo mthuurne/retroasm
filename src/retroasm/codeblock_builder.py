@@ -337,15 +337,13 @@ class CodeGraphBuilder:
         # been traced, we don't need the stores anymore.
         _remove_variable_stores(operations)
 
-        # With known-value loads removed by the builder, some prior stores to the same
-        # storages may have become redundant.
-        _remove_overwritten_stores(operations)
-
         self._check_labels(collector)
 
         entry = _create_graph(self._nodes)
 
         _trace_stored_values(entry, returned)
+
+        _remove_overwritten_stores(entry)
 
         # TODO: Try several simplifications in successing until no more changes are made.
         while _remove_unused_loads(entry, returned):
@@ -495,22 +493,39 @@ def _remove_variable_stores(operations: list[Load | Store]) -> None:
                 del operations[i]
 
 
-def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
-    """Remove side-effect-free stores that will be overwritten."""
+def _remove_overwritten_stores(entry: CodeNode) -> None:
+    """
+    Remove side-effect-free stores that will be overwritten.
 
-    will_be_overwritten = set()
-    for i in range(len(operations) - 1, -1, -1):
-        operation = operations[i]
-        storage = operation.storage
-        if not storage.can_store_have_side_effect():
-            match operation:
-                case Load():
-                    will_be_overwritten.discard(storage)
-                case Store():
-                    if storage in will_be_overwritten:
-                        del operations[i]
-                    else:
-                        will_be_overwritten.add(storage)
+    TODO: Only overwrites within the same basic block are currently considered,
+          but overwrites in nodes that are guaranteed to be executed later should
+          also be taken into account.
+          However, the removal is only valid if there are no possible intermediate
+          loads; within a single block those loads are replaced by value tracing,
+          but between nodes that is not always feasible.
+    """
+
+    for node in walk_nodes(entry):
+        operations = node._block.operations
+        will_be_overwritten = set()
+        idx_to_remove = []
+        for idx in range(len(operations) - 1, -1, -1):
+            operation = operations[idx]
+            storage = operation.storage
+            if not storage.can_store_have_side_effect():
+                match operation:
+                    case Load():
+                        will_be_overwritten.discard(storage)
+                    case Store():
+                        if storage in will_be_overwritten:
+                            idx_to_remove.append(idx)
+                        else:
+                            will_be_overwritten.add(storage)
+        if idx_to_remove:
+            operations = list(operations)
+            for idx in idx_to_remove:
+                del operations[idx]
+            node._block = BasicBlock(operations)
 
 
 def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
