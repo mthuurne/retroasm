@@ -348,9 +348,9 @@ class CodeGraphBuilder:
             for _cond, succ_label in node.outgoing:
                 self._node_for_label(succ_label).incoming.append(node.labels[0])
 
-        _trace_stored_values(self._nodes, returned)
-
         entry = _create_graph(self._nodes)
+
+        _trace_stored_values(entry, returned)
 
         # TODO: Try several simplifications in successing until no more changes are made.
         while _remove_unused_loads(entry, returned):
@@ -525,7 +525,7 @@ def _remove_overwritten_stores(operations: list[Load | Store]) -> None:
                         will_be_overwritten.add(storage)
 
 
-def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitString]) -> None:
+def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
     """
     Trace the value of registers and local variables.
     This simplification step replaces `LoadedValue` uses by known expressions,
@@ -533,31 +533,32 @@ def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
     Removal of loads of which the value is no longer used can be done in a later step.
     """
 
-    exit_values: defaultdict[Storage, dict[str, Expression]] = defaultdict(dict)
+    exit_values: defaultdict[Storage, dict[CodeNode, Expression]] = defaultdict(dict)
     replacements: dict[Expression, Expression] = {}
 
-    for node in nodes:
+    for node in walk_nodes(entry):
         # Gather storage value known at the start of this basic block.
         stored_values: dict[Storage, Expression] = {}
-        for storage, value_by_label in exit_values.items():
+        for storage, value_by_node in exit_values.items():
             incoming_values = []
-            for inc_label in node.incoming:
-                value = value_by_label.get(inc_label)
+            for inc_node in node.incoming:
+                value = value_by_node.get(inc_node)
                 if value is None:
                     break
                 incoming_values.append(value)
             else:
                 stored_values[storage] = simplify_expression(Select(*incoming_values))
 
-        operations = node.block._operations
-        for idx, operation in enumerate(operations):
+        patches: list[tuple[int, Load | Store]] = []
+        for op_idx, operation in enumerate(node._block.operations):
             expr: Expression
             match operation:
                 case Load(storage=old_storage, expr=expr):
                     storage = old_storage.substitute_expressions(replacements.get).simplify()
                     if storage is not old_storage:
-                        operations[idx] = load = Load(storage)
+                        load = Load(storage)
                         replacements[expr] = load.expr
+                        patches.append((op_idx, load))
                     if storage.can_load_have_side_effect():
                         _handle_side_effects(storage, stored_values)
                     elif (value := stored_values.get(storage)) is not None:
@@ -567,10 +568,11 @@ def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
                         stored_values[storage] = expr
 
                 case Store(storage=old_storage, expr=old_expr):
-                    expr = old_expr.substitute(replacements.get)
+                    expr = simplify_expression(old_expr.substitute(replacements.get))
                     storage = old_storage.substitute_expressions(replacements.get).simplify()
                     if expr is not old_expr or storage is not old_storage:
-                        operations[idx] = Store(expr, storage)
+                        store = Store(expr, storage)
+                        patches.append((op_idx, store))
                     if storage.can_store_have_side_effect():
                         _handle_side_effects(storage, stored_values)
                     if storage.is_sticky():
@@ -583,14 +585,20 @@ def _trace_stored_values(nodes: Iterable[CodeNodeBuilder], returned: list[BitStr
                 case operation:
                     bad_type(operation)
 
-        # Remember last known value for each storage.
-        label = node.labels[0]
-        for storage, value in stored_values.items():
-            exit_values[storage][label] = value
+        # Apply mutations, if any.
+        if patches:
+            operations = list(node._block.operations)
+            for op_idx, operation in patches:
+                operations[op_idx] = operation
+            node._block = BasicBlock(operations)
 
-        for idx, (cond, succ) in enumerate(node.outgoing):
+        # Remember last known value for each storage.
+        for storage, value in stored_values.items():
+            exit_values[storage][node] = value
+
+        for out_idx, (cond, succ) in enumerate(node._outgoing):
             if (new_cond := cond.substitute(replacements.get)) is not cond:
-                node.outgoing[idx] = (simplify_expression(new_cond), succ)
+                node._outgoing[out_idx] = (simplify_expression(new_cond), succ)
 
     # Replace known loaded values in returned bitstrings.
     for i, ret_bits in enumerate(returned):
