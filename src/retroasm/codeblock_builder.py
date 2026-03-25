@@ -335,17 +335,16 @@ class CodeGraphBuilder:
 
         entry = _create_graph(self._nodes)
 
-        _trace_stored_values(entry, returned)
-
-        _remove_overwritten_stores(entry)
-
-        # TODO: Try several simplifications in successing until no more changes are made.
-        while _remove_unused_loads(entry, returned):
-            pass
-
-        _remove_variable_stores(entry)
-
-        entry = _reduce_graph(entry)
+        # Try several simplifications in successing until no more changes are made.
+        changed = True
+        while changed:
+            changed = False
+            changed |= _trace_stored_values(entry, returned)
+            changed |= _remove_overwritten_stores(entry)
+            changed |= _remove_unused_loads(entry, returned)
+            changed |= _remove_variable_stores(entry)
+            entry, reduced = _reduce_graph(entry)
+            changed |= reduced
 
         # TODO: Check all blocks once value tracing works across nodes.
         _check_undefined(entry.block.operations, collector)
@@ -480,7 +479,7 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
         returned[i] = ret_bits.simplify()
 
 
-def _remove_variable_stores(entry: CodeNode) -> None:
+def _remove_variable_stores(entry: CodeNode) -> bool:
     """
     Remove stores to local variables.
     Local variables don't exist after exiting the block, so once their values have
@@ -496,6 +495,7 @@ def _remove_variable_stores(entry: CodeNode) -> None:
                     vars_to_keep.add(storage)
 
     # Remove stores to all other variables.
+    changed = False
     for node in walk_nodes(entry):
         idx_to_remove = []
         for idx, operation in enumerate(node._block.operations):
@@ -504,13 +504,15 @@ def _remove_variable_stores(entry: CodeNode) -> None:
                     if storage not in vars_to_keep:
                         idx_to_remove.append(idx)
         if idx_to_remove:
+            changed = True
             operations = list(node._block.operations)
             for idx in reversed(idx_to_remove):
                 del operations[idx]
             node._block = BasicBlock(operations)
+    return changed
 
 
-def _remove_overwritten_stores(entry: CodeNode) -> None:
+def _remove_overwritten_stores(entry: CodeNode) -> bool:
     """
     Remove side-effect-free stores that will be overwritten.
 
@@ -522,6 +524,7 @@ def _remove_overwritten_stores(entry: CodeNode) -> None:
           but between nodes that is not always feasible.
     """
 
+    changed = False
     for node in walk_nodes(entry):
         operations = node._block.operations
         will_be_overwritten = set()
@@ -539,13 +542,15 @@ def _remove_overwritten_stores(entry: CodeNode) -> None:
                         else:
                             will_be_overwritten.add(storage)
         if idx_to_remove:
+            changed = True
             operations = list(operations)
             for idx in idx_to_remove:
                 del operations[idx]
             node._block = BasicBlock(operations)
+    return changed
 
 
-def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
+def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> bool:
     """
     Trace the value of registers and local variables.
     This simplification step replaces `LoadedValue` uses by known expressions,
@@ -555,6 +560,7 @@ def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
 
     exit_values: defaultdict[Storage, dict[CodeNode, Expression]] = defaultdict(dict)
     replacements: dict[Expression, Expression] = {}
+    changed = False
 
     for node in walk_nodes(entry):
         # Gather storage value known at the start of this basic block.
@@ -607,6 +613,7 @@ def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
 
         # Apply mutations, if any.
         if patches:
+            changed = True
             operations = list(node._block.operations)
             for op_idx, operation in patches:
                 operations[op_idx] = operation
@@ -618,11 +625,14 @@ def _trace_stored_values(entry: CodeNode, returned: list[BitString]) -> None:
 
         for out_idx, (cond, succ) in enumerate(node._outgoing):
             if (new_cond := cond.substitute(replacements.get)) is not cond:
+                changed = True
                 node._outgoing[out_idx] = (simplify_expression(new_cond), succ)
 
     # Replace known loaded values in returned bitstrings.
     for i, ret_bits in enumerate(returned):
         returned[i] = ret_bits.substitute(expression_func=replacements.get).simplify()
+
+    return changed
 
 
 def _remove_unused_loads(entry: CodeNode, returned: list[BitString]) -> bool:
@@ -680,11 +690,12 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
     return nodes[0]
 
 
-def _reduce_graph(entry: CodeNode) -> CodeNode:
+def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
     """
     Reduce the number of nodes in the given graph, if possible.
     Empty nodes with a single fixed successor are removed.
     """
+    changed = False
     done = set()
     remaining = {entry}
     while remaining:
@@ -692,6 +703,7 @@ def _reduce_graph(entry: CodeNode) -> CodeNode:
         if not node.block.operations and len(node.outgoing) == 1:
             ((cond, new_succ_node),) = node.outgoing
             if is_literal_true(cond):
+                changed = True
                 for prev_node in node.incoming:
                     for idx, (cond, old_succ_node) in enumerate(prev_node.outgoing):
                         if old_succ_node is node:
@@ -705,4 +717,4 @@ def _reduce_graph(entry: CodeNode) -> CodeNode:
         for _cond, out in node.outgoing:
             if out not in done:
                 remaining.add(out)
-    return entry
+    return (entry, changed)

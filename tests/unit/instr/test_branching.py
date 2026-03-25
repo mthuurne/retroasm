@@ -173,15 +173,9 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
     .. code-block:: dump
 
             load from F
-            goto @2 if load(F)
+            goto @1 if load(F)
                  @1 if !load(F)
         @1
-            load from reg32 a
-            goto @3
-        @2
-            load from reg32 b
-            goto @3
-        @3
             return 0
     """
     codeblock_tester.check()
