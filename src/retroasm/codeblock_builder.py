@@ -18,6 +18,7 @@ from .codeblock import (
 from .expression import (
     Expression,
     IntLiteral,
+    OrOperator,
     Select,
     ZeroTest,
     is_literal_false,
@@ -700,6 +701,20 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
     remaining = {entry}
     while remaining:
         node = remaining.pop()
+
+        # Simplify outgoing edges.
+        destinations = defaultdict(list)
+        for cond, out in node.outgoing:
+            if not is_literal_false(cond):
+                destinations[out].append(cond)
+        if len(destinations) < len(node.outgoing):
+            changed = True
+            node._outgoing = [
+                (simplify_expression(OrOperator(*exprs)), out)
+                for out, exprs in destinations.items()
+            ]
+
+        # Remove empty node with a single fixed successor.
         if not node.block.operations and len(node.outgoing) == 1:
             ((cond, new_succ_node),) = node.outgoing
             if is_literal_true(cond):
