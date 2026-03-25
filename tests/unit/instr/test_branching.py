@@ -70,7 +70,7 @@ def test_branch_label_unused(instr_tester: InstructionSetDocstringTester) -> Non
 
 def test_branch_dump_conditional_jump(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
-    TODO: The local variable should be eliminated.
+    Branches at the CPU level are conditional writes to the program counter.
 
     .. code-block:: instr
 
@@ -82,9 +82,7 @@ def test_branch_dump_conditional_jump(codeblock_tester: CodeBlockDocstringTester
     .. code-block:: dump
 
             load from A
-            store load(A) in var32 A
             load from F
-            store load(F) in var1 F
             goto @2 if !load(F)
                  @1 if load(F)
         @1
@@ -175,16 +173,13 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
     .. code-block:: dump
 
             load from F
-            store load(F) in var1 F
             goto @2 if load(F)
                  @1 if !load(F)
         @1
             load from reg32 a
-            store load(reg32 a) in var32 I
             goto @3
         @2
             load from reg32 b
-            store load(reg32 b) in var32 I
             goto @3
         @3
             return 0

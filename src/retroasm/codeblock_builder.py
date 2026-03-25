@@ -322,8 +322,6 @@ class CodeGraphBuilder:
                 return FixedValue(value, storage.width)
             return None
 
-        operations = self._nodes[-1].block._operations
-
         # Fixate returned variables.
         returned = [bits.substitute(storage_func=fixate_variable) for bits in returned]
 
@@ -332,10 +330,6 @@ class CodeGraphBuilder:
         # during simplification because it doesn't affect the expression's value.
         # TODO: Is this still needed as a separate step?
         _update_expressions_in_bitstrings(returned)
-
-        # Local variables don't exist after exiting the block, so once their values have
-        # been traced, we don't need the stores anymore.
-        _remove_variable_stores(operations)
 
         self._check_labels(collector)
 
@@ -348,6 +342,8 @@ class CodeGraphBuilder:
         # TODO: Try several simplifications in successing until no more changes are made.
         while _remove_unused_loads(entry, returned):
             pass
+
+        _remove_variable_stores(entry)
 
         entry = _reduce_graph(entry)
 
@@ -484,13 +480,34 @@ def _update_expressions_in_bitstrings(returned: list[BitString]) -> None:
         returned[i] = ret_bits.simplify()
 
 
-def _remove_variable_stores(operations: list[Load | Store]) -> None:
-    """Remove stores to local variables."""
+def _remove_variable_stores(entry: CodeNode) -> None:
+    """
+    Remove stores to local variables.
+    Local variables don't exist after exiting the block, so once their values have
+    been traced, we don't need the stores anymore.
+    """
 
-    for i in range(len(operations) - 1, -1, -1):
-        match operations[i]:
-            case Store(storage=Variable()):
-                del operations[i]
+    # Check which variables are still being loaded.
+    vars_to_keep = set()
+    for node in walk_nodes(entry):
+        for operation in node._block.operations:
+            match operation:
+                case Load(storage=Variable() as storage):
+                    vars_to_keep.add(storage)
+
+    # Remove stores to all other variables.
+    for node in walk_nodes(entry):
+        idx_to_remove = []
+        for idx, operation in enumerate(node._block.operations):
+            match operation:
+                case Store(storage=Variable() as storage):
+                    if storage not in vars_to_keep:
+                        idx_to_remove.append(idx)
+        if idx_to_remove:
+            operations = list(node._block.operations)
+            for idx in reversed(idx_to_remove):
+                del operations[idx]
+            node._block = BasicBlock(operations)
 
 
 def _remove_overwritten_stores(entry: CodeNode) -> None:
