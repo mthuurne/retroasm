@@ -66,16 +66,13 @@ class CodeGraphBuilder:
     def __init__(self) -> None:
         self._nodes: list[CodeNodeBuilder] = []
         self._add_node()
-        self._labels: dict[str, int] = {}
+        self._labels: dict[str, CodeNodeBuilder] = {}
         self._branches: dict[str, list[InputLocation]] = {}
 
     def _add_node(self) -> CodeNodeBuilder:
         """Create a new node builder and add it to the end of the nodes list."""
-        nodes = self._nodes
         node = CodeNodeBuilder()
-        # Add a synthetic label, so each node has at least one label.
-        node.labels.append(str(len(nodes)))
-        nodes.append(node)
+        self._nodes.append(node)
         return node
 
     def dump(self, *, file: IO[str] | None = None) -> None:
@@ -102,7 +99,7 @@ class CodeGraphBuilder:
                     collector.error(f'Label "{label}" does not exist', location=location)
             for node in self._nodes:
                 for label in node.labels:
-                    if not label.isdigit() and label not in self._branches:
+                    if label not in self._branches:
                         collector.warning(f'Label "{label}" is unused', location=node.location)
 
     def emit_load_bits(self, storage: Storage, location: InputLocation | None) -> Expression:
@@ -128,39 +125,27 @@ class CodeGraphBuilder:
             node.location = location
         node.block.emit_store_bits(storage, value, location)
 
-    def _index_for_label(self, label: str) -> int:
-        """Return the node builder index for the given label."""
-        try:
-            return int(label)
-        except ValueError:
-            return self._labels[label]
-
-    def _node_for_label(self, label: str) -> CodeNodeBuilder:
-        """Return the node builder for the given label."""
-        return self._nodes[self._index_for_label(label)]
-
     def emit_label(self, label: str, location: InputLocation | None = None) -> None:
         """
         Add a label that identifies the current position in the code block.
         Raises `BadInput` if the label was already defined.
         """
 
-        if (idx := self._labels.get(label)) is not None:
-            first_location = self._nodes[idx].location
-            raise BadInput(f'label "{label}" already defined', location, first_location)
+        if (node := self._labels.get(label)) is not None:
+            raise BadInput(f'label "{label}" already defined', location, node.location)
 
-        prev_node = self._nodes[-1]
-        if prev_node.empty:
+        node = self._nodes[-1]
+        if node.empty:
             # Add label to fresh node.
-            prev_node.labels.append(label)
-            if prev_node.location is None:
-                prev_node.location = location
+            node.labels.append(label)
+            if node.location is None:
+                node.location = location
         else:
             # Start a new node.
             node = self._add_node()
             node.labels.append(label)
             node.location = location
-        self._labels[label] = len(self._nodes) - 1
+        self._labels[label] = node
 
     def emit_branch(
         self,
