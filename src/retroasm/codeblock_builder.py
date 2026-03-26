@@ -721,10 +721,16 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
         node = remaining.pop()
         changed |= _simplify_outgoing(node)
 
-        # Remove empty node with a single fixed successor.
-        if not node.block.operations and len(node.outgoing) == 1:
+        # Merge nodes:
+        # - an empty node that flows unconditionally into a single other node
+        # - any two nodes with a single unconditional edge between them
+        if len(node.outgoing) == 1:
             ((cond, new_succ_node),) = node.outgoing
-            if is_literal_true(cond):
+            first_ops = node.block.operations
+            if is_literal_true(cond) and (
+                not first_ops
+                or (len(new_succ_node.incoming) == 1 and new_succ_node is not entry)
+            ):
                 changed = True
                 for prev_node in node.incoming:
                     for idx, (cond, old_succ_node) in enumerate(prev_node.outgoing):
@@ -737,6 +743,10 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
                 for inc in node.incoming:
                     if inc not in new_succ_node._incoming:
                         new_succ_node._incoming.append(inc)
+                if first_ops:
+                    merged_ops = list(first_ops)
+                    merged_ops += new_succ_node.block.operations
+                    new_succ_node._block = BasicBlock(merged_ops)
                 if node is entry:
                     entry = new_succ_node
         done.add(node)

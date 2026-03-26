@@ -168,13 +168,9 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
             @read
             def u32 ret = ram[I] & 0
 
-    TODO: Eventually, this should be reducible to just "load from F" and "return 0".
-
     .. code-block:: dump
 
             load from F
-            goto @1
-        @1
             return 0
     """
     codeblock_tester.check()
