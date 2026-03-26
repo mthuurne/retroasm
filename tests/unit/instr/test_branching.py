@@ -164,7 +164,7 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
             I := a
             branch @read
             @pick_b
-            I  := b
+            I := b
             @read
             def u32 ret = ram[I] & 0
 
