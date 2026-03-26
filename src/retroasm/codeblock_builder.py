@@ -727,7 +727,6 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
                 new_succ_node._incoming += node.incoming
                 if node is entry:
                     entry = new_succ_node
-                node = new_succ_node
         done.add(node)
         for _cond, out in node.outgoing:
             if out not in done:
