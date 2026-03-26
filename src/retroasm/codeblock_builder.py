@@ -731,8 +731,12 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
                         if old_succ_node is node:
                             prev_node._outgoing[idx] = (cond, new_succ_node)
                     _simplify_outgoing(prev_node)
+                # TODO: Once we start caring about the Select indices, this incoming edges
+                #       merge has to be performed more carefully.
                 new_succ_node._incoming.remove(node)
-                new_succ_node._incoming += node.incoming
+                for inc in node.incoming:
+                    if inc not in new_succ_node._incoming:
+                        new_succ_node._incoming.append(inc)
                 if node is entry:
                     entry = new_succ_node
         done.add(node)
