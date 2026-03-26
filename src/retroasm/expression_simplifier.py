@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from typing import Any
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, Sequence, cast
 
 from .expression import (
     AddOperator,
@@ -157,8 +157,27 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
                 return multi_expr_cls(*exprs)
 
 
-def _custom_simplify_and(_exprs: list[Expression], _applied_mask: int) -> None:
-    pass
+def _find_negated_terms(exprs: Sequence[Expression]) -> Iterator[tuple[int, int]]:
+    negations = []
+    booleans = []
+    for idx, expr in enumerate(exprs):
+        if isinstance(expr, ZeroTest):
+            negations.append(idx)
+        if expr.mask == 1:
+            booleans.append(idx)
+
+    for neg_idx in negations:
+        negated = cast(ZeroTest, exprs[neg_idx]).expr
+        for bool_idx in booleans:
+            if neg_idx != bool_idx and exprs[bool_idx] == negated:
+                yield neg_idx, bool_idx
+
+
+def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
+    # If any Boolean is AND-ed with its negation, the end result is 0.
+    for _ in _find_negated_terms(exprs):
+        exprs[:] = [IntLiteral(0)]
+        return
 
 
 def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
@@ -180,8 +199,20 @@ def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
             exprs[:] = [simplify_expression(OrOperator(*exprs), applied_mask)]
             return
 
+    # Replace Booleans OR-ed with their negation by "true" literal.
+    to_remove = set()
+    for neg_idx, bool_idx in _find_negated_terms(exprs):
+        to_remove.add(neg_idx)
+        to_remove.add(bool_idx)
+    if to_remove:
+        for idx in sorted(to_remove, reverse=True):
+            del exprs[idx]
+        exprs.append(IntLiteral(1))
+        exprs[:] = [simplify_expression(OrOperator(*exprs), applied_mask)]
+        return
 
-def _custom_simplify_xor(exprs: list[Expression], _applied_mask: int) -> None:
+
+def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     # Remove duplicate expression pairs: A ^ A == 0.
     i = 0
     while i < len(exprs):
@@ -193,6 +224,23 @@ def _custom_simplify_xor(exprs: list[Expression], _applied_mask: int) -> None:
         else:
             del exprs[j]
             del exprs[i]
+
+    # Note that because double negations and duplicate expression pairs were removed,
+    # there can be no overlap between these pairs.
+    to_remove = set()
+    num_pairs = 0
+    for neg_idx, bool_idx in _find_negated_terms(exprs):
+        to_remove.add(neg_idx)
+        to_remove.add(bool_idx)
+        num_pairs += 1
+    assert len(to_remove) == 2 * num_pairs, exprs
+    if num_pairs:
+        for idx in sorted(to_remove, reverse=True):
+            del exprs[idx]
+        if num_pairs % 2:
+            exprs.append(IntLiteral(1))
+        exprs[:] = [simplify_expression(XorOperator(*exprs), applied_mask)]
+        return
 
     # TODO: Distribution over AND and OR.
 

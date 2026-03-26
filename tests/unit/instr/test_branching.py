@@ -173,7 +173,7 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
     .. code-block:: dump
 
             load from F
-            goto @1 if (!load(F) | load(F))
+            goto @1
         @1
             return 0
     """

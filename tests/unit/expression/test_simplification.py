@@ -387,6 +387,28 @@ def test_negation_subexpr(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_negation_self(equation: Equation) -> None:
+    """
+    Simplify logical expressions which contain a Boolean term and its negation.
+
+    .. code-block:: expr
+
+        F & !F = 0
+        F & A & !F = 0
+        F & !A & !F = 0
+        !A & !!A = 0
+        F | !F = 1
+        F | A | !F = A | 1
+        F | !A | !F = 1
+        !A | !!A = 1
+        F ^ !F = 1
+        F ^ A ^ !F = A ^ 1
+        F ^ !A ^ !F = !A ^ 1
+        !A ^ !!A = 1
+    """
+    equation.check_simplify()
+
+
 def test_comparison_literals(equation: Equation) -> None:
     """
     Tests sign of several integer literals.
