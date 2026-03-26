@@ -225,16 +225,33 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
             del exprs[j]
             del exprs[i]
 
+    if not exprs:
+        return
+    if isinstance(exprs[-1], IntLiteral):
+        terms = exprs[:-1]
+        literal = exprs[-1].value
+    else:
+        terms = exprs
+        literal = 0
+
     # XOR-ing a Boolean with 1 is equivalent to a zero test.
-    # Note: We could do a similar replacement when there are more than two terms,
-    #       but as the XOR can't be dropped then, the complexity wouldn't decrease.
-    if (
-        len(exprs) == 2
-        and (bool_expr := exprs[0]).mask == 1
-        and isinstance(exprs[1], IntLiteral)
-        and exprs[1].value == 1
-    ):
-        exprs[:] = [simplify_expression(ZeroTest(bool_expr), applied_mask)]
+    if len(terms) == 1 and terms[0].mask == 1 and literal == 1:
+        # Introduce a zero test to replace the XOR.
+        # Note: We could do a similar replacement when there are more than two terms,
+        #       but as the XOR can't be dropped then, the complexity wouldn't decrease.
+        exprs[:] = [simplify_expression(ZeroTest(*terms), applied_mask)]
+        return
+    # Strip zero tests of Booleans by adding/modifying the XOR literal.
+    num_negated_bools = 0
+    for idx, term in enumerate(terms):
+        if isinstance(term, ZeroTest) and term.expr.mask == 1:
+            terms[idx] = term.expr
+            num_negated_bools += 1
+    if num_negated_bools:
+        literal ^= num_negated_bools % 2
+        if literal != 0:
+            terms.append(IntLiteral(literal))
+        exprs[:] = [simplify_expression(XorOperator(*terms), applied_mask)]
         return
 
     # Note that because double negations and duplicate expression pairs were removed,

@@ -249,6 +249,18 @@ def test_xor_bitwise_complement(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_xor_negation(equation: Equation) -> None:
+    """
+    Eliminate negations of Boolean expressions within an XOR.
+
+    .. code-block:: expr
+
+        !F ^ 2 = F ^ 3
+        !A[0] ^ !A[1] = A[0] ^ A[1]
+    """
+    equation.check_simplify()
+
+
 def test_complement_literal(equation: Equation) -> None:
     """
     Take the complement of an integer literal.
