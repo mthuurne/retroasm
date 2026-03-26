@@ -691,6 +691,24 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
     return nodes[0]
 
 
+def _simplify_outgoing(node: CodeNode) -> bool:
+    """
+    Combine overlapping outgoing edges.
+    """
+    destinations = defaultdict(list)
+    for cond, out in node.outgoing:
+        if not is_literal_false(cond):
+            destinations[out].append(cond)
+    if len(destinations) < len(node.outgoing):
+        node._outgoing[:] = [
+            (simplify_expression(OrOperator(*exprs)), out)
+            for out, exprs in destinations.items()
+        ]
+        return True
+    else:
+        return False
+
+
 def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
     """
     Reduce the number of nodes in the given graph, if possible.
@@ -701,18 +719,7 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
     remaining = {entry}
     while remaining:
         node = remaining.pop()
-
-        # Simplify outgoing edges.
-        destinations = defaultdict(list)
-        for cond, out in node.outgoing:
-            if not is_literal_false(cond):
-                destinations[out].append(cond)
-        if len(destinations) < len(node.outgoing):
-            changed = True
-            node._outgoing = [
-                (simplify_expression(OrOperator(*exprs)), out)
-                for out, exprs in destinations.items()
-            ]
+        changed |= _simplify_outgoing(node)
 
         # Remove empty node with a single fixed successor.
         if not node.block.operations and len(node.outgoing) == 1:
@@ -723,6 +730,7 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
                     for idx, (cond, old_succ_node) in enumerate(prev_node.outgoing):
                         if old_succ_node is node:
                             prev_node._outgoing[idx] = (cond, new_succ_node)
+                    _simplify_outgoing(prev_node)
                 new_succ_node._incoming.remove(node)
                 new_succ_node._incoming += node.incoming
                 if node is entry:
