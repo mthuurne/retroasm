@@ -403,7 +403,7 @@ def test_negation_self(equation: Equation) -> None:
         !A | !!A = 1
         F ^ !F = 1
         F ^ A ^ !F = A ^ 1
-        F ^ !A ^ !F = !A ^ 1
+        F ^ !A ^ !F = !!A
         !A ^ !!A = 1
     """
     equation.check_simplify()

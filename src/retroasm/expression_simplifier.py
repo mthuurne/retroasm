@@ -225,6 +225,18 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
             del exprs[j]
             del exprs[i]
 
+    # XOR-ing a Boolean with 1 is equivalent to a zero test.
+    # Note: We could do a similar replacement when there are more than two terms,
+    #       but as the XOR can't be dropped then, the complexity wouldn't decrease.
+    if (
+        len(exprs) == 2
+        and (bool_expr := exprs[0]).mask == 1
+        and isinstance(exprs[1], IntLiteral)
+        and exprs[1].value == 1
+    ):
+        exprs[:] = [simplify_expression(ZeroTest(bool_expr), applied_mask)]
+        return
+
     # Note that because double negations and duplicate expression pairs were removed,
     # there can be no overlap between these pairs.
     to_remove = set()
