@@ -84,12 +84,10 @@ class CodeGraphBuilder:
         for node in self._nodes:
             print(" ".join(f"@{label}" for label in node.labels), file=file)
             node.block.dump(file=file)
-            if node.outgoing:
-                verb = "goto"
-                for condition, out_label in node.outgoing:
-                    cond = "" if is_literal_true(condition) else f" if {condition}"
-                    print(f"    {verb} @{out_label}{cond}", file=file)
-                    verb = " " * len(verb)
+            if node.branch:
+                condition, out_label = node.branch
+                cond = "" if is_literal_true(condition) else f" if {condition}"
+                print(f"    goto @{out_label}{cond}", file=file)
 
     def _check_labels(self, collector: ErrorCollector) -> None:
         """
@@ -159,7 +157,6 @@ class CodeGraphBuilder:
                 prev_node.location = location
         else:
             # Start a new node.
-            prev_node.outgoing.append((IntLiteral(1), label))
             node = self._add_node()
             node.labels.append(label)
             node.location = location
@@ -181,18 +178,14 @@ class CodeGraphBuilder:
         if label_location is not None:
             locations.append(label_location)
 
-        # Find the destination nodes.
+        # Record the branch condition + target.
         node_from = self._nodes[-1]
-        label_true = label
-        label_false = self._add_node().labels[0]
+        assert node_from.branch is None
+        condition_bool = simplify_expression(ZeroTest(ZeroTest(condition)))
+        node_from.branch = (condition_bool, label)
 
-        # Link outgoing edges.
-        condition_false = simplify_expression(ZeroTest(condition))
-        condition_true = simplify_expression(ZeroTest(condition_false))
-        if not is_literal_false(condition_true):
-            node_from.outgoing.append((condition_true, label_true))
-        if not is_literal_false(condition_false):
-            node_from.outgoing.append((condition_false, label_false))
+        # Branches can only occur after a basic block, so start a new node.
+        self._add_node()
 
     def inline_function_call(
         self,
@@ -436,7 +429,7 @@ class CodeNodeBuilder:
     block: BasicBlockBuilder = field(default_factory=BasicBlockBuilder)
     labels: list[str] = field(default_factory=list)
     location: InputLocation | None = None
-    outgoing: list[tuple[Expression, str]] = field(default_factory=list)
+    branch: tuple[Expression, str] | None = None
 
     @property
     def empty(self) -> bool:
@@ -683,11 +676,19 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
 
     labels = {label: idx for idx, builder in enumerate(builders) for label in builder.labels}
     nodes = [CodeNode(builder.block.create_basic_block()) for builder in builders]
-    for node, builder in zip(nodes, builders, strict=True):
-        for cond, out_label in builder.outgoing:
+    for idx, (node, builder) in enumerate(zip(nodes, builders, strict=True)):
+        if branch := builder.branch:
+            cond, out_label = branch
             out_node = nodes[labels[out_label]]
             node._outgoing.append((cond, out_node))
             out_node._incoming.append(node)
+            cond_else = simplify_expression(ZeroTest(cond))
+        else:
+            cond_else = IntLiteral(1)
+        if not is_literal_false(cond_else) and idx + 1 < len(nodes):
+            else_node = nodes[idx + 1]
+            node._outgoing.append((cond_else, else_node))
+            else_node._incoming.append(node)
     return nodes[0]
 
 
