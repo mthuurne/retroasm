@@ -403,11 +403,7 @@ class BasicBlockBuilder:
         The state of the builder does not change.
         """
 
-        operations = self._operations
-        # TODO: Are there worthwhile simplifications that can be performed at this point
-        #       or is it better to wait until the graph is finallized?
-
-        return BasicBlock(operations)
+        return BasicBlock(self._operations)
 
 
 @dataclass(slots=True, kw_only=True)
