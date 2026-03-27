@@ -37,19 +37,21 @@ def no_args_to_fetch(name: str) -> NoReturn:
     raise ValueError(f'No arguments provided, "{name}" requested')
 
 
-def _check_undefined(operations: Sequence[Load | Store], collector: ErrorCollector) -> None:
+def _check_undefined(entry: CodeNode, collector: ErrorCollector) -> None:
     """Report uses of uninitialized local variables."""
 
     with collector.check():
-        for operation in operations:
-            match operation:
-                case Load(storage=Variable(name=name), location=location):
-                    # Any remaining loads are undefined: if the value was defined,
-                    # it would have been replaced by its traced value.
-                    collector.error(
-                        f'Variable "{name}" is used while undefined',
-                        location=location,
-                    )
+        # TODO: Until we trace looped variables, there will be false positives here.
+        for node in walk_nodes(entry):
+            for operation in node.block.operations:
+                match operation:
+                    case Load(storage=Variable(name=name), location=location):
+                        # Any remaining loads are undefined: if the value was defined,
+                        # it would have been replaced by its traced value.
+                        collector.error(
+                            f'Variable "{name}" is used while undefined',
+                            location=location,
+                        )
 
 
 def returned_bits(ret_ref: Reference | None) -> Sequence[BitString]:
@@ -325,8 +327,7 @@ class CodeGraphBuilder:
             entry, reduced = _reduce_graph(entry)
             changed |= reduced
 
-        # TODO: Check all blocks once value tracing works across nodes.
-        _check_undefined(entry.block.operations, collector)
+        _check_undefined(entry, collector)
 
         return FunctionBody(CodeGraph(entry), returned)
 
