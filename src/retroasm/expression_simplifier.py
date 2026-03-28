@@ -157,15 +157,22 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
                 return multi_expr_cls(*exprs)
 
 
-def _find_negated_terms(exprs: Sequence[Expression]) -> Iterator[tuple[int, int]]:
-    negations = []
-    booleans = []
+def _find_booleans(exprs: Sequence[Expression]) -> Iterator[int]:
     for idx, expr in enumerate(exprs):
-        if isinstance(expr, ZeroTest):
-            negations.append(idx)
         if expr.mask == 1:
-            booleans.append(idx)
+            yield idx
 
+
+def _find_zero_tests(exprs: Sequence[Expression], booleans: Sequence[int]) -> Iterator[int]:
+    for idx in booleans:
+        expr = exprs[idx]
+        if isinstance(expr, ZeroTest):
+            yield idx
+
+
+def _find_negated_terms(
+    exprs: Sequence[Expression], booleans: Sequence[int], negations: Sequence[int]
+) -> Iterator[tuple[int, int]]:
     for neg_idx in negations:
         negated = cast(ZeroTest, exprs[neg_idx]).expr
         for bool_idx in booleans:
@@ -174,8 +181,11 @@ def _find_negated_terms(exprs: Sequence[Expression]) -> Iterator[tuple[int, int]
 
 
 def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
+    booleans = list(_find_booleans(exprs))
+    negations = list(_find_zero_tests(exprs, booleans))
+
     # If any Boolean is AND-ed with its negation, the end result is 0.
-    for _ in _find_negated_terms(exprs):
+    for _ in _find_negated_terms(exprs, booleans, negations):
         exprs[:] = [IntLiteral(0)]
         return
 
@@ -200,8 +210,10 @@ def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:
             return
 
     # Replace Booleans OR-ed with their negation by "true" literal.
+    booleans = list(_find_booleans(exprs))
+    negations = list(_find_zero_tests(exprs, booleans))
     to_remove = set()
-    for neg_idx, bool_idx in _find_negated_terms(exprs):
+    for neg_idx, bool_idx in _find_negated_terms(exprs, booleans, negations):
         to_remove.add(neg_idx)
         to_remove.add(bool_idx)
     if to_remove:
@@ -233,6 +245,8 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     else:
         terms = exprs
         literal = 0
+    booleans = list(_find_booleans(terms))
+    negations = list(_find_zero_tests(terms, booleans))
 
     # XOR-ing a Boolean with 1 is equivalent to a zero test.
     if len(terms) == 1 and terms[0].mask == 1 and literal == 1:
@@ -243,8 +257,9 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
         return
     # Strip zero tests of Booleans by adding/modifying the XOR literal.
     num_negated_bools = 0
-    for idx, term in enumerate(terms):
-        if isinstance(term, ZeroTest) and term.expr.mask == 1:
+    for idx in negations:
+        term = cast(ZeroTest, terms[idx])
+        if term.expr.mask == 1:
             terms[idx] = term.expr
             num_negated_bools += 1
     if num_negated_bools:
@@ -258,7 +273,7 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     # there can be no overlap between these pairs.
     to_remove = set()
     num_pairs = 0
-    for neg_idx, bool_idx in _find_negated_terms(exprs):
+    for neg_idx, bool_idx in _find_negated_terms(exprs, booleans, negations):
         to_remove.add(neg_idx)
         to_remove.add(bool_idx)
         num_pairs += 1
