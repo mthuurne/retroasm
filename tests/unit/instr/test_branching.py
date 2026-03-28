@@ -176,6 +176,46 @@ def test_branch_unused_load_stores(codeblock_tester: CodeBlockDocstringTester) -
     codeblock_tester.check()
 
 
+def test_branch_three_way(codeblock_tester: CodeBlockDocstringTester) -> None:
+    """
+    A three-way branch simplifies to a node with 3 outgoing edges.
+
+    .. code-block:: instr
+
+        func test()
+            branch a < 8 @small
+            branch a == 8 @equal
+            b := 1
+            branch @end
+            @equal
+            b := 0
+            branch @end
+            @small
+            b := -1
+            @end
+
+    TODO: There is room for simplifying those conditions.
+
+    .. code-block:: dump
+
+            load from reg32 a
+            goto @3 if sign((load(reg32 a) + -8))
+                 @2 if (!sign((load(reg32 a) + -8)) & !(load(reg32 a) ^ 8))
+                 @1 if (!sign((load(reg32 a) + -8)) & !!(load(reg32 a) ^ 8))
+        @1
+            store 1 in reg32 b
+            goto @4
+        @2
+            store 0 in reg32 b
+            goto @4
+        @3
+            store $FFFFFFFF in reg32 b
+            goto @4
+        @4
+    """
+    codeblock_tester.check()
+
+
 def test_branch_halfway_loop(codeblock_tester: CodeBlockDocstringTester) -> None:
     """
     A proper graph is produced when the actual entry point is halfway a loop.

@@ -16,6 +16,7 @@ from .codeblock import (
     walk_nodes,
 )
 from .expression import (
+    AndOperator,
     Expression,
     IntLiteral,
     OrOperator,
@@ -677,6 +678,10 @@ def _create_graph(builders: Iterable[CodeNodeBuilder]) -> CodeNode:
 def _simplify_outgoing(node: CodeNode) -> bool:
     """
     Combine overlapping outgoing edges.
+
+    TODO: Once we start caring about the Select indices, having two outgoing edges
+          with different conditions and selected values might provide information
+          we'd want to preserve.
     """
     destinations = defaultdict(list)
     for cond, out in node.outgoing:
@@ -687,6 +692,9 @@ def _simplify_outgoing(node: CodeNode) -> bool:
             (simplify_expression(OrOperator(*exprs)), out)
             for out, exprs in destinations.items()
         ]
+        for out, exprs in destinations.items():
+            for _ in range(1, len(exprs)):
+                out._incoming.remove(node)
         return True
     else:
         return False
@@ -698,11 +706,35 @@ def _reduce_graph(entry: CodeNode) -> tuple[CodeNode, bool]:
     Empty nodes with a single fixed successor are removed.
     """
     changed = False
+    for node in walk_nodes(entry):
+        changed |= _simplify_outgoing(node)
+
     done = set()
     remaining = {entry}
     while remaining:
         node = remaining.pop()
-        changed |= _simplify_outgoing(node)
+        assert len(node.incoming) == len(set(node.incoming))
+
+        # Merge empty outgoing nodes that are exclusively reached via this node.
+        if replaced_idx := [
+            idx
+            for idx, (cond, out_node) in enumerate(node.outgoing)
+            if not out_node.block.operations
+            and len(out_node.incoming) == 1
+            # Avoid cutting edges to the exit node.
+            # TODO: It's probably safer to make the exit node explicit.
+            and out_node.outgoing
+        ]:
+            changed = True
+            for adjust, idx in enumerate(replaced_idx):
+                cond, out_node = node._outgoing.pop(idx - adjust)
+                out_node._incoming.clear()
+                remaining.discard(out_node)
+                for cond2, out2_node in out_node.outgoing:
+                    both_cond = simplify_expression(AndOperator(cond, cond2))
+                    node._outgoing.append((both_cond, out2_node))
+                    out2_node._incoming[out2_node._incoming.index(out_node)] = node
+            _simplify_outgoing(node)
 
         # Merge nodes:
         # - an empty node that flows unconditionally into a single other node
