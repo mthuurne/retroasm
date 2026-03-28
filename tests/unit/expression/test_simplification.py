@@ -477,6 +477,23 @@ def test_range_unsigned(equation: Equation) -> None:
     equation.check_simplify()
 
 
+@pytest.mark.xfail
+def test_equal_compare(equation: Equation) -> None:
+    """
+    If one AND term checks for equality, that can be used to simplify the other terms.
+
+    .. code-block:: expr
+
+        (A == 3) & (A == 8) = 0
+        (A < 8) & (A == 8) = 0
+        (A <= 8) & (A == 8) = A == 8
+        (A >= 8) & (A == 8) = A == 8
+        (A > 8) & (A == 8) = 0
+        (A <= 8) & (A == 8) & (A >= 8) = A == 8
+    """
+    equation.check_simplify()
+
+
 def test_sign_extension(equation: Equation) -> None:
     """
     Sign extension extends the top bit and preserves the rest.
