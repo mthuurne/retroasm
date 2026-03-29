@@ -216,10 +216,12 @@ def _find_equality_checks(
     (a leaf node) and the `V` expression (its equivalent value).
     """
     for neg_idx in negations:
-        negated = cast(ZeroTest, exprs[neg_idx]).expr
-        if isinstance(negated, XorOperator):
-            for leaf, equivalent in _iter_equality_checks(negated):
-                yield neg_idx, leaf, equivalent
+        match cast(ZeroTest, exprs[neg_idx]).expr:
+            case XorOperator() as negated:
+                for leaf, equivalent in _iter_equality_checks(negated):
+                    yield neg_idx, leaf, equivalent
+            case negated if _is_leaf(negated):
+                yield neg_idx, negated, IntLiteral(0)
 
 
 def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:

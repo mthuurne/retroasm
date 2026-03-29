@@ -507,6 +507,7 @@ def test_equal_compare(equation: Equation) -> None:
         (A == B) & (B == H) = (A == B) & (B == H)
         (A == B) & (A == B + 2) = 0
         (A == B) & (A == B + H) = (A == B) & (H == 0)
+        (A == 0) & (A * B == A) = (A == 0)
     """
     equation.check_simplify()
 
