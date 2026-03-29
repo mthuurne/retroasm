@@ -489,6 +489,8 @@ def test_equal_compare(equation: Equation) -> None:
         (A >= 8) & (A == 8) = A == 8
         (A > 8) & (A == 8) = 0
         (A <= 8) & (A == 8) & (A >= 8) = A == 8
+        (A == B) & (A != B) = 0
+        (A == B) & (B == H) = (A == B) & (B == H)
     """
     equation.check_simplify()
 

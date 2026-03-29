@@ -218,16 +218,20 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     # to be 0 if the equality check fails.
     alts = []
     for eq_idx, leaf, replacement in _find_equality_checks(exprs, negations):
-        changed = False
+        # Require at least one term to be simplified by the substitution, to avoid infinite
+        # recursion when the substitution can be done in both directions, like A == B.
+        simplified = False
         terms = []
         for idx, expr in enumerate(exprs):
             if idx == eq_idx:
                 terms.append(expr)
             else:
                 new_expr = expr.substitute(lambda e: replacement if e == leaf else None)
-                changed |= new_expr is not expr
+                if new_expr is not expr:
+                    new_expr = simplify_expression(new_expr, 1)
+                    simplified |= new_expr.complexity < expr.complexity
                 terms.append(new_expr)
-        if changed:
+        if simplified:
             alts.append(simplify_expression(AndOperator(*terms), 1))
     if alts:
         # Note: We don't check that the best alternative has a lower complexity score than
