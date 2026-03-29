@@ -477,6 +477,20 @@ def test_range_unsigned(equation: Equation) -> None:
     equation.check_simplify()
 
 
+def test_equal_add(equation: Equation) -> None:
+    """
+    An expression can only be equal to a sum containing itself if the other terms of the sum
+    add up to zero.
+
+    .. code-block:: expr
+
+        A == (A + 2) = 0
+        A == (A + B) = B == 0
+        A == (H + A - L) = H == L
+    """
+    equation.check_simplify()
+
+
 def test_equal_compare(equation: Equation) -> None:
     """
     If one AND term checks for equality, that can be used to simplify the other terms.
@@ -491,6 +505,8 @@ def test_equal_compare(equation: Equation) -> None:
         (A <= 8) & (A == 8) & (A >= 8) = A == 8
         (A == B) & (A != B) = 0
         (A == B) & (B == H) = (A == B) & (B == H)
+        (A == B) & (A == B + 2) = 0
+        (A == B) & (A == B + H) = (A == B) & (H == 0)
     """
     equation.check_simplify()
 

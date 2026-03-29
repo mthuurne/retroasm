@@ -476,15 +476,28 @@ def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
     if mask & 1 == 0:
         return IntLiteral(0)
 
-    match simplify_expression(negation.expr):
+    subexpr = simplify_expression(negation.expr)
+    match subexpr:
         case IntLiteral(value=value):
             return IntLiteral(int(not value))
         case LShift(expr=expr) | Complement(expr=expr):
             return _simplify_negation(ZeroTest(expr), 1)
         case ZeroTest(expr=expr) if expr.mask == 1:
             return expr
-        case subexpr:
-            pass
+        case XorOperator() as negated:
+            for leaf, equivalent in _iter_equality_checks(negated):
+                match equivalent:
+                    case AddOperator(exprs=terms):
+                        try:
+                            idx = terms.index(leaf)
+                        except ValueError:
+                            pass
+                        else:
+                            # An expression is equal to a sum containing itself iff the other
+                            # terms of the sum add up to zero.
+                            return simplify_expression(
+                                ZeroTest(AddOperator(*_exclude_index(terms, idx)))
+                            )
 
     # If any bit of the expression's value is 1, the value is non-zero.
     if (negated_mask := subexpr.mask) >= 0:
