@@ -188,26 +188,31 @@ def _find_negated_terms(
                 yield neg_idx, bool_idx
 
 
+def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Expression]]:
+    """
+    Decompose a negated XOR operator `!(A ^ V)` into `(A, V)` pairs where `A` is
+    a leaf node (an expression that doesn't contain subexpressions).
+    """
+    for idx, term in enumerate(negated.exprs):
+        if not isinstance(term, CompositeExpression.__value__):
+            others = _exclude_index(negated.exprs, idx)
+            equivalent = others[0] if len(others) == 1 else XorOperator(*others)
+            yield term, equivalent
+
+
 def _find_equality_checks(
     exprs: Sequence[Expression], negations: Sequence[int]
 ) -> Iterator[tuple[int, Expression, Expression]]:
     """
     Look for expressions that are equality checks of the form `!(A ^ V)`.
     For each that we find, yield a triple of the expression index, the `A` expression
-    (target for replacement) and the `V` expression (its replacement value).
+    (a leaf node) and the `V` expression (its equivalent value).
     """
     for neg_idx in negations:
         negated = cast(ZeroTest, exprs[neg_idx]).expr
         if isinstance(negated, XorOperator):
-            for idx, term in enumerate(negated.exprs):
-                # Pick leaf nodes as targets for replacement.
-                # It might seem unintuitive to replace a low-complexity expression
-                # in the hope of lowering overall complexity, but we're more likely
-                # to get replacement matches on these.
-                if not isinstance(term, CompositeExpression.__value__):
-                    others = _exclude_index(negated.exprs, idx)
-                    replacement = others[0] if len(others) == 1 else XorOperator(*others)
-                    yield neg_idx, term, replacement
+            for leaf, equivalent in _iter_equality_checks(negated):
+                yield neg_idx, leaf, equivalent
 
 
 def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
@@ -224,7 +229,10 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     # to be 0 if the equality check fails.
     alts = []
     for eq_idx, leaf, replacement in _find_equality_checks(exprs, negations):
-
+        # It seems counter-intuitive to replace a leaf node, which could be a low-complexity
+        # expression, in the hope of lowering overall complexity. However, we're more likely
+        # to get substitution matches on leaf nodes and substitution matches can enable further
+        # simplifications.
         def replace(
             expr: Expression, leaf: Expression = leaf, replacement: Expression = replacement
         ) -> Expression | None:
