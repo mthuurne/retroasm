@@ -764,6 +764,10 @@ class Select(Expression):
         return sum((expr.complexity for expr in self.exprs), start=3)
 
 
+type CompositeExpression = MultiExpression | SingleExpression | Select
+"""Type alias for an expression that contains other expressions."""
+
+
 def truncate(expr: Expression, width: Width) -> Expression:
     return AndOperator(expr, IntLiteral(mask_for_width(width)))
 

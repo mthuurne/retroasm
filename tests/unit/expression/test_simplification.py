@@ -477,7 +477,6 @@ def test_range_unsigned(equation: Equation) -> None:
     equation.check_simplify()
 
 
-@pytest.mark.xfail
 def test_equal_compare(equation: Equation) -> None:
     """
     If one AND term checks for equality, that can be used to simplify the other terms.

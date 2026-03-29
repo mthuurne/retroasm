@@ -8,6 +8,7 @@ from .expression import (
     AndOperator,
     BadValue,
     Complement,
+    CompositeExpression,
     Expression,
     IntLiteral,
     LShift,
@@ -180,6 +181,29 @@ def _find_negated_terms(
                 yield neg_idx, bool_idx
 
 
+def _find_equality_checks(
+    exprs: Sequence[Expression], negations: Sequence[int]
+) -> Iterator[tuple[int, Expression, Expression]]:
+    """
+    Look for expressions that are equality checks of the form `!(A ^ V)`.
+    For each that we find, yield a triple of the expression index, the `A` expression
+    (target for replacement) and the `V` expression (its replacement value).
+    """
+    for neg_idx in negations:
+        negated = cast(ZeroTest, exprs[neg_idx]).expr
+        if isinstance(negated, XorOperator):
+            for idx, term in enumerate(negated.exprs):
+                # Pick leaf nodes as targets for replacement.
+                # It might seem unintuitive to replace a low-complexity expression
+                # in the hope of lowering overall complexity, but we're more likely
+                # to get replacement matches on these.
+                if not isinstance(term, CompositeExpression.__value__):
+                    others = list(negated.exprs[:idx])
+                    others += negated.exprs[idx + 1 :]
+                    replacement = others[0] if len(others) == 1 else XorOperator(*others)
+                    yield neg_idx, term, replacement
+
+
 def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     booleans = list(_find_booleans(exprs))
     negations = list(_find_zero_tests(exprs, booleans))
@@ -188,6 +212,28 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     for _ in _find_negated_terms(exprs, booleans, negations):
         exprs[:] = [IntLiteral(0)]
         return
+
+    # If any Boolean is an equality check, replace an expression by the value it's equal to.
+    # This doesn't change the AND expression's value because it the AND result is guaranteed
+    # to be 0 if the equality check fails.
+    alts = []
+    for eq_idx, leaf, replacement in _find_equality_checks(exprs, negations):
+        changed = False
+        terms = []
+        for idx, expr in enumerate(exprs):
+            if idx == eq_idx:
+                terms.append(expr)
+            else:
+                new_expr = expr.substitute(lambda e: replacement if e == leaf else None)
+                changed |= new_expr is not expr
+                terms.append(new_expr)
+        if changed:
+            alts.append(simplify_expression(AndOperator(*terms), 1))
+    if alts:
+        # Note: We don't check that the best alternative has a lower complexity score than
+        #       the original expression. The assumption is that the elimination of a leaf
+        #       node has more analysis potential, even if it doesn't pay off immediately.
+        exprs[:] = [_pick_alternative(alts)]
 
 
 def _custom_simplify_or(exprs: list[Expression], applied_mask: int) -> None:

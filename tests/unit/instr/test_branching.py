@@ -200,7 +200,7 @@ def test_branch_three_way(codeblock_tester: CodeBlockDocstringTester) -> None:
 
             load from reg32 a
             goto @3 if sign((load(reg32 a) + -8))
-                 @2 if (!sign((load(reg32 a) + -8)) & !(load(reg32 a) ^ 8))
+                 @2 if !(load(reg32 a) ^ 8)
                  @1 if (!sign((load(reg32 a) + -8)) & !!(load(reg32 a) ^ 8))
         @1
             store 1 in reg32 b
