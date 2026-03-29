@@ -29,6 +29,13 @@ from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
+def _exclude_index[T](items: Sequence[T], index: int) -> list[T]:
+    """Return a list containing the items from the given sequence, minus the given index."""
+    included = list(items[:index])
+    included += items[index + 1 :]
+    return included
+
+
 def _pick_alternative(alternatives: Iterable[Expression]) -> Expression:
     """
     Pick the simplest form among the base expression and the given alternatives.
@@ -198,8 +205,7 @@ def _find_equality_checks(
                 # in the hope of lowering overall complexity, but we're more likely
                 # to get replacement matches on these.
                 if not isinstance(term, CompositeExpression.__value__):
-                    others = list(negated.exprs[:idx])
-                    others += negated.exprs[idx + 1 :]
+                    others = _exclude_index(negated.exprs, idx)
                     replacement = others[0] if len(others) == 1 else XorOperator(*others)
                     yield neg_idx, term, replacement
 
