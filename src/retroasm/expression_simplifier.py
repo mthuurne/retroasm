@@ -29,6 +29,14 @@ from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
+def _is_leaf(expr: Expression) -> bool:
+    """
+    Is the given expression a leaf node?
+    A leaf is an expression that doesn't contain subexpressions.
+    """
+    return not isinstance(expr, CompositeExpression.__value__)
+
+
 def _exclude_index[T](items: Sequence[T], index: int) -> list[T]:
     """Return a list containing the items from the given sequence, minus the given index."""
     included = list(items[:index])
@@ -190,11 +198,10 @@ def _find_negated_terms(
 
 def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Expression]]:
     """
-    Decompose a negated XOR operator `!(A ^ V)` into `(A, V)` pairs where `A` is
-    a leaf node (an expression that doesn't contain subexpressions).
+    Decompose a negated XOR operator `!(A ^ V)` into `(A, V)` pairs where `A` is a leaf node.
     """
     for idx, term in enumerate(negated.exprs):
-        if not isinstance(term, CompositeExpression.__value__):
+        if _is_leaf(term):
             others = _exclude_index(negated.exprs, idx)
             equivalent = others[0] if len(others) == 1 else XorOperator(*others)
             yield term, equivalent
