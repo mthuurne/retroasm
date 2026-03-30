@@ -36,6 +36,8 @@ disable=
     # Currently issues false positives on type aliases with forward references:
     # https://github.com/pylint-dev/pylint/issues/9815
         used-before-assignment,
+    # I like having an explicit early returns in functions that might be extended later.
+        useless-return,
 
 [BASIC]
 
