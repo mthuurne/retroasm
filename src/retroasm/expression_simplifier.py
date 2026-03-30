@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any, Sequence, cast
 
 from .expression import (
+    _SHIFT_LIMIT_BITS,
     AddOperator,
     AndOperator,
     BadValue,
@@ -391,23 +393,36 @@ def _custom_simplify_xor(exprs: list[Expression], applied_mask: int) -> None:
     # TODO: Distribution over AND and OR.
 
 
-def _custom_simplify_add(exprs: list[Expression], _applied_mask: int) -> None:
-    # Remove pairs of A and -A.
-    compl_idx = 0
-    while compl_idx < len(exprs):
-        compl = exprs[compl_idx]
-        if not isinstance(compl, Complement):
-            compl_idx += 1
-            continue
-        try:
-            idx = exprs.index(compl.expr)
-        except ValueError:
-            compl_idx += 1
-        else:
-            del exprs[idx]
-            if idx < compl_idx:
-                compl_idx -= 1
-            del exprs[compl_idx]
+def _custom_simplify_add(exprs: list[Expression], applied_mask: int) -> None:
+    # Count how often each term occurs.
+    counts: dict[Expression, int] = defaultdict(int)
+    for term in exprs:
+        match term:
+            case Complement(expr=expr):
+                counts[expr] -= 1
+            case MultiplyOperator(exprs=(*subs, IntLiteral(value=const))):
+                expr = subs[0] if len(subs) == 1 else MultiplyOperator(*subs)
+                counts[expr] += const
+            case LShift(expr=expr, offset=offset) if offset < _SHIFT_LIMIT_BITS:
+                counts[expr] += 1 << offset
+            case expr:
+                counts[expr] += 1
+    # Note that items with a value of 0 are included in len(counts), but a value of 0 will
+    # only happen when more than one term affected that key, so the length still shrinks.
+    if len(counts) < len(exprs):
+        # Construct a new sum with fewer terms.
+        exprs[:] = [
+            simplify_expression(
+                AddOperator(
+                    *(
+                        MultiplyOperator(expr, IntLiteral(count))
+                        for expr, count in counts.items()
+                    )
+                ),
+                applied_mask,
+            )
+        ]
+        return
 
 
 def _custom_simplify_multiply_complement(exprs: list[Expression], applied_mask: int) -> None:

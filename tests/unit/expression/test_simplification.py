@@ -487,6 +487,7 @@ def test_equal_add(equation: Equation) -> None:
         A == (A + 2) = 0
         A == (A + B) = B == 0
         A == (H + A - L) = H == L
+        A + B == A - B = B == 0
     """
     equation.check_simplify()
 
@@ -756,6 +757,21 @@ def test_mult_shift(equation: Equation) -> None:
         (A * 24) << 1 = A * 48
         (A << 1) * 24 = A * 48
         (A << 1) * (B << 2) = (A * B) << 3
+    """
+    equation.check_simplify()
+
+
+def test_mult_from_add(equation: Equation) -> None:
+    """
+    Adding the same term more than once is a multiplication by a constant.
+
+    .. code-block:: expr
+
+        A + A = A * 2
+        A + B + A + B + A = A * 3 + B * 2
+        3 * A - A - A = A
+        A * 2 + 3 * A = 5 * A
+        (A << 3) + (A << 2) + A = A * 13
     """
     equation.check_simplify()
 
