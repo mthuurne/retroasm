@@ -37,11 +37,11 @@ def _is_leaf(expr: Expression) -> bool:
     return not isinstance(expr, CompositeExpression.__value__)
 
 
-def _exclude_index[T](items: Sequence[T], index: int) -> list[T]:
-    """Return a list containing the items from the given sequence, minus the given index."""
-    included = list(items[:index])
-    included += items[index + 1 :]
-    return included
+def _exclude_index[T](items: Iterable[T], exclude: int) -> Iterator[T]:
+    """Yield items from the given iterable, in order, skipping over the given index."""
+    for idx, item in enumerate(items):
+        if idx != exclude:
+            yield item
 
 
 def _pick_alternative(alternatives: Iterable[Expression]) -> Expression:
@@ -208,7 +208,7 @@ def _decompose_equal_sums(
                 term,
                 AddOperator(
                     *terms2,
-                    *(Complement(t) for i, t in enumerate(terms1) if i != idx),
+                    *(Complement(t) for t in _exclude_index(terms1, idx)),
                 ),
             )
 
@@ -220,7 +220,7 @@ def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Ex
     negated_exprs = negated.exprs
     for idx, term in enumerate(negated_exprs):
         if _is_leaf(term):
-            others = _exclude_index(negated_exprs, idx)
+            others = list(_exclude_index(negated_exprs, idx))
             equivalent = others[0] if len(others) == 1 else XorOperator(*others)
             yield term, equivalent
     if len(negated_exprs) == 2:
