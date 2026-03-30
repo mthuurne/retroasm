@@ -496,6 +496,9 @@ def test_equal_compare(equation: Equation) -> None:
     """
     If one AND term checks for equality, that can be used to simplify the other terms.
 
+    Because F is a Boolean, its equals checks can be simplified further, which can prevent
+    them from being detected as equals checks if we're not careful.
+
     .. code-block:: expr
 
         (A == 3) & (A == 8) = 0
@@ -511,6 +514,8 @@ def test_equal_compare(equation: Equation) -> None:
         (A == B + H) & (A == B + L) = (A == B + H) & (H == L)
         (A == 0) & (A * B == A) = (A == 0)
         (A + 1 == B) & (A - 1 == B) = 0
+        (F == 0) & (A * F) = 0
+        (F == 1) & (A * F) = F & A
     """
     equation.check_simplify()
 

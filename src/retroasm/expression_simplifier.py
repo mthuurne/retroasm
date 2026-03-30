@@ -233,20 +233,22 @@ def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Ex
 
 
 def _find_equality_checks(
-    exprs: Sequence[Expression], negations: Sequence[int]
+    exprs: Sequence[Expression], booleans: Sequence[int]
 ) -> Iterator[tuple[int, Expression, Expression]]:
     """
-    Look for expressions that are equality checks of the form `!(A ^ V)`.
-    For each that we find, yield a triple of the expression index, the `A` expression
-    (a leaf node) and the `V` expression (its equivalent value).
+    Look for expressions that check whether a leaf node has a particular value.
+    For each that we find, yield a triple of the expression index, the leaf node being checked
+    and its equivalent value.
     """
-    for neg_idx in negations:
-        match cast(ZeroTest, exprs[neg_idx]).expr:
-            case XorOperator() as negated:
+    for idx in booleans:
+        match exprs[idx]:
+            case ZeroTest(expr=XorOperator() as negated):
                 for leaf, equivalent in _iter_equality_checks(negated):
-                    yield neg_idx, leaf, equivalent
-            case negated if _is_leaf(negated):
-                yield neg_idx, negated, IntLiteral(0)
+                    yield idx, leaf, equivalent
+            case ZeroTest(expr=negated) if _is_leaf(negated):
+                yield idx, negated, IntLiteral(0)
+            case expr if _is_leaf(expr):
+                yield idx, expr, IntLiteral(1)
 
 
 def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
@@ -262,7 +264,7 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     # This doesn't change the AND expression's value because it the AND result is guaranteed
     # to be 0 if the equality check fails.
     alts = []
-    for eq_idx, leaf, replacement in _find_equality_checks(exprs, negations):
+    for eq_idx, leaf, replacement in _find_equality_checks(exprs, booleans):
         # It seems counter-intuitive to replace a leaf node, which could be a low-complexity
         # expression, in the hope of lowering overall complexity. However, we're more likely
         # to get substitution matches on leaf nodes and substitution matches can enable further
