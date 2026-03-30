@@ -196,15 +196,38 @@ def _find_negated_terms(
                 yield neg_idx, bool_idx
 
 
+def _decompose_equal_sums(
+    terms1: Sequence[Expression], terms2: Sequence[Expression]
+) -> Iterator[tuple[Expression, Expression]]:
+    """
+    Decompose given equal sums into `(A, V)` pairs where `A` is a leaf node from `terms1`.
+    """
+    for idx, term in enumerate(terms1):
+        if _is_leaf(term):
+            yield (
+                term,
+                AddOperator(
+                    *terms2,
+                    *(Complement(t) for i, t in enumerate(terms1) if i != idx),
+                ),
+            )
+
+
 def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Expression]]:
     """
     Decompose a negated XOR operator `!(A ^ V)` into `(A, V)` pairs where `A` is a leaf node.
     """
-    for idx, term in enumerate(negated.exprs):
+    negated_exprs = negated.exprs
+    for idx, term in enumerate(negated_exprs):
         if _is_leaf(term):
-            others = _exclude_index(negated.exprs, idx)
+            others = _exclude_index(negated_exprs, idx)
             equivalent = others[0] if len(others) == 1 else XorOperator(*others)
             yield term, equivalent
+    if len(negated_exprs) == 2:
+        expr1, expr2 = negated_exprs
+        if isinstance(expr1, AddOperator) and isinstance(expr2, AddOperator):
+            yield from _decompose_equal_sums(expr1.exprs, expr2.exprs)
+            yield from _decompose_equal_sums(expr2.exprs, expr1.exprs)
 
 
 def _find_equality_checks(
