@@ -31,12 +31,13 @@ from .symbol import ImmediateValue, SymbolValue
 from .types import is_power_of_two, mask_for_width, width_for_mask
 
 
-def _is_leaf(expr: Expression) -> bool:
+def _is_var(expr: Expression) -> bool:
     """
-    Is the given expression a leaf node?
-    A leaf is an expression that doesn't contain subexpressions.
+    Is the given expression a mathematical variable?
+    This is not directly related to local variable storages.
+    Examples of mathematical variables are loaded values and symbol values.
     """
-    return not isinstance(expr, CompositeExpression.__value__)
+    return not isinstance(expr, (IntLiteral, CompositeExpression.__value__))
 
 
 def _exclude_index[T](items: Iterable[T], exclude: int) -> Iterator[T]:
@@ -202,10 +203,10 @@ def _decompose_equal_sums(
     terms1: Sequence[Expression], terms2: Sequence[Expression]
 ) -> Iterator[tuple[Expression, Expression]]:
     """
-    Decompose given equal sums into `(A, V)` pairs where `A` is a leaf node from `terms1`.
+    Decompose given equal sums into `(A, X)` pairs where `A` is a variable from `terms1`.
     """
     for idx, term in enumerate(terms1):
-        if _is_leaf(term):
+        if _is_var(term):
             yield (
                 term,
                 AddOperator(
@@ -217,11 +218,11 @@ def _decompose_equal_sums(
 
 def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Expression]]:
     """
-    Decompose a negated XOR operator `!(A ^ V)` into `(A, V)` pairs where `A` is a leaf node.
+    Decompose a negated XOR operator `!(A ^ X)` into `(A, X)` pairs where `A` is a variable.
     """
     negated_exprs = negated.exprs
     for idx, term in enumerate(negated_exprs):
-        if _is_leaf(term):
+        if _is_var(term):
             others = list(_exclude_index(negated_exprs, idx))
             equivalent = others[0] if len(others) == 1 else XorOperator(*others)
             yield term, equivalent
@@ -236,18 +237,18 @@ def _find_equality_checks(
     exprs: Sequence[Expression], booleans: Sequence[int]
 ) -> Iterator[tuple[int, Expression, Expression]]:
     """
-    Look for expressions that check whether a leaf node has a particular value.
-    For each that we find, yield a triple of the expression index, the leaf node being checked
+    Look for expressions that check whether a variable has a particular value.
+    For each that we find, yield a triple of the expression index, the variable being checked
     and its equivalent value.
     """
     for idx in booleans:
         match exprs[idx]:
             case ZeroTest(expr=XorOperator() as negated):
-                for leaf, equivalent in _iter_equality_checks(negated):
-                    yield idx, leaf, equivalent
-            case ZeroTest(expr=negated) if _is_leaf(negated):
+                for var, equivalent in _iter_equality_checks(negated):
+                    yield idx, var, equivalent
+            case ZeroTest(expr=negated) if _is_var(negated):
                 yield idx, negated, IntLiteral(0)
-            case expr if _is_leaf(expr):
+            case expr if _is_var(expr):
                 yield idx, expr, IntLiteral(1)
 
 
@@ -264,15 +265,15 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
     # This doesn't change the AND expression's value because it the AND result is guaranteed
     # to be 0 if the equality check fails.
     alts = []
-    for eq_idx, leaf, replacement in _find_equality_checks(exprs, booleans):
-        # It seems counter-intuitive to replace a leaf node, which could be a low-complexity
+    for eq_idx, var, replacement in _find_equality_checks(exprs, booleans):
+        # It seems counter-intuitive to replace a variable, which could be a low-complexity
         # expression, in the hope of lowering overall complexity. However, we're more likely
-        # to get substitution matches on leaf nodes and substitution matches can enable further
+        # to get substitution matches on variables and substitution matches can enable further
         # simplifications.
         def replace(
-            expr: Expression, leaf: Expression = leaf, replacement: Expression = replacement
+            expr: Expression, var: Expression = var, replacement: Expression = replacement
         ) -> Expression | None:
-            return replacement if expr == leaf else None
+            return replacement if expr == var else None
 
         # Require at least one term to be simplified by the substitution, to avoid infinite
         # recursion when the substitution can be done in both directions, like A == B.
@@ -291,8 +292,8 @@ def _custom_simplify_and(exprs: list[Expression], _applied_mask: int) -> None:
             alts.append(simplify_expression(AndOperator(*terms), 1))
     if alts:
         # Note: We don't check that the best alternative has a lower complexity score than
-        #       the original expression. The assumption is that the elimination of a leaf
-        #       node has more analysis potential, even if it doesn't pay off immediately.
+        #       the original expression. The assumption is that the elimination of a variable
+        #       has more analysis potential, even if it doesn't pay off immediately.
         exprs[:] = [_pick_alternative(alts)]
 
 
@@ -534,11 +535,11 @@ def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
         case ZeroTest(expr=expr) if expr.mask == 1:
             return expr
         case XorOperator() as negated:
-            for leaf, equivalent in _iter_equality_checks(negated):
+            for var, equivalent in _iter_equality_checks(negated):
                 match equivalent:
                     case AddOperator(exprs=terms):
                         try:
-                            idx = terms.index(leaf)
+                            idx = terms.index(var)
                         except ValueError:
                             pass
                         else:
