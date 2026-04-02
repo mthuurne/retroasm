@@ -199,21 +199,24 @@ def _find_negated_terms(
                 yield neg_idx, bool_idx
 
 
-def _decompose_equal_sums(
-    terms1: Sequence[Expression], terms2: Sequence[Expression]
-) -> Iterator[tuple[Expression, Expression]]:
+def _decompose_zero_sum(terms: Sequence[Expression]) -> Iterator[tuple[Expression, Expression]]:
     """
-    Decompose given equal sums into `(A, X)` pairs where `A` is a variable from `terms1`.
+    Decompose a given sum that equals zero into `(A, X)` pairs where `A` is a variable
+    from `terms` and `X` is value of `A`.
     """
-    for idx, term in enumerate(terms1):
-        if _is_var(term):
-            yield (
-                term,
-                AddOperator(
-                    *terms2,
-                    *(Complement(t) for t in _exclude_index(terms1, idx)),
-                ),
-            )
+    for idx, term in enumerate(terms):
+        match term:
+            case Complement(expr=expr) if _is_var(expr):
+                yield (expr, AddOperator(*_exclude_index(terms, idx)))
+            case expr if _is_var(expr):
+                yield (
+                    expr,
+                    simplify_expression(
+                        AddOperator(
+                            *(Complement(t) for t in _exclude_index(terms, idx)),
+                        )
+                    ),
+                )
 
 
 def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Expression]]:
@@ -229,8 +232,9 @@ def _iter_equality_checks(negated: XorOperator) -> Iterator[tuple[Expression, Ex
     if len(negated_exprs) == 2:
         expr1, expr2 = negated_exprs
         if isinstance(expr1, AddOperator) and isinstance(expr2, AddOperator):
-            yield from _decompose_equal_sums(expr1.exprs, expr2.exprs)
-            yield from _decompose_equal_sums(expr2.exprs, expr1.exprs)
+            yield from _decompose_zero_sum(
+                list(expr1.exprs) + [Complement(t) for t in expr2.exprs]
+            )
 
 
 def _find_equality_checks(
