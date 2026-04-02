@@ -349,6 +349,9 @@ def test_negation_nested(equation: Equation) -> None:
         !(A + 1) = !(A + 1)
         !((L + 1) << 8) = 0
         !((A | $345) >> 8) = 0
+        !(A << 3) = !A
+        !(A * 3) = !A
+        !(A * B) = !A | !B
     """
     equation.check_simplify()
 

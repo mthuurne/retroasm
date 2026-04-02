@@ -211,11 +211,7 @@ def _decompose_zero_sum(terms: Sequence[Expression]) -> Iterator[tuple[Expressio
             case expr if _is_var(expr):
                 yield (
                     expr,
-                    simplify_expression(
-                        AddOperator(
-                            *(Complement(t) for t in _exclude_index(terms, idx)),
-                        )
-                    ),
+                    simplify_expression(Complement(AddOperator(*_exclude_index(terms, idx)))),
                 )
 
 
@@ -552,6 +548,8 @@ def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
                             return simplify_expression(
                                 ZeroTest(AddOperator(*_exclude_index(terms, idx)))
                             )
+        case MultiplyOperator(exprs=terms):
+            return simplify_expression(OrOperator(*(ZeroTest(term) for term in terms)), 1)
 
     # If any bit of the expression's value is 1, the value is non-zero.
     if (negated_mask := subexpr.mask) >= 0:
