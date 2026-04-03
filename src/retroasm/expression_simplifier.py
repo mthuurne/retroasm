@@ -246,6 +246,9 @@ def _find_equality_checks(
             case ZeroTest(expr=XorOperator() as negated):
                 for var, equivalent in _iter_equality_checks(negated):
                     yield idx, var, equivalent
+            case ZeroTest(expr=AddOperator(exprs=terms)):
+                for var, equivalent in _decompose_zero_sum(terms):
+                    yield idx, var, equivalent
             case ZeroTest(expr=negated) if _is_var(negated):
                 yield idx, negated, IntLiteral(0)
             case expr if _is_var(expr):

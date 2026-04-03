@@ -519,6 +519,7 @@ def test_equal_compare(equation: Equation) -> None:
         (A + 1 == B) & (A - 1 == B) = 0
         (F == 0) & (A * F) = 0
         (F == 1) & (A * F) = F & A
+        (A + B == 0) & (A + B + H == 4) = (H == 4) & !(A + B)
     """
     equation.check_simplify()
 
