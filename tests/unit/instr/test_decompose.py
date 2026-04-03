@@ -382,7 +382,7 @@ def test_decompose_load_nested_slice(codeblock_tester: CodeBlockDocstringTester)
 
         load from R0
         load from R1
-        return (load(R0)[5:7] | ((load(R1) << 1) & 4))
+        return (((load(R1) << 1) & 4) | load(R0)[5:7])
     """
     codeblock_tester.check()
 

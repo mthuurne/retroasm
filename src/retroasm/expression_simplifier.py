@@ -139,6 +139,7 @@ def _simplify_composed(composed: MultiExpression, mask: int) -> Expression:
     # Make the order of terms somewhat predictable.
     # This does not produce canonical expressions, but it should be enough to
     # at least compare expressions while unit testing.
+    exprs.sort(key=str)
     exprs.sort(key=lambda expr: expr.name if isinstance(expr, SymbolValue) else "")
     exprs.sort(key=lambda expr: -expr.complexity)
     exprs.sort(key=lambda expr: -expr.offset if isinstance(expr, LShift) else 0)

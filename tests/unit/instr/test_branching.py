@@ -243,7 +243,7 @@ def test_branch_halfway_loop(codeblock_tester: CodeBlockDocstringTester) -> None
                  @2 if !!(load(reg32 a) + $FFFFFFFF)[:32]
         @1
             load from reg32 b
-            store (load(reg32 b) + load(reg32 a) + $FFFFFFFF)[:32] in reg32 b
+            store (load(reg32 a) + load(reg32 b) + $FFFFFFFF)[:32] in reg32 b
             goto @0
         @2
     """
