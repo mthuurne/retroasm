@@ -578,17 +578,17 @@ def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
             alts.append(simplify_expression(ZeroTest(OrOperator(*terms))))
         case AddOperator(exprs=terms):
             # Simplify !(A - B) to !(A ^ B).
+            # While similar to _decompose_zero_sum(), here we don't require 'term' to be
+            # a mathematical variable.
             for idx, term in enumerate(terms):
+                equivalent = AddOperator(*_exclude_index(terms, idx))
                 alts.insert(
                     0,
-                    simplify_expression(
-                        ZeroTest(
-                            XorOperator(
-                                Complement(term),
-                                AddOperator(*terms[:idx], *terms[idx + 1 :]),
-                            )
-                        )
-                    ),
+                    simplify_expression(ZeroTest(XorOperator(Complement(term), equivalent))),
+                )
+                alts.insert(
+                    0,
+                    simplify_expression(ZeroTest(XorOperator(term, Complement(equivalent)))),
                 )
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.
