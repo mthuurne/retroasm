@@ -382,8 +382,10 @@ def test_negation_equality(equation: Equation) -> None:
 
         !(A - B) = A == B
         !(A ^ B) = A == B
+        !(A + B) = A == -B
         !!(A - B) = A != B
         !!(A ^ B) = A != B
+        !!(A + B) = A != -B
         !(A - 1234) = A == 1234
         !!(A - 1234) = A != 1234
         !(A - B - 1) = A == B + 1
@@ -521,7 +523,7 @@ def test_equal_compare(equation: Equation) -> None:
         (A + 1 == B) & (A - 1 == B) = 0
         (F == 0) & (A * F) = 0
         (F == 1) & (A * F) = F & A
-        (A + B == 0) & (A + B + H == 4) = !(A + B) & (H == 4)
+        (A + B == 0) & (A + B + H == 4) = (A == -B) & (H == 4)
     """
     equation.check_simplify()
 

@@ -351,6 +351,7 @@ class AddOperator(MultiExpression):
     identity = 0
     absorber = None
     int_operator = int.__add__
+    node_complexity = 2
 
     @classmethod
     @override

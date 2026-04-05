@@ -526,7 +526,7 @@ def _test_bit(expr: Expression, bit: int) -> bool:
     return isinstance(masked, IntLiteral) and masked.value != 0
 
 
-def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
+def _simplify_negation(negation: ZeroTest, mask: int, add_to_xor: bool = True) -> Expression:
     if mask & 1 == 0:
         return IntLiteral(0)
 
@@ -576,23 +576,30 @@ def _simplify_negation(negation: ZeroTest, mask: int) -> Expression:
             # If all terms are non-negative, one non-zero term will take the
             # result above zero.
             alts.append(simplify_expression(ZeroTest(OrOperator(*terms))))
-        case AddOperator(exprs=terms):
+        case AddOperator(exprs=terms) if add_to_xor:
             # Simplify !(A - B) to !(A ^ B).
             # While similar to _decompose_zero_sum(), here we don't require 'term' to be
             # a mathematical variable.
             for idx, term in enumerate(terms):
                 equivalent = AddOperator(*_exclude_index(terms, idx))
-                alts.insert(
-                    0,
-                    simplify_expression(ZeroTest(XorOperator(Complement(term), equivalent))),
-                )
-                alts.insert(
-                    0,
-                    simplify_expression(ZeroTest(XorOperator(term, Complement(equivalent)))),
-                )
+                for xor_expr in (
+                    XorOperator(Complement(term), equivalent),
+                    XorOperator(term, Complement(equivalent)),
+                ):
+                    alts.insert(0, simplify_expression(ZeroTest(xor_expr)))
         case OrOperator(exprs=terms):
             # OR produces zero iff all of its terms are zero.
             alts.append(simplify_expression(AndOperator(*(ZeroTest(term) for term in terms))))
+        case XorOperator(exprs=terms):
+            # Simplify !(A ^ B) to !(A - B).
+            for idx, term in enumerate(terms):
+                equivalent = XorOperator(*_exclude_index(terms, idx))
+                for sum_expr in (
+                    AddOperator(term, Complement(equivalent)),
+                    AddOperator(Complement(term), equivalent),
+                ):
+                    # Avoid infinite recursion by not simplifying skipping add-to-xor.
+                    alts.append(_simplify_negation(ZeroTest(sum_expr), 1, add_to_xor=False))
         case RShift(expr=subexpr, offset=offset):
             match subexpr:
                 case (
