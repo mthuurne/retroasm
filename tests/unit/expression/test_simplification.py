@@ -390,6 +390,7 @@ def test_negation_equality(equation: Equation) -> None:
         !!(A - 1234) = A != 1234
         !(A - B - 1) = A == B + 1
         !!(A - B - 1) = A != B + 1
+        A == (A ^ B) = B == 0
     """
     equation.check_simplify()
 
